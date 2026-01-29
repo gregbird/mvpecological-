@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Bell, LogOut, User, Settings, HelpCircle, Shield, FlaskConical, Map, Eye } from 'lucide-react'
+import { Bell, LogOut, User, Settings, HelpCircle, Shield, Map } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -30,21 +30,13 @@ interface HeaderProps {
 }
 
 const ROLE_STYLES: Record<UserRole, { bg: string; text: string; icon: React.ComponentType<{ className?: string }> }> = {
-  admin: { bg: 'bg-red-500/10', text: 'text-red-500', icon: Shield },
-  senior_ecologist: { bg: 'bg-purple-500/10', text: 'text-purple-500', icon: FlaskConical },
-  field_ecologist: { bg: 'bg-green-500/10', text: 'text-green-500', icon: Map },
-  gis_specialist: { bg: 'bg-blue-500/10', text: 'text-blue-500', icon: Map },
-  junior_ecologist: { bg: 'bg-orange-500/10', text: 'text-orange-500', icon: User },
-  client: { bg: 'bg-gray-500/10', text: 'text-gray-500', icon: Eye },
+  admin: { bg: 'bg-emerald-500/10', text: 'text-emerald-600', icon: Shield },
+  assessor: { bg: 'bg-blue-500/10', text: 'text-blue-600', icon: Map },
 }
 
 const ROLE_LABELS: Record<UserRole, string> = {
   admin: 'Admin',
-  senior_ecologist: 'Senior Ecologist',
-  field_ecologist: 'Field Ecologist',
-  gis_specialist: 'GIS Specialist',
-  junior_ecologist: 'Junior Ecologist',
-  client: 'Client',
+  assessor: 'Assessor',
 }
 
 export function Header({ user }: HeaderProps) {
@@ -70,11 +62,6 @@ export function Header({ user }: HeaderProps) {
           <span className={cn('text-sm font-medium', roleStyle.text)}>
             {ROLE_LABELS[currentRole]}
           </span>
-          {permissions.isReadOnly && (
-            <Badge variant="outline" className="ml-1 text-xs">
-              View Only
-            </Badge>
-          )}
         </div>
       </div>
 
@@ -105,34 +92,12 @@ export function Header({ user }: HeaderProps) {
                 </span>
                 <span className="text-muted-foreground text-xs">2 hours ago</span>
               </DropdownMenuItem>
-              <DropdownMenuItem className="flex flex-col items-start gap-1 p-3">
-                <span className="font-medium">Survey completed</span>
-                <span className="text-muted-foreground text-xs">
-                  Habitat survey for Dublin Port finished
-                </span>
-                <span className="text-muted-foreground text-xs">5 hours ago</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="flex flex-col items-start gap-1 p-3">
-                <span className="font-medium">New team member</span>
-                <span className="text-muted-foreground text-xs">Sarah joined the organization</span>
-                <span className="text-muted-foreground text-xs">1 day ago</span>
-              </DropdownMenuItem>
             </div>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-primary justify-center">
-              View all notifications
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
         {/* Theme Toggle */}
         <ThemeToggle />
-
-        {/* Help */}
-        <Button variant="ghost" size="icon">
-          <HelpCircle className="h-5 w-5" />
-          <span className="sr-only">Help</span>
-        </Button>
 
         {/* User Menu */}
         <DropdownMenu>
@@ -153,12 +118,6 @@ export function Header({ user }: HeaderProps) {
                 <p className="text-muted-foreground text-xs leading-none">
                   {user?.email || 'user@example.com'}
                 </p>
-                <div className={cn('flex items-center gap-1.5 rounded-md px-2 py-1 mt-2', roleStyle.bg)}>
-                  <RoleIcon className={cn('h-3 w-3', roleStyle.text)} />
-                  <span className={cn('text-xs font-medium', roleStyle.text)}>
-                    {ROLE_LABELS[currentRole]}
-                  </span>
-                </div>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />

@@ -1,459 +1,309 @@
 'use client'
 
 import * as React from 'react'
-import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import {
-  ArrowLeft,
-  MapPin,
-  Calendar,
-  Users,
-  Clock,
-  FileText,
-  Map,
-  MoreVertical,
-  Edit,
-  Trash2,
-  Share2,
-} from 'lucide-react'
+import { Clock, Calendar, MapPin, Users, MoreVertical } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Separator } from '@/components/ui/separator'
-import { cn } from '@/lib/utils'
-import { formatDate } from '@/lib/utils'
-import { PHASE_COLORS, HEALTH_STATUS_COLORS, STEP_STATUS_COLORS, WORKFLOW_STEPS } from '@/types'
 
 // Mock project data
 const mockProject = {
   id: '1',
-  name: 'Ballymore Wind Farm EcIA',
-  site_code: 'BWF-2024-001',
-  survey_type: 'Ecological Impact Assessment',
-  status: 'active' as const,
-  current_phase: 'desk_research' as const,
-  health_status: 'on_track' as const,
-  expected_start_date: '2024-01-15',
-  expected_end_date: '2024-04-30',
-  actual_start_date: '2024-01-15',
-  budget_days: 25,
-  grid_reference: 'N 23456 12345',
+  code: 'BWF-2024-001',
+  name: 'Ecological Impact Assessment',
+  client: 'Energia Renewables',
+  status: 'active',
+  currentPhase: 'desk research',
   progress: 35,
-  client: { id: 'c1', name: 'Energia Renewables' },
-  members: [
-    { id: 'm1', full_name: 'Eoin Murphy', avatar_url: null, role: 'lead' as const },
-    { id: 'm2', full_name: "Sarah O'Brien", avatar_url: null, role: 'surveyor' as const },
-    { id: 'm3', full_name: 'Michael Walsh', avatar_url: null, role: 'analyst' as const },
+  startDate: '15 Jan 2024',
+  dueDate: '30 Apr 2024',
+  gridReference: 'N 23456 12345',
+  budget: '25 days',
+  team: [
+    { id: '1', name: 'Eoin Murphy', role: 'Lead', initials: 'EM' },
+    { id: '2', name: "Sarah O'Brien", role: 'Surveyor', initials: 'SO' },
+    { id: '3', name: 'Michael Walsh', role: 'Analyst', initials: 'MW' },
   ],
-  workflow_steps: WORKFLOW_STEPS.map((step, index) => ({
-    id: `step-${index + 1}`,
-    ...step,
-    status:
-      index < 3
-        ? ('approved' as const)
-        : index === 3
-          ? ('in_progress' as const)
-          : ('pending' as const),
-  })),
+  workflow: {
+    deskResearch: { completed: 3, total: 5, percentage: 60 },
+    fieldResearch: { completed: 0, total: 6, percentage: 0 },
+    reporting: { completed: 0, total: 5, percentage: 0 },
+  },
 }
 
 export default function ProjectDetailPage() {
   const params = useParams()
-  const projectId = params.id as string
-
-  // In real app, fetch project by ID
-  const project = mockProject
-  const phaseColors = PHASE_COLORS[project.current_phase]
-  const healthColors = HEALTH_STATUS_COLORS[project.health_status]
-
-  // Group workflow steps by phase
-  const stepsByPhase = {
-    desk_research: project.workflow_steps.filter((s) => s.phase === 'desk_research'),
-    field_research: project.workflow_steps.filter((s) => s.phase === 'field_research'),
-    reporting: project.workflow_steps.filter((s) => s.phase === 'reporting'),
-  }
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-4">
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/projects">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold tracking-tight">{project.name}</h1>
-              <div
-                className={cn('h-3 w-3 rounded-full', healthColors.bg)}
-                title={healthColors.label}
-              />
+    <div className="flex-1 bg-gray-50 dark:bg-gray-900">
+      {/* Project Header */}
+      <div className="bg-[#0f172a] text-white px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-gray-400">{mockProject.code}</span>
+            <span className="text-gray-500">•</span>
+            <span>{mockProject.name}</span>
+            <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="border-emerald-500 text-emerald-400">
+              {mockProject.currentPhase}
+            </Badge>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
+                  <MoreVertical className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem>Edit Project</DropdownMenuItem>
+                <DropdownMenuItem>Export Data</DropdownMenuItem>
+                <DropdownMenuItem className="text-red-500">Archive Project</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        {/* Stats Bar */}
+        <div className="grid grid-cols-4 gap-4 mt-4">
+          <div className="bg-white/5 rounded-lg p-4 flex items-center gap-3">
+            <div className="p-2 bg-white/10 rounded-lg">
+              <Clock className="h-5 w-5 text-emerald-400" />
             </div>
-            <div className="text-muted-foreground mt-2 flex items-center gap-4">
-              <span>{project.site_code}</span>
-              <span>•</span>
-              <span>{project.survey_type}</span>
+            <div>
+              <p className="text-xs text-gray-400">Progress</p>
+              <div className="flex items-center gap-2">
+                <Progress value={mockProject.progress} className="w-16 h-1.5" />
+                <span className="text-sm font-semibold">{mockProject.progress}%</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/5 rounded-lg p-4 flex items-center gap-3">
+            <div className="p-2 bg-white/10 rounded-lg">
+              <Calendar className="h-5 w-5 text-blue-400" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-400">Due Date</p>
+              <p className="text-sm font-semibold">{mockProject.dueDate}</p>
+            </div>
+          </div>
+
+          <div className="bg-white/5 rounded-lg p-4 flex items-center gap-3">
+            <div className="p-2 bg-white/10 rounded-lg">
+              <MapPin className="h-5 w-5 text-yellow-400" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-400">Grid Reference</p>
+              <p className="text-sm font-semibold">{mockProject.gridReference}</p>
+            </div>
+          </div>
+
+          <div className="bg-white/5 rounded-lg p-4 flex items-center gap-3">
+            <div className="p-2 bg-white/10 rounded-lg">
+              <Users className="h-5 w-5 text-purple-400" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-400">Team Members</p>
+              <p className="text-sm font-semibold">{mockProject.team.length} members</p>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge
-            variant="outline"
-            className={cn(phaseColors.bg, phaseColors.text, phaseColors.border)}
-          >
-            {project.current_phase.replace('_', ' ')}
-          </Badge>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem>
-                <Edit className="mr-2 h-4 w-4" />
-                Edit Project
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Share2 className="mr-2 h-4 w-4" />
-                Share
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete Project
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardContent className="flex items-center gap-4 pt-6">
-            <div className="bg-primary/10 rounded-full p-3">
-              <Clock className="text-primary h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-muted-foreground text-sm">Progress</p>
-              <div className="flex items-center gap-2">
-                <Progress value={project.progress} className="h-2 w-20" />
-                <span className="font-semibold">{project.progress}%</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Main Content */}
+      <div className="p-6">
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList className="bg-white dark:bg-gray-800 border">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="workflow">Workflow</TabsTrigger>
+            <TabsTrigger value="desk-research">Desk Research</TabsTrigger>
+            <TabsTrigger value="field-surveys">Field Surveys</TabsTrigger>
+            <TabsTrigger value="map">Map</TabsTrigger>
+            <TabsTrigger value="reports">Reports</TabsTrigger>
+          </TabsList>
 
-        <Card>
-          <CardContent className="flex items-center gap-4 pt-6">
-            <div className="rounded-full bg-blue-500/10 p-3">
-              <Calendar className="h-5 w-5 text-blue-500" />
-            </div>
-            <div>
-              <p className="text-muted-foreground text-sm">Due Date</p>
-              <p className="font-semibold">
-                {project.expected_end_date ? formatDate(project.expected_end_date) : 'Not set'}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="flex items-center gap-4 pt-6">
-            <div className="rounded-full bg-green-500/10 p-3">
-              <MapPin className="h-5 w-5 text-green-500" />
-            </div>
-            <div>
-              <p className="text-muted-foreground text-sm">Grid Reference</p>
-              <p className="font-semibold">{project.grid_reference || 'Not set'}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="flex items-center gap-4 pt-6">
-            <div className="rounded-full bg-purple-500/10 p-3">
-              <Users className="h-5 w-5 text-purple-500" />
-            </div>
-            <div>
-              <p className="text-muted-foreground text-sm">Team Members</p>
-              <p className="font-semibold">{project.members.length} members</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Main Content Tabs */}
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="workflow">Workflow</TabsTrigger>
-          <TabsTrigger value="desk-research">Desk Research</TabsTrigger>
-          <TabsTrigger value="field-surveys">Field Surveys</TabsTrigger>
-          <TabsTrigger value="map">Map</TabsTrigger>
-          <TabsTrigger value="reports">Reports</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid gap-6 lg:grid-cols-3">
-            {/* Project Info */}
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle>Project Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <p className="text-muted-foreground text-sm">Client</p>
-                    <p className="font-medium">{project.client?.name || 'N/A'}</p>
+          <TabsContent value="overview" className="space-y-6">
+            <div className="grid grid-cols-3 gap-6">
+              {/* Project Information */}
+              <Card className="col-span-2">
+                <CardHeader>
+                  <CardTitle>Project Information</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Client</p>
+                      <p className="font-medium">{mockProject.client}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Status</p>
+                      <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+                        Active
+                      </Badge>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Start Date</p>
+                      <p className="font-medium">{mockProject.startDate}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Budget</p>
+                      <p className="font-medium">{mockProject.budget}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-muted-foreground text-sm">Status</p>
-                    <Badge variant="secondary" className="capitalize">
-                      {project.status}
-                    </Badge>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground text-sm">Start Date</p>
-                    <p className="font-medium">
-                      {project.actual_start_date
-                        ? formatDate(project.actual_start_date)
-                        : 'Not started'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground text-sm">Budget</p>
-                    <p className="font-medium">
-                      {project.budget_days ? `${project.budget_days} days` : 'Not set'}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            {/* Team Members */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Team</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {project.members.map((member) => (
+              {/* Team */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Team</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {mockProject.team.map((member) => (
                     <div key={member.id} className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarImage src={member.avatar_url || undefined} />
-                        <AvatarFallback>
-                          {member.full_name
-                            .split(' ')
-                            .map((n) => n[0])
-                            .join('')}
+                      <Avatar className="h-9 w-9">
+                        <AvatarFallback className="bg-gray-100 text-gray-600 text-sm">
+                          {member.initials}
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-medium">{member.full_name}</p>
-                        <p className="text-muted-foreground text-sm capitalize">{member.role}</p>
+                        <p className="text-sm font-medium">{member.name}</p>
+                        <p className="text-xs text-muted-foreground">{member.role}</p>
                       </div>
                     </div>
                   ))}
-                  <Button variant="outline" className="w-full" size="sm">
+                  <Button variant="outline" className="w-full mt-2">
                     Manage Team
                   </Button>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Workflow Progress */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Workflow Progress</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Desk Research */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                        desk research
+                      </Badge>
+                      <span className="text-sm text-muted-foreground">
+                        {mockProject.workflow.deskResearch.completed}/{mockProject.workflow.deskResearch.total} steps completed
+                      </span>
+                    </div>
+                    <span className="text-sm font-medium">{mockProject.workflow.deskResearch.percentage}%</span>
+                  </div>
+                  <Progress value={mockProject.workflow.deskResearch.percentage} className="h-2" />
+                </div>
+
+                {/* Field Research */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                        field research
+                      </Badge>
+                      <span className="text-sm text-muted-foreground">
+                        {mockProject.workflow.fieldResearch.completed}/{mockProject.workflow.fieldResearch.total} steps completed
+                      </span>
+                    </div>
+                    <span className="text-sm font-medium">{mockProject.workflow.fieldResearch.percentage}%</span>
+                  </div>
+                  <Progress value={mockProject.workflow.fieldResearch.percentage} className="h-2" />
+                </div>
+
+                {/* Reporting */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                        reporting
+                      </Badge>
+                      <span className="text-sm text-muted-foreground">
+                        {mockProject.workflow.reporting.completed}/{mockProject.workflow.reporting.total} steps completed
+                      </span>
+                    </div>
+                    <span className="text-sm font-medium">{mockProject.workflow.reporting.percentage}%</span>
+                  </div>
+                  <Progress value={mockProject.workflow.reporting.percentage} className="h-2" />
                 </div>
               </CardContent>
             </Card>
-          </div>
+          </TabsContent>
 
-          {/* Workflow Progress Overview */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Workflow Progress</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {(['desk_research', 'field_research', 'reporting'] as const).map((phase) => {
-                  const steps = stepsByPhase[phase]
-                  const completed = steps.filter((s) => s.status === 'approved').length
-                  const total = steps.length
-                  const colors = PHASE_COLORS[phase]
+          <TabsContent value="workflow">
+            <Card>
+              <CardHeader>
+                <CardTitle>Workflow Steps</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">Workflow management coming soon...</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-                  return (
-                    <div key={phase}>
-                      <div className="mb-2 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant="outline"
-                            className={cn(colors.bg, colors.text, colors.border)}
-                          >
-                            {phase.replace('_', ' ')}
-                          </Badge>
-                          <span className="text-muted-foreground text-sm">
-                            {completed}/{total} steps completed
-                          </span>
-                        </div>
-                        <span className="text-sm font-medium">
-                          {Math.round((completed / total) * 100)}%
-                        </span>
-                      </div>
-                      <Progress value={(completed / total) * 100} className="h-2" />
-                    </div>
-                  )
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+          <TabsContent value="desk-research">
+            <Card>
+              <CardHeader>
+                <CardTitle>Desk Research</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">Desk research data gathering coming soon...</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-        <TabsContent value="workflow" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>16-Step Workflow</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {(['desk_research', 'field_research', 'reporting'] as const).map((phase) => {
-                  const steps = stepsByPhase[phase]
-                  const colors = PHASE_COLORS[phase]
+          <TabsContent value="field-surveys">
+            <Card>
+              <CardHeader>
+                <CardTitle>Field Surveys</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">Field survey management coming soon...</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-                  return (
-                    <div key={phase}>
-                      <div className="mb-4 flex items-center gap-2">
-                        <Badge
-                          variant="outline"
-                          className={cn(colors.bg, colors.text, colors.border)}
-                        >
-                          {phase.replace('_', ' ')}
-                        </Badge>
-                      </div>
-                      <div className="border-muted space-y-2 border-l-2 pl-4">
-                        {steps.map((step) => {
-                          const statusColors = STEP_STATUS_COLORS[step.status]
-                          return (
-                            <div
-                              key={step.id}
-                              className={cn(
-                                'flex items-center justify-between rounded-lg p-3 transition-colors',
-                                statusColors.bg
-                              )}
-                            >
-                              <div className="flex items-center gap-3">
-                                <span className="text-muted-foreground text-sm font-medium">
-                                  {step.number}.
-                                </span>
-                                <span className={cn('font-medium', statusColors.text)}>
-                                  {step.name}
-                                </span>
-                              </div>
-                              <Badge variant="secondary" className="capitalize">
-                                {step.status.replace('_', ' ')}
-                              </Badge>
-                            </div>
-                          )
-                        })}
-                      </div>
-                      {phase !== 'reporting' && <Separator className="my-6" />}
-                    </div>
-                  )
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+          <TabsContent value="map">
+            <Card>
+              <CardHeader>
+                <CardTitle>Project Map</CardTitle>
+              </CardHeader>
+              <CardContent className="h-96">
+                <p className="text-muted-foreground">Map view coming soon...</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-        <TabsContent value="desk-research">
-          <Card>
-            <CardHeader>
-              <CardTitle>Desk Research</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <FileText className="text-muted-foreground mb-4 h-12 w-12" />
-                <h3 className="mb-2 font-semibold">Start Desk Research</h3>
-                <p className="text-muted-foreground mb-4 max-w-md">
-                  Search external databases for designated sites, species records, and environmental
-                  data within your project boundary.
-                </p>
-                <Button asChild>
-                  <Link href={`/projects/${projectId}/desk-research`}>Begin Research</Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="field-surveys">
-          <Card>
-            <CardHeader>
-              <CardTitle>Field Surveys</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Map className="text-muted-foreground mb-4 h-12 w-12" />
-                <h3 className="mb-2 font-semibold">Manage Field Surveys</h3>
-                <p className="text-muted-foreground mb-4 max-w-md">
-                  Plan and record field surveys, species observations, and habitat polygons for this
-                  project.
-                </p>
-                <Button asChild>
-                  <Link href={`/projects/${projectId}/field-surveys`}>View Surveys</Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="map">
-          <Card>
-            <CardHeader>
-              <CardTitle>Project Map</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Map className="text-muted-foreground mb-4 h-12 w-12" />
-                <h3 className="mb-2 font-semibold">Map View Coming Soon</h3>
-                <p className="text-muted-foreground max-w-md">
-                  View and edit your project boundary, habitat polygons, and species observation
-                  points on an interactive map.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="reports">
-          <Card>
-            <CardHeader>
-              <CardTitle>Reports</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <FileText className="text-muted-foreground mb-4 h-12 w-12" />
-                <h3 className="mb-2 font-semibold">Generate Reports</h3>
-                <p className="text-muted-foreground mb-4 max-w-md">
-                  Create AI-powered report drafts based on your desk research findings and field
-                  survey data.
-                </p>
-                <Button asChild>
-                  <Link href={`/projects/${projectId}/reports`}>Manage Reports</Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="reports">
+            <Card>
+              <CardHeader>
+                <CardTitle>Reports</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">Report generation coming soon...</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   )
 }

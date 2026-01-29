@@ -2,422 +2,209 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Plus, Search, LayoutGrid, List, Download, Eye, Edit, Trash2, Lock } from 'lucide-react'
+import { Plus, Search, LayoutGrid, List, Calendar, User, FileText } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ProjectCard } from '@/components/dashboard/project-card'
-import { StatusFilter, type FilterState } from '@/components/dashboard/status-filter'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
-import { formatDate } from '@/lib/utils'
-import { PHASE_COLORS, HEALTH_STATUS_COLORS, type ProjectWithDetails } from '@/types'
 import { useRole } from '@/contexts/role-context'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from '@/components/ui/alert'
 
-// Mock data - same as dashboard
-const mockProjects: ProjectWithDetails[] = [
+// Mock projects data (Bolt.new style)
+const mockProjects = [
   {
     id: '1',
-    name: 'Ballymore Wind Farm EcIA',
-    site_code: 'BWF-2024-001',
+    name: 'Killarney National Park Assessment',
+    client: 'National Parks and Wildlife Service',
+    deadline: null,
+    surveyType: 'Wintering_Birds',
     status: 'active',
-    current_phase: 'desk_research',
-    health_status: 'on_track',
-    expected_start_date: '2024-01-15',
-    expected_end_date: '2024-04-30',
-    progress: 35,
-    client: { id: 'c1', name: 'Energia Renewables' },
-    members: [
-      { id: 'm1', full_name: 'Eoin Murphy', avatar_url: null, role: 'lead' },
-      { id: 'm2', full_name: "Sarah O'Brien", avatar_url: null, role: 'surveyor' },
-    ],
   },
   {
     id: '2',
-    name: 'Dublin Port Expansion AA',
-    site_code: 'DPE-2024-002',
+    name: 'Slieve Rushen Bog NHA',
+    client: 'National Parks and Wildlife Service',
+    deadline: null,
+    surveyType: null,
     status: 'active',
-    current_phase: 'field_research',
-    health_status: 'at_risk',
-    expected_start_date: '2024-01-01',
-    expected_end_date: '2024-03-15',
-    progress: 65,
-    client: { id: 'c2', name: 'Dublin Port Company' },
-    members: [{ id: 'm1', full_name: 'Eoin Murphy', avatar_url: null, role: 'lead' }],
   },
   {
     id: '3',
-    name: 'Galway Solar Farm Screening',
-    site_code: 'GSF-2024-003',
-    status: 'active',
-    current_phase: 'reporting',
-    health_status: 'on_track',
-    expected_start_date: '2024-02-01',
-    expected_end_date: '2024-03-30',
-    progress: 85,
-    client: { id: 'c3', name: 'SSE Renewables' },
-    members: [],
+    name: 'Shannon Estuary Wind Farm',
+    client: 'Green Atlantic Energy Ltd',
+    deadline: null,
+    surveyType: null,
+    status: 'draft',
   },
   {
     id: '4',
-    name: 'Cork Harbour Marina NIS',
-    site_code: 'CHM-2024-004',
+    name: 'Dublin Port Expansion EIA',
+    client: 'Dublin Port Company',
+    deadline: null,
+    surveyType: null,
     status: 'active',
-    current_phase: 'desk_research',
-    health_status: 'overdue',
-    expected_start_date: '2023-12-01',
-    expected_end_date: '2024-02-28',
-    progress: 20,
-    client: { id: 'c4', name: 'Cork County Council' },
-    members: [],
   },
   {
     id: '5',
-    name: 'Limerick Housing Development',
-    site_code: 'LHD-2024-005',
-    status: 'draft',
-    current_phase: 'desk_research',
-    health_status: 'on_track',
-    expected_start_date: null,
-    expected_end_date: null,
-    progress: 0,
-    client: { id: 'c5', name: 'Private Developer' },
-    members: [],
+    name: 'M7 Motor Badger Survey',
+    client: 'Transport Infrastructure Ireland',
+    deadline: null,
+    surveyType: null,
+    status: 'active',
   },
   {
     id: '6',
-    name: 'Kerry Coastal Walk EcIA',
-    site_code: 'KCW-2024-006',
+    name: 'Shannon Estuary Breeding Bird Survey',
+    client: 'BirdWatch Ireland',
+    deadline: '1/13/2026',
+    surveyType: 'Breeding_Birds',
     status: 'active',
-    current_phase: 'field_research',
-    health_status: 'on_track',
-    expected_start_date: '2024-02-15',
-    expected_end_date: '2024-05-30',
-    progress: 45,
-    client: { id: 'c6', name: 'Kerry County Council' },
-    members: [],
+  },
+  {
+    id: '7',
+    name: 'Kilkenny Castle Bat Roost Assessment',
+    client: 'OPW Heritage Services',
+    deadline: '12/14/2025',
+    surveyType: null,
+    status: 'review',
   },
 ]
 
+const statusStyles: Record<string, { label: string; className: string }> = {
+  draft: { label: 'Draft', className: 'bg-gray-100 text-gray-600' },
+  active: { label: 'Active', className: 'bg-emerald-100 text-emerald-700' },
+  review: { label: 'Review', className: 'bg-amber-100 text-amber-700' },
+  completed: { label: 'Completed', className: 'bg-blue-100 text-blue-700' },
+}
+
 export default function ProjectsPage() {
-  const { permissions, currentRole, roleConfig } = useRole()
+  const { permissions, user } = useRole()
   const [searchQuery, setSearchQuery] = React.useState('')
   const [viewMode, setViewMode] = React.useState<'grid' | 'list'>('grid')
-  const [filters, setFilters] = React.useState<FilterState>({
-    status: [],
-    phase: [],
-    health: [],
+
+  const filteredProjects = mockProjects.filter((project) => {
+    if (!searchQuery) return true
+    const query = searchQuery.toLowerCase()
+    return (
+      project.name.toLowerCase().includes(query) ||
+      project.client.toLowerCase().includes(query)
+    )
   })
-
-  // Filter projects based on search and filters
-  let filteredProjects = mockProjects.filter((project) => {
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      const matchesSearch =
-        project.name.toLowerCase().includes(query) ||
-        project.site_code?.toLowerCase().includes(query) ||
-        project.client?.name.toLowerCase().includes(query)
-      if (!matchesSearch) return false
-    }
-
-    // Status filter
-    if (filters.status.length > 0 && !filters.status.includes(project.status)) {
-      return false
-    }
-
-    // Phase filter
-    if (filters.phase.length > 0 && !filters.phase.includes(project.current_phase)) {
-      return false
-    }
-
-    // Health filter
-    if (filters.health.length > 0 && !filters.health.includes(project.health_status)) {
-      return false
-    }
-
-    return true
-  })
-
-  // For roles that can't view all projects, limit to assigned projects only (mock: first 2)
-  if (!permissions.canViewAllProjects) {
-    filteredProjects = filteredProjects.slice(0, 2)
-  }
 
   return (
-    <TooltipProvider>
-      <div className="space-y-6">
-        {/* Role-specific alert */}
-        {permissions.isReadOnly && (
-          <Alert>
-            <Eye className="h-4 w-4" />
-            <AlertTitle>Read-Only Access</AlertTitle>
-            <AlertDescription>
-              You are viewing as a {roleConfig.label}. You can view project details and reports but cannot make changes.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {!permissions.canViewAllProjects && !permissions.isReadOnly && (
-          <Alert>
-            <Lock className="h-4 w-4" />
-            <AlertTitle>Limited Access</AlertTitle>
-            <AlertDescription>
-              You can only see projects you are assigned to. Contact a senior ecologist to be added to more projects.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Page Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
-            <p className="text-muted-foreground">
-              {permissions.canViewAllProjects
-                ? 'Manage all your ecological projects'
-                : `Showing ${filteredProjects.length} assigned project(s)`}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {permissions.canExportData && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="outline">
-                    <Download className="mr-2 h-4 w-4" />
-                    Export
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Export project data as CSV</TooltipContent>
-              </Tooltip>
-            )}
-            {permissions.canCreateProject ? (
-              <Button asChild>
-                <Link href="/projects/new">
-                  <Plus className="mr-2 h-4 w-4" />
-                  New Project
-                </Link>
-              </Button>
-            ) : (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="outline" disabled>
-                    <Lock className="mr-2 h-4 w-4" />
-                    New Project
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Only Admin and Senior Ecologists can create new projects
-                </TooltipContent>
-              </Tooltip>
-            )}
-          </div>
+    <div className="p-8">
+      {/* Page Header */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">All Projects</h1>
+          <p className="text-gray-500 mt-1">Manage all your ecological survey projects</p>
         </div>
-
-        {/* Search and Filters */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative max-w-md flex-1">
-            <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-            <Input
-              placeholder="Search projects..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+        <div className="flex items-center gap-3">
+          <div className="flex items-center border rounded-lg overflow-hidden">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={cn(
+                'p-2 transition-colors',
+                viewMode === 'grid' ? 'bg-gray-100' : 'hover:bg-gray-50'
+              )}
+            >
+              <LayoutGrid className="h-5 w-5 text-gray-600" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={cn(
+                'p-2 transition-colors',
+                viewMode === 'list' ? 'bg-gray-100' : 'hover:bg-gray-50'
+              )}
+            >
+              <List className="h-5 w-5 text-gray-600" />
+            </button>
           </div>
-          <div className="flex items-center gap-2">
-            <StatusFilter filters={filters} onFiltersChange={setFilters} />
-            <div className="flex items-center rounded-md border">
-              <Button
-                variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-                size="icon"
-                className="rounded-r-none"
-                onClick={() => setViewMode('grid')}
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-                size="icon"
-                className="rounded-l-none"
-                onClick={() => setViewMode('list')}
-              >
-                <List className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+          {permissions.canCreateProject && (
+            <Button className="bg-emerald-600 hover:bg-emerald-700">
+              <Plus className="h-4 w-4 mr-2" />
+              New Project
+            </Button>
+          )}
         </div>
-
-        {/* Projects Display */}
-        {filteredProjects.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12">
-            <p className="text-muted-foreground">No projects found</p>
-            {(searchQuery ||
-              filters.status.length > 0 ||
-              filters.phase.length > 0 ||
-              filters.health.length > 0) && (
-              <Button
-                variant="link"
-                onClick={() => {
-                  setSearchQuery('')
-                  setFilters({ status: [], phase: [], health: [] })
-                }}
-              >
-                Clear filters
-              </Button>
-            )}
-          </div>
-        ) : viewMode === 'grid' ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredProjects.map((project) => (
-              <ProjectCard key={project.id} project={project} />
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Project</TableHead>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Phase</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Progress</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredProjects.map((project) => {
-                  const phaseColors = PHASE_COLORS[project.current_phase]
-                  const healthColors = HEALTH_STATUS_COLORS[project.health_status]
-
-                  return (
-                    <TableRow key={project.id}>
-                      <TableCell>
-                        <Link href={`/projects/${project.id}`} className="hover:underline">
-                          <div className="flex items-center gap-2">
-                            <div className={cn('h-2 w-2 rounded-full', healthColors.bg)} />
-                            <div>
-                              <p className="font-medium">{project.name}</p>
-                              <p className="text-muted-foreground text-sm">{project.site_code}</p>
-                            </div>
-                          </div>
-                        </Link>
-                      </TableCell>
-                      <TableCell>{project.client?.name || '-'}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={cn(phaseColors.bg, phaseColors.text, phaseColors.border)}
-                        >
-                          {project.current_phase.replace('_', ' ')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="capitalize">
-                          {project.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Progress value={project.progress} className="h-2 w-20" />
-                          <span className="text-muted-foreground text-sm">{project.progress}%</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {project.expected_end_date ? formatDate(project.expected_end_date) : '-'}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" asChild>
-                                <Link href={`/projects/${project.id}`}>
-                                  <Eye className="h-4 w-4" />
-                                </Link>
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>View Project</TooltipContent>
-                          </Tooltip>
-
-                          {permissions.canEditProject && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Edit Project</TooltipContent>
-                            </Tooltip>
-                          )}
-
-                          {permissions.canDeleteProject && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Delete Project</TooltipContent>
-                            </Tooltip>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-
-        {/* Permissions Legend for Admins/Seniors */}
-        {(currentRole === 'admin' || currentRole === 'senior_ecologist') && (
-          <div className="rounded-lg border bg-muted/30 p-4">
-            <h3 className="text-sm font-medium mb-2">Role Permissions Reference</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs text-muted-foreground">
-              <div>
-                <span className="font-medium text-foreground">Admin:</span> Full access, settings, delete
-              </div>
-              <div>
-                <span className="font-medium text-foreground">Senior:</span> Create, edit, approve, team
-              </div>
-              <div>
-                <span className="font-medium text-foreground">Field:</span> Add observations, view reports
-              </div>
-              <div>
-                <span className="font-medium text-foreground">GIS:</span> Edit maps, export data
-              </div>
-              <div>
-                <span className="font-medium text-foreground">Junior:</span> Add observations only
-              </div>
-              <div>
-                <span className="font-medium text-foreground">Client:</span> Read-only access
-              </div>
-            </div>
-          </div>
-        )}
       </div>
-    </TooltipProvider>
+
+      {/* Search */}
+      <div className="mb-6">
+        <div className="relative max-w-2xl">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+          <Input
+            placeholder="Search by project name, client, or site code..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-12 h-12 text-base border-gray-200 bg-white"
+          />
+        </div>
+        <button className="flex items-center gap-2 mt-3 text-sm text-gray-600 hover:text-gray-900">
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+          </svg>
+          Advanced Filters
+        </button>
+      </div>
+
+      {/* Projects Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filteredProjects.map((project) => {
+          const status = statusStyles[project.status] || statusStyles.draft
+
+          return (
+            <Link
+              key={project.id}
+              href={`/projects/${project.id}`}
+              className="block bg-white rounded-xl border border-gray-200 p-5 hover:border-emerald-300 hover:shadow-md transition-all"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <h3 className="font-semibold text-gray-900 leading-tight pr-3">
+                  {project.name}
+                </h3>
+                <Badge className={cn('shrink-0', status.className)}>
+                  {status.label}
+                </Badge>
+              </div>
+
+              <div className="space-y-2 text-sm text-gray-500">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  <span>{project.client}</span>
+                </div>
+
+                {project.deadline && (
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    <span>{project.deadline}</span>
+                  </div>
+                )}
+
+                {project.surveyType && (
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    <span>{project.surveyType.replace('_', ' ')}</span>
+                  </div>
+                )}
+
+                {!project.deadline && !project.surveyType && (
+                  <div className="flex items-center gap-2 text-gray-400">
+                    <Calendar className="h-4 w-4" />
+                    <span>No deadline</span>
+                  </div>
+                )}
+              </div>
+            </Link>
+          )
+        })}
+      </div>
+
+      {filteredProjects.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-gray-500">No projects found</p>
+        </div>
+      )}
+    </div>
   )
 }

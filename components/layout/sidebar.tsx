@@ -7,300 +7,227 @@ import {
   LayoutDashboard,
   FolderKanban,
   Settings,
-  Users,
-  ChevronLeft,
-  Leaf,
-  Plus,
-  FileText,
+  ChevronDown,
   Map,
-  FlaskConical,
-  Eye,
+  Search,
+  FileCheck,
+  Clipboard,
+  Target,
+  Sparkles,
+  CheckCircle,
+  Send,
+  LogOut,
+  RefreshCw,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Badge } from '@/components/ui/badge'
-import { useRole, type UserRole } from '@/contexts/role-context'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { useRole } from '@/contexts/role-context'
 
-interface SidebarProps {
-  isCollapsed: boolean
-  onToggle: () => void
-  userRole?: UserRole
-}
-
-interface NavItem {
-  title: string
-  href: string
-  icon: React.ComponentType<{ className?: string }>
-  description?: string
-  roles?: UserRole[] // If undefined, all roles can see it
-  badge?: string
-}
-
-const mainNavItems: NavItem[] = [
+// PRD'ye göre 10 adımlı workflow
+const workflowCategories = [
   {
-    title: 'Dashboard',
-    href: '/projects',
-    icon: LayoutDashboard,
-  },
-  {
-    title: 'Projects',
-    href: '/projects',
-    icon: FolderKanban,
-  },
-  {
-    title: 'New Project',
-    href: '/projects/new',
-    icon: Plus,
-    roles: ['admin', 'senior_ecologist'], // Only admins and seniors can create projects
-  },
-]
-
-const bottomNavItems: NavItem[] = [
-  {
-    title: 'Team',
-    href: '/projects', // Placeholder - no team page yet
-    icon: Users,
-    roles: ['admin', 'senior_ecologist'], // Only admins and seniors can see team
-  },
-  {
-    title: 'Settings',
-    href: '/projects', // Placeholder - no settings page yet
+    id: 'initial-setup',
+    label: 'Initial Setup',
     icon: Settings,
-    roles: ['admin'], // Only admins can see settings
+    items: [
+      { number: 1, label: 'GIS Mapping', href: '/project/gis-mapping', icon: Map },
+    ],
+  },
+  {
+    id: 'desk-research',
+    label: 'Desk Research',
+    icon: Search,
+    items: [
+      { number: 2, label: 'Data Gathering', href: '/project/data-gathering', icon: Search },
+      { number: 3, label: 'Desk Assessment', href: '/project/desk-assessment', icon: FileCheck },
+    ],
+  },
+  {
+    id: 'field-research',
+    label: 'Field Research',
+    icon: Clipboard,
+    items: [
+      { number: 4, label: 'Field Survey', href: '/project/field-survey', icon: Clipboard },
+      { number: 5, label: 'Habitat Mapping', href: '/project/habitat-mapping', icon: Map },
+      { number: 6, label: 'Target Notes', href: '/project/target-notes', icon: Target },
+    ],
+  },
+  {
+    id: 'reporting',
+    label: 'Reporting',
+    icon: FileCheck,
+    items: [
+      { number: 7, label: 'Data Analysis', href: '/project/data-analysis', icon: FileCheck },
+      { number: 8, label: 'AI Draft Generation', href: '/project/ai-draft', icon: Sparkles },
+      { number: 9, label: 'Quality Review', href: '/project/quality-review', icon: CheckCircle },
+      { number: 10, label: 'Final Submission', href: '/project/final-submission', icon: Send },
+    ],
   },
 ]
 
-// Role-specific quick info
-const ROLE_INFO: Record<UserRole, { title: string; icon: React.ComponentType<{ className?: string }>; color: string }> = {
-  admin: { title: 'Administrator', icon: Settings, color: 'bg-red-500' },
-  senior_ecologist: { title: 'Senior Ecologist', icon: FlaskConical, color: 'bg-purple-500' },
-  field_ecologist: { title: 'Field Ecologist', icon: Map, color: 'bg-green-500' },
-  gis_specialist: { title: 'GIS Specialist', icon: Map, color: 'bg-blue-500' },
-  junior_ecologist: { title: 'Junior Ecologist', icon: FlaskConical, color: 'bg-orange-500' },
-  client: { title: 'Client (Read-Only)', icon: Eye, color: 'bg-gray-500' },
-}
+// Workspace menu
+const workspaceItems = [
+  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'Projects', href: '/projects', icon: FolderKanban },
+]
 
-export function Sidebar({ isCollapsed, onToggle, userRole = 'senior_ecologist' }: SidebarProps) {
+export function Sidebar() {
   const pathname = usePathname()
-  const { permissions, roleConfig } = useRole()
-  const roleInfo = ROLE_INFO[userRole]
-  const RoleIcon = roleInfo.icon
+  const { currentRole, setCurrentRole, user } = useRole()
+  const [expandedCategories, setExpandedCategories] = React.useState<string[]>([
+    'initial-setup',
+    'desk-research',
+    'field-research',
+    'reporting'
+  ])
+  const [workspaceExpanded, setWorkspaceExpanded] = React.useState(true)
 
-  // Filter nav items based on user role
-  const filterByRole = (items: NavItem[]) => {
-    return items.filter((item) => {
-      if (!item.roles) return true // No role restriction
-      return item.roles.includes(userRole)
-    })
+  const toggleCategory = (categoryId: string) => {
+    setExpandedCategories((prev) =>
+      prev.includes(categoryId)
+        ? prev.filter((id) => id !== categoryId)
+        : [...prev, categoryId]
+    )
   }
 
-  const visibleMainItems = filterByRole(mainNavItems)
-  const visibleBottomItems = filterByRole(bottomNavItems)
+  const initials = user.name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+
+  const handleSwitchRole = () => {
+    setCurrentRole(currentRole === 'admin' ? 'assessor' : 'admin')
+  }
 
   return (
-    <TooltipProvider delayDuration={0}>
-      <aside
-        className={cn(
-          'bg-background relative flex h-screen flex-col border-r transition-all duration-300',
-          isCollapsed ? 'w-[68px]' : 'w-[240px]'
-        )}
-      >
-        {/* Logo */}
-        <div
-          className={cn(
-            'flex h-16 items-center border-b px-4',
-            isCollapsed ? 'justify-center' : 'justify-between'
-          )}
-        >
-          <Link href="/projects" className="flex items-center gap-2">
-            <div className="bg-primary flex h-8 w-8 items-center justify-center rounded-lg">
-              <Leaf className="text-primary-foreground h-5 w-5" />
-            </div>
-            {!isCollapsed && <span className="text-lg font-semibold">Dulra</span>}
-          </Link>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn(
-              'h-8 w-8',
-              isCollapsed &&
-                'bg-background absolute top-6 -right-3 z-10 rounded-full border shadow-md'
-            )}
-            onClick={onToggle}
+    <aside className="bg-[#0f172a] flex h-screen w-[240px] flex-col text-white">
+      {/* Logo */}
+      <div className="flex h-14 items-center px-5">
+        <Link href="/projects" className="flex items-center">
+          <span className="text-xl font-semibold tracking-tight">dulra</span>
+        </Link>
+      </div>
+
+      {/* Navigation */}
+      <ScrollArea className="flex-1 px-3">
+        {/* Workspace Section */}
+        <div className="mb-1">
+          <button
+            onClick={() => setWorkspaceExpanded(!workspaceExpanded)}
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-gray-300 hover:bg-white/5"
           >
-            <ChevronLeft
-              className={cn('h-4 w-4 transition-transform', isCollapsed && 'rotate-180')}
-            />
-          </Button>
-        </div>
+            <LayoutDashboard className="h-4 w-4" />
+            <span>Workspace</span>
+            <ChevronDown className={cn('ml-auto h-4 w-4 transition-transform', !workspaceExpanded && '-rotate-90')} />
+          </button>
 
-        {/* Role Indicator */}
-        {!isCollapsed && (
-          <div className="border-b px-3 py-3">
-            <div className={cn('rounded-lg p-3', 'bg-muted/50')}>
-              <div className="flex items-center gap-2">
-                <div className={cn('flex h-8 w-8 items-center justify-center rounded-full', roleInfo.color)}>
-                  <RoleIcon className="h-4 w-4 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{roleInfo.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {permissions.isReadOnly ? 'View Only' : 'Full Access'}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {isCollapsed && (
-          <div className="flex justify-center py-3 border-b">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className={cn('flex h-8 w-8 items-center justify-center rounded-full', roleInfo.color)}>
-                  <RoleIcon className="h-4 w-4 text-white" />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p>{roleInfo.title}</p>
-                <p className="text-xs text-muted-foreground">
-                  {permissions.isReadOnly ? 'View Only' : 'Full Access'}
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        )}
-
-        {/* Permissions Quick View (non-collapsed only) */}
-        {!isCollapsed && (
-          <div className="px-3 py-2">
-            <p className="text-xs font-medium text-muted-foreground mb-2">Your Permissions</p>
-            <div className="flex flex-wrap gap-1">
-              {permissions.canCreateProject && (
-                <Badge variant="secondary" className="text-xs">Create</Badge>
-              )}
-              {permissions.canEditProject && (
-                <Badge variant="secondary" className="text-xs">Edit</Badge>
-              )}
-              {permissions.canApproveWorkflow && (
-                <Badge variant="secondary" className="text-xs">Approve</Badge>
-              )}
-              {permissions.canExportData && (
-                <Badge variant="secondary" className="text-xs">Export</Badge>
-              )}
-              {permissions.isReadOnly && (
-                <Badge variant="outline" className="text-xs text-muted-foreground">Read Only</Badge>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Navigation */}
-        <ScrollArea className="flex-1 px-3 py-4">
-          <nav className="flex flex-col gap-1">
-            {visibleMainItems.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
-              const Icon = item.icon
-
-              if (isCollapsed) {
-                return (
-                  <Tooltip key={item.href + item.title}>
-                    <TooltipTrigger asChild>
-                      <Link
-                        href={item.href}
-                        className={cn(
-                          'flex h-10 w-10 items-center justify-center rounded-lg transition-colors',
-                          isActive
-                            ? 'bg-primary text-primary-foreground'
-                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                        )}
-                      >
-                        <Icon className="h-5 w-5" />
-                      </Link>
-                    </TooltipTrigger>
-                    <TooltipContent side="right" className="flex items-center gap-2">
-                      {item.title}
-                      {item.description && (
-                        <span className="text-muted-foreground text-xs">({item.description})</span>
-                      )}
-                    </TooltipContent>
-                  </Tooltip>
-                )
-              }
-
-              return (
-                <Link
-                  key={item.href + item.title}
-                  href={item.href}
-                  className={cn(
-                    'flex h-10 items-center gap-3 rounded-lg px-3 transition-colors',
-                    isActive
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                  )}
-                >
-                  <Icon className="h-5 w-5" />
-                  <span className="text-sm font-medium">{item.title}</span>
-                </Link>
-              )
-            })}
-          </nav>
-        </ScrollArea>
-
-        {/* Bottom Navigation */}
-        {visibleBottomItems.length > 0 && (
-          <div className="border-t px-3 py-4">
-            <Separator className="mb-4" />
-            <nav className="flex flex-col gap-1">
-              {visibleBottomItems.map((item) => {
+          {workspaceExpanded && (
+            <div className="ml-3 mt-0.5 space-y-0.5">
+              {workspaceItems.map((item) => {
                 const isActive = pathname === item.href
                 const Icon = item.icon
-
-                if (isCollapsed) {
-                  return (
-                    <Tooltip key={item.href + item.title}>
-                      <TooltipTrigger asChild>
-                        <Link
-                          href={item.href}
-                          className={cn(
-                            'flex h-10 w-10 items-center justify-center rounded-lg transition-colors',
-                            isActive
-                              ? 'bg-primary text-primary-foreground'
-                              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                          )}
-                        >
-                          <Icon className="h-5 w-5" />
-                        </Link>
-                      </TooltipTrigger>
-                      <TooltipContent side="right">{item.title}</TooltipContent>
-                    </Tooltip>
-                  )
-                }
-
                 return (
                   <Link
-                    key={item.href + item.title}
+                    key={item.href}
                     href={item.href}
                     className={cn(
-                      'flex h-10 items-center gap-3 rounded-lg px-3 transition-colors',
+                      'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
                       isActive
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        ? 'bg-emerald-500/20 text-emerald-400'
+                        : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
                     )}
                   >
-                    <Icon className="h-5 w-5" />
-                    <span className="text-sm font-medium">{item.title}</span>
+                    <Icon className="h-4 w-4" />
+                    <span>{item.label}</span>
                   </Link>
                 )
               })}
-            </nav>
+            </div>
+          )}
+        </div>
+
+        {/* Workflow Categories */}
+        <div className="space-y-1 mt-2">
+          {workflowCategories.map((category) => {
+            const isExpanded = expandedCategories.includes(category.id)
+            const CategoryIcon = category.icon
+
+            return (
+              <div key={category.id}>
+                <button
+                  onClick={() => toggleCategory(category.id)}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-gray-300 hover:bg-white/5"
+                >
+                  <CategoryIcon className="h-4 w-4" />
+                  <span>{category.label}</span>
+                  <ChevronDown className={cn('ml-auto h-4 w-4 transition-transform', !isExpanded && '-rotate-90')} />
+                </button>
+
+                {isExpanded && (
+                  <div className="ml-3 mt-0.5 space-y-0.5">
+                    {category.items.map((item) => {
+                      const isActive = pathname === item.href
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={cn(
+                            'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
+                            isActive
+                              ? 'bg-emerald-500/20 text-emerald-400'
+                              : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
+                          )}
+                        >
+                          <span className={cn(
+                            'flex h-5 w-5 items-center justify-center rounded text-xs font-medium',
+                            isActive
+                              ? 'bg-emerald-500 text-white'
+                              : 'bg-gray-700 text-gray-300'
+                          )}>
+                            {item.number}
+                          </span>
+                          <span>{item.label}</span>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </ScrollArea>
+
+      {/* User Section */}
+      <div className="border-t border-white/10 p-3 space-y-1">
+        <div className="flex items-center gap-2 px-2 py-1.5">
+          <Avatar className="h-8 w-8">
+            <AvatarFallback className="bg-gray-600 text-white text-xs font-medium">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-white truncate">{user.name}</p>
+            <p className="text-xs text-gray-400 capitalize">{currentRole}</p>
           </div>
-        )}
-      </aside>
-    </TooltipProvider>
+        </div>
+
+        <button
+          onClick={handleSwitchRole}
+          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-gray-400 hover:bg-white/5 hover:text-gray-200 transition-colors"
+        >
+          <RefreshCw className="h-4 w-4" />
+          <span>Switch to {currentRole === 'admin' ? 'Assessor' : 'Admin'} View</span>
+        </button>
+
+        <button className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors">
+          <LogOut className="h-4 w-4" />
+          <span>Sign Out</span>
+        </button>
+      </div>
+    </aside>
   )
 }

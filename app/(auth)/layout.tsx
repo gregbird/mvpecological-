@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Leaf, Zap, Shield, User, Eye, FlaskConical, Map } from 'lucide-react'
+import { Leaf, Zap, Shield, Clipboard } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import Cookies from 'js-cookie'
 
@@ -15,68 +15,35 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
-// Dev mode roles
+// Dev mode roles - sadece 2 rol
 const DEV_ROLES = [
   {
     id: 'admin',
     label: 'Admin',
-    description: 'Full system access',
+    description: 'Full system access, team & settings',
     icon: Shield,
-    color: 'text-red-500',
+    color: 'text-emerald-500',
   },
   {
-    id: 'senior_ecologist',
-    label: 'Senior Ecologist',
-    description: 'Project lead, can approve',
-    icon: FlaskConical,
-    color: 'text-purple-500',
-  },
-  {
-    id: 'field_ecologist',
-    label: 'Field Ecologist',
-    description: 'Field surveys, data entry',
-    icon: Map,
-    color: 'text-green-500',
-  },
-  {
-    id: 'gis_specialist',
-    label: 'GIS Specialist',
-    description: 'Maps and spatial data',
-    icon: Map,
+    id: 'assessor',
+    label: 'Assessor',
+    description: 'Field work, data entry, reports',
+    icon: Clipboard,
     color: 'text-blue-500',
-  },
-  {
-    id: 'junior_ecologist',
-    label: 'Junior Ecologist',
-    description: 'Limited access, learning',
-    icon: User,
-    color: 'text-orange-500',
-  },
-  {
-    id: 'client',
-    label: 'Client',
-    description: 'Read-only project view',
-    icon: Eye,
-    color: 'text-gray-500',
   },
 ]
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const isDev = process.env.NODE_ENV === 'development'
-  const [selectedRole, setSelectedRole] = React.useState('admin')
+  const [selectedRole, setSelectedRole] = React.useState('assessor')
 
   const handleDevLogin = (roleId: string) => {
-    // Set dev mode cookie and selected role
     Cookies.set('dev_mode', 'true', { expires: 7 })
     Cookies.set('dev_role', roleId, { expires: 7 })
     setSelectedRole(roleId)
-
-    // Navigate to dashboard
     router.push('/projects')
   }
-
-  const currentRole = DEV_ROLES.find((r) => r.id === selectedRole)
 
   return (
     <div className="flex min-h-screen">
