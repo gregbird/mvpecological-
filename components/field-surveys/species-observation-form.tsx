@@ -1,12 +1,12 @@
-"use client";
+'use client'
 
-import * as React from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { Loader2, MapPin, Camera, Search, AlertTriangle } from "lucide-react";
+import * as React from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import * as z from 'zod'
+import { Loader2, MapPin, Camera, Search, AlertTriangle } from 'lucide-react'
 
-import { Button } from "@/components/ui/button";
+import { Button } from '@/components/ui/button'
 import {
   Form,
   FormControl,
@@ -15,103 +15,103 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+} from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
+} from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { cn } from "@/lib/utils";
+} from '@/components/ui/dialog'
+import { Badge } from '@/components/ui/badge'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { cn } from '@/lib/utils'
 
 export interface SpeciesObservation {
-  id: string;
-  surveyId: string;
-  speciesNameScientific: string;
-  speciesNameCommon?: string;
-  taxonGroup: TaxonGroup;
-  count?: number;
-  abundanceDafor?: DaforAbundance;
-  evidenceType: EvidenceType;
-  behaviorNotes?: string;
-  location?: { lat: number; lng: number };
-  gpsAccuracy?: number;
-  photos?: string[];
-  isProtected: boolean;
-  designation?: string;
-  confidenceLevel: ConfidenceLevel;
-  needsVerification: boolean;
-  verifiedBy?: string;
-  createdAt: string;
+  id: string
+  surveyId: string
+  speciesNameScientific: string
+  speciesNameCommon?: string
+  taxonGroup: TaxonGroup
+  count?: number
+  abundanceDafor?: DaforAbundance
+  evidenceType: EvidenceType
+  behaviorNotes?: string
+  location?: { lat: number; lng: number }
+  gpsAccuracy?: number
+  photos?: string[]
+  isProtected: boolean
+  designation?: string
+  confidenceLevel: ConfidenceLevel
+  needsVerification: boolean
+  verifiedBy?: string
+  createdAt: string
 }
 
 export type TaxonGroup =
-  | "mammals"
-  | "birds"
-  | "reptiles"
-  | "amphibians"
-  | "fish"
-  | "invertebrates"
-  | "plants"
-  | "fungi"
-  | "other";
+  | 'mammals'
+  | 'birds'
+  | 'reptiles'
+  | 'amphibians'
+  | 'fish'
+  | 'invertebrates'
+  | 'plants'
+  | 'fungi'
+  | 'other'
 
-export type DaforAbundance = "D" | "A" | "F" | "O" | "R";
+export type DaforAbundance = 'D' | 'A' | 'F' | 'O' | 'R'
 
 export type EvidenceType =
-  | "visual"
-  | "audio"
-  | "tracks"
-  | "droppings"
-  | "feeding_signs"
-  | "nest_burrow"
-  | "dead_specimen"
-  | "dna_sample"
-  | "camera_trap"
-  | "other";
+  | 'visual'
+  | 'audio'
+  | 'tracks'
+  | 'droppings'
+  | 'feeding_signs'
+  | 'nest_burrow'
+  | 'dead_specimen'
+  | 'dna_sample'
+  | 'camera_trap'
+  | 'other'
 
-export type ConfidenceLevel = "certain" | "probable" | "possible";
+export type ConfidenceLevel = 'certain' | 'probable' | 'possible'
 
 const observationFormSchema = z.object({
-  speciesNameScientific: z.string().min(1, "Scientific name is required"),
+  speciesNameScientific: z.string().min(1, 'Scientific name is required'),
   speciesNameCommon: z.string().optional(),
   taxonGroup: z.enum([
-    "mammals",
-    "birds",
-    "reptiles",
-    "amphibians",
-    "fish",
-    "invertebrates",
-    "plants",
-    "fungi",
-    "other",
+    'mammals',
+    'birds',
+    'reptiles',
+    'amphibians',
+    'fish',
+    'invertebrates',
+    'plants',
+    'fungi',
+    'other',
   ]),
   count: z.string().optional(),
-  abundanceDafor: z.enum(["D", "A", "F", "O", "R"]).optional(),
+  abundanceDafor: z.enum(['D', 'A', 'F', 'O', 'R']).optional(),
   evidenceType: z.enum([
-    "visual",
-    "audio",
-    "tracks",
-    "droppings",
-    "feeding_signs",
-    "nest_burrow",
-    "dead_specimen",
-    "dna_sample",
-    "camera_trap",
-    "other",
+    'visual',
+    'audio',
+    'tracks',
+    'droppings',
+    'feeding_signs',
+    'nest_burrow',
+    'dead_specimen',
+    'dna_sample',
+    'camera_trap',
+    'other',
   ]),
   behaviorNotes: z.string().optional(),
   latitude: z.string().optional(),
@@ -119,78 +119,78 @@ const observationFormSchema = z.object({
   gpsAccuracy: z.string().optional(),
   isProtected: z.boolean(),
   designation: z.string().optional(),
-  confidenceLevel: z.enum(["certain", "probable", "possible"]),
+  confidenceLevel: z.enum(['certain', 'probable', 'possible']),
   needsVerification: z.boolean(),
   notes: z.string().optional(),
-});
+})
 
-type ObservationFormValues = z.infer<typeof observationFormSchema>;
+type ObservationFormValues = z.infer<typeof observationFormSchema>
 
 interface SpeciesObservationFormProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSubmit: (data: Partial<SpeciesObservation>) => Promise<void>;
-  initialData?: Partial<SpeciesObservation>;
-  surveyId: string;
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSubmit: (data: Partial<SpeciesObservation>) => Promise<void>
+  initialData?: Partial<SpeciesObservation>
+  surveyId: string
 }
 
 const TAXON_GROUPS: { value: TaxonGroup; label: string }[] = [
-  { value: "mammals", label: "Mammals" },
-  { value: "birds", label: "Birds" },
-  { value: "reptiles", label: "Reptiles" },
-  { value: "amphibians", label: "Amphibians" },
-  { value: "fish", label: "Fish" },
-  { value: "invertebrates", label: "Invertebrates" },
-  { value: "plants", label: "Plants" },
-  { value: "fungi", label: "Fungi" },
-  { value: "other", label: "Other" },
-];
+  { value: 'mammals', label: 'Mammals' },
+  { value: 'birds', label: 'Birds' },
+  { value: 'reptiles', label: 'Reptiles' },
+  { value: 'amphibians', label: 'Amphibians' },
+  { value: 'fish', label: 'Fish' },
+  { value: 'invertebrates', label: 'Invertebrates' },
+  { value: 'plants', label: 'Plants' },
+  { value: 'fungi', label: 'Fungi' },
+  { value: 'other', label: 'Other' },
+]
 
 const EVIDENCE_TYPES: { value: EvidenceType; label: string }[] = [
-  { value: "visual", label: "Visual Sighting" },
-  { value: "audio", label: "Audio/Call" },
-  { value: "tracks", label: "Tracks/Footprints" },
-  { value: "droppings", label: "Droppings/Scat" },
-  { value: "feeding_signs", label: "Feeding Signs" },
-  { value: "nest_burrow", label: "Nest/Burrow/Roost" },
-  { value: "dead_specimen", label: "Dead Specimen" },
-  { value: "dna_sample", label: "DNA Sample" },
-  { value: "camera_trap", label: "Camera Trap" },
-  { value: "other", label: "Other" },
-];
+  { value: 'visual', label: 'Visual Sighting' },
+  { value: 'audio', label: 'Audio/Call' },
+  { value: 'tracks', label: 'Tracks/Footprints' },
+  { value: 'droppings', label: 'Droppings/Scat' },
+  { value: 'feeding_signs', label: 'Feeding Signs' },
+  { value: 'nest_burrow', label: 'Nest/Burrow/Roost' },
+  { value: 'dead_specimen', label: 'Dead Specimen' },
+  { value: 'dna_sample', label: 'DNA Sample' },
+  { value: 'camera_trap', label: 'Camera Trap' },
+  { value: 'other', label: 'Other' },
+]
 
 const DAFOR_LABELS: { value: DaforAbundance; label: string; description: string }[] = [
-  { value: "D", label: "Dominant", description: ">75% cover" },
-  { value: "A", label: "Abundant", description: "51-75% cover" },
-  { value: "F", label: "Frequent", description: "26-50% cover" },
-  { value: "O", label: "Occasional", description: "11-25% cover" },
-  { value: "R", label: "Rare", description: "<11% cover" },
-];
+  { value: 'D', label: 'Dominant', description: '>75% cover' },
+  { value: 'A', label: 'Abundant', description: '51-75% cover' },
+  { value: 'F', label: 'Frequent', description: '26-50% cover' },
+  { value: 'O', label: 'Occasional', description: '11-25% cover' },
+  { value: 'R', label: 'Rare', description: '<11% cover' },
+]
 
 const CONFIDENCE_LEVELS: { value: ConfidenceLevel; label: string }[] = [
-  { value: "certain", label: "Certain" },
-  { value: "probable", label: "Probable" },
-  { value: "possible", label: "Possible" },
-];
+  { value: 'certain', label: 'Certain' },
+  { value: 'probable', label: 'Probable' },
+  { value: 'possible', label: 'Possible' },
+]
 
 // Common protected species in Ireland
 const PROTECTED_SPECIES = [
-  "Lutra lutra", // Otter
-  "Martes martes", // Pine Marten
-  "Meles meles", // Badger
-  "Sciurus vulgaris", // Red Squirrel
-  "Erinaceus europaeus", // Hedgehog
-  "Rhinolophus hipposideros", // Lesser Horseshoe Bat
-  "Plecotus auritus", // Brown Long-eared Bat
-  "Pipistrellus pipistrellus", // Common Pipistrelle
-  "Lacerta vivipara", // Common Lizard
-  "Bufo bufo", // Common Toad
-  "Rana temporaria", // Common Frog
-  "Triturus vulgaris", // Smooth Newt
-  "Salmo salar", // Atlantic Salmon
-  "Lampetra fluviatilis", // River Lamprey
-  "Margaritifera margaritifera", // Freshwater Pearl Mussel
-];
+  'Lutra lutra', // Otter
+  'Martes martes', // Pine Marten
+  'Meles meles', // Badger
+  'Sciurus vulgaris', // Red Squirrel
+  'Erinaceus europaeus', // Hedgehog
+  'Rhinolophus hipposideros', // Lesser Horseshoe Bat
+  'Plecotus auritus', // Brown Long-eared Bat
+  'Pipistrellus pipistrellus', // Common Pipistrelle
+  'Lacerta vivipara', // Common Lizard
+  'Bufo bufo', // Common Toad
+  'Rana temporaria', // Common Frog
+  'Triturus vulgaris', // Smooth Newt
+  'Salmo salar', // Atlantic Salmon
+  'Lampetra fluviatilis', // River Lamprey
+  'Margaritifera margaritifera', // Freshwater Pearl Mussel
+]
 
 export function SpeciesObservationForm({
   open,
@@ -199,71 +199,71 @@ export function SpeciesObservationForm({
   initialData,
   surveyId,
 }: SpeciesObservationFormProps) {
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [isGettingLocation, setIsGettingLocation] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const [isGettingLocation, setIsGettingLocation] = React.useState(false)
   const [isProtectedSpecies, setIsProtectedSpecies] = React.useState(
     initialData?.isProtected || false
-  );
+  )
 
   const form = useForm<ObservationFormValues>({
     resolver: zodResolver(observationFormSchema),
     defaultValues: {
-      speciesNameScientific: initialData?.speciesNameScientific || "",
-      speciesNameCommon: initialData?.speciesNameCommon || "",
-      taxonGroup: initialData?.taxonGroup || "mammals",
-      count: initialData?.count?.toString() || "",
+      speciesNameScientific: initialData?.speciesNameScientific || '',
+      speciesNameCommon: initialData?.speciesNameCommon || '',
+      taxonGroup: initialData?.taxonGroup || 'mammals',
+      count: initialData?.count?.toString() || '',
       abundanceDafor: initialData?.abundanceDafor,
-      evidenceType: initialData?.evidenceType || "visual",
-      behaviorNotes: initialData?.behaviorNotes || "",
-      latitude: initialData?.location?.lat?.toString() || "",
-      longitude: initialData?.location?.lng?.toString() || "",
-      gpsAccuracy: initialData?.gpsAccuracy?.toString() || "",
+      evidenceType: initialData?.evidenceType || 'visual',
+      behaviorNotes: initialData?.behaviorNotes || '',
+      latitude: initialData?.location?.lat?.toString() || '',
+      longitude: initialData?.location?.lng?.toString() || '',
+      gpsAccuracy: initialData?.gpsAccuracy?.toString() || '',
       isProtected: initialData?.isProtected || false,
-      designation: initialData?.designation || "",
-      confidenceLevel: initialData?.confidenceLevel || "certain",
+      designation: initialData?.designation || '',
+      confidenceLevel: initialData?.confidenceLevel || 'certain',
       needsVerification: initialData?.needsVerification || false,
-      notes: "",
+      notes: '',
     },
-  });
+  })
 
   // Check if species is protected when scientific name changes
-  const scientificName = form.watch("speciesNameScientific");
+  const scientificName = form.watch('speciesNameScientific')
   React.useEffect(() => {
     const isProtected = PROTECTED_SPECIES.some(
       (species) => species.toLowerCase() === scientificName.toLowerCase()
-    );
-    setIsProtectedSpecies(isProtected);
+    )
+    setIsProtectedSpecies(isProtected)
     if (isProtected) {
-      form.setValue("isProtected", true);
+      form.setValue('isProtected', true)
     }
-  }, [scientificName, form]);
+  }, [scientificName, form])
 
   const handleGetLocation = async () => {
     if (!navigator.geolocation) {
-      return;
+      return
     }
 
-    setIsGettingLocation(true);
+    setIsGettingLocation(true)
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        form.setValue("latitude", position.coords.latitude.toFixed(6));
-        form.setValue("longitude", position.coords.longitude.toFixed(6));
+        form.setValue('latitude', position.coords.latitude.toFixed(6))
+        form.setValue('longitude', position.coords.longitude.toFixed(6))
         if (position.coords.accuracy) {
-          form.setValue("gpsAccuracy", position.coords.accuracy.toFixed(1));
+          form.setValue('gpsAccuracy', position.coords.accuracy.toFixed(1))
         }
-        setIsGettingLocation(false);
+        setIsGettingLocation(false)
       },
       (error) => {
-        console.error("Error getting location:", error);
-        setIsGettingLocation(false);
+        console.error('Error getting location:', error)
+        setIsGettingLocation(false)
       },
       { enableHighAccuracy: true }
-    );
-  };
+    )
+  }
 
   const handleSubmit = async (values: ObservationFormValues) => {
-    setIsSubmitting(true);
+    setIsSubmitting(true)
     try {
       await onSubmit({
         id: initialData?.id,
@@ -287,28 +287,28 @@ export function SpeciesObservationForm({
         designation: values.designation || undefined,
         confidenceLevel: values.confidenceLevel,
         needsVerification: values.needsVerification,
-      });
+      })
 
-      onOpenChange(false);
-      form.reset();
+      onOpenChange(false)
+      form.reset()
     } catch (error) {
-      console.error("Error submitting observation:", error);
+      console.error('Error submitting observation:', error)
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
     }
-  };
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {initialData?.id ? "Edit Observation" : "Record Species Observation"}
+            {initialData?.id ? 'Edit Observation' : 'Record Species Observation'}
           </DialogTitle>
           <DialogDescription>
             {initialData?.id
-              ? "Update the observation details below."
-              : "Enter the details of the species observation."}
+              ? 'Update the observation details below.'
+              : 'Enter the details of the species observation.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -316,8 +316,8 @@ export function SpeciesObservationForm({
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              This species is protected under Irish/EU wildlife legislation.
-              Ensure all observations are recorded accurately for regulatory purposes.
+              This species is protected under Irish/EU wildlife legislation. Ensure all observations
+              are recorded accurately for regulatory purposes.
             </AlertDescription>
           </Alert>
         )}
@@ -335,11 +335,7 @@ export function SpeciesObservationForm({
                     <FormItem>
                       <FormLabel>Scientific Name *</FormLabel>
                       <FormControl>
-                        <Input
-                          placeholder="e.g., Lutra lutra"
-                          className="italic"
-                          {...field}
-                        />
+                        <Input placeholder="e.g., Lutra lutra" className="italic" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -366,10 +362,7 @@ export function SpeciesObservationForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Taxon Group *</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select group" />
@@ -394,10 +387,7 @@ export function SpeciesObservationForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Confidence Level *</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select confidence" />
@@ -428,10 +418,7 @@ export function SpeciesObservationForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Evidence Type *</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select evidence" />
@@ -457,12 +444,7 @@ export function SpeciesObservationForm({
                     <FormItem>
                       <FormLabel>Count</FormLabel>
                       <FormControl>
-                        <Input
-                          type="number"
-                          min="1"
-                          placeholder="e.g., 3"
-                          {...field}
-                        />
+                        <Input type="number" min="1" placeholder="e.g., 3" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -475,10 +457,7 @@ export function SpeciesObservationForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>DAFOR Abundance</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select abundance" />
@@ -492,7 +471,9 @@ export function SpeciesObservationForm({
                           ))}
                         </SelectContent>
                       </Select>
-                      <FormDescription>For plants: D=Dominant, A=Abundant, F=Frequent, O=Occasional, R=Rare</FormDescription>
+                      <FormDescription>
+                        For plants: D=Dominant, A=Abundant, F=Frequent, O=Occasional, R=Rare
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -583,12 +564,7 @@ export function SpeciesObservationForm({
                     <FormItem>
                       <FormLabel>GPS Accuracy (m)</FormLabel>
                       <FormControl>
-                        <Input
-                          type="number"
-                          step="0.1"
-                          placeholder="e.g., 5.0"
-                          {...field}
-                        />
+                        <Input type="number" step="0.1" placeholder="e.g., 5.0" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -605,12 +581,9 @@ export function SpeciesObservationForm({
                   control={form.control}
                   name="isProtected"
                   render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                    <FormItem className="flex flex-row items-start space-y-0 space-x-3 rounded-md border p-4">
                       <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                       </FormControl>
                       <div className="space-y-1 leading-none">
                         <FormLabel>Protected Species</FormLabel>
@@ -626,25 +599,20 @@ export function SpeciesObservationForm({
                   control={form.control}
                   name="needsVerification"
                   render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                    <FormItem className="flex flex-row items-start space-y-0 space-x-3 rounded-md border p-4">
                       <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                       </FormControl>
                       <div className="space-y-1 leading-none">
                         <FormLabel>Needs Verification</FormLabel>
-                        <FormDescription>
-                          Flag for senior ecologist review
-                        </FormDescription>
+                        <FormDescription>Flag for senior ecologist review</FormDescription>
                       </div>
                     </FormItem>
                   )}
                 />
               </div>
 
-              {form.watch("isProtected") && (
+              {form.watch('isProtected') && (
                 <FormField
                   control={form.control}
                   name="designation"
@@ -669,21 +637,17 @@ export function SpeciesObservationForm({
 
             {/* Actions */}
             <div className="flex justify-end gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-              >
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {initialData?.id ? "Update Observation" : "Save Observation"}
+                {initialData?.id ? 'Update Observation' : 'Save Observation'}
               </Button>
             </div>
           </form>
         </Form>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

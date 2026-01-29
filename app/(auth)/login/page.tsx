@@ -1,16 +1,16 @@
-"use client";
+'use client'
 
-import * as React from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Leaf, Loader2 } from "lucide-react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import * as React from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { Leaf, Loader2 } from 'lucide-react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import * as z from 'zod'
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Card,
   CardContent,
@@ -18,21 +18,21 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+} from '@/components/ui/card'
+import { createClient } from '@/lib/supabase/client'
+import { useToast } from '@/hooks/use-toast'
 
 const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-});
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+})
 
-type LoginFormData = z.infer<typeof loginSchema>;
+type LoginFormData = z.infer<typeof loginSchema>
 
 export default function LoginPage() {
-  const router = useRouter();
-  const { toast } = useToast();
-  const [isLoading, setIsLoading] = React.useState(false);
+  const router = useRouter()
+  const { toast } = useToast()
+  const [isLoading, setIsLoading] = React.useState(false)
 
   const {
     register,
@@ -40,49 +40,49 @@ export default function LoginPage() {
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
-  });
+  })
 
   const onSubmit = async (data: LoginFormData) => {
-    setIsLoading(true);
+    setIsLoading(true)
     try {
-      const supabase = createClient();
+      const supabase = createClient()
       const { error } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password,
-      });
+      })
 
       if (error) {
         toast({
-          variant: "destructive",
-          title: "Login failed",
+          variant: 'destructive',
+          title: 'Login failed',
           description: error.message,
-        });
-        return;
+        })
+        return
       }
 
       toast({
-        title: "Welcome back!",
-        description: "You have successfully logged in.",
-      });
-      router.push("/dashboard");
-      router.refresh();
+        title: 'Welcome back!',
+        description: 'You have successfully logged in.',
+      })
+      router.push('/dashboard')
+      router.refresh()
     } catch {
       toast({
-        variant: "destructive",
-        title: "Something went wrong",
-        description: "Please try again later.",
-      });
+        variant: 'destructive',
+        title: 'Something went wrong',
+        description: 'Please try again later.',
+      })
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   return (
     <>
       {/* Mobile Logo */}
-      <div className="flex items-center justify-center gap-2 mb-8 lg:hidden">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-          <Leaf className="h-6 w-6 text-primary-foreground" />
+      <div className="mb-8 flex items-center justify-center gap-2 lg:hidden">
+        <div className="bg-primary flex h-10 w-10 items-center justify-center rounded-lg">
+          <Leaf className="text-primary-foreground h-6 w-6" />
         </div>
         <span className="text-2xl font-bold">Dulra</span>
       </div>
@@ -90,9 +90,7 @@ export default function LoginPage() {
       <Card>
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl">Sign in</CardTitle>
-          <CardDescription>
-            Enter your email and password to access your account
-          </CardDescription>
+          <CardDescription>Enter your email and password to access your account</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="space-y-4">
@@ -102,33 +100,24 @@ export default function LoginPage() {
                 id="email"
                 type="email"
                 placeholder="eoin@ecology.ie"
-                {...register("email")}
+                {...register('email')}
                 disabled={isLoading}
               />
-              {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
-              )}
+              {errors.email && <p className="text-destructive text-sm">{errors.email.message}</p>}
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">Password</Label>
                 <Link
                   href="/forgot-password"
-                  className="text-sm text-muted-foreground hover:text-primary"
+                  className="text-muted-foreground hover:text-primary text-sm"
                 >
                   Forgot password?
                 </Link>
               </div>
-              <Input
-                id="password"
-                type="password"
-                {...register("password")}
-                disabled={isLoading}
-              />
+              <Input id="password" type="password" {...register('password')} disabled={isLoading} />
               {errors.password && (
-                <p className="text-sm text-destructive">
-                  {errors.password.message}
-                </p>
+                <p className="text-destructive text-sm">{errors.password.message}</p>
               )}
             </div>
           </CardContent>
@@ -137,8 +126,8 @@ export default function LoginPage() {
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Sign in
             </Button>
-            <p className="text-sm text-muted-foreground text-center">
-              Don&apos;t have an account?{" "}
+            <p className="text-muted-foreground text-center text-sm">
+              Don&apos;t have an account?{' '}
               <Link href="/register" className="text-primary hover:underline">
                 Sign up
               </Link>
@@ -147,5 +136,5 @@ export default function LoginPage() {
         </form>
       </Card>
     </>
-  );
+  )
 }

@@ -4,41 +4,41 @@
  */
 
 interface ReportContext {
-  projectName: string;
-  siteCode: string;
-  gridReference?: string;
+  projectName: string
+  siteCode: string
+  gridReference?: string
   habitats?: Array<{
-    code: string;
-    name: string;
-    condition: string;
-    area?: number;
-  }>;
+    code: string
+    name: string
+    condition: string
+    area?: number
+  }>
   species?: Array<{
-    scientificName: string;
-    commonName?: string;
-    isProtected: boolean;
-    recordCount?: number;
-  }>;
+    scientificName: string
+    commonName?: string
+    isProtected: boolean
+    recordCount?: number
+  }>
   designatedSites?: Array<{
-    name: string;
-    code: string;
-    type: string;
-    distance?: number;
-  }>;
+    name: string
+    code: string
+    type: string
+    distance?: number
+  }>
   surveys?: Array<{
-    type: string;
-    date: string;
-    surveyor: string;
-  }>;
+    type: string
+    date: string
+    surveyor: string
+  }>
 }
 
 interface GeneratedSection {
-  title: string;
-  content: string;
+  title: string
+  content: string
   subsections?: Array<{
-    title: string;
-    content: string;
-  }>;
+    title: string
+    content: string
+  }>
 }
 
 const SYSTEM_PROMPT = `You are an expert ecological consultant writing sections for an Ecological Impact Assessment (EcIA) report in Ireland.
@@ -56,7 +56,7 @@ Follow these guidelines:
 Do NOT:
 - Make up specific survey data or counts that weren't provided
 - Include personal opinions without scientific basis
-- Use informal language or colloquialisms`;
+- Use informal language or colloquialisms`
 
 /**
  * Generate an introduction section for the report
@@ -70,7 +70,7 @@ export async function generateIntroductionSection(
 Project Details:
 - Project Name: ${context.projectName}
 - Site Code: ${context.siteCode}
-${context.gridReference ? `- Grid Reference: ${context.gridReference}` : ""}
+${context.gridReference ? `- Grid Reference: ${context.gridReference}` : ''}
 
 The introduction should include:
 1. Brief project background and purpose
@@ -78,14 +78,14 @@ The introduction should include:
 3. Report structure overview
 4. Relevant legislation and policy context (Irish and EU)
 
-Keep the section concise (approximately 300-400 words).`;
+Keep the section concise (approximately 300-400 words).`
 
-  const response = await callOpenAI(prompt, apiKey);
+  const response = await callOpenAI(prompt, apiKey)
 
   return {
-    title: "Introduction",
+    title: 'Introduction',
     content: response,
-  };
+  }
 }
 
 /**
@@ -95,9 +95,10 @@ export async function generateMethodologySection(
   context: ReportContext,
   apiKey: string
 ): Promise<GeneratedSection> {
-  const surveyDetails = context.surveys?.map(
-    (s) => `- ${s.type} survey conducted on ${s.date} by ${s.surveyor}`
-  ).join("\n") || "No survey details provided";
+  const surveyDetails =
+    context.surveys
+      ?.map((s) => `- ${s.type} survey conducted on ${s.date} by ${s.surveyor}`)
+      .join('\n') || 'No survey details provided'
 
   const prompt = `Generate a methodology section for an Ecological Impact Assessment report.
 
@@ -114,20 +115,20 @@ The methodology section should include:
 
 Reference standard ecological survey guidelines (e.g., CIEEM, NRA guidelines, Bat Conservation Ireland guidelines as appropriate).
 
-Keep the section focused and approximately 400-500 words.`;
+Keep the section focused and approximately 400-500 words.`
 
-  const response = await callOpenAI(prompt, apiKey);
+  const response = await callOpenAI(prompt, apiKey)
 
   return {
-    title: "Methodology",
+    title: 'Methodology',
     content: response,
     subsections: [
-      { title: "Desk Study", content: "" },
-      { title: "Field Surveys", content: "" },
-      { title: "Impact Assessment", content: "" },
-      { title: "Limitations", content: "" },
+      { title: 'Desk Study', content: '' },
+      { title: 'Field Surveys', content: '' },
+      { title: 'Impact Assessment', content: '' },
+      { title: 'Limitations', content: '' },
     ],
-  };
+  }
 }
 
 /**
@@ -137,9 +138,12 @@ export async function generateHabitatsSection(
   context: ReportContext,
   apiKey: string
 ): Promise<GeneratedSection> {
-  const habitatDetails = context.habitats?.map(
-    (h) => `- ${h.code} ${h.name}: ${h.condition} condition${h.area ? `, ${h.area} ha` : ""}`
-  ).join("\n") || "No habitat data provided";
+  const habitatDetails =
+    context.habitats
+      ?.map(
+        (h) => `- ${h.code} ${h.name}: ${h.condition} condition${h.area ? `, ${h.area} ha` : ''}`
+      )
+      .join('\n') || 'No habitat data provided'
 
   const prompt = `Generate a habitat description section for an Ecological Impact Assessment report.
 
@@ -157,14 +161,14 @@ The habitats section should:
 
 Use Fossitt (2000) terminology and reference any Annex I habitat types where applicable.
 
-Keep the section approximately 400-600 words, adjusting based on habitat diversity.`;
+Keep the section approximately 400-600 words, adjusting based on habitat diversity.`
 
-  const response = await callOpenAI(prompt, apiKey);
+  const response = await callOpenAI(prompt, apiKey)
 
   return {
-    title: "Habitats",
+    title: 'Habitats',
     content: response,
-  };
+  }
 }
 
 /**
@@ -174,11 +178,15 @@ export async function generateSpeciesSection(
   context: ReportContext,
   apiKey: string
 ): Promise<GeneratedSection> {
-  const speciesDetails = context.species?.map(
-    (s) => `- ${s.scientificName}${s.commonName ? ` (${s.commonName})` : ""}${s.isProtected ? " [PROTECTED]" : ""}${s.recordCount ? `, ${s.recordCount} records` : ""}`
-  ).join("\n") || "No species data provided";
+  const speciesDetails =
+    context.species
+      ?.map(
+        (s) =>
+          `- ${s.scientificName}${s.commonName ? ` (${s.commonName})` : ''}${s.isProtected ? ' [PROTECTED]' : ''}${s.recordCount ? `, ${s.recordCount} records` : ''}`
+      )
+      .join('\n') || 'No species data provided'
 
-  const protectedCount = context.species?.filter((s) => s.isProtected).length || 0;
+  const protectedCount = context.species?.filter((s) => s.isProtected).length || 0
 
   const prompt = `Generate a species description section for an Ecological Impact Assessment report.
 
@@ -198,20 +206,20 @@ The species section should:
 
 Be specific about protection status and ecological significance.
 
-Keep the section approximately 400-600 words.`;
+Keep the section approximately 400-600 words.`
 
-  const response = await callOpenAI(prompt, apiKey);
+  const response = await callOpenAI(prompt, apiKey)
 
   return {
-    title: "Flora and Fauna",
+    title: 'Flora and Fauna',
     content: response,
     subsections: [
-      { title: "Mammals", content: "" },
-      { title: "Birds", content: "" },
-      { title: "Other Fauna", content: "" },
-      { title: "Flora", content: "" },
+      { title: 'Mammals', content: '' },
+      { title: 'Birds', content: '' },
+      { title: 'Other Fauna', content: '' },
+      { title: 'Flora', content: '' },
     ],
-  };
+  }
 }
 
 /**
@@ -221,9 +229,13 @@ export async function generateDesignatedSitesSection(
   context: ReportContext,
   apiKey: string
 ): Promise<GeneratedSection> {
-  const siteDetails = context.designatedSites?.map(
-    (s) => `- ${s.name} (${s.code}): ${s.type}${s.distance !== undefined ? `, ${s.distance}km from site` : ""}`
-  ).join("\n") || "No designated sites identified";
+  const siteDetails =
+    context.designatedSites
+      ?.map(
+        (s) =>
+          `- ${s.name} (${s.code}): ${s.type}${s.distance !== undefined ? `, ${s.distance}km from site` : ''}`
+      )
+      .join('\n') || 'No designated sites identified'
 
   const prompt = `Generate a designated sites section for an Ecological Impact Assessment report.
 
@@ -241,14 +253,14 @@ The designated sites section should:
 
 Be specific about site designations and qualifying interests where data is available.
 
-Keep the section approximately 300-500 words.`;
+Keep the section approximately 300-500 words.`
 
-  const response = await callOpenAI(prompt, apiKey);
+  const response = await callOpenAI(prompt, apiKey)
 
   return {
-    title: "Designated Sites",
+    title: 'Designated Sites',
     content: response,
-  };
+  }
 }
 
 /**
@@ -263,9 +275,14 @@ export async function generateImpactSection(
 Project: ${context.projectName}
 
 Context:
-- Habitats present: ${context.habitats?.map((h) => h.name).join(", ") || "Various"}
-- Protected species: ${context.species?.filter((s) => s.isProtected).map((s) => s.commonName || s.scientificName).join(", ") || "None identified"}
-- Nearby designated sites: ${context.designatedSites?.map((s) => s.name).join(", ") || "None within study area"}
+- Habitats present: ${context.habitats?.map((h) => h.name).join(', ') || 'Various'}
+- Protected species: ${
+    context.species
+      ?.filter((s) => s.isProtected)
+      .map((s) => s.commonName || s.scientificName)
+      .join(', ') || 'None identified'
+  }
+- Nearby designated sites: ${context.designatedSites?.map((s) => s.name).join(', ') || 'None within study area'}
 
 The impact assessment section should:
 1. Identify potential impacts during construction and operation phases
@@ -276,19 +293,19 @@ The impact assessment section should:
 
 Use CIEEM impact assessment guidelines and terminology.
 
-Keep the section approximately 500-700 words.`;
+Keep the section approximately 500-700 words.`
 
-  const response = await callOpenAI(prompt, apiKey);
+  const response = await callOpenAI(prompt, apiKey)
 
   return {
-    title: "Impact Assessment",
+    title: 'Impact Assessment',
     content: response,
     subsections: [
-      { title: "Construction Phase Impacts", content: "" },
-      { title: "Operational Phase Impacts", content: "" },
-      { title: "Cumulative Impacts", content: "" },
+      { title: 'Construction Phase Impacts', content: '' },
+      { title: 'Operational Phase Impacts', content: '' },
+      { title: 'Cumulative Impacts', content: '' },
     ],
-  };
+  }
 }
 
 /**
@@ -303,8 +320,13 @@ export async function generateMitigationSection(
 Project: ${context.projectName}
 
 Key Ecological Features:
-- Habitats: ${context.habitats?.map((h) => h.name).join(", ") || "Various"}
-- Protected species: ${context.species?.filter((s) => s.isProtected).map((s) => s.commonName || s.scientificName).join(", ") || "None identified"}
+- Habitats: ${context.habitats?.map((h) => h.name).join(', ') || 'Various'}
+- Protected species: ${
+    context.species
+      ?.filter((s) => s.isProtected)
+      .map((s) => s.commonName || s.scientificName)
+      .join(', ') || 'None identified'
+  }
 
 The mitigation section should:
 1. Follow the mitigation hierarchy (avoid, minimise, remediate, compensate)
@@ -315,14 +337,14 @@ The mitigation section should:
 
 Be practical and specific with recommendations.
 
-Keep the section approximately 400-600 words.`;
+Keep the section approximately 400-600 words.`
 
-  const response = await callOpenAI(prompt, apiKey);
+  const response = await callOpenAI(prompt, apiKey)
 
   return {
-    title: "Mitigation Measures",
+    title: 'Mitigation Measures',
     content: response,
-  };
+  }
 }
 
 /**
@@ -345,44 +367,44 @@ Summarise the key findings and provide a clear conclusion regarding:
 
 Be concise and definitive while maintaining appropriate caveats.
 
-Keep the section approximately 200-300 words.`;
+Keep the section approximately 200-300 words.`
 
-  const response = await callOpenAI(prompt, apiKey);
+  const response = await callOpenAI(prompt, apiKey)
 
   return {
-    title: "Conclusions",
+    title: 'Conclusions',
     content: response,
-  };
+  }
 }
 
 /**
  * Call OpenAI API
  */
 async function callOpenAI(prompt: string, apiKey: string): Promise<string> {
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "gpt-4",
+      model: 'gpt-4',
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: prompt },
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: prompt },
       ],
       temperature: 0.7,
       max_tokens: 1500,
     }),
-  });
+  })
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || "OpenAI API error");
+    const error = await response.json()
+    throw new Error(error.error?.message || 'OpenAI API error')
   }
 
-  const data = await response.json();
-  return data.choices[0]?.message?.content || "";
+  const data = await response.json()
+  return data.choices[0]?.message?.content || ''
 }
 
 /**
@@ -393,33 +415,33 @@ export async function generateFullReportDraft(
   apiKey: string,
   onProgress?: (section: string, progress: number) => void
 ): Promise<GeneratedSection[]> {
-  const sections: GeneratedSection[] = [];
+  const sections: GeneratedSection[] = []
   const generators = [
-    { name: "Introduction", fn: generateIntroductionSection },
-    { name: "Methodology", fn: generateMethodologySection },
-    { name: "Designated Sites", fn: generateDesignatedSitesSection },
-    { name: "Habitats", fn: generateHabitatsSection },
-    { name: "Species", fn: generateSpeciesSection },
-    { name: "Impact Assessment", fn: generateImpactSection },
-    { name: "Mitigation", fn: generateMitigationSection },
-    { name: "Conclusions", fn: generateConclusionsSection },
-  ];
+    { name: 'Introduction', fn: generateIntroductionSection },
+    { name: 'Methodology', fn: generateMethodologySection },
+    { name: 'Designated Sites', fn: generateDesignatedSitesSection },
+    { name: 'Habitats', fn: generateHabitatsSection },
+    { name: 'Species', fn: generateSpeciesSection },
+    { name: 'Impact Assessment', fn: generateImpactSection },
+    { name: 'Mitigation', fn: generateMitigationSection },
+    { name: 'Conclusions', fn: generateConclusionsSection },
+  ]
 
   for (let i = 0; i < generators.length; i++) {
-    const { name, fn } = generators[i];
-    onProgress?.(name, ((i + 1) / generators.length) * 100);
+    const { name, fn } = generators[i]
+    onProgress?.(name, ((i + 1) / generators.length) * 100)
 
     try {
-      const section = await fn(context, apiKey);
-      sections.push(section);
+      const section = await fn(context, apiKey)
+      sections.push(section)
     } catch (error) {
-      console.error(`Error generating ${name} section:`, error);
+      console.error(`Error generating ${name} section:`, error)
       sections.push({
         title: name,
-        content: `[Error generating section: ${error instanceof Error ? error.message : "Unknown error"}]`,
-      });
+        content: `[Error generating section: ${error instanceof Error ? error.message : 'Unknown error'}]`,
+      })
     }
   }
 
-  return sections;
+  return sections
 }

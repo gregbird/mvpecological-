@@ -1,4 +1,4 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
   // Enable experimental features if needed
@@ -8,12 +8,12 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       {
-        protocol: "https",
-        hostname: "zekaljruvbjezxlumuup.supabase.co",
-        pathname: "/storage/v1/object/public/**",
+        protocol: 'https',
+        hostname: 'zekaljruvbjezxlumuup.supabase.co',
+        pathname: '/storage/v1/object/public/**',
       },
     ],
   },
-};
+}
 
-export default nextConfig;
+export default nextConfig

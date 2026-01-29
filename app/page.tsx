@@ -1,6 +1,6 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { ArrowRight, Leaf, Map, FileText, Users } from "lucide-react";
+import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { ArrowRight, Leaf, Map, FileText, Users } from 'lucide-react'
 
 export default function Home() {
   return (
@@ -25,15 +25,13 @@ export default function Home() {
 
       {/* Hero Section */}
       <main className="container mx-auto px-4 py-20">
-        <div className="max-w-3xl mx-auto text-center">
-          <h1 className="text-5xl font-bold tracking-tight mb-6">
-            Ecological Project Management,{" "}
-            <span className="text-green-600">Simplified</span>
+        <div className="mx-auto max-w-3xl text-center">
+          <h1 className="mb-6 text-5xl font-bold tracking-tight">
+            Ecological Project Management, <span className="text-green-600">Simplified</span>
           </h1>
-          <p className="text-xl text-muted-foreground mb-8">
-            Dulra streamlines the entire ecological project lifecycle—from Desk
-            Research and Field Surveys to Automated Reporting. Reduce time and
-            effort by 30%.
+          <p className="text-muted-foreground mb-8 text-xl">
+            Dulra streamlines the entire ecological project lifecycle—from Desk Research and Field
+            Surveys to Automated Reporting. Reduce time and effort by 30%.
           </p>
           <div className="flex items-center justify-center gap-4">
             <Link href="/register">
@@ -50,7 +48,7 @@ export default function Home() {
         </div>
 
         {/* Features Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mt-20">
+        <div className="mt-20 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <FeatureCard
             icon={<Users className="h-10 w-10 text-green-600" />}
             title="Project Dashboard"
@@ -75,8 +73,8 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="container mx-auto px-4 py-8 border-t">
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
+      <footer className="container mx-auto border-t px-4 py-8">
+        <div className="text-muted-foreground flex items-center justify-between text-sm">
           <p>© 2026 Dulra. Built for ecological consultancies.</p>
           <div className="flex gap-4">
             <Link href="/privacy" className="hover:underline">
@@ -89,7 +87,7 @@ export default function Home() {
         </div>
       </footer>
     </div>
-  );
+  )
 }
 
 function FeatureCard({
@@ -97,15 +95,15 @@ function FeatureCard({
   title,
   description,
 }: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
+  icon: React.ReactNode
+  title: string
+  description: string
 }) {
   return (
-    <div className="p-6 rounded-lg border bg-card hover:shadow-lg transition-shadow">
+    <div className="bg-card rounded-lg border p-6 transition-shadow hover:shadow-lg">
       <div className="mb-4">{icon}</div>
-      <h3 className="text-lg font-semibold mb-2">{title}</h3>
-      <p className="text-sm text-muted-foreground">{description}</p>
+      <h3 className="mb-2 text-lg font-semibold">{title}</h3>
+      <p className="text-muted-foreground text-sm">{description}</p>
     </div>
-  );
+  )
 }

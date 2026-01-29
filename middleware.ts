@@ -1,10 +1,10 @@
-import { createServerClient } from "@supabase/ssr";
-import { NextResponse, type NextRequest } from "next/server";
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
-  });
+  })
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,22 +12,20 @@ export async function middleware(request: NextRequest) {
     {
       cookies: {
         getAll() {
-          return request.cookies.getAll();
+          return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           supabaseResponse = NextResponse.next({
             request,
-          });
+          })
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
-          );
+          )
         },
       },
     }
-  );
+  )
 
   // IMPORTANT: Avoid writing any logic between createServerClient and
   // supabase.auth.getUser(). A simple mistake could make it very hard to debug
@@ -35,32 +33,28 @@ export async function middleware(request: NextRequest) {
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await supabase.auth.getUser()
 
   // Protected routes
-  const protectedPaths = ["/dashboard", "/projects", "/settings"];
-  const isProtectedPath = protectedPaths.some((path) =>
-    request.nextUrl.pathname.startsWith(path)
-  );
+  const protectedPaths = ['/dashboard', '/projects', '/settings']
+  const isProtectedPath = protectedPaths.some((path) => request.nextUrl.pathname.startsWith(path))
 
   if (isProtectedPath && !user) {
     // Redirect to login if trying to access protected route without auth
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("redirectTo", request.nextUrl.pathname);
-    return NextResponse.redirect(url);
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    url.searchParams.set('redirectTo', request.nextUrl.pathname)
+    return NextResponse.redirect(url)
   }
 
   // Redirect authenticated users away from auth pages
-  const authPaths = ["/login", "/register"];
-  const isAuthPath = authPaths.some((path) =>
-    request.nextUrl.pathname.startsWith(path)
-  );
+  const authPaths = ['/login', '/register']
+  const isAuthPath = authPaths.some((path) => request.nextUrl.pathname.startsWith(path))
 
   if (isAuthPath && user) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
+    const url = request.nextUrl.clone()
+    url.pathname = '/dashboard'
+    return NextResponse.redirect(url)
   }
 
   // IMPORTANT: You *must* return the supabaseResponse object as it is. If you're
@@ -76,7 +70,7 @@ export async function middleware(request: NextRequest) {
   // If this is not done, you may be causing the browser and server to go out
   // of sync and terminate the user's session prematurely!
 
-  return supabaseResponse;
+  return supabaseResponse
 }
 
 export const config = {
@@ -88,6 +82,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public folder
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
-};
+}

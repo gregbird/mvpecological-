@@ -1,10 +1,10 @@
-"use client";
+'use client'
 
-import * as React from "react";
-import Link from "next/link";
-import { Bell, LogOut, User, Settings, HelpCircle } from "lucide-react";
+import * as React from 'react'
+import Link from 'next/link'
+import { Bell, LogOut, User, Settings, HelpCircle } from 'lucide-react'
 
-import { Button } from "@/components/ui/button";
+import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,36 +13,34 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ThemeToggle } from "@/components/layout/theme-toggle";
-import { Badge } from "@/components/ui/badge";
+} from '@/components/ui/dropdown-menu'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { ThemeToggle } from '@/components/layout/theme-toggle'
+import { Badge } from '@/components/ui/badge'
 
 interface HeaderProps {
   user?: {
-    name: string;
-    email: string;
-    avatar?: string;
-    role?: string;
-  };
+    name: string
+    email: string
+    avatar?: string
+    role?: string
+  }
 }
 
 export function Header({ user }: HeaderProps) {
   const initials = user?.name
     ? user.name
-        .split(" ")
+        .split(' ')
         .map((n) => n[0])
-        .join("")
+        .join('')
         .toUpperCase()
         .slice(0, 2)
-    : "U";
+    : 'U'
 
   return (
-    <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 flex h-16 items-center justify-between border-b px-6 backdrop-blur">
       {/* Search - Can be expanded later */}
-      <div className="flex items-center gap-4">
-        {/* Placeholder for breadcrumbs or search */}
-      </div>
+      <div className="flex items-center gap-4">{/* Placeholder for breadcrumbs or search */}</div>
 
       {/* Right side actions */}
       <div className="flex items-center gap-2">
@@ -53,7 +51,7 @@ export function Header({ user }: HeaderProps) {
               <Bell className="h-5 w-5" />
               <Badge
                 variant="destructive"
-                className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 text-xs"
+                className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs"
               >
                 3
               </Badge>
@@ -66,28 +64,26 @@ export function Header({ user }: HeaderProps) {
             <div className="max-h-[300px] overflow-y-auto">
               <DropdownMenuItem className="flex flex-col items-start gap-1 p-3">
                 <span className="font-medium">Project review needed</span>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-muted-foreground text-xs">
                   Ballymore Wind Farm requires approval
                 </span>
-                <span className="text-xs text-muted-foreground">2 hours ago</span>
+                <span className="text-muted-foreground text-xs">2 hours ago</span>
               </DropdownMenuItem>
               <DropdownMenuItem className="flex flex-col items-start gap-1 p-3">
                 <span className="font-medium">Survey completed</span>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-muted-foreground text-xs">
                   Habitat survey for Dublin Port finished
                 </span>
-                <span className="text-xs text-muted-foreground">5 hours ago</span>
+                <span className="text-muted-foreground text-xs">5 hours ago</span>
               </DropdownMenuItem>
               <DropdownMenuItem className="flex flex-col items-start gap-1 p-3">
                 <span className="font-medium">New team member</span>
-                <span className="text-xs text-muted-foreground">
-                  Sarah joined the organization
-                </span>
-                <span className="text-xs text-muted-foreground">1 day ago</span>
+                <span className="text-muted-foreground text-xs">Sarah joined the organization</span>
+                <span className="text-muted-foreground text-xs">1 day ago</span>
               </DropdownMenuItem>
             </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="justify-center text-primary">
+            <DropdownMenuItem className="text-primary justify-center">
               View all notifications
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -117,15 +113,13 @@ export function Header({ user }: HeaderProps) {
           <DropdownMenuContent className="w-56" align="end" forceMount>
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">
-                  {user?.name || "User"}
-                </p>
-                <p className="text-xs leading-none text-muted-foreground">
-                  {user?.email || "user@example.com"}
+                <p className="text-sm leading-none font-medium">{user?.name || 'User'}</p>
+                <p className="text-muted-foreground text-xs leading-none">
+                  {user?.email || 'user@example.com'}
                 </p>
                 {user?.role && (
                   <Badge variant="secondary" className="mt-1 w-fit text-xs">
-                    {user.role.replace("_", " ")}
+                    {user.role.replace('_', ' ')}
                   </Badge>
                 )}
               </div>
@@ -154,5 +148,5 @@ export function Header({ user }: HeaderProps) {
         </DropdownMenu>
       </div>
     </header>
-  );
+  )
 }

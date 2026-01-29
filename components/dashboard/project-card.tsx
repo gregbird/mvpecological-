@@ -1,66 +1,50 @@
-"use client";
+'use client'
 
-import Link from "next/link";
-import { MapPin, Calendar, Users } from "lucide-react";
+import Link from 'next/link'
+import { MapPin, Calendar, Users } from 'lucide-react'
 
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
-import { formatDate } from "@/lib/utils";
-import {
-  PHASE_COLORS,
-  HEALTH_STATUS_COLORS,
-  type ProjectWithDetails,
-} from "@/types";
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { cn } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
+import { PHASE_COLORS, HEALTH_STATUS_COLORS, type ProjectWithDetails } from '@/types'
 
 interface ProjectCardProps {
-  project: ProjectWithDetails;
+  project: ProjectWithDetails
 }
 
 export function ProjectCard({ project }: ProjectCardProps) {
-  const phaseColors = PHASE_COLORS[project.current_phase];
-  const healthColors = HEALTH_STATUS_COLORS[project.health_status];
+  const phaseColors = PHASE_COLORS[project.current_phase]
+  const healthColors = HEALTH_STATUS_COLORS[project.health_status]
 
   return (
     <Link href={`/projects/${project.id}`}>
-      <Card className="group cursor-pointer transition-all hover:shadow-md hover:border-primary/50">
+      <Card className="group hover:border-primary/50 cursor-pointer transition-all hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 {/* Health Status Indicator */}
                 <div
-                  className={cn("h-2 w-2 rounded-full", healthColors.bg)}
+                  className={cn('h-2 w-2 rounded-full', healthColors.bg)}
                   title={healthColors.label}
                 />
-                <h3 className="font-semibold truncate group-hover:text-primary transition-colors">
+                <h3 className="group-hover:text-primary truncate font-semibold transition-colors">
                   {project.name}
                 </h3>
               </div>
               {project.site_code && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  {project.site_code}
-                </p>
+                <p className="text-muted-foreground mt-1 text-sm">{project.site_code}</p>
               )}
             </div>
             <Badge
               variant="outline"
-              className={cn(
-                "shrink-0",
-                phaseColors.bg,
-                phaseColors.text,
-                phaseColors.border
-              )}
+              className={cn('shrink-0', phaseColors.bg, phaseColors.text, phaseColors.border)}
             >
-              {project.current_phase.replace("_", " ")}
+              {project.current_phase.replace('_', ' ')}
             </Badge>
           </div>
         </CardHeader>
@@ -75,13 +59,11 @@ export function ProjectCard({ project }: ProjectCardProps) {
           </div>
 
           {/* Meta info */}
-          <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+          <div className="text-muted-foreground flex flex-wrap gap-4 text-sm">
             {project.client && (
               <div className="flex items-center gap-1">
                 <MapPin className="h-3.5 w-3.5" />
-                <span className="truncate max-w-[120px]">
-                  {project.client.name}
-                </span>
+                <span className="max-w-[120px] truncate">{project.client.name}</span>
               </div>
             )}
             {project.expected_end_date && (
@@ -94,8 +76,8 @@ export function ProjectCard({ project }: ProjectCardProps) {
 
           {/* Team Members */}
           {project.members && project.members.length > 0 && (
-            <div className="flex items-center justify-between pt-2 border-t">
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+            <div className="flex items-center justify-between border-t pt-2">
+              <div className="text-muted-foreground flex items-center gap-1 text-sm">
                 <Users className="h-3.5 w-3.5" />
                 <span>{project.members.length} members</span>
               </div>
@@ -104,28 +86,26 @@ export function ProjectCard({ project }: ProjectCardProps) {
                   {project.members.slice(0, 4).map((member) => (
                     <Tooltip key={member.id}>
                       <TooltipTrigger>
-                        <Avatar className="h-7 w-7 border-2 border-background">
+                        <Avatar className="border-background h-7 w-7 border-2">
                           <AvatarImage src={member.avatar_url || undefined} />
-                          <AvatarFallback className="text-xs bg-muted">
+                          <AvatarFallback className="bg-muted text-xs">
                             {member.full_name
-                              .split(" ")
+                              .split(' ')
                               .map((n) => n[0])
-                              .join("")
+                              .join('')
                               .slice(0, 2)}
                           </AvatarFallback>
                         </Avatar>
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>{member.full_name}</p>
-                        <p className="text-xs text-muted-foreground capitalize">
-                          {member.role}
-                        </p>
+                        <p className="text-muted-foreground text-xs capitalize">{member.role}</p>
                       </TooltipContent>
                     </Tooltip>
                   ))}
                   {project.members.length > 4 && (
-                    <Avatar className="h-7 w-7 border-2 border-background">
-                      <AvatarFallback className="text-xs bg-muted">
+                    <Avatar className="border-background h-7 w-7 border-2">
+                      <AvatarFallback className="bg-muted text-xs">
                         +{project.members.length - 4}
                       </AvatarFallback>
                     </Avatar>
@@ -137,5 +117,5 @@ export function ProjectCard({ project }: ProjectCardProps) {
         </CardContent>
       </Card>
     </Link>
-  );
+  )
 }

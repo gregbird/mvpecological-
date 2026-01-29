@@ -1,8 +1,8 @@
-"use client";
+'use client'
 
-import * as React from "react";
-import Link from "next/link";
-import { useParams } from "next/navigation";
+import * as React from 'react'
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
 import {
   ArrowLeft,
   Plus,
@@ -18,28 +18,28 @@ import {
   Clock,
   Loader2,
   AlertCircle,
-} from "lucide-react";
+} from 'lucide-react'
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu'
 import {
   Dialog,
   DialogContent,
@@ -47,125 +47,125 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog'
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { useToast } from "@/hooks/use-toast";
-import { generateFullReportDraft } from "@/lib/ai/report-generator";
+} from '@/components/ui/accordion'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Separator } from '@/components/ui/separator'
+import { useToast } from '@/hooks/use-toast'
+import { generateFullReportDraft } from '@/lib/ai/report-generator'
 
-type ReportStatus = "draft" | "internal_review" | "client_review" | "approved" | "final";
-type ReportType = "ecia" | "nia" | "aa_screening" | "aa" | "bat_report" | "bird_report" | "other";
+type ReportStatus = 'draft' | 'internal_review' | 'client_review' | 'approved' | 'final'
+type ReportType = 'ecia' | 'nia' | 'aa_screening' | 'aa' | 'bat_report' | 'bird_report' | 'other'
 
 interface ReportSection {
-  id: string;
-  title: string;
-  content: string;
-  isEdited: boolean;
-  aiGenerated: boolean;
+  id: string
+  title: string
+  content: string
+  isEdited: boolean
+  aiGenerated: boolean
 }
 
 interface Report {
-  id: string;
-  reportType: ReportType;
-  version: number;
-  status: ReportStatus;
-  sections: ReportSection[];
-  generatedBy?: string;
-  reviewedBy?: string;
-  createdAt: string;
-  updatedAt: string;
+  id: string
+  reportType: ReportType
+  version: number
+  status: ReportStatus
+  sections: ReportSection[]
+  generatedBy?: string
+  reviewedBy?: string
+  createdAt: string
+  updatedAt: string
 }
 
 // Mock project data
 const mockProject = {
-  id: "1",
-  name: "Ballymore Wind Farm EcIA",
-  site_code: "BWF-2024-001",
-  grid_reference: "N 23456 12345",
-};
+  id: '1',
+  name: 'Ballymore Wind Farm EcIA',
+  site_code: 'BWF-2024-001',
+  grid_reference: 'N 23456 12345',
+}
 
 // Mock report data
 const mockReports: Report[] = [
   {
-    id: "1",
-    reportType: "ecia",
+    id: '1',
+    reportType: 'ecia',
     version: 1,
-    status: "draft",
+    status: 'draft',
     sections: [
       {
-        id: "1",
-        title: "Introduction",
-        content: "This Ecological Impact Assessment (EcIA) has been prepared...",
+        id: '1',
+        title: 'Introduction',
+        content: 'This Ecological Impact Assessment (EcIA) has been prepared...',
         isEdited: false,
         aiGenerated: true,
       },
       {
-        id: "2",
-        title: "Methodology",
-        content: "The assessment methodology follows CIEEM guidelines...",
+        id: '2',
+        title: 'Methodology',
+        content: 'The assessment methodology follows CIEEM guidelines...',
         isEdited: true,
         aiGenerated: true,
       },
     ],
-    generatedBy: "AI Draft",
-    createdAt: "2024-04-15T10:30:00Z",
-    updatedAt: "2024-04-15T14:45:00Z",
+    generatedBy: 'AI Draft',
+    createdAt: '2024-04-15T10:30:00Z',
+    updatedAt: '2024-04-15T14:45:00Z',
   },
-];
+]
 
 const REPORT_TYPES: { value: ReportType; label: string }[] = [
-  { value: "ecia", label: "Ecological Impact Assessment (EcIA)" },
-  { value: "nia", label: "Natura Impact Assessment (NIA)" },
-  { value: "aa_screening", label: "Appropriate Assessment Screening" },
-  { value: "aa", label: "Appropriate Assessment (Stage 2)" },
-  { value: "bat_report", label: "Bat Survey Report" },
-  { value: "bird_report", label: "Bird Survey Report" },
-  { value: "other", label: "Other Technical Report" },
-];
+  { value: 'ecia', label: 'Ecological Impact Assessment (EcIA)' },
+  { value: 'nia', label: 'Natura Impact Assessment (NIA)' },
+  { value: 'aa_screening', label: 'Appropriate Assessment Screening' },
+  { value: 'aa', label: 'Appropriate Assessment (Stage 2)' },
+  { value: 'bat_report', label: 'Bat Survey Report' },
+  { value: 'bird_report', label: 'Bird Survey Report' },
+  { value: 'other', label: 'Other Technical Report' },
+]
 
 const STATUS_STYLES: Record<
   ReportStatus,
-  { label: string; variant: "default" | "secondary" | "outline" | "destructive" }
+  { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }
 > = {
-  draft: { label: "Draft", variant: "outline" },
-  internal_review: { label: "Internal Review", variant: "secondary" },
-  client_review: { label: "Client Review", variant: "secondary" },
-  approved: { label: "Approved", variant: "default" },
-  final: { label: "Final", variant: "default" },
-};
+  draft: { label: 'Draft', variant: 'outline' },
+  internal_review: { label: 'Internal Review', variant: 'secondary' },
+  client_review: { label: 'Client Review', variant: 'secondary' },
+  approved: { label: 'Approved', variant: 'default' },
+  final: { label: 'Final', variant: 'default' },
+}
 
 export default function ReportsPage() {
-  const params = useParams();
-  const projectId = params.id as string;
-  const { toast } = useToast();
+  const params = useParams()
+  const projectId = params.id as string
+  const { toast } = useToast()
 
-  const [reports, setReports] = React.useState<Report[]>(mockReports);
-  const [selectedReport, setSelectedReport] = React.useState<Report | null>(null);
-  const [isGenerating, setIsGenerating] = React.useState(false);
-  const [generationProgress, setGenerationProgress] = React.useState(0);
-  const [currentSection, setCurrentSection] = React.useState("");
-  const [showNewReportDialog, setShowNewReportDialog] = React.useState(false);
-  const [newReportType, setNewReportType] = React.useState<ReportType>("ecia");
-  const [editingSection, setEditingSection] = React.useState<string | null>(null);
-  const [editedContent, setEditedContent] = React.useState("");
+  const [reports, setReports] = React.useState<Report[]>(mockReports)
+  const [selectedReport, setSelectedReport] = React.useState<Report | null>(null)
+  const [isGenerating, setIsGenerating] = React.useState(false)
+  const [generationProgress, setGenerationProgress] = React.useState(0)
+  const [currentSection, setCurrentSection] = React.useState('')
+  const [showNewReportDialog, setShowNewReportDialog] = React.useState(false)
+  const [newReportType, setNewReportType] = React.useState<ReportType>('ecia')
+  const [editingSection, setEditingSection] = React.useState<string | null>(null)
+  const [editedContent, setEditedContent] = React.useState('')
 
   // Generate AI report draft
   const handleGenerateReport = async () => {
-    setIsGenerating(true);
-    setGenerationProgress(0);
-    setCurrentSection("Starting...");
+    setIsGenerating(true)
+    setGenerationProgress(0)
+    setCurrentSection('Starting...')
 
     try {
-      const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+      const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY
       if (!apiKey) {
-        throw new Error("OpenAI API key not configured");
+        throw new Error('OpenAI API key not configured')
       }
 
       const sections = await generateFullReportDraft(
@@ -174,35 +174,50 @@ export default function ReportsPage() {
           siteCode: mockProject.site_code,
           gridReference: mockProject.grid_reference,
           habitats: [
-            { code: "GS2", name: "Dry meadows and grassy verges", condition: "Good", area: 15.2 },
-            { code: "WS1", name: "Scrub", condition: "Moderate", area: 3.5 },
-            { code: "GA1", name: "Improved agricultural grassland", condition: "Moderate", area: 45.0 },
+            { code: 'GS2', name: 'Dry meadows and grassy verges', condition: 'Good', area: 15.2 },
+            { code: 'WS1', name: 'Scrub', condition: 'Moderate', area: 3.5 },
+            {
+              code: 'GA1',
+              name: 'Improved agricultural grassland',
+              condition: 'Moderate',
+              area: 45.0,
+            },
           ],
           species: [
-            { scientificName: "Lutra lutra", commonName: "European Otter", isProtected: true, recordCount: 2 },
-            { scientificName: "Falco tinnunculus", commonName: "Kestrel", isProtected: false, recordCount: 5 },
+            {
+              scientificName: 'Lutra lutra',
+              commonName: 'European Otter',
+              isProtected: true,
+              recordCount: 2,
+            },
+            {
+              scientificName: 'Falco tinnunculus',
+              commonName: 'Kestrel',
+              isProtected: false,
+              recordCount: 5,
+            },
           ],
           designatedSites: [
-            { name: "River Shannon Callows", code: "SAC000216", type: "SAC", distance: 2.5 },
-            { name: "Middle Shannon Callows", code: "SPA004096", type: "SPA", distance: 2.8 },
+            { name: 'River Shannon Callows', code: 'SAC000216', type: 'SAC', distance: 2.5 },
+            { name: 'Middle Shannon Callows', code: 'SPA004096', type: 'SPA', distance: 2.8 },
           ],
           surveys: [
-            { type: "Walkover", date: "2024-03-15", surveyor: "Dr. Sarah O'Brien" },
-            { type: "Habitat Mapping", date: "2024-04-02", surveyor: "Michael Murphy" },
+            { type: 'Walkover', date: '2024-03-15', surveyor: "Dr. Sarah O'Brien" },
+            { type: 'Habitat Mapping', date: '2024-04-02', surveyor: 'Michael Murphy' },
           ],
         },
         apiKey,
         (section, progress) => {
-          setCurrentSection(section);
-          setGenerationProgress(progress);
+          setCurrentSection(section)
+          setGenerationProgress(progress)
         }
-      );
+      )
 
       const newReport: Report = {
         id: `${Date.now()}`,
         reportType: newReportType,
         version: 1,
-        status: "draft",
+        status: 'draft',
         sections: sections.map((s, i) => ({
           id: `${i + 1}`,
           title: s.title,
@@ -210,32 +225,32 @@ export default function ReportsPage() {
           isEdited: false,
           aiGenerated: true,
         })),
-        generatedBy: "AI (GPT-4)",
+        generatedBy: 'AI (GPT-4)',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      };
+      }
 
-      setReports((prev) => [...prev, newReport]);
-      setSelectedReport(newReport);
-      setShowNewReportDialog(false);
+      setReports((prev) => [...prev, newReport])
+      setSelectedReport(newReport)
+      setShowNewReportDialog(false)
 
       toast({
-        title: "Report generated",
-        description: "AI draft has been created. Review and edit as needed.",
-      });
+        title: 'Report generated',
+        description: 'AI draft has been created. Review and edit as needed.',
+      })
     } catch (error) {
-      console.error("Error generating report:", error);
+      console.error('Error generating report:', error)
       toast({
-        variant: "destructive",
-        title: "Generation failed",
-        description: error instanceof Error ? error.message : "Failed to generate report",
-      });
+        variant: 'destructive',
+        title: 'Generation failed',
+        description: error instanceof Error ? error.message : 'Failed to generate report',
+      })
     } finally {
-      setIsGenerating(false);
-      setGenerationProgress(0);
-      setCurrentSection("");
+      setIsGenerating(false)
+      setGenerationProgress(0)
+      setCurrentSection('')
     }
-  };
+  }
 
   // Save section edit
   const handleSaveSection = (reportId: string, sectionId: string) => {
@@ -253,7 +268,7 @@ export default function ReportsPage() {
             }
           : report
       )
-    );
+    )
 
     if (selectedReport?.id === reportId) {
       setSelectedReport((prev) =>
@@ -267,37 +282,35 @@ export default function ReportsPage() {
               ),
             }
           : null
-      );
+      )
     }
 
-    setEditingSection(null);
-    setEditedContent("");
+    setEditingSection(null)
+    setEditedContent('')
 
     toast({
-      title: "Section saved",
-      description: "Your changes have been saved.",
-    });
-  };
+      title: 'Section saved',
+      description: 'Your changes have been saved.',
+    })
+  }
 
   // Update report status
   const handleUpdateStatus = (reportId: string, status: ReportStatus) => {
     setReports((prev) =>
       prev.map((report) =>
-        report.id === reportId
-          ? { ...report, status, updatedAt: new Date().toISOString() }
-          : report
+        report.id === reportId ? { ...report, status, updatedAt: new Date().toISOString() } : report
       )
-    );
+    )
 
     if (selectedReport?.id === reportId) {
-      setSelectedReport((prev) => (prev ? { ...prev, status } : null));
+      setSelectedReport((prev) => (prev ? { ...prev, status } : null))
     }
 
     toast({
-      title: "Status updated",
+      title: 'Status updated',
       description: `Report status changed to ${STATUS_STYLES[status].label}.`,
-    });
-  };
+    })
+  }
 
   return (
     <div className="space-y-6">
@@ -311,7 +324,7 @@ export default function ReportsPage() {
           </Button>
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="mt-1 flex items-center gap-2">
               <span className="text-muted-foreground">{mockProject.name}</span>
               <Badge variant="outline">{mockProject.site_code}</Badge>
             </div>
@@ -326,14 +339,14 @@ export default function ReportsPage() {
       {/* Main Content */}
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Reports List */}
-        <div className="lg:col-span-1 space-y-4">
+        <div className="space-y-4 lg:col-span-1">
           <h2 className="font-semibold">Report Versions</h2>
           {reports.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
-                <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="font-semibold mb-2">No reports yet</h3>
-                <p className="text-muted-foreground text-sm text-center mb-4">
+                <FileText className="text-muted-foreground mb-4 h-12 w-12" />
+                <h3 className="mb-2 font-semibold">No reports yet</h3>
+                <p className="text-muted-foreground mb-4 text-center text-sm">
                   Generate an AI draft to get started with your ecological report.
                 </p>
                 <Button onClick={() => setShowNewReportDialog(true)}>
@@ -348,7 +361,7 @@ export default function ReportsPage() {
                 <Card
                   key={report.id}
                   className={`cursor-pointer transition-colors ${
-                    selectedReport?.id === report.id ? "border-primary" : ""
+                    selectedReport?.id === report.id ? 'border-primary' : ''
                   }`}
                   onClick={() => setSelectedReport(report)}
                 >
@@ -366,13 +379,13 @@ export default function ReportsPage() {
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0">
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <div className="text-muted-foreground flex items-center gap-4 text-xs">
                       <span>{report.sections.length} sections</span>
                       <span>
-                        Updated{" "}
-                        {new Date(report.updatedAt).toLocaleDateString("en-IE", {
-                          day: "numeric",
-                          month: "short",
+                        Updated{' '}
+                        {new Date(report.updatedAt).toLocaleDateString('en-IE', {
+                          day: 'numeric',
+                          month: 'short',
                         })}
                       </span>
                     </div>
@@ -395,7 +408,8 @@ export default function ReportsPage() {
                     </CardTitle>
                     <CardDescription>
                       Version {selectedReport.version} • {selectedReport.sections.length} sections
-                      {selectedReport.generatedBy && ` • Generated by ${selectedReport.generatedBy}`}
+                      {selectedReport.generatedBy &&
+                        ` • Generated by ${selectedReport.generatedBy}`}
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
@@ -456,17 +470,15 @@ export default function ReportsPage() {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => {
-                                    setEditingSection(null);
-                                    setEditedContent("");
+                                    setEditingSection(null)
+                                    setEditedContent('')
                                   }}
                                 >
                                   Cancel
                                 </Button>
                                 <Button
                                   size="sm"
-                                  onClick={() =>
-                                    handleSaveSection(selectedReport.id, section.id)
-                                  }
+                                  onClick={() => handleSaveSection(selectedReport.id, section.id)}
                                 >
                                   Save Changes
                                 </Button>
@@ -475,7 +487,7 @@ export default function ReportsPage() {
                           ) : (
                             <div className="space-y-3">
                               <div className="prose prose-sm dark:prose-invert max-w-none">
-                                {section.content.split("\n\n").map((paragraph, i) => (
+                                {section.content.split('\n\n').map((paragraph, i) => (
                                   <p key={i}>{paragraph}</p>
                                 ))}
                               </div>
@@ -484,8 +496,8 @@ export default function ReportsPage() {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => {
-                                    setEditingSection(section.id);
-                                    setEditedContent(section.content);
+                                    setEditingSection(section.id)
+                                    setEditedContent(section.content)
                                   }}
                                 >
                                   <Pencil className="mr-2 h-3 w-3" />
@@ -504,10 +516,11 @@ export default function ReportsPage() {
           ) : (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-24">
-                <FileText className="h-16 w-16 text-muted-foreground mb-4" />
-                <h3 className="font-semibold text-lg mb-2">Select a Report</h3>
-                <p className="text-muted-foreground text-center max-w-sm">
-                  Choose a report from the list to view and edit, or create a new AI-generated draft.
+                <FileText className="text-muted-foreground mb-4 h-16 w-16" />
+                <h3 className="mb-2 text-lg font-semibold">Select a Report</h3>
+                <p className="text-muted-foreground max-w-sm text-center">
+                  Choose a report from the list to view and edit, or create a new AI-generated
+                  draft.
                 </p>
               </CardContent>
             </Card>
@@ -528,12 +541,13 @@ export default function ReportsPage() {
           {isGenerating ? (
             <div className="space-y-4 py-4">
               <div className="flex items-center gap-3">
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                <Loader2 className="text-primary h-5 w-5 animate-spin" />
                 <span className="text-sm">Generating {currentSection}...</span>
               </div>
               <Progress value={generationProgress} />
-              <p className="text-xs text-muted-foreground">
-                AI is analyzing project data and generating report sections. This may take a few moments.
+              <p className="text-muted-foreground text-xs">
+                AI is analyzing project data and generating report sections. This may take a few
+                moments.
               </p>
             </div>
           ) : (
@@ -562,8 +576,9 @@ export default function ReportsPage() {
                   <Sparkles className="h-4 w-4" />
                   <AlertTitle>AI-Powered Generation</AlertTitle>
                   <AlertDescription>
-                    The report will be generated using GPT-4 based on your project&apos;s desk research
-                    findings, habitat data, and species records. You can edit all sections after generation.
+                    The report will be generated using GPT-4 based on your project&apos;s desk
+                    research findings, habitat data, and species records. You can edit all sections
+                    after generation.
                   </AlertDescription>
                 </Alert>
               </div>
@@ -582,5 +597,5 @@ export default function ReportsPage() {
         </DialogContent>
       </Dialog>
     </div>
-  );
+  )
 }

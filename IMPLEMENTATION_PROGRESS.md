@@ -10,6 +10,7 @@
 ## Proje Özeti
 
 **Dulra** - Ekolojik danışmanlık firmaları için uçtan uca proje yönetimi platformu.
+
 - **Hedef:** Desk Research ve Raporlama süresinde %30 azalma
 - **Yaklaşım:** MVP - Tüm özelliklerin basit versiyonları
 
@@ -17,17 +18,17 @@
 
 ## Teknoloji Stack
 
-| Kategori | Teknoloji |
-|----------|-----------|
-| Frontend | Next.js 16.1.6 (App Router) + TypeScript |
-| Styling | Tailwind CSS v4 + shadcn/ui |
-| Icons | Lucide React |
-| Maps | Mapbox GL JS + @mapbox/mapbox-gl-draw + Turf.js |
-| Backend | Supabase (PostgreSQL + PostGIS, Auth, Storage, Edge Functions) |
-| AI | OpenAI GPT-4 |
-| State | TanStack React Query |
-| Forms | React Hook Form + Zod |
-| Dark Mode | next-themes |
+| Kategori  | Teknoloji                                                      |
+| --------- | -------------------------------------------------------------- |
+| Frontend  | Next.js 16.1.6 (App Router) + TypeScript                       |
+| Styling   | Tailwind CSS v4 + shadcn/ui                                    |
+| Icons     | Lucide React                                                   |
+| Maps      | Mapbox GL JS + @mapbox/mapbox-gl-draw + Turf.js                |
+| Backend   | Supabase (PostgreSQL + PostGIS, Auth, Storage, Edge Functions) |
+| AI        | OpenAI GPT-4                                                   |
+| State     | TanStack React Query                                           |
+| Forms     | React Hook Form + Zod                                          |
+| Dark Mode | next-themes                                                    |
 
 ---
 
@@ -36,6 +37,7 @@
 ### Phase 1: Foundation & Core UI ✅ TAMAMLANDI
 
 #### 1.1 Proje Kurulumu
+
 - [x] Next.js project initialization
 - [x] All dependencies installed
 - [x] Tailwind CSS v4 with @tailwindcss/postcss
@@ -43,6 +45,7 @@
 - [x] Dark mode configuration (next-themes)
 
 #### 1.2 UI Components (shadcn/ui) - TÜM COMPONENTLER
+
 - [x] button, card, badge, progress, avatar, input, label
 - [x] select, checkbox, dialog, dropdown-menu, sheet
 - [x] tabs, table, scroll-area, separator, skeleton
@@ -50,6 +53,7 @@
 - [x] textarea, alert, alert-dialog, command, calendar
 
 #### 1.3 Supabase Setup
+
 - [x] lib/supabase/client.ts (browser client)
 - [x] lib/supabase/server.ts (server client)
 - [x] middleware.ts (auth middleware)
@@ -57,6 +61,7 @@
 - [x] TypeScript types (database.ts, index.ts)
 
 #### 1.4 Layout Components
+
 - [x] components/layout/sidebar.tsx
 - [x] components/layout/header.tsx
 - [x] components/layout/theme-toggle.tsx
@@ -64,6 +69,7 @@
 - [x] app/(dashboard)/layout.tsx
 
 #### 1.5 Dashboard & Projects
+
 - [x] components/dashboard/stats-cards.tsx
 - [x] components/dashboard/project-card.tsx
 - [x] components/dashboard/status-filter.tsx
@@ -73,6 +79,7 @@
 - [x] app/(dashboard)/projects/[id]/page.tsx (Detail with tabs)
 
 #### 1.6 Auth Pages
+
 - [x] app/(auth)/login/page.tsx
 - [x] app/(auth)/register/page.tsx
 - [x] app/(auth)/layout.tsx
@@ -82,22 +89,26 @@
 ### Phase 2: GIS & Desk Research ✅ TAMAMLANDI
 
 #### 2.1 Map Components
+
 - [x] components/maps/project-map.tsx (Mapbox GL JS integration)
 - [x] components/maps/draw-controls.tsx (Polygon drawing)
 - [x] Layer toggle, satellite/streets styles
 
 #### 2.2 Grid Reference Utilities
+
 - [x] lib/utils/grid-reference.ts
   - wgs84ToItm(), itmToWgs84()
   - itmToGridRef(), gridRefToItm()
   - wgs84ToGridRef(), getPolygonGridRef()
 
 #### 2.3 External API Clients
+
 - [x] lib/external-apis/npws.ts (ArcGIS REST - Designated Sites)
 - [x] lib/external-apis/gbif.ts (REST - Species Records)
 - [x] lib/external-apis/nbdc.ts (ASP.NET - Irish Species)
 
 #### 2.4 Desk Research UI
+
 - [x] components/ui/command.tsx (cmdk)
 - [x] components/desk-research/finding-card.tsx
 - [x] components/desk-research/source-selector.tsx
@@ -109,11 +120,13 @@
 ### Phase 3: Field Surveys ✅ TAMAMLANDI
 
 #### 3.1 Survey Management
+
 - [x] components/field-surveys/survey-card.tsx
 - [x] components/field-surveys/survey-form.tsx
 - [x] app/(dashboard)/projects/[id]/field-surveys/page.tsx
 
 #### 3.2 Species Observation Form
+
 - [x] components/field-surveys/species-observation-form.tsx
   - Scientific/common name, taxon group
   - Count, DAFOR abundance
@@ -122,12 +135,14 @@
   - Protection status, confidence level
 
 #### 3.3 Habitat Form
+
 - [x] components/field-surveys/habitat-form.tsx
   - Fossitt code selector (full classification)
   - Condition assessment
   - Area, notes
 
 #### 3.4 Supporting Data
+
 - [x] lib/data/fossitt-codes.ts (Complete Fossitt 2000 classification)
 
 ---
@@ -135,6 +150,7 @@
 ### Phase 4: Reporting & AI ✅ TAMAMLANDI
 
 #### 4.1 AI Report Generator
+
 - [x] lib/ai/report-generator.ts
   - generateIntroductionSection()
   - generateMethodologySection()
@@ -147,6 +163,7 @@
   - generateFullReportDraft() with progress callback
 
 #### 4.2 Reports Page
+
 - [x] app/(dashboard)/projects/[id]/reports/page.tsx
   - Report list with versions
   - AI draft generation with GPT-4
@@ -161,16 +178,19 @@
 ### Phase 5: Polish & Client Portal
 
 #### 5.1 Client Portal
+
 - [ ] Read-only project status view
 - [ ] Progress dashboard for clients
 - [ ] Photo gallery
 - [ ] Report download
 
 #### 5.2 Notifications
+
 - [ ] Email notifications (Resend)
 - [ ] In-app notifications
 
 #### 5.3 Final Polish
+
 - [ ] Query optimization
 - [ ] Error handling improvements
 - [ ] E2E tests
@@ -293,13 +313,13 @@ OPENAI_API_KEY=sk-proj-...
 
 ## External API'ler
 
-| API | Durum | Kullanım |
-|-----|-------|----------|
-| NPWS | ✅ Tam Çalışıyor | Designated Sites (SAC, SPA, NHA, pNHA) |
-| GBIF | ✅ Tam Çalışıyor | Species occurrence records |
-| NBDC | ✅ Çalışıyor | Irish species details |
-| OpenAI | ✅ Tam Çalışıyor | GPT-4 report generation |
-| Mapbox | ⚠️ Token Gerekli | Map display, drawing |
+| API    | Durum            | Kullanım                               |
+| ------ | ---------------- | -------------------------------------- |
+| NPWS   | ✅ Tam Çalışıyor | Designated Sites (SAC, SPA, NHA, pNHA) |
+| GBIF   | ✅ Tam Çalışıyor | Species occurrence records             |
+| NBDC   | ✅ Çalışıyor     | Irish species details                  |
+| OpenAI | ✅ Tam Çalışıyor | GPT-4 report generation                |
+| Mapbox | ⚠️ Token Gerekli | Map display, drawing                   |
 
 ---
 
@@ -330,6 +350,7 @@ Route (app)
 ## Bir Sonraki Adımlar
 
 ### Öncelik Sırası
+
 1. **Mapbox Token** - Harita görüntüleme için gerekli
 2. **Phase 5** - Client Portal ve Notifications
 3. **Testing** - E2E tests with Playwright

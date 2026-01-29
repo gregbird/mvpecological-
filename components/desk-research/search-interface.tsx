@@ -1,33 +1,33 @@
-"use client";
+'use client'
 
-import * as React from "react";
-import { Search, Loader2, MapPin, RefreshCw } from "lucide-react";
+import * as React from 'react'
+import { Search, Loader2, MapPin, RefreshCw } from 'lucide-react'
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { useToast } from "@/hooks/use-toast";
-import { FindingCard, type DeskResearchFinding, type FindingSource } from "./finding-card";
-import { SourceSelector } from "./source-selector";
-import { queryDesignatedSites, getSiteTypeDisplayName } from "@/lib/external-apis/npws";
-import { searchOccurrences } from "@/lib/external-apis/gbif";
-import { wgs84ToGridRef } from "@/lib/utils/grid-reference";
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { useToast } from '@/hooks/use-toast'
+import { FindingCard, type DeskResearchFinding, type FindingSource } from './finding-card'
+import { SourceSelector } from './source-selector'
+import { queryDesignatedSites, getSiteTypeDisplayName } from '@/lib/external-apis/npws'
+import { searchOccurrences } from '@/lib/external-apis/gbif'
+import { wgs84ToGridRef } from '@/lib/utils/grid-reference'
 
 interface SearchInterfaceProps {
-  projectId: string;
-  projectBoundary?: GeoJSON.Feature<GeoJSON.Polygon>;
-  projectCenter?: { lat: number; lng: number };
-  gridReference?: string;
-  searchRadius?: number; // km
-  onFindingSave?: (finding: DeskResearchFinding) => void;
-  onFindingRemove?: (finding: DeskResearchFinding) => void;
-  onViewOnMap?: (finding: DeskResearchFinding) => void;
-  savedFindings?: DeskResearchFinding[];
+  projectId: string
+  projectBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
+  projectCenter?: { lat: number; lng: number }
+  gridReference?: string
+  searchRadius?: number // km
+  onFindingSave?: (finding: DeskResearchFinding) => void
+  onFindingRemove?: (finding: DeskResearchFinding) => void
+  onViewOnMap?: (finding: DeskResearchFinding) => void
+  savedFindings?: DeskResearchFinding[]
 }
 
 export function SearchInterface({
@@ -41,77 +41,74 @@ export function SearchInterface({
   onViewOnMap,
   savedFindings = [],
 }: SearchInterfaceProps) {
-  const { toast } = useToast();
-  const [isSearching, setIsSearching] = React.useState(false);
-  const [searchResults, setSearchResults] = React.useState<DeskResearchFinding[]>([]);
-  const [selectedSources, setSelectedSources] = React.useState<FindingSource[]>([
-    "npws",
-    "gbif",
-  ]);
-  const [activeTab, setActiveTab] = React.useState("search");
-  const [customGridRef, setCustomGridRef] = React.useState(gridReference || "");
-  const [customRadius, setCustomRadius] = React.useState(searchRadius);
+  const { toast } = useToast()
+  const [isSearching, setIsSearching] = React.useState(false)
+  const [searchResults, setSearchResults] = React.useState<DeskResearchFinding[]>([])
+  const [selectedSources, setSelectedSources] = React.useState<FindingSource[]>(['npws', 'gbif'])
+  const [activeTab, setActiveTab] = React.useState('search')
+  const [customGridRef, setCustomGridRef] = React.useState(gridReference || '')
+  const [customRadius, setCustomRadius] = React.useState(searchRadius)
 
   // Get bounding box from project boundary or center point
   const getBoundingBox = React.useCallback(() => {
     if (projectBoundary) {
-      const coords = projectBoundary.geometry.coordinates[0];
+      const coords = projectBoundary.geometry.coordinates[0]
       let minLng = Infinity,
         maxLng = -Infinity,
         minLat = Infinity,
-        maxLat = -Infinity;
+        maxLat = -Infinity
 
       for (const coord of coords) {
-        minLng = Math.min(minLng, coord[0]);
-        maxLng = Math.max(maxLng, coord[0]);
-        minLat = Math.min(minLat, coord[1]);
-        maxLat = Math.max(maxLat, coord[1]);
+        minLng = Math.min(minLng, coord[0])
+        maxLng = Math.max(maxLng, coord[0])
+        minLat = Math.min(minLat, coord[1])
+        maxLat = Math.max(maxLat, coord[1])
       }
 
       // Add buffer (approx km to degrees)
-      const buffer = customRadius * 0.009; // ~1km = 0.009 degrees
+      const buffer = customRadius * 0.009 // ~1km = 0.009 degrees
       return {
         minLng: minLng - buffer,
         maxLng: maxLng + buffer,
         minLat: minLat - buffer,
         maxLat: maxLat + buffer,
-      };
+      }
     }
 
     if (projectCenter) {
-      const buffer = customRadius * 0.009;
+      const buffer = customRadius * 0.009
       return {
         minLng: projectCenter.lng - buffer,
         maxLng: projectCenter.lng + buffer,
         minLat: projectCenter.lat - buffer,
         maxLat: projectCenter.lat + buffer,
-      };
+      }
     }
 
-    return null;
-  }, [projectBoundary, projectCenter, customRadius]);
+    return null
+  }, [projectBoundary, projectCenter, customRadius])
 
   // Perform search across selected sources
   const performSearch = async () => {
-    const bbox = getBoundingBox();
+    const bbox = getBoundingBox()
 
     if (!bbox && !customGridRef) {
       toast({
-        variant: "destructive",
-        title: "Search area required",
-        description: "Please define a project boundary or enter a grid reference.",
-      });
-      return;
+        variant: 'destructive',
+        title: 'Search area required',
+        description: 'Please define a project boundary or enter a grid reference.',
+      })
+      return
     }
 
-    setIsSearching(true);
-    setSearchResults([]);
+    setIsSearching(true)
+    setSearchResults([])
 
-    const results: DeskResearchFinding[] = [];
+    const results: DeskResearchFinding[] = []
 
     try {
       // Search NPWS designated sites
-      if (selectedSources.includes("npws") && bbox) {
+      if (selectedSources.includes('npws') && bbox) {
         try {
           const npwsResults = await queryDesignatedSites({
             bbox: {
@@ -120,19 +117,17 @@ export function SearchInterface({
               maxX: bbox.maxLng,
               maxY: bbox.maxLat,
             },
-          });
+          })
 
           for (const site of npwsResults) {
-            const isSaved = savedFindings.some(
-              (f) => f.metadata?.siteCode === site.SITECODE
-            );
+            const isSaved = savedFindings.some((f) => f.metadata?.siteCode === site.SITECODE)
 
             results.push({
               id: `npws-${site.SITECODE}`,
-              source: "npws",
-              dataType: "designated_site",
+              source: 'npws',
+              dataType: 'designated_site',
               title: site.SITENAME,
-              content: `${getSiteTypeDisplayName(site.SITE_TYPE as "SAC" | "SPA" | "NHA" | "pNHA")} covering ${site.AREA_HA?.toFixed(1) || "unknown"} hectares.`,
+              content: `${getSiteTypeDisplayName(site.SITE_TYPE as 'SAC' | 'SPA' | 'NHA' | 'pNHA')} covering ${site.AREA_HA?.toFixed(1) || 'unknown'} hectares.`,
               location: site.geometry,
               isSaved,
               rawData: site as unknown as Record<string, unknown>,
@@ -140,20 +135,20 @@ export function SearchInterface({
                 siteCode: site.SITECODE,
                 siteType: site.SITE_TYPE,
               },
-            });
+            })
           }
         } catch (error) {
-          console.error("NPWS search error:", error);
+          console.error('NPWS search error:', error)
           toast({
-            variant: "destructive",
-            title: "NPWS search failed",
-            description: "Could not fetch designated sites data.",
-          });
+            variant: 'destructive',
+            title: 'NPWS search failed',
+            description: 'Could not fetch designated sites data.',
+          })
         }
       }
 
       // Search GBIF species records
-      if (selectedSources.includes("gbif") && bbox) {
+      if (selectedSources.includes('gbif') && bbox) {
         try {
           const gbifResults = await searchOccurrences({
             bbox: {
@@ -163,62 +158,57 @@ export function SearchInterface({
               maxLng: bbox.maxLng,
             },
             limit: 100,
-            year: "2015,2025", // Last 10 years
-          });
+            year: '2015,2025', // Last 10 years
+          })
 
           // Group by species
           const speciesGroups = new Map<
             string,
             { count: number; records: typeof gbifResults.results }
-          >();
+          >()
 
           for (const record of gbifResults.results) {
-            const key = record.scientificName || "Unknown";
+            const key = record.scientificName || 'Unknown'
             if (!speciesGroups.has(key)) {
-              speciesGroups.set(key, { count: 0, records: [] });
+              speciesGroups.set(key, { count: 0, records: [] })
             }
-            const group = speciesGroups.get(key)!;
-            group.count++;
-            group.records.push(record);
+            const group = speciesGroups.get(key)!
+            group.count++
+            group.records.push(record)
           }
 
           // Create findings for each species
           for (const [scientificName, { count, records }] of speciesGroups) {
-            const firstRecord = records[0];
-            const isSaved = savedFindings.some(
-              (f) => f.metadata?.scientificName === scientificName
-            );
+            const firstRecord = records[0]
+            const isSaved = savedFindings.some((f) => f.metadata?.scientificName === scientificName)
 
             // Create location geometry - use GeometryCollection for multiple points
-            let locationGeometry: GeoJSON.Geometry;
+            let locationGeometry: GeoJSON.Geometry
             if (count === 1) {
               locationGeometry = {
-                type: "Point",
-                coordinates: [
-                  firstRecord.decimalLongitude,
-                  firstRecord.decimalLatitude,
-                ],
-              };
+                type: 'Point',
+                coordinates: [firstRecord.decimalLongitude, firstRecord.decimalLatitude],
+              }
             } else {
               // Convert multiple records to a GeometryCollection of Points
               const geometries: GeoJSON.Point[] = records
                 .filter((r) => r.decimalLatitude && r.decimalLongitude)
                 .map((r) => ({
-                  type: "Point" as const,
+                  type: 'Point' as const,
                   coordinates: [r.decimalLongitude, r.decimalLatitude],
-                }));
+                }))
               locationGeometry = {
-                type: "GeometryCollection",
+                type: 'GeometryCollection',
                 geometries,
-              };
+              }
             }
 
             results.push({
-              id: `gbif-${scientificName.replace(/\s+/g, "-")}`,
-              source: "gbif",
-              dataType: "species_record",
+              id: `gbif-${scientificName.replace(/\s+/g, '-')}`,
+              source: 'gbif',
+              dataType: 'species_record',
               title: firstRecord.vernacularName || scientificName,
-              content: `${count} record${count > 1 ? "s" : ""} found within search area. Family: ${firstRecord.family || "Unknown"}.`,
+              content: `${count} record${count > 1 ? 's' : ''} found within search area. Family: ${firstRecord.family || 'Unknown'}.`,
               location: locationGeometry,
               isSaved,
               rawData: { recordCount: count, sampleRecords: records.slice(0, 5) },
@@ -228,54 +218,54 @@ export function SearchInterface({
                 recordCount: count,
                 recordDate: firstRecord.eventDate,
               },
-            });
+            })
           }
         } catch (error) {
-          console.error("GBIF search error:", error);
+          console.error('GBIF search error:', error)
           toast({
-            variant: "destructive",
-            title: "GBIF search failed",
-            description: "Could not fetch species occurrence data.",
-          });
+            variant: 'destructive',
+            title: 'GBIF search failed',
+            description: 'Could not fetch species occurrence data.',
+          })
         }
       }
 
-      setSearchResults(results);
+      setSearchResults(results)
 
       if (results.length === 0) {
         toast({
-          title: "No results found",
-          description: "Try expanding your search radius or selecting more sources.",
-        });
+          title: 'No results found',
+          description: 'Try expanding your search radius or selecting more sources.',
+        })
       } else {
         toast({
-          title: "Search complete",
-          description: `Found ${results.length} result${results.length > 1 ? "s" : ""}.`,
-        });
+          title: 'Search complete',
+          description: `Found ${results.length} result${results.length > 1 ? 's' : ''}.`,
+        })
       }
     } catch (error) {
-      console.error("Search error:", error);
+      console.error('Search error:', error)
       toast({
-        variant: "destructive",
-        title: "Search failed",
-        description: "An error occurred while searching.",
-      });
+        variant: 'destructive',
+        title: 'Search failed',
+        description: 'An error occurred while searching.',
+      })
     } finally {
-      setIsSearching(false);
+      setIsSearching(false)
     }
-  };
+  }
 
   // Calculate grid reference from center if available
   const calculatedGridRef = React.useMemo(() => {
     if (projectCenter) {
       try {
-        return wgs84ToGridRef(projectCenter.lat, projectCenter.lng, 4);
+        return wgs84ToGridRef(projectCenter.lat, projectCenter.lng, 4)
       } catch {
-        return null;
+        return null
       }
     }
-    return null;
-  }, [projectCenter]);
+    return null
+  }, [projectCenter])
 
   return (
     <div className="space-y-4">
@@ -323,7 +313,7 @@ export function SearchInterface({
                   <div className="flex gap-2">
                     <Input
                       id="gridRef"
-                      placeholder={calculatedGridRef || "e.g., N 1234 5678"}
+                      placeholder={calculatedGridRef || 'e.g., N 1234 5678'}
                       value={customGridRef}
                       onChange={(e) => setCustomGridRef(e.target.value)}
                       disabled={isSearching}
@@ -358,7 +348,7 @@ export function SearchInterface({
 
               {/* Search status */}
               {projectBoundary && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="text-muted-foreground flex items-center gap-2 text-sm">
                   <MapPin className="h-4 w-4" />
                   <span>Searching within project boundary + {customRadius}km buffer</span>
                 </div>
@@ -391,15 +381,8 @@ export function SearchInterface({
           {searchResults.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold">
-                  Results ({searchResults.length})
-                </h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={performSearch}
-                  disabled={isSearching}
-                >
+                <h3 className="font-semibold">Results ({searchResults.length})</h3>
+                <Button variant="ghost" size="sm" onClick={performSearch} disabled={isSearching}>
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Refresh
                 </Button>
@@ -423,11 +406,11 @@ export function SearchInterface({
         <TabsContent value="saved" className="space-y-4">
           {savedFindings.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Search className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="font-semibold mb-2">No saved findings</h3>
+              <Search className="text-muted-foreground mb-4 h-12 w-12" />
+              <h3 className="mb-2 font-semibold">No saved findings</h3>
               <p className="text-muted-foreground max-w-md">
-                Search for data and save relevant findings to include them in your
-                desk research report.
+                Search for data and save relevant findings to include them in your desk research
+                report.
               </p>
             </div>
           ) : (
@@ -451,5 +434,5 @@ export function SearchInterface({
         </TabsContent>
       </Tabs>
     </div>
-  );
+  )
 }
