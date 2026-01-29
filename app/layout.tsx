@@ -5,6 +5,8 @@ import 'leaflet/dist/leaflet.css'
 import 'leaflet-draw/dist/leaflet.draw.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Toaster } from '@/components/ui/toaster'
+import { RoleProvider } from '@/contexts/role-context'
+import { DevModeButton } from '@/components/dev-mode-button'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -27,8 +29,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
-          <Toaster />
+          <RoleProvider>
+            {children}
+            <DevModeButton />
+            <Toaster />
+          </RoleProvider>
         </ThemeProvider>
       </body>
     </html>

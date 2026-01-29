@@ -2,9 +2,8 @@
 
 import * as React from 'react'
 import { Sidebar } from '@/components/layout/sidebar'
-import { RoleProvider } from '@/contexts/role-context'
 
-function DashboardContent({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
@@ -12,13 +11,5 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
         {children}
       </main>
     </div>
-  )
-}
-
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <RoleProvider>
-      <DashboardContent>{children}</DashboardContent>
-    </RoleProvider>
   )
 }
