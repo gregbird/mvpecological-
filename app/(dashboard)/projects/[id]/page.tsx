@@ -205,6 +205,7 @@ export default function ProjectDetailPage() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="workflow">Workflow</TabsTrigger>
           <TabsTrigger value="desk-research">Desk Research</TabsTrigger>
+          <TabsTrigger value="field-surveys">Field Surveys</TabsTrigger>
           <TabsTrigger value="map">Map</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
         </TabsList>
@@ -406,6 +407,29 @@ export default function ProjectDetailPage() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="field-surveys">
+          <Card>
+            <CardHeader>
+              <CardTitle>Field Surveys</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Map className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="font-semibold mb-2">Manage Field Surveys</h3>
+                <p className="text-muted-foreground max-w-md mb-4">
+                  Plan and record field surveys, species observations, and habitat
+                  polygons for this project.
+                </p>
+                <Button asChild>
+                  <Link href={`/projects/${projectId}/field-surveys`}>
+                    View Surveys
+                  </Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="map">
           <Card>
             <CardHeader>
@@ -432,12 +456,16 @@ export default function ProjectDetailPage() {
             <CardContent>
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="font-semibold mb-2">No Reports Yet</h3>
+                <h3 className="font-semibold mb-2">Generate Reports</h3>
                 <p className="text-muted-foreground max-w-md mb-4">
-                  Reports will be available once desk research and field surveys are
-                  completed.
+                  Create AI-powered report drafts based on your desk research findings
+                  and field survey data.
                 </p>
-                <Button disabled>Generate Report</Button>
+                <Button asChild>
+                  <Link href={`/projects/${projectId}/reports`}>
+                    Manage Reports
+                  </Link>
+                </Button>
               </div>
             </CardContent>
           </Card>

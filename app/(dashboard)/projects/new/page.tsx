@@ -36,7 +36,7 @@ const projectSchema = z.object({
   description: z.string().optional(),
   expectedStartDate: z.string().optional(),
   expectedEndDate: z.string().optional(),
-  budgetDays: z.coerce.number().optional(),
+  budgetDays: z.string().optional(),
 });
 
 type ProjectFormData = z.infer<typeof projectSchema>;

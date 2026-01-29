@@ -3,7 +3,7 @@
 > Bu döküman, projenin implementasyon durumunu takip etmek için kullanılır.
 > Agent compact olduğunda bilgi kaybını önlemek için güncel tutulmalıdır.
 
-**Son Güncelleme:** 2026-01-29 (Updated after Phase 1 completion)
+**Son Güncelleme:** 2026-01-29 (Phase 1-4 completed)
 
 ---
 
@@ -19,8 +19,8 @@
 
 | Kategori | Teknoloji |
 |----------|-----------|
-| Frontend | Next.js 14 (App Router) + TypeScript |
-| Styling | Tailwind CSS + shadcn/ui |
+| Frontend | Next.js 16.1.6 (App Router) + TypeScript |
+| Styling | Tailwind CSS v4 + shadcn/ui |
 | Icons | Lucide React |
 | Maps | Mapbox GL JS + @mapbox/mapbox-gl-draw + Turf.js |
 | Backend | Supabase (PostgreSQL + PostGIS, Auth, Storage, Edge Functions) |
@@ -33,166 +33,245 @@
 
 ## Tamamlanan İşler ✅
 
-### 1. Proje Kurulumu
-- [x] npm init ve package.json oluşturuldu
-- [x] Next.js core dependencies yüklendi (next, react, react-dom, typescript)
-- [x] Tailwind CSS ve PostCSS kuruldu
-- [x] ESLint kuruldu
-- [x] next.config.ts oluşturuldu
-- [x] tsconfig.json oluşturuldu
-- [x] tailwind.config.ts oluşturuldu (shadcn/ui uyumlu, dark mode destekli)
-- [x] postcss.config.mjs oluşturuldu
+### Phase 1: Foundation & Core UI ✅ TAMAMLANDI
 
-### 2. Dependencies
-- [x] @supabase/supabase-js, @supabase/ssr
-- [x] @tanstack/react-query
-- [x] lucide-react
-- [x] next-themes
-- [x] date-fns
-- [x] zod, react-hook-form, @hookform/resolvers
-- [x] class-variance-authority, clsx, tailwind-merge, tailwindcss-animate
-- [x] mapbox-gl, @mapbox/mapbox-gl-draw, @turf/turf, @types/mapbox-gl
-- [x] Radix UI primitives (slot, dialog, dropdown-menu, avatar, progress, tabs, select, checkbox, label, separator, scroll-area, toast, accordion, popover, tooltip)
+#### 1.1 Proje Kurulumu
+- [x] Next.js project initialization
+- [x] All dependencies installed
+- [x] Tailwind CSS v4 with @tailwindcss/postcss
+- [x] shadcn/ui setup and component installation
+- [x] Dark mode configuration (next-themes)
 
-### 3. Temel Dosyalar
-- [x] app/globals.css (CSS variables, dark mode support)
-- [x] app/layout.tsx (ThemeProvider, Toaster)
-- [x] app/page.tsx (Landing page)
-- [x] lib/utils.ts (cn, formatDate, formatDateTime, getInitials)
-- [x] components.json (shadcn/ui config)
+#### 1.2 UI Components (shadcn/ui) - TÜM COMPONENTLER
+- [x] button, card, badge, progress, avatar, input, label
+- [x] select, checkbox, dialog, dropdown-menu, sheet
+- [x] tabs, table, scroll-area, separator, skeleton
+- [x] toast, toaster, accordion, form, popover, tooltip
+- [x] textarea, alert, alert-dialog, command, calendar
 
-### 4. UI Components (shadcn/ui)
-- [x] components/ui/button.tsx
-- [x] components/ui/card.tsx
-- [x] components/ui/badge.tsx (success, warning, info variants eklendi)
-- [x] components/ui/progress.tsx
-- [x] components/ui/avatar.tsx
+#### 1.3 Supabase Setup
+- [x] lib/supabase/client.ts (browser client)
+- [x] lib/supabase/server.ts (server client)
+- [x] middleware.ts (auth middleware)
+- [x] Database schema migration (PostGIS, all tables, RLS)
+- [x] TypeScript types (database.ts, index.ts)
+
+#### 1.4 Layout Components
+- [x] components/layout/sidebar.tsx
+- [x] components/layout/header.tsx
+- [x] components/layout/theme-toggle.tsx
+- [x] components/theme-provider.tsx
+- [x] app/(dashboard)/layout.tsx
+
+#### 1.5 Dashboard & Projects
+- [x] components/dashboard/stats-cards.tsx
+- [x] components/dashboard/project-card.tsx
+- [x] components/dashboard/status-filter.tsx
+- [x] app/(dashboard)/page.tsx (Dashboard)
+- [x] app/(dashboard)/projects/page.tsx (List)
+- [x] app/(dashboard)/projects/new/page.tsx (Create)
+- [x] app/(dashboard)/projects/[id]/page.tsx (Detail with tabs)
+
+#### 1.6 Auth Pages
+- [x] app/(auth)/login/page.tsx
+- [x] app/(auth)/register/page.tsx
+- [x] app/(auth)/layout.tsx
 
 ---
 
-## Devam Eden İşler 🔄
+### Phase 2: GIS & Desk Research ✅ TAMAMLANDI
 
-### shadcn/ui Components (Eksik olanlar)
-- [ ] components/ui/input.tsx
-- [ ] components/ui/label.tsx
-- [ ] components/ui/select.tsx
-- [ ] components/ui/checkbox.tsx
-- [ ] components/ui/dialog.tsx
-- [ ] components/ui/dropdown-menu.tsx
-- [ ] components/ui/sheet.tsx
-- [ ] components/ui/tabs.tsx
-- [ ] components/ui/table.tsx
-- [ ] components/ui/scroll-area.tsx
-- [ ] components/ui/separator.tsx
-- [ ] components/ui/skeleton.tsx
-- [ ] components/ui/toast.tsx + toaster.tsx + use-toast.ts
-- [ ] components/ui/accordion.tsx
-- [ ] components/ui/form.tsx
-- [ ] components/ui/popover.tsx
-- [ ] components/ui/tooltip.tsx
-- [ ] components/ui/command.tsx
+#### 2.1 Map Components
+- [x] components/maps/project-map.tsx (Mapbox GL JS integration)
+- [x] components/maps/draw-controls.tsx (Polygon drawing)
+- [x] Layer toggle, satellite/streets styles
 
-### Theme Provider
-- [ ] components/theme-provider.tsx
+#### 2.2 Grid Reference Utilities
+- [x] lib/utils/grid-reference.ts
+  - wgs84ToItm(), itmToWgs84()
+  - itmToGridRef(), gridRefToItm()
+  - wgs84ToGridRef(), getPolygonGridRef()
+
+#### 2.3 External API Clients
+- [x] lib/external-apis/npws.ts (ArcGIS REST - Designated Sites)
+- [x] lib/external-apis/gbif.ts (REST - Species Records)
+- [x] lib/external-apis/nbdc.ts (ASP.NET - Irish Species)
+
+#### 2.4 Desk Research UI
+- [x] components/ui/command.tsx (cmdk)
+- [x] components/desk-research/finding-card.tsx
+- [x] components/desk-research/source-selector.tsx
+- [x] components/desk-research/search-interface.tsx
+- [x] app/(dashboard)/projects/[id]/desk-research/page.tsx
+
+---
+
+### Phase 3: Field Surveys ✅ TAMAMLANDI
+
+#### 3.1 Survey Management
+- [x] components/field-surveys/survey-card.tsx
+- [x] components/field-surveys/survey-form.tsx
+- [x] app/(dashboard)/projects/[id]/field-surveys/page.tsx
+
+#### 3.2 Species Observation Form
+- [x] components/field-surveys/species-observation-form.tsx
+  - Scientific/common name, taxon group
+  - Count, DAFOR abundance
+  - Evidence type, behavior notes
+  - Location (GPS with accuracy)
+  - Protection status, confidence level
+
+#### 3.3 Habitat Form
+- [x] components/field-surveys/habitat-form.tsx
+  - Fossitt code selector (full classification)
+  - Condition assessment
+  - Area, notes
+
+#### 3.4 Supporting Data
+- [x] lib/data/fossitt-codes.ts (Complete Fossitt 2000 classification)
+
+---
+
+### Phase 4: Reporting & AI ✅ TAMAMLANDI
+
+#### 4.1 AI Report Generator
+- [x] lib/ai/report-generator.ts
+  - generateIntroductionSection()
+  - generateMethodologySection()
+  - generateHabitatsSection()
+  - generateSpeciesSection()
+  - generateDesignatedSitesSection()
+  - generateImpactSection()
+  - generateMitigationSection()
+  - generateConclusionsSection()
+  - generateFullReportDraft() with progress callback
+
+#### 4.2 Reports Page
+- [x] app/(dashboard)/projects/[id]/reports/page.tsx
+  - Report list with versions
+  - AI draft generation with GPT-4
+  - Section editor with accordion
+  - Status workflow (draft → internal review → client review → approved → final)
+  - Download button (PDF export placeholder)
 
 ---
 
 ## Bekleyen İşler 📋
 
-### Phase 1: Foundation & Core UI
-
-#### 1.4 Dark Mode Configuration
-- [ ] components/theme-provider.tsx oluştur
-- [ ] components/layout/theme-toggle.tsx oluştur
-
-#### 1.5 Supabase Client Setup
-- [ ] lib/supabase/client.ts (browser client)
-- [ ] lib/supabase/server.ts (server client)
-- [ ] middleware.ts (auth middleware)
-
-#### 1.6 Database Schema
-- [ ] supabase/migrations/0001_initial_schema.sql
-- [ ] PostGIS extension enable
-- [ ] Tüm tablolar (organizations, profiles, projects, workflow_steps, etc.)
-- [ ] RLS policies
-- [ ] Audit trail triggers
-
-#### 1.7 TypeScript Types
-- [ ] types/database.ts (Supabase'den generate edilecek)
-- [ ] types/index.ts
-
-#### 1.8-1.9 Layout Components
-- [ ] components/layout/sidebar.tsx
-- [ ] components/layout/header.tsx
-- [ ] app/(dashboard)/layout.tsx
-
-#### 1.10-1.13 Dashboard
-- [ ] components/dashboard/stats-cards.tsx
-- [ ] components/dashboard/project-card.tsx
-- [ ] components/dashboard/status-filter.tsx
-- [ ] app/(dashboard)/page.tsx
-
-#### 1.14 Auth Pages
-- [ ] app/(auth)/login/page.tsx
-- [ ] app/(auth)/register/page.tsx
-- [ ] app/(auth)/layout.tsx
-
-#### 1.15-1.17 Project Management
-- [ ] app/(dashboard)/projects/page.tsx
-- [ ] app/(dashboard)/projects/new/page.tsx
-- [ ] app/(dashboard)/projects/[id]/page.tsx
-
-#### 1.18 Workflow Modal
-- [ ] components/workflow/workflow-modal.tsx
-- [ ] components/workflow/workflow-step.tsx
-
-### Phase 2: GIS & Desk Research
-- [ ] 2.1-2.3 Mapbox components
-- [ ] 2.4 Grid reference utilities
-- [ ] 2.5-2.9 External API integrations
-- [ ] 2.10-2.14 Desk research UI
-
-### Phase 3: Field Surveys
-- [ ] 3.1-3.9 Survey management ve forms
-
-### Phase 4: Reporting & AI
-- [ ] 4.1-4.8 AI integration ve report builder
-
 ### Phase 5: Polish & Client Portal
-- [ ] 5.1-5.9 Client portal ve notifications
+
+#### 5.1 Client Portal
+- [ ] Read-only project status view
+- [ ] Progress dashboard for clients
+- [ ] Photo gallery
+- [ ] Report download
+
+#### 5.2 Notifications
+- [ ] Email notifications (Resend)
+- [ ] In-app notifications
+
+#### 5.3 Final Polish
+- [ ] Query optimization
+- [ ] Error handling improvements
+- [ ] E2E tests
 
 ---
 
-## Dosya Yapısı (Mevcut)
+## Dosya Yapısı (Güncel)
 
 ```
 dulra/
 ├── app/
-│   ├── globals.css          ✅
-│   ├── layout.tsx           ✅
-│   └── page.tsx             ✅
+│   ├── (auth)/
+│   │   ├── layout.tsx            ✅
+│   │   ├── login/page.tsx        ✅
+│   │   └── register/page.tsx     ✅
+│   ├── (dashboard)/
+│   │   ├── layout.tsx            ✅
+│   │   ├── page.tsx              ✅ (Dashboard)
+│   │   └── projects/
+│   │       ├── page.tsx          ✅ (List)
+│   │       ├── new/page.tsx      ✅ (Create)
+│   │       └── [id]/
+│   │           ├── page.tsx      ✅ (Detail)
+│   │           ├── desk-research/page.tsx   ✅
+│   │           ├── field-surveys/page.tsx   ✅
+│   │           └── reports/page.tsx         ✅
+│   ├── globals.css               ✅ (Tailwind v4)
+│   ├── layout.tsx                ✅
+│   └── page.tsx                  ✅ (Landing)
 │
 ├── components/
-│   ├── ui/
-│   │   ├── avatar.tsx       ✅
-│   │   ├── badge.tsx        ✅
-│   │   ├── button.tsx       ✅
-│   │   ├── card.tsx         ✅
-│   │   └── progress.tsx     ✅
-│   └── theme-provider.tsx   ❌ (oluşturulacak)
+│   ├── ui/                       ✅ (25+ components)
+│   ├── layout/
+│   │   ├── sidebar.tsx           ✅
+│   │   ├── header.tsx            ✅
+│   │   └── theme-toggle.tsx      ✅
+│   ├── dashboard/
+│   │   ├── stats-cards.tsx       ✅
+│   │   ├── project-card.tsx      ✅
+│   │   └── status-filter.tsx     ✅
+│   ├── maps/
+│   │   ├── project-map.tsx       ✅
+│   │   └── draw-controls.tsx     ✅
+│   ├── desk-research/
+│   │   ├── search-interface.tsx  ✅
+│   │   ├── finding-card.tsx      ✅
+│   │   └── source-selector.tsx   ✅
+│   ├── field-surveys/
+│   │   ├── survey-card.tsx       ✅
+│   │   ├── survey-form.tsx       ✅
+│   │   ├── species-observation-form.tsx ✅
+│   │   └── habitat-form.tsx      ✅
+│   └── theme-provider.tsx        ✅
 │
 ├── lib/
-│   └── utils.ts             ✅
+│   ├── supabase/
+│   │   ├── client.ts             ✅
+│   │   └── server.ts             ✅
+│   ├── external-apis/
+│   │   ├── npws.ts               ✅
+│   │   ├── gbif.ts               ✅
+│   │   └── nbdc.ts               ✅
+│   ├── ai/
+│   │   └── report-generator.ts   ✅
+│   ├── data/
+│   │   └── fossitt-codes.ts      ✅
+│   ├── utils/
+│   │   └── grid-reference.ts     ✅
+│   └── utils.ts                  ✅
 │
-├── types/                   (boş)
-├── hooks/                   (boş)
+├── types/
+│   ├── database.ts               ✅
+│   └── index.ts                  ✅
 │
-├── components.json          ✅
-├── next.config.ts           ✅
-├── package.json             ✅
-├── postcss.config.mjs       ✅
-├── tailwind.config.ts       ✅
-└── tsconfig.json            ✅
+├── hooks/
+│   └── use-toast.ts              ✅
+│
+├── middleware.ts                 ✅
+├── components.json               ✅
+├── next.config.ts                ✅
+├── package.json                  ✅
+├── postcss.config.mjs            ✅
+├── tailwind.config.ts            ✅
+├── tsconfig.json                 ✅
+└── .env.local                    ✅
+```
+
+---
+
+## Environment Variables
+
+```env
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://zekaljruvbjezxlumuup.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIs...
+
+# Mapbox (GEREKLI - map görüntüleme için)
+NEXT_PUBLIC_MAPBOX_TOKEN=
+
+# OpenAI (Report generation için)
+OPENAI_API_KEY=sk-proj-...
 ```
 
 ---
@@ -200,45 +279,68 @@ dulra/
 ## Supabase Bilgileri
 
 - **Project URL:** https://zekaljruvbjezxlumuup.supabase.co
-- **Tablolar:** Henüz oluşturulmadı (boş)
+- **Tablolar:** ✅ TÜM TABLOLAR OLUŞTURULDU
+  - organizations, profiles, clients
+  - projects (with PostGIS geometry columns)
+  - project_members, workflow_steps
+  - desk_research_findings
+  - surveys, species_observations, habitat_polygons
+  - photos, reports, audit_log
+- **RLS:** ✅ Tüm tablolarda aktif
+- **Triggers:** ✅ Tümü aktif
 
 ---
 
 ## External API'ler
 
-| API | Durum | Endpoint |
+| API | Durum | Kullanım |
 |-----|-------|----------|
-| NPWS | ✅ Tam Çalışıyor | ArcGIS REST - Designated Sites |
-| GBIF | ✅ Tam Çalışıyor | REST - Species Records |
-| NBDC | ✅ Çalışıyor | ASP.NET Web API - Irish Species |
-| EPA | ⚠️ Kısmen | ArcGIS REST tercih edilmeli |
-| Catchments.ie | ⚠️ Kısmen | Koordinat araması yok |
+| NPWS | ✅ Tam Çalışıyor | Designated Sites (SAC, SPA, NHA, pNHA) |
+| GBIF | ✅ Tam Çalışıyor | Species occurrence records |
+| NBDC | ✅ Çalışıyor | Irish species details |
+| OpenAI | ✅ Tam Çalışıyor | GPT-4 report generation |
+| Mapbox | ⚠️ Token Gerekli | Map display, drawing |
 
 ---
 
-## Önemli Referans Dökümanları
+## Build Status: ✅ BAŞARILI
 
-1. **PRD:** Müşteriden alınan detaylı gereksinimler (konuşma geçmişinde)
-2. **API_STATUS_REPORT.md:** External API'lerin durumu (`/tmp/dulra-backup/`)
-3. **USER_PERSONAS_AND_USE_CASES.md:** Kullanıcı personaları (`/tmp/dulra-backup/`)
-4. **Plan dosyası:** `~/.claude/plans/peaceful-jingling-shore.md`
+```bash
+# Run development server
+npm run dev
+
+# Build for production
+npm run build
+
+# All routes:
+Route (app)
+├ ○ /                           (Landing)
+├ ○ /login                      (Auth)
+├ ○ /register                   (Auth)
+├ ○ /projects                   (List)
+├ ƒ /projects/[id]              (Detail)
+├ ƒ /projects/[id]/desk-research
+├ ƒ /projects/[id]/field-surveys
+├ ƒ /projects/[id]/reports
+├ ○ /projects/new               (Create)
+```
 
 ---
 
 ## Bir Sonraki Adımlar
 
-1. Eksik shadcn/ui component'lerini oluştur (özellikle input, dialog, sheet, toast)
-2. theme-provider.tsx oluştur
-3. Supabase client'ları oluştur
-4. Database migration'ı oluştur ve uygula
-5. Layout component'lerini oluştur (sidebar, header)
-6. Dashboard sayfasını oluştur
+### Öncelik Sırası
+1. **Mapbox Token** - Harita görüntüleme için gerekli
+2. **Phase 5** - Client Portal ve Notifications
+3. **Testing** - E2E tests with Playwright
+4. **Mobile** - PWA or React Native (gelecekte)
 
 ---
 
 ## Notlar
 
 - Mobile uygulama şimdilik yapılmayacak, sadece web
-- AI için OpenAI GPT-4 kullanılacak
+- AI için OpenAI GPT-4 kullanılıyor
 - Dark mode zorunlu
 - UI: Clean, minimal, professional SaaS aesthetic
+- Tailwind CSS v4 kullanılıyor (@tailwindcss/postcss)
