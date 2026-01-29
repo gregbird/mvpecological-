@@ -1,9 +1,9 @@
 'use client'
 
 import * as React from 'react'
-import mapboxgl from 'mapbox-gl'
-import 'mapbox-gl/dist/mapbox-gl.css'
 import { Layers, Maximize2, Minimize2 } from 'lucide-react'
+import dynamic from 'next/dynamic'
+import type { Map as LeafletMap } from 'leaflet'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -17,10 +17,10 @@ import {
 import { cn } from '@/lib/utils'
 
 // Ireland center coordinates
-const IRELAND_CENTER: [number, number] = [-7.6921, 53.1424]
+const IRELAND_CENTER: [number, number] = [53.1424, -7.6921] // Leaflet uses [lat, lng]
 const DEFAULT_ZOOM = 7
 
-export type MapStyle = 'streets' | 'satellite' | 'satellite-streets'
+export type MapStyle = 'streets' | 'satellite' | 'topo'
 
 export interface MapLayer {
   id: string
@@ -31,21 +31,195 @@ export interface MapLayer {
 
 interface ProjectMapProps {
   className?: string
-  center?: [number, number]
+  center?: [number, number] // [lat, lng] for Leaflet
   zoom?: number
   boundary?: GeoJSON.Feature<GeoJSON.Polygon>
   habitatPolygons?: GeoJSON.FeatureCollection
   observationPoints?: GeoJSON.FeatureCollection
   onBoundaryChange?: (boundary: GeoJSON.Feature<GeoJSON.Polygon>) => void
-  onMapLoad?: (map: mapboxgl.Map) => void
+  onMapReady?: () => void
   editable?: boolean
 }
 
-const MAP_STYLES: Record<MapStyle, string> = {
-  streets: 'mapbox://styles/mapbox/streets-v12',
-  satellite: 'mapbox://styles/mapbox/satellite-v9',
-  'satellite-streets': 'mapbox://styles/mapbox/satellite-streets-v12',
+// Tile layer URLs (all free)
+const TILE_LAYERS: Record<MapStyle, { url: string; attribution: string }> = {
+  streets: {
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  },
+  satellite: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution:
+      'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+  },
+  topo: {
+    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    attribution:
+      'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
+  },
 }
+
+// The actual map component that uses react-leaflet
+function MapComponent({
+  center,
+  zoom,
+  boundary,
+  habitatPolygons,
+  observationPoints,
+  currentStyle,
+  layers,
+  onMapReady,
+  mapRef,
+}: {
+  center: [number, number]
+  zoom: number
+  boundary?: GeoJSON.Feature<GeoJSON.Polygon>
+  habitatPolygons?: GeoJSON.FeatureCollection
+  observationPoints?: GeoJSON.FeatureCollection
+  currentStyle: MapStyle
+  layers: MapLayer[]
+  onMapReady?: () => void
+  mapRef: React.MutableRefObject<LeafletMap | null>
+}) {
+  const {
+    MapContainer,
+    TileLayer,
+    GeoJSON,
+    CircleMarker,
+    Popup,
+    useMap,
+  } = require('react-leaflet')
+
+  const boundaryLayer = layers.find((l) => l.id === 'boundary')
+  const habitatLayer = layers.find((l) => l.id === 'habitats')
+  const obsLayer = layers.find((l) => l.id === 'observations')
+  const tileConfig = TILE_LAYERS[currentStyle]
+
+  // Component to fit bounds
+  function FitBounds({ boundary }: { boundary?: GeoJSON.Feature<GeoJSON.Polygon> }) {
+    const map = useMap()
+
+    React.useEffect(() => {
+      if (boundary && map) {
+        const L = require('leaflet')
+        const geoJsonLayer = L.geoJSON(boundary)
+        const bounds = geoJsonLayer.getBounds()
+        map.fitBounds(bounds, { padding: [50, 50] })
+      }
+    }, [boundary, map])
+
+    React.useEffect(() => {
+      if (map) {
+        mapRef.current = map
+        onMapReady?.()
+      }
+    }, [map])
+
+    return null
+  }
+
+  return (
+    <MapContainer
+      center={center}
+      zoom={zoom}
+      className="h-full min-h-[400px] w-full"
+      style={{ height: '100%', minHeight: '400px' }}
+    >
+      <TileLayer url={tileConfig.url} attribution={tileConfig.attribution} />
+      <FitBounds boundary={boundary} />
+
+      {/* Project Boundary */}
+      {boundary && boundaryLayer?.visible && (
+        <GeoJSON
+          key={`boundary-${JSON.stringify(boundary).slice(0, 100)}`}
+          data={boundary}
+          style={{
+            color: '#ef4444',
+            weight: 3,
+            fillColor: '#ef4444',
+            fillOpacity: 0.1,
+          }}
+        />
+      )}
+
+      {/* Habitat Polygons */}
+      {habitatPolygons &&
+        habitatPolygons.features.length > 0 &&
+        habitatLayer?.visible &&
+        habitatPolygons.features.map((feature, index) => (
+          <GeoJSON
+            key={`habitat-${index}`}
+            data={feature}
+            style={{
+              color: (feature.properties?.color as string) || '#22c55e',
+              weight: 2,
+              fillColor: (feature.properties?.color as string) || '#22c55e',
+              fillOpacity: 0.5,
+            }}
+          >
+            <Popup>
+              <div className="p-2">
+                <h3 className="font-semibold">{feature.properties?.fossitt_name}</h3>
+                <p className="text-sm text-gray-600">{feature.properties?.fossitt_code}</p>
+                {feature.properties?.condition && (
+                  <p className="mt-1 text-sm">Condition: {feature.properties.condition}</p>
+                )}
+                {feature.properties?.area_hectares && (
+                  <p className="text-sm">Area: {feature.properties.area_hectares} ha</p>
+                )}
+              </div>
+            </Popup>
+          </GeoJSON>
+        ))}
+
+      {/* Observation Points */}
+      {observationPoints &&
+        observationPoints.features.length > 0 &&
+        obsLayer?.visible &&
+        observationPoints.features.map((feature, index) => {
+          const coords = (feature.geometry as GeoJSON.Point).coordinates
+          const props = feature.properties
+          const isProtected = props?.is_protected
+
+          return (
+            <CircleMarker
+              key={`obs-${index}`}
+              center={[coords[1], coords[0]]} // Leaflet uses [lat, lng]
+              radius={8}
+              pathOptions={{
+                color: '#ffffff',
+                weight: 2,
+                fillColor: isProtected ? '#ef4444' : '#22c55e',
+                fillOpacity: 1,
+              }}
+            >
+              <Popup>
+                <div className="p-2">
+                  <h3 className="font-semibold">
+                    {props?.species_name_common || props?.species_name_scientific}
+                  </h3>
+                  <p className="text-sm text-gray-600">{props?.species_name_scientific}</p>
+                  {isProtected && (
+                    <span className="rounded bg-red-100 px-1 text-xs text-red-800">
+                      Protected
+                    </span>
+                  )}
+                  {props?.count && <p className="mt-1 text-sm">Count: {props.count}</p>}
+                </div>
+              </Popup>
+            </CircleMarker>
+          )
+        })}
+    </MapContainer>
+  )
+}
+
+// Dynamic import wrapper
+const DynamicMapComponent = dynamic(
+  () => Promise.resolve(MapComponent),
+  { ssr: false }
+)
 
 export function ProjectMap({
   className,
@@ -54,14 +228,14 @@ export function ProjectMap({
   boundary,
   habitatPolygons,
   observationPoints,
-  onMapLoad,
+  onMapReady,
   editable = false,
 }: ProjectMapProps) {
-  const mapContainer = React.useRef<HTMLDivElement>(null)
-  const map = React.useRef<mapboxgl.Map | null>(null)
   const [mapLoaded, setMapLoaded] = React.useState(false)
-  const [currentStyle, setCurrentStyle] = React.useState<MapStyle>('satellite-streets')
+  const [currentStyle, setCurrentStyle] = React.useState<MapStyle>('streets')
   const [isFullscreen, setIsFullscreen] = React.useState(false)
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const mapRef = React.useRef<LeafletMap | null>(null)
   const [layers, setLayers] = React.useState<MapLayer[]>([
     { id: 'boundary', name: 'Project Boundary', visible: true, color: '#ef4444' },
     { id: 'habitats', name: 'Habitat Polygons', visible: true },
@@ -69,255 +243,10 @@ export function ProjectMap({
     { id: 'designated-sites', name: 'Designated Sites', visible: false },
   ])
 
-  // Initialize map
+  // Set map loaded on mount
   React.useEffect(() => {
-    if (!mapContainer.current || map.current) return
-
-    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
-    if (!token) {
-      console.error('Mapbox token is not set')
-      return
-    }
-
-    mapboxgl.accessToken = token
-
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: MAP_STYLES[currentStyle],
-      center: center,
-      zoom: zoom,
-      attributionControl: false,
-    })
-
-    // Add navigation controls
-    map.current.addControl(new mapboxgl.NavigationControl({ showCompass: true }), 'top-right')
-
-    // Add scale control
-    map.current.addControl(
-      new mapboxgl.ScaleControl({ maxWidth: 100, unit: 'metric' }),
-      'bottom-left'
-    )
-
-    // Add attribution
-    map.current.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-right')
-
-    map.current.on('load', () => {
-      setMapLoaded(true)
-      if (onMapLoad && map.current) {
-        onMapLoad(map.current)
-      }
-    })
-
-    return () => {
-      if (map.current) {
-        map.current.remove()
-        map.current = null
-      }
-    }
+    setMapLoaded(true)
   }, [])
-
-  // Add boundary layer
-  React.useEffect(() => {
-    if (!map.current || !mapLoaded) return
-
-    const boundaryLayer = layers.find((l) => l.id === 'boundary')
-    if (!boundaryLayer?.visible) {
-      if (map.current.getLayer('boundary-line')) {
-        map.current.removeLayer('boundary-line')
-      }
-      if (map.current.getLayer('boundary-fill')) {
-        map.current.removeLayer('boundary-fill')
-      }
-      if (map.current.getSource('boundary')) {
-        map.current.removeSource('boundary')
-      }
-      return
-    }
-
-    if (boundary) {
-      // Remove existing layers if any
-      if (map.current.getLayer('boundary-line')) {
-        map.current.removeLayer('boundary-line')
-      }
-      if (map.current.getLayer('boundary-fill')) {
-        map.current.removeLayer('boundary-fill')
-      }
-      if (map.current.getSource('boundary')) {
-        map.current.removeSource('boundary')
-      }
-
-      // Add boundary source
-      map.current.addSource('boundary', {
-        type: 'geojson',
-        data: boundary,
-      })
-
-      // Add fill layer
-      map.current.addLayer({
-        id: 'boundary-fill',
-        type: 'fill',
-        source: 'boundary',
-        paint: {
-          'fill-color': '#ef4444',
-          'fill-opacity': 0.1,
-        },
-      })
-
-      // Add line layer
-      map.current.addLayer({
-        id: 'boundary-line',
-        type: 'line',
-        source: 'boundary',
-        paint: {
-          'line-color': '#ef4444',
-          'line-width': 3,
-        },
-      })
-
-      // Fit map to boundary
-      const bounds = new mapboxgl.LngLatBounds()
-      const coords = boundary.geometry.coordinates[0]
-      coords.forEach((coord) => {
-        bounds.extend(coord as [number, number])
-      })
-      map.current.fitBounds(bounds, { padding: 50 })
-    }
-  }, [boundary, mapLoaded, layers])
-
-  // Add habitat polygons layer
-  React.useEffect(() => {
-    if (!map.current || !mapLoaded) return
-
-    const habitatLayer = layers.find((l) => l.id === 'habitats')
-    if (!habitatLayer?.visible) {
-      if (map.current.getLayer('habitats-fill')) {
-        map.current.removeLayer('habitats-fill')
-      }
-      if (map.current.getLayer('habitats-line')) {
-        map.current.removeLayer('habitats-line')
-      }
-      if (map.current.getSource('habitats')) {
-        map.current.removeSource('habitats')
-      }
-      return
-    }
-
-    if (habitatPolygons && habitatPolygons.features.length > 0) {
-      if (map.current.getSource('habitats')) {
-        ;(map.current.getSource('habitats') as mapboxgl.GeoJSONSource).setData(habitatPolygons)
-      } else {
-        map.current.addSource('habitats', {
-          type: 'geojson',
-          data: habitatPolygons,
-        })
-
-        map.current.addLayer({
-          id: 'habitats-fill',
-          type: 'fill',
-          source: 'habitats',
-          paint: {
-            'fill-color': ['get', 'color'],
-            'fill-opacity': 0.5,
-          },
-        })
-
-        map.current.addLayer({
-          id: 'habitats-line',
-          type: 'line',
-          source: 'habitats',
-          paint: {
-            'line-color': ['get', 'color'],
-            'line-width': 2,
-          },
-        })
-      }
-    }
-  }, [habitatPolygons, mapLoaded, layers])
-
-  // Add observation points layer
-  React.useEffect(() => {
-    if (!map.current || !mapLoaded) return
-
-    const obsLayer = layers.find((l) => l.id === 'observations')
-    if (!obsLayer?.visible) {
-      if (map.current.getLayer('observations-points')) {
-        map.current.removeLayer('observations-points')
-      }
-      if (map.current.getSource('observations')) {
-        map.current.removeSource('observations')
-      }
-      return
-    }
-
-    if (observationPoints && observationPoints.features.length > 0) {
-      if (map.current.getSource('observations')) {
-        ;(map.current.getSource('observations') as mapboxgl.GeoJSONSource).setData(
-          observationPoints
-        )
-      } else {
-        map.current.addSource('observations', {
-          type: 'geojson',
-          data: observationPoints,
-        })
-
-        map.current.addLayer({
-          id: 'observations-points',
-          type: 'circle',
-          source: 'observations',
-          paint: {
-            'circle-radius': 8,
-            'circle-color': [
-              'case',
-              ['get', 'is_protected'],
-              '#ef4444', // Red for protected species
-              '#22c55e', // Green for other species
-            ],
-            'circle-stroke-width': 2,
-            'circle-stroke-color': '#ffffff',
-          },
-        })
-
-        // Add click handler for popups
-        map.current.on('click', 'observations-points', (e) => {
-          if (!e.features || !e.features[0]) return
-
-          const feature = e.features[0]
-          const props = feature.properties
-          const coordinates = (feature.geometry as GeoJSON.Point).coordinates.slice() as [
-            number,
-            number,
-          ]
-
-          new mapboxgl.Popup()
-            .setLngLat(coordinates)
-            .setHTML(
-              `<div class="p-2">
-                <h3 class="font-semibold">${props?.species_name_common || props?.species_name_scientific}</h3>
-                <p class="text-sm text-gray-600">${props?.species_name_scientific}</p>
-                ${props?.is_protected ? '<span class="text-xs bg-red-100 text-red-800 px-1 rounded">Protected</span>' : ''}
-                ${props?.count ? `<p class="text-sm mt-1">Count: ${props.count}</p>` : ''}
-              </div>`
-            )
-            .addTo(map.current!)
-        })
-
-        // Change cursor on hover
-        map.current.on('mouseenter', 'observations-points', () => {
-          if (map.current) map.current.getCanvas().style.cursor = 'pointer'
-        })
-        map.current.on('mouseleave', 'observations-points', () => {
-          if (map.current) map.current.getCanvas().style.cursor = ''
-        })
-      }
-    }
-  }, [observationPoints, mapLoaded, layers])
-
-  // Change map style
-  const changeStyle = (style: MapStyle) => {
-    if (!map.current) return
-    setCurrentStyle(style)
-    map.current.setStyle(MAP_STYLES[style])
-  }
 
   // Toggle layer visibility
   const toggleLayer = (layerId: string) => {
@@ -328,23 +257,45 @@ export function ProjectMap({
 
   // Toggle fullscreen
   const toggleFullscreen = () => {
-    if (!mapContainer.current) return
+    if (!containerRef.current) return
 
     if (!isFullscreen) {
-      mapContainer.current.requestFullscreen?.()
+      containerRef.current.requestFullscreen?.()
     } else {
       document.exitFullscreen?.()
     }
     setIsFullscreen(!isFullscreen)
   }
 
+  if (!mapLoaded) {
+    return (
+      <div className={cn('relative overflow-hidden rounded-lg', className)}>
+        <div className="bg-muted/50 flex h-full min-h-[400px] w-full items-center justify-center">
+          <div className="border-primary h-8 w-8 animate-spin rounded-full border-b-2" />
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className={cn('relative overflow-hidden rounded-lg', className)}>
+    <div ref={containerRef} className={cn('relative overflow-hidden rounded-lg', className)}>
       {/* Map container */}
-      <div ref={mapContainer} className="h-full min-h-[400px] w-full" />
+      <div className="h-full min-h-[400px] w-full">
+        <DynamicMapComponent
+          center={center}
+          zoom={zoom}
+          boundary={boundary}
+          habitatPolygons={habitatPolygons}
+          observationPoints={observationPoints}
+          currentStyle={currentStyle}
+          layers={layers}
+          onMapReady={onMapReady}
+          mapRef={mapRef}
+        />
+      </div>
 
       {/* Map controls overlay */}
-      <div className="absolute top-4 left-4 flex flex-col gap-2">
+      <div className="absolute left-4 top-4 z-[1000] flex flex-col gap-2">
         {/* Style selector */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -357,21 +308,21 @@ export function ProjectMap({
             <DropdownMenuLabel>Map Style</DropdownMenuLabel>
             <DropdownMenuCheckboxItem
               checked={currentStyle === 'streets'}
-              onCheckedChange={() => changeStyle('streets')}
+              onCheckedChange={() => setCurrentStyle('streets')}
             >
-              Streets
+              Streets (OSM)
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
               checked={currentStyle === 'satellite'}
-              onCheckedChange={() => changeStyle('satellite')}
+              onCheckedChange={() => setCurrentStyle('satellite')}
             >
-              Satellite
+              Satellite (ESRI)
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
-              checked={currentStyle === 'satellite-streets'}
-              onCheckedChange={() => changeStyle('satellite-streets')}
+              checked={currentStyle === 'topo'}
+              onCheckedChange={() => setCurrentStyle('topo')}
             >
-              Satellite + Streets
+              Topographic
             </DropdownMenuCheckboxItem>
 
             <DropdownMenuSeparator />
@@ -401,25 +352,6 @@ export function ProjectMap({
           {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
         </Button>
       </div>
-
-      {/* Loading state */}
-      {!mapLoaded && (
-        <div className="bg-muted/50 absolute inset-0 flex items-center justify-center">
-          <div className="border-primary h-8 w-8 animate-spin rounded-full border-b-2" />
-        </div>
-      )}
-
-      {/* No token warning */}
-      {!process.env.NEXT_PUBLIC_MAPBOX_TOKEN && (
-        <div className="bg-muted absolute inset-0 flex items-center justify-center">
-          <div className="p-4 text-center">
-            <p className="text-muted-foreground">Mapbox token not configured</p>
-            <p className="text-muted-foreground mt-1 text-sm">
-              Add NEXT_PUBLIC_MAPBOX_TOKEN to your .env.local file
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

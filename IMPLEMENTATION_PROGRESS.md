@@ -23,7 +23,7 @@
 | Frontend  | Next.js 16.1.6 (App Router) + TypeScript                       |
 | Styling   | Tailwind CSS v4 + shadcn/ui                                    |
 | Icons     | Lucide React                                                   |
-| Maps      | Mapbox GL JS + @mapbox/mapbox-gl-draw + Turf.js                |
+| Maps      | Leaflet + React-Leaflet + Leaflet-Draw (ücretsiz, OSM tiles)   |
 | Backend   | Supabase (PostgreSQL + PostGIS, Auth, Storage, Edge Functions) |
 | AI        | OpenAI GPT-4                                                   |
 | State     | TanStack React Query                                           |
@@ -90,9 +90,9 @@
 
 #### 2.1 Map Components
 
-- [x] components/maps/project-map.tsx (Mapbox GL JS integration)
-- [x] components/maps/draw-controls.tsx (Polygon drawing)
-- [x] Layer toggle, satellite/streets styles
+- [x] components/maps/project-map.tsx (Leaflet + React-Leaflet)
+- [x] components/maps/draw-controls.tsx (Leaflet-Draw polygon drawing)
+- [x] Layer toggle, streets/satellite/topo styles (OSM, ESRI, OpenTopoMap)
 
 #### 2.2 Grid Reference Utilities
 
@@ -287,11 +287,10 @@ dulra/
 NEXT_PUBLIC_SUPABASE_URL=https://zekaljruvbjezxlumuup.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIs...
 
-# Mapbox (GEREKLI - map görüntüleme için)
-NEXT_PUBLIC_MAPBOX_TOKEN=
-
 # OpenAI (Report generation için)
 OPENAI_API_KEY=sk-proj-...
+
+# NOT: Mapbox artık kullanılmıyor - Leaflet + OSM ücretsiz tile'lar kullanılıyor
 ```
 
 ---
@@ -319,7 +318,7 @@ OPENAI_API_KEY=sk-proj-...
 | GBIF   | ✅ Tam Çalışıyor | Species occurrence records             |
 | NBDC   | ✅ Çalışıyor     | Irish species details                  |
 | OpenAI | ✅ Tam Çalışıyor | GPT-4 report generation                |
-| Mapbox | ⚠️ Token Gerekli | Map display, drawing                   |
+| Leaflet | ✅ Ücretsiz     | Map display (OSM, ESRI satellite, OpenTopoMap) |
 
 ---
 
@@ -351,10 +350,9 @@ Route (app)
 
 ### Öncelik Sırası
 
-1. **Mapbox Token** - Harita görüntüleme için gerekli
-2. **Phase 5** - Client Portal ve Notifications
-3. **Testing** - E2E tests with Playwright
-4. **Mobile** - PWA or React Native (gelecekte)
+1. **Phase 5** - Client Portal ve Notifications
+2. **Testing** - E2E tests with Playwright
+3. **Mobile** - PWA or React Native (gelecekte)
 
 ---
 
@@ -365,3 +363,7 @@ Route (app)
 - Dark mode zorunlu
 - UI: Clean, minimal, professional SaaS aesthetic
 - Tailwind CSS v4 kullanılıyor (@tailwindcss/postcss)
+- Harita: Leaflet + React-Leaflet (ücretsiz, Mapbox'tan geçildi)
+  - Streets: OpenStreetMap tiles
+  - Satellite: ESRI World Imagery (ücretsiz)
+  - Topo: OpenTopoMap tiles
