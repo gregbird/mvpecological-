@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Bell, LogOut, User, Settings, HelpCircle } from 'lucide-react'
+import { Bell, LogOut, User, Settings, HelpCircle, Shield, FlaskConical, Map, Eye } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -17,6 +17,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ThemeToggle } from '@/components/layout/theme-toggle'
 import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
+import { useRole, type UserRole } from '@/contexts/role-context'
 
 interface HeaderProps {
   user?: {
@@ -27,7 +29,29 @@ interface HeaderProps {
   }
 }
 
+const ROLE_STYLES: Record<UserRole, { bg: string; text: string; icon: React.ComponentType<{ className?: string }> }> = {
+  admin: { bg: 'bg-red-500/10', text: 'text-red-500', icon: Shield },
+  senior_ecologist: { bg: 'bg-purple-500/10', text: 'text-purple-500', icon: FlaskConical },
+  field_ecologist: { bg: 'bg-green-500/10', text: 'text-green-500', icon: Map },
+  gis_specialist: { bg: 'bg-blue-500/10', text: 'text-blue-500', icon: Map },
+  junior_ecologist: { bg: 'bg-orange-500/10', text: 'text-orange-500', icon: User },
+  client: { bg: 'bg-gray-500/10', text: 'text-gray-500', icon: Eye },
+}
+
+const ROLE_LABELS: Record<UserRole, string> = {
+  admin: 'Admin',
+  senior_ecologist: 'Senior Ecologist',
+  field_ecologist: 'Field Ecologist',
+  gis_specialist: 'GIS Specialist',
+  junior_ecologist: 'Junior Ecologist',
+  client: 'Client',
+}
+
 export function Header({ user }: HeaderProps) {
+  const { currentRole, permissions } = useRole()
+  const roleStyle = ROLE_STYLES[currentRole]
+  const RoleIcon = roleStyle.icon
+
   const initials = user?.name
     ? user.name
         .split(' ')
@@ -39,8 +63,20 @@ export function Header({ user }: HeaderProps) {
 
   return (
     <header className="bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 flex h-16 items-center justify-between border-b px-6 backdrop-blur">
-      {/* Search - Can be expanded later */}
-      <div className="flex items-center gap-4">{/* Placeholder for breadcrumbs or search */}</div>
+      {/* Left side - Role indicator */}
+      <div className="flex items-center gap-4">
+        <div className={cn('flex items-center gap-2 rounded-full px-3 py-1.5', roleStyle.bg)}>
+          <RoleIcon className={cn('h-4 w-4', roleStyle.text)} />
+          <span className={cn('text-sm font-medium', roleStyle.text)}>
+            {ROLE_LABELS[currentRole]}
+          </span>
+          {permissions.isReadOnly && (
+            <Badge variant="outline" className="ml-1 text-xs">
+              View Only
+            </Badge>
+          )}
+        </div>
+      </div>
 
       {/* Right side actions */}
       <div className="flex items-center gap-2">
@@ -117,11 +153,12 @@ export function Header({ user }: HeaderProps) {
                 <p className="text-muted-foreground text-xs leading-none">
                   {user?.email || 'user@example.com'}
                 </p>
-                {user?.role && (
-                  <Badge variant="secondary" className="mt-1 w-fit text-xs">
-                    {user.role.replace('_', ' ')}
-                  </Badge>
-                )}
+                <div className={cn('flex items-center gap-1.5 rounded-md px-2 py-1 mt-2', roleStyle.bg)}>
+                  <RoleIcon className={cn('h-3 w-3', roleStyle.text)} />
+                  <span className={cn('text-xs font-medium', roleStyle.text)}>
+                    {ROLE_LABELS[currentRole]}
+                  </span>
+                </div>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
@@ -132,12 +169,14 @@ export function Header({ user }: HeaderProps) {
                   Profile
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/settings">
-                  <Settings className="mr-2 h-4 w-4" />
-                  Settings
-                </Link>
-              </DropdownMenuItem>
+              {permissions.canManageSettings && (
+                <DropdownMenuItem asChild>
+                  <Link href="/settings">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Settings
+                  </Link>
+                </DropdownMenuItem>
+              )}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-destructive focus:text-destructive">

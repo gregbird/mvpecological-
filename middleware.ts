@@ -35,11 +35,20 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  // Dev mode bypass - check for dev_mode cookie
+  const isDevMode = process.env.NODE_ENV === 'development'
+  const hasDevCookie = request.cookies.get('dev_mode')?.value === 'true'
+
   // Protected routes
   const protectedPaths = ['/dashboard', '/projects', '/settings']
   const isProtectedPath = protectedPaths.some((path) => request.nextUrl.pathname.startsWith(path))
 
   if (isProtectedPath && !user) {
+    // In dev mode with dev cookie, allow access without auth
+    if (isDevMode && hasDevCookie) {
+      return supabaseResponse
+    }
+
     // Redirect to login if trying to access protected route without auth
     const url = request.nextUrl.clone()
     url.pathname = '/login'
@@ -53,7 +62,7 @@ export async function middleware(request: NextRequest) {
 
   if (isAuthPath && user) {
     const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
+    url.pathname = '/projects'
     return NextResponse.redirect(url)
   }
 

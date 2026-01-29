@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Plus, Search, LayoutGrid, List } from 'lucide-react'
+import { Plus, Search, LayoutGrid, List, Download, Eye, Edit, Trash2, Lock } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,6 +21,18 @@ import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/utils'
 import { PHASE_COLORS, HEALTH_STATUS_COLORS, type ProjectWithDetails } from '@/types'
+import { useRole } from '@/contexts/role-context'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from '@/components/ui/alert'
 
 // Mock data - same as dashboard
 const mockProjects: ProjectWithDetails[] = [
@@ -108,6 +120,7 @@ const mockProjects: ProjectWithDetails[] = [
 ]
 
 export default function ProjectsPage() {
+  const { permissions, currentRole, roleConfig } = useRole()
   const [searchQuery, setSearchQuery] = React.useState('')
   const [viewMode, setViewMode] = React.useState<'grid' | 'list'>('grid')
   const [filters, setFilters] = React.useState<FilterState>({
@@ -117,7 +130,7 @@ export default function ProjectsPage() {
   })
 
   // Filter projects based on search and filters
-  const filteredProjects = mockProjects.filter((project) => {
+  let filteredProjects = mockProjects.filter((project) => {
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
@@ -146,142 +159,265 @@ export default function ProjectsPage() {
     return true
   })
 
-  return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
-          <p className="text-muted-foreground">Manage all your ecological projects</p>
-        </div>
-        <Button asChild>
-          <Link href="/projects/new">
-            <Plus className="mr-2 h-4 w-4" />
-            New Project
-          </Link>
-        </Button>
-      </div>
+  // For roles that can't view all projects, limit to assigned projects only (mock: first 2)
+  if (!permissions.canViewAllProjects) {
+    filteredProjects = filteredProjects.slice(0, 2)
+  }
 
-      {/* Search and Filters */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative max-w-md flex-1">
-          <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-          <Input
-            placeholder="Search projects..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <StatusFilter filters={filters} onFiltersChange={setFilters} />
-          <div className="flex items-center rounded-md border">
-            <Button
-              variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-              size="icon"
-              className="rounded-r-none"
-              onClick={() => setViewMode('grid')}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-              size="icon"
-              className="rounded-l-none"
-              onClick={() => setViewMode('list')}
-            >
-              <List className="h-4 w-4" />
-            </Button>
+  return (
+    <TooltipProvider>
+      <div className="space-y-6">
+        {/* Role-specific alert */}
+        {permissions.isReadOnly && (
+          <Alert>
+            <Eye className="h-4 w-4" />
+            <AlertTitle>Read-Only Access</AlertTitle>
+            <AlertDescription>
+              You are viewing as a {roleConfig.label}. You can view project details and reports but cannot make changes.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {!permissions.canViewAllProjects && !permissions.isReadOnly && (
+          <Alert>
+            <Lock className="h-4 w-4" />
+            <AlertTitle>Limited Access</AlertTitle>
+            <AlertDescription>
+              You can only see projects you are assigned to. Contact a senior ecologist to be added to more projects.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Page Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
+            <p className="text-muted-foreground">
+              {permissions.canViewAllProjects
+                ? 'Manage all your ecological projects'
+                : `Showing ${filteredProjects.length} assigned project(s)`}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {permissions.canExportData && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline">
+                    <Download className="mr-2 h-4 w-4" />
+                    Export
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Export project data as CSV</TooltipContent>
+              </Tooltip>
+            )}
+            {permissions.canCreateProject ? (
+              <Button asChild>
+                <Link href="/projects/new">
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Project
+                </Link>
+              </Button>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" disabled>
+                    <Lock className="mr-2 h-4 w-4" />
+                    New Project
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Only Admin and Senior Ecologists can create new projects
+                </TooltipContent>
+              </Tooltip>
+            )}
           </div>
         </div>
-      </div>
 
-      {/* Projects Display */}
-      {filteredProjects.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12">
-          <p className="text-muted-foreground">No projects found</p>
-          {(searchQuery ||
-            filters.status.length > 0 ||
-            filters.phase.length > 0 ||
-            filters.health.length > 0) && (
-            <Button
-              variant="link"
-              onClick={() => {
-                setSearchQuery('')
-                setFilters({ status: [], phase: [], health: [] })
-              }}
-            >
-              Clear filters
-            </Button>
-          )}
+        {/* Search and Filters */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative max-w-md flex-1">
+            <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+            <Input
+              placeholder="Search projects..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <StatusFilter filters={filters} onFiltersChange={setFilters} />
+            <div className="flex items-center rounded-md border">
+              <Button
+                variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                size="icon"
+                className="rounded-r-none"
+                onClick={() => setViewMode('grid')}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                size="icon"
+                className="rounded-l-none"
+                onClick={() => setViewMode('list')}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </div>
-      ) : viewMode === 'grid' ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredProjects.map((project) => (
-            <ProjectCard key={project.id} project={project} />
-          ))}
-        </div>
-      ) : (
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Project</TableHead>
-                <TableHead>Client</TableHead>
-                <TableHead>Phase</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Progress</TableHead>
-                <TableHead>Due Date</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredProjects.map((project) => {
-                const phaseColors = PHASE_COLORS[project.current_phase]
-                const healthColors = HEALTH_STATUS_COLORS[project.health_status]
 
-                return (
-                  <TableRow key={project.id}>
-                    <TableCell>
-                      <Link href={`/projects/${project.id}`} className="hover:underline">
-                        <div className="flex items-center gap-2">
-                          <div className={cn('h-2 w-2 rounded-full', healthColors.bg)} />
-                          <div>
-                            <p className="font-medium">{project.name}</p>
-                            <p className="text-muted-foreground text-sm">{project.site_code}</p>
+        {/* Projects Display */}
+        {filteredProjects.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12">
+            <p className="text-muted-foreground">No projects found</p>
+            {(searchQuery ||
+              filters.status.length > 0 ||
+              filters.phase.length > 0 ||
+              filters.health.length > 0) && (
+              <Button
+                variant="link"
+                onClick={() => {
+                  setSearchQuery('')
+                  setFilters({ status: [], phase: [], health: [] })
+                }}
+              >
+                Clear filters
+              </Button>
+            )}
+          </div>
+        ) : viewMode === 'grid' ? (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {filteredProjects.map((project) => (
+              <ProjectCard key={project.id} project={project} />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Project</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Phase</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Progress</TableHead>
+                  <TableHead>Due Date</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredProjects.map((project) => {
+                  const phaseColors = PHASE_COLORS[project.current_phase]
+                  const healthColors = HEALTH_STATUS_COLORS[project.health_status]
+
+                  return (
+                    <TableRow key={project.id}>
+                      <TableCell>
+                        <Link href={`/projects/${project.id}`} className="hover:underline">
+                          <div className="flex items-center gap-2">
+                            <div className={cn('h-2 w-2 rounded-full', healthColors.bg)} />
+                            <div>
+                              <p className="font-medium">{project.name}</p>
+                              <p className="text-muted-foreground text-sm">{project.site_code}</p>
+                            </div>
                           </div>
+                        </Link>
+                      </TableCell>
+                      <TableCell>{project.client?.name || '-'}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={cn(phaseColors.bg, phaseColors.text, phaseColors.border)}
+                        >
+                          {project.current_phase.replace('_', ' ')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="capitalize">
+                          {project.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Progress value={project.progress} className="h-2 w-20" />
+                          <span className="text-muted-foreground text-sm">{project.progress}%</span>
                         </div>
-                      </Link>
-                    </TableCell>
-                    <TableCell>{project.client?.name || '-'}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={cn(phaseColors.bg, phaseColors.text, phaseColors.border)}
-                      >
-                        {project.current_phase.replace('_', ' ')}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="capitalize">
-                        {project.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Progress value={project.progress} className="h-2 w-20" />
-                        <span className="text-muted-foreground text-sm">{project.progress}%</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {project.expected_end_date ? formatDate(project.expected_end_date) : '-'}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-    </div>
+                      </TableCell>
+                      <TableCell>
+                        {project.expected_end_date ? formatDate(project.expected_end_date) : '-'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" asChild>
+                                <Link href={`/projects/${project.id}`}>
+                                  <Eye className="h-4 w-4" />
+                                </Link>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>View Project</TooltipContent>
+                          </Tooltip>
+
+                          {permissions.canEditProject && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Edit Project</TooltipContent>
+                            </Tooltip>
+                          )}
+
+                          {permissions.canDeleteProject && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Delete Project</TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+
+        {/* Permissions Legend for Admins/Seniors */}
+        {(currentRole === 'admin' || currentRole === 'senior_ecologist') && (
+          <div className="rounded-lg border bg-muted/30 p-4">
+            <h3 className="text-sm font-medium mb-2">Role Permissions Reference</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs text-muted-foreground">
+              <div>
+                <span className="font-medium text-foreground">Admin:</span> Full access, settings, delete
+              </div>
+              <div>
+                <span className="font-medium text-foreground">Senior:</span> Create, edit, approve, team
+              </div>
+              <div>
+                <span className="font-medium text-foreground">Field:</span> Add observations, view reports
+              </div>
+              <div>
+                <span className="font-medium text-foreground">GIS:</span> Edit maps, export data
+              </div>
+              <div>
+                <span className="font-medium text-foreground">Junior:</span> Add observations only
+              </div>
+              <div>
+                <span className="font-medium text-foreground">Client:</span> Read-only access
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </TooltipProvider>
   )
 }
