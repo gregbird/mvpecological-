@@ -57,6 +57,7 @@
     "react-hook-form": "^7.71.1",
     "react-leaflet": "^5.0.0",
     "react-leaflet-draw": "^0.21.0",
+    "recharts": "^3.7.0",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.9.3",
