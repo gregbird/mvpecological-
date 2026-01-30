@@ -2,12 +2,10 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useParams } from 'next/navigation'
 import {
-  LayoutDashboard,
   FolderKanban,
-  Settings,
-  ChevronDown,
+  ChevronRight,
   Map,
   Search,
   FileCheck,
@@ -17,80 +15,106 @@ import {
   CheckCircle,
   Send,
   LogOut,
-  RefreshCw,
+  BarChart3,
+  Settings,
+  Users,
+  Clock,
+  History,
+  Compass,
+  FlaskConical,
+  FileText,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { useRole } from '@/contexts/role-context'
+import { useRole, type RolePermissions } from '@/contexts/role-context'
+import { Progress } from '@/components/ui/progress'
 
-// PRD'ye göre 10 adımlı workflow
-const workflowCategories = [
+// Admin-only menu items
+const adminMenuItems = [
+  {
+    label: 'Team Members',
+    href: '/team',
+    icon: Users,
+    permission: 'canManageTeam' as keyof RolePermissions,
+  },
+  {
+    label: 'Timesheets',
+    href: '/timesheets',
+    icon: Clock,
+    permission: 'canViewTimesheets' as keyof RolePermissions,
+  },
+  {
+    label: 'Audit Trail',
+    href: '/audit',
+    icon: History,
+    permission: 'canViewAuditTrail' as keyof RolePermissions,
+  },
+]
+
+// Workflow phases with their steps
+const workflowPhases = [
   {
     id: 'initial-setup',
     label: 'Initial Setup',
-    icon: Settings,
-    items: [
-      { number: 1, label: 'GIS Mapping', href: '/project/gis-mapping', icon: Map },
-    ],
+    icon: Compass,
+    steps: [{ number: 1, label: 'GIS Mapping', icon: Map }],
   },
   {
     id: 'desk-research',
     label: 'Desk Research',
     icon: Search,
-    items: [
-      { number: 2, label: 'Data Gathering', href: '/project/data-gathering', icon: Search },
-      { number: 3, label: 'Desk Assessment', href: '/project/desk-assessment', icon: FileCheck },
+    steps: [
+      { number: 2, label: 'Initial Review', icon: FileCheck },
+      { number: 3, label: 'Data Gathering', icon: Search },
+      { number: 4, label: 'Desk Assessment', icon: FileText },
     ],
   },
   {
     id: 'field-research',
     label: 'Field Research',
-    icon: Clipboard,
-    items: [
-      { number: 4, label: 'Field Survey', href: '/project/field-survey', icon: Clipboard },
-      { number: 5, label: 'Habitat Mapping', href: '/project/habitat-mapping', icon: Map },
-      { number: 6, label: 'Target Notes', href: '/project/target-notes', icon: Target },
+    icon: FlaskConical,
+    steps: [
+      { number: 5, label: 'Field Survey', icon: Clipboard },
+      { number: 6, label: 'Habitat Mapping', icon: Map },
+      { number: 7, label: 'Target Notes', icon: Target },
     ],
   },
   {
     id: 'reporting',
     label: 'Reporting',
-    icon: FileCheck,
-    items: [
-      { number: 7, label: 'Data Analysis', href: '/project/data-analysis', icon: FileCheck },
-      { number: 8, label: 'AI Draft Generation', href: '/project/ai-draft', icon: Sparkles },
-      { number: 9, label: 'Quality Review', href: '/project/quality-review', icon: CheckCircle },
-      { number: 10, label: 'Final Submission', href: '/project/final-submission', icon: Send },
+    icon: BarChart3,
+    steps: [
+      { number: 8, label: 'Data Analysis', icon: BarChart3 },
+      { number: 9, label: 'AI Draft', icon: Sparkles },
+      { number: 10, label: 'Quality Review', icon: CheckCircle },
     ],
   },
 ]
 
-// Workspace menu
-const workspaceItems = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Projects', href: '/projects', icon: FolderKanban },
-]
+// Mock active project data
+const mockActiveProject = {
+  id: '1',
+  name: 'Killarney National Park',
+  code: 'KNP-2024-001',
+  currentStep: 3,
+  progress: 20,
+}
 
 export function Sidebar() {
   const pathname = usePathname()
-  const { currentRole, setCurrentRole, user } = useRole()
-  const [expandedCategories, setExpandedCategories] = React.useState<string[]>([
-    'initial-setup',
-    'desk-research',
-    'field-research',
-    'reporting'
-  ])
-  const [workspaceExpanded, setWorkspaceExpanded] = React.useState(true)
+  const params = useParams()
+  const { currentRole, user, permissions, setCurrentRole } = useRole()
 
-  const toggleCategory = (categoryId: string) => {
-    setExpandedCategories((prev) =>
-      prev.includes(categoryId)
-        ? prev.filter((id) => id !== categoryId)
-        : [...prev, categoryId]
-    )
-  }
+  // Track expanded phases
+  const [expandedPhases, setExpandedPhases] = React.useState<string[]>(['desk-research'])
+
+  // Are we on a project detail page?
+  const isInProject = pathname.includes('/projects/') && params.id
+
+  // Filter admin menu items based on permissions
+  const visibleAdminItems = adminMenuItems.filter((item) => permissions[item.permission])
 
   const initials = user.name
     .split(' ')
@@ -98,98 +122,127 @@ export function Sidebar() {
     .join('')
     .toUpperCase()
 
-  const handleSwitchRole = () => {
-    setCurrentRole(currentRole === 'admin' ? 'assessor' : 'admin')
+  const togglePhase = (phaseId: string) => {
+    setExpandedPhases((prev) =>
+      prev.includes(phaseId) ? prev.filter((id) => id !== phaseId) : [...prev, phaseId]
+    )
   }
 
+  // Get current phase based on step
+  const getCurrentPhase = (stepNumber: number) => {
+    for (const phase of workflowPhases) {
+      if (phase.steps.some((s) => s.number === stepNumber)) {
+        return phase.id
+      }
+    }
+    return 'initial-setup'
+  }
+
+  const currentPhase = getCurrentPhase(mockActiveProject.currentStep)
+
   return (
-    <aside className="bg-[#0f172a] flex h-screen w-[240px] flex-col text-white">
+    <aside className="flex h-screen w-[280px] flex-col border-r border-gray-200 bg-white">
       {/* Logo */}
-      <div className="flex h-14 items-center px-5">
-        <Link href="/projects" className="flex items-center">
-          <span className="text-xl font-semibold tracking-tight">dulra</span>
+      <div className="flex h-16 items-center gap-2 border-b border-gray-100 px-5">
+        <Link href="/projects" className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500">
+            <Compass className="h-5 w-5 text-white" />
+          </div>
+          <span className="text-xl font-semibold text-gray-900">dulra</span>
         </Link>
       </div>
 
       {/* Navigation */}
-      <ScrollArea className="flex-1 px-3">
-        {/* Workspace Section */}
-        <div className="mb-1">
-          <button
-            onClick={() => setWorkspaceExpanded(!workspaceExpanded)}
-            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-gray-300 hover:bg-white/5"
-          >
-            <LayoutDashboard className="h-4 w-4" />
-            <span>Workspace</span>
-            <ChevronDown className={cn('ml-auto h-4 w-4 transition-transform', !workspaceExpanded && '-rotate-90')} />
-          </button>
-
-          {workspaceExpanded && (
-            <div className="ml-3 mt-0.5 space-y-0.5">
-              {workspaceItems.map((item) => {
-                const isActive = pathname === item.href
-                const Icon = item.icon
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
-                      isActive
-                        ? 'bg-emerald-500/20 text-emerald-400'
-                        : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
-                    )}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
-                  </Link>
-                )
-              })}
-            </div>
+      <ScrollArea className="flex-1 px-3 py-4">
+        {/* My Projects Link */}
+        <Link
+          href="/projects"
+          className={cn(
+            'mb-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+            pathname === '/projects' || isInProject
+              ? 'bg-emerald-50 text-emerald-700'
+              : 'text-gray-700 hover:bg-gray-50'
           )}
-        </div>
+        >
+          <FolderKanban className="h-5 w-5" />
+          <span>My Projects</span>
+          {isInProject && <ChevronRight className="ml-auto h-4 w-4 text-gray-400" />}
+        </Link>
 
-        {/* Workflow Categories */}
-        <div className="space-y-1 mt-2">
-          {workflowCategories.map((category) => {
-            const isExpanded = expandedCategories.includes(category.id)
-            const CategoryIcon = category.icon
+        {/* Workflow Phases - Always visible, expandable */}
+        <div className="mt-2 space-y-0.5">
+          {workflowPhases.map((phase) => {
+            const PhaseIcon = phase.icon
+            const isExpanded = expandedPhases.includes(phase.id)
+            const isCurrentPhase = phase.id === currentPhase
+            const phaseStepNumbers = phase.steps.map((s) => s.number)
+            const isPhaseCompleted = phaseStepNumbers.every(
+              (n) => n < mockActiveProject.currentStep
+            )
+            const isPhaseActive = phaseStepNumbers.some((n) => n === mockActiveProject.currentStep)
 
             return (
-              <div key={category.id}>
+              <div key={phase.id}>
                 <button
-                  onClick={() => toggleCategory(category.id)}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-gray-300 hover:bg-white/5"
+                  onClick={() => togglePhase(phase.id)}
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                    isCurrentPhase
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  )}
                 >
-                  <CategoryIcon className="h-4 w-4" />
-                  <span>{category.label}</span>
-                  <ChevronDown className={cn('ml-auto h-4 w-4 transition-transform', !isExpanded && '-rotate-90')} />
+                  <PhaseIcon
+                    className={cn(
+                      'h-5 w-5',
+                      isPhaseCompleted && 'text-emerald-500',
+                      isPhaseActive && 'text-emerald-600'
+                    )}
+                  />
+                  <span>{phase.label}</span>
+                  <ChevronRight
+                    className={cn(
+                      'ml-auto h-4 w-4 text-gray-400 transition-transform',
+                      isExpanded && 'rotate-90'
+                    )}
+                  />
                 </button>
 
+                {/* Phase Steps */}
                 {isExpanded && (
-                  <div className="ml-3 mt-0.5 space-y-0.5">
-                    {category.items.map((item) => {
-                      const isActive = pathname === item.href
+                  <div className="mt-1 ml-4 space-y-0.5 border-l-2 border-gray-100 pl-4">
+                    {phase.steps.map((step) => {
+                      const isCompleted = step.number < mockActiveProject.currentStep
+                      const isCurrent = step.number === mockActiveProject.currentStep
+                      const isLocked = step.number > mockActiveProject.currentStep
+
                       return (
                         <Link
-                          key={item.href}
-                          href={item.href}
+                          key={step.number}
+                          href={
+                            isLocked || !isInProject
+                              ? '#'
+                              : `/projects/${params.id}?step=${step.number}`
+                          }
                           className={cn(
-                            'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
-                            isActive
-                              ? 'bg-emerald-500/20 text-emerald-400'
-                              : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
+                            'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors',
+                            isCurrent && 'bg-emerald-50 font-medium text-emerald-700',
+                            isCompleted && 'text-gray-500 hover:bg-gray-50 hover:text-gray-700',
+                            isLocked && 'cursor-not-allowed text-gray-400'
                           )}
+                          onClick={(e) => (isLocked || !isInProject) && e.preventDefault()}
                         >
-                          <span className={cn(
-                            'flex h-5 w-5 items-center justify-center rounded text-xs font-medium',
-                            isActive
-                              ? 'bg-emerald-500 text-white'
-                              : 'bg-gray-700 text-gray-300'
-                          )}>
-                            {item.number}
+                          <span
+                            className={cn(
+                              'flex h-5 w-5 items-center justify-center rounded-full text-xs font-medium',
+                              isCurrent && 'bg-emerald-500 text-white',
+                              isCompleted && 'bg-emerald-100 text-emerald-600',
+                              isLocked && 'bg-gray-100 text-gray-400'
+                            )}
+                          >
+                            {isCompleted ? '✓' : step.number}
                           </span>
-                          <span>{item.label}</span>
+                          <span>{step.label}</span>
                         </Link>
                       )
                     })}
@@ -199,31 +252,62 @@ export function Sidebar() {
             )
           })}
         </div>
+
+        {/* Admin Menu Items */}
+        {visibleAdminItems.length > 0 && (
+          <div className="mt-6 border-t border-gray-100 pt-4">
+            <div className="mb-2 px-3 text-xs font-medium tracking-wider text-gray-400 uppercase">
+              Admin
+            </div>
+            <div className="space-y-0.5">
+              {visibleAdminItems.map((item) => {
+                const Icon = item.icon
+                const isActive = pathname === item.href
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                      isActive
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    )}
+                  >
+                    <Icon className="h-5 w-5" />
+                    <span>{item.label}</span>
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </ScrollArea>
 
       {/* User Section */}
-      <div className="border-t border-white/10 p-3 space-y-1">
-        <div className="flex items-center gap-2 px-2 py-1.5">
-          <Avatar className="h-8 w-8">
-            <AvatarFallback className="bg-gray-600 text-white text-xs font-medium">
+      <div className="border-t border-gray-100 p-3">
+        <div className="flex items-center gap-3 rounded-lg px-2 py-2">
+          <Avatar className="h-10 w-10">
+            <AvatarFallback className="bg-emerald-100 text-sm font-medium text-emerald-700">
               {initials}
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">{user.name}</p>
-            <p className="text-xs text-gray-400 capitalize">{currentRole}</p>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-gray-900">{user.name}</p>
+            <p className="text-xs text-gray-500 capitalize">{currentRole}</p>
           </div>
         </div>
 
+        {/* Role Switch Button (Dev Mode) */}
         <button
-          onClick={handleSwitchRole}
-          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-gray-400 hover:bg-white/5 hover:text-gray-200 transition-colors"
+          onClick={() => setCurrentRole(currentRole === 'admin' ? 'assessor' : 'admin')}
+          className="mt-2 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50"
         >
-          <RefreshCw className="h-4 w-4" />
+          <Settings className="h-4 w-4" />
           <span>Switch to {currentRole === 'admin' ? 'Assessor' : 'Admin'} View</span>
         </button>
 
-        <button className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors">
+        <button className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 transition-colors hover:bg-red-50">
           <LogOut className="h-4 w-4" />
           <span>Sign Out</span>
         </button>

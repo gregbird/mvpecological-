@@ -312,13 +312,13 @@ OPENAI_API_KEY=sk-proj-...
 
 ## External API'ler
 
-| API    | Durum            | Kullanım                               |
-| ------ | ---------------- | -------------------------------------- |
-| NPWS   | ✅ Tam Çalışıyor | Designated Sites (SAC, SPA, NHA, pNHA) |
-| GBIF   | ✅ Tam Çalışıyor | Species occurrence records             |
-| NBDC   | ✅ Çalışıyor     | Irish species details                  |
-| OpenAI | ✅ Tam Çalışıyor | GPT-4 report generation                |
-| Leaflet | ✅ Ücretsiz     | Map display (OSM, ESRI satellite, OpenTopoMap) |
+| API     | Durum            | Kullanım                                       |
+| ------- | ---------------- | ---------------------------------------------- |
+| NPWS    | ✅ Tam Çalışıyor | Designated Sites (SAC, SPA, NHA, pNHA)         |
+| GBIF    | ✅ Tam Çalışıyor | Species occurrence records                     |
+| NBDC    | ✅ Çalışıyor     | Irish species details                          |
+| OpenAI  | ✅ Tam Çalışıyor | GPT-4 report generation                        |
+| Leaflet | ✅ Ücretsiz      | Map display (OSM, ESRI satellite, OpenTopoMap) |
 
 ---
 

@@ -1,5 +1,42 @@
 @import 'tailwindcss';
 
+/* Smooth scroll snap */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Hide scrollbar but keep functionality */
+.snap-y::-webkit-scrollbar {
+  width: 0;
+  background: transparent;
+}
+
+/* Smooth snap scrolling */
+.snap-mandatory {
+  scroll-snap-type: y mandatory;
+}
+
+.snap-start {
+  scroll-snap-align: start;
+}
+
+.snap-always {
+  scroll-snap-stop: always;
+}
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 @theme {
   /* Color system based on HSL */
   --color-background: hsl(0 0% 100%);

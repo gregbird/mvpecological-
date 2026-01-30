@@ -5,7 +5,7 @@ import Cookies from 'js-cookie'
 
 export type UserRole = 'admin' | 'assessor'
 
-interface RolePermissions {
+export interface RolePermissions {
   canCreateProject: boolean
   canDeleteProject: boolean
   canManageTeam: boolean
@@ -31,7 +31,7 @@ const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canWriteReports: true,
   },
   assessor: {
-    canCreateProject: false,
+    canCreateProject: true,
     canDeleteProject: false,
     canManageTeam: false,
     canManageSettings: false,

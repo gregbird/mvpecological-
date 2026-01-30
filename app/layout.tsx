@@ -7,6 +7,7 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { Toaster } from '@/components/ui/toaster'
 import { RoleProvider } from '@/contexts/role-context'
 import { DevModeButton } from '@/components/dev-mode-button'
+import { QueryProvider } from '@/components/providers/query-provider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -29,11 +30,13 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <RoleProvider>
-            {children}
-            <DevModeButton />
-            <Toaster />
-          </RoleProvider>
+          <QueryProvider>
+            <RoleProvider>
+              {children}
+              <DevModeButton />
+              <Toaster />
+            </RoleProvider>
+          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>

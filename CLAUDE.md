@@ -21,6 +21,7 @@ npm run type-check       # TypeScript type checking
 ## Architecture
 
 ### Tech Stack
+
 - Next.js 16+ (App Router)
 - React 19+, TypeScript 5.9+
 - Supabase (Auth & PostgreSQL with PostGIS)
@@ -30,6 +31,7 @@ npm run type-check       # TypeScript type checking
 - TanStack React Query
 
 ### Route Structure
+
 ```
 app/
 ├── (auth)/              # Auth routes (login, register)
@@ -44,6 +46,7 @@ app/
 ```
 
 ### Component Organization
+
 - `components/ui/` - Radix UI + shadcn primitives
 - `components/layout/` - Header, Sidebar, ThemeToggle
 - `components/dashboard/` - Project cards, stats, filters
@@ -52,6 +55,7 @@ app/
 - `components/field-surveys/` - Survey forms, species observations, habitats
 
 ### Data Layer
+
 - `lib/supabase/client.ts` - Browser client
 - `lib/supabase/server.ts` - Server client with cookies
 - `lib/external-apis/` - NPWS, GBIF, NBDC integrations
@@ -60,21 +64,26 @@ app/
 ## Key Patterns
 
 ### 16-Step Workflow
+
 Projects use a standardized workflow in 3 phases:
+
 - **Desk Research** (steps 1-5): Historical data, GIS mapping, data mining
 - **Field Research** (steps 6-11): Habitat surveys, species recording, photo documentation
 - **Reporting** (steps 12-16): Data quality, analysis, peer review, final report
 
 ### Form Validation
+
 ```tsx
 const schema = z.object({ ... })
 const { register, handleSubmit } = useForm({ resolver: zodResolver(schema) })
 ```
 
 ### Path Alias
+
 Use `@/` for all imports: `import { Button } from '@/components/ui/button'`
 
 ### Status Colors
+
 - Phase: desk_research (blue), field_research (green), reporting (purple)
 - Health: on_track (green), at_risk (amber), overdue (red)
 - Workflow: pending (gray), in_progress (blue), needs_review (amber), approved (green)

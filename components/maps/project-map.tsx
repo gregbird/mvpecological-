@@ -82,14 +82,7 @@ function MapComponent({
   onMapReady?: () => void
   mapRef: React.MutableRefObject<LeafletMap | null>
 }) {
-  const {
-    MapContainer,
-    TileLayer,
-    GeoJSON,
-    CircleMarker,
-    Popup,
-    useMap,
-  } = require('react-leaflet')
+  const { MapContainer, TileLayer, GeoJSON, CircleMarker, Popup, useMap } = require('react-leaflet')
 
   const boundaryLayer = layers.find((l) => l.id === 'boundary')
   const habitatLayer = layers.find((l) => l.id === 'habitats')
@@ -201,9 +194,7 @@ function MapComponent({
                   </h3>
                   <p className="text-sm text-gray-600">{props?.species_name_scientific}</p>
                   {isProtected && (
-                    <span className="rounded bg-red-100 px-1 text-xs text-red-800">
-                      Protected
-                    </span>
+                    <span className="rounded bg-red-100 px-1 text-xs text-red-800">Protected</span>
                   )}
                   {props?.count && <p className="mt-1 text-sm">Count: {props.count}</p>}
                 </div>
@@ -216,10 +207,7 @@ function MapComponent({
 }
 
 // Dynamic import wrapper
-const DynamicMapComponent = dynamic(
-  () => Promise.resolve(MapComponent),
-  { ssr: false }
-)
+const DynamicMapComponent = dynamic(() => Promise.resolve(MapComponent), { ssr: false })
 
 export function ProjectMap({
   className,
@@ -295,7 +283,7 @@ export function ProjectMap({
       </div>
 
       {/* Map controls overlay */}
-      <div className="absolute left-4 top-4 z-[1000] flex flex-col gap-2">
+      <div className="absolute top-4 left-4 z-[1000] flex flex-col gap-2">
         {/* Style selector */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

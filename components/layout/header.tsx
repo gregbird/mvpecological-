@@ -29,7 +29,10 @@ interface HeaderProps {
   }
 }
 
-const ROLE_STYLES: Record<UserRole, { bg: string; text: string; icon: React.ComponentType<{ className?: string }> }> = {
+const ROLE_STYLES: Record<
+  UserRole,
+  { bg: string; text: string; icon: React.ComponentType<{ className?: string }> }
+> = {
   admin: { bg: 'bg-emerald-500/10', text: 'text-emerald-600', icon: Shield },
   assessor: { bg: 'bg-blue-500/10', text: 'text-blue-600', icon: Map },
 }

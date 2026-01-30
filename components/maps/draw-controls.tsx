@@ -9,14 +9,12 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 // Dynamic imports to avoid SSR issues
-const FeatureGroup = dynamic(
-  () => import('react-leaflet').then((mod) => mod.FeatureGroup),
-  { ssr: false }
-)
-const EditControl = dynamic(
-  () => import('react-leaflet-draw').then((mod) => mod.EditControl),
-  { ssr: false }
-)
+const FeatureGroup = dynamic(() => import('react-leaflet').then((mod) => mod.FeatureGroup), {
+  ssr: false,
+})
+const EditControl = dynamic(() => import('react-leaflet-draw').then((mod) => mod.EditControl), {
+  ssr: false,
+})
 
 // Define draw event types since @types/leaflet-draw doesn't export them properly
 interface DrawCreatedEvent {

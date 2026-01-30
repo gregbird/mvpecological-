@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Zap, Shield, Clipboard, GripVertical } from 'lucide-react'
+import { Zap, Shield, Clipboard, Move } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import Cookies from 'js-cookie'
 
@@ -39,10 +39,9 @@ export function DevModeButton() {
   const isDev = process.env.NODE_ENV === 'development'
 
   // Draggable state
-  const [position, setPosition] = React.useState({ x: 0, y: 0 })
+  const [position, setPosition] = React.useState({ x: 24, y: 24 })
   const [isDragging, setIsDragging] = React.useState(false)
-  const [dragStart, setDragStart] = React.useState({ x: 0, y: 0 })
-  const buttonRef = React.useRef<HTMLDivElement>(null)
+  const dragStartRef = React.useRef({ x: 0, y: 0, posX: 0, posY: 0 })
 
   // Load saved position from localStorage
   React.useEffect(() => {
@@ -57,116 +56,87 @@ export function DevModeButton() {
     }
   }, [])
 
-  // Save position to localStorage
-  const savePosition = (pos: { x: number; y: number }) => {
-    localStorage.setItem('devButtonPosition', JSON.stringify(pos))
-  }
-
-  // Mouse/Touch handlers for dragging
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest('[data-no-drag]')) return
-    setIsDragging(true)
-    setDragStart({
-      x: e.clientX - position.x,
-      y: e.clientY - position.y,
-    })
+  // Drag handle mouse down
+  const handleDragStart = (e: React.MouseEvent) => {
     e.preventDefault()
-  }
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if ((e.target as HTMLElement).closest('[data-no-drag]')) return
-    const touch = e.touches[0]
+    e.stopPropagation()
     setIsDragging(true)
-    setDragStart({
-      x: touch.clientX - position.x,
-      y: touch.clientY - position.y,
-    })
+    dragStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      posX: position.x,
+      posY: position.y,
+    }
   }
 
   React.useEffect(() => {
+    if (!isDragging) return
+
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging) return
-      const newX = e.clientX - dragStart.x
-      const newY = e.clientY - dragStart.y
+      const deltaX = e.clientX - dragStartRef.current.x
+      const deltaY = e.clientY - dragStartRef.current.y
+
+      const newX = dragStartRef.current.posX - deltaX
+      const newY = dragStartRef.current.posY + deltaY
 
       // Keep button within viewport
-      const maxX = window.innerWidth - 60
-      const maxY = window.innerHeight - 60
-      const boundedX = Math.max(-window.innerWidth + 80, Math.min(maxX - 20, newX))
-      const boundedY = Math.max(-window.innerHeight + 80, Math.min(maxY - 20, newY))
+      const boundedX = Math.max(10, Math.min(window.innerWidth - 70, newX))
+      const boundedY = Math.max(10, Math.min(window.innerHeight - 70, newY))
 
       setPosition({ x: boundedX, y: boundedY })
     }
 
-    const handleTouchMove = (e: TouchEvent) => {
-      if (!isDragging) return
-      const touch = e.touches[0]
-      const newX = touch.clientX - dragStart.x
-      const newY = touch.clientY - dragStart.y
-
-      const maxX = window.innerWidth - 60
-      const maxY = window.innerHeight - 60
-      const boundedX = Math.max(-window.innerWidth + 80, Math.min(maxX - 20, newX))
-      const boundedY = Math.max(-window.innerHeight + 80, Math.min(maxY - 20, newY))
-
-      setPosition({ x: boundedX, y: boundedY })
+    const handleMouseUp = () => {
+      setIsDragging(false)
+      localStorage.setItem('devButtonPosition', JSON.stringify(position))
     }
 
-    const handleEnd = () => {
-      if (isDragging) {
-        setIsDragging(false)
-        savePosition(position)
-      }
-    }
-
-    if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove)
-      document.addEventListener('mouseup', handleEnd)
-      document.addEventListener('touchmove', handleTouchMove)
-      document.addEventListener('touchend', handleEnd)
-    }
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
 
     return () => {
       document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleEnd)
-      document.removeEventListener('touchmove', handleTouchMove)
-      document.removeEventListener('touchend', handleEnd)
+      document.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [isDragging, dragStart, position])
+  }, [isDragging, position])
 
-  const handleDevLogin = (roleId: UserRole) => {
+  const handleRoleSelect = (roleId: UserRole) => {
     Cookies.set('dev_mode', 'true', { expires: 7 })
+    Cookies.set('dev_role', roleId, { expires: 7 })
     setCurrentRole(roleId)
+    router.push('/projects')
   }
 
   if (!isDev) return null
 
   return (
     <div
-      ref={buttonRef}
-      className="fixed z-[9999] select-none"
+      className="fixed z-[9999]"
       style={{
-        bottom: `${24 - position.y}px`,
-        right: `${24 - position.x}px`,
-        cursor: isDragging ? 'grabbing' : 'grab',
+        bottom: `${position.y}px`,
+        right: `${position.x}px`,
       }}
-      onMouseDown={handleMouseDown}
-      onTouchStart={handleTouchStart}
     >
+      {/* Drag Handle */}
+      <div
+        className="absolute -top-2 -left-2 flex h-6 w-6 cursor-move items-center justify-center rounded-full bg-amber-600 shadow-md transition-colors hover:bg-amber-700"
+        onMouseDown={handleDragStart}
+        title="Drag to move"
+      >
+        <Move className="h-3 w-3 text-white" />
+      </div>
+
+      {/* Main Button */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
-            data-no-drag
             variant="default"
-            className="h-14 w-14 rounded-full bg-amber-500 shadow-lg hover:bg-amber-600 p-0 relative group"
+            className="h-14 w-14 rounded-full bg-amber-500 p-0 shadow-lg hover:bg-amber-600"
           >
             <Zap className="h-6 w-6" />
-            <div className="absolute -top-1 -left-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <GripVertical className="h-4 w-4 text-amber-300" />
-            </div>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent data-no-drag align="end" className="w-64">
+        <DropdownMenuContent align="end" className="w-64">
           <DropdownMenuLabel className="flex items-center gap-2">
             <Zap className="h-4 w-4 text-amber-500" />
             Dev Mode - Select Role
@@ -174,10 +144,11 @@ export function DevModeButton() {
           <DropdownMenuSeparator />
           {DEV_ROLES.map((role) => {
             const Icon = role.icon
+            const isSelected = currentRole === role.id
             return (
               <DropdownMenuItem
                 key={role.id}
-                onClick={() => handleDevLogin(role.id)}
+                onClick={() => handleRoleSelect(role.id)}
                 className="flex cursor-pointer items-start gap-3 py-3"
               >
                 <Icon className={`mt-0.5 h-5 w-5 ${role.color}`} />
@@ -185,15 +156,15 @@ export function DevModeButton() {
                   <div className="font-medium">{role.label}</div>
                   <div className="text-muted-foreground text-xs">{role.description}</div>
                 </div>
-                {currentRole === role.id && (
-                  <div className="h-2 w-2 rounded-full bg-green-500" />
+                {isSelected && (
+                  <div className="h-2.5 w-2.5 self-center rounded-full bg-green-500" />
                 )}
               </DropdownMenuItem>
             )
           })}
           <DropdownMenuSeparator />
           <div className="text-muted-foreground px-2 py-1.5 text-xs">
-            Drag button to reposition • Cookie-based auth bypass
+            Active: <span className="text-foreground font-medium capitalize">{currentRole}</span>
           </div>
         </DropdownMenuContent>
       </DropdownMenu>

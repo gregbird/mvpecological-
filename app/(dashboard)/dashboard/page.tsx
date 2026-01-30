@@ -42,7 +42,7 @@ const stats = [
 function DonutChart({
   data,
   centerLabel,
-  centerValue
+  centerValue,
 }: {
   data: { value: number; color: string; label: string }[]
   centerLabel: string
@@ -52,17 +52,10 @@ function DonutChart({
   let currentAngle = 0
 
   return (
-    <div className="relative w-48 h-48 mx-auto">
-      <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+    <div className="relative mx-auto h-48 w-48">
+      <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
         {total === 0 ? (
-          <circle
-            cx="50"
-            cy="50"
-            r="40"
-            fill="none"
-            stroke="#e5e7eb"
-            strokeWidth="12"
-          />
+          <circle cx="50" cy="50" r="40" fill="none" stroke="#e5e7eb" strokeWidth="12" />
         ) : (
           data.map((item, index) => {
             const percentage = (item.value / total) * 100
@@ -120,34 +113,31 @@ export default function DashboardPage() {
   return (
     <div className="p-8">
       {/* Page Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-500 mt-1">Welcome back, {user.name}</p>
+          <p className="mt-1 text-gray-500">Welcome back, {user.name}</p>
         </div>
         {permissions.canCreateProject && (
           <Button className="bg-emerald-600 hover:bg-emerald-700">
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="mr-2 h-4 w-4" />
             New Project
           </Button>
         )}
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => {
           const Icon = stat.icon
           return (
-            <div
-              key={stat.label}
-              className="bg-white rounded-xl border border-gray-200 p-5"
-            >
+            <div key={stat.label} className="rounded-xl border border-gray-200 bg-white p-5">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500">{stat.label}</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-1">{stat.value}</p>
+                  <p className="mt-1 text-3xl font-bold text-gray-900">{stat.value}</p>
                 </div>
-                <div className={`p-3 rounded-full ${stat.iconBg}`}>
+                <div className={`rounded-full p-3 ${stat.iconBg}`}>
                   <Icon className={`h-6 w-6 ${stat.color.split(' ')[1]}`} />
                 </div>
               </div>
@@ -157,19 +147,15 @@ export default function DashboardPage() {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+      <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Project Status Distribution */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6">Project Status Distribution</h3>
-          <DonutChart
-            data={projectStatusData}
-            centerLabel="Projects"
-            centerValue={37}
-          />
+        <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <h3 className="mb-6 text-lg font-semibold text-gray-900">Project Status Distribution</h3>
+          <DonutChart data={projectStatusData} centerLabel="Projects" centerValue={37} />
           <div className="mt-6 grid grid-cols-2 gap-2">
             {projectStatusData.map((item) => (
               <div key={item.label} className="flex items-center gap-2 text-sm">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
                 <span className="text-gray-600">{item.label}:</span>
                 <span className="font-medium">{item.value}</span>
               </div>
@@ -178,17 +164,13 @@ export default function DashboardPage() {
         </div>
 
         {/* Workflow Stage Progress */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6">Workflow Stage Progress</h3>
-          <DonutChart
-            data={workflowData}
-            centerLabel="Active"
-            centerValue={0}
-          />
+        <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <h3 className="mb-6 text-lg font-semibold text-gray-900">Workflow Stage Progress</h3>
+          <DonutChart data={workflowData} centerLabel="Active" centerValue={0} />
           <div className="mt-6 space-y-2">
             {workflowData.map((item) => (
               <div key={item.label} className="flex items-center gap-2 text-sm">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
                 <span className="text-gray-600">{item.label}:</span>
                 <span className="font-medium">{item.value}</span>
               </div>
@@ -197,17 +179,13 @@ export default function DashboardPage() {
         </div>
 
         {/* Timeline Health */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6">Timeline Health</h3>
-          <DonutChart
-            data={timelineHealthData}
-            centerLabel="Healthy"
-            centerValue="49%"
-          />
+        <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <h3 className="mb-6 text-lg font-semibold text-gray-900">Timeline Health</h3>
+          <DonutChart data={timelineHealthData} centerLabel="Healthy" centerValue="49%" />
           <div className="mt-6 space-y-2">
             {timelineHealthData.map((item) => (
               <div key={item.label} className="flex items-center gap-2 text-sm">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
                 <span className="text-gray-600">{item.label}:</span>
                 <span className="font-medium">{item.value}</span>
               </div>
@@ -217,11 +195,11 @@ export default function DashboardPage() {
       </div>
 
       {/* All Projects Timeline Status */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">All Projects Timeline Status</h3>
-        <div className="text-center py-12 text-gray-500">
+      <div className="rounded-xl border border-gray-200 bg-white p-6">
+        <h3 className="mb-4 text-lg font-semibold text-gray-900">All Projects Timeline Status</h3>
+        <div className="py-12 text-center text-gray-500">
           <p>Project timeline visualization coming soon...</p>
-          <Link href="/projects" className="text-emerald-600 hover:underline mt-2 inline-block">
+          <Link href="/projects" className="mt-2 inline-block text-emerald-600 hover:underline">
             View all projects
           </Link>
         </div>
