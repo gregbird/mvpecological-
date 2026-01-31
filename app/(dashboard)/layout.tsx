@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   FolderKanban,
   Users,
@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Menu,
   X,
+  Loader2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -23,6 +24,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useRole, type RolePermissions } from '@/contexts/role-context'
 import { ThemeToggle } from '@/components/layout/theme-toggle'
+import { createClient } from '@/lib/supabase/client'
 
 const navItems = [
   { label: 'Projects', href: '/projects', icon: FolderKanban, permission: null },
@@ -48,8 +50,10 @@ const navItems = [
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const { currentRole, user, permissions } = useRole()
+  const router = useRouter()
+  const { user, permissions, isLoading } = useRole()
   const [sidebarOpen, setSidebarOpen] = React.useState(false)
+  const [isSigningOut, setIsSigningOut] = React.useState(false)
 
   // Check if we're on a project detail page (has project ID)
   const isProjectDetailPage = /^\/projects\/[^/]+/.test(pathname)
@@ -58,11 +62,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     (item) => item.permission === null || permissions[item.permission]
   )
 
-  const initials = user.name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
+  const initials = user?.full_name
+    ? user.full_name
+        .split(' ')
+        .map((n: string) => n[0])
+        .join('')
+        .toUpperCase()
+    : 'U'
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true)
+    try {
+      const supabase = createClient()
+      await supabase.auth.signOut()
+      router.push('/login')
+    } catch (err) {
+      console.error('Error signing out:', err)
+    } finally {
+      setIsSigningOut(false)
+    }
+  }
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="bg-background flex h-screen items-center justify-center">
+        <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+      </div>
+    )
+  }
 
   // If on project detail page, render minimal layout (project has its own sidebar)
   if (isProjectDetailPage) {
@@ -182,8 +210,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1">
-              <p className="text-foreground truncate text-sm font-semibold">{user.name}</p>
-              <p className="text-muted-foreground text-xs capitalize">{currentRole}</p>
+              <p className="text-foreground truncate text-sm font-semibold">
+                {user?.full_name || 'User'}
+              </p>
+              <p className="text-muted-foreground text-xs capitalize">{user?.role || 'assessor'}</p>
             </div>
           </div>
 
@@ -199,10 +229,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Button
               variant="ghost"
               size="sm"
+              onClick={handleSignOut}
+              disabled={isSigningOut}
               className="flex-1 justify-start gap-2 text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
             >
-              <LogOut className="h-4 w-4" />
-              Logout
+              {isSigningOut ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <LogOut className="h-4 w-4" />
+              )}
+              {isSigningOut ? 'Signing out...' : 'Logout'}
             </Button>
           </div>
         </div>
@@ -243,7 +279,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   {initials}
                 </AvatarFallback>
               </Avatar>
-              <span className="text-foreground text-sm font-medium">{user.name.split(' ')[0]}</span>
+              <span className="text-foreground text-sm font-medium">
+                {user?.full_name?.split(' ')[0] || 'User'}
+              </span>
             </div>
           </div>
         </header>

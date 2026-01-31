@@ -1,10 +1,11 @@
 'use client'
 
 import * as React from 'react'
-import { Globe, Database, Pencil, ArrowRight, X } from 'lucide-react'
+import { Globe, Database, Pencil, ArrowRight, Clock } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
   DialogContent,
@@ -31,6 +32,7 @@ const gisOptions = [
     description: 'Connect to ArcGIS Online or import from ArcGIS REST services',
     icon: Globe,
     color: 'bg-blue-500',
+    comingSoon: true,
   },
   {
     id: 'qgis' as const,
@@ -38,6 +40,7 @@ const gisOptions = [
     description: 'Import from QGIS database or PostGIS connection',
     icon: Database,
     color: 'bg-green-500',
+    comingSoon: true,
   },
   {
     id: 'manual' as const,
@@ -45,6 +48,7 @@ const gisOptions = [
     description: 'Draw boundaries manually on the map',
     icon: Pencil,
     color: 'bg-amber-500',
+    comingSoon: false,
   },
 ]
 

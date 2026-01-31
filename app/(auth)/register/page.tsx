@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Leaf, Loader2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -19,13 +19,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/hooks/use-toast'
 
@@ -36,13 +29,6 @@ const registerSchema = z
     password: z.string().min(8, 'Password must be at least 8 characters'),
     confirmPassword: z.string(),
     organizationName: z.string().min(2, 'Organization name is required'),
-    role: z.enum([
-      'admin',
-      'senior_ecologist',
-      'field_ecologist',
-      'gis_specialist',
-      'junior_ecologist',
-    ]),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",
@@ -53,19 +39,19 @@ type RegisterFormData = z.infer<typeof registerSchema>
 
 export default function RegisterPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
   const [isLoading, setIsLoading] = React.useState(false)
+
+  // Check if there's an invite token in the URL
+  const inviteToken = searchParams.get('invite')
 
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
-    defaultValues: {
-      role: 'junior_ecologist',
-    },
   })
 
   const onSubmit = async (data: RegisterFormData) => {
@@ -74,6 +60,9 @@ export default function RegisterPage() {
       const supabase = createClient()
 
       // Sign up the user
+      // The database trigger will automatically create:
+      // 1. A new organization with the provided name
+      // 2. A profile linked to that organization with role='admin'
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
@@ -81,7 +70,6 @@ export default function RegisterPage() {
           data: {
             full_name: data.fullName,
             organization_name: data.organizationName,
-            role: data.role,
           },
         },
       })
@@ -113,6 +101,12 @@ export default function RegisterPage() {
     }
   }
 
+  // If there's an invite token, redirect to the accept-invite page
+  if (inviteToken) {
+    router.replace(`/accept-invite?token=${inviteToken}`)
+    return null
+  }
+
   return (
     <>
       {/* Mobile Logo */}
@@ -126,7 +120,7 @@ export default function RegisterPage() {
       <Card>
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl">Create an account</CardTitle>
-          <CardDescription>Get started with Dulra for your ecological consultancy</CardDescription>
+          <CardDescription>Register your organization to get started with Dulra</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="space-y-4">
@@ -166,27 +160,9 @@ export default function RegisterPage() {
               {errors.organizationName && (
                 <p className="text-destructive text-sm">{errors.organizationName.message}</p>
               )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
-              <Select
-                onValueChange={(value) => setValue('role', value as RegisterFormData['role'])}
-                defaultValue="junior_ecologist"
-                disabled={isLoading}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select your role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="senior_ecologist">Senior Ecologist</SelectItem>
-                  <SelectItem value="field_ecologist">Field Ecologist</SelectItem>
-                  <SelectItem value="gis_specialist">GIS Specialist</SelectItem>
-                  <SelectItem value="junior_ecologist">Junior Ecologist</SelectItem>
-                </SelectContent>
-              </Select>
-              {errors.role && <p className="text-destructive text-sm">{errors.role.message}</p>}
+              <p className="text-muted-foreground text-xs">
+                You&apos;ll be the admin of this organization
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -215,12 +191,20 @@ export default function RegisterPage() {
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create account
             </Button>
-            <p className="text-muted-foreground text-center text-sm">
-              Already have an account?{' '}
-              <Link href="/login" className="text-primary hover:underline">
-                Sign in
-              </Link>
-            </p>
+            <div className="text-muted-foreground text-center text-sm">
+              <p>
+                Already have an account?{' '}
+                <Link href="/login" className="text-primary hover:underline">
+                  Sign in
+                </Link>
+              </p>
+              <p className="mt-2">
+                Have an invitation?{' '}
+                <Link href="/accept-invite" className="text-primary hover:underline">
+                  Accept invite
+                </Link>
+              </p>
+            </div>
           </CardFooter>
         </form>
       </Card>

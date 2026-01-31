@@ -1,9 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import Cookies from 'js-cookie'
-
-export type UserRole = 'admin' | 'assessor'
+import { createClient } from '@/lib/supabase/client'
+import type { Profile, Organization, UserRole } from '@/types/database'
 
 export interface RolePermissions {
   canCreateProject: boolean
@@ -41,6 +40,17 @@ const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canEditHabitats: true,
     canWriteReports: true,
   },
+  client: {
+    canCreateProject: false,
+    canDeleteProject: false,
+    canManageTeam: false,
+    canManageSettings: false,
+    canViewAuditTrail: false,
+    canViewTimesheets: false,
+    canEnterFieldData: false,
+    canEditHabitats: false,
+    canWriteReports: false,
+  },
 }
 
 interface RoleConfig {
@@ -66,50 +76,140 @@ export const ROLE_CONFIGS: RoleConfig[] = [
     color: 'text-blue-600',
     bgColor: 'bg-blue-600',
   },
+  {
+    id: 'client',
+    label: 'Client',
+    description: 'Read-only access',
+    color: 'text-gray-600',
+    bgColor: 'bg-gray-600',
+  },
 ]
 
-interface MockUser {
-  name: string
-  email: string
-  role: UserRole
-}
-
-export const MOCK_USERS: Record<UserRole, MockUser> = {
-  admin: { name: 'Apro', email: 'admin@dulra.ie', role: 'admin' },
-  assessor: { name: 'Sarah Murphy', email: 'sarah@dulra.ie', role: 'assessor' },
+export interface UserWithOrganization extends Profile {
+  organization: Organization | null
 }
 
 interface RoleContextType {
-  currentRole: UserRole
-  setCurrentRole: (role: UserRole) => void
+  user: UserWithOrganization | null
+  isLoading: boolean
+  error: string | null
   permissions: RolePermissions
-  user: MockUser
   roleConfig: RoleConfig
+  refetch: () => Promise<void>
 }
 
 const RoleContext = React.createContext<RoleContextType | undefined>(undefined)
 
-export function RoleProvider({ children }: { children: React.ReactNode }) {
-  const [currentRole, setCurrentRoleState] = React.useState<UserRole>('assessor')
+// Default permissions for unauthenticated users
+const DEFAULT_PERMISSIONS: RolePermissions = {
+  canCreateProject: false,
+  canDeleteProject: false,
+  canManageTeam: false,
+  canManageSettings: false,
+  canViewAuditTrail: false,
+  canViewTimesheets: false,
+  canEnterFieldData: false,
+  canEditHabitats: false,
+  canWriteReports: false,
+}
 
-  React.useEffect(() => {
-    const savedRole = Cookies.get('dev_role') as UserRole | undefined
-    if (savedRole && MOCK_USERS[savedRole]) {
-      setCurrentRoleState(savedRole)
+export function RoleProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = React.useState<UserWithOrganization | null>(null)
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | null>(null)
+
+  const fetchUser = React.useCallback(async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+
+      const supabase = createClient()
+
+      // Get the authenticated user
+      const {
+        data: { user: authUser },
+        error: authError,
+      } = await supabase.auth.getUser()
+
+      if (authError) {
+        throw authError
+      }
+
+      if (!authUser) {
+        setUser(null)
+        return
+      }
+
+      // Get the user's profile with organization
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select(
+          `
+          *,
+          organization:organizations(*)
+        `
+        )
+        .eq('id', authUser.id)
+        .single()
+
+      if (profileError) {
+        // Profile might not exist yet (e.g., during registration)
+        if (profileError.code === 'PGRST116') {
+          setUser(null)
+          return
+        }
+        throw profileError
+      }
+
+      setUser(profile as UserWithOrganization)
+    } catch (err) {
+      console.error('Error fetching user profile:', err)
+      setError(err instanceof Error ? err.message : 'Failed to fetch user profile')
+      setUser(null)
+    } finally {
+      setIsLoading(false)
     }
   }, [])
 
-  const setCurrentRole = (role: UserRole) => {
-    Cookies.set('dev_role', role, { expires: 7 })
-    setCurrentRoleState(role)
-  }
+  // Initial fetch
+  React.useEffect(() => {
+    fetchUser()
+  }, [fetchUser])
 
-  const permissions = ROLE_PERMISSIONS[currentRole]
-  const user = MOCK_USERS[currentRole]
-  const roleConfig = ROLE_CONFIGS.find((r) => r.id === currentRole) || ROLE_CONFIGS[1]
+  // Listen for auth state changes
+  React.useEffect(() => {
+    const supabase = createClient()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        fetchUser()
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null)
+        setIsLoading(false)
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [fetchUser])
+
+  const permissions = user ? ROLE_PERMISSIONS[user.role] : DEFAULT_PERMISSIONS
+  const roleConfig = ROLE_CONFIGS.find((r) => r.id === user?.role) || ROLE_CONFIGS[1] // Default to assessor config
 
   return (
-    <RoleContext.Provider value={{ currentRole, setCurrentRole, permissions, user, roleConfig }}>
+    <RoleContext.Provider
+      value={{
+        user,
+        isLoading,
+        error,
+        permissions,
+        roleConfig,
+        refetch: fetchUser,
+      }}
+    >
       {children}
     </RoleContext.Provider>
   )
@@ -121,4 +221,16 @@ export function useRole() {
     throw new Error('useRole must be used within a RoleProvider')
   }
   return context
+}
+
+// Helper hook for checking specific permissions
+export function usePermission(permission: keyof RolePermissions): boolean {
+  const { permissions } = useRole()
+  return permissions[permission]
+}
+
+// Helper hook for checking if user is admin
+export function useIsAdmin(): boolean {
+  const { user } = useRole()
+  return user?.role === 'admin'
 }

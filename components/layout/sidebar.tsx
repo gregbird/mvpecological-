@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { usePathname, useParams } from 'next/navigation'
+import { usePathname, useParams, useRouter } from 'next/navigation'
 import {
   FolderKanban,
   ChevronRight,
@@ -13,23 +13,22 @@ import {
   Target,
   Sparkles,
   CheckCircle,
-  Send,
   LogOut,
   BarChart3,
-  Settings,
   Users,
   Clock,
   History,
   Compass,
   FlaskConical,
   FileText,
+  Loader2,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { useRole, type RolePermissions } from '@/contexts/role-context'
-import { Progress } from '@/components/ui/progress'
+import { createClient } from '@/lib/supabase/client'
 
 // Admin-only menu items
 const adminMenuItems = [
@@ -93,19 +92,12 @@ const workflowPhases = [
   },
 ]
 
-// Mock active project data
-const mockActiveProject = {
-  id: '1',
-  name: 'Killarney National Park',
-  code: 'KNP-2024-001',
-  currentStep: 3,
-  progress: 20,
-}
-
 export function Sidebar() {
   const pathname = usePathname()
   const params = useParams()
-  const { currentRole, user, permissions, setCurrentRole } = useRole()
+  const router = useRouter()
+  const { user, permissions, isLoading } = useRole()
+  const [isSigningOut, setIsSigningOut] = React.useState(false)
 
   // Track expanded phases
   const [expandedPhases, setExpandedPhases] = React.useState<string[]>(['desk-research'])
@@ -116,11 +108,14 @@ export function Sidebar() {
   // Filter admin menu items based on permissions
   const visibleAdminItems = adminMenuItems.filter((item) => permissions[item.permission])
 
-  const initials = user.name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
+  // Get initials from user name
+  const initials = user?.full_name
+    ? user.full_name
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+    : 'U'
 
   const togglePhase = (phaseId: string) => {
     setExpandedPhases((prev) =>
@@ -128,7 +123,7 @@ export function Sidebar() {
     )
   }
 
-  // Get current phase based on step
+  // Get current phase based on step (default to step 1 when not in a project)
   const getCurrentPhase = (stepNumber: number) => {
     for (const phase of workflowPhases) {
       if (phase.steps.some((s) => s.number === stepNumber)) {
@@ -138,7 +133,31 @@ export function Sidebar() {
     return 'initial-setup'
   }
 
-  const currentPhase = getCurrentPhase(mockActiveProject.currentStep)
+  // Default current step (can be enhanced to track actual project progress)
+  const currentStep = 1
+  const currentPhase = getCurrentPhase(currentStep)
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true)
+    try {
+      const supabase = createClient()
+      await supabase.auth.signOut()
+      router.push('/login')
+    } catch (err) {
+      console.error('Error signing out:', err)
+    } finally {
+      setIsSigningOut(false)
+    }
+  }
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <aside className="flex h-screen w-[280px] flex-col items-center justify-center border-r border-gray-200 bg-white">
+        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+      </aside>
+    )
+  }
 
   return (
     <aside className="flex h-screen w-[280px] flex-col border-r border-gray-200 bg-white">
@@ -176,10 +195,8 @@ export function Sidebar() {
             const isExpanded = expandedPhases.includes(phase.id)
             const isCurrentPhase = phase.id === currentPhase
             const phaseStepNumbers = phase.steps.map((s) => s.number)
-            const isPhaseCompleted = phaseStepNumbers.every(
-              (n) => n < mockActiveProject.currentStep
-            )
-            const isPhaseActive = phaseStepNumbers.some((n) => n === mockActiveProject.currentStep)
+            const isPhaseCompleted = phaseStepNumbers.every((n) => n < currentStep)
+            const isPhaseActive = phaseStepNumbers.some((n) => n === currentStep)
 
             return (
               <div key={phase.id}>
@@ -212,9 +229,9 @@ export function Sidebar() {
                 {isExpanded && (
                   <div className="mt-1 ml-4 space-y-0.5 border-l-2 border-gray-100 pl-4">
                     {phase.steps.map((step) => {
-                      const isCompleted = step.number < mockActiveProject.currentStep
-                      const isCurrent = step.number === mockActiveProject.currentStep
-                      const isLocked = step.number > mockActiveProject.currentStep
+                      const isCompleted = step.number < currentStep
+                      const isCurrent = step.number === currentStep
+                      const isLocked = step.number > currentStep
 
                       return (
                         <Link
@@ -293,23 +310,24 @@ export function Sidebar() {
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-gray-900">{user.name}</p>
-            <p className="text-xs text-gray-500 capitalize">{currentRole}</p>
+            <p className="truncate text-sm font-medium text-gray-900">
+              {user?.full_name || 'User'}
+            </p>
+            <p className="text-xs text-gray-500 capitalize">{user?.role || 'assessor'}</p>
           </div>
         </div>
 
-        {/* Role Switch Button (Dev Mode) */}
         <button
-          onClick={() => setCurrentRole(currentRole === 'admin' ? 'assessor' : 'admin')}
-          className="mt-2 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50"
+          onClick={handleSignOut}
+          disabled={isSigningOut}
+          className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
         >
-          <Settings className="h-4 w-4" />
-          <span>Switch to {currentRole === 'admin' ? 'Assessor' : 'Admin'} View</span>
-        </button>
-
-        <button className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 transition-colors hover:bg-red-50">
-          <LogOut className="h-4 w-4" />
-          <span>Sign Out</span>
+          {isSigningOut ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <LogOut className="h-4 w-4" />
+          )}
+          <span>{isSigningOut ? 'Signing out...' : 'Sign Out'}</span>
         </button>
       </div>
     </aside>

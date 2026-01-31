@@ -1,625 +1,1057 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: '14.1'
+  }
   public: {
     Tables: {
-      organizations: {
+      audit_log: {
         Row: {
-          id: string
-          name: string
-          logo_url: string | null
-          settings: Json | null
+          action: Database['public']['Enums']['audit_action']
           created_at: string
-          updated_at: string
+          id: string
+          ip_address: string | null
+          new_data: Json | null
+          old_data: Json | null
+          record_id: string
+          table_name: string
+          user_id: string | null
         }
         Insert: {
-          id?: string
-          name: string
-          logo_url?: string | null
-          settings?: Json | null
+          action: Database['public']['Enums']['audit_action']
           created_at?: string
-          updated_at?: string
+          id?: string
+          ip_address?: string | null
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id: string
+          table_name: string
+          user_id?: string | null
         }
         Update: {
+          action?: Database['public']['Enums']['audit_action']
+          created_at?: string
           id?: string
-          name?: string
-          logo_url?: string | null
-          settings?: Json | null
-          created_at?: string
-          updated_at?: string
+          ip_address?: string | null
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string
+          table_name?: string
+          user_id?: string | null
         }
-      }
-      profiles: {
-        Row: {
-          id: string
-          organization_id: string
-          email: string
-          full_name: string
-          role:
-            | 'admin'
-            | 'senior_ecologist'
-            | 'field_ecologist'
-            | 'gis_specialist'
-            | 'junior_ecologist'
-            | 'client'
-          avatar_url: string | null
-          settings: Json | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id: string
-          organization_id: string
-          email: string
-          full_name: string
-          role?:
-            | 'admin'
-            | 'senior_ecologist'
-            | 'field_ecologist'
-            | 'gis_specialist'
-            | 'junior_ecologist'
-            | 'client'
-          avatar_url?: string | null
-          settings?: Json | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          organization_id?: string
-          email?: string
-          full_name?: string
-          role?:
-            | 'admin'
-            | 'senior_ecologist'
-            | 'field_ecologist'
-            | 'gis_specialist'
-            | 'junior_ecologist'
-            | 'client'
-          avatar_url?: string | null
-          settings?: Json | null
-          created_at?: string
-          updated_at?: string
-        }
+        Relationships: [
+          {
+            foreignKeyName: 'audit_log_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
       }
       clients: {
         Row: {
-          id: string
-          organization_id: string
-          name: string
+          address: string | null
           contact_email: string | null
           contact_name: string | null
-          address: string | null
           created_at: string
+          id: string
+          name: string
+          organization_id: string
           updated_at: string
         }
         Insert: {
-          id?: string
-          organization_id: string
-          name: string
+          address?: string | null
           contact_email?: string | null
           contact_name?: string | null
-          address?: string | null
           created_at?: string
+          id?: string
+          name: string
+          organization_id: string
           updated_at?: string
         }
         Update: {
-          id?: string
-          organization_id?: string
-          name?: string
+          address?: string | null
           contact_email?: string | null
           contact_name?: string | null
-          address?: string | null
           created_at?: string
-          updated_at?: string
-        }
-      }
-      projects: {
-        Row: {
-          id: string
-          organization_id: string
-          client_id: string | null
-          name: string
-          site_code: string | null
-          survey_type: string | null
-          status: 'draft' | 'active' | 'completed' | 'archived'
-          current_phase: 'desk_research' | 'field_research' | 'reporting'
-          health_status: 'on_track' | 'at_risk' | 'overdue'
-          expected_start_date: string | null
-          expected_end_date: string | null
-          actual_start_date: string | null
-          actual_end_date: string | null
-          budget_days: number | null
-          boundary: unknown | null // PostGIS geometry
-          center_point: unknown | null // PostGIS geometry
-          grid_reference: string | null
-          created_by: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
           id?: string
-          organization_id: string
-          client_id?: string | null
-          name: string
-          site_code?: string | null
-          survey_type?: string | null
-          status?: 'draft' | 'active' | 'completed' | 'archived'
-          current_phase?: 'desk_research' | 'field_research' | 'reporting'
-          health_status?: 'on_track' | 'at_risk' | 'overdue'
-          expected_start_date?: string | null
-          expected_end_date?: string | null
-          actual_start_date?: string | null
-          actual_end_date?: string | null
-          budget_days?: number | null
-          boundary?: unknown | null
-          center_point?: unknown | null
-          grid_reference?: string | null
-          created_by: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
+          name?: string
           organization_id?: string
-          client_id?: string | null
-          name?: string
-          site_code?: string | null
-          survey_type?: string | null
-          status?: 'draft' | 'active' | 'completed' | 'archived'
-          current_phase?: 'desk_research' | 'field_research' | 'reporting'
-          health_status?: 'on_track' | 'at_risk' | 'overdue'
-          expected_start_date?: string | null
-          expected_end_date?: string | null
-          actual_start_date?: string | null
-          actual_end_date?: string | null
-          budget_days?: number | null
-          boundary?: unknown | null
-          center_point?: unknown | null
-          grid_reference?: string | null
-          created_by?: string
-          created_at?: string
           updated_at?: string
         }
-      }
-      project_members: {
-        Row: {
-          id: string
-          project_id: string
-          user_id: string
-          role: 'lead' | 'surveyor' | 'analyst' | 'reviewer' | 'viewer'
-          assigned_at: string
-        }
-        Insert: {
-          id?: string
-          project_id: string
-          user_id: string
-          role?: 'lead' | 'surveyor' | 'analyst' | 'reviewer' | 'viewer'
-          assigned_at?: string
-        }
-        Update: {
-          id?: string
-          project_id?: string
-          user_id?: string
-          role?: 'lead' | 'surveyor' | 'analyst' | 'reviewer' | 'viewer'
-          assigned_at?: string
-        }
-      }
-      workflow_steps: {
-        Row: {
-          id: string
-          project_id: string
-          step_number: number
-          name: string
-          phase: 'desk_research' | 'field_research' | 'reporting'
-          status: 'pending' | 'in_progress' | 'needs_review' | 'approved' | 'blocked'
-          assigned_to: string | null
-          reviewer: string | null
-          started_at: string | null
-          completed_at: string | null
-          due_date: string | null
-          notes: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          project_id: string
-          step_number: number
-          name: string
-          phase: 'desk_research' | 'field_research' | 'reporting'
-          status?: 'pending' | 'in_progress' | 'needs_review' | 'approved' | 'blocked'
-          assigned_to?: string | null
-          reviewer?: string | null
-          started_at?: string | null
-          completed_at?: string | null
-          due_date?: string | null
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          project_id?: string
-          step_number?: number
-          name?: string
-          phase?: 'desk_research' | 'field_research' | 'reporting'
-          status?: 'pending' | 'in_progress' | 'needs_review' | 'approved' | 'blocked'
-          assigned_to?: string | null
-          reviewer?: string | null
-          started_at?: string | null
-          completed_at?: string | null
-          due_date?: string | null
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
+        Relationships: [
+          {
+            foreignKeyName: 'clients_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
       }
       desk_research_findings: {
         Row: {
-          id: string
-          project_id: string
-          source: 'npws' | 'gbif' | 'nbdc' | 'epa' | 'catchments' | 'manual'
-          data_type: 'designated_site' | 'species_record' | 'water_quality' | 'catchment' | 'other'
-          title: string
           content: string | null
-          raw_data: Json | null
-          location: unknown | null // PostGIS geometry
+          created_at: string
+          created_by: string
+          data_type: Database['public']['Enums']['finding_data_type']
+          id: string
           is_saved: boolean
+          location: unknown
           notes: string | null
-          created_by: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
           project_id: string
-          source: 'npws' | 'gbif' | 'nbdc' | 'epa' | 'catchments' | 'manual'
-          data_type: 'designated_site' | 'species_record' | 'water_quality' | 'catchment' | 'other'
+          raw_data: Json | null
+          source: Database['public']['Enums']['data_source']
           title: string
+          updated_at: string
+        }
+        Insert: {
           content?: string | null
-          raw_data?: Json | null
-          location?: unknown | null
-          is_saved?: boolean
-          notes?: string | null
+          created_at?: string
           created_by: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
+          data_type: Database['public']['Enums']['finding_data_type']
           id?: string
-          project_id?: string
-          source?: 'npws' | 'gbif' | 'nbdc' | 'epa' | 'catchments' | 'manual'
-          data_type?: 'designated_site' | 'species_record' | 'water_quality' | 'catchment' | 'other'
-          title?: string
-          content?: string | null
-          raw_data?: Json | null
-          location?: unknown | null
           is_saved?: boolean
+          location?: unknown
           notes?: string | null
+          project_id: string
+          raw_data?: Json | null
+          source: Database['public']['Enums']['data_source']
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
           created_by?: string
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      surveys: {
-        Row: {
-          id: string
-          project_id: string
-          survey_type: string
-          surveyor_id: string
-          survey_date: string
-          start_time: string | null
-          end_time: string | null
-          weather: Json | null
-          status: 'planned' | 'in_progress' | 'completed' | 'approved'
-          notes: string | null
-          sync_status: 'synced' | 'pending' | 'conflict'
-          local_id: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
+          data_type?: Database['public']['Enums']['finding_data_type']
           id?: string
-          project_id: string
-          survey_type: string
-          surveyor_id: string
-          survey_date: string
-          start_time?: string | null
-          end_time?: string | null
-          weather?: Json | null
-          status?: 'planned' | 'in_progress' | 'completed' | 'approved'
+          is_saved?: boolean
+          location?: unknown
           notes?: string | null
-          sync_status?: 'synced' | 'pending' | 'conflict'
-          local_id?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
           project_id?: string
-          survey_type?: string
-          surveyor_id?: string
-          survey_date?: string
-          start_time?: string | null
-          end_time?: string | null
-          weather?: Json | null
-          status?: 'planned' | 'in_progress' | 'completed' | 'approved'
-          notes?: string | null
-          sync_status?: 'synced' | 'pending' | 'conflict'
-          local_id?: string | null
-          created_at?: string
+          raw_data?: Json | null
+          source?: Database['public']['Enums']['data_source']
+          title?: string
           updated_at?: string
         }
-      }
-      species_observations: {
-        Row: {
-          id: string
-          survey_id: string
-          species_name_scientific: string
-          species_name_common: string | null
-          taxon_group: string | null
-          count: number | null
-          abundance_dafor: string | null
-          evidence_type: string | null
-          behavior_notes: string | null
-          location: unknown | null // PostGIS Point
-          gps_accuracy: number | null
-          photos: string[] | null
-          is_protected: boolean
-          designation: string | null
-          confidence_level: 'high' | 'medium' | 'low'
-          needs_verification: boolean
-          verified_by: string | null
-          local_id: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          survey_id: string
-          species_name_scientific: string
-          species_name_common?: string | null
-          taxon_group?: string | null
-          count?: number | null
-          abundance_dafor?: string | null
-          evidence_type?: string | null
-          behavior_notes?: string | null
-          location?: unknown | null
-          gps_accuracy?: number | null
-          photos?: string[] | null
-          is_protected?: boolean
-          designation?: string | null
-          confidence_level?: 'high' | 'medium' | 'low'
-          needs_verification?: boolean
-          verified_by?: string | null
-          local_id?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          survey_id?: string
-          species_name_scientific?: string
-          species_name_common?: string | null
-          taxon_group?: string | null
-          count?: number | null
-          abundance_dafor?: string | null
-          evidence_type?: string | null
-          behavior_notes?: string | null
-          location?: unknown | null
-          gps_accuracy?: number | null
-          photos?: string[] | null
-          is_protected?: boolean
-          designation?: string | null
-          confidence_level?: 'high' | 'medium' | 'low'
-          needs_verification?: boolean
-          verified_by?: string | null
-          local_id?: string | null
-          created_at?: string
-          updated_at?: string
-        }
+        Relationships: [
+          {
+            foreignKeyName: 'desk_research_findings_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'desk_research_findings_project_id_fkey'
+            columns: ['project_id']
+            isOneToOne: false
+            referencedRelation: 'projects'
+            referencedColumns: ['id']
+          },
+        ]
       }
       habitat_polygons: {
         Row: {
-          id: string
-          project_id: string
-          survey_id: string | null
+          area_hectares: number | null
+          boundary: unknown
+          condition: string | null
+          created_at: string
           fossitt_code: string
           fossitt_name: string
-          boundary: unknown | null // PostGIS Polygon
-          area_hectares: number | null
-          condition: string | null
+          id: string
           notes: string | null
           photos: string[] | null
-          created_at: string
+          project_id: string
+          survey_id: string | null
           updated_at: string
         }
         Insert: {
-          id?: string
-          project_id: string
-          survey_id?: string | null
+          area_hectares?: number | null
+          boundary?: unknown
+          condition?: string | null
+          created_at?: string
           fossitt_code: string
           fossitt_name: string
-          boundary?: unknown | null
-          area_hectares?: number | null
-          condition?: string | null
+          id?: string
           notes?: string | null
           photos?: string[] | null
-          created_at?: string
+          project_id: string
+          survey_id?: string | null
           updated_at?: string
         }
         Update: {
-          id?: string
-          project_id?: string
-          survey_id?: string | null
+          area_hectares?: number | null
+          boundary?: unknown
+          condition?: string | null
+          created_at?: string
           fossitt_code?: string
           fossitt_name?: string
-          boundary?: unknown | null
-          area_hectares?: number | null
-          condition?: string | null
+          id?: string
           notes?: string | null
           photos?: string[] | null
-          created_at?: string
+          project_id?: string
+          survey_id?: string | null
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: 'habitat_polygons_project_id_fkey'
+            columns: ['project_id']
+            isOneToOne: false
+            referencedRelation: 'projects'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'habitat_polygons_survey_id_fkey'
+            columns: ['survey_id']
+            isOneToOne: false
+            referencedRelation: 'surveys'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      invites: {
+        Row: {
+          accepted_at: string | null
+          created_at: string | null
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string | null
+          organization_id: string
+          role: Database['public']['Enums']['user_role']
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string | null
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          organization_id: string
+          role?: Database['public']['Enums']['user_role']
+          token?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          organization_id?: string
+          role?: Database['public']['Enums']['user_role']
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'invites_invited_by_fkey'
+            columns: ['invited_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'invites_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          created_at: string
+          id: string
+          logo_url: string | null
+          name: string
+          settings: Json | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          name: string
+          settings?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          name?: string
+          settings?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       photos: {
         Row: {
-          id: string
-          survey_id: string | null
-          observation_id: string | null
-          storage_path: string
-          location: unknown | null // PostGIS Point
-          taken_at: string | null
           caption: string | null
           created_at: string
+          id: string
+          location: unknown
+          observation_id: string | null
+          storage_path: string
+          survey_id: string | null
+          taken_at: string | null
         }
         Insert: {
+          caption?: string | null
+          created_at?: string
           id?: string
-          survey_id?: string | null
+          location?: unknown
           observation_id?: string | null
           storage_path: string
-          location?: unknown | null
+          survey_id?: string | null
           taken_at?: string | null
-          caption?: string | null
-          created_at?: string
         }
         Update: {
-          id?: string
-          survey_id?: string | null
-          observation_id?: string | null
-          storage_path?: string
-          location?: unknown | null
-          taken_at?: string | null
           caption?: string | null
           created_at?: string
+          id?: string
+          location?: unknown
+          observation_id?: string | null
+          storage_path?: string
+          survey_id?: string | null
+          taken_at?: string | null
         }
+        Relationships: [
+          {
+            foreignKeyName: 'photos_observation_id_fkey'
+            columns: ['observation_id']
+            isOneToOne: false
+            referencedRelation: 'species_observations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'photos_survey_id_fkey'
+            columns: ['survey_id']
+            isOneToOne: false
+            referencedRelation: 'surveys'
+            referencedColumns: ['id']
+          },
+        ]
       }
-      reports: {
+      profiles: {
         Row: {
-          id: string
-          project_id: string
-          report_type: string
-          version: number
-          status: 'draft' | 'internal_review' | 'client_review' | 'approved' | 'final'
-          content: Json | null
-          generated_by: string | null
-          reviewed_by: string | null
+          avatar_url: string | null
           created_at: string
+          email: string
+          full_name: string
+          id: string
+          organization_id: string
+          role: Database['public']['Enums']['user_role']
+          settings: Json | null
           updated_at: string
         }
         Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email: string
+          full_name: string
+          id: string
+          organization_id: string
+          role?: Database['public']['Enums']['user_role']
+          settings?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          organization_id?: string
+          role?: Database['public']['Enums']['user_role']
+          settings?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'profiles_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      project_members: {
+        Row: {
+          assigned_at: string
+          id: string
+          project_id: string
+          role: Database['public']['Enums']['project_member_role']
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          id?: string
+          project_id: string
+          role?: Database['public']['Enums']['project_member_role']
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          id?: string
+          project_id?: string
+          role?: Database['public']['Enums']['project_member_role']
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'project_members_project_id_fkey'
+            columns: ['project_id']
+            isOneToOne: false
+            referencedRelation: 'projects'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'project_members_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          actual_end_date: string | null
+          actual_start_date: string | null
+          boundary: unknown
+          budget_days: number | null
+          center_point: unknown
+          client_id: string | null
+          created_at: string
+          created_by: string
+          current_phase: Database['public']['Enums']['project_phase']
+          expected_end_date: string | null
+          expected_start_date: string | null
+          grid_reference: string | null
+          health_status: Database['public']['Enums']['health_status']
+          id: string
+          name: string
+          organization_id: string
+          site_code: string | null
+          status: Database['public']['Enums']['project_status']
+          survey_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          actual_end_date?: string | null
+          actual_start_date?: string | null
+          boundary?: unknown
+          budget_days?: number | null
+          center_point?: unknown
+          client_id?: string | null
+          created_at?: string
+          created_by: string
+          current_phase?: Database['public']['Enums']['project_phase']
+          expected_end_date?: string | null
+          expected_start_date?: string | null
+          grid_reference?: string | null
+          health_status?: Database['public']['Enums']['health_status']
+          id?: string
+          name: string
+          organization_id: string
+          site_code?: string | null
+          status?: Database['public']['Enums']['project_status']
+          survey_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          actual_end_date?: string | null
+          actual_start_date?: string | null
+          boundary?: unknown
+          budget_days?: number | null
+          center_point?: unknown
+          client_id?: string | null
+          created_at?: string
+          created_by?: string
+          current_phase?: Database['public']['Enums']['project_phase']
+          expected_end_date?: string | null
+          expected_start_date?: string | null
+          grid_reference?: string | null
+          health_status?: Database['public']['Enums']['health_status']
+          id?: string
+          name?: string
+          organization_id?: string
+          site_code?: string | null
+          status?: Database['public']['Enums']['project_status']
+          survey_type?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'projects_client_id_fkey'
+            columns: ['client_id']
+            isOneToOne: false
+            referencedRelation: 'clients'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'projects_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'projects_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      reports: {
+        Row: {
+          content: Json | null
+          created_at: string
+          generated_by: string | null
+          id: string
+          project_id: string
+          report_type: string
+          reviewed_by: string | null
+          status: Database['public']['Enums']['report_status']
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          content?: Json | null
+          created_at?: string
+          generated_by?: string | null
           id?: string
           project_id: string
           report_type: string
-          version?: number
-          status?: 'draft' | 'internal_review' | 'client_review' | 'approved' | 'final'
-          content?: Json | null
-          generated_by?: string | null
           reviewed_by?: string | null
-          created_at?: string
+          status?: Database['public']['Enums']['report_status']
           updated_at?: string
+          version?: number
         }
         Update: {
+          content?: Json | null
+          created_at?: string
+          generated_by?: string | null
           id?: string
           project_id?: string
           report_type?: string
-          version?: number
-          status?: 'draft' | 'internal_review' | 'client_review' | 'approved' | 'final'
-          content?: Json | null
-          generated_by?: string | null
           reviewed_by?: string | null
-          created_at?: string
+          status?: Database['public']['Enums']['report_status']
           updated_at?: string
+          version?: number
         }
+        Relationships: [
+          {
+            foreignKeyName: 'reports_generated_by_fkey'
+            columns: ['generated_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'reports_project_id_fkey'
+            columns: ['project_id']
+            isOneToOne: false
+            referencedRelation: 'projects'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'reports_reviewed_by_fkey'
+            columns: ['reviewed_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
       }
-      audit_log: {
+      spatial_ref_sys: {
         Row: {
-          id: string
-          table_name: string
-          record_id: string
-          action: 'INSERT' | 'UPDATE' | 'DELETE'
-          old_data: Json | null
-          new_data: Json | null
-          user_id: string | null
-          ip_address: string | null
-          created_at: string
+          auth_name: string | null
+          auth_srid: number | null
+          proj4text: string | null
+          srid: number
+          srtext: string | null
         }
         Insert: {
-          id?: string
-          table_name: string
-          record_id: string
-          action: 'INSERT' | 'UPDATE' | 'DELETE'
-          old_data?: Json | null
-          new_data?: Json | null
-          user_id?: string | null
-          ip_address?: string | null
-          created_at?: string
+          auth_name?: string | null
+          auth_srid?: number | null
+          proj4text?: string | null
+          srid: number
+          srtext?: string | null
         }
         Update: {
-          id?: string
-          table_name?: string
-          record_id?: string
-          action?: 'INSERT' | 'UPDATE' | 'DELETE'
-          old_data?: Json | null
-          new_data?: Json | null
-          user_id?: string | null
-          ip_address?: string | null
-          created_at?: string
+          auth_name?: string | null
+          auth_srid?: number | null
+          proj4text?: string | null
+          srid?: number
+          srtext?: string | null
         }
+        Relationships: []
+      }
+      species_observations: {
+        Row: {
+          abundance_dafor: string | null
+          behavior_notes: string | null
+          confidence_level: Database['public']['Enums']['confidence_level']
+          count: number | null
+          created_at: string
+          designation: string | null
+          evidence_type: string | null
+          gps_accuracy: number | null
+          id: string
+          is_protected: boolean
+          local_id: string | null
+          location: unknown
+          needs_verification: boolean
+          photos: string[] | null
+          species_name_common: string | null
+          species_name_scientific: string
+          survey_id: string
+          taxon_group: string | null
+          updated_at: string
+          verified_by: string | null
+        }
+        Insert: {
+          abundance_dafor?: string | null
+          behavior_notes?: string | null
+          confidence_level?: Database['public']['Enums']['confidence_level']
+          count?: number | null
+          created_at?: string
+          designation?: string | null
+          evidence_type?: string | null
+          gps_accuracy?: number | null
+          id?: string
+          is_protected?: boolean
+          local_id?: string | null
+          location?: unknown
+          needs_verification?: boolean
+          photos?: string[] | null
+          species_name_common?: string | null
+          species_name_scientific: string
+          survey_id: string
+          taxon_group?: string | null
+          updated_at?: string
+          verified_by?: string | null
+        }
+        Update: {
+          abundance_dafor?: string | null
+          behavior_notes?: string | null
+          confidence_level?: Database['public']['Enums']['confidence_level']
+          count?: number | null
+          created_at?: string
+          designation?: string | null
+          evidence_type?: string | null
+          gps_accuracy?: number | null
+          id?: string
+          is_protected?: boolean
+          local_id?: string | null
+          location?: unknown
+          needs_verification?: boolean
+          photos?: string[] | null
+          species_name_common?: string | null
+          species_name_scientific?: string
+          survey_id?: string
+          taxon_group?: string | null
+          updated_at?: string
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'species_observations_survey_id_fkey'
+            columns: ['survey_id']
+            isOneToOne: false
+            referencedRelation: 'surveys'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'species_observations_verified_by_fkey'
+            columns: ['verified_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      surveys: {
+        Row: {
+          created_at: string
+          end_time: string | null
+          id: string
+          local_id: string | null
+          notes: string | null
+          project_id: string
+          start_time: string | null
+          status: Database['public']['Enums']['survey_status']
+          survey_date: string
+          survey_type: string
+          surveyor_id: string
+          sync_status: Database['public']['Enums']['sync_status']
+          updated_at: string
+          weather: Json | null
+        }
+        Insert: {
+          created_at?: string
+          end_time?: string | null
+          id?: string
+          local_id?: string | null
+          notes?: string | null
+          project_id: string
+          start_time?: string | null
+          status?: Database['public']['Enums']['survey_status']
+          survey_date: string
+          survey_type: string
+          surveyor_id: string
+          sync_status?: Database['public']['Enums']['sync_status']
+          updated_at?: string
+          weather?: Json | null
+        }
+        Update: {
+          created_at?: string
+          end_time?: string | null
+          id?: string
+          local_id?: string | null
+          notes?: string | null
+          project_id?: string
+          start_time?: string | null
+          status?: Database['public']['Enums']['survey_status']
+          survey_date?: string
+          survey_type?: string
+          surveyor_id?: string
+          sync_status?: Database['public']['Enums']['sync_status']
+          updated_at?: string
+          weather?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'surveys_project_id_fkey'
+            columns: ['project_id']
+            isOneToOne: false
+            referencedRelation: 'projects'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'surveys_surveyor_id_fkey'
+            columns: ['surveyor_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      workflow_steps: {
+        Row: {
+          assigned_to: string | null
+          completed_at: string | null
+          created_at: string
+          due_date: string | null
+          id: string
+          name: string
+          notes: string | null
+          phase: Database['public']['Enums']['project_phase']
+          project_id: string
+          reviewer: string | null
+          started_at: string | null
+          status: Database['public']['Enums']['workflow_status']
+          step_number: number
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          completed_at?: string | null
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          phase: Database['public']['Enums']['project_phase']
+          project_id: string
+          reviewer?: string | null
+          started_at?: string | null
+          status?: Database['public']['Enums']['workflow_status']
+          step_number: number
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          completed_at?: string | null
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phase?: Database['public']['Enums']['project_phase']
+          project_id?: string
+          reviewer?: string | null
+          started_at?: string | null
+          status?: Database['public']['Enums']['workflow_status']
+          step_number?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'workflow_steps_assigned_to_fkey'
+            columns: ['assigned_to']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'workflow_steps_project_id_fkey'
+            columns: ['project_id']
+            isOneToOne: false
+            referencedRelation: 'projects'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'workflow_steps_reviewer_fkey'
+            columns: ['reviewer']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
       }
     }
     Views: {
-      [_ in never]: never
+      geography_columns: {
+        Row: {
+          coord_dimension: number | null
+          f_geography_column: unknown
+          f_table_catalog: unknown
+          f_table_name: unknown
+          f_table_schema: unknown
+          srid: number | null
+          type: string | null
+        }
+        Relationships: []
+      }
+      geometry_columns: {
+        Row: {
+          coord_dimension: number | null
+          f_geometry_column: unknown
+          f_table_catalog: string | null
+          f_table_name: unknown
+          f_table_schema: unknown
+          srid: number | null
+          type: string | null
+        }
+        Insert: {
+          coord_dimension?: number | null
+          f_geometry_column?: unknown
+          f_table_catalog?: string | null
+          f_table_name?: unknown
+          f_table_schema?: unknown
+          srid?: number | null
+          type?: string | null
+        }
+        Update: {
+          coord_dimension?: number | null
+          f_geometry_column?: unknown
+          f_table_catalog?: string | null
+          f_table_name?: unknown
+          f_table_schema?: unknown
+          srid?: number | null
+          type?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      [_ in never]: never
+      get_invite_by_token: {
+        Args: { invite_token: string }
+        Returns: {
+          email: string
+          expires_at: string
+          id: string
+          organization_id: string
+          organization_name: string
+          role: Database['public']['Enums']['user_role']
+        }[]
+      }
     }
     Enums: {
-      project_status: 'draft' | 'active' | 'completed' | 'archived'
-      project_phase: 'desk_research' | 'field_research' | 'reporting'
-      health_status: 'on_track' | 'at_risk' | 'overdue'
-      user_role:
-        | 'admin'
-        | 'senior_ecologist'
-        | 'field_ecologist'
-        | 'gis_specialist'
-        | 'junior_ecologist'
-        | 'client'
-      project_member_role: 'lead' | 'surveyor' | 'analyst' | 'reviewer' | 'viewer'
-      workflow_status: 'pending' | 'in_progress' | 'needs_review' | 'approved' | 'blocked'
+      audit_action: 'INSERT' | 'UPDATE' | 'DELETE'
+      confidence_level: 'high' | 'medium' | 'low'
       data_source: 'npws' | 'gbif' | 'nbdc' | 'epa' | 'catchments' | 'manual'
-      data_type: 'designated_site' | 'species_record' | 'water_quality' | 'catchment' | 'other'
+      finding_data_type:
+        | 'designated_site'
+        | 'species_record'
+        | 'water_quality'
+        | 'catchment'
+        | 'other'
+      health_status: 'on_track' | 'at_risk' | 'overdue'
+      project_member_role: 'lead' | 'surveyor' | 'analyst' | 'reviewer' | 'viewer'
+      project_phase: 'desk_research' | 'field_research' | 'reporting'
+      project_status: 'draft' | 'active' | 'completed' | 'archived'
+      report_status: 'draft' | 'internal_review' | 'client_review' | 'approved' | 'final'
       survey_status: 'planned' | 'in_progress' | 'completed' | 'approved'
       sync_status: 'synced' | 'pending' | 'conflict'
-      confidence_level: 'high' | 'medium' | 'low'
-      report_status: 'draft' | 'internal_review' | 'client_review' | 'approved' | 'final'
-      audit_action: 'INSERT' | 'UPDATE' | 'DELETE'
+      user_role: 'admin' | 'assessor' | 'client'
+      workflow_status: 'pending' | 'in_progress' | 'needs_review' | 'approved' | 'blocked'
+    }
+    CompositeTypes: {
+      geometry_dump: {
+        path: number[] | null
+        geom: unknown
+      }
+      valid_detail: {
+        valid: boolean | null
+        reason: string | null
+        location: unknown
+      }
     }
   }
 }
 
-// Helper types for easier use
-export type Tables<T extends keyof Database['public']['Tables']> =
-  Database['public']['Tables'][T]['Row']
+type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, 'public'>]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
+    ? (DefaultSchema['Tables'] & DefaultSchema['Views'])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema['Tables']
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
+    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema['Tables']
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
+    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema['Enums']
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums']
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums'][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema['Enums']
+    ? DefaultSchema['Enums'][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema['CompositeTypes']
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes']
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes'][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema['CompositeTypes']
+    ? DefaultSchema['CompositeTypes'][PublicCompositeTypeNameOrOptions]
+    : never
+
+// Helper types for common use cases
+export type Profile = Tables<'profiles'>
+export type Organization = Tables<'organizations'>
+export type Project = Tables<'projects'>
+export type Client = Tables<'clients'>
+export type Survey = Tables<'surveys'>
+export type Invite = Tables<'invites'>
+export type WorkflowStep = Tables<'workflow_steps'>
+export type Report = Tables<'reports'>
+export type HabitatPolygon = Tables<'habitat_polygons'>
+export type SpeciesObservation = Tables<'species_observations'>
+export type DeskResearchFinding = Tables<'desk_research_findings'>
+
+export type UserRole = Database['public']['Enums']['user_role']
+export type ProjectStatus = Database['public']['Enums']['project_status']
+export type ProjectPhase = Database['public']['Enums']['project_phase']
+export type HealthStatus = Database['public']['Enums']['health_status']
+export type WorkflowStatus = Database['public']['Enums']['workflow_status']
+
+// Insert and Update helper types
 export type InsertTables<T extends keyof Database['public']['Tables']> =
   Database['public']['Tables'][T]['Insert']
 export type UpdateTables<T extends keyof Database['public']['Tables']> =
   Database['public']['Tables'][T]['Update']
-export type Enums<T extends keyof Database['public']['Enums']> = Database['public']['Enums'][T]
-
-// Convenience types
-export type Organization = Tables<'organizations'>
-export type Profile = Tables<'profiles'>
-export type Client = Tables<'clients'>
-export type Project = Tables<'projects'>
-export type ProjectMember = Tables<'project_members'>
-export type WorkflowStep = Tables<'workflow_steps'>
-export type DeskResearchFinding = Tables<'desk_research_findings'>
-export type Survey = Tables<'surveys'>
-export type SpeciesObservation = Tables<'species_observations'>
-export type HabitatPolygon = Tables<'habitat_polygons'>
-export type Photo = Tables<'photos'>
-export type Report = Tables<'reports'>
-export type AuditLog = Tables<'audit_log'>

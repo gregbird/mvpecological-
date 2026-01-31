@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Search, Calendar, MapPin, ChevronRight, Plus, FolderKanban } from 'lucide-react'
+import { Search, Calendar, MapPin, ChevronRight, Plus, FolderKanban, Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,62 +12,16 @@ import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { useRole } from '@/contexts/role-context'
 import { getPhaseByStepNumber } from '@/lib/config/workflow'
+import { createClient } from '@/lib/supabase/client'
+import type { Project, WorkflowStep } from '@/types/database'
 
-// Mock projects data
-const allProjects = [
-  {
-    id: '1',
-    code: 'KNP-2024-001',
-    name: 'Killarney National Park Assessment',
-    client: 'National Parks and Wildlife Service',
-    location: 'Co. Kerry',
-    dueDate: '30 Apr 2024',
-    currentStep: 2,
-    currentStepName: 'Data Gathering',
-    progress: 20,
-    status: 'active',
-    assignedTo: 'Sarah Murphy',
-  },
-  {
-    id: '2',
-    code: 'SRB-2024-002',
-    name: 'Slieve Rushen Bog NHA',
-    client: 'National Parks and Wildlife Service',
-    location: 'Co. Cavan',
-    dueDate: '15 May 2024',
-    currentStep: 5,
-    currentStepName: 'Habitat Mapping',
-    progress: 50,
-    status: 'active',
-    assignedTo: 'Sarah Murphy',
-  },
-  {
-    id: '3',
-    code: 'SEW-2024-003',
-    name: 'Shannon Estuary Wind Farm',
-    client: 'Green Atlantic Energy Ltd',
-    location: 'Co. Clare',
-    dueDate: '20 Jun 2024',
-    currentStep: 8,
-    currentStepName: 'AI Draft',
-    progress: 80,
-    status: 'review',
-    assignedTo: 'John Kelly',
-  },
-  {
-    id: '4',
-    code: 'DPE-2024-004',
-    name: 'Dublin Port Expansion EIA',
-    client: 'Dublin Port Company',
-    location: 'Co. Dublin',
-    dueDate: '10 Jul 2024',
-    currentStep: 1,
-    currentStepName: 'GIS Mapping',
-    progress: 5,
-    status: 'active',
-    assignedTo: 'Mike Walsh',
-  },
-]
+interface ProjectWithProgress extends Project {
+  currentStep: number
+  currentStepName: string
+  progress: number
+  client?: { name: string } | null
+  assigned_to_profile?: { full_name: string } | null
+}
 
 const statusConfig = {
   active: {
@@ -76,11 +30,10 @@ const statusConfig = {
       'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800',
     dot: 'bg-emerald-500',
   },
-  review: {
-    label: 'In Review',
-    className:
-      'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800',
-    dot: 'bg-amber-500',
+  draft: {
+    label: 'Draft',
+    className: 'bg-muted text-muted-foreground border-border',
+    dot: 'bg-muted-foreground',
   },
   completed: {
     label: 'Completed',
@@ -88,10 +41,11 @@ const statusConfig = {
       'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-800',
     dot: 'bg-blue-500',
   },
-  draft: {
-    label: 'Draft',
-    className: 'bg-muted text-muted-foreground border-border',
-    dot: 'bg-muted-foreground',
+  archived: {
+    label: 'Archived',
+    className:
+      'bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950/30 dark:text-gray-400 dark:border-gray-800',
+    dot: 'bg-gray-500',
   },
 }
 
@@ -112,22 +66,115 @@ function getPhaseInfo(stepNumber: number) {
 }
 
 export default function ProjectsPage() {
-  const { user, currentRole, permissions } = useRole()
+  const { user, permissions, isLoading: isRoleLoading } = useRole()
   const [searchQuery, setSearchQuery] = React.useState('')
+  const [projects, setProjects] = React.useState<ProjectWithProgress[]>([])
+  const [isLoading, setIsLoading] = React.useState(true)
 
-  // Admin sees all projects, Assessor sees only assigned
-  const visibleProjects =
-    currentRole === 'admin' ? allProjects : allProjects.filter((p) => p.assignedTo === user.name)
+  // Fetch projects from Supabase
+  React.useEffect(() => {
+    async function fetchProjects() {
+      if (!user) {
+        setIsLoading(false)
+        return
+      }
 
-  const filteredProjects = visibleProjects.filter((project) => {
-    if (!searchQuery) return true
-    const query = searchQuery.toLowerCase()
+      try {
+        const supabase = createClient()
+
+        // Fetch projects for the user's organization
+        const { data: projectsData, error: projectsError } = await supabase
+          .from('projects')
+          .select(
+            `
+            *,
+            client:clients(name)
+          `
+          )
+          .eq('organization_id', user.organization_id)
+          .order('updated_at', { ascending: false })
+
+        if (projectsError) throw projectsError
+
+        // Fetch workflow steps for all projects to calculate progress
+        const projectIds = projectsData?.map((p) => p.id) || []
+
+        let workflowSteps: WorkflowStep[] = []
+        if (projectIds.length > 0) {
+          const { data: stepsData, error: stepsError } = await supabase
+            .from('workflow_steps')
+            .select('*')
+            .in('project_id', projectIds)
+
+          if (stepsError) throw stepsError
+          workflowSteps = stepsData || []
+        }
+
+        // Calculate progress for each project
+        const projectsWithProgress: ProjectWithProgress[] = (projectsData || []).map((project) => {
+          const steps = workflowSteps.filter((s) => s.project_id === project.id)
+          const completedSteps = steps.filter(
+            (s) => s.status === 'approved' || s.status === 'needs_review'
+          ).length
+          const totalSteps = steps.length || 10 // Default to 10 if no steps
+
+          // Find current step (first non-completed step or last step)
+          const sortedSteps = [...steps].sort((a, b) => a.step_number - b.step_number)
+          const currentStepData =
+            sortedSteps.find((s) => s.status !== 'approved') || sortedSteps[sortedSteps.length - 1]
+
+          return {
+            ...project,
+            currentStep: currentStepData?.step_number || 1,
+            currentStepName: currentStepData?.name || 'GIS Mapping',
+            progress: totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0,
+          }
+        })
+
+        setProjects(projectsWithProgress)
+      } catch (err) {
+        console.error('Error fetching projects:', err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    if (!isRoleLoading) {
+      fetchProjects()
+    }
+  }, [user, isRoleLoading])
+
+  // Filter projects based on role and search
+  const filteredProjects = React.useMemo(() => {
+    let visibleProjects = projects
+
+    // For non-admin users, filter to only show assigned projects
+    if (user?.role !== 'admin') {
+      visibleProjects = projects.filter((p) => p.created_by === user?.id)
+    }
+
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      visibleProjects = visibleProjects.filter(
+        (project) =>
+          project.name.toLowerCase().includes(query) ||
+          project.client?.name?.toLowerCase().includes(query) ||
+          project.site_code?.toLowerCase().includes(query)
+      )
+    }
+
+    return visibleProjects
+  }, [projects, user, searchQuery])
+
+  // Loading state
+  if (isLoading || isRoleLoading) {
     return (
-      project.name.toLowerCase().includes(query) ||
-      project.client.toLowerCase().includes(query) ||
-      project.code.toLowerCase().includes(query)
+      <div className="bg-background flex min-h-screen items-center justify-center">
+        <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+      </div>
     )
-  })
+  }
 
   return (
     <div className="bg-background min-h-screen">
@@ -136,18 +183,23 @@ export default function ProjectsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-foreground text-2xl font-bold">
-              {currentRole === 'admin' ? 'Projects Dashboard' : 'My Assessments'}
+              {user?.role === 'admin' ? 'Projects Dashboard' : 'My Assessments'}
             </h1>
             <p className="text-muted-foreground mt-1">
-              {currentRole === 'admin'
+              {user?.role === 'admin'
                 ? 'Manage all ecological survey projects'
                 : 'Your assigned assessment tasks'}
             </p>
           </div>
           {permissions.canCreateProject && (
-            <Button className="bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700">
-              <Plus className="mr-2 h-4 w-4" />
-              New Project
+            <Button
+              asChild
+              className="bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700"
+            >
+              <Link href="/projects/new">
+                <Plus className="mr-2 h-4 w-4" />
+                New Project
+              </Link>
             </Button>
           )}
         </div>
@@ -183,11 +235,11 @@ export default function ProjectsPage() {
                     <div className="min-w-0 flex-1">
                       <div className="mb-2 flex items-center gap-2">
                         <span className="text-muted-foreground font-mono text-xs">
-                          {project.code}
+                          {project.site_code || project.id.slice(0, 8)}
                         </span>
-                        <span className={cn('h-2 w-2 rounded-full', status.dot)} />
-                        <Badge variant="outline" className={cn('text-xs', status.className)}>
-                          {status.label}
+                        <span className={cn('h-2 w-2 rounded-full', status?.dot)} />
+                        <Badge variant="outline" className={cn('text-xs', status?.className)}>
+                          {status?.label}
                         </Badge>
                       </div>
 
@@ -198,15 +250,19 @@ export default function ProjectsPage() {
                       </Link>
 
                       <div className="text-muted-foreground mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                        <span>{project.client}</span>
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3.5 w-3.5" />
-                          {project.location}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3.5 w-3.5" />
-                          Due: {project.dueDate}
-                        </span>
+                        {project.client?.name && <span>{project.client.name}</span>}
+                        {project.grid_reference && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="h-3.5 w-3.5" />
+                            {project.grid_reference}
+                          </span>
+                        )}
+                        {project.expected_end_date && (
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3.5 w-3.5" />
+                            Due: {new Date(project.expected_end_date).toLocaleDateString()}
+                          </span>
+                        )}
                       </div>
 
                       {/* Progress and Phase */}
@@ -251,8 +307,18 @@ export default function ProjectsPage() {
             <CardContent className="py-12 text-center">
               <FolderKanban className="text-muted-foreground/50 mx-auto mb-3 h-12 w-12" />
               <p className="text-muted-foreground">
-                {searchQuery ? 'No projects match your search' : 'No projects found'}
+                {searchQuery
+                  ? 'No projects match your search'
+                  : 'No projects yet. Create your first project to get started.'}
               </p>
+              {!searchQuery && permissions.canCreateProject && (
+                <Button asChild className="mt-4">
+                  <Link href="/projects/new">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Project
+                  </Link>
+                </Button>
+              )}
             </CardContent>
           </Card>
         )}
