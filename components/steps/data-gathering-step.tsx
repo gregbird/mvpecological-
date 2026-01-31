@@ -324,6 +324,9 @@ export function DataGatheringStep({
                 center={projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]}
                 zoom={12}
                 boundary={projectBoundary}
+                findings={allSavedFindings}
+                selectedFinding={selectedFinding}
+                onFindingClick={(finding) => setSelectedFinding(finding)}
               />
               {selectedFinding && (
                 <div className="bg-muted mt-3 rounded-lg p-3">

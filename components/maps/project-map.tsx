@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import type { DeskResearchFinding } from '@/components/desk-research/finding-card'
 
 // Ireland center coordinates
 const IRELAND_CENTER: [number, number] = [53.1424, -7.6921] // Leaflet uses [lat, lng]
@@ -36,7 +37,11 @@ interface ProjectMapProps {
   boundary?: GeoJSON.Feature<GeoJSON.Polygon>
   habitatPolygons?: GeoJSON.FeatureCollection
   observationPoints?: GeoJSON.FeatureCollection
+  findings?: DeskResearchFinding[]
+  selectedFinding?: DeskResearchFinding | null
+  visibleFindingTypes?: string[]
   onBoundaryChange?: (boundary: GeoJSON.Feature<GeoJSON.Polygon>) => void
+  onFindingClick?: (finding: DeskResearchFinding) => void
   onMapReady?: () => void
   editable?: boolean
 }
@@ -60,6 +65,24 @@ const TILE_LAYERS: Record<MapStyle, { url: string; attribution: string }> = {
   },
 }
 
+// Finding type colors
+const FINDING_TYPE_COLORS: Record<string, string> = {
+  designated_site: '#22c55e', // Green for protected sites
+  species_record: '#3b82f6', // Blue for species
+  water_quality: '#06b6d4', // Cyan for water
+  catchment: '#8b5cf6', // Purple for catchments
+  other: '#6b7280', // Gray for other
+}
+
+// Finding source colors
+const FINDING_SOURCE_COLORS: Record<string, string> = {
+  npws: '#22c55e', // Green
+  gbif: '#3b82f6', // Blue
+  nbdc: '#8b5cf6', // Purple
+  epa: '#06b6d4', // Cyan
+  manual: '#f59e0b', // Amber
+}
+
 // The actual map component that uses react-leaflet
 function MapComponent({
   center,
@@ -67,9 +90,13 @@ function MapComponent({
   boundary,
   habitatPolygons,
   observationPoints,
+  findings,
+  selectedFinding,
+  visibleFindingTypes,
   currentStyle,
   layers,
   onMapReady,
+  onFindingClick,
   mapRef,
 }: {
   center: [number, number]
@@ -77,9 +104,13 @@ function MapComponent({
   boundary?: GeoJSON.Feature<GeoJSON.Polygon>
   habitatPolygons?: GeoJSON.FeatureCollection
   observationPoints?: GeoJSON.FeatureCollection
+  findings?: DeskResearchFinding[]
+  selectedFinding?: DeskResearchFinding | null
+  visibleFindingTypes?: string[]
   currentStyle: MapStyle
   layers: MapLayer[]
   onMapReady?: () => void
+  onFindingClick?: (finding: DeskResearchFinding) => void
   mapRef: React.MutableRefObject<LeafletMap | null>
 }) {
   const { MapContainer, TileLayer, GeoJSON, CircleMarker, Popup, useMap } = require('react-leaflet')
@@ -89,10 +120,17 @@ function MapComponent({
   const obsLayer = layers.find((l) => l.id === 'observations')
   const tileConfig = TILE_LAYERS[currentStyle]
 
-  // Component to fit bounds
-  function FitBounds({ boundary }: { boundary?: GeoJSON.Feature<GeoJSON.Polygon> }) {
+  // Component to fit bounds and handle zoom to selected finding
+  function MapController({
+    boundary,
+    selectedFinding,
+  }: {
+    boundary?: GeoJSON.Feature<GeoJSON.Polygon>
+    selectedFinding?: DeskResearchFinding | null
+  }) {
     const map = useMap()
 
+    // Fit to boundary on initial load
     React.useEffect(() => {
       if (boundary && map) {
         const L = require('leaflet')
@@ -102,6 +140,7 @@ function MapComponent({
       }
     }, [boundary, map])
 
+    // Store map reference
     React.useEffect(() => {
       if (map) {
         mapRef.current = map
@@ -109,8 +148,74 @@ function MapComponent({
       }
     }, [map])
 
+    // Zoom to selected finding
+    React.useEffect(() => {
+      if (selectedFinding?.location && map) {
+        const L = require('leaflet')
+        try {
+          const location = selectedFinding.location
+
+          if (location.type === 'Point') {
+            const [lng, lat] = location.coordinates as [number, number]
+            map.flyTo([lat, lng], 14, { duration: 0.5 })
+          } else if (location.type === 'Polygon' || location.type === 'MultiPolygon') {
+            const geoJsonLayer = L.geoJSON(location)
+            const bounds = geoJsonLayer.getBounds()
+            map.flyToBounds(bounds, { padding: [50, 50], duration: 0.5 })
+          } else if (location.type === 'GeometryCollection') {
+            // For GeometryCollection, zoom to first geometry
+            const firstGeom = (location as GeoJSON.GeometryCollection).geometries[0]
+            if (firstGeom?.type === 'Point') {
+              const [lng, lat] = (firstGeom as GeoJSON.Point).coordinates
+              map.flyTo([lat, lng], 14, { duration: 0.5 })
+            }
+          } else if (location.type === 'LineString') {
+            const geoJsonLayer = L.geoJSON(location)
+            const bounds = geoJsonLayer.getBounds()
+            map.flyToBounds(bounds, { padding: [50, 50], duration: 0.5 })
+          }
+        } catch (error) {
+          console.warn('Error zooming to finding:', error)
+        }
+      }
+    }, [selectedFinding, map])
+
     return null
   }
+
+  // Helper to get center point from geometry
+  const getGeometryCenter = (geometry: GeoJSON.Geometry): [number, number] | null => {
+    try {
+      if (geometry.type === 'Point') {
+        const [lng, lat] = geometry.coordinates as [number, number]
+        return [lat, lng]
+      } else if (geometry.type === 'Polygon') {
+        const coords = geometry.coordinates[0]
+        const sumLat = coords.reduce((sum, c) => sum + c[1], 0)
+        const sumLng = coords.reduce((sum, c) => sum + c[0], 0)
+        return [sumLat / coords.length, sumLng / coords.length]
+      } else if (geometry.type === 'GeometryCollection') {
+        const firstGeom = geometry.geometries[0]
+        if (firstGeom) return getGeometryCenter(firstGeom)
+      } else if (geometry.type === 'LineString') {
+        const coords = geometry.coordinates
+        const midIndex = Math.floor(coords.length / 2)
+        return [coords[midIndex][1], coords[midIndex][0]]
+      }
+    } catch {
+      return null
+    }
+    return null
+  }
+
+  // Filter findings by visible types
+  const visibleFindings = React.useMemo(() => {
+    if (!findings) return []
+    if (!visibleFindingTypes || visibleFindingTypes.length === 0) return findings
+    return findings.filter((f) => visibleFindingTypes.includes(f.dataType))
+  }, [findings, visibleFindingTypes])
+
+  const findingsLayer = layers.find((l) => l.id === 'findings')
 
   return (
     <MapContainer
@@ -120,7 +225,7 @@ function MapComponent({
       style={{ height: '100%', minHeight: '400px' }}
     >
       <TileLayer url={tileConfig.url} attribution={tileConfig.attribution} />
-      <FitBounds boundary={boundary} />
+      <MapController boundary={boundary} selectedFinding={selectedFinding} />
 
       {/* Project Boundary */}
       {boundary && boundaryLayer?.visible && (
@@ -202,6 +307,179 @@ function MapComponent({
             </CircleMarker>
           )
         })}
+
+      {/* Desk Research Findings */}
+      {visibleFindings.length > 0 &&
+        findingsLayer?.visible &&
+        visibleFindings.map((finding) => {
+          if (!finding.location) return null
+
+          const isSelected = selectedFinding?.id === finding.id
+          const color = FINDING_TYPE_COLORS[finding.dataType] || FINDING_TYPE_COLORS.other
+          const sourceColor = FINDING_SOURCE_COLORS[finding.source] || '#6b7280'
+
+          // Render based on geometry type
+          if (finding.location.type === 'Point') {
+            const [lng, lat] = finding.location.coordinates as [number, number]
+            return (
+              <CircleMarker
+                key={`finding-${finding.id}`}
+                center={[lat, lng]}
+                radius={isSelected ? 12 : 8}
+                pathOptions={{
+                  color: isSelected ? '#fbbf24' : '#ffffff',
+                  weight: isSelected ? 3 : 2,
+                  fillColor: color,
+                  fillOpacity: isSelected ? 1 : 0.8,
+                }}
+                eventHandlers={{
+                  click: () => onFindingClick?.(finding),
+                }}
+              >
+                <Popup>
+                  <div className="max-w-xs p-2">
+                    <div className="mb-1 flex items-center gap-1">
+                      <span
+                        className="rounded px-1.5 py-0.5 text-xs font-medium text-white"
+                        style={{ backgroundColor: sourceColor }}
+                      >
+                        {finding.source.toUpperCase()}
+                      </span>
+                      <span className="text-muted-foreground text-xs">
+                        {finding.dataType.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <h3 className="font-semibold">{finding.title}</h3>
+                    {finding.content && (
+                      <p className="mt-1 line-clamp-2 text-sm text-gray-600">{finding.content}</p>
+                    )}
+                    {finding.metadata?.distance !== undefined && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        {finding.metadata.distance === 0
+                          ? 'Within boundary'
+                          : `${finding.metadata.distance.toFixed(1)} km from boundary`}
+                      </p>
+                    )}
+                  </div>
+                </Popup>
+              </CircleMarker>
+            )
+          } else if (
+            finding.location.type === 'Polygon' ||
+            finding.location.type === 'MultiPolygon'
+          ) {
+            return (
+              <GeoJSON
+                key={`finding-${finding.id}`}
+                data={finding.location}
+                style={{
+                  color: isSelected ? '#fbbf24' : color,
+                  weight: isSelected ? 3 : 2,
+                  fillColor: color,
+                  fillOpacity: isSelected ? 0.4 : 0.2,
+                }}
+                eventHandlers={{
+                  click: () => onFindingClick?.(finding),
+                }}
+              >
+                <Popup>
+                  <div className="max-w-xs p-2">
+                    <div className="mb-1 flex items-center gap-1">
+                      <span
+                        className="rounded px-1.5 py-0.5 text-xs font-medium text-white"
+                        style={{ backgroundColor: sourceColor }}
+                      >
+                        {finding.source.toUpperCase()}
+                      </span>
+                    </div>
+                    <h3 className="font-semibold">{finding.title}</h3>
+                    {finding.content && (
+                      <p className="mt-1 line-clamp-2 text-sm text-gray-600">{finding.content}</p>
+                    )}
+                  </div>
+                </Popup>
+              </GeoJSON>
+            )
+          } else if (finding.location.type === 'LineString') {
+            return (
+              <GeoJSON
+                key={`finding-${finding.id}`}
+                data={finding.location}
+                style={{
+                  color: isSelected ? '#fbbf24' : color,
+                  weight: isSelected ? 4 : 3,
+                }}
+                eventHandlers={{
+                  click: () => onFindingClick?.(finding),
+                }}
+              >
+                <Popup>
+                  <div className="max-w-xs p-2">
+                    <div className="mb-1 flex items-center gap-1">
+                      <span
+                        className="rounded px-1.5 py-0.5 text-xs font-medium text-white"
+                        style={{ backgroundColor: sourceColor }}
+                      >
+                        {finding.source.toUpperCase()}
+                      </span>
+                    </div>
+                    <h3 className="font-semibold">{finding.title}</h3>
+                    {finding.content && (
+                      <p className="mt-1 line-clamp-2 text-sm text-gray-600">{finding.content}</p>
+                    )}
+                  </div>
+                </Popup>
+              </GeoJSON>
+            )
+          } else if (finding.location.type === 'GeometryCollection') {
+            // Render first point from GeometryCollection
+            const geoms = (finding.location as GeoJSON.GeometryCollection).geometries
+            const firstPoint = geoms.find((g) => g.type === 'Point') as GeoJSON.Point | undefined
+            if (!firstPoint) return null
+
+            const [lng, lat] = firstPoint.coordinates
+            const recordCount = finding.metadata?.recordCount || geoms.length
+
+            return (
+              <CircleMarker
+                key={`finding-${finding.id}`}
+                center={[lat, lng]}
+                radius={isSelected ? 12 : 8}
+                pathOptions={{
+                  color: isSelected ? '#fbbf24' : '#ffffff',
+                  weight: isSelected ? 3 : 2,
+                  fillColor: color,
+                  fillOpacity: isSelected ? 1 : 0.8,
+                }}
+                eventHandlers={{
+                  click: () => onFindingClick?.(finding),
+                }}
+              >
+                <Popup>
+                  <div className="max-w-xs p-2">
+                    <div className="mb-1 flex items-center gap-1">
+                      <span
+                        className="rounded px-1.5 py-0.5 text-xs font-medium text-white"
+                        style={{ backgroundColor: sourceColor }}
+                      >
+                        {finding.source.toUpperCase()}
+                      </span>
+                      <span className="text-muted-foreground text-xs">
+                        {recordCount} location{recordCount > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <h3 className="font-semibold">{finding.title}</h3>
+                    {finding.content && (
+                      <p className="mt-1 line-clamp-2 text-sm text-gray-600">{finding.content}</p>
+                    )}
+                  </div>
+                </Popup>
+              </CircleMarker>
+            )
+          }
+
+          return null
+        })}
     </MapContainer>
   )
 }
@@ -216,6 +494,11 @@ export function ProjectMap({
   boundary,
   habitatPolygons,
   observationPoints,
+  findings,
+  selectedFinding,
+  visibleFindingTypes,
+  onBoundaryChange,
+  onFindingClick,
   onMapReady,
   editable = false,
 }: ProjectMapProps) {
@@ -228,7 +511,7 @@ export function ProjectMap({
     { id: 'boundary', name: 'Project Boundary', visible: true, color: '#ef4444' },
     { id: 'habitats', name: 'Habitat Polygons', visible: true },
     { id: 'observations', name: 'Species Observations', visible: true },
-    { id: 'designated-sites', name: 'Designated Sites', visible: false },
+    { id: 'findings', name: 'Desk Research Findings', visible: true, color: '#3b82f6' },
   ])
 
   // Set map loaded on mount
@@ -275,9 +558,13 @@ export function ProjectMap({
           boundary={boundary}
           habitatPolygons={habitatPolygons}
           observationPoints={observationPoints}
+          findings={findings}
+          selectedFinding={selectedFinding}
+          visibleFindingTypes={visibleFindingTypes}
           currentStyle={currentStyle}
           layers={layers}
           onMapReady={onMapReady}
+          onFindingClick={onFindingClick}
           mapRef={mapRef}
         />
       </div>

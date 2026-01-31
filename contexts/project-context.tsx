@@ -220,6 +220,10 @@ interface ProjectContextType {
   isSidebarCollapsed: boolean
   toggleSidebar: () => void
   setSidebarCollapsed: (collapsed: boolean) => void
+
+  // Map fullscreen mode (collapses sidebar + header)
+  isMapFullscreen: boolean
+  setMapFullscreen: (fullscreen: boolean) => void
 }
 
 const ProjectContext = React.createContext<ProjectContextType | null>(null)
@@ -234,6 +238,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
 
   // Sidebar state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false)
+  const [isMapFullscreen, setIsMapFullscreenState] = React.useState(false)
 
   const toggleSidebar = React.useCallback(() => {
     setIsSidebarCollapsed((prev) => !prev)
@@ -245,6 +250,14 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
 
   const setSidebarCollapsed = React.useCallback((collapsed: boolean) => {
     setIsSidebarCollapsed(collapsed)
+    setTimeout(() => {
+      window.dispatchEvent(new Event('resize'))
+    }, 300)
+  }, [])
+
+  const setMapFullscreen = React.useCallback((fullscreen: boolean) => {
+    setIsMapFullscreenState(fullscreen)
+    setIsSidebarCollapsed(fullscreen)
     setTimeout(() => {
       window.dispatchEvent(new Event('resize'))
     }, 300)
@@ -378,6 +391,8 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     isSidebarCollapsed,
     toggleSidebar,
     setSidebarCollapsed,
+    isMapFullscreen,
+    setMapFullscreen,
   }
 
   return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>

@@ -43,13 +43,21 @@ const TILE_LAYERS: Record<MapStyle, { url: string; attribution: string }> = {
   },
 }
 
+interface BufferColorConfig {
+  fill: string
+  stroke: string
+  name: string
+}
+
 interface ProjectMapWithDrawProps {
   className?: string
   center?: [number, number]
   zoom?: number
   boundary?: GeoJSON.Feature<GeoJSON.Polygon>
   bufferZones?: Map<number, GeoJSON.Feature<GeoJSON.Polygon>>
+  bufferColors?: Record<number, BufferColorConfig>
   onBoundaryChange?: (features: GeoJSON.FeatureCollection) => void
+  onViewChange?: (center: [number, number], zoom: number) => void
   editable?: boolean
   showMeasureTool?: boolean
   visibleLayers?: string[]
@@ -70,34 +78,21 @@ interface DrawDeletedEvent {
   layers: L.LayerGroup
 }
 
-// Buffer zone styles
-function getBufferZoneStyle(distance: number) {
-  const baseColor = '#3b82f6' // Blue
-  if (distance <= 1) {
-    return { color: baseColor, fillColor: baseColor, fillOpacity: 0.15, weight: 2 }
-  } else if (distance <= 2) {
-    return {
-      color: baseColor,
-      fillColor: baseColor,
-      fillOpacity: 0.1,
-      weight: 2,
-      dashArray: '5, 5',
-    }
-  } else if (distance <= 5) {
-    return {
-      color: baseColor,
-      fillColor: baseColor,
-      fillOpacity: 0.05,
-      weight: 1,
-      dashArray: '10, 5',
-    }
-  }
+// Buffer zone styles with custom colors
+function getBufferZoneStyle(distance: number, colorConfig?: BufferColorConfig) {
+  const fillColor = colorConfig?.fill || '#3b82f6'
+  const strokeColor = colorConfig?.stroke || '#2563eb'
+
+  // Opacity decreases with distance for better visibility
+  const fillOpacity = distance <= 1 ? 0.2 : distance <= 2 ? 0.15 : distance <= 5 ? 0.1 : 0.08
+  const weight = distance <= 2 ? 2 : 1.5
+
   return {
-    color: baseColor,
-    fillColor: baseColor,
-    fillOpacity: 0.02,
-    weight: 1,
-    dashArray: '15, 10',
+    color: strokeColor,
+    fillColor: fillColor,
+    fillOpacity,
+    weight,
+    dashArray: distance > 2 ? '8, 4' : undefined,
   }
 }
 
@@ -107,8 +102,10 @@ function MapComponentWithDraw({
   zoom,
   boundary,
   bufferZones,
+  bufferColors,
   currentStyle,
   onBoundaryChange,
+  onViewChange,
   editable,
   mapRef,
 }: {
@@ -116,8 +113,10 @@ function MapComponentWithDraw({
   zoom: number
   boundary?: GeoJSON.Feature<GeoJSON.Polygon>
   bufferZones?: Map<number, GeoJSON.Feature<GeoJSON.Polygon>>
+  bufferColors?: Record<number, BufferColorConfig>
   currentStyle: MapStyle
   onBoundaryChange?: (features: GeoJSON.FeatureCollection) => void
+  onViewChange?: (center: [number, number], zoom: number) => void
   editable: boolean
   mapRef: React.MutableRefObject<LeafletMap | null>
 }) {
@@ -127,6 +126,10 @@ function MapComponentWithDraw({
   const tileConfig = TILE_LAYERS[currentStyle]
   const featureGroupRef = React.useRef<LeafletFeatureGroup | null>(null)
   const [drawnFeatures, setDrawnFeatures] = React.useState<GeoJSON.Feature[]>([])
+
+  // Refs for tracking internal map movements (to prevent infinite loops)
+  const isInternalMoveRef = React.useRef(false)
+  const debounceTimerRef = React.useRef<NodeJS.Timeout | null>(null)
 
   // Initialize with existing boundary
   React.useEffect(() => {
@@ -144,6 +147,38 @@ function MapComponentWithDraw({
         mapRef.current = map
       }
     }, [map])
+
+    React.useEffect(() => {
+      if (!map || !onViewChange) return
+
+      const handleMoveEnd = () => {
+        // Skip if this was triggered by fitBounds or other internal operations
+        if (isInternalMoveRef.current) {
+          isInternalMoveRef.current = false
+          return
+        }
+
+        // Debounce to prevent rapid updates
+        if (debounceTimerRef.current) {
+          clearTimeout(debounceTimerRef.current)
+        }
+
+        debounceTimerRef.current = setTimeout(() => {
+          const center = map.getCenter()
+          const zoom = map.getZoom()
+          onViewChange([center.lat, center.lng], zoom)
+        }, 100)
+      }
+
+      map.on('moveend', handleMoveEnd)
+
+      return () => {
+        map.off('moveend', handleMoveEnd)
+        if (debounceTimerRef.current) {
+          clearTimeout(debounceTimerRef.current)
+        }
+      }
+    }, [map, onViewChange])
 
     React.useEffect(() => {
       if (boundary && featureGroupRef.current && map) {
@@ -166,9 +201,10 @@ function MapComponentWithDraw({
           featureGroupRef.current?.addLayer(layer)
         })
 
-        // Fit bounds
+        // Fit bounds - mark as internal to prevent onViewChange callback
         const bounds = geoJsonLayer.getBounds()
         if (bounds.isValid()) {
+          isInternalMoveRef.current = true
           map.fitBounds(bounds, { padding: [50, 50] })
         }
       }
@@ -251,7 +287,7 @@ function MapComponentWithDraw({
         <GeoJSON
           key={`buffer-${distance}`}
           data={bufferFeature}
-          style={getBufferZoneStyle(distance)}
+          style={() => getBufferZoneStyle(distance, bufferColors?.[distance])}
         />
       ))}
 
@@ -318,7 +354,9 @@ export function ProjectMapWithDraw({
   zoom = DEFAULT_ZOOM,
   boundary,
   bufferZones,
+  bufferColors,
   onBoundaryChange,
+  onViewChange,
   editable = true,
   showMeasureTool = true,
   visibleLayers = [],
@@ -395,8 +433,10 @@ export function ProjectMapWithDraw({
           zoom={zoom}
           boundary={boundary}
           bufferZones={bufferZones}
+          bufferColors={bufferColors}
           currentStyle={currentStyle}
           onBoundaryChange={onBoundaryChange}
+          onViewChange={onViewChange}
           editable={editable}
           mapRef={mapRef}
         />

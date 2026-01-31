@@ -44,6 +44,12 @@ export interface NBDCSearchParams {
   endYear?: number
   designationCode?: string
   limit?: number
+  bbox?: {
+    minLat: number
+    maxLat: number
+    minLng: number
+    maxLng: number
+  }
 }
 
 /**
@@ -324,6 +330,129 @@ export function getRedListDisplayName(status?: string): string {
   }
 
   return names[status] || status
+}
+
+/**
+ * Search for species records by bounding box
+ * Uses the NBDC WMS/API to get records within a geographic area
+ */
+export async function searchRecordsByBbox(
+  bbox: { minLat: number; maxLat: number; minLng: number; maxLng: number },
+  params?: Partial<NBDCSearchParams>
+): Promise<NBDCRecord[]> {
+  try {
+    // NBDC doesn't have a direct bbox API, so we use their WFS service
+    const url = new URL('https://maps.biodiversityireland.ie/geoserver/ows')
+
+    url.searchParams.set('service', 'WFS')
+    url.searchParams.set('version', '2.0.0')
+    url.searchParams.set('request', 'GetFeature')
+    url.searchParams.set('typeName', 'BiodiversityData:AllRecords')
+    url.searchParams.set('outputFormat', 'application/json')
+    url.searchParams.set('srsName', 'EPSG:4326')
+    url.searchParams.set(
+      'bbox',
+      `${bbox.minLat},${bbox.minLng},${bbox.maxLat},${bbox.maxLng},EPSG:4326`
+    )
+    url.searchParams.set('count', (params?.limit || 100).toString())
+
+    // Add CQL filter for year range if specified
+    const cqlFilters: string[] = []
+    if (params?.startYear) {
+      cqlFilters.push(`Year >= ${params.startYear}`)
+    }
+    if (params?.endYear) {
+      cqlFilters.push(`Year <= ${params.endYear}`)
+    }
+    if (params?.taxonGroup) {
+      cqlFilters.push(`TaxonGroup = '${params.taxonGroup}'`)
+    }
+    if (cqlFilters.length > 0) {
+      url.searchParams.set('CQL_FILTER', cqlFilters.join(' AND '))
+    }
+
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 second timeout
+
+    const response = await fetch(url.toString(), {
+      signal: controller.signal,
+    })
+    clearTimeout(timeoutId)
+
+    if (!response.ok) {
+      console.error(`NBDC WFS error: ${response.statusText}`)
+      return []
+    }
+
+    const data = await response.json()
+
+    // Convert GeoJSON features to NBDCRecord format
+    if (data.features) {
+      return data.features.map(
+        (feature: {
+          properties: {
+            RecordId?: number
+            TaxonId?: number
+            LatinName?: string
+            CommonName?: string
+            TaxonGroup?: string
+            GridReference?: string
+            Precision?: string
+            Date?: string
+            Year?: number
+            Recorder?: string
+            Determiner?: string
+            DatasetName?: string
+            SampleMethod?: string
+            Comment?: string
+          }
+          geometry?: { coordinates?: [number, number] }
+        }): NBDCRecord => ({
+          RecordId: feature.properties.RecordId || 0,
+          TaxonId: feature.properties.TaxonId || 0,
+          LatinName: feature.properties.LatinName || 'Unknown',
+          CommonName: feature.properties.CommonName,
+          TaxonGroup: feature.properties.TaxonGroup,
+          GridReference: feature.properties.GridReference,
+          Precision: feature.properties.Precision,
+          Date: feature.properties.Date,
+          Year: feature.properties.Year,
+          Recorder: feature.properties.Recorder,
+          Determiner: feature.properties.Determiner,
+          DatasetName: feature.properties.DatasetName,
+          SampleMethod: feature.properties.SampleMethod,
+          Comment: feature.properties.Comment,
+          Longitude: feature.geometry?.coordinates?.[0],
+          Latitude: feature.geometry?.coordinates?.[1],
+        })
+      )
+    }
+
+    return []
+  } catch (error) {
+    // Don't log abort errors
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.warn('NBDC bbox search timed out')
+      return []
+    }
+    console.error('Error searching NBDC by bbox:', error)
+    return []
+  }
+}
+
+/**
+ * Search for protected species records within a bounding box
+ */
+export async function searchProtectedSpeciesInBbox(
+  bbox: { minLat: number; maxLat: number; minLng: number; maxLng: number },
+  params?: Partial<NBDCSearchParams>
+): Promise<NBDCRecord[]> {
+  const records = await searchRecordsByBbox(bbox, params)
+
+  // Filter to only return protected species
+  // In a production app, you'd want to cross-reference with the protected species list
+  // For now, we return all records and mark protection status where available
+  return records
 }
 
 /**

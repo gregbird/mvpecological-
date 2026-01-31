@@ -1,13 +1,21 @@
 # GIS Implementation Status
 
 **Last Updated:** 2026-01-31
-**Status:** In Progress
+**Status:** Step 1 Complete, Step 2 Complete
 
 ---
 
 ## Overview
 
 Bu döküman, Dulra platformundaki GIS entegrasyonunun mevcut durumunu, beklenen özellikleri ve geliştirme yol haritasını takip eder.
+
+### Tamamlanan Adımlar
+
+| Step | Adım            | Durum         | Açıklama                                                         |
+| ---- | --------------- | ------------- | ---------------------------------------------------------------- |
+| 1    | GIS Mapping     | ✅ Tamamlandı | Boundary definition, buffer zones, NPWS overlay, measurement     |
+| 2    | Data Gathering  | ✅ Tamamlandı | NPWS, GBIF, NBDC, EPA entegrasyonu, filtering, sorting, distance |
+| 3    | Desk Assessment | ⏳ Bekliyor   | Finding relevance assessment                                     |
 
 ### Referans Dökümanlar
 
@@ -150,23 +158,37 @@ Assessor'ın projeyi başlatırken tanımladığı site boundary - tüm workflow
 
 **Konum:** `lib/external-apis/gbif.ts`
 
-| Fonksiyon              | Durum        | Notlar                    |
-| ---------------------- | ------------ | ------------------------- |
-| searchOccurrences()    | ✅ Kod hazır | Species occurrence search |
-| getSpecies()           | ✅ Kod hazır | Taxonomy details          |
-| occurrencesToGeoJSON() | ✅ Kod hazır | Map-ready format          |
-| **UI Entegrasyonu**    | ❌ Eksik     | Haritada gösterim yok     |
+| Fonksiyon              | Durum        | Notlar                         |
+| ---------------------- | ------------ | ------------------------------ |
+| searchOccurrences()    | ✅ Kod hazır | Species occurrence search      |
+| getSpecies()           | ✅ Kod hazır | Taxonomy details               |
+| occurrencesToGeoJSON() | ✅ Kod hazır | Map-ready format               |
+| **UI Entegrasyonu**    | ✅ Çalışıyor | Data Gathering step'te entegre |
 
 ### 3.3 NBDC (National Biodiversity Data Centre)
 
 **Konum:** `lib/external-apis/nbdc.ts`
 
-| Fonksiyon                | Durum        | Notlar                 |
-| ------------------------ | ------------ | ---------------------- |
-| searchRecordsByGridRef() | ✅ Kod hazır | Grid reference search  |
-| getProtectedSpecies()    | ✅ Kod hazır | Protected species list |
-| recordsToGeoJSON()       | ✅ Kod hazır | Map-ready format       |
-| **UI Entegrasyonu**      | ❌ Eksik     | Haritada gösterim yok  |
+| Fonksiyon                | Durum        | Notlar                         |
+| ------------------------ | ------------ | ------------------------------ |
+| searchRecordsByGridRef() | ✅ Kod hazır | Grid reference search          |
+| searchRecordsByBbox()    | ✅ Kod hazır | Bounding box search (WFS)      |
+| getProtectedSpecies()    | ✅ Kod hazır | Protected species list         |
+| recordsToGeoJSON()       | ✅ Kod hazır | Map-ready format               |
+| **UI Entegrasyonu**      | ✅ Çalışıyor | Data Gathering step'te entegre |
+
+### 3.4 EPA (Environmental Protection Agency)
+
+**Konum:** `lib/external-apis/epa.ts`
+
+| Fonksiyon                  | Durum        | Notlar                         |
+| -------------------------- | ------------ | ------------------------------ |
+| searchRivers()             | ✅ Kod hazır | WFD Rivers query               |
+| searchLakes()              | ✅ Kod hazır | WFD Lakes query                |
+| searchCatchments()         | ✅ Kod hazır | Catchment boundaries           |
+| searchWaterQuality()       | ✅ Kod hazır | Water quality stations         |
+| searchAllAquaticFeatures() | ✅ Kod hazır | Combined query                 |
+| **UI Entegrasyonu**        | ✅ Çalışıyor | Data Gathering step'te entegre |
 
 ---
 
@@ -233,10 +255,10 @@ components/
 │   ├── dataset-layers-panel.tsx    # Layer toggle panel
 │   └── buffer-zone-panel.tsx       # ✅ NEW - Buffer zone controls
 ├── maps/
-│   ├── project-map.tsx             # Display-only map
+│   ├── project-map.tsx             # Display-only map + findings overlay
 │   ├── project-map-with-draw.tsx   # Interactive map with drawing + buffer zones
 │   ├── measure-control.tsx         # Distance measurement tool
-│   └── npws-layer-overlay.tsx      # ✅ NEW - NPWS designated sites overlay
+│   └── npws-layer-overlay.tsx      # NPWS designated sites overlay
 └── steps/
     └── gis-mapping-step.tsx        # Step 1: GIS Mapping workflow
 
@@ -415,6 +437,116 @@ Dokümandan alınan minimum attribute fields (GIS data section):
 - GIS Implementation Status dokümanı oluşturuldu
 - Manual Drawing ve GeoJSON Upload analizi tamamlandı
 
+### 2026-01-31 (Map Integration - Findings on Map)
+
+**ProjectMap Component Updates:**
+
+- `components/maps/project-map.tsx` güncellendi
+  - `findings` prop eklendi - DeskResearchFinding array
+  - `selectedFinding` prop eklendi - Seçili finding highlight
+  - `visibleFindingTypes` prop eklendi - Type filtering
+  - `onFindingClick` callback eklendi
+  - Finding type colors (designated_site: green, species_record: blue, water_quality: cyan, catchment: purple)
+  - Finding source colors (NPWS: green, GBIF: blue, NBDC: purple, EPA: cyan, Manual: amber)
+  - Geometry support: Point, Polygon, MultiPolygon, LineString, GeometryCollection
+  - MapController: Zoom to selected finding (flyTo/flyToBounds)
+  - Finding popup with source badge, title, content, distance
+
+**DataGatheringStep Integration:**
+
+- `components/steps/data-gathering-step.tsx` güncellendi
+  - ProjectMap'e findings props eklendi
+  - `allSavedFindings` haritada görüntüleniyor
+  - `selectedFinding` state ile zoom-to-location
+  - `onFindingClick` ile finding seçimi
+
+**Layer Controls:**
+
+- Findings layer "Desk Research Findings" olarak layers listesine eklendi
+- Layer toggle ile findings görünürlüğü kontrol edilebiliyor
+
+### 2026-01-31 (Step 2: Data Gathering - Tam Entegrasyon)
+
+**NBDC Entegrasyonu:**
+
+- `lib/external-apis/nbdc.ts` güncellendi
+  - `searchRecordsByBbox()` fonksiyonu eklendi (WFS ile bbox araması)
+  - `searchProtectedSpeciesInBbox()` fonksiyonu eklendi
+- `components/desk-research/search-interface.tsx` güncellendi
+  - NBDC araması performSearch'e entegre edildi
+  - Species records gruplandırılıyor ve görüntüleniyor
+
+**EPA Entegrasyonu:**
+
+- `lib/external-apis/epa.ts` oluşturuldu
+  - `searchRivers()` - WFD rivers araması
+  - `searchLakes()` - WFD lakes araması
+  - `searchCatchments()` - Catchment boundaries
+  - `searchWaterQuality()` - Water quality stations
+  - `searchAllAquaticFeatures()` - Tüm aquatic features tek çağrıda
+  - WFD status renklendirme ve display fonksiyonları
+- `components/desk-research/search-interface.tsx` güncellendi
+  - EPA araması performSearch'e entegre edildi
+  - Rivers, lakes, catchments görüntüleniyor
+
+**Finding Edit Modal:**
+
+- `components/desk-research/finding-edit-modal.tsx` oluşturuldu
+  - Notes ve relevance assessment (High/Medium/Low/None)
+  - Finding metadata görüntüleme
+  - Format: `[relevance] notes` olarak kaydediliyor
+
+**Manuel Finding Formu:**
+
+- `components/desk-research/manual-finding-form.tsx` oluşturuldu
+  - Title, type, description, notes alanları
+  - Type'a göre conditional fields (siteCode, scientificName)
+  - Source URL desteği
+  - Source: 'manual' olarak işaretleniyor
+
+**Source URL'leri:**
+
+- NPWS findings: `https://www.npws.ie/ProtectedSites/{type}/{siteCode}`
+- GBIF findings: `https://www.gbif.org/species/{speciesKey}`
+- NBDC findings: `https://maps.biodiversityireland.ie/Species/{taxonId}`
+- EPA findings: `https://www.catchments.ie/data/#/waterbody/{code}`
+
+**Filtreleme ve Sıralama:**
+
+- Source filter (NPWS, GBIF, NBDC, EPA, Manual)
+- Type filter (designated_site, species_record, water_quality, catchment)
+- Sort by: Distance, Source, Type, Title
+- Sort order: Asc/Desc toggle
+
+**Distance Hesaplama:**
+
+- `calculateDistanceFromBoundary()` fonksiyonu eklendi
+- Turf.js ile point-to-polygon distance
+- Boundary içindeyse 0, dışındaysa km olarak mesafe
+- Tüm findings'e metadata.distance eklendi
+- Varsayılan sıralama: Nearest first
+
+**Pagination:**
+
+- 20 sonuç per page
+- "Load More" butonu ile daha fazla sonuç yükleme
+- Kalan sonuç sayısı gösterimi
+
+**Source Selector Güncellemesi:**
+
+- EPA: 'partial' → 'available' (tam entegrasyon)
+- Catchments.ie: 'partial' → 'unavailable' (EPA üzerinden erişilebilir)
+- NBDC: Status confirmed 'available'
+
+**Dosya Değişiklikleri:**
+
+- `lib/external-apis/nbdc.ts` - Bbox search eklendi
+- `lib/external-apis/epa.ts` - Yeni dosya (EPA API client)
+- `components/desk-research/search-interface.tsx` - Tam yeniden yazıldı
+- `components/desk-research/finding-edit-modal.tsx` - Yeni dosya
+- `components/desk-research/manual-finding-form.tsx` - Yeni dosya
+- `components/desk-research/source-selector.tsx` - Status güncellemeleri
+
 ---
 
 ## 9. İlgili Issues / Tasks
@@ -427,5 +559,27 @@ Dokümandan alınan minimum attribute fields (GIS data section):
 - [x] Faz 2.3: NPWS layer overlay ✅
 - [x] Faz 2.4: Townland/County lookup ✅
 - [x] Faz 3.1: Perimeter calculation ✅
+
+### Step 2: Data Gathering Tasks
+
+- [x] NBDC entegrasyonu ✅
+- [x] EPA API client oluşturma ✅
+- [x] EPA entegrasyonu (rivers, lakes, catchments) ✅
+- [x] Finding edit modal ✅
+- [x] Manuel finding formu ✅
+- [x] Source URL'leri ekleme ✅
+- [x] Sonuç filtreleme ✅
+- [x] Sonuç sıralama ✅
+- [x] Distance from boundary hesaplama ✅
+- [x] Pagination ✅
+- [x] Source selector status düzeltmeleri ✅
+
+### Map Integration Tasks
+
+- [x] ProjectMap findings desteği ✅
+- [x] Finding tıklanınca zoom to location ✅
+- [x] Finding layer toggle ✅
+- [x] DataGatheringStep harita entegrasyonu ✅
+- [ ] HabitatMappingStep findings overlay (gelecek iterasyon)
 
 ---

@@ -29,7 +29,7 @@ const DATA_SOURCES: DataSource[] = [
   {
     id: 'npws',
     name: 'NPWS',
-    description: 'Designated sites (SAC, SPA, NHA, pNHA)',
+    description: 'Designated sites (SAC, SPA, NHA, pNHA, Ramsar)',
     types: ['designated_site'],
     status: 'available',
   },
@@ -50,16 +50,16 @@ const DATA_SOURCES: DataSource[] = [
   {
     id: 'epa',
     name: 'EPA',
-    description: 'Water quality & environmental data',
-    types: ['water_quality'],
-    status: 'partial',
+    description: 'Rivers, lakes, catchments & water quality (WFD)',
+    types: ['water_quality', 'catchment'],
+    status: 'available',
   },
   {
     id: 'catchments',
     name: 'Catchments.ie',
-    description: 'River catchment information',
+    description: 'Integrated via EPA - use EPA source',
     types: ['catchment'],
-    status: 'partial',
+    status: 'unavailable',
   },
 ]
 

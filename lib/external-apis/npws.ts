@@ -1,20 +1,20 @@
 /**
  * NPWS (National Parks & Wildlife Service) API Client
  * Fetches designated sites data from ArcGIS REST services
+ *
+ * API Endpoint: https://services-eu1.arcgis.com/HyjXgkV6KGMSF3jt/ArcGIS/rest/services/NPWSDesignatedAreas/FeatureServer
+ * Updated: December 2024
  */
 
-const NPWS_BASE_URL = 'https://gis.npws.ie/arcgis/rest/services/NPWS/DesignatedAreas/MapServer'
+const NPWS_BASE_URL =
+  'https://services-eu1.arcgis.com/HyjXgkV6KGMSF3jt/ArcGIS/rest/services/NPWSDesignatedAreas/FeatureServer'
 
-// Layer IDs in NPWS MapServer
+// Layer IDs in NPWS FeatureServer (updated endpoint)
 const LAYERS = {
-  SAC: 0, // Special Areas of Conservation
-  SPA: 1, // Special Protection Areas
+  SPA: 0, // Special Protection Areas
+  pNHA: 1, // Proposed Natural Heritage Areas
   NHA: 2, // Natural Heritage Areas
-  pNHA: 3, // Proposed Natural Heritage Areas
-  RAMSAR: 4, // Ramsar Sites
-  NATURE_RESERVE: 5, // Nature Reserves
-  NATIONAL_PARK: 6, // National Parks
-  WILDFOWL_SANCTUARY: 7, // Wildfowl Sanctuaries
+  SAC: 3, // Special Areas of Conservation
 }
 
 export type DesignatedSiteType = keyof typeof LAYERS
@@ -92,7 +92,7 @@ export async function queryDesignatedSites(params: NPWSQueryParams): Promise<NPW
 
       const queryParams = new URLSearchParams({
         where: '1=1',
-        outFields: 'OBJECTID,SITECODE,SITENAME,AREA_HA,VERSION',
+        outFields: 'OBJECTID,SITECODE,SITE_NAME,Shape__Area',
         returnGeometry: 'true',
         outSR: '4326',
         f: 'geojson',
@@ -138,13 +138,16 @@ export async function queryDesignatedSites(params: NPWSQueryParams): Promise<NPW
 
       if (data.features) {
         for (const feature of data.features) {
+          // Convert Shape__Area (m²) to hectares
+          const areaHa = feature.properties.Shape__Area
+            ? feature.properties.Shape__Area / 10000
+            : undefined
           results.push({
             OBJECTID: feature.properties.OBJECTID,
             SITECODE: feature.properties.SITECODE,
-            SITENAME: feature.properties.SITENAME,
+            SITENAME: feature.properties.SITE_NAME, // New API uses SITE_NAME
             SITE_TYPE: siteType,
-            AREA_HA: feature.properties.AREA_HA,
-            VERSION: feature.properties.VERSION,
+            AREA_HA: areaHa,
             geometry: feature.geometry,
           })
         }
@@ -189,13 +192,15 @@ export async function getDesignatedSiteByCode(
 
     if (data.features && data.features.length > 0) {
       const feature = data.features[0]
+      const areaHa = feature.properties.Shape__Area
+        ? feature.properties.Shape__Area / 10000
+        : undefined
       return {
         OBJECTID: feature.properties.OBJECTID,
         SITECODE: feature.properties.SITECODE,
-        SITENAME: feature.properties.SITENAME,
+        SITENAME: feature.properties.SITE_NAME,
         SITE_TYPE: siteType,
-        AREA_HA: feature.properties.AREA_HA,
-        VERSION: feature.properties.VERSION,
+        AREA_HA: areaHa,
         geometry: feature.geometry,
       }
     }

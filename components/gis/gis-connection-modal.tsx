@@ -16,7 +16,7 @@ import {
 import { ArcGISConnection } from './arcgis-connection'
 import { QGISConnection } from './qgis-connection'
 
-export type GISSourceType = 'arcgis' | 'qgis' | 'manual' | null
+export type GISSourceType = 'arcgis' | 'qgis' | 'manual' | 'upload' | null
 
 interface GISConnectionModalProps {
   open: boolean

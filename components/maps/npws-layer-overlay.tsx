@@ -18,13 +18,12 @@ interface NPWSLayerOverlayProps {
   onSitesLoaded?: (sites: NPWSDesignatedSite[]) => void
 }
 
-// Map layer IDs to site types
+// Map layer IDs to site types (updated for new NPWS FeatureServer)
 const LAYER_TO_SITE_TYPE: Record<string, DesignatedSiteType> = {
   sac: 'SAC',
   spa: 'SPA',
   nha: 'NHA',
   pnha: 'pNHA',
-  ramsar: 'RAMSAR',
 }
 
 export function NPWSLayerOverlay({

@@ -19,8 +19,9 @@ export interface DatasetGroup {
   layers: DatasetLayer[]
 }
 
-// NPWS ArcGIS REST API base URL
-const NPWS_BASE_URL = 'https://gis.npws.ie/arcgis/rest/services'
+// NPWS ArcGIS REST API base URL (updated December 2024)
+const NPWS_BASE_URL =
+  'https://services-eu1.arcgis.com/HyjXgkV6KGMSF3jt/ArcGIS/rest/services/NPWSDesignatedAreas/FeatureServer'
 
 // EPA WMS base URL
 const EPA_BASE_URL = 'https://gis.epa.ie/geoserver'
@@ -40,7 +41,7 @@ export const DATASET_GROUPS: DatasetGroup[] = [
         id: 'sac',
         label: 'SAC',
         description: 'Special Areas of Conservation - EU Habitats Directive designated sites',
-        url: `${NPWS_BASE_URL}/DesignatedSites/SAC/MapServer`,
+        url: `${NPWS_BASE_URL}/3`, // Layer 3: SAC
         type: 'arcgis',
         defaultVisible: true,
         color: '#10b981',
@@ -49,7 +50,7 @@ export const DATASET_GROUPS: DatasetGroup[] = [
         id: 'spa',
         label: 'SPA',
         description: 'Special Protection Areas - EU Birds Directive designated sites',
-        url: `${NPWS_BASE_URL}/DesignatedSites/SPA/MapServer`,
+        url: `${NPWS_BASE_URL}/0`, // Layer 0: SPA
         type: 'arcgis',
         defaultVisible: true,
         color: '#3b82f6',
@@ -58,7 +59,7 @@ export const DATASET_GROUPS: DatasetGroup[] = [
         id: 'nha',
         label: 'NHA',
         description: 'Natural Heritage Areas - Nationally designated nature conservation sites',
-        url: `${NPWS_BASE_URL}/DesignatedSites/NHA/MapServer`,
+        url: `${NPWS_BASE_URL}/2`, // Layer 2: NHA
         type: 'arcgis',
         defaultVisible: false,
         color: '#8b5cf6',
@@ -67,19 +68,10 @@ export const DATASET_GROUPS: DatasetGroup[] = [
         id: 'pnha',
         label: 'pNHA',
         description: 'Proposed Natural Heritage Areas - Proposed sites of conservation interest',
-        url: `${NPWS_BASE_URL}/DesignatedSites/pNHA/MapServer`,
+        url: `${NPWS_BASE_URL}/1`, // Layer 1: pNHA
         type: 'arcgis',
         defaultVisible: false,
         color: '#a855f7',
-      },
-      {
-        id: 'ramsar',
-        label: 'Ramsar',
-        description: 'Ramsar Sites - Wetlands of international importance',
-        url: `${NPWS_BASE_URL}/DesignatedSites/Ramsar/MapServer`,
-        type: 'arcgis',
-        defaultVisible: false,
-        color: '#0ea5e9',
       },
     ],
   },
