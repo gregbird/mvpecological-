@@ -1,0 +1,40 @@
+/**
+ * GIS Utilities
+ *
+ * Central export for all GIS-related utilities
+ */
+
+// Validation
+export {
+  validateBoundary,
+  isWithinIreland,
+  detectCRS,
+  getBoundingBox,
+  formatCoordinate,
+  getCRSName,
+  IRELAND_BOUNDS,
+  EPSG_CODES,
+  type ValidationResult,
+  type CoordinateBounds,
+} from './validation'
+
+// Shapefile parsing
+export {
+  parseShapefile,
+  isShapefileType,
+  getSupportedShapefileExtensions,
+  type ShapefileParseResult,
+} from './shapefile-parser'
+
+// Buffer zones
+export {
+  createBuffer,
+  createMultipleBuffers,
+  calculatePerimeter,
+  calculateAreaHa,
+  getBufferStyle,
+  formatDistance,
+  STANDARD_BUFFER_DISTANCES,
+  type BufferOptions,
+  type BufferResult,
+} from './buffer'

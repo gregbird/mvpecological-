@@ -93,8 +93,9 @@ export async function getAssignedProjects(userId: string): Promise<ProjectWithRe
 // Create new project
 export async function createProject(project: InsertProject): Promise<Project | null> {
   const supabase = createClient()
-  const { data, error } = await (supabase.from('projects') as ReturnType<typeof supabase.from>)
-    .insert(project as never)
+  const { data, error } = await supabase
+    .from('projects')
+    .insert(project as Database['public']['Tables']['projects']['Insert'])
     .select()
     .single()
 
@@ -103,7 +104,7 @@ export async function createProject(project: InsertProject): Promise<Project | n
     return null
   }
 
-  return data as Project
+  return data as unknown as Project
 }
 
 // Update project
@@ -112,8 +113,9 @@ export async function updateProject(
   updates: UpdateProject
 ): Promise<Project | null> {
   const supabase = createClient()
-  const { data, error } = await (supabase.from('projects') as ReturnType<typeof supabase.from>)
-    .update({ ...updates, updated_at: new Date().toISOString() } as never)
+  const { data, error } = await supabase
+    .from('projects')
+    .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', projectId)
     .select()
     .single()
@@ -123,7 +125,7 @@ export async function updateProject(
     return null
   }
 
-  return data as Project
+  return data as unknown as Project
 }
 
 // Update project boundary (GIS data)
@@ -134,13 +136,14 @@ export async function updateProjectBoundary(
   gridReference: string
 ): Promise<Project | null> {
   const supabase = createClient()
-  const { data, error } = await (supabase.from('projects') as ReturnType<typeof supabase.from>)
+  const { data, error } = await supabase
+    .from('projects')
     .update({
       boundary,
       center_point: centerPoint,
       grid_reference: gridReference,
       updated_at: new Date().toISOString(),
-    } as never)
+    })
     .eq('id', projectId)
     .select()
     .single()
@@ -150,7 +153,7 @@ export async function updateProjectBoundary(
     return null
   }
 
-  return data as Project
+  return data as unknown as Project
 }
 
 // Delete project
@@ -169,10 +172,9 @@ export async function deleteProject(projectId: string): Promise<boolean> {
 // Add project member
 export async function addProjectMember(member: InsertProjectMember): Promise<ProjectMember | null> {
   const supabase = createClient()
-  const { data, error } = await (
-    supabase.from('project_members') as ReturnType<typeof supabase.from>
-  )
-    .insert(member as never)
+  const { data, error } = await supabase
+    .from('project_members')
+    .insert(member as Database['public']['Tables']['project_members']['Insert'])
     .select()
     .single()
 
@@ -181,7 +183,7 @@ export async function addProjectMember(member: InsertProjectMember): Promise<Pro
     return null
   }
 
-  return data as ProjectMember
+  return data as unknown as ProjectMember
 }
 
 // Remove project member

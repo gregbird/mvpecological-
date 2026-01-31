@@ -45,7 +45,7 @@ const acceptInviteSchema = z
 
 type AcceptInviteFormData = z.infer<typeof acceptInviteSchema>
 
-export default function AcceptInvitePage() {
+function AcceptInviteContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -287,5 +287,19 @@ export default function AcceptInvitePage() {
         </form>
       </Card>
     </>
+  )
+}
+
+export default function AcceptInvitePage() {
+  return (
+    <React.Suspense
+      fallback={
+        <div className="flex min-h-[400px] items-center justify-center">
+          <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+        </div>
+      }
+    >
+      <AcceptInviteContent />
+    </React.Suspense>
   )
 }

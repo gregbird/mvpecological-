@@ -61,7 +61,10 @@ export function GISConnectionModal({
   const [selectedSource, setSelectedSource] = React.useState<GISSourceType>(null)
   const [step, setStep] = React.useState<'select' | 'connect'>('select')
 
-  const handleSourceClick = (source: GISSourceType) => {
+  const handleSourceClick = (source: GISSourceType, comingSoon?: boolean) => {
+    if (comingSoon) {
+      return // Do nothing for coming soon options
+    }
     if (source === 'manual') {
       onSourceSelect(source)
       onOpenChange(false)
@@ -115,26 +118,39 @@ export function GISConnectionModal({
               return (
                 <button
                   key={option.id}
-                  onClick={() => handleSourceClick(option.id)}
+                  onClick={() => handleSourceClick(option.id, option.comingSoon)}
+                  disabled={option.comingSoon}
                   className={cn(
                     'group flex w-full items-center gap-4 rounded-lg border p-4 text-left transition-all',
-                    'border-border hover:border-emerald-300 hover:bg-emerald-50/50',
-                    'dark:hover:border-emerald-700 dark:hover:bg-emerald-950/20'
+                    'border-border',
+                    option.comingSoon
+                      ? 'cursor-not-allowed opacity-60'
+                      : 'hover:border-emerald-300 hover:bg-emerald-50/50 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/20'
                   )}
                 >
                   <div
                     className={cn(
                       'flex h-12 w-12 items-center justify-center rounded-lg',
-                      option.color
+                      option.comingSoon ? 'bg-gray-400' : option.color
                     )}
                   >
                     <Icon className="h-6 w-6 text-white" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-foreground font-semibold">{option.label}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-foreground font-semibold">{option.label}</h3>
+                      {option.comingSoon && (
+                        <Badge variant="secondary" className="text-xs">
+                          <Clock className="mr-1 h-3 w-3" />
+                          Coming Soon
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-muted-foreground mt-0.5 text-sm">{option.description}</p>
                   </div>
-                  <ArrowRight className="text-muted-foreground h-5 w-5 transition-transform group-hover:translate-x-1" />
+                  {!option.comingSoon && (
+                    <ArrowRight className="text-muted-foreground h-5 w-5 transition-transform group-hover:translate-x-1" />
+                  )}
                 </button>
               )
             })}

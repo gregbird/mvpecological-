@@ -37,7 +37,7 @@ const registerSchema = z
 
 type RegisterFormData = z.infer<typeof registerSchema>
 
-export default function RegisterPage() {
+function RegisterContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -102,9 +102,18 @@ export default function RegisterPage() {
   }
 
   // If there's an invite token, redirect to the accept-invite page
+  React.useEffect(() => {
+    if (inviteToken) {
+      router.replace(`/accept-invite?token=${inviteToken}`)
+    }
+  }, [inviteToken, router])
+
   if (inviteToken) {
-    router.replace(`/accept-invite?token=${inviteToken}`)
-    return null
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+      </div>
+    )
   }
 
   return (
@@ -209,5 +218,19 @@ export default function RegisterPage() {
         </form>
       </Card>
     </>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <React.Suspense
+      fallback={
+        <div className="flex min-h-[400px] items-center justify-center">
+          <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+        </div>
+      }
+    >
+      <RegisterContent />
+    </React.Suspense>
   )
 }

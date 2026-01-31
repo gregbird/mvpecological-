@@ -131,7 +131,16 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         error: authError,
       } = await supabase.auth.getUser()
 
+      // Handle auth errors gracefully - "Auth session missing" is expected when not logged in
       if (authError) {
+        // These are expected errors when user is not authenticated
+        if (
+          authError.message?.includes('Auth session missing') ||
+          authError.name === 'AuthSessionMissingError'
+        ) {
+          setUser(null)
+          return
+        }
         throw authError
       }
 
@@ -163,8 +172,15 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
 
       setUser(profile as UserWithOrganization)
     } catch (err) {
-      console.error('Error fetching user profile:', err)
-      setError(err instanceof Error ? err.message : 'Failed to fetch user profile')
+      // Don't log auth session errors - these are expected when user is not logged in
+      const isAuthSessionError =
+        err instanceof Error &&
+        (err.message?.includes('Auth session missing') || err.name === 'AuthSessionMissingError')
+
+      if (!isAuthSessionError) {
+        console.error('Error fetching user profile:', err)
+        setError(err instanceof Error ? err.message : 'Failed to fetch user profile')
+      }
       setUser(null)
     } finally {
       setIsLoading(false)

@@ -1,7 +1,17 @@
 'use client'
 
 import * as React from 'react'
-import { FileUp, MapPin, Loader2, Check, AlertCircle, Globe, Database, Pencil } from 'lucide-react'
+import {
+  FileUp,
+  MapPin,
+  Loader2,
+  Check,
+  AlertCircle,
+  Globe,
+  Database,
+  Pencil,
+  Clock,
+} from 'lucide-react'
 import dynamic from 'next/dynamic'
 
 import { cn } from '@/lib/utils'
@@ -13,8 +23,20 @@ import { Progress } from '@/components/ui/progress'
 import { useToast } from '@/hooks/use-toast'
 import { useUpdateProjectBoundary, useCompleteWorkflowStep } from '@/hooks/use-project-data'
 import { calculateAreaHectares } from '@/lib/supabase/queries/habitats'
-import { GISConnectionModal, type GISSourceType, DatasetLayersPanel } from '@/components/gis'
+import {
+  GISConnectionModal,
+  type GISSourceType,
+  DatasetLayersPanel,
+  BufferZonePanel,
+} from '@/components/gis'
 import { getDefaultVisibleLayers } from '@/lib/config/dataset-layers'
+import {
+  parseShapefile,
+  isShapefileType,
+  validateBoundary,
+  getCRSName,
+  calculatePerimeter,
+} from '@/lib/gis'
 import type { Project, WorkflowStep } from '@/types/database'
 
 // Dynamic import for map with draw controls
@@ -76,6 +98,7 @@ const gisSourceOptions = [
     description: 'Import from ArcGIS',
     icon: Globe,
     color: 'bg-blue-500',
+    comingSoon: true,
   },
   {
     id: 'qgis' as const,
@@ -83,6 +106,7 @@ const gisSourceOptions = [
     description: 'Import from PostGIS',
     icon: Database,
     color: 'bg-green-500',
+    comingSoon: true,
   },
   {
     id: 'manual' as const,
@@ -90,6 +114,7 @@ const gisSourceOptions = [
     description: 'Draw on map',
     icon: Pencil,
     color: 'bg-amber-500',
+    comingSoon: false,
   },
 ]
 
@@ -142,9 +167,52 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
     setIsProcessing(true)
 
     try {
-      const text = await file.text()
+      const fileName = file.name.toLowerCase()
 
-      if (file.name.endsWith('.geojson') || file.name.endsWith('.json')) {
+      // Handle Shapefile (.shp or .zip)
+      if (isShapefileType(file)) {
+        const result = await parseShapefile(file)
+
+        // Show warnings if any
+        if (result.warnings.length > 0) {
+          result.warnings.forEach((warning) => {
+            toast({
+              title: 'Warning',
+              description: warning,
+            })
+          })
+        }
+
+        if (!result.success || !result.feature) {
+          toast({
+            variant: 'destructive',
+            title: 'Shapefile Error',
+            description: result.error || 'Failed to parse shapefile',
+          })
+          return
+        }
+
+        // Show CRS info if detected
+        if (result.metadata.detectedCRS) {
+          toast({
+            title: 'Coordinate System',
+            description: `Detected: ${getCRSName(result.metadata.detectedCRS)}`,
+          })
+        }
+
+        setBoundary(result.feature)
+        setHasUnsavedChanges(true)
+        setSelectedSource('manual')
+        toast({
+          title: 'Shapefile loaded',
+          description: `Successfully loaded boundary from ${file.name}`,
+        })
+        return
+      }
+
+      // Handle GeoJSON
+      if (fileName.endsWith('.geojson') || fileName.endsWith('.json')) {
+        const text = await file.text()
         const geojson = JSON.parse(text)
 
         let feature: GeoJSON.Feature<GeoJSON.Polygon> | null = null
@@ -160,38 +228,60 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
           feature = { type: 'Feature', geometry: geojson, properties: {} }
         }
 
-        if (feature) {
-          const geom = feature.geometry as GeoJSON.Polygon | GeoJSON.MultiPolygon
-          if (geom.type === 'MultiPolygon') {
-            feature = {
-              type: 'Feature',
-              geometry: {
-                type: 'Polygon',
-                coordinates: geom.coordinates[0],
-              },
-              properties: feature.properties,
-            } as GeoJSON.Feature<GeoJSON.Polygon>
-          }
-
-          setBoundary(feature as GeoJSON.Feature<GeoJSON.Polygon>)
-          setHasUnsavedChanges(true)
-          setSelectedSource('manual')
-          toast({
-            title: 'Boundary loaded',
-            description: `Successfully loaded boundary from ${file.name}`,
-          })
-        } else {
+        if (!feature) {
           throw new Error('No polygon found in file')
         }
-      } else if (file.name.endsWith('.shp') || file.name.endsWith('.zip')) {
+
+        // Convert MultiPolygon to Polygon
+        const geom = feature.geometry as GeoJSON.Polygon | GeoJSON.MultiPolygon
+        if (geom.type === 'MultiPolygon') {
+          feature = {
+            type: 'Feature',
+            geometry: {
+              type: 'Polygon',
+              coordinates: geom.coordinates[0],
+            },
+            properties: feature.properties,
+          } as GeoJSON.Feature<GeoJSON.Polygon>
+        }
+
+        // Validate the boundary
+        const validation = validateBoundary(feature as GeoJSON.Feature<GeoJSON.Polygon>)
+
+        // Show warnings
+        if (validation.warnings.length > 0) {
+          validation.warnings.forEach((warning) => {
+            toast({
+              title: 'Warning',
+              description: warning,
+            })
+          })
+        }
+
+        // Check for errors
+        if (!validation.valid) {
+          toast({
+            variant: 'destructive',
+            title: 'Validation Error',
+            description: validation.errors.join('. '),
+          })
+          return
+        }
+
+        setBoundary(feature as GeoJSON.Feature<GeoJSON.Polygon>)
+        setHasUnsavedChanges(true)
+        setSelectedSource('manual')
         toast({
-          variant: 'destructive',
-          title: 'Shapefile not supported',
-          description: 'Please convert your Shapefile to GeoJSON format.',
+          title: 'Boundary loaded',
+          description: `Successfully loaded boundary from ${file.name}`,
         })
-      } else {
-        throw new Error('Unsupported file format')
+        return
       }
+
+      // Unsupported format
+      throw new Error(
+        'Unsupported file format. Please upload .geojson, .json, .shp, or .zip files.'
+      )
     } catch (error) {
       console.error('Error parsing file:', error)
       toast({
@@ -350,25 +440,35 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                 <button
                   key={option.id}
                   onClick={() => {
+                    if (option.comingSoon) return
                     if (option.id === 'manual') {
                       handleSourceSelect('manual')
                     } else {
                       setShowConnectionModal(true)
                     }
                   }}
-                  disabled={isComplete}
+                  disabled={isComplete || option.comingSoon}
                   className={cn(
-                    'border-border bg-card flex cursor-pointer flex-col items-center gap-3 rounded-lg border p-6 text-center transition-all',
-                    'hover:border-emerald-400 hover:bg-emerald-50 hover:shadow-md dark:hover:border-emerald-600 dark:hover:bg-emerald-950/30',
+                    'border-border bg-card relative flex cursor-pointer flex-col items-center gap-3 rounded-lg border p-6 text-center transition-all',
+                    option.comingSoon
+                      ? 'cursor-not-allowed opacity-60'
+                      : 'hover:border-emerald-400 hover:bg-emerald-50 hover:shadow-md dark:hover:border-emerald-600 dark:hover:bg-emerald-950/30',
                     isSelected &&
+                      !option.comingSoon &&
                       'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/20 dark:border-emerald-600 dark:bg-emerald-950/30',
                     isComplete && 'cursor-not-allowed opacity-50'
                   )}
                 >
+                  {option.comingSoon && (
+                    <Badge variant="secondary" className="absolute -top-2 -right-2 text-xs">
+                      <Clock className="mr-1 h-3 w-3" />
+                      Soon
+                    </Badge>
+                  )}
                   <div
                     className={cn(
                       'flex h-12 w-12 items-center justify-center rounded-lg',
-                      option.color
+                      option.comingSoon ? 'bg-gray-400' : option.color
                     )}
                   >
                     <Icon className="h-6 w-6 text-white" />
@@ -377,7 +477,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                     <h3 className="text-foreground font-semibold">{option.label}</h3>
                     <p className="text-muted-foreground mt-0.5 text-sm">{option.description}</p>
                   </div>
-                  {isSelected && (
+                  {isSelected && !option.comingSoon && (
                     <Badge
                       variant="secondary"
                       className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-400"
@@ -391,26 +491,31 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
           </div>
 
           {/* File upload option */}
-          <div className="mt-4 flex items-center justify-center gap-2">
-            <span className="text-muted-foreground text-sm">or</span>
-            <Button
-              variant="link"
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isComplete}
-              className="text-emerald-600 dark:text-emerald-400"
-            >
-              <FileUp className="mr-1 h-4 w-4" />
-              Upload GeoJSON file
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".geojson,.json"
-              className="hidden"
-              onChange={handleFileUpload}
-              disabled={isProcessing || isComplete}
-            />
+          <div className="mt-4 flex flex-col items-center justify-center gap-1">
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground text-sm">or</span>
+              <Button
+                variant="link"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isComplete || isProcessing}
+                className="text-emerald-600 dark:text-emerald-400"
+              >
+                <FileUp className="mr-1 h-4 w-4" />
+                {isProcessing ? 'Processing...' : 'Upload file'}
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".geojson,.json,.shp,.zip"
+                className="hidden"
+                onChange={handleFileUpload}
+                disabled={isProcessing || isComplete}
+              />
+            </div>
+            <span className="text-muted-foreground text-xs">
+              Supports: GeoJSON, Shapefile (.shp, .zip)
+            </span>
           </div>
         </CardContent>
       </Card>

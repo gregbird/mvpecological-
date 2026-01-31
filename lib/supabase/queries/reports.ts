@@ -91,8 +91,12 @@ export async function createReport(report: InsertReport): Promise<Report | null>
   const existingVersion = existing as { version: number } | null
   const nextVersion = existingVersion ? existingVersion.version + 1 : 1
 
-  const { data, error } = await (supabase.from('reports') as ReturnType<typeof supabase.from>)
-    .insert({ ...report, version: nextVersion } as never)
+  const { data, error } = await supabase
+    .from('reports')
+    .insert({
+      ...report,
+      version: nextVersion,
+    } as Database['public']['Tables']['reports']['Insert'])
     .select()
     .single()
 
@@ -101,7 +105,7 @@ export async function createReport(report: InsertReport): Promise<Report | null>
     return null
   }
 
-  return data as Report
+  return data as unknown as Report
 }
 
 // Update report
@@ -110,8 +114,9 @@ export async function updateReport(
   updates: UpdateReport
 ): Promise<Report | null> {
   const supabase = createClient()
-  const { data, error } = await (supabase.from('reports') as ReturnType<typeof supabase.from>)
-    .update({ ...updates, updated_at: new Date().toISOString() } as never)
+  const { data, error } = await supabase
+    .from('reports')
+    .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', reportId)
     .select()
     .single()
@@ -121,7 +126,7 @@ export async function updateReport(
     return null
   }
 
-  return data as Report
+  return data as unknown as Report
 }
 
 // Update report content

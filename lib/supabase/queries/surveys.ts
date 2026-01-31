@@ -56,8 +56,9 @@ export async function getSurvey(surveyId: string): Promise<SurveyWithSurveyor | 
 // Create new survey
 export async function createSurvey(survey: InsertSurvey): Promise<Survey | null> {
   const supabase = createClient()
-  const { data, error } = await (supabase.from('surveys') as ReturnType<typeof supabase.from>)
-    .insert(survey as never)
+  const { data, error } = await supabase
+    .from('surveys')
+    .insert(survey as Database['public']['Tables']['surveys']['Insert'])
     .select()
     .single()
 
@@ -66,7 +67,7 @@ export async function createSurvey(survey: InsertSurvey): Promise<Survey | null>
     return null
   }
 
-  return data as Survey
+  return data as unknown as Survey
 }
 
 // Update survey
@@ -75,8 +76,9 @@ export async function updateSurvey(
   updates: UpdateSurvey
 ): Promise<Survey | null> {
   const supabase = createClient()
-  const { data, error } = await (supabase.from('surveys') as ReturnType<typeof supabase.from>)
-    .update({ ...updates, updated_at: new Date().toISOString() } as never)
+  const { data, error } = await supabase
+    .from('surveys')
+    .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', surveyId)
     .select()
     .single()
@@ -86,7 +88,7 @@ export async function updateSurvey(
     return null
   }
 
-  return data as Survey
+  return data as unknown as Survey
 }
 
 // Delete survey

@@ -59,10 +59,9 @@ export async function getFinding(findingId: string): Promise<DeskResearchFinding
 // Create new finding
 export async function createFinding(finding: InsertFinding): Promise<DeskResearchFinding | null> {
   const supabase = createClient()
-  const { data, error } = await (
-    supabase.from('desk_research_findings') as ReturnType<typeof supabase.from>
-  )
-    .insert(finding as never)
+  const { data, error } = await supabase
+    .from('desk_research_findings')
+    .insert(finding as Database['public']['Tables']['desk_research_findings']['Insert'])
     .select()
     .single()
 
@@ -71,7 +70,7 @@ export async function createFinding(finding: InsertFinding): Promise<DeskResearc
     return null
   }
 
-  return data as DeskResearchFinding
+  return data as unknown as DeskResearchFinding
 }
 
 // Update finding
@@ -80,10 +79,9 @@ export async function updateFinding(
   updates: UpdateFinding
 ): Promise<DeskResearchFinding | null> {
   const supabase = createClient()
-  const { data, error } = await (
-    supabase.from('desk_research_findings') as ReturnType<typeof supabase.from>
-  )
-    .update({ ...updates, updated_at: new Date().toISOString() } as never)
+  const { data, error } = await supabase
+    .from('desk_research_findings')
+    .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', findingId)
     .select()
     .single()
@@ -93,7 +91,7 @@ export async function updateFinding(
     return null
   }
 
-  return data as DeskResearchFinding
+  return data as unknown as DeskResearchFinding
 }
 
 // Delete finding
@@ -184,10 +182,9 @@ export async function getFindingsStats(projectId: string): Promise<{
 // Bulk save findings
 export async function bulkSaveFindings(findings: InsertFinding[]): Promise<DeskResearchFinding[]> {
   const supabase = createClient()
-  const { data, error } = await (
-    supabase.from('desk_research_findings') as ReturnType<typeof supabase.from>
-  )
-    .insert(findings as never)
+  const { data, error } = await supabase
+    .from('desk_research_findings')
+    .insert(findings as Database['public']['Tables']['desk_research_findings']['Insert'][])
     .select()
 
   if (error) {
@@ -195,5 +192,5 @@ export async function bulkSaveFindings(findings: InsertFinding[]): Promise<DeskR
     return []
   }
 
-  return (data ?? []) as DeskResearchFinding[]
+  return (data ?? []) as unknown as DeskResearchFinding[]
 }

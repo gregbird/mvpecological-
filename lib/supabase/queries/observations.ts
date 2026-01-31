@@ -74,10 +74,9 @@ export async function createObservation(
   observation: InsertObservation
 ): Promise<SpeciesObservation | null> {
   const supabase = createClient()
-  const { data, error } = await (
-    supabase.from('species_observations') as ReturnType<typeof supabase.from>
-  )
-    .insert(observation as never)
+  const { data, error } = await supabase
+    .from('species_observations')
+    .insert(observation as Database['public']['Tables']['species_observations']['Insert'])
     .select()
     .single()
 
@@ -86,7 +85,7 @@ export async function createObservation(
     return null
   }
 
-  return data as SpeciesObservation
+  return data as unknown as SpeciesObservation
 }
 
 // Update observation
@@ -95,10 +94,9 @@ export async function updateObservation(
   updates: UpdateObservation
 ): Promise<SpeciesObservation | null> {
   const supabase = createClient()
-  const { data, error } = await (
-    supabase.from('species_observations') as ReturnType<typeof supabase.from>
-  )
-    .update({ ...updates, updated_at: new Date().toISOString() } as never)
+  const { data, error } = await supabase
+    .from('species_observations')
+    .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', observationId)
     .select()
     .single()
@@ -108,7 +106,7 @@ export async function updateObservation(
     return null
   }
 
-  return data as SpeciesObservation
+  return data as unknown as SpeciesObservation
 }
 
 // Delete observation

@@ -58,10 +58,9 @@ export async function getHabitat(habitatId: string): Promise<HabitatPolygon | nu
 // Create new habitat polygon
 export async function createHabitat(habitat: InsertHabitat): Promise<HabitatPolygon | null> {
   const supabase = createClient()
-  const { data, error } = await (
-    supabase.from('habitat_polygons') as ReturnType<typeof supabase.from>
-  )
-    .insert(habitat as never)
+  const { data, error } = await supabase
+    .from('habitat_polygons')
+    .insert(habitat as Database['public']['Tables']['habitat_polygons']['Insert'])
     .select()
     .single()
 
@@ -70,7 +69,7 @@ export async function createHabitat(habitat: InsertHabitat): Promise<HabitatPoly
     return null
   }
 
-  return data as HabitatPolygon
+  return data as unknown as HabitatPolygon
 }
 
 // Update habitat polygon
@@ -79,10 +78,9 @@ export async function updateHabitat(
   updates: UpdateHabitat
 ): Promise<HabitatPolygon | null> {
   const supabase = createClient()
-  const { data, error } = await (
-    supabase.from('habitat_polygons') as ReturnType<typeof supabase.from>
-  )
-    .update({ ...updates, updated_at: new Date().toISOString() } as never)
+  const { data, error } = await supabase
+    .from('habitat_polygons')
+    .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', habitatId)
     .select()
     .single()
@@ -92,7 +90,7 @@ export async function updateHabitat(
     return null
   }
 
-  return data as HabitatPolygon
+  return data as unknown as HabitatPolygon
 }
 
 // Delete habitat polygon

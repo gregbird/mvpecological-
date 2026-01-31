@@ -72,10 +72,9 @@ export async function initializeWorkflowSteps(projectId: string): Promise<Workfl
     status: step.step_number === 1 ? 'in_progress' : 'pending',
   }))
 
-  const { data, error } = await (
-    supabase.from('workflow_steps') as ReturnType<typeof supabase.from>
-  )
-    .insert(steps as never)
+  const { data, error } = await supabase
+    .from('workflow_steps')
+    .insert(steps as Database['public']['Tables']['workflow_steps']['Insert'][])
     .select()
 
   if (error) {
@@ -85,7 +84,7 @@ export async function initializeWorkflowSteps(projectId: string): Promise<Workfl
     return []
   }
 
-  return (data ?? []) as WorkflowStep[]
+  return (data ?? []) as unknown as WorkflowStep[]
 }
 
 // Update workflow step
@@ -94,10 +93,9 @@ export async function updateWorkflowStep(
   updates: UpdateWorkflowStep
 ): Promise<WorkflowStep | null> {
   const supabase = createClient()
-  const { data, error } = await (
-    supabase.from('workflow_steps') as ReturnType<typeof supabase.from>
-  )
-    .update({ ...updates, updated_at: new Date().toISOString() } as never)
+  const { data, error } = await supabase
+    .from('workflow_steps')
+    .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', stepId)
     .select()
     .single()
@@ -107,7 +105,7 @@ export async function updateWorkflowStep(
     return null
   }
 
-  return data as WorkflowStep
+  return data as unknown as WorkflowStep
 }
 
 // Complete a workflow step and advance to next
@@ -118,14 +116,13 @@ export async function completeWorkflowStep(
   const supabase = createClient()
 
   // Mark current step as approved
-  const { data: currentStep, error: currentError } = await (
-    supabase.from('workflow_steps') as ReturnType<typeof supabase.from>
-  )
+  const { data: currentStep, error: currentError } = await supabase
+    .from('workflow_steps')
     .update({
       status: 'approved',
       completed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    } as never)
+    })
     .eq('project_id', projectId)
     .eq('step_number', stepNumber)
     .select()
@@ -139,14 +136,13 @@ export async function completeWorkflowStep(
   // If not the last step, activate next step
   let nextStep: WorkflowStep | null = null
   if (stepNumber < 10) {
-    const { data, error: nextError } = await (
-      supabase.from('workflow_steps') as ReturnType<typeof supabase.from>
-    )
+    const { data, error: nextError } = await supabase
+      .from('workflow_steps')
       .update({
         status: 'in_progress',
         started_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      } as never)
+      })
       .eq('project_id', projectId)
       .eq('step_number', stepNumber + 1)
       .select()
@@ -155,29 +151,31 @@ export async function completeWorkflowStep(
     if (nextError) {
       console.error('Error activating next workflow step:', nextError)
     } else {
-      nextStep = data as WorkflowStep
+      nextStep = data as unknown as WorkflowStep
     }
 
     // Update project phase if needed
-    const currentStepData = currentStep as WorkflowStep
+    const currentStepData = currentStep as unknown as WorkflowStep
     const nextPhase = DEFAULT_WORKFLOW_STEPS.find((s) => s.step_number === stepNumber + 1)?.phase
     if (nextPhase && nextPhase !== currentStepData.phase) {
-      await (supabase.from('projects') as ReturnType<typeof supabase.from>)
-        .update({ current_phase: nextPhase, updated_at: new Date().toISOString() } as never)
+      await supabase
+        .from('projects')
+        .update({ current_phase: nextPhase, updated_at: new Date().toISOString() })
         .eq('id', projectId)
     }
   } else {
     // Last step completed - mark project as completed
-    await (supabase.from('projects') as ReturnType<typeof supabase.from>)
+    await supabase
+      .from('projects')
       .update({
         status: 'completed',
         actual_end_date: new Date().toISOString().split('T')[0],
         updated_at: new Date().toISOString(),
-      } as never)
+      })
       .eq('id', projectId)
   }
 
-  return { current: currentStep as WorkflowStep, next: nextStep }
+  return { current: currentStep as unknown as WorkflowStep, next: nextStep }
 }
 
 // Start a workflow step
@@ -186,14 +184,13 @@ export async function startWorkflowStep(
   stepNumber: number
 ): Promise<WorkflowStep | null> {
   const supabase = createClient()
-  const { data, error } = await (
-    supabase.from('workflow_steps') as ReturnType<typeof supabase.from>
-  )
+  const { data, error } = await supabase
+    .from('workflow_steps')
     .update({
       status: 'in_progress',
       started_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    } as never)
+    })
     .eq('project_id', projectId)
     .eq('step_number', stepNumber)
     .select()
@@ -204,7 +201,7 @@ export async function startWorkflowStep(
     return null
   }
 
-  return data as WorkflowStep
+  return data as unknown as WorkflowStep
 }
 
 // Mark step as needs review
@@ -213,13 +210,12 @@ export async function submitForReview(
   stepNumber: number
 ): Promise<WorkflowStep | null> {
   const supabase = createClient()
-  const { data, error } = await (
-    supabase.from('workflow_steps') as ReturnType<typeof supabase.from>
-  )
+  const { data, error } = await supabase
+    .from('workflow_steps')
     .update({
       status: 'needs_review',
       updated_at: new Date().toISOString(),
-    } as never)
+    })
     .eq('project_id', projectId)
     .eq('step_number', stepNumber)
     .select()
@@ -230,7 +226,7 @@ export async function submitForReview(
     return null
   }
 
-  return data as WorkflowStep
+  return data as unknown as WorkflowStep
 }
 
 // Calculate project progress

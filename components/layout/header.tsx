@@ -2,7 +2,8 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Bell, LogOut, User, Settings, HelpCircle, Shield, Map } from 'lucide-react'
+import { Bell, LogOut, User, Settings, Shield, Map, Loader2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -18,16 +19,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ThemeToggle } from '@/components/layout/theme-toggle'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { useRole, type UserRole } from '@/contexts/role-context'
-
-interface HeaderProps {
-  user?: {
-    name: string
-    email: string
-    avatar?: string
-    role?: string
-  }
-}
+import { useRole } from '@/contexts/role-context'
+import { createClient } from '@/lib/supabase/client'
+import type { UserRole } from '@/types/database'
 
 const ROLE_STYLES: Record<
   UserRole,
@@ -35,26 +29,55 @@ const ROLE_STYLES: Record<
 > = {
   admin: { bg: 'bg-emerald-500/10', text: 'text-emerald-600', icon: Shield },
   assessor: { bg: 'bg-blue-500/10', text: 'text-blue-600', icon: Map },
+  client: { bg: 'bg-gray-500/10', text: 'text-gray-600', icon: User },
 }
 
 const ROLE_LABELS: Record<UserRole, string> = {
   admin: 'Admin',
   assessor: 'Assessor',
+  client: 'Client',
 }
 
-export function Header({ user }: HeaderProps) {
-  const { currentRole, permissions } = useRole()
+export function Header() {
+  const router = useRouter()
+  const { user, permissions, isLoading } = useRole()
+  const [isSigningOut, setIsSigningOut] = React.useState(false)
+
+  const currentRole = user?.role || 'assessor'
   const roleStyle = ROLE_STYLES[currentRole]
   const RoleIcon = roleStyle.icon
 
-  const initials = user?.name
-    ? user.name
+  const initials = user?.full_name
+    ? user.full_name
         .split(' ')
         .map((n) => n[0])
         .join('')
         .toUpperCase()
         .slice(0, 2)
     : 'U'
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true)
+    try {
+      const supabase = createClient()
+      await supabase.auth.signOut()
+      router.push('/login')
+    } catch (err) {
+      console.error('Error signing out:', err)
+    } finally {
+      setIsSigningOut(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <header className="bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 flex h-16 items-center justify-between border-b px-6 backdrop-blur">
+        <div className="flex items-center gap-4">
+          <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+        </div>
+      </header>
+    )
+  }
 
   return (
     <header className="bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 flex h-16 items-center justify-between border-b px-6 backdrop-blur">
@@ -107,7 +130,7 @@ export function Header({ user }: HeaderProps) {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-10 w-10 rounded-full">
               <Avatar className="h-10 w-10">
-                <AvatarImage src={user?.avatar} alt={user?.name} />
+                <AvatarImage src={undefined} alt={user?.full_name || 'User'} />
                 <AvatarFallback className="bg-primary text-primary-foreground">
                   {initials}
                 </AvatarFallback>
@@ -117,7 +140,7 @@ export function Header({ user }: HeaderProps) {
           <DropdownMenuContent className="w-56" align="end" forceMount>
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm leading-none font-medium">{user?.name || 'User'}</p>
+                <p className="text-sm leading-none font-medium">{user?.full_name || 'User'}</p>
                 <p className="text-muted-foreground text-xs leading-none">
                   {user?.email || 'user@example.com'}
                 </p>
@@ -141,9 +164,17 @@ export function Header({ user }: HeaderProps) {
               )}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive focus:text-destructive">
-              <LogOut className="mr-2 h-4 w-4" />
-              Log out
+            <DropdownMenuItem
+              onClick={handleSignOut}
+              disabled={isSigningOut}
+              className="text-destructive focus:text-destructive"
+            >
+              {isSigningOut ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <LogOut className="mr-2 h-4 w-4" />
+              )}
+              {isSigningOut ? 'Signing out...' : 'Log out'}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

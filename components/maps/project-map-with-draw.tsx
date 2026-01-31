@@ -46,6 +46,7 @@ interface ProjectMapWithDrawProps {
   center?: [number, number]
   zoom?: number
   boundary?: GeoJSON.Feature<GeoJSON.Polygon>
+  bufferZones?: Map<number, GeoJSON.Feature<GeoJSON.Polygon>>
   onBoundaryChange?: (features: GeoJSON.FeatureCollection) => void
   editable?: boolean
 }
@@ -64,11 +65,43 @@ interface DrawDeletedEvent {
   layers: L.LayerGroup
 }
 
+// Buffer zone styles
+function getBufferZoneStyle(distance: number) {
+  const baseColor = '#3b82f6' // Blue
+  if (distance <= 1) {
+    return { color: baseColor, fillColor: baseColor, fillOpacity: 0.15, weight: 2 }
+  } else if (distance <= 2) {
+    return {
+      color: baseColor,
+      fillColor: baseColor,
+      fillOpacity: 0.1,
+      weight: 2,
+      dashArray: '5, 5',
+    }
+  } else if (distance <= 5) {
+    return {
+      color: baseColor,
+      fillColor: baseColor,
+      fillOpacity: 0.05,
+      weight: 1,
+      dashArray: '10, 5',
+    }
+  }
+  return {
+    color: baseColor,
+    fillColor: baseColor,
+    fillOpacity: 0.02,
+    weight: 1,
+    dashArray: '15, 10',
+  }
+}
+
 // Internal map component
 function MapComponentWithDraw({
   center,
   zoom,
   boundary,
+  bufferZones,
   currentStyle,
   onBoundaryChange,
   editable,
@@ -77,6 +110,7 @@ function MapComponentWithDraw({
   center: [number, number]
   zoom: number
   boundary?: GeoJSON.Feature<GeoJSON.Polygon>
+  bufferZones?: Map<number, GeoJSON.Feature<GeoJSON.Polygon>>
   currentStyle: MapStyle
   onBoundaryChange?: (features: GeoJSON.FeatureCollection) => void
   editable: boolean
@@ -191,6 +225,12 @@ function MapComponentWithDraw({
     })
   }
 
+  // Convert buffer zones Map to array for rendering
+  const bufferZonesArray = React.useMemo(() => {
+    if (!bufferZones) return []
+    return Array.from(bufferZones.entries()).sort((a, b) => b[0] - a[0]) // Sort by distance descending (larger first)
+  }, [bufferZones])
+
   return (
     <MapContainer
       center={center}
@@ -200,6 +240,15 @@ function MapComponentWithDraw({
     >
       <TileLayer url={tileConfig.url} attribution={tileConfig.attribution} />
       <LoadExistingBoundary />
+
+      {/* Render buffer zones (larger first so smaller ones appear on top) */}
+      {bufferZonesArray.map(([distance, bufferFeature]) => (
+        <GeoJSON
+          key={`buffer-${distance}`}
+          data={bufferFeature}
+          style={getBufferZoneStyle(distance)}
+        />
+      ))}
 
       {editable ? (
         <FeatureGroup
@@ -263,6 +312,7 @@ export function ProjectMapWithDraw({
   center = IRELAND_CENTER,
   zoom = DEFAULT_ZOOM,
   boundary,
+  bufferZones,
   onBoundaryChange,
   editable = true,
 }: ProjectMapWithDrawProps) {
@@ -304,6 +354,7 @@ export function ProjectMapWithDraw({
           center={center}
           zoom={zoom}
           boundary={boundary}
+          bufferZones={bufferZones}
           currentStyle={currentStyle}
           onBoundaryChange={onBoundaryChange}
           editable={editable}

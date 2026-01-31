@@ -1035,6 +1035,7 @@ export type CompositeTypes<
 export type Profile = Tables<'profiles'>
 export type Organization = Tables<'organizations'>
 export type Project = Tables<'projects'>
+export type ProjectMember = Tables<'project_members'>
 export type Client = Tables<'clients'>
 export type Survey = Tables<'surveys'>
 export type Invite = Tables<'invites'>
