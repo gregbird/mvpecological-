@@ -116,7 +116,7 @@ function MapComponent({
     <MapContainer
       center={center}
       zoom={zoom}
-      className="h-full min-h-[400px] w-full"
+      className="h-full min-h-100 w-full"
       style={{ height: '100%', minHeight: '400px' }}
     >
       <TileLayer url={tileConfig.url} attribution={tileConfig.attribution} />
@@ -258,7 +258,7 @@ export function ProjectMap({
   if (!mapLoaded) {
     return (
       <div className={cn('relative overflow-hidden rounded-lg', className)}>
-        <div className="bg-muted/50 flex h-full min-h-[400px] w-full items-center justify-center">
+        <div className="bg-muted/50 flex h-full min-h-100 w-full items-center justify-center">
           <div className="border-primary h-8 w-8 animate-spin rounded-full border-b-2" />
         </div>
       </div>
@@ -268,7 +268,7 @@ export function ProjectMap({
   return (
     <div ref={containerRef} className={cn('relative overflow-hidden rounded-lg', className)}>
       {/* Map container */}
-      <div className="h-full min-h-[400px] w-full">
+      <div className="h-full min-h-100 w-full">
         <DynamicMapComponent
           center={center}
           zoom={zoom}
@@ -283,7 +283,7 @@ export function ProjectMap({
       </div>
 
       {/* Map controls overlay */}
-      <div className="absolute top-4 left-4 z-[1000] flex flex-col gap-2">
+      <div className="absolute top-4 left-4 z-1000 flex flex-col gap-2">
         {/* Style selector */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

@@ -153,7 +153,7 @@ export function DrawControls({
       </FeatureGroup>
 
       {/* Custom Controls Overlay */}
-      <div className="bg-background/90 absolute bottom-4 left-4 z-[1000] flex items-center gap-2 rounded-lg p-2 shadow-lg backdrop-blur-sm">
+      <div className="bg-background/90 absolute bottom-4 left-4 z-1000 flex items-center gap-2 rounded-lg p-2 shadow-lg backdrop-blur-sm">
         {/* Save Button */}
         {onSave && (
           <Tooltip>
@@ -208,7 +208,7 @@ export function SimpleDrawControls({
 }) {
   return (
     <TooltipProvider>
-      <div className="bg-background/90 absolute bottom-4 left-4 z-[1000] flex items-center gap-2 rounded-lg p-2 shadow-lg backdrop-blur-sm">
+      <div className="bg-background/90 absolute bottom-4 left-4 z-1000 flex items-center gap-2 rounded-lg p-2 shadow-lg backdrop-blur-sm">
         {/* Draw Polygon */}
         <Tooltip>
           <TooltipTrigger asChild>

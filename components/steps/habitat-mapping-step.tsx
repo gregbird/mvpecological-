@@ -34,7 +34,7 @@ const ProjectMapWithDraw = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="bg-muted/50 flex h-[500px] items-center justify-center rounded-lg">
+      <div className="bg-muted/50 flex h-125 items-center justify-center rounded-lg">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     ),
@@ -336,7 +336,7 @@ export function HabitatMappingStep({
               </div>
             </CardHeader>
             <CardContent>
-              <div className="h-[500px] overflow-hidden rounded-lg border">
+              <div className="h-125 overflow-hidden rounded-lg border">
                 <ProjectMapWithDraw
                   center={
                     projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]
@@ -370,7 +370,7 @@ export function HabitatMappingStep({
                   No habitats mapped yet. Draw a polygon on the map to add a habitat.
                 </div>
               ) : (
-                <ScrollArea className="h-[350px]">
+                <ScrollArea className="h-87.5">
                   <div className="space-y-2 pr-4">
                     {habitats.map((habitat) => (
                       <HabitatListItem

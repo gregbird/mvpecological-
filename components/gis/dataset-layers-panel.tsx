@@ -64,7 +64,7 @@ export function DatasetLayersPanel({
         <h3 className="text-foreground text-sm font-semibold">Dataset Layers</h3>
       </div>
 
-      <ScrollArea className="h-[320px]">
+      <ScrollArea className="h-80">
         <div className="p-2">
           {DATASET_GROUPS.map((group) => {
             const isExpanded = expandedGroups.includes(group.id)

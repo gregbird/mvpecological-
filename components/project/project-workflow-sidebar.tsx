@@ -2,9 +2,10 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Check, ChevronDown } from 'lucide-react'
+import { ArrowLeft, Check, ChevronDown, PanelLeftClose, PanelLeft } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
@@ -13,6 +14,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useProjectContext } from '@/contexts/project-context'
 import { WORKFLOW_PHASES, getPhaseByStepNumber, TOTAL_STEPS } from '@/lib/config/workflow'
 
@@ -25,6 +27,8 @@ export function ProjectWorkflowSidebar() {
     navigateToStep,
     getStepStatus,
     isLoading,
+    isSidebarCollapsed,
+    toggleSidebar,
   } = useProjectContext()
 
   // Determine which phases to expand by default (the one containing current step)
@@ -33,7 +37,12 @@ export function ProjectWorkflowSidebar() {
 
   if (isLoading) {
     return (
-      <aside className="border-border bg-card flex h-full w-[280px] flex-col border-r">
+      <aside
+        className={cn(
+          'border-border bg-card flex h-full flex-col border-r transition-all duration-300',
+          isSidebarCollapsed ? 'w-[60px]' : 'w-[280px]'
+        )}
+      >
         <div className="border-border flex h-14 items-center border-b px-4">
           <div className="bg-muted h-4 w-32 animate-pulse rounded" />
         </div>
@@ -50,10 +59,124 @@ export function ProjectWorkflowSidebar() {
 
   const completedSteps = workflowSteps.filter((s) => s.status === 'approved').length
 
+  // Collapsed view
+  if (isSidebarCollapsed) {
+    return (
+      <TooltipProvider delayDuration={0}>
+        <aside className="border-border bg-card flex h-full w-[60px] flex-col border-r transition-all duration-300">
+          {/* Toggle Button */}
+          <div className="border-border flex h-14 items-center justify-center border-b">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={toggleSidebar} className="h-9 w-9">
+                  <PanelLeft className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Expand sidebar</TooltipContent>
+            </Tooltip>
+          </div>
+
+          {/* Collapsed Progress */}
+          <div className="border-border flex flex-col items-center gap-2 border-b py-3">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="relative h-10 w-10">
+                  <svg className="h-10 w-10 -rotate-90" viewBox="0 0 36 36">
+                    <path
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      className="text-muted"
+                    />
+                    <path
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      strokeDasharray={`${progress}, 100`}
+                      className="text-emerald-500"
+                    />
+                  </svg>
+                  <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold">
+                    {completedSteps}
+                  </span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                {completedSteps} of {TOTAL_STEPS} steps complete
+              </TooltipContent>
+            </Tooltip>
+          </div>
+
+          {/* Collapsed Phase Icons */}
+          <ScrollArea className="flex-1">
+            <div className="flex flex-col items-center gap-1 py-2">
+              {WORKFLOW_PHASES.map((phase) => {
+                const phaseSteps = phase.steps
+                const completedInPhase = phaseSteps.filter(
+                  (s) => getStepStatus(s.number) === 'completed'
+                ).length
+                const isPhaseComplete = completedInPhase === phaseSteps.length
+                const hasActiveStep = phaseSteps.some((s) => getStepStatus(s.number) === 'active')
+
+                return (
+                  <Tooltip key={phase.id}>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => {
+                          // Navigate to first step in phase
+                          const firstStep = phaseSteps[0]
+                          if (firstStep) navigateToStep(firstStep.number)
+                        }}
+                        className={cn(
+                          'flex h-10 w-10 items-center justify-center rounded-lg transition-colors',
+                          hasActiveStep
+                            ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400'
+                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                        )}
+                      >
+                        <phase.icon
+                          className={cn('h-5 w-5', isPhaseComplete && 'text-emerald-500')}
+                        />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">
+                      <p className="font-medium">{phase.label}</p>
+                      <p className="text-muted-foreground text-xs">
+                        {completedInPhase}/{phaseSteps.length} complete
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                )
+              })}
+            </div>
+          </ScrollArea>
+
+          {/* Back to Projects */}
+          <div className="border-border border-t py-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  href="/projects"
+                  className="text-muted-foreground hover:text-foreground hover:bg-muted mx-auto flex h-10 w-10 items-center justify-center rounded-lg transition-colors"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right">Back to Projects</TooltipContent>
+            </Tooltip>
+          </div>
+        </aside>
+      </TooltipProvider>
+    )
+  }
+
+  // Expanded view
   return (
-    <aside className="border-border bg-card flex h-full w-[280px] flex-col border-r">
-      {/* Back Link */}
-      <div className="border-border flex h-14 items-center border-b px-4">
+    <aside className="border-border bg-card flex h-full w-[280px] flex-col border-r transition-all duration-300">
+      {/* Back Link + Toggle */}
+      <div className="border-border flex h-14 items-center justify-between border-b px-4">
         <Link
           href="/projects"
           className="text-muted-foreground hover:text-foreground flex items-center gap-2 text-sm transition-colors"
@@ -61,6 +184,9 @@ export function ProjectWorkflowSidebar() {
           <ArrowLeft className="h-4 w-4" />
           <span>Back to Projects</span>
         </Link>
+        <Button variant="ghost" size="icon" onClick={toggleSidebar} className="h-8 w-8">
+          <PanelLeftClose className="h-4 w-4" />
+        </Button>
       </div>
 
       {/* Project Header */}

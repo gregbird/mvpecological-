@@ -240,7 +240,7 @@ function MapComponentWithDraw({
     <MapContainer
       center={center}
       zoom={zoom}
-      className="h-full min-h-[400px] w-full"
+      className="h-full min-h-100 w-full"
       style={{ height: '100%', minHeight: '400px' }}
     >
       <TileLayer url={tileConfig.url} attribution={tileConfig.attribution} />
@@ -342,6 +342,30 @@ export function ProjectMapWithDraw({
     setMapLoaded(true)
   }, [])
 
+  // Invalidate map size when container resizes (fixes collapsible panel issues)
+  React.useEffect(() => {
+    if (!containerRef.current) return
+
+    const handleResize = () => {
+      // Small delay to let the DOM settle
+      setTimeout(() => {
+        mapRef.current?.invalidateSize()
+      }, 100)
+    }
+
+    // Listen for window resize events (triggered by collapsible panels)
+    window.addEventListener('resize', handleResize)
+
+    // Also use ResizeObserver for direct container size changes
+    const resizeObserver = new ResizeObserver(handleResize)
+    resizeObserver.observe(containerRef.current)
+
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      resizeObserver.disconnect()
+    }
+  }, [mapLoaded])
+
   const toggleFullscreen = () => {
     if (!containerRef.current) return
 
@@ -356,7 +380,7 @@ export function ProjectMapWithDraw({
   if (!mapLoaded) {
     return (
       <div className={cn('relative overflow-hidden rounded-lg', className)}>
-        <div className="bg-muted/50 flex h-full min-h-[400px] w-full items-center justify-center">
+        <div className="bg-muted/50 flex h-full min-h-100 w-full items-center justify-center">
           <div className="border-primary h-8 w-8 animate-spin rounded-full border-b-2" />
         </div>
       </div>
@@ -365,7 +389,7 @@ export function ProjectMapWithDraw({
 
   return (
     <div ref={containerRef} className={cn('relative overflow-hidden rounded-lg', className)}>
-      <div className="h-full min-h-[400px] w-full">
+      <div className="h-full min-h-100 w-full">
         <DynamicMapComponentWithDraw
           center={center}
           zoom={zoom}
@@ -379,7 +403,7 @@ export function ProjectMapWithDraw({
       </div>
 
       {/* Map controls overlay */}
-      <div className="absolute top-4 left-4 z-[1000] flex flex-col gap-2">
+      <div className="absolute top-4 left-4 z-1000 flex flex-col gap-2">
         {/* Style selector */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -420,16 +444,29 @@ export function ProjectMapWithDraw({
         {showMeasureTool && <MeasureControl map={mapRef.current} />}
       </div>
 
-      {/* Drawing instructions */}
-      {editable && (
-        <div className="bg-background/90 absolute bottom-4 left-4 z-[1000] rounded-lg px-3 py-2 text-sm shadow-lg backdrop-blur-sm">
-          Use the polygon tool (top right) to draw the project boundary
-        </div>
-      )}
+      {/* Zoom controls - bottom right */}
+      <div className="absolute right-4 bottom-4 z-1000 flex flex-col gap-1">
+        <Button
+          variant="secondary"
+          size="icon"
+          className="h-8 w-8 shadow-md"
+          onClick={() => mapRef.current?.zoomIn()}
+        >
+          <span className="text-lg font-bold">+</span>
+        </Button>
+        <Button
+          variant="secondary"
+          size="icon"
+          className="h-8 w-8 shadow-md"
+          onClick={() => mapRef.current?.zoomOut()}
+        >
+          <span className="text-lg font-bold">−</span>
+        </Button>
+      </div>
 
-      {/* NPWS loading/sites indicator */}
+      {/* NPWS loading/sites indicator - bottom left */}
       {visibleLayers.some((l) => ['sac', 'spa', 'nha', 'pnha', 'ramsar'].includes(l)) && (
-        <div className="bg-background/90 absolute right-4 bottom-4 z-[1000] rounded-lg px-3 py-2 text-sm shadow-lg backdrop-blur-sm">
+        <div className="bg-background/90 absolute bottom-4 left-4 z-1000 rounded-lg px-3 py-2 text-sm shadow-lg backdrop-blur-sm">
           {npwsLoading ? (
             <span className="text-muted-foreground">Loading NPWS sites...</span>
           ) : npwsSites.length > 0 ? (

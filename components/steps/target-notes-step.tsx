@@ -458,7 +458,7 @@ export function TargetNotesStep({
               </TabsList>
 
               <TabsContent value="all" className="mt-4">
-                <ScrollArea className="h-[350px]">
+                <ScrollArea className="h-87.5">
                   {filteredObservations.length === 0 ? (
                     <div className="text-muted-foreground py-8 text-center text-sm">
                       No observations recorded yet. Click "Add Observation" to record species
@@ -487,7 +487,7 @@ export function TargetNotesStep({
 
               {Object.entries(observationsByTaxon).map(([taxon, taxonObs]) => (
                 <TabsContent key={taxon} value={taxon} className="mt-4">
-                  <ScrollArea className="h-[350px]">
+                  <ScrollArea className="h-87.5">
                     <div className="space-y-2 pr-4">
                       {taxonObs.map((obs) => (
                         <ObservationListItem

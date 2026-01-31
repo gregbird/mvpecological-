@@ -326,7 +326,7 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
                 </TabsList>
 
                 <TabsContent value="all" className="mt-4">
-                  <ScrollArea className="h-[500px]">
+                  <ScrollArea className="h-125">
                     <div className="space-y-2 pr-4">
                       {findingsWithRelevance.map((finding) => (
                         <FindingAssessmentCard
@@ -341,7 +341,7 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
 
                 {Object.entries(findingsByType).map(([type, findings]) => (
                   <TabsContent key={type} value={type} className="mt-4">
-                    <ScrollArea className="h-[500px]">
+                    <ScrollArea className="h-125">
                       <div className="space-y-2 pr-4">
                         {findings.map((finding) => (
                           <FindingAssessmentCard

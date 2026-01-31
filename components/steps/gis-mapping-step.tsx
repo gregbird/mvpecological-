@@ -47,7 +47,7 @@ const ProjectMapWithDraw = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="bg-muted/50 flex h-[500px] items-center justify-center rounded-lg">
+      <div className="bg-muted/50 flex h-125 items-center justify-center rounded-lg">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     ),
@@ -566,86 +566,56 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
         </CardContent>
       </Card>
 
-      {/* Main Content - Map and Layers */}
-      <div className="grid gap-6 lg:grid-cols-4">
+      {/* Main Content - Map and Side Panel */}
+      <div className="flex gap-4" style={{ height: 'calc(100vh - 380px)', minHeight: '500px' }}>
         {/* Map Section */}
-        <div className="lg:col-span-3">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Project Boundary</CardTitle>
-              <CardDescription>
-                {boundary
-                  ? 'Boundary defined. You can edit it or upload a new one.'
-                  : 'No boundary defined yet. Select a source above or draw on the map.'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[500px] overflow-hidden rounded-lg border">
-                <ProjectMapWithDraw
-                  boundary={boundary ?? undefined}
-                  bufferZones={bufferZones}
-                  onBoundaryChange={handleBoundaryChange}
-                  editable={!isComplete}
-                  visibleLayers={visibleLayers}
-                />
-              </div>
-            </CardContent>
-          </Card>
+        <div className="flex-1 overflow-hidden rounded-lg border">
+          <ProjectMapWithDraw
+            className="h-full"
+            boundary={boundary ?? undefined}
+            bufferZones={bufferZones}
+            onBoundaryChange={handleBoundaryChange}
+            editable={!isComplete}
+            visibleLayers={visibleLayers}
+          />
         </div>
 
-        {/* Side Panel */}
-        <div className="space-y-4">
-          {/* Buffer Zones */}
-          <BufferZonePanel boundary={boundary} onBuffersChange={handleBuffersChange} />
-
-          {/* Dataset Layers */}
-          <DatasetLayersPanel visibleLayers={visibleLayers} onLayerToggle={handleLayerToggle} />
-
-          {/* Boundary Info */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <MapPin className="h-4 w-4" />
-                Boundary Information
+        {/* Side Panel - Fixed width, scrollable */}
+        <div className="flex w-80 flex-col gap-3 overflow-y-auto">
+          {/* Boundary Info - Compact */}
+          <Card className="shrink-0">
+            <CardHeader className="pt-3 pb-2">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <MapPin className="h-4 w-4 text-emerald-600" />
+                Boundary Info
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pb-3">
               {boundaryInfo ? (
-                <dl className="space-y-2 text-sm">
-                  {/* Location Info */}
+                <dl className="space-y-1.5 text-sm">
                   {isLoadingLocation ? (
-                    <div className="flex justify-between">
-                      <dt className="text-muted-foreground">Location</dt>
-                      <dd className="text-muted-foreground text-xs">Loading...</dd>
-                    </div>
+                    <div className="text-muted-foreground text-xs">Loading location...</div>
                   ) : locationInfo ? (
                     <>
-                      {locationInfo.townland && (
-                        <div className="flex justify-between">
-                          <dt className="text-muted-foreground">Townland</dt>
-                          <dd className="font-semibold">{locationInfo.townland}</dd>
-                        </div>
-                      )}
                       {locationInfo.county && (
                         <div className="flex justify-between">
                           <dt className="text-muted-foreground">County</dt>
                           <dd className="font-semibold">Co. {locationInfo.county}</dd>
                         </div>
                       )}
-                      {locationInfo.province && (
+                      {locationInfo.townland && (
                         <div className="flex justify-between">
-                          <dt className="text-muted-foreground">Province</dt>
-                          <dd className="text-xs">{locationInfo.province}</dd>
+                          <dt className="text-muted-foreground">Townland</dt>
+                          <dd className="max-w-[120px] truncate text-right text-xs">
+                            {locationInfo.townland}
+                          </dd>
                         </div>
                       )}
                     </>
                   ) : null}
-
-                  <div className="border-border my-2 border-t" />
-
                   <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Grid Reference</dt>
-                    <dd className="font-mono font-semibold">{boundaryInfo.gridRef}</dd>
+                    <dt className="text-muted-foreground">Grid Ref</dt>
+                    <dd className="font-mono text-xs font-semibold">{boundaryInfo.gridRef}</dd>
                   </div>
                   <div className="flex justify-between">
                     <dt className="text-muted-foreground">Area</dt>
@@ -653,82 +623,56 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                   </div>
                   <div className="flex justify-between">
                     <dt className="text-muted-foreground">Perimeter</dt>
-                    <dd className="font-semibold">{boundaryInfo.perimeter} km</dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Center (Lat)</dt>
-                    <dd className="font-mono text-xs">{boundaryInfo.centerLat}°</dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Center (Lng)</dt>
-                    <dd className="font-mono text-xs">{boundaryInfo.centerLng}°</dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Vertices</dt>
-                    <dd>{boundaryInfo.pointCount}</dd>
+                    <dd>{boundaryInfo.perimeter} km</dd>
                   </div>
                 </dl>
               ) : (
-                <p className="text-muted-foreground text-sm">No boundary defined yet.</p>
+                <p className="text-muted-foreground text-xs">Draw or upload a boundary</p>
               )}
             </CardContent>
           </Card>
 
-          {/* Progress Card */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Step Progress</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span>Boundary defined</span>
-                  {boundary ? (
-                    <Check className="h-4 w-4 text-emerald-600" />
-                  ) : (
-                    <AlertCircle className="text-muted-foreground h-4 w-4" />
-                  )}
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span>Changes saved</span>
-                  {!hasUnsavedChanges && boundary ? (
-                    <Check className="h-4 w-4 text-emerald-600" />
-                  ) : (
-                    <AlertCircle className="text-muted-foreground h-4 w-4" />
-                  )}
-                </div>
-              </div>
-              <Progress value={isComplete ? 100 : boundary ? (hasUnsavedChanges ? 50 : 75) : 0} />
-            </CardContent>
-          </Card>
+          {/* Buffer Zones - Compact */}
+          <BufferZonePanel
+            boundary={boundary}
+            onBuffersChange={handleBuffersChange}
+            className="shrink-0"
+          />
 
-          {/* Actions */}
-          <div className="flex flex-col gap-2">
-            <Button
-              onClick={handleSave}
-              disabled={!hasUnsavedChanges || updateBoundary.isPending || isComplete}
-              variant="secondary"
-            >
-              {updateBoundary.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Check className="mr-2 h-4 w-4" />
-              )}
-              Save Boundary
-            </Button>
+          {/* Dataset Layers */}
+          <DatasetLayersPanel
+            visibleLayers={visibleLayers}
+            onLayerToggle={handleLayerToggle}
+            className="shrink-0"
+          />
 
-            <Button
-              onClick={handleComplete}
-              disabled={!canComplete || completeStep.isPending}
-              className="bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700"
-            >
-              {completeStep.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Check className="mr-2 h-4 w-4" />
-              )}
-              {isComplete ? 'Completed' : 'Complete & Continue'}
-            </Button>
+          {/* Actions - Sticky at bottom */}
+          <div className="mt-auto flex flex-col gap-2 pt-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">
+                {boundary ? (hasUnsavedChanges ? 'Unsaved changes' : 'Saved') : 'No boundary'}
+              </span>
+              {boundary && !hasUnsavedChanges && <Check className="h-3 w-3 text-emerald-600" />}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleSave}
+                disabled={!hasUnsavedChanges || updateBoundary.isPending || isComplete}
+                variant="outline"
+                size="sm"
+                className="flex-1"
+              >
+                {updateBoundary.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
+              </Button>
+              <Button
+                onClick={handleComplete}
+                disabled={!canComplete || completeStep.isPending}
+                size="sm"
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+              >
+                {completeStep.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Complete'}
+              </Button>
+            </div>
           </div>
         </div>
       </div>

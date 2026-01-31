@@ -320,7 +320,7 @@ export function DataGatheringStep({
             </CardHeader>
             <CardContent>
               <ProjectMap
-                className="h-[500px]"
+                className="h-125"
                 center={projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]}
                 zoom={12}
                 boundary={projectBoundary}

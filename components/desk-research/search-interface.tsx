@@ -387,7 +387,7 @@ export function SearchInterface({
                   Refresh
                 </Button>
               </div>
-              <ScrollArea className="h-[500px]">
+              <ScrollArea className="h-125">
                 <div className="space-y-3 pr-4">
                   {searchResults.map((finding) => (
                     <FindingCard

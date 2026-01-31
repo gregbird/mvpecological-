@@ -112,10 +112,25 @@ export async function queryDesignatedSites(params: NPWSQueryParams): Promise<NPW
 
       url.search = queryParams.toString()
 
-      const response = await fetch(url.toString())
+      // Use AbortController for timeout
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+
+      let response: Response
+      try {
+        response = await fetch(url.toString(), {
+          signal: controller.signal,
+        })
+      } catch (fetchError) {
+        // Network error, CORS issue, or timeout - silently skip
+        console.warn(`NPWS ${siteType}: Network error (API may be unavailable)`)
+        continue
+      } finally {
+        clearTimeout(timeoutId)
+      }
 
       if (!response.ok) {
-        console.error(`NPWS query failed for ${siteType}: ${response.statusText}`)
+        console.warn(`NPWS query failed for ${siteType}: ${response.statusText}`)
         continue
       }
 

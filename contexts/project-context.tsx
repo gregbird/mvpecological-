@@ -215,6 +215,11 @@ interface ProjectContextType {
   isStepActive: (stepNumber: number) => boolean
   isStepLocked: (stepNumber: number) => boolean
   getStepStatus: (stepNumber: number) => 'completed' | 'active' | 'pending' | 'locked'
+
+  // Sidebar state
+  isSidebarCollapsed: boolean
+  toggleSidebar: () => void
+  setSidebarCollapsed: (collapsed: boolean) => void
 }
 
 const ProjectContext = React.createContext<ProjectContextType | null>(null)
@@ -226,6 +231,24 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
 
   const projectId = params.id as string
   const stepParam = searchParams.get('step')
+
+  // Sidebar state
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false)
+
+  const toggleSidebar = React.useCallback(() => {
+    setIsSidebarCollapsed((prev) => !prev)
+    // Trigger resize for map components
+    setTimeout(() => {
+      window.dispatchEvent(new Event('resize'))
+    }, 300) // Wait for animation
+  }, [])
+
+  const setSidebarCollapsed = React.useCallback((collapsed: boolean) => {
+    setIsSidebarCollapsed(collapsed)
+    setTimeout(() => {
+      window.dispatchEvent(new Event('resize'))
+    }, 300)
+  }, [])
 
   // Fetch project and workflow data from Supabase
   const {
@@ -352,6 +375,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     isStepActive,
     isStepLocked,
     getStepStatus,
+    isSidebarCollapsed,
+    toggleSidebar,
+    setSidebarCollapsed,
   }
 
   return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>
