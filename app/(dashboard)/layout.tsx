@@ -22,6 +22,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useRole, type RolePermissions } from '@/contexts/role-context'
+import { ThemeToggle } from '@/components/layout/theme-toggle'
 
 const navItems = [
   { label: 'Projects', href: '/projects', icon: FolderKanban, permission: null },
@@ -50,6 +51,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { currentRole, user, permissions } = useRole()
   const [sidebarOpen, setSidebarOpen] = React.useState(false)
 
+  // Check if we're on a project detail page (has project ID)
+  const isProjectDetailPage = /^\/projects\/[^/]+/.test(pathname)
+
   const visibleNavItems = navItems.filter(
     (item) => item.permission === null || permissions[item.permission]
   )
@@ -60,8 +64,46 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     .join('')
     .toUpperCase()
 
+  // If on project detail page, render minimal layout (project has its own sidebar)
+  if (isProjectDetailPage) {
+    return (
+      <div className="bg-background flex h-screen">
+        {/* Minimal Header for project pages */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <header className="border-border bg-card flex h-14 items-center justify-between border-b px-4">
+            <div className="flex items-center gap-3">
+              <Link href="/projects" className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-green-500 to-emerald-600">
+                  <Leaf className="h-4 w-4 text-white" />
+                </div>
+                <span className="text-foreground text-lg font-bold">Dulra</span>
+              </Link>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <Button variant="ghost" size="icon" className="text-muted-foreground relative">
+                <Bell className="h-5 w-5" />
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500" />
+              </Button>
+              <Avatar className="h-8 w-8">
+                <AvatarFallback className="bg-gradient-to-br from-green-500 to-emerald-600 text-xs font-semibold text-white">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+            </div>
+          </header>
+
+          {/* Page Content - Full height for project layout */}
+          <main className="flex-1 overflow-hidden">{children}</main>
+        </div>
+      </div>
+    )
+  }
+
+  // Regular dashboard layout for non-project pages
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="bg-background flex h-screen">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -73,21 +115,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-white shadow-xl transition-transform duration-300 lg:static lg:translate-x-0 lg:shadow-none dark:bg-gray-900',
+          'border-border bg-card fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r transition-transform duration-300 lg:static lg:translate-x-0',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
         {/* Logo */}
-        <div className="flex h-16 items-center justify-between border-b border-gray-100 px-6 dark:border-gray-800">
+        <div className="border-border flex h-16 items-center justify-between border-b px-6">
           <Link href="/projects" className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-green-500 to-emerald-600">
               <Leaf className="h-5 w-5 text-white" />
             </div>
-            <span className="text-xl font-bold text-gray-900 dark:text-white">Dulra</span>
+            <span className="text-foreground text-xl font-bold">Dulra</span>
           </Link>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 lg:hidden dark:hover:bg-gray-800"
+            className="text-muted-foreground hover:bg-muted rounded-lg p-2 lg:hidden"
           >
             <X className="h-5 w-5" />
           </button>
@@ -95,7 +137,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Navigation */}
         <nav className="flex-1 space-y-1 p-4">
-          <p className="mb-3 px-3 text-xs font-semibold tracking-wider text-gray-400 uppercase">
+          <p className="text-muted-foreground mb-3 px-3 text-xs font-semibold tracking-wider uppercase">
             Menu
           </p>
           {visibleNavItems.map((item) => {
@@ -112,45 +154,52 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 className={cn(
                   'flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all',
                   isActive
-                    ? 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 text-green-700 dark:text-green-400'
-                    : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
+                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 )}
               >
                 <Icon
-                  className={cn('h-5 w-5', isActive ? 'text-green-600 dark:text-green-400' : '')}
+                  className={cn(
+                    'h-5 w-5',
+                    isActive ? 'text-emerald-600 dark:text-emerald-400' : ''
+                  )}
                 />
                 <span>{item.label}</span>
-                {isActive && <ChevronRight className="ml-auto h-4 w-4 text-green-500" />}
+                {isActive && (
+                  <ChevronRight className="ml-auto h-4 w-4 text-emerald-500 dark:text-emerald-400" />
+                )}
               </Link>
             )
           })}
         </nav>
 
         {/* User Section */}
-        <div className="border-t border-gray-100 p-4 dark:border-gray-800">
-          <div className="mb-3 flex items-center gap-3 rounded-xl bg-gray-50 p-3 dark:bg-gray-800">
-            <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
+        <div className="border-border border-t p-4">
+          <div className="bg-muted mb-3 flex items-center gap-3 rounded-xl p-3">
+            <Avatar className="border-background h-10 w-10 border-2 shadow-sm">
               <AvatarFallback className="bg-gradient-to-br from-green-500 to-emerald-600 text-sm font-semibold text-white">
                 {initials}
               </AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">
-                {user.name}
-              </p>
-              <p className="text-xs text-gray-500 capitalize">{currentRole}</p>
+              <p className="text-foreground truncate text-sm font-semibold">{user.name}</p>
+              <p className="text-muted-foreground text-xs capitalize">{currentRole}</p>
             </div>
           </div>
 
           <div className="flex gap-2">
-            <Button variant="ghost" size="sm" className="flex-1 justify-start gap-2 text-gray-600">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground flex-1 justify-start gap-2"
+            >
               <Settings className="h-4 w-4" />
               Settings
             </Button>
             <Button
               variant="ghost"
               size="sm"
-              className="flex-1 justify-start gap-2 text-red-500 hover:bg-red-50 hover:text-red-600"
+              className="flex-1 justify-start gap-2 text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
             >
               <LogOut className="h-4 w-4" />
               Logout
@@ -162,27 +211,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Main Content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Top Header */}
-        <header className="flex h-16 items-center justify-between border-b border-gray-100 bg-white px-4 lg:px-8 dark:border-gray-800 dark:bg-gray-900">
+        <header className="border-border bg-card flex h-16 items-center justify-between border-b px-4 lg:px-8">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 lg:hidden dark:hover:bg-gray-800"
+              className="text-muted-foreground hover:bg-muted rounded-lg p-2 lg:hidden"
             >
               <Menu className="h-5 w-5" />
             </button>
 
             {/* Search */}
             <div className="relative hidden md:block">
-              <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
               <Input
                 placeholder="Search anything..."
-                className="h-10 w-64 border-gray-200 bg-gray-50 pl-10 focus:bg-white dark:border-gray-700 dark:bg-gray-800"
+                className="border-border bg-muted focus:bg-background h-10 w-64 pl-10"
               />
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="relative text-gray-500">
+            <ThemeToggle />
+            <Button variant="ghost" size="icon" className="text-muted-foreground relative">
               <Bell className="h-5 w-5" />
               <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500" />
             </Button>
@@ -193,9 +243,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   {initials}
                 </AvatarFallback>
               </Avatar>
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {user.name.split(' ')[0]}
-              </span>
+              <span className="text-foreground text-sm font-medium">{user.name.split(' ')[0]}</span>
             </div>
           </div>
         </header>

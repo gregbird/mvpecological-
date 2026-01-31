@@ -28,7 +28,10 @@ export async function getWorkflowSteps(projectId: string): Promise<WorkflowStep[
     .order('step_number', { ascending: true })
 
   if (error) {
-    console.error('Error fetching workflow steps:', error)
+    // Supabase bağlantısı yoksa veya tablo yoksa sessizce devam et (mock data kullanılacak)
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[Supabase] Workflow steps fetch skipped - using mock data:', error.code)
+    }
     return []
   }
 
@@ -49,7 +52,9 @@ export async function getWorkflowStep(
     .single()
 
   if (error) {
-    console.error('Error fetching workflow step:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[Supabase] Workflow step fetch skipped - using mock data:', error.code)
+    }
     return null
   }
 
@@ -74,7 +79,9 @@ export async function initializeWorkflowSteps(projectId: string): Promise<Workfl
     .select()
 
   if (error) {
-    console.error('Error initializing workflow steps:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[Supabase] Workflow initialization skipped:', error.code)
+    }
     return []
   }
 

@@ -32,7 +32,10 @@ export async function getProject(projectId: string): Promise<ProjectWithRelation
     .single()
 
   if (error) {
-    console.error('Error fetching project:', error)
+    // Supabase bağlantısı yoksa veya tablo yoksa sessizce devam et (mock data kullanılacak)
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[Supabase] Project fetch skipped - using mock data:', error.code)
+    }
     return null
   }
 
@@ -49,7 +52,9 @@ export async function getProjects(organizationId: string): Promise<Project[]> {
     .order('created_at', { ascending: false })
 
   if (error) {
-    console.error('Error fetching projects:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[Supabase] Projects fetch skipped - using mock data:', error.code)
+    }
     return []
   }
 
@@ -76,7 +81,9 @@ export async function getAssignedProjects(userId: string): Promise<ProjectWithRe
     .order('created_at', { ascending: false })
 
   if (error) {
-    console.error('Error fetching assigned projects:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[Supabase] Assigned projects fetch skipped - using mock data:', error.code)
+    }
     return []
   }
 

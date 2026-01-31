@@ -1,18 +1,20 @@
 'use client'
 
 import * as React from 'react'
-import { FileUp, MapPin, Loader2, Check, AlertCircle, Info } from 'lucide-react'
+import { FileUp, MapPin, Loader2, Check, AlertCircle, Globe, Database, Pencil } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
 import { useUpdateProjectBoundary, useCompleteWorkflowStep } from '@/hooks/use-project-data'
 import { calculateAreaHectares } from '@/lib/supabase/queries/habitats'
+import { GISConnectionModal, type GISSourceType, DatasetLayersPanel } from '@/components/gis'
+import { getDefaultVisibleLayers } from '@/lib/config/dataset-layers'
 import type { Project, WorkflowStep } from '@/types/database'
 
 // Dynamic import for map with draw controls
@@ -31,13 +33,12 @@ const ProjectMapWithDraw = dynamic(
 interface GISMappingStepProps {
   project: Project
   workflowStep: WorkflowStep
+  userId?: string
   onComplete?: () => void
 }
 
 // Irish Grid Reference conversion (simple approximation)
 function toIrishGridRef(lat: number, lng: number): string {
-  // Simple approximation for demonstration
-  // In production, use a proper coordinate transformation library
   const letters = [
     ['V', 'W', 'X', 'Y', 'Z'],
     ['Q', 'R', 'S', 'T', 'U'],
@@ -46,8 +47,6 @@ function toIrishGridRef(lat: number, lng: number): string {
     ['A', 'B', 'C', 'D', 'E'],
   ]
 
-  // Very rough conversion for Irish coordinates
-  // Proper implementation would use EPSG:29903 transformation
   const eastingBase = (lng + 10.5) * 100000
   const northingBase = (lat - 51.4) * 111000
 
@@ -69,6 +68,31 @@ function toIrishGridRef(lat: number, lng: number): string {
   return `${letter} ${easting} ${northing}`
 }
 
+// GIS source options
+const gisSourceOptions = [
+  {
+    id: 'arcgis' as const,
+    label: 'ArcGIS Online',
+    description: 'Import from ArcGIS',
+    icon: Globe,
+    color: 'bg-blue-500',
+  },
+  {
+    id: 'qgis' as const,
+    label: 'QGIS',
+    description: 'Import from PostGIS',
+    icon: Database,
+    color: 'bg-green-500',
+  },
+  {
+    id: 'manual' as const,
+    label: 'Manual',
+    description: 'Draw on map',
+    icon: Pencil,
+    color: 'bg-amber-500',
+  },
+]
+
 export function GISMappingStep({ project, workflowStep, onComplete }: GISMappingStepProps) {
   const { toast } = useToast()
   const [boundary, setBoundary] = React.useState<GeoJSON.Feature<GeoJSON.Polygon> | null>(
@@ -77,6 +101,9 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
   const [uploadedFile, setUploadedFile] = React.useState<File | null>(null)
   const [isProcessing, setIsProcessing] = React.useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false)
+  const [showConnectionModal, setShowConnectionModal] = React.useState(false)
+  const [selectedSource, setSelectedSource] = React.useState<GISSourceType>(null)
+  const [visibleLayers, setVisibleLayers] = React.useState<string[]>(getDefaultVisibleLayers())
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   const updateBoundary = useUpdateProjectBoundary()
@@ -89,16 +116,12 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
     const coords = boundary.geometry.coordinates[0]
     if (coords.length < 3) return null
 
-    // Calculate center point
     const lats = coords.map((c) => c[1])
     const lngs = coords.map((c) => c[0])
     const centerLat = lats.reduce((a, b) => a + b) / lats.length
     const centerLng = lngs.reduce((a, b) => a + b) / lngs.length
 
-    // Calculate area
     const area = calculateAreaHectares(boundary.geometry)
-
-    // Calculate grid reference
     const gridRef = toIrishGridRef(centerLat, centerLng)
 
     return {
@@ -106,7 +129,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
       centerLng: centerLng.toFixed(6),
       area: area.toFixed(2),
       gridRef,
-      pointCount: coords.length - 1, // Last point repeats first
+      pointCount: coords.length - 1,
     }
   }, [boundary])
 
@@ -121,14 +144,12 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
     try {
       const text = await file.text()
 
-      // Try to parse as GeoJSON
       if (file.name.endsWith('.geojson') || file.name.endsWith('.json')) {
         const geojson = JSON.parse(text)
 
         let feature: GeoJSON.Feature<GeoJSON.Polygon> | null = null
 
         if (geojson.type === 'FeatureCollection' && geojson.features?.length > 0) {
-          // Find first polygon feature
           feature = geojson.features.find(
             (f: GeoJSON.Feature) =>
               f.geometry?.type === 'Polygon' || f.geometry?.type === 'MultiPolygon'
@@ -140,7 +161,6 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
         }
 
         if (feature) {
-          // If MultiPolygon, convert to Polygon (take first)
           const geom = feature.geometry as GeoJSON.Polygon | GeoJSON.MultiPolygon
           if (geom.type === 'MultiPolygon') {
             feature = {
@@ -155,6 +175,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
 
           setBoundary(feature as GeoJSON.Feature<GeoJSON.Polygon>)
           setHasUnsavedChanges(true)
+          setSelectedSource('manual')
           toast({
             title: 'Boundary loaded',
             description: `Successfully loaded boundary from ${file.name}`,
@@ -163,7 +184,6 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
           throw new Error('No polygon found in file')
         }
       } else if (file.name.endsWith('.shp') || file.name.endsWith('.zip')) {
-        // For Shapefile support, we would need shpjs library
         toast({
           variant: 'destructive',
           title: 'Shapefile not supported',
@@ -191,6 +211,32 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
       setBoundary(feature)
       setHasUnsavedChanges(true)
     }
+  }
+
+  // Handle GIS source selection
+  const handleSourceSelect = (source: GISSourceType) => {
+    setSelectedSource(source)
+    if (source === 'manual') {
+      toast({
+        title: 'Manual drawing mode',
+        description: 'Use the drawing tools on the map to define your boundary.',
+      })
+    }
+  }
+
+  // Handle boundary import from GIS connection
+  const handleBoundaryImport = (importedBoundary: GeoJSON.Feature<GeoJSON.Polygon>) => {
+    setBoundary(importedBoundary)
+    setHasUnsavedChanges(true)
+    toast({
+      title: 'Boundary imported',
+      description: 'Successfully imported boundary from external source.',
+    })
+  }
+
+  // Handle layer toggle
+  const handleLayerToggle = (layerId: string, visible: boolean) => {
+    setVisibleLayers((prev) => (visible ? [...prev, layerId] : prev.filter((id) => id !== layerId)))
   }
 
   // Save boundary to Supabase
@@ -268,9 +314,9 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Step 1: GIS Mapping</h2>
+          <h2 className="text-foreground text-2xl font-bold">Step 1: GIS Mapping</h2>
           <p className="text-muted-foreground">
-            Define the project boundary by uploading a file or drawing on the map
+            Define the project boundary using your preferred GIS tool
           </p>
         </div>
         <Badge
@@ -286,97 +332,130 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
         </Badge>
       </div>
 
-      {/* Instructions */}
-      <Alert>
-        <Info className="h-4 w-4" />
-        <AlertTitle>Getting Started</AlertTitle>
-        <AlertDescription>
-          Upload a GeoJSON file with the project boundary, or use the drawing tools on the map to
-          manually define the site area. The boundary will be used for all subsequent analysis
-          steps.
-        </AlertDescription>
-      </Alert>
+      {/* GIS Source Selection */}
+      <Card>
+        <CardHeader>
+          <CardTitle>How would you like to define your project boundary?</CardTitle>
+          <CardDescription>
+            Connect to your GIS tool or draw boundaries manually on the map
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {gisSourceOptions.map((option) => {
+              const Icon = option.icon
+              const isSelected = selectedSource === option.id
 
-      {/* Main Content */}
-      <div className="grid gap-6 lg:grid-cols-3">
+              return (
+                <button
+                  key={option.id}
+                  onClick={() => {
+                    if (option.id === 'manual') {
+                      handleSourceSelect('manual')
+                    } else {
+                      setShowConnectionModal(true)
+                    }
+                  }}
+                  disabled={isComplete}
+                  className={cn(
+                    'border-border bg-card flex cursor-pointer flex-col items-center gap-3 rounded-lg border p-6 text-center transition-all',
+                    'hover:border-emerald-400 hover:bg-emerald-50 hover:shadow-md dark:hover:border-emerald-600 dark:hover:bg-emerald-950/30',
+                    isSelected &&
+                      'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/20 dark:border-emerald-600 dark:bg-emerald-950/30',
+                    isComplete && 'cursor-not-allowed opacity-50'
+                  )}
+                >
+                  <div
+                    className={cn(
+                      'flex h-12 w-12 items-center justify-center rounded-lg',
+                      option.color
+                    )}
+                  >
+                    <Icon className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-foreground font-semibold">{option.label}</h3>
+                    <p className="text-muted-foreground mt-0.5 text-sm">{option.description}</p>
+                  </div>
+                  {isSelected && (
+                    <Badge
+                      variant="secondary"
+                      className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-400"
+                    >
+                      Selected
+                    </Badge>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* File upload option */}
+          <div className="mt-4 flex items-center justify-center gap-2">
+            <span className="text-muted-foreground text-sm">or</span>
+            <Button
+              variant="link"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isComplete}
+              className="text-emerald-600 dark:text-emerald-400"
+            >
+              <FileUp className="mr-1 h-4 w-4" />
+              Upload GeoJSON file
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".geojson,.json"
+              className="hidden"
+              onChange={handleFileUpload}
+              disabled={isProcessing || isComplete}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Main Content - Map and Layers */}
+      <div className="grid gap-6 lg:grid-cols-4">
         {/* Map Section */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-3">
           <Card>
-            <CardHeader>
-              <CardTitle>Project Boundary</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Project Boundary</CardTitle>
               <CardDescription>
                 {boundary
                   ? 'Boundary defined. You can edit it or upload a new one.'
-                  : 'No boundary defined yet. Upload a file or draw on the map.'}
+                  : 'No boundary defined yet. Select a source above or draw on the map.'}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="draw" className="space-y-4">
-                <TabsList>
-                  <TabsTrigger value="draw">Draw on Map</TabsTrigger>
-                  <TabsTrigger value="upload">Upload File</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="draw" className="space-y-4">
-                  <div className="h-[500px] overflow-hidden rounded-lg border">
-                    <ProjectMapWithDraw
-                      boundary={boundary ?? undefined}
-                      onBoundaryChange={handleBoundaryChange}
-                      editable={!isComplete}
-                    />
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="upload" className="space-y-4">
-                  <div
-                    className="hover:border-primary hover:bg-muted/50 cursor-pointer rounded-lg border-2 border-dashed p-8 text-center transition-colors"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".geojson,.json"
-                      className="hidden"
-                      onChange={handleFileUpload}
-                      disabled={isProcessing || isComplete}
-                    />
-                    {isProcessing ? (
-                      <Loader2 className="text-muted-foreground mx-auto h-12 w-12 animate-spin" />
-                    ) : (
-                      <FileUp className="text-muted-foreground mx-auto h-12 w-12" />
-                    )}
-                    <h3 className="mt-4 text-lg font-semibold">
-                      {isProcessing ? 'Processing...' : 'Upload Boundary File'}
-                    </h3>
-                    <p className="text-muted-foreground mt-1 text-sm">
-                      Drag and drop or click to upload a GeoJSON file
-                    </p>
-                    <p className="text-muted-foreground mt-2 text-xs">
-                      Supported formats: .geojson, .json
-                    </p>
-                    {uploadedFile && (
-                      <p className="mt-2 text-sm text-green-600">Uploaded: {uploadedFile.name}</p>
-                    )}
-                  </div>
-                </TabsContent>
-              </Tabs>
+              <div className="h-[500px] overflow-hidden rounded-lg border">
+                <ProjectMapWithDraw
+                  boundary={boundary ?? undefined}
+                  onBoundaryChange={handleBoundaryChange}
+                  editable={!isComplete}
+                />
+              </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Info Panel */}
+        {/* Side Panel */}
         <div className="space-y-4">
+          {/* Dataset Layers */}
+          <DatasetLayersPanel visibleLayers={visibleLayers} onLayerToggle={handleLayerToggle} />
+
           {/* Boundary Info */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
                 <MapPin className="h-4 w-4" />
                 Boundary Information
               </CardTitle>
             </CardHeader>
             <CardContent>
               {boundaryInfo ? (
-                <dl className="space-y-3 text-sm">
+                <dl className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <dt className="text-muted-foreground">Grid Reference</dt>
                     <dd className="font-mono font-semibold">{boundaryInfo.gridRef}</dd>
@@ -399,24 +478,22 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                   </div>
                 </dl>
               ) : (
-                <p className="text-muted-foreground text-sm">
-                  No boundary defined yet. Draw or upload a boundary to see information.
-                </p>
+                <p className="text-muted-foreground text-sm">No boundary defined yet.</p>
               )}
             </CardContent>
           </Card>
 
-          {/* Progress */}
+          {/* Progress Card */}
           <Card>
-            <CardHeader>
-              <CardTitle>Step Progress</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Step Progress</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3">
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span>Boundary defined</span>
                   {boundary ? (
-                    <Check className="h-4 w-4 text-green-600" />
+                    <Check className="h-4 w-4 text-emerald-600" />
                   ) : (
                     <AlertCircle className="text-muted-foreground h-4 w-4" />
                   )}
@@ -424,7 +501,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                 <div className="flex items-center justify-between text-sm">
                   <span>Changes saved</span>
                   {!hasUnsavedChanges && boundary ? (
-                    <Check className="h-4 w-4 text-green-600" />
+                    <Check className="h-4 w-4 text-emerald-600" />
                   ) : (
                     <AlertCircle className="text-muted-foreground h-4 w-4" />
                   )}
@@ -449,17 +526,29 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
               Save Boundary
             </Button>
 
-            <Button onClick={handleComplete} disabled={!canComplete || completeStep.isPending}>
+            <Button
+              onClick={handleComplete}
+              disabled={!canComplete || completeStep.isPending}
+              className="bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700"
+            >
               {completeStep.isPending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Check className="mr-2 h-4 w-4" />
               )}
-              {isComplete ? 'Completed' : 'Complete Step & Continue'}
+              {isComplete ? 'Completed' : 'Complete & Continue'}
             </Button>
           </div>
         </div>
       </div>
+
+      {/* GIS Connection Modal */}
+      <GISConnectionModal
+        open={showConnectionModal}
+        onOpenChange={setShowConnectionModal}
+        onSourceSelect={handleSourceSelect}
+        onBoundaryImport={handleBoundaryImport}
+      />
     </div>
   )
 }
