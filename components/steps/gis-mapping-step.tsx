@@ -161,7 +161,7 @@ const gisSourceOptions = [
 
 export function GISMappingStep({ project, workflowStep, onComplete }: GISMappingStepProps) {
   const { toast } = useToast()
-  const { setMapFullscreen } = useProjectContext()
+  const { setMapFullscreen, refetchProject, refetchWorkflowSteps } = useProjectContext()
 
   // Wizard state
   const [currentStep, setCurrentStep] = React.useState<WizardStep>(() => {
@@ -405,7 +405,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
     if (!boundary || !boundaryInfo) return
 
     try {
-      await updateBoundary.mutateAsync({
+      const result = await updateBoundary.mutateAsync({
         projectId: project.id,
         boundary: boundary,
         centerPoint: {
@@ -414,8 +414,16 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
         },
         gridReference: boundaryInfo.gridRef,
       })
-      setHasUnsavedChanges(false)
+
+      if (result) {
+        setHasUnsavedChanges(false)
+        refetchProject()
+        toast({ title: 'Saved', description: 'Boundary saved successfully' })
+      } else {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to save boundary' })
+      }
     } catch (error) {
+      console.error('[GISMappingStep] Save error:', error)
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to save boundary' })
     }
   }
@@ -437,8 +445,11 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
         projectId: project.id,
         stepNumber: workflowStep.step_number,
       })
+      refetchWorkflowSteps()
+      toast({ title: 'Step Completed', description: 'GIS Mapping step completed' })
       onComplete?.()
     } catch (error) {
+      console.error('[GISMappingStep] Complete step error:', error)
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to complete step' })
     }
   }

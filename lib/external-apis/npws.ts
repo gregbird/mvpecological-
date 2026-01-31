@@ -228,8 +228,8 @@ export async function searchDesignatedSitesByName(
       const url = new URL(`${NPWS_BASE_URL}/${layerId}/query`)
 
       const queryParams = new URLSearchParams({
-        where: `UPPER(SITENAME) LIKE '%${searchTerm.toUpperCase()}%'`,
-        outFields: 'OBJECTID,SITECODE,SITENAME,AREA_HA',
+        where: `UPPER(SITE_NAME) LIKE '%${searchTerm.toUpperCase()}%'`,
+        outFields: 'OBJECTID,SITECODE,SITE_NAME,Shape__Area',
         returnGeometry: 'false',
         f: 'json',
       })
@@ -244,12 +244,15 @@ export async function searchDesignatedSitesByName(
 
       if (data.features) {
         for (const feature of data.features) {
+          const areaHa = feature.attributes.Shape__Area
+            ? feature.attributes.Shape__Area / 10000
+            : undefined
           results.push({
             OBJECTID: feature.attributes.OBJECTID,
             SITECODE: feature.attributes.SITECODE,
-            SITENAME: feature.attributes.SITENAME,
+            SITENAME: feature.attributes.SITE_NAME,
             SITE_TYPE: siteType,
-            AREA_HA: feature.attributes.AREA_HA,
+            AREA_HA: areaHa,
           })
         }
       }
@@ -270,12 +273,8 @@ export function getSiteTypeDisplayName(siteType: DesignatedSiteType): string {
     SPA: 'Special Protection Area',
     NHA: 'Natural Heritage Area',
     pNHA: 'Proposed Natural Heritage Area',
-    RAMSAR: 'Ramsar Site',
-    NATURE_RESERVE: 'Nature Reserve',
-    NATIONAL_PARK: 'National Park',
-    WILDFOWL_SANCTUARY: 'Wildfowl Sanctuary',
   }
-  return names[siteType]
+  return names[siteType] || siteType
 }
 
 /**
@@ -285,12 +284,8 @@ export function getSiteTypeColor(siteType: DesignatedSiteType): string {
   const colors: Record<DesignatedSiteType, string> = {
     SAC: '#22c55e', // Green
     SPA: '#3b82f6', // Blue
-    NHA: '#f59e0b', // Amber
-    pNHA: '#fbbf24', // Yellow
-    RAMSAR: '#06b6d4', // Cyan
-    NATURE_RESERVE: '#10b981', // Emerald
-    NATIONAL_PARK: '#14532d', // Dark green
-    WILDFOWL_SANCTUARY: '#6366f1', // Indigo
+    NHA: '#8b5cf6', // Purple
+    pNHA: '#a855f7', // Light purple
   }
   return colors[siteType]
 }

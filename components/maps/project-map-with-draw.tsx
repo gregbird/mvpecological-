@@ -108,6 +108,7 @@ function MapComponentWithDraw({
   onViewChange,
   editable,
   mapRef,
+  visibleLayers = [],
 }: {
   center: [number, number]
   zoom: number
@@ -119,9 +120,18 @@ function MapComponentWithDraw({
   onViewChange?: (center: [number, number], zoom: number) => void
   editable: boolean
   mapRef: React.MutableRefObject<LeafletMap | null>
+  visibleLayers?: string[]
 }) {
-  const { MapContainer, TileLayer, GeoJSON, FeatureGroup, useMap } = require('react-leaflet')
+  const {
+    MapContainer,
+    TileLayer,
+    GeoJSON,
+    FeatureGroup,
+    useMap,
+    WMSTileLayer,
+  } = require('react-leaflet')
   const { EditControl } = require('react-leaflet-draw')
+  const { getLayerById } = require('@/lib/config/dataset-layers')
 
   const tileConfig = TILE_LAYERS[currentStyle]
   const featureGroupRef = React.useRef<LeafletFeatureGroup | null>(null)
@@ -272,6 +282,17 @@ function MapComponentWithDraw({
     return Array.from(bufferZones.entries()).sort((a, b) => b[0] - a[0]) // Sort by distance descending (larger first)
   }, [bufferZones])
 
+  // Get WMS layers to render
+  const wmsLayers = React.useMemo(() => {
+    if (!visibleLayers) return []
+    return visibleLayers
+      .map((layerId) => getLayerById(layerId))
+      .filter(
+        (layer: { type: string; wmsLayer?: string } | undefined) =>
+          layer?.type === 'wms' && layer?.wmsLayer
+      )
+  }, [visibleLayers])
+
   return (
     <MapContainer
       center={center}
@@ -281,6 +302,18 @@ function MapComponentWithDraw({
     >
       <TileLayer url={tileConfig.url} attribution={tileConfig.attribution} />
       <LoadExistingBoundary />
+
+      {/* Render WMS layers (EPA, etc.) */}
+      {wmsLayers.map((layer: { id: string; url: string; wmsLayer: string }) => (
+        <WMSTileLayer
+          key={`wms-${layer.id}`}
+          url={layer.url}
+          layers={layer.wmsLayer}
+          format="image/png"
+          transparent={true}
+          opacity={0.7}
+        />
+      ))}
 
       {/* Render buffer zones (larger first so smaller ones appear on top) */}
       {bufferZonesArray.map(([distance, bufferFeature]) => (
@@ -439,6 +472,7 @@ export function ProjectMapWithDraw({
           onViewChange={onViewChange}
           editable={editable}
           mapRef={mapRef}
+          visibleLayers={visibleLayers}
         />
       </div>
 
@@ -505,7 +539,7 @@ export function ProjectMapWithDraw({
       </div>
 
       {/* NPWS loading/sites indicator - bottom left */}
-      {visibleLayers.some((l) => ['sac', 'spa', 'nha', 'pnha', 'ramsar'].includes(l)) && (
+      {visibleLayers.some((l) => ['sac', 'spa', 'nha', 'pnha'].includes(l)) && (
         <div className="bg-background/90 absolute bottom-4 left-4 z-1000 rounded-lg px-3 py-2 text-sm shadow-lg backdrop-blur-sm">
           {npwsLoading ? (
             <span className="text-muted-foreground">Loading NPWS sites...</span>

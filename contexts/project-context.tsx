@@ -6,193 +6,6 @@ import { useProject, useWorkflowSteps, useProjectProgress } from '@/hooks/use-pr
 import type { Project, WorkflowStep } from '@/types/database'
 import { TOTAL_STEPS } from '@/lib/config/workflow'
 
-// Mock data for development when Supabase is not available
-const MOCK_PROJECTS: Record<string, Partial<Project>> = {
-  '1': {
-    id: '1',
-    name: 'Killarney National Park Assessment',
-    site_code: 'KNP-2024-001',
-    status: 'active',
-    grid_reference: 'V95 K2H7',
-    expected_end_date: '2024-04-30',
-  },
-  '2': {
-    id: '2',
-    name: 'Slieve Rushen Bog NHA',
-    site_code: 'SRB-2024-002',
-    status: 'active',
-    grid_reference: 'H32 A1B2',
-    expected_end_date: '2024-05-15',
-  },
-}
-
-const MOCK_WORKFLOW_STEPS: Record<string, Partial<WorkflowStep>[]> = {
-  '1': [
-    {
-      id: '1-1',
-      project_id: '1',
-      step_number: 1,
-      name: 'GIS Mapping',
-      status: 'approved',
-      phase: 'desk_research',
-    },
-    {
-      id: '1-2',
-      project_id: '1',
-      step_number: 2,
-      name: 'Data Gathering',
-      status: 'in_progress',
-      phase: 'desk_research',
-    },
-    {
-      id: '1-3',
-      project_id: '1',
-      step_number: 3,
-      name: 'Desk Assessment',
-      status: 'pending',
-      phase: 'desk_research',
-    },
-    {
-      id: '1-4',
-      project_id: '1',
-      step_number: 4,
-      name: 'Field Survey',
-      status: 'pending',
-      phase: 'field_research',
-    },
-    {
-      id: '1-5',
-      project_id: '1',
-      step_number: 5,
-      name: 'Habitat Mapping',
-      status: 'pending',
-      phase: 'field_research',
-    },
-    {
-      id: '1-6',
-      project_id: '1',
-      step_number: 6,
-      name: 'Target Notes',
-      status: 'pending',
-      phase: 'field_research',
-    },
-    {
-      id: '1-7',
-      project_id: '1',
-      step_number: 7,
-      name: 'Data Analysis',
-      status: 'pending',
-      phase: 'reporting',
-    },
-    {
-      id: '1-8',
-      project_id: '1',
-      step_number: 8,
-      name: 'AI Draft',
-      status: 'pending',
-      phase: 'reporting',
-    },
-    {
-      id: '1-9',
-      project_id: '1',
-      step_number: 9,
-      name: 'Quality Review',
-      status: 'pending',
-      phase: 'reporting',
-    },
-    {
-      id: '1-10',
-      project_id: '1',
-      step_number: 10,
-      name: 'Final Submission',
-      status: 'pending',
-      phase: 'reporting',
-    },
-  ],
-  '2': [
-    {
-      id: '2-1',
-      project_id: '2',
-      step_number: 1,
-      name: 'GIS Mapping',
-      status: 'approved',
-      phase: 'desk_research',
-    },
-    {
-      id: '2-2',
-      project_id: '2',
-      step_number: 2,
-      name: 'Data Gathering',
-      status: 'approved',
-      phase: 'desk_research',
-    },
-    {
-      id: '2-3',
-      project_id: '2',
-      step_number: 3,
-      name: 'Desk Assessment',
-      status: 'approved',
-      phase: 'desk_research',
-    },
-    {
-      id: '2-4',
-      project_id: '2',
-      step_number: 4,
-      name: 'Field Survey',
-      status: 'approved',
-      phase: 'field_research',
-    },
-    {
-      id: '2-5',
-      project_id: '2',
-      step_number: 5,
-      name: 'Habitat Mapping',
-      status: 'in_progress',
-      phase: 'field_research',
-    },
-    {
-      id: '2-6',
-      project_id: '2',
-      step_number: 6,
-      name: 'Target Notes',
-      status: 'pending',
-      phase: 'field_research',
-    },
-    {
-      id: '2-7',
-      project_id: '2',
-      step_number: 7,
-      name: 'Data Analysis',
-      status: 'pending',
-      phase: 'reporting',
-    },
-    {
-      id: '2-8',
-      project_id: '2',
-      step_number: 8,
-      name: 'AI Draft',
-      status: 'pending',
-      phase: 'reporting',
-    },
-    {
-      id: '2-9',
-      project_id: '2',
-      step_number: 9,
-      name: 'Quality Review',
-      status: 'pending',
-      phase: 'reporting',
-    },
-    {
-      id: '2-10',
-      project_id: '2',
-      step_number: 10,
-      name: 'Final Submission',
-      status: 'pending',
-      phase: 'reporting',
-    },
-  ],
-}
-
 interface ProjectContextType {
   // Project data
   projectId: string
@@ -224,6 +37,10 @@ interface ProjectContextType {
   // Map fullscreen mode (collapses sidebar + header)
   isMapFullscreen: boolean
   setMapFullscreen: (fullscreen: boolean) => void
+
+  // Refresh data
+  refetchProject: () => void
+  refetchWorkflowSteps: () => void
 }
 
 const ProjectContext = React.createContext<ProjectContextType | null>(null)
@@ -265,41 +82,29 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
 
   // Fetch project and workflow data from Supabase
   const {
-    data: supabaseProject,
+    data: project,
     isLoading: loadingProject,
     error: projectError,
+    refetch: refetchProject,
   } = useProject(projectId)
-  const { data: supabaseWorkflowSteps = [], isLoading: loadingSteps } = useWorkflowSteps(projectId)
+
+  const {
+    data: workflowSteps = [],
+    isLoading: loadingSteps,
+    refetch: refetchWorkflowSteps,
+  } = useWorkflowSteps(projectId)
+
   const supabaseProgress = useProjectProgress(projectId)
-
-  // Use mock data as fallback when Supabase data is not available
-  const project = React.useMemo(() => {
-    if (supabaseProject) return supabaseProject
-    // Fallback to mock data
-    const mockProject = MOCK_PROJECTS[projectId]
-    if (mockProject) return mockProject as Project
-    return null
-  }, [supabaseProject, projectId])
-
-  const workflowSteps = React.useMemo(() => {
-    if (supabaseWorkflowSteps.length > 0) return supabaseWorkflowSteps
-    // Fallback to mock data
-    const mockSteps = MOCK_WORKFLOW_STEPS[projectId]
-    if (mockSteps) return mockSteps as WorkflowStep[]
-    return []
-  }, [supabaseWorkflowSteps, projectId])
 
   const progress = React.useMemo(() => {
     if (supabaseProgress > 0) return supabaseProgress
-    // Calculate from mock workflow steps
+    // Calculate from workflow steps
     const completedSteps = workflowSteps.filter((s) => s.status === 'approved').length
     return Math.round((completedSteps / TOTAL_STEPS) * 100)
   }, [supabaseProgress, workflowSteps])
 
-  // Check if we're using mock data (no error from Supabase but no data either)
-  const isUsingMockData = !supabaseProject && !!MOCK_PROJECTS[projectId]
   const isLoading = loadingProject || loadingSteps
-  const error = isUsingMockData ? null : projectError
+  const error = projectError
 
   // Determine current step number
   const currentStepNumber = React.useMemo(() => {
@@ -375,7 +180,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
 
   const value: ProjectContextType = {
     projectId,
-    project,
+    project: project ?? null,
     isLoading,
     error: error ?? null,
     workflowSteps,
@@ -393,6 +198,8 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     setSidebarCollapsed,
     isMapFullscreen,
     setMapFullscreen,
+    refetchProject,
+    refetchWorkflowSteps,
   }
 
   return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>

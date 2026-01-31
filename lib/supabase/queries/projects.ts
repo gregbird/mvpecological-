@@ -136,6 +136,14 @@ export async function updateProjectBoundary(
   gridReference: string
 ): Promise<Project | null> {
   const supabase = createClient()
+
+  console.log('[updateProjectBoundary] Attempting to update:', {
+    projectId,
+    gridReference,
+    hasBoundary: !!boundary,
+    hasCenterPoint: !!centerPoint,
+  })
+
   const { data, error } = await supabase
     .from('projects')
     .update({
@@ -149,10 +157,20 @@ export async function updateProjectBoundary(
     .single()
 
   if (error) {
-    console.error('Error updating project boundary:', error)
+    console.error('Error updating project boundary:', {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    })
+    // Check if it's a connection issue or mock data scenario
+    if (error.code === 'PGRST116' || error.code === '42P01') {
+      console.warn('[updateProjectBoundary] Table or row not found - possibly using mock data')
+    }
     return null
   }
 
+  console.log('[updateProjectBoundary] Success:', data?.id)
   return data as unknown as Project
 }
 

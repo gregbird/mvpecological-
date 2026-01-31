@@ -8,6 +8,7 @@ export interface DatasetLayer {
   type: 'wms' | 'wfs' | 'arcgis' | 'geojson'
   defaultVisible: boolean
   color?: string
+  wmsLayer?: string // WMS layer name for WMS services
 }
 
 export interface DatasetGroup {
@@ -86,76 +87,46 @@ export const DATASET_GROUPS: DatasetGroup[] = [
         id: 'rivers',
         label: 'Rivers',
         description: 'EPA river network and watercourses',
-        url: `${EPA_BASE_URL}/WFD/wms`,
+        url: `${EPA_BASE_URL}/EPA/wms`,
         type: 'wms',
         defaultVisible: false,
         color: '#0284c7',
+        wmsLayer: 'EPA:WATER_RIVNETROUTES',
       },
       {
         id: 'lakes',
         label: 'Lakes',
-        description: 'EPA lakes dataset',
-        url: `${EPA_BASE_URL}/WFD/wms`,
+        description: 'EPA WFD lake segments',
+        url: `${EPA_BASE_URL}/EPA/wms`,
         type: 'wms',
         defaultVisible: false,
         color: '#0369a1',
+        wmsLayer: 'EPA:WFD_LAKESEGMENT',
       },
       {
         id: 'catchments',
         label: 'Catchments',
-        description: 'River basin and sub-catchment boundaries',
-        url: `${EPA_BASE_URL}/WFD/wms`,
+        description: 'WFD catchment boundaries',
+        url: `${EPA_BASE_URL}/EPA/wms`,
         type: 'wms',
         defaultVisible: false,
         color: '#38bdf8',
+        wmsLayer: 'EPA:WFD_Catchments',
       },
       {
-        id: 'wfd_status',
-        label: 'WFD Status',
-        description: 'Water Framework Directive status assessments',
-        url: `${EPA_BASE_URL}/WFD/wms`,
+        id: 'wfd_river_status',
+        label: 'River Status',
+        description: 'WFD river water quality status 2019-2024',
+        url: `${EPA_BASE_URL}/EPA/wms`,
         type: 'wms',
         defaultVisible: false,
         color: '#7dd3fc',
+        wmsLayer: 'EPA:WFD_RWBStatus_20192024',
       },
     ],
   },
-  {
-    id: 'dafm',
-    label: 'DAFM Datasets',
-    description: 'Department of Agriculture, Food and the Marine data',
-    icon: TreePine,
-    color: 'amber',
-    layers: [
-      {
-        id: 'lpis',
-        label: 'LPIS',
-        description: 'Land Parcel Identification System boundaries',
-        url: `${DAFM_BASE_URL}/LPIS/wms`,
-        type: 'wms',
-        defaultVisible: false,
-        color: '#f59e0b',
-      },
-      {
-        id: 'forestry',
-        label: 'Forestry',
-        description: 'Native woodland and forestry inventory',
-        url: `${DAFM_BASE_URL}/Forestry/wms`,
-        type: 'wms',
-        defaultVisible: false,
-        color: '#22c55e',
-      },
-      {
-        id: 'natura_impact',
-        label: 'Natura 2000',
-        description: 'Natura 2000 Impact Zones - Agricultural activity impact zones',
-        url: `${DAFM_BASE_URL}/Natura/wms`,
-        type: 'wms',
-        defaultVisible: false,
-        color: '#eab308',
-      },
-    ],
-  },
+  // DAFM datasets removed - no public WMS endpoint available
+  // Data available via https://opendata.agriculture.gov.ie/ but requires download
 ]
 
 // Helper functions

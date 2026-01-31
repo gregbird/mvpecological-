@@ -55,7 +55,7 @@ Assessor'ın projeyi başlatırken tanımladığı site boundary - tüm workflow
 | Fullscreen                 | ✅ Çalışıyor | Native fullscreen API        |
 | Undo/Redo                  | ❌ Eksik     | Gelecek geliştirme           |
 | Snap to vertex             | ❌ Eksik     | Nice to have                 |
-| Distance measurement tool  | ❌ Eksik     | Faz 2'de planlandı           |
+| Distance measurement tool  | ✅ Çalışıyor | MeasureControl component     |
 
 ### 1.3 GeoJSON Upload - Detaylı Durum
 
@@ -120,11 +120,37 @@ Assessor'ın projeyi başlatırken tanımladığı site boundary - tüm workflow
 
 **Konum:** `lib/config/dataset-layers.ts`
 
-| Kategori | Layers                                | Durum                                 |
-| -------- | ------------------------------------- | ------------------------------------- |
-| **NPWS** | SAC, SPA, NHA, pNHA, Ramsar           | 🟡 Config var, entegrasyon eksik      |
-| **EPA**  | Rivers, Lakes, Catchments, WFD Status | 🟡 Config var, WMS entegrasyonu eksik |
-| **DAFM** | LPIS, Forestry, Natura 2000 Zones     | 🟡 Config var, WMS entegrasyonu eksik |
+| Kategori | Layers                                  | Durum                               |
+| -------- | --------------------------------------- | ----------------------------------- |
+| **NPWS** | SAC, SPA, NHA, pNHA                     | ✅ Çalışıyor (ArcGIS FeatureServer) |
+| **EPA**  | Rivers, Lakes, Catchments, River Status | ✅ Çalışıyor (WMS)                  |
+| **DAFM** | LPIS, Forestry, Natura 2000             | ❌ Public WMS endpoint yok          |
+
+**NPWS API Endpoint (Güncel - Aralık 2024):**
+
+```
+https://services-eu1.arcgis.com/HyjXgkV6KGMSF3jt/ArcGIS/rest/services/NPWSDesignatedAreas/FeatureServer
+```
+
+| Layer ID | Layer Name                             |
+| -------- | -------------------------------------- |
+| 0        | Special Protection Areas (SPA)         |
+| 1        | Proposed Natural Heritage Areas (pNHA) |
+| 2        | Natural Heritage Areas (NHA)           |
+| 3        | Special Areas of Conservation (SAC)    |
+
+**EPA WMS Endpoint:**
+
+```
+https://gis.epa.ie/geoserver/EPA/wms
+```
+
+| Layer ID         | WMS Layer                  | Açıklama                    |
+| ---------------- | -------------------------- | --------------------------- |
+| rivers           | EPA:WATER_RIVNETROUTES     | River network               |
+| lakes            | EPA:WFD_LAKESEGMENT        | WFD Lake segments           |
+| catchments       | EPA:WFD_Catchments         | WFD Catchment boundaries    |
+| wfd_river_status | EPA:WFD_RWBStatus_20192024 | River water quality 2019-24 |
 
 ### 2.3 Map Tools
 
@@ -376,7 +402,7 @@ Dokümandan alınan minimum attribute fields (GIS data section):
   - `NPWSLayerOverlay` component - designated sites haritada gösterimi
   - `useNPWSLayers` hook - state management ve fetch logic
   - Boundary'e göre bbox hesaplama (configurable search radius)
-  - SAC, SPA, NHA, pNHA, Ramsar site tipleri destekleniyor
+  - SAC, SPA, NHA, pNHA site tipleri destekleniyor (Ramsar yeni API'de mevcut değil)
   - Site-specific renklendirme (`getSiteTypeColor`)
   - Popup ile site detayları (Site Name, Code, Area)
   - Tooltip ile site adı gösterimi
