@@ -36,6 +36,8 @@ import {
   validateBoundary,
   getCRSName,
   calculatePerimeter,
+  getLocationFromBoundary,
+  type IrishLocationInfo,
 } from '@/lib/gis'
 import type { Project, WorkflowStep } from '@/types/database'
 
@@ -129,10 +131,52 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
   const [showConnectionModal, setShowConnectionModal] = React.useState(false)
   const [selectedSource, setSelectedSource] = React.useState<GISSourceType>(null)
   const [visibleLayers, setVisibleLayers] = React.useState<string[]>(getDefaultVisibleLayers())
+  const [bufferZones, setBufferZones] = React.useState<
+    Map<number, GeoJSON.Feature<GeoJSON.Polygon>>
+  >(new Map())
+  const [locationInfo, setLocationInfo] = React.useState<IrishLocationInfo | null>(null)
+  const [isLoadingLocation, setIsLoadingLocation] = React.useState(false)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   const updateBoundary = useUpdateProjectBoundary()
   const completeStep = useCompleteWorkflowStep()
+
+  // Handle buffer zones change
+  const handleBuffersChange = React.useCallback(
+    (newBuffers: Map<number, GeoJSON.Feature<GeoJSON.Polygon>>) => {
+      setBufferZones(newBuffers)
+    },
+    []
+  )
+
+  // Fetch location info when boundary changes
+  React.useEffect(() => {
+    if (!boundary) {
+      setLocationInfo(null)
+      return
+    }
+
+    const fetchLocation = async () => {
+      setIsLoadingLocation(true)
+      try {
+        const result = await getLocationFromBoundary(boundary)
+        if (result.success && result.location) {
+          setLocationInfo(result.location)
+        } else {
+          setLocationInfo(null)
+        }
+      } catch (error) {
+        console.error('Error fetching location:', error)
+        setLocationInfo(null)
+      } finally {
+        setIsLoadingLocation(false)
+      }
+    }
+
+    // Debounce to avoid too many requests
+    const timeoutId = setTimeout(fetchLocation, 500)
+    return () => clearTimeout(timeoutId)
+  }, [boundary])
 
   // Calculate boundary info
   const boundaryInfo = React.useMemo(() => {
@@ -148,11 +192,13 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
 
     const area = calculateAreaHectares(boundary.geometry)
     const gridRef = toIrishGridRef(centerLat, centerLng)
+    const perimeter = calculatePerimeter(boundary)
 
     return {
       centerLat: centerLat.toFixed(6),
       centerLng: centerLng.toFixed(6),
       area: area.toFixed(2),
+      perimeter: perimeter.toFixed(2),
       gridRef,
       pointCount: coords.length - 1,
     }
@@ -537,8 +583,10 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
               <div className="h-[500px] overflow-hidden rounded-lg border">
                 <ProjectMapWithDraw
                   boundary={boundary ?? undefined}
+                  bufferZones={bufferZones}
                   onBoundaryChange={handleBoundaryChange}
                   editable={!isComplete}
+                  visibleLayers={visibleLayers}
                 />
               </div>
             </CardContent>
@@ -547,6 +595,9 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
 
         {/* Side Panel */}
         <div className="space-y-4">
+          {/* Buffer Zones */}
+          <BufferZonePanel boundary={boundary} onBuffersChange={handleBuffersChange} />
+
           {/* Dataset Layers */}
           <DatasetLayersPanel visibleLayers={visibleLayers} onLayerToggle={handleLayerToggle} />
 
@@ -561,6 +612,37 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
             <CardContent>
               {boundaryInfo ? (
                 <dl className="space-y-2 text-sm">
+                  {/* Location Info */}
+                  {isLoadingLocation ? (
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">Location</dt>
+                      <dd className="text-muted-foreground text-xs">Loading...</dd>
+                    </div>
+                  ) : locationInfo ? (
+                    <>
+                      {locationInfo.townland && (
+                        <div className="flex justify-between">
+                          <dt className="text-muted-foreground">Townland</dt>
+                          <dd className="font-semibold">{locationInfo.townland}</dd>
+                        </div>
+                      )}
+                      {locationInfo.county && (
+                        <div className="flex justify-between">
+                          <dt className="text-muted-foreground">County</dt>
+                          <dd className="font-semibold">Co. {locationInfo.county}</dd>
+                        </div>
+                      )}
+                      {locationInfo.province && (
+                        <div className="flex justify-between">
+                          <dt className="text-muted-foreground">Province</dt>
+                          <dd className="text-xs">{locationInfo.province}</dd>
+                        </div>
+                      )}
+                    </>
+                  ) : null}
+
+                  <div className="border-border my-2 border-t" />
+
                   <div className="flex justify-between">
                     <dt className="text-muted-foreground">Grid Reference</dt>
                     <dd className="font-mono font-semibold">{boundaryInfo.gridRef}</dd>
@@ -568,6 +650,10 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                   <div className="flex justify-between">
                     <dt className="text-muted-foreground">Area</dt>
                     <dd className="font-semibold">{boundaryInfo.area} ha</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Perimeter</dt>
+                    <dd className="font-semibold">{boundaryInfo.perimeter} km</dd>
                   </div>
                   <div className="flex justify-between">
                     <dt className="text-muted-foreground">Center (Lat)</dt>

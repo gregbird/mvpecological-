@@ -15,6 +15,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { MeasureControl } from './measure-control'
+import { useNPWSLayers } from './npws-layer-overlay'
 
 // Ireland center coordinates
 const IRELAND_CENTER: [number, number] = [53.1424, -7.6921]
@@ -49,6 +51,9 @@ interface ProjectMapWithDrawProps {
   bufferZones?: Map<number, GeoJSON.Feature<GeoJSON.Polygon>>
   onBoundaryChange?: (features: GeoJSON.FeatureCollection) => void
   editable?: boolean
+  showMeasureTool?: boolean
+  visibleLayers?: string[]
+  npwsSearchRadius?: number
 }
 
 // Define event types for leaflet-draw
@@ -315,12 +320,23 @@ export function ProjectMapWithDraw({
   bufferZones,
   onBoundaryChange,
   editable = true,
+  showMeasureTool = true,
+  visibleLayers = [],
+  npwsSearchRadius = 5,
 }: ProjectMapWithDrawProps) {
   const [mapLoaded, setMapLoaded] = React.useState(false)
   const [currentStyle, setCurrentStyle] = React.useState<MapStyle>('streets')
   const [isFullscreen, setIsFullscreen] = React.useState(false)
   const containerRef = React.useRef<HTMLDivElement>(null)
   const mapRef = React.useRef<LeafletMap | null>(null)
+
+  // NPWS layer overlay
+  const { sites: npwsSites, isLoading: npwsLoading } = useNPWSLayers(
+    mapRef.current,
+    boundary ?? null,
+    visibleLayers,
+    npwsSearchRadius
+  )
 
   React.useEffect(() => {
     setMapLoaded(true)
@@ -399,12 +415,30 @@ export function ProjectMapWithDraw({
         <Button variant="secondary" size="icon" className="shadow-md" onClick={toggleFullscreen}>
           {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
         </Button>
+
+        {/* Measure tool */}
+        {showMeasureTool && <MeasureControl map={mapRef.current} />}
       </div>
 
       {/* Drawing instructions */}
       {editable && (
         <div className="bg-background/90 absolute bottom-4 left-4 z-[1000] rounded-lg px-3 py-2 text-sm shadow-lg backdrop-blur-sm">
           Use the polygon tool (top right) to draw the project boundary
+        </div>
+      )}
+
+      {/* NPWS loading/sites indicator */}
+      {visibleLayers.some((l) => ['sac', 'spa', 'nha', 'pnha', 'ramsar'].includes(l)) && (
+        <div className="bg-background/90 absolute right-4 bottom-4 z-[1000] rounded-lg px-3 py-2 text-sm shadow-lg backdrop-blur-sm">
+          {npwsLoading ? (
+            <span className="text-muted-foreground">Loading NPWS sites...</span>
+          ) : npwsSites.length > 0 ? (
+            <span className="text-emerald-600">
+              {npwsSites.length} designated site{npwsSites.length !== 1 ? 's' : ''} found
+            </span>
+          ) : boundary ? (
+            <span className="text-muted-foreground">No designated sites nearby</span>
+          ) : null}
         </div>
       )}
     </div>

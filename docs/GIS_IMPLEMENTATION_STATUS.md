@@ -69,15 +69,16 @@ Assessor'ın projeyi başlatırken tanımladığı site boundary - tüm workflow
 
 **Konum:** `components/steps/gis-mapping-step.tsx` (boundaryInfo useMemo)
 
-| Özellik                | Durum        | Notlar                        |
-| ---------------------- | ------------ | ----------------------------- |
-| Irish Grid Reference   | ✅ Çalışıyor | `toIrishGridRef()` fonksiyonu |
-| Area (hectares)        | ✅ Çalışıyor | `calculateAreaHectares()`     |
-| Center point (lat/lng) | ✅ Çalışıyor | Koordinat ortalaması          |
-| Vertex count           | ✅ Çalışıyor | coords.length - 1             |
-| Perimeter (km)         | ❌ Eksik     | Turf.js ile eklenebilir       |
-| Townland name          | ❌ Eksik     | Reverse geocoding gerekli     |
-| County                 | ❌ Eksik     | Reverse geocoding gerekli     |
+| Özellik                | Durum        | Notlar                            |
+| ---------------------- | ------------ | --------------------------------- |
+| Irish Grid Reference   | ✅ Çalışıyor | `toIrishGridRef()` fonksiyonu     |
+| Area (hectares)        | ✅ Çalışıyor | `calculateAreaHectares()`         |
+| Center point (lat/lng) | ✅ Çalışıyor | Koordinat ortalaması              |
+| Vertex count           | ✅ Çalışıyor | coords.length - 1                 |
+| Perimeter (km)         | ✅ Çalışıyor | `calculatePerimeter()` fonksiyonu |
+| Townland name          | ✅ Çalışıyor | OSM Nominatim reverse geocoding   |
+| County                 | ✅ Çalışıyor | OSM Nominatim reverse geocoding   |
+| Province               | ✅ Çalışıyor | County'den türetiliyor            |
 
 ### 1.5 Database Storage
 
@@ -125,9 +126,9 @@ Assessor'ın projeyi başlatırken tanımladığı site boundary - tüm workflow
 | Basemap switching     | ✅ Çalışıyor | Dropdown menu                  |
 | Zoom controls         | ✅ Çalışıyor | Leaflet native                 |
 | Fullscreen            | ✅ Çalışıyor | Native API                     |
-| Distance measurement  | ❌ Eksik     | Leaflet plugin gerekli         |
+| Distance measurement  | ✅ Çalışıyor | MeasureControl component       |
 | Area measurement      | ❌ Eksik     | Leaflet plugin gerekli         |
-| Buffer zone preview   | ❌ Eksik     | Turf.js gerekli                |
+| Buffer zone preview   | ✅ Çalışıyor | BufferZonePanel + Turf.js      |
 | Print/Export to PDF   | ❌ Eksik     | Leaflet-image veya html2canvas |
 
 ---
@@ -143,7 +144,7 @@ Assessor'ın projeyi başlatırken tanımladığı site boundary - tüm workflow
 | queryDesignatedSites()        | ✅ Kod hazır | Bounding box, geometry, buffer search |
 | getDesignatedSiteByCode()     | ✅ Kod hazır | Specific site lookup                  |
 | searchDesignatedSitesByName() | ✅ Kod hazır | Name-based search                     |
-| **UI Entegrasyonu**           | ❌ Eksik     | Haritada gösterim yok                 |
+| **UI Entegrasyonu**           | ✅ Çalışıyor | NPWSLayerOverlay component            |
 
 ### 3.2 GBIF (Global Biodiversity Information Facility)
 
@@ -187,27 +188,27 @@ Assessor'ın projeyi başlatırken tanımladığı site boundary - tüm workflow
 
 ### Faz 2: Yüksek Öncelik (Öncelik: Orta-Yüksek)
 
-| #   | Özellik                | Açıklama                            | Tahmini Efor |
-| --- | ---------------------- | ----------------------------------- | ------------ |
-| 2.1 | Buffer Zone Preview    | 2km, 5km buffer haritada gösterim   | Orta         |
-| 2.2 | Distance Measurement   | Haritada mesafe ölçüm aracı         | Düşük        |
-| 2.3 | NPWS Layer Overlay     | Designated sites haritada gösterim  | Orta         |
-| 2.4 | Townland/County Lookup | Reverse geocoding ile konum bilgisi | Düşük        |
+| #   | Özellik                | Açıklama                            | Durum         |
+| --- | ---------------------- | ----------------------------------- | ------------- |
+| 2.1 | Buffer Zone Preview    | 2km, 5km buffer haritada gösterim   | ✅ Tamamlandı |
+| 2.2 | Distance Measurement   | Haritada mesafe ölçüm aracı         | ✅ Tamamlandı |
+| 2.3 | NPWS Layer Overlay     | Designated sites haritada gösterim  | ✅ Tamamlandı |
+| 2.4 | Townland/County Lookup | Reverse geocoding ile konum bilgisi | ✅ Tamamlandı |
 
-**Gerekli Kütüphaneler:**
+**Eklenen Kütüphaneler:**
 
-- `@turf/buffer` - Buffer zone calculation
-- `@turf/length` - Perimeter calculation
-- `leaflet-measure` veya custom implementation
+- `@turf/buffer` - Buffer zone calculation ✅
+- `@turf/length` - Perimeter calculation ✅
+- `@turf/area` - Area calculation ✅
 
 ### Faz 3: İyileştirmeler (Öncelik: Orta)
 
-| #   | Özellik                  | Açıklama                  | Tahmini Efor |
-| --- | ------------------------ | ------------------------- | ------------ |
-| 3.1 | Perimeter Calculation    | Boundary çevre uzunluğu   | Düşük        |
-| 3.2 | PostGIS Native Geometry  | JSON yerine geometry tipi | Orta         |
-| 3.3 | Boundary Version History | Değişiklik takibi         | Yüksek       |
-| 3.4 | Map Export to PDF        | Rapor için harita export  | Orta         |
+| #   | Özellik                  | Açıklama                  | Durum         |
+| --- | ------------------------ | ------------------------- | ------------- |
+| 3.1 | Perimeter Calculation    | Boundary çevre uzunluğu   | ✅ Tamamlandı |
+| 3.2 | PostGIS Native Geometry  | JSON yerine geometry tipi | ❌ Bekliyor   |
+| 3.3 | Boundary Version History | Değişiklik takibi         | ❌ Bekliyor   |
+| 3.4 | Map Export to PDF        | Rapor için harita export  | ❌ Bekliyor   |
 
 ### Faz 4: Nice to Have (Öncelik: Düşük)
 
@@ -229,18 +230,23 @@ components/
 │   ├── gis-connection-modal.tsx    # GIS source selection modal
 │   ├── arcgis-connection.tsx       # ArcGIS connection (Coming Soon)
 │   ├── qgis-connection.tsx         # QGIS connection (Coming Soon)
-│   └── dataset-layers-panel.tsx    # Layer toggle panel
+│   ├── dataset-layers-panel.tsx    # Layer toggle panel
+│   └── buffer-zone-panel.tsx       # ✅ NEW - Buffer zone controls
 ├── maps/
 │   ├── project-map.tsx             # Display-only map
-│   └── project-map-with-draw.tsx   # Interactive map with drawing
+│   ├── project-map-with-draw.tsx   # Interactive map with drawing + buffer zones
+│   ├── measure-control.tsx         # Distance measurement tool
+│   └── npws-layer-overlay.tsx      # ✅ NEW - NPWS designated sites overlay
 └── steps/
     └── gis-mapping-step.tsx        # Step 1: GIS Mapping workflow
 
 lib/
-├── gis/                            # ✅ NEW - Faz 1
+├── gis/
 │   ├── index.ts                    # Barrel export
 │   ├── validation.ts               # Ireland bounds, CRS detection
-│   └── shapefile-parser.ts         # Shapefile (.shp, .zip) parsing
+│   ├── shapefile-parser.ts         # Shapefile (.shp, .zip) parsing
+│   ├── buffer.ts                   # Buffer zone utilities
+│   └── reverse-geocode.ts          # ✅ NEW - Townland/County lookup
 ├── config/
 │   └── dataset-layers.ts           # NPWS, EPA, DAFM layer configs
 ├── external-apis/
@@ -322,6 +328,87 @@ Dokümandan alınan minimum attribute fields (GIS data section):
 - `components/steps/gis-mapping-step.tsx` - Shapefile + validation entegrasyonu
 - `components/gis/gis-connection-modal.tsx` - Coming Soon badges
 
+### 2026-01-31 (Faz 2.4 Tamamlandı)
+
+**Faz 2.4 - Townland/County Lookup:**
+
+- `lib/gis/reverse-geocode.ts` oluşturuldu
+  - OSM Nominatim API ile reverse geocoding
+  - `reverseGeocode()` - Koordinattan konum bilgisi
+  - `getLocationFromBoundary()` - Boundary centroid'den konum
+  - `formatLocation()` - Konum bilgisini formatlama
+  - County name normalization (Co. Dublin → Dublin)
+  - Province mapping (County → Leinster/Munster/Connacht/Ulster)
+  - Rate limiting için debounce (500ms)
+- `lib/gis/index.ts` - Export eklendi
+- `components/steps/gis-mapping-step.tsx` güncellendi
+  - Location state ve useEffect eklendi
+  - Boundary Information card'a Townland, County, Province eklendi
+  - Loading state gösterimi
+
+### 2026-01-31 (Faz 2.3 Tamamlandı)
+
+**Faz 2.3 - NPWS Layer Overlay:**
+
+- `components/maps/npws-layer-overlay.tsx` oluşturuldu
+  - `NPWSLayerOverlay` component - designated sites haritada gösterimi
+  - `useNPWSLayers` hook - state management ve fetch logic
+  - Boundary'e göre bbox hesaplama (configurable search radius)
+  - SAC, SPA, NHA, pNHA, Ramsar site tipleri destekleniyor
+  - Site-specific renklendirme (`getSiteTypeColor`)
+  - Popup ile site detayları (Site Name, Code, Area)
+  - Tooltip ile site adı gösterimi
+- `components/maps/project-map-with-draw.tsx` güncellendi
+  - `visibleLayers` prop eklendi
+  - `npwsSearchRadius` prop eklendi (default: 5km)
+  - NPWS sites count badge eklendi
+  - useNPWSLayers hook entegrasyonu
+- `components/steps/gis-mapping-step.tsx` güncellendi
+  - `visibleLayers` prop haritaya aktarıldı
+
+### 2026-01-31 (Faz 2.2 Tamamlandı)
+
+**Faz 2.2 - Distance Measurement Tool:**
+
+- `components/maps/measure-control.tsx` oluşturuldu
+  - Toggle button (Measure/Exit)
+  - Click to add measurement points
+  - Live distance display (m/km)
+  - Dashed line between points
+  - Temporary line following cursor
+  - Clear measurement button
+  - Haversine formula ile mesafe hesaplama
+- `components/maps/project-map-with-draw.tsx` güncellendi
+  - `showMeasureTool` prop eklendi (default: true)
+  - MeasureControl entegrasyonu
+
+### 2026-01-31 (Faz 2.1 Tamamlandı)
+
+**Faz 2.1 - Buffer Zone Preview:**
+
+- `@turf/buffer`, `@turf/length`, `@turf/area` kütüphaneleri eklendi
+- `lib/gis/buffer.ts` oluşturuldu
+  - `createBuffer()` - Buffer polygon oluşturma
+  - `calculatePerimeter()` - Çevre uzunluğu hesaplama (km)
+  - `calculateAreaHa()` - Alan hesaplama (hektar)
+  - `getBufferStyle()` - Buffer styling (farklı mesafeler için farklı opacity)
+  - `STANDARD_BUFFER_DISTANCES` - 500m, 1km, 2km, 5km, 10km, 15km
+- `components/gis/buffer-zone-panel.tsx` oluşturuldu
+  - Buffer zone toggle switches
+  - Visibility toggle (göster/gizle)
+  - Interactive styling preview
+- `components/maps/project-map-with-draw.tsx` güncellendi
+  - `bufferZones` prop desteği
+  - Buffer zones haritada görüntüleme (büyükten küçüğe)
+- `components/steps/gis-mapping-step.tsx` güncellendi
+  - BufferZonePanel entegrasyonu
+  - Perimeter bilgisi Boundary Information'a eklendi
+
+**Faz 3.1 - Perimeter Calculation (bonus):**
+
+- `calculatePerimeter()` fonksiyonu ile boundary çevre uzunluğu
+- Boundary Information paneline "Perimeter: X.XX km" eklendi
+
 ### 2026-01-31 (Başlangıç)
 
 - ArcGIS ve QGIS seçenekleri "Coming Soon" olarak işaretlendi
@@ -332,9 +419,13 @@ Dokümandan alınan minimum attribute fields (GIS data section):
 
 ## 9. İlgili Issues / Tasks
 
-- [ ] Faz 1.1: Shapefile import desteği
-- [ ] Faz 1.2: Ireland bounds validation
-- [ ] Faz 1.3: CRS detection
-- [ ] Faz 2.1: Buffer zone preview
-- [ ] Faz 2.2: Distance measurement tool
-- [ ] Faz 2.3: NPWS layer overlay
+- [x] Faz 1.1: Shapefile import desteği ✅
+- [x] Faz 1.2: Ireland bounds validation ✅
+- [x] Faz 1.3: CRS detection ✅
+- [x] Faz 2.1: Buffer zone preview ✅
+- [x] Faz 2.2: Distance measurement tool ✅
+- [x] Faz 2.3: NPWS layer overlay ✅
+- [x] Faz 2.4: Townland/County lookup ✅
+- [x] Faz 3.1: Perimeter calculation ✅
+
+---

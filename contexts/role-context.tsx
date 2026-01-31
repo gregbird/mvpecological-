@@ -118,7 +118,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
 
-  const fetchUser = React.useCallback(async () => {
+  const fetchUser = React.useCallback(async (retryCount = 0) => {
     try {
       setIsLoading(true)
       setError(null)
@@ -163,7 +163,13 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
 
       if (profileError) {
         // Profile might not exist yet (e.g., during registration)
+        // PGRST116 = no rows returned
         if (profileError.code === 'PGRST116') {
+          // Retry a few times as trigger might still be running
+          if (retryCount < 3) {
+            await new Promise((resolve) => setTimeout(resolve, 500))
+            return fetchUser(retryCount + 1)
+          }
           setUser(null)
           return
         }
@@ -171,16 +177,8 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
       }
 
       setUser(profile as UserWithOrganization)
-    } catch (err) {
-      // Don't log auth session errors - these are expected when user is not logged in
-      const isAuthSessionError =
-        err instanceof Error &&
-        (err.message?.includes('Auth session missing') || err.name === 'AuthSessionMissingError')
-
-      if (!isAuthSessionError) {
-        console.error('Error fetching user profile:', err)
-        setError(err instanceof Error ? err.message : 'Failed to fetch user profile')
-      }
+    } catch {
+      // Silently handle errors - user will be treated as unauthenticated
       setUser(null)
     } finally {
       setIsLoading(false)

@@ -25,8 +25,8 @@ import { useToast } from '@/hooks/use-toast'
 const registerSchema = z
   .object({
     fullName: z.string().min(2, 'Name must be at least 2 characters'),
-    email: z.string().email('Please enter a valid email address'),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
+    email: z.string().min(1, 'Email is required'),
+    password: z.string().min(1, 'Password is required'),
     confirmPassword: z.string(),
     organizationName: z.string().min(2, 'Organization name is required'),
   })
@@ -86,9 +86,9 @@ function RegisterContent() {
       if (authData.user) {
         toast({
           title: 'Account created!',
-          description: 'Please check your email to verify your account.',
+          description: 'Welcome to Dulra.',
         })
-        router.push('/login')
+        router.push('/dashboard')
       }
     } catch {
       toast({

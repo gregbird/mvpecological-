@@ -11,7 +11,6 @@ import * as z from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Select,
@@ -21,13 +20,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
+import { useRole } from '@/contexts/role-context'
+import { createClient } from '@/lib/supabase/client'
 
 const projectSchema = z.object({
   name: z.string().min(3, 'Project name must be at least 3 characters'),
   siteCode: z.string().optional(),
   surveyType: z.string().min(1, 'Please select a survey type'),
   clientId: z.string().optional(),
-  description: z.string().optional(),
   expectedStartDate: z.string().optional(),
   expectedEndDate: z.string().optional(),
   budgetDays: z.string().optional(),
@@ -58,6 +58,7 @@ const surveyTypes = [
 export default function NewProjectPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const { user } = useRole()
   const [isLoading, setIsLoading] = React.useState(false)
 
   const {
@@ -70,24 +71,58 @@ export default function NewProjectPage() {
   })
 
   const onSubmit = async (data: ProjectFormData) => {
+    if (!user) {
+      toast({
+        variant: 'destructive',
+        title: 'Not authenticated',
+        description: 'Please log in to create a project.',
+      })
+      return
+    }
+
     setIsLoading(true)
     try {
-      // TODO: Create project in Supabase
-      console.log('Creating project:', data)
+      const supabase = createClient()
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      // Generate site code if not provided
+      const siteCode = data.siteCode || generateSiteCode(data.name)
+
+      // Create the project
+      const { data: project, error: projectError } = await supabase
+        .from('projects')
+        .insert({
+          name: data.name,
+          site_code: siteCode,
+          survey_type: data.surveyType,
+          expected_start_date: data.expectedStartDate || null,
+          expected_end_date: data.expectedEndDate || null,
+          budget_days: data.budgetDays ? parseInt(data.budgetDays) : null,
+          organization_id: user.organization_id,
+          created_by: user.id,
+          status: 'active',
+        })
+        .select()
+        .single()
+
+      if (projectError) {
+        console.error('Project insert error:', JSON.stringify(projectError, null, 2))
+        throw projectError
+      }
+
+      // Workflow steps are automatically created by database trigger
 
       toast({
         title: 'Project created!',
         description: 'Your new project has been created successfully.',
       })
-      router.push('/projects')
-    } catch {
+      router.push(`/projects/${project.id}`)
+    } catch (err: unknown) {
+      const errorObj = err as { message?: string; code?: string; details?: string }
+      console.error('Error creating project:', JSON.stringify(err, null, 2))
       toast({
         variant: 'destructive',
         title: 'Failed to create project',
-        description: 'Please try again later.',
+        description: errorObj?.message || errorObj?.details || 'Please try again later.',
       })
     } finally {
       setIsLoading(false)
@@ -199,17 +234,6 @@ export default function NewProjectPage() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Brief description of the project scope..."
-                  {...register('description')}
-                  disabled={isLoading}
-                  rows={4}
-                />
               </div>
             </CardContent>
           </Card>

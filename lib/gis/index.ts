@@ -38,3 +38,13 @@ export {
   type BufferOptions,
   type BufferResult,
 } from './buffer'
+
+// Reverse geocoding
+export {
+  reverseGeocode,
+  getLocationFromBoundary,
+  formatLocation,
+  formatLocationShort,
+  type IrishLocationInfo,
+  type ReverseGeocodeResult,
+} from './reverse-geocode'
