@@ -44,6 +44,7 @@ interface ProjectMapProps {
   onFindingClick?: (finding: DeskResearchFinding) => void
   onMapReady?: () => void
   editable?: boolean
+  showControls?: boolean
 }
 
 // Tile layer URLs (all free)
@@ -501,6 +502,7 @@ export function ProjectMap({
   onFindingClick,
   onMapReady,
   editable = false,
+  showControls = true,
 }: ProjectMapProps) {
   const [mapLoaded, setMapLoaded] = React.useState(false)
   const [currentStyle, setCurrentStyle] = React.useState<MapStyle>('streets')
@@ -570,63 +572,65 @@ export function ProjectMap({
       </div>
 
       {/* Map controls overlay */}
-      <div className="absolute top-4 left-4 z-1000 flex flex-col gap-2">
-        {/* Style selector */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="secondary" size="sm" className="shadow-md">
-              <Layers className="mr-2 h-4 w-4" />
-              Layers
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuLabel>Map Style</DropdownMenuLabel>
-            <DropdownMenuCheckboxItem
-              checked={currentStyle === 'streets'}
-              onCheckedChange={() => setCurrentStyle('streets')}
-            >
-              Streets (OSM)
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              checked={currentStyle === 'satellite'}
-              onCheckedChange={() => setCurrentStyle('satellite')}
-            >
-              Satellite (ESRI)
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              checked={currentStyle === 'topo'}
-              onCheckedChange={() => setCurrentStyle('topo')}
-            >
-              Topographic
-            </DropdownMenuCheckboxItem>
-
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>Data Layers</DropdownMenuLabel>
-            {layers.map((layer) => (
+      {showControls && (
+        <div className="absolute top-4 left-4 z-1000 flex flex-col gap-2">
+          {/* Style selector */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="secondary" size="sm" className="shadow-md">
+                <Layers className="mr-2 h-4 w-4" />
+                Layers
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuLabel>Map Style</DropdownMenuLabel>
               <DropdownMenuCheckboxItem
-                key={layer.id}
-                checked={layer.visible}
-                onCheckedChange={() => toggleLayer(layer.id)}
+                checked={currentStyle === 'streets'}
+                onCheckedChange={() => setCurrentStyle('streets')}
               >
-                <div className="flex items-center gap-2">
-                  {layer.color && (
-                    <div
-                      className="h-3 w-3 rounded-full"
-                      style={{ backgroundColor: layer.color }}
-                    />
-                  )}
-                  {layer.name}
-                </div>
+                Streets (OSM)
               </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <DropdownMenuCheckboxItem
+                checked={currentStyle === 'satellite'}
+                onCheckedChange={() => setCurrentStyle('satellite')}
+              >
+                Satellite (ESRI)
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={currentStyle === 'topo'}
+                onCheckedChange={() => setCurrentStyle('topo')}
+              >
+                Topographic
+              </DropdownMenuCheckboxItem>
 
-        {/* Fullscreen toggle */}
-        <Button variant="secondary" size="icon" className="shadow-md" onClick={toggleFullscreen}>
-          {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-        </Button>
-      </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Data Layers</DropdownMenuLabel>
+              {layers.map((layer) => (
+                <DropdownMenuCheckboxItem
+                  key={layer.id}
+                  checked={layer.visible}
+                  onCheckedChange={() => toggleLayer(layer.id)}
+                >
+                  <div className="flex items-center gap-2">
+                    {layer.color && (
+                      <div
+                        className="h-3 w-3 rounded-full"
+                        style={{ backgroundColor: layer.color }}
+                      />
+                    )}
+                    {layer.name}
+                  </div>
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Fullscreen toggle */}
+          <Button variant="secondary" size="icon" className="shadow-md" onClick={toggleFullscreen}>
+            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

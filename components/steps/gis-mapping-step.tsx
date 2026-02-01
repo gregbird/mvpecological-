@@ -374,6 +374,10 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
     if (features.features.length > 0) {
       setBoundary(features.features[0] as GeoJSON.Feature<GeoJSON.Polygon>)
       setHasUnsavedChanges(true)
+    } else {
+      // Boundary was deleted
+      setBoundary(null)
+      setHasUnsavedChanges(true)
     }
   }
 
@@ -646,6 +650,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
               onBoundaryChange={handleBoundaryChange}
               onViewChange={handleViewChange}
               editable={!isComplete}
+              showLayersControl={false}
               visibleLayers={[]}
             />
 
@@ -688,6 +693,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                 bufferColors={Object.fromEntries(enabledBuffers.map((d) => [d, getBufferColor(d)]))}
                 onViewChange={handleViewChange}
                 editable={false}
+                showLayersControl={false}
                 visibleLayers={[]}
               />
             </div>
@@ -952,6 +958,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                 bufferColors={Object.fromEntries(enabledBuffers.map((d) => [d, getBufferColor(d)]))}
                 onViewChange={handleViewChange}
                 editable={false}
+                showLayersControl={false}
                 visibleLayers={visibleLayers}
               />
             </div>

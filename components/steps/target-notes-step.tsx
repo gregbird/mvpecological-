@@ -391,12 +391,15 @@ export function TargetNotesStep({
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">Survey:</span>
-          <Select value={selectedSurveyId} onValueChange={setSelectedSurveyId}>
+          <Select
+            value={selectedSurveyId || 'all'}
+            onValueChange={(value) => setSelectedSurveyId(value === 'all' ? '' : value)}
+          >
             <SelectTrigger className="w-[250px]">
               <SelectValue placeholder="All surveys" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All surveys</SelectItem>
+              <SelectItem value="all">All surveys</SelectItem>
               {surveys.map((survey) => (
                 <SelectItem key={survey.id} value={survey.id}>
                   {survey.survey_type} - {new Date(survey.survey_date).toLocaleDateString()}

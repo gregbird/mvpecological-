@@ -609,3 +609,111 @@ Dokümandan alınan minimum attribute fields (GIS data section):
 - [ ] HabitatMappingStep findings overlay (gelecek iterasyon)
 
 ---
+
+## 10. Veri Kaynakları ve Kısaltmalar
+
+### 10.1 NPWS (National Parks & Wildlife Service)
+
+**Kurum:** İrlanda Ulusal Parklar ve Yaban Hayatı Servisi - Korunan alanların yönetiminden sorumlu devlet kurumu.
+
+**API Endpoint:** `https://services-eu1.arcgis.com/HyjXgkV6KGMSF3jt/ArcGIS/rest/services/NPWSDesignatedAreas/FeatureServer`
+
+| Kısaltma   | Tam Adı                        | Açıklama                                                                                                        |
+| ---------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| **SAC**    | Special Area of Conservation   | AB Habitat Direktifi kapsamında korunan alanlar. Nadir ve tehlike altındaki habitatlar ile türleri korur.       |
+| **SPA**    | Special Protection Area        | AB Kuş Direktifi kapsamında korunan alanlar. Nadir ve tehlike altındaki kuş türlerinin yaşam alanlarını korur.  |
+| **NHA**    | Natural Heritage Area          | İrlanda ulusal mevzuatı kapsamında korunan alanlar. Ulusal öneme sahip doğal miras bölgeleri.                   |
+| **pNHA**   | Proposed Natural Heritage Area | NHA olarak önerilmiş ama henüz yasal olarak tescil edilmemiş alanlar. Yine de değerlendirmede dikkate alınmalı. |
+| **Ramsar** | Ramsar Wetland Site            | Uluslararası öneme sahip sulak alanlar (Ramsar Sözleşmesi). Genellikle SAC/SPA ile örtüşür.                     |
+
+### 10.2 EPA (Environmental Protection Agency)
+
+**Kurum:** İrlanda Çevre Koruma Ajansı - Su kalitesi, emisyonlar ve çevre izleme konularında yetkili kuruluş.
+
+**API Endpoint:** `https://gis.epa.ie/geoserver/EPA/wms` (WMS) / `https://gis.epa.ie/geoserver/EPA/wfs` (WFS)
+
+| Kısaltma       | Tam Adı                    | Açıklama                                                                                    |
+| -------------- | -------------------------- | ------------------------------------------------------------------------------------------- |
+| **WFD**        | Water Framework Directive  | AB Su Çerçeve Direktifi. Tüm su kütlelerinin "iyi ekolojik durum"a ulaşmasını hedefler      |
+| **WMS**        | Web Map Service            | Harita görüntüsü (raster) döndüren OGC standardı. Filtreleme imkanı sınırlı.                |
+| **WFS**        | Web Feature Service        | Vektör veri (GeoJSON/GML) döndüren OGC standardı. Bbox ile filtreleme yapılabilir.          |
+| **Rivers**     | WFD River Water Bodies     | Su Çerçeve Direktifi kapsamındaki nehir su kütleleri. Su kalitesi durumu içerir.            |
+| **Lakes**      | WFD Lake Water Bodies      | Su Çerçeve Direktifi kapsamındaki göl su kütleleri.                                         |
+| **Catchments** | River Catchment Boundaries | Nehir havzası sınırları. Yağış sularının toplandığı alanları gösterir.                      |
+| **RBD**        | River Basin District       | Nehir Havzası Bölgesi. İrlanda'da 4 ana RBD var (Eastern, South Eastern, Shannon, Western). |
+
+**WFD Su Kalitesi Durumları:**
+
+| Durum      | Renk | Açıklama                   |
+| ---------- | ---- | -------------------------- |
+| High       | 🔵   | Mükemmel ekolojik durum    |
+| Good       | 🟢   | İyi ekolojik durum (hedef) |
+| Moderate   | 🟡   | Orta - iyileştirme gerekli |
+| Poor       | 🟠   | Kötü - acil eylem gerekli  |
+| Bad        | 🔴   | Çok kötü - ciddi bozulma   |
+| Unassigned | ⚫   | Henüz değerlendirilmemiş   |
+
+### 10.3 Catchments.ie
+
+**Kurum:** EPA tarafından yönetilen su havzaları bilgi portalı. Aslında EPA verilerinin kullanıcı dostu arayüzü.
+
+**Web Sitesi:** `https://www.catchments.ie`
+
+Bu portal, EPA verilerine erişim sağlar. Sistemimizde EPA API'leri doğrudan kullanıldığından Catchments.ie ayrı bir veri kaynağı olarak işaretlenmemiştir.
+
+Sağladığı bilgiler:
+
+- Nehir havzası raporları
+- Su kalitesi izleme verileri
+- Havza yönetim planları
+- İyileştirme önlemleri
+
+### 10.4 NBDC (National Biodiversity Data Centre)
+
+**Kurum:** İrlanda Ulusal Biyoçeşitlilik Veri Merkezi - Tür gözlem kayıtlarının merkezi veritabanı.
+
+**API Endpoint:** `https://maps.biodiversityireland.ie/` (WFS/WMS)
+
+| Kısaltma     | Tam Adı              | Açıklama                                                            |
+| ------------ | -------------------- | ------------------------------------------------------------------- |
+| **Grid Ref** | Irish Grid Reference | İrlanda'ya özgü koordinat sistemi (ör: O 318 259). 10km, 1km, 100m. |
+| **Taxon ID** | Taxonomic Identifier | Türlerin benzersiz kimlik numarası.                                 |
+
+**Koruma Durumları:**
+
+| Kısaltma         | Tam Adı                         | Açıklama                                        |
+| ---------------- | ------------------------------- | ----------------------------------------------- |
+| **Red List**     | IUCN Red List of Threatened Spp | Tehlike altındaki türlerin uluslararası listesi |
+| **Wildlife Act** | Wildlife Acts 1976 & 2000       | İrlanda'da yasal koruma altındaki türler        |
+| **Annex II**     | Habitats Directive Annex II     | AB düzeyinde korunan türler                     |
+| **Annex IV**     | Habitats Directive Annex IV     | Sıkı koruma gerektiren türler                   |
+
+### 10.5 GBIF (Global Biodiversity Information Facility)
+
+**Kurum:** Küresel Biyoçeşitlilik Bilgi Tesisi - Dünya genelinde tür gözlem verilerini toplayan uluslararası ağ.
+
+**API Endpoint:** `https://api.gbif.org/v1/`
+
+Sağladığı bilgiler:
+
+- Tür gözlem kayıtları (occurrence records)
+- Taksonomi bilgileri
+- Müze koleksiyon verileri
+- Citizen science verileri
+
+### 10.6 Diğer Kısaltmalar
+
+| Kısaltma    | Tam Adı                         | Açıklama                                                       |
+| ----------- | ------------------------------- | -------------------------------------------------------------- |
+| **GIS**     | Geographic Information System   | Coğrafi bilgi sistemi                                          |
+| **CRS**     | Coordinate Reference System     | Koordinat referans sistemi (ör: WGS84, ITM)                    |
+| **EPSG**    | European Petroleum Survey Group | Koordinat sistemi kod standardı (ör: EPSG:4326 = WGS84)        |
+| **WGS84**   | World Geodetic System 1984      | GPS'in kullandığı global koordinat sistemi (EPSG:4326)         |
+| **ITM**     | Irish Transverse Mercator       | İrlanda'nın resmi projeksiyon sistemi (EPSG:2157)              |
+| **OSM**     | OpenStreetMap                   | Açık kaynak harita veritabanı                                  |
+| **ESRI**    | Environmental Systems Research  | GIS yazılım şirketi (ArcGIS üreticisi)                         |
+| **PostGIS** | PostgreSQL GIS Extension        | PostgreSQL için spatial veri uzantısı                          |
+| **bbox**    | Bounding Box                    | Coğrafi alan sınırları (minLng, minLat, maxLng, maxLat)        |
+| **FOSSITT** | Fossitt Classification System   | İrlanda habitat sınıflandırma sistemi (ör: WS1 = Oak Woodland) |
+
+---

@@ -224,6 +224,14 @@ export async function reverseGeocode(lat: number, lng: number): Promise<ReverseG
 export async function getLocationFromBoundary(
   boundary: GeoJSON.Feature<GeoJSON.Polygon>
 ): Promise<ReverseGeocodeResult> {
+  // Safety check for valid geometry
+  if (!boundary?.geometry?.coordinates?.[0]) {
+    return {
+      success: false,
+      error: 'Invalid boundary geometry',
+    }
+  }
+
   const coords = boundary.geometry.coordinates[0]
 
   // Calculate centroid

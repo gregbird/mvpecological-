@@ -17,6 +17,7 @@ import {
 import { cn } from '@/lib/utils'
 import { MeasureControl } from './measure-control'
 import { useNPWSLayers } from './npws-layer-overlay'
+import { useEPALayers } from './epa-layer-overlay'
 
 // Ireland center coordinates
 const IRELAND_CENTER: [number, number] = [53.1424, -7.6921]
@@ -60,6 +61,7 @@ interface ProjectMapWithDrawProps {
   onViewChange?: (center: [number, number], zoom: number) => void
   editable?: boolean
   showMeasureTool?: boolean
+  showLayersControl?: boolean
   visibleLayers?: string[]
   npwsSearchRadius?: number
 }
@@ -122,16 +124,8 @@ function MapComponentWithDraw({
   mapRef: React.MutableRefObject<LeafletMap | null>
   visibleLayers?: string[]
 }) {
-  const {
-    MapContainer,
-    TileLayer,
-    GeoJSON,
-    FeatureGroup,
-    useMap,
-    WMSTileLayer,
-  } = require('react-leaflet')
+  const { MapContainer, TileLayer, GeoJSON, FeatureGroup, useMap } = require('react-leaflet')
   const { EditControl } = require('react-leaflet-draw')
-  const { getLayerById } = require('@/lib/config/dataset-layers')
 
   const tileConfig = TILE_LAYERS[currentStyle]
   const featureGroupRef = React.useRef<LeafletFeatureGroup | null>(null)
@@ -257,23 +251,37 @@ function MapComponentWithDraw({
   }
 
   const handleDeleted = (e: DrawDeletedEvent) => {
-    const layers = e.layers
-    const deletedIds: string[] = []
-
-    layers.eachLayer((layer: L.Layer) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      deletedIds.push((layer as any)._leaflet_id?.toString())
+    // Count how many layers were deleted
+    let deletedCount = 0
+    e.layers.eachLayer(() => {
+      deletedCount++
     })
 
-    const remainingFeatures = drawnFeatures.filter(
-      (_, index) => !deletedIds.includes(index.toString())
-    )
-
-    setDrawnFeatures(remainingFeatures)
-    onBoundaryChange?.({
-      type: 'FeatureCollection',
-      features: remainingFeatures,
-    })
+    // If all features were deleted, clear everything
+    if (deletedCount >= drawnFeatures.length) {
+      setDrawnFeatures([])
+      onBoundaryChange?.({
+        type: 'FeatureCollection',
+        features: [],
+      })
+    } else {
+      // Get remaining features from the FeatureGroup
+      const remainingFeatures: GeoJSON.Feature[] = []
+      if (featureGroupRef.current) {
+        featureGroupRef.current.eachLayer((layer: L.Layer) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const geoJSON = (layer as any).toGeoJSON?.() as GeoJSON.Feature | undefined
+          if (geoJSON) {
+            remainingFeatures.push(geoJSON)
+          }
+        })
+      }
+      setDrawnFeatures(remainingFeatures)
+      onBoundaryChange?.({
+        type: 'FeatureCollection',
+        features: remainingFeatures,
+      })
+    }
   }
 
   // Convert buffer zones Map to array for rendering
@@ -282,38 +290,16 @@ function MapComponentWithDraw({
     return Array.from(bufferZones.entries()).sort((a, b) => b[0] - a[0]) // Sort by distance descending (larger first)
   }, [bufferZones])
 
-  // Get WMS layers to render
-  const wmsLayers = React.useMemo(() => {
-    if (!visibleLayers) return []
-    return visibleLayers
-      .map((layerId) => getLayerById(layerId))
-      .filter(
-        (layer: { type: string; wmsLayer?: string } | undefined) =>
-          layer?.type === 'wms' && layer?.wmsLayer
-      )
-  }, [visibleLayers])
-
   return (
     <MapContainer
       center={center}
       zoom={zoom}
       className="h-full min-h-100 w-full"
       style={{ height: '100%', minHeight: '400px' }}
+      zoomControl={false}
     >
       <TileLayer url={tileConfig.url} attribution={tileConfig.attribution} />
       <LoadExistingBoundary />
-
-      {/* Render WMS layers (EPA, etc.) */}
-      {wmsLayers.map((layer: { id: string; url: string; wmsLayer: string }) => (
-        <WMSTileLayer
-          key={`wms-${layer.id}`}
-          url={layer.url}
-          layers={layer.wmsLayer}
-          format="image/png"
-          transparent={true}
-          opacity={0.7}
-        />
-      ))}
 
       {/* Render buffer zones (larger first so smaller ones appear on top) */}
       {bufferZonesArray.map(([distance, bufferFeature]) => (
@@ -392,6 +378,7 @@ export function ProjectMapWithDraw({
   onViewChange,
   editable = true,
   showMeasureTool = true,
+  showLayersControl = true,
   visibleLayers = [],
   npwsSearchRadius = 5,
 }: ProjectMapWithDrawProps) {
@@ -403,6 +390,14 @@ export function ProjectMapWithDraw({
 
   // NPWS layer overlay
   const { sites: npwsSites, isLoading: npwsLoading } = useNPWSLayers(
+    mapRef.current,
+    boundary ?? null,
+    visibleLayers,
+    npwsSearchRadius
+  )
+
+  // EPA layer overlay (rivers, lakes, catchments) - fetched within buffer zone
+  const { counts: epaCounts, isLoading: epaLoading } = useEPALayers(
     mapRef.current,
     boundary ?? null,
     visibleLayers,
@@ -479,35 +474,37 @@ export function ProjectMapWithDraw({
       {/* Map controls overlay */}
       <div className="absolute top-4 left-4 z-1000 flex flex-col gap-2">
         {/* Style selector */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="secondary" size="sm" className="shadow-md">
-              <Layers className="mr-2 h-4 w-4" />
-              Layers
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuLabel>Map Style</DropdownMenuLabel>
-            <DropdownMenuCheckboxItem
-              checked={currentStyle === 'streets'}
-              onCheckedChange={() => setCurrentStyle('streets')}
-            >
-              Streets (OSM)
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              checked={currentStyle === 'satellite'}
-              onCheckedChange={() => setCurrentStyle('satellite')}
-            >
-              Satellite (ESRI)
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              checked={currentStyle === 'topo'}
-              onCheckedChange={() => setCurrentStyle('topo')}
-            >
-              Topographic
-            </DropdownMenuCheckboxItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {showLayersControl && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="secondary" size="sm" className="shadow-md">
+                <Layers className="mr-2 h-4 w-4" />
+                Layers
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuLabel>Map Style</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem
+                checked={currentStyle === 'streets'}
+                onCheckedChange={() => setCurrentStyle('streets')}
+              >
+                Streets (OSM)
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={currentStyle === 'satellite'}
+                onCheckedChange={() => setCurrentStyle('satellite')}
+              >
+                Satellite (ESRI)
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={currentStyle === 'topo'}
+                onCheckedChange={() => setCurrentStyle('topo')}
+              >
+                Topographic
+              </DropdownMenuCheckboxItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
 
         {/* Fullscreen toggle */}
         <Button variant="secondary" size="icon" className="shadow-md" onClick={toggleFullscreen}>
@@ -538,18 +535,51 @@ export function ProjectMapWithDraw({
         </Button>
       </div>
 
-      {/* NPWS loading/sites indicator - bottom left */}
-      {visibleLayers.some((l) => ['sac', 'spa', 'nha', 'pnha'].includes(l)) && (
-        <div className="bg-background/90 absolute bottom-4 left-4 z-1000 rounded-lg px-3 py-2 text-sm shadow-lg backdrop-blur-sm">
-          {npwsLoading ? (
-            <span className="text-muted-foreground">Loading NPWS sites...</span>
-          ) : npwsSites.length > 0 ? (
-            <span className="text-emerald-600">
-              {npwsSites.length} designated site{npwsSites.length !== 1 ? 's' : ''} found
-            </span>
-          ) : boundary ? (
-            <span className="text-muted-foreground">No designated sites nearby</span>
-          ) : null}
+      {/* Data layers info indicator - bottom left */}
+      {(visibleLayers.some((l) => ['sac', 'spa', 'nha', 'pnha'].includes(l)) ||
+        visibleLayers.some((l) =>
+          ['rivers', 'lakes', 'catchments', 'wfd_river_status'].includes(l)
+        )) && (
+        <div className="bg-background/90 absolute bottom-4 left-4 z-1000 space-y-1 rounded-lg px-3 py-2 text-sm shadow-lg backdrop-blur-sm">
+          {/* NPWS Sites */}
+          {visibleLayers.some((l) => ['sac', 'spa', 'nha', 'pnha'].includes(l)) && (
+            <div>
+              {npwsLoading ? (
+                <span className="text-muted-foreground">Loading NPWS sites...</span>
+              ) : npwsSites.length > 0 ? (
+                <span className="text-emerald-600">
+                  {npwsSites.length} designated site{npwsSites.length !== 1 ? 's' : ''} found
+                </span>
+              ) : boundary ? (
+                <span className="text-muted-foreground">No designated sites nearby</span>
+              ) : null}
+            </div>
+          )}
+          {/* EPA Data */}
+          {visibleLayers.some((l) =>
+            ['rivers', 'lakes', 'catchments', 'wfd_river_status'].includes(l)
+          ) && (
+            <div>
+              {epaLoading ? (
+                <span className="text-muted-foreground">Loading EPA data...</span>
+              ) : epaCounts.total > 0 ? (
+                <span className="text-sky-600">
+                  {epaCounts.rivers > 0 &&
+                    `${epaCounts.rivers} river${epaCounts.rivers !== 1 ? 's' : ''}`}
+                  {epaCounts.rivers > 0 && epaCounts.lakes > 0 && ', '}
+                  {epaCounts.lakes > 0 &&
+                    `${epaCounts.lakes} lake${epaCounts.lakes !== 1 ? 's' : ''}`}
+                  {(epaCounts.rivers > 0 || epaCounts.lakes > 0) &&
+                    epaCounts.catchments > 0 &&
+                    ', '}
+                  {epaCounts.catchments > 0 &&
+                    `${epaCounts.catchments} catchment${epaCounts.catchments !== 1 ? 's' : ''}`}
+                </span>
+              ) : boundary ? (
+                <span className="text-muted-foreground">No EPA features nearby</span>
+              ) : null}
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -212,6 +212,11 @@ export function useNPWSLayers(
   // Calculate bounding box from boundary with buffer
   const getBoundingBox = React.useCallback(
     (feature: GeoJSON.Feature<GeoJSON.Polygon>) => {
+      // Safety check for valid geometry
+      if (!feature?.geometry?.coordinates?.[0]) {
+        return null
+      }
+
       const coords = feature.geometry.coordinates[0]
       let minLng = Infinity,
         maxLng = -Infinity,
@@ -239,7 +244,7 @@ export function useNPWSLayers(
 
   // Fetch NPWS sites
   React.useEffect(() => {
-    if (!boundary || activeSiteTypes.length === 0) {
+    if (!boundary?.geometry?.coordinates?.[0] || activeSiteTypes.length === 0) {
       setSites([])
       return
     }
@@ -248,6 +253,10 @@ export function useNPWSLayers(
       setIsLoading(true)
       try {
         const bbox = getBoundingBox(boundary)
+        if (!bbox) {
+          setSites([])
+          return
+        }
         const fetchedSites = await queryDesignatedSites({
           bbox,
           siteTypes: activeSiteTypes,

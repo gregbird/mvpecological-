@@ -881,6 +881,21 @@ export type Database = {
           role: Database['public']['Enums']['user_role']
         }[]
       }
+      update_project_boundary: {
+        Args: {
+          p_project_id: string
+          p_boundary: Json
+          p_center_point: Json
+          p_grid_reference: string
+        }
+        Returns: Database['public']['Tables']['projects']['Row']
+      }
+      get_project_with_geojson: {
+        Args: {
+          p_project_id: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       audit_action: 'INSERT' | 'UPDATE' | 'DELETE'

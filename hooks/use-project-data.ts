@@ -9,6 +9,7 @@ import {
   createProject,
   updateProject,
   updateProjectBoundary,
+  deleteProject,
   type ProjectWithRelations,
   // Workflow
   getWorkflowSteps,
@@ -152,14 +153,26 @@ export function useUpdateProjectBoundary() {
       gridReference,
     }: {
       projectId: string
-      boundary: unknown
-      centerPoint: unknown
+      boundary: GeoJSON.Feature<GeoJSON.Polygon> | GeoJSON.Polygon
+      centerPoint: GeoJSON.Point | { type: 'Point'; coordinates: [number, number] }
       gridReference: string
     }) => updateProjectBoundary(projectId, boundary, centerPoint, gridReference),
     onSuccess: (data, variables) => {
       if (data) {
         queryClient.invalidateQueries({ queryKey: ['project', variables.projectId] })
       }
+    },
+  })
+}
+
+export function useDeleteProject() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (projectId: string) => deleteProject(projectId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: ['assigned-projects'] })
     },
   })
 }

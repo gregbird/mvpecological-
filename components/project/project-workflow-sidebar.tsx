@@ -2,14 +2,18 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
   Check,
   PanelLeftClose,
   PanelLeft,
-  Circle,
   ChevronUp,
   ChevronDown,
+  MoreVertical,
+  Settings,
+  Trash2,
+  Loader2,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -23,6 +27,26 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { useToast } from '@/hooks/use-toast'
+import { useDeleteProject } from '@/hooks/use-project-data'
+import { useRole } from '@/contexts/role-context'
 import { useProjectContext } from '@/contexts/project-context'
 import {
   WORKFLOW_PHASES,
@@ -32,6 +56,10 @@ import {
 } from '@/lib/config/workflow'
 
 export function ProjectWorkflowSidebar() {
+  const router = useRouter()
+  const { toast } = useToast()
+  const { permissions } = useRole()
+  const deleteProject = useDeleteProject()
   const {
     project,
     workflowSteps,
@@ -50,6 +78,34 @@ export function ProjectWorkflowSidebar() {
 
   // Header collapse state - auto collapse when on GIS mapping step (step 1)
   const [isHeaderCollapsed, setIsHeaderCollapsed] = React.useState(currentStepNumber === 1)
+
+  // Delete confirmation dialog
+  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false)
+
+  const handleDeleteProject = async () => {
+    if (!project) return
+
+    try {
+      const success = await deleteProject.mutateAsync(project.id)
+      if (success) {
+        toast({
+          title: 'Project deleted',
+          description: 'The project has been permanently deleted.',
+        })
+        router.push('/projects')
+      } else {
+        throw new Error('Failed to delete project')
+      }
+    } catch (error) {
+      console.error('Delete project error:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to delete project. Please try again.',
+      })
+    }
+    setShowDeleteDialog(false)
+  }
 
   // Update header collapse when step changes
   React.useEffect(() => {
@@ -226,35 +282,64 @@ export function ProjectWorkflowSidebar() {
       {/* Project Header - Collapsible */}
       <div className="border-border border-b">
         {/* Collapsed Header - Always visible */}
-        <button
-          onClick={() => setIsHeaderCollapsed(!isHeaderCollapsed)}
-          className="hover:bg-muted/50 flex w-full items-center justify-between px-4 py-3 transition-colors"
-        >
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <h2 className="text-foreground truncate text-sm font-semibold">
-              {project?.name || 'Loading...'}
-            </h2>
-            <Badge
-              variant="outline"
-              className={cn('h-5 shrink-0 px-1.5 text-[10px] font-medium capitalize', {
-                'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-400':
-                  project?.status === 'active',
-                'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400':
-                  project?.status === 'archived',
-                'border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-400':
-                  project?.status === 'completed',
-                'border-border bg-muted text-muted-foreground': project?.status === 'draft',
-              })}
-            >
-              {project?.status}
-            </Badge>
-          </div>
-          {isHeaderCollapsed ? (
-            <ChevronDown className="text-muted-foreground h-4 w-4 shrink-0" />
-          ) : (
-            <ChevronUp className="text-muted-foreground h-4 w-4 shrink-0" />
-          )}
-        </button>
+        <div className="flex items-center gap-1 px-4 py-3">
+          <button
+            onClick={() => setIsHeaderCollapsed(!isHeaderCollapsed)}
+            className="hover:bg-muted/50 flex min-w-0 flex-1 items-center justify-between rounded-md px-1 py-1 transition-colors"
+          >
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <h2 className="text-foreground truncate text-sm font-semibold">
+                {project?.name || 'Loading...'}
+              </h2>
+              <Badge
+                variant="outline"
+                className={cn('h-5 shrink-0 px-1.5 text-[10px] font-medium capitalize', {
+                  'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-400':
+                    project?.status === 'active',
+                  'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400':
+                    project?.status === 'archived',
+                  'border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-400':
+                    project?.status === 'completed',
+                  'border-border bg-muted text-muted-foreground': project?.status === 'draft',
+                })}
+              >
+                {project?.status}
+              </Badge>
+            </div>
+            {isHeaderCollapsed ? (
+              <ChevronDown className="text-muted-foreground h-4 w-4 shrink-0" />
+            ) : (
+              <ChevronUp className="text-muted-foreground h-4 w-4 shrink-0" />
+            )}
+          </button>
+
+          {/* Project Actions Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem disabled>
+                <Settings className="mr-2 h-4 w-4" />
+                Project Settings
+              </DropdownMenuItem>
+              {permissions.canDeleteProject && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-red-600 focus:bg-red-50 focus:text-red-600 dark:text-red-400 dark:focus:bg-red-950"
+                    onClick={() => setShowDeleteDialog(true)}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete Project
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
         {/* Expanded Content */}
         <div
@@ -314,8 +399,8 @@ export function ProjectWorkflowSidebar() {
 
       {/* Workflow Phases */}
       <ScrollArea className="flex-1">
-        <div className="p-3">
-          <Accordion type="multiple" defaultValue={defaultExpandedPhases} className="space-y-2">
+        <div className="py-2">
+          <Accordion type="multiple" defaultValue={defaultExpandedPhases}>
             {WORKFLOW_PHASES.map((phase) => {
               const phaseSteps = phase.steps
               const completedInPhase = phaseSteps.filter(
@@ -326,69 +411,30 @@ export function ProjectWorkflowSidebar() {
               const colors = getPhaseColorClasses(phase.id)
 
               return (
-                <AccordionItem
-                  key={phase.id}
-                  value={phase.id}
-                  className={cn(
-                    'rounded-lg border',
-                    hasActiveStep ? colors.border : 'border-border'
-                  )}
-                >
+                <AccordionItem key={phase.id} value={phase.id} className="border-b-0">
                   <AccordionTrigger
                     className={cn(
-                      'flex w-full items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-all hover:no-underline',
-                      hasActiveStep ? colors.bgLight : 'hover:bg-muted/50',
-                      hasActiveStep ? colors.text : 'text-foreground'
+                      'hover:bg-muted/50 flex w-full items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all hover:no-underline',
+                      hasActiveStep && colors.text
                     )}
                   >
-                    <div
+                    <phase.icon
                       className={cn(
-                        'flex h-8 w-8 items-center justify-center rounded-lg',
+                        'h-4 w-4 shrink-0',
                         isPhaseComplete
-                          ? 'bg-emerald-100 dark:bg-emerald-900'
+                          ? 'text-emerald-500'
                           : hasActiveStep
-                            ? colors.bgLight
-                            : 'bg-muted'
+                            ? colors.text
+                            : 'text-muted-foreground'
                       )}
-                    >
-                      {isPhaseComplete ? (
-                        <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                      ) : (
-                        <phase.icon
-                          className={cn(
-                            'h-4 w-4',
-                            hasActiveStep ? colors.text : 'text-muted-foreground'
-                          )}
-                        />
-                      )}
-                    </div>
-                    <div className="flex flex-1 flex-col items-start gap-0.5">
-                      <span className="text-left">{phase.label}</span>
-                      <span className="text-muted-foreground text-[10px] font-normal">
-                        {completedInPhase}/{phaseSteps.length} steps
-                      </span>
-                    </div>
-                    {/* Mini progress indicator */}
-                    <div className="mr-2 flex gap-1">
-                      {phaseSteps.map((step) => {
-                        const stepStatus = getStepStatus(step.number)
-                        return (
-                          <div
-                            key={step.number}
-                            className={cn(
-                              'h-1.5 w-1.5 rounded-full',
-                              stepStatus === 'completed' && 'bg-emerald-500',
-                              stepStatus === 'active' && colors.bg,
-                              stepStatus === 'pending' && 'bg-muted-foreground/30',
-                              stepStatus === 'locked' && 'bg-muted-foreground/20'
-                            )}
-                          />
-                        )
-                      })}
-                    </div>
+                    />
+                    <span className="flex-1 text-left">{phase.label}</span>
+                    <span className="text-muted-foreground mr-1 text-[11px] font-normal">
+                      {completedInPhase}/{phaseSteps.length}
+                    </span>
                   </AccordionTrigger>
-                  <AccordionContent className="px-3 pt-0 pb-2">
-                    <div className="space-y-1">
+                  <AccordionContent className="pb-1">
+                    <div className="border-border ml-4 space-y-0.5 border-l pl-4">
                       {phaseSteps.map((step) => {
                         const status = getStepStatus(step.number)
                         const isActive = status === 'active'
@@ -401,7 +447,7 @@ export function ProjectWorkflowSidebar() {
                             onClick={() => !isLocked && navigateToStep(step.number)}
                             disabled={isLocked}
                             className={cn(
-                              'group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all',
+                              'group flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-all',
                               isActive && cn(colors.bgLight, 'font-medium', colors.text),
                               isCompleted &&
                                 'text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -414,25 +460,20 @@ export function ProjectWorkflowSidebar() {
                           >
                             <span
                               className={cn(
-                                'flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold transition-all',
-                                isActive && cn(colors.bg, 'text-white shadow-sm'),
+                                'flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold',
+                                isActive && cn(colors.bg, 'text-white'),
                                 isCompleted &&
                                   'bg-emerald-100 text-emerald-600 dark:bg-emerald-900 dark:text-emerald-400',
                                 isLocked && 'bg-muted text-muted-foreground/50',
                                 !isActive &&
                                   !isCompleted &&
                                   !isLocked &&
-                                  'bg-muted text-muted-foreground group-hover:bg-muted-foreground/20'
+                                  'bg-muted text-muted-foreground'
                               )}
                             >
-                              {isCompleted ? <Check className="h-3.5 w-3.5" /> : step.number}
+                              {isCompleted ? <Check className="h-3 w-3" /> : step.number}
                             </span>
                             <span className="flex-1 truncate text-left">{step.label}</span>
-                            {isActive && (
-                              <Circle
-                                className={cn('h-2 w-2 animate-pulse fill-current', colors.text)}
-                              />
-                            )}
                           </button>
                         )
                       })}
@@ -444,6 +485,37 @@ export function ProjectWorkflowSidebar() {
           </Accordion>
         </div>
       </ScrollArea>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the project
+              <span className="font-semibold"> &quot;{project?.name}&quot;</span> and all associated
+              data including surveys, findings, and reports.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteProject}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteProject.isPending}
+            >
+              {deleteProject.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete Project'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </aside>
   )
 }

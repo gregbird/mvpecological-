@@ -327,6 +327,7 @@ export function DataGatheringStep({
                 findings={allSavedFindings}
                 selectedFinding={selectedFinding}
                 onFindingClick={(finding) => setSelectedFinding(finding)}
+                showControls={false}
               />
               {selectedFinding && (
                 <div className="bg-muted mt-3 rounded-lg p-3">

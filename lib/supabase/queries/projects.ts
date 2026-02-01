@@ -12,14 +12,30 @@ export interface ProjectWithRelations extends Project {
   workflow_steps?: WorkflowStep[]
 }
 
-// Get single project by ID
+// Get single project by ID with boundary as GeoJSON
 export async function getProject(projectId: string): Promise<ProjectWithRelations | null> {
   const supabase = createClient()
-  const { data, error } = await supabase
+
+  // First get the project with GeoJSON boundary using RPC
+  const { data: projectData, error: projectError } = await supabase.rpc(
+    'get_project_with_geojson',
+    {
+      p_project_id: projectId,
+    }
+  )
+
+  if (projectError || !projectData) {
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[Supabase] Project fetch error:', projectError?.code)
+    }
+    return null
+  }
+
+  // Then get the related data
+  const { data: relatedData, error: relatedError } = await supabase
     .from('projects')
     .select(
       `
-      *,
       client:clients(id, name),
       members:project_members(
         *,
@@ -31,15 +47,20 @@ export async function getProject(projectId: string): Promise<ProjectWithRelation
     .eq('id', projectId)
     .single()
 
-  if (error) {
-    // Supabase bağlantısı yoksa veya tablo yoksa sessizce devam et (mock data kullanılacak)
+  if (relatedError) {
     if (process.env.NODE_ENV === 'development') {
-      console.debug('[Supabase] Project fetch skipped - using mock data:', error.code)
+      console.debug('[Supabase] Related data fetch error:', relatedError.code)
     }
-    return null
   }
 
-  return data as unknown as ProjectWithRelations
+  // Merge project data with related data
+  const project = projectData as Record<string, unknown>
+  return {
+    ...project,
+    client: relatedData?.client || null,
+    members: relatedData?.members || [],
+    workflow_steps: relatedData?.workflow_steps || [],
+  } as unknown as ProjectWithRelations
 }
 
 // Get all projects for organization
@@ -129,10 +150,11 @@ export async function updateProject(
 }
 
 // Update project boundary (GIS data)
+// Uses RPC function to properly convert GeoJSON to PostGIS geometry
 export async function updateProjectBoundary(
   projectId: string,
-  boundary: unknown,
-  centerPoint: unknown,
+  boundary: GeoJSON.Feature<GeoJSON.Polygon> | GeoJSON.Polygon,
+  centerPoint: GeoJSON.Point | { type: 'Point'; coordinates: [number, number] },
   gridReference: string
 ): Promise<Project | null> {
   const supabase = createClient()
@@ -144,17 +166,16 @@ export async function updateProjectBoundary(
     hasCenterPoint: !!centerPoint,
   })
 
-  const { data, error } = await supabase
-    .from('projects')
-    .update({
-      boundary,
-      center_point: centerPoint,
-      grid_reference: gridReference,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', projectId)
-    .select()
-    .single()
+  // Use RPC function to convert GeoJSON to PostGIS geometry
+  // Cast to Json type for Supabase RPC
+  const { data, error } = await supabase.rpc('update_project_boundary', {
+    p_project_id: projectId,
+    p_boundary:
+      boundary as unknown as Database['public']['Functions']['update_project_boundary']['Args']['p_boundary'],
+    p_center_point:
+      centerPoint as unknown as Database['public']['Functions']['update_project_boundary']['Args']['p_center_point'],
+    p_grid_reference: gridReference,
+  })
 
   if (error) {
     console.error('Error updating project boundary:', {
@@ -163,10 +184,6 @@ export async function updateProjectBoundary(
       details: error.details,
       hint: error.hint,
     })
-    // Check if it's a connection issue or mock data scenario
-    if (error.code === 'PGRST116' || error.code === '42P01') {
-      console.warn('[updateProjectBoundary] Table or row not found - possibly using mock data')
-    }
     return null
   }
 
