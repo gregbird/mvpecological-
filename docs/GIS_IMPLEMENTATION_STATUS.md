@@ -596,7 +596,7 @@ Dokümandan alınan minimum attribute fields (GIS data section):
 
 **Source URL'leri:**
 
-- NPWS findings: `https://www.npws.ie/ProtectedSites/{type}/{siteCode}`
+- NPWS findings: `https://www.npws.ie/protected-sites/{type}/{siteCode}` (örn: `/protected-sites/sac/002122`)
 - GBIF findings: `https://www.gbif.org/species/{speciesKey}`
 - NBDC findings: `https://maps.biodiversityireland.ie/Species/{taxonId}`
 - EPA findings: `https://www.catchments.ie/data/#/waterbody/{code}`

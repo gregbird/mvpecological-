@@ -60,10 +60,33 @@ export function DesignatedSitesSubStep({
   const createFinding = useCreateFinding()
   const deleteFinding = useDeleteFinding()
 
+  // Cache key for sessionStorage
+  const cacheKey = `npws-search-${project.id}`
+
   const [isSearching, setIsSearching] = React.useState(false)
-  const [searchResults, setSearchResults] = React.useState<FindingDisplay[]>([])
+  const [searchResults, setSearchResults] = React.useState<FindingDisplay[]>(() => {
+    // Restore from sessionStorage on mount
+    if (typeof window !== 'undefined') {
+      const cached = sessionStorage.getItem(cacheKey)
+      if (cached) {
+        try {
+          return JSON.parse(cached)
+        } catch {
+          return []
+        }
+      }
+    }
+    return []
+  })
   const [selectedBuffer, setSelectedBuffer] = React.useState<number>(bufferDistances[0] || 2)
   const [selectedFinding, setSelectedFinding] = React.useState<FindingDisplay | null>(null)
+
+  // Save to sessionStorage when results change
+  React.useEffect(() => {
+    if (searchResults.length > 0) {
+      sessionStorage.setItem(cacheKey, JSON.stringify(searchResults))
+    }
+  }, [searchResults, cacheKey])
 
   // Calculate distance from finding location to project boundary
   const calculateDistanceFromBoundary = React.useCallback(
@@ -165,18 +188,27 @@ export function DesignatedSitesSubStep({
         },
       })
 
-      const findings: FindingDisplay[] = results.map((site) => {
+      // Deduplicate results by SITECODE + SITE_TYPE combination
+      const uniqueResults = results.filter(
+        (site, index, self) =>
+          index ===
+          self.findIndex((s) => s.SITECODE === site.SITECODE && s.SITE_TYPE === site.SITE_TYPE)
+      )
+
+      const findings: FindingDisplay[] = uniqueResults.map((site, idx) => {
+        // NPWS URL format: https://www.npws.ie/protected-sites/sac/002122
         const siteTypeUrlMap: Record<string, string> = {
-          SAC: 'ProtectedSites/SAC',
-          SPA: 'ProtectedSites/SPA',
-          NHA: 'ProtectedSites/NHA',
-          pNHA: 'ProtectedSites/pNHA',
+          SAC: 'protected-sites/sac',
+          SPA: 'protected-sites/spa',
+          NHA: 'protected-sites/nha',
+          pNHA: 'protected-sites/pnha',
         }
-        const urlPath = siteTypeUrlMap[site.SITE_TYPE || ''] || 'ProtectedSites'
+        const urlPath = siteTypeUrlMap[site.SITE_TYPE || ''] || 'protected-sites'
         const distance = calculateDistanceFromBoundary(site.geometry)
 
         return {
-          id: `npws-${site.SITECODE}`,
+          // Use SITECODE + SITE_TYPE + OBJECTID for unique ID
+          id: `npws-${site.SITECODE}-${site.SITE_TYPE || 'unknown'}-${site.OBJECTID || idx}`,
           source: 'npws',
           dataType: 'designated_site',
           title: site.SITENAME,
@@ -279,8 +311,8 @@ export function DesignatedSitesSubStep({
 
   return (
     <div className="flex h-full">
-      {/* Results Panel */}
-      <div className="flex w-96 flex-col border-r">
+      {/* Results Panel - 340px fixed width with compact cards */}
+      <div className="flex w-[340px] shrink-0 flex-col border-r">
         {/* Search Controls */}
         <div className="border-b p-4">
           <h3 className="mb-3 font-semibold">Designated Sites (NPWS)</h3>

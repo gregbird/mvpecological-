@@ -82,15 +82,31 @@ export function DataGatheringStep({
     workflowStep.status === 'approved' || workflowStep.status === 'needs_review'
   const hasBoundary = !!project.boundary
 
+  // Cache key for wizard step
+  const wizardStepCacheKey = `data-gathering-step-${project.id}`
+
   // View mode: preview or wizard
   const [viewMode, setViewMode] = React.useState<ViewMode>(() => {
     if (isStepCompleted) return 'preview'
     return 'wizard'
   })
 
-  // Wizard state
-  const [currentStep, setCurrentStep] = React.useState<WizardStep>('info')
+  // Wizard state - restore from sessionStorage
+  const [currentStep, setCurrentStep] = React.useState<WizardStep>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = sessionStorage.getItem(wizardStepCacheKey)
+      if (cached && ['info', 'sites', 'species', 'aquatic', 'review'].includes(cached)) {
+        return cached as WizardStep
+      }
+    }
+    return 'info'
+  })
   const [showMap, setShowMap] = React.useState(true)
+
+  // Save current step to sessionStorage
+  React.useEffect(() => {
+    sessionStorage.setItem(wizardStepCacheKey, currentStep)
+  }, [currentStep, wizardStepCacheKey])
 
   // Data hooks
   const { data: savedFindings = [], isLoading: isLoadingFindings } = useSavedFindings(project.id)
@@ -401,6 +417,7 @@ export function DataGatheringStep({
             project={project}
             bufferDistances={bufferDistances}
             savedFindingsCount={savedFindings.length}
+            onNext={goNext}
           />
         )}
 

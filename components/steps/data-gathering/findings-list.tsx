@@ -194,97 +194,76 @@ export function FindingsList({
 
       {/* Findings list */}
       <ScrollArea className="flex-1">
-        <div className="space-y-2 p-4">
+        <div className="space-y-1.5 p-2">
           {paginatedFindings.map((finding) => {
             const saved = isFindingSaved(finding)
             return (
-              <Card key={finding.id} className={saved ? 'border-emerald-300 bg-emerald-50/50' : ''}>
-                <CardContent className="p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      {/* Title row */}
-                      <div className="flex items-center gap-2">
-                        <h4 className="truncate font-medium">{finding.title}</h4>
-                        {finding.metadata?.isProtected && (
-                          <Shield className="h-4 w-4 shrink-0 text-red-500" />
-                        )}
-                        {finding.metadata?.redListStatus && (
-                          <Badge variant="destructive" className="shrink-0 text-[10px]">
-                            {finding.metadata.redListStatus}
-                          </Badge>
-                        )}
-                      </div>
+              <div
+                key={finding.id}
+                className={`rounded-lg border p-2.5 transition-colors ${saved ? 'border-emerald-400 bg-emerald-50' : 'hover:bg-gray-50'}`}
+              >
+                {/* Title + Save button row */}
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="min-w-0 flex-1 truncate text-sm font-medium" title={finding.title}>
+                    {finding.title}
+                  </h4>
+                  <Button
+                    variant={saved ? 'secondary' : 'default'}
+                    size="sm"
+                    className="h-6 shrink-0 px-2 text-[11px]"
+                    onClick={() => onSave({ ...finding, isSaved: !saved })}
+                  >
+                    {saved ? '✓' : 'Save'}
+                  </Button>
+                </div>
 
-                      {/* Content */}
-                      {finding.content && (
-                        <p className="text-muted-foreground mt-1 line-clamp-2 text-sm">
-                          {finding.content}
-                        </p>
-                      )}
+                {/* Compact badges row */}
+                <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                  <Badge
+                    variant="secondary"
+                    className={`h-5 px-1.5 text-[10px] ${SOURCE_COLORS[finding.source] || ''}`}
+                  >
+                    {finding.source.toUpperCase()}
+                  </Badge>
+                  {finding.metadata?.distance !== undefined && (
+                    <Badge variant="outline" className="h-5 gap-0.5 px-1.5 text-[10px]">
+                      <MapPin className="h-2.5 w-2.5" />
+                      {finding.metadata.distance === 0
+                        ? 'Within'
+                        : `${finding.metadata.distance.toFixed(1)}km`}
+                    </Badge>
+                  )}
+                  {finding.metadata?.isProtected && <Shield className="h-3.5 w-3.5 text-red-500" />}
+                  {finding.metadata?.redListStatus && (
+                    <Badge variant="destructive" className="h-5 px-1.5 text-[10px]">
+                      {finding.metadata.redListStatus}
+                    </Badge>
+                  )}
+                </div>
 
-                      {/* Badges row */}
-                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                        <Badge
-                          variant="secondary"
-                          className={`text-[10px] ${SOURCE_COLORS[finding.source] || ''}`}
-                        >
-                          {finding.source.toUpperCase()}
-                        </Badge>
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] ${TYPE_COLORS[finding.dataType] || ''}`}
-                        >
-                          {finding.dataType.replace('_', ' ')}
-                        </Badge>
-                        {finding.metadata?.distance !== undefined && (
-                          <Badge variant="outline" className="gap-1 text-[10px]">
-                            <MapPin className="h-3 w-3" />
-                            {finding.metadata.distance === 0
-                              ? 'Within site'
-                              : `${finding.metadata.distance.toFixed(1)} km`}
-                          </Badge>
-                        )}
-                        {finding.metadata?.recordCount && finding.metadata.recordCount > 1 && (
-                          <Badge variant="outline" className="text-[10px]">
-                            {finding.metadata.recordCount} records
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex shrink-0 flex-col gap-1">
-                      <Button
-                        variant={saved ? 'secondary' : 'default'}
-                        size="sm"
-                        className="h-7 text-xs"
-                        onClick={() => onSave({ ...finding, isSaved: !saved })}
-                      >
-                        {saved ? 'Saved' : 'Save'}
-                      </Button>
-                      {finding.location && onViewOnMap && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs"
-                          onClick={() => onViewOnMap(finding)}
-                        >
-                          <MapPin className="mr-1 h-3 w-3" />
-                          Map
-                        </Button>
-                      )}
-                      {finding.sourceUrl && (
-                        <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
-                          <a href={finding.sourceUrl} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="mr-1 h-3 w-3" />
-                            Source
-                          </a>
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                {/* Compact action links */}
+                <div className="mt-1.5 flex items-center gap-3 text-[11px]">
+                  {finding.location && onViewOnMap && (
+                    <button
+                      className="text-blue-600 hover:underline"
+                      onClick={() => onViewOnMap(finding)}
+                    >
+                      View on map
+                    </button>
+                  )}
+                  {finding.sourceUrl && (
+                    <a
+                      href={finding.sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-gray-500 hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Source ↗
+                    </a>
+                  )}
+                </div>
+              </div>
             )
           })}
 

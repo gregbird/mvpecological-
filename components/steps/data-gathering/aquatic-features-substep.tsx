@@ -60,10 +60,29 @@ export function AquaticFeaturesSubStep({
   const createFinding = useCreateFinding()
   const deleteFinding = useDeleteFinding()
 
+  // Cache key for sessionStorage
+  const cacheKey = `epa-search-${project.id}`
+
   const [isSearching, setIsSearching] = React.useState(false)
-  const [searchResults, setSearchResults] = React.useState<FindingDisplay[]>([])
+  const [searchResults, setSearchResults] = React.useState<FindingDisplay[]>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = sessionStorage.getItem(cacheKey)
+      if (cached)
+        try {
+          return JSON.parse(cached)
+        } catch {
+          return []
+        }
+    }
+    return []
+  })
   const [selectedBuffer, setSelectedBuffer] = React.useState<number>(bufferDistances[0] || 2)
   const [selectedFinding, setSelectedFinding] = React.useState<FindingDisplay | null>(null)
+
+  // Save to sessionStorage when results change
+  React.useEffect(() => {
+    if (searchResults.length > 0) sessionStorage.setItem(cacheKey, JSON.stringify(searchResults))
+  }, [searchResults, cacheKey])
 
   // Calculate distance from finding location to project boundary
   const calculateDistanceFromBoundary = React.useCallback(
@@ -331,7 +350,7 @@ export function AquaticFeaturesSubStep({
   return (
     <div className="flex h-full">
       {/* Results Panel */}
-      <div className="flex w-96 flex-col border-r">
+      <div className="flex w-[340px] shrink-0 flex-col border-r">
         {/* Search Controls */}
         <div className="border-b p-4">
           <h3 className="mb-3 flex items-center gap-2 font-semibold">

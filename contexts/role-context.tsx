@@ -117,10 +117,14 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = React.useState<UserWithOrganization | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
+  const isInitialLoad = React.useRef(true)
 
-  const fetchUser = React.useCallback(async (retryCount = 0) => {
+  const fetchUser = React.useCallback(async (retryCount = 0, showLoading = true) => {
     try {
-      setIsLoading(true)
+      // Only show loading on initial load, not on token refresh
+      if (showLoading && isInitialLoad.current) {
+        setIsLoading(true)
+      }
       setError(null)
 
       const supabase = createClient()
@@ -181,7 +185,10 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
       // Silently handle errors - user will be treated as unauthenticated
       setUser(null)
     } finally {
-      setIsLoading(false)
+      if (isInitialLoad.current) {
+        setIsLoading(false)
+        isInitialLoad.current = false
+      }
     }
   }, [])
 
@@ -197,8 +204,12 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        fetchUser()
+      if (event === 'SIGNED_IN') {
+        // Full fetch on sign in
+        fetchUser(0, true)
+      } else if (event === 'TOKEN_REFRESHED') {
+        // Silent fetch on token refresh - don't show loading
+        fetchUser(0, false)
       } else if (event === 'SIGNED_OUT') {
         setUser(null)
         setIsLoading(false)

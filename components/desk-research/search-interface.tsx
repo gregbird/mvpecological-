@@ -289,13 +289,14 @@ export function SearchInterface({
             const isSaved = savedFindings.some((f) => f.metadata?.siteCode === site.SITECODE)
 
             // Generate NPWS site URL based on site type
+            // NPWS URL format: https://www.npws.ie/protected-sites/sac/002122
             const siteTypeUrlMap: Record<string, string> = {
-              SAC: 'ProtectedSites/SAC',
-              SPA: 'ProtectedSites/SPA',
-              NHA: 'ProtectedSites/NHA',
-              pNHA: 'ProtectedSites/pNHA',
+              SAC: 'protected-sites/sac',
+              SPA: 'protected-sites/spa',
+              NHA: 'protected-sites/nha',
+              pNHA: 'protected-sites/pnha',
             }
-            const urlPath = siteTypeUrlMap[site.SITE_TYPE || ''] || 'ProtectedSites'
+            const urlPath = siteTypeUrlMap[site.SITE_TYPE || ''] || 'protected-sites'
 
             const distance = calculateDistanceFromBoundary(site.geometry)
 

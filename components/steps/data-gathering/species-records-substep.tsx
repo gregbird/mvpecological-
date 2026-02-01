@@ -62,12 +62,47 @@ export function SpeciesRecordsSubStep({
   const createFinding = useCreateFinding()
   const deleteFinding = useDeleteFinding()
 
+  // Cache keys for sessionStorage
+  const gbifCacheKey = `gbif-search-${project.id}`
+  const nbdcCacheKey = `nbdc-search-${project.id}`
+
   const [activeTab, setActiveTab] = React.useState<'gbif' | 'nbdc'>('gbif')
   const [isSearching, setIsSearching] = React.useState(false)
-  const [gbifResults, setGbifResults] = React.useState<FindingDisplay[]>([])
-  const [nbdcResults, setNbdcResults] = React.useState<FindingDisplay[]>([])
+  const [gbifResults, setGbifResults] = React.useState<FindingDisplay[]>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = sessionStorage.getItem(gbifCacheKey)
+      if (cached)
+        try {
+          return JSON.parse(cached)
+        } catch {
+          return []
+        }
+    }
+    return []
+  })
+  const [nbdcResults, setNbdcResults] = React.useState<FindingDisplay[]>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = sessionStorage.getItem(nbdcCacheKey)
+      if (cached)
+        try {
+          return JSON.parse(cached)
+        } catch {
+          return []
+        }
+    }
+    return []
+  })
   const [selectedBuffer, setSelectedBuffer] = React.useState<number>(bufferDistances[0] || 2)
   const [selectedFinding, setSelectedFinding] = React.useState<FindingDisplay | null>(null)
+
+  // Save to sessionStorage when results change
+  React.useEffect(() => {
+    if (gbifResults.length > 0) sessionStorage.setItem(gbifCacheKey, JSON.stringify(gbifResults))
+  }, [gbifResults, gbifCacheKey])
+
+  React.useEffect(() => {
+    if (nbdcResults.length > 0) sessionStorage.setItem(nbdcCacheKey, JSON.stringify(nbdcResults))
+  }, [nbdcResults, nbdcCacheKey])
 
   // Calculate distance from finding location to project boundary
   const calculateDistanceFromBoundary = React.useCallback(
@@ -411,7 +446,7 @@ export function SpeciesRecordsSubStep({
   return (
     <div className="flex h-full">
       {/* Results Panel */}
-      <div className="flex w-96 flex-col border-r">
+      <div className="flex w-[340px] shrink-0 flex-col border-r">
         {/* Search Controls */}
         <div className="border-b p-4">
           <h3 className="mb-3 font-semibold">Species Records</h3>
