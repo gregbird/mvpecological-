@@ -1,17 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import {
-  Search,
-  Loader2,
-  Filter,
-  ArrowUpDown,
-  Save,
-  ExternalLink,
-  MapPin,
-  Shield,
-  AlertTriangle,
-} from 'lucide-react'
+import { Search, Loader2, ArrowUpDown, MapPin, Shield, Bug, Sparkles } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -48,6 +38,14 @@ export interface FindingDisplay {
     isProtected?: boolean
     redListStatus?: string
     designation?: string
+    // NBDC enrichment fields
+    isInvasive?: boolean
+    isThreatened?: boolean
+    nbdcTaxonId?: number
+    totalIrishRecords?: number
+    gridSquares10km?: number
+    designations?: string
+    nbdcEnriched?: boolean
   }
 }
 
@@ -225,6 +223,11 @@ export function FindingsList({
                   >
                     {finding.source.toUpperCase()}
                   </Badge>
+                  {finding.metadata?.nbdcEnriched && (
+                    <span title="Enriched with NBDC data">
+                      <Sparkles className="h-3 w-3 text-amber-500" />
+                    </span>
+                  )}
                   {finding.metadata?.distance !== undefined && (
                     <Badge variant="outline" className="h-5 gap-0.5 px-1.5 text-[10px]">
                       <MapPin className="h-2.5 w-2.5" />
@@ -233,7 +236,16 @@ export function FindingsList({
                         : `${finding.metadata.distance.toFixed(1)}km`}
                     </Badge>
                   )}
-                  {finding.metadata?.isProtected && <Shield className="h-3.5 w-3.5 text-red-500" />}
+                  {finding.metadata?.isProtected && (
+                    <span title="Protected species">
+                      <Shield className="h-3.5 w-3.5 text-red-500" />
+                    </span>
+                  )}
+                  {finding.metadata?.isInvasive && (
+                    <span title="Invasive species">
+                      <Bug className="h-3.5 w-3.5 text-orange-500" />
+                    </span>
+                  )}
                   {finding.metadata?.redListStatus && (
                     <Badge variant="destructive" className="h-5 px-1.5 text-[10px]">
                       {finding.metadata.redListStatus}

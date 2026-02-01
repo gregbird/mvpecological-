@@ -205,7 +205,7 @@ export function MeasureControl({ map, className }: MeasureControlProps) {
         }
       }
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])  
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>

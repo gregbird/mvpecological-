@@ -1,9 +1,16 @@
 /**
  * NBDC (National Biodiversity Data Centre) API Client
  * Fetches Irish species records and biodiversity data
+ *
+ * Note: NBDC's WFS/GeoServer service is no longer available.
+ * For bbox-based searches, use GBIF which includes NBDC records.
+ * This client now focuses on species enrichment (protection status, Irish records, etc.)
+ *
+ * @see docs/NBDC_API_INTEGRATION.md for detailed API documentation
  */
 
 const NBDC_API_URL = 'https://maps.biodiversityireland.ie/Api'
+const NBDC_BASE_URL = 'https://maps.biodiversityireland.ie'
 
 export interface NBDCSpecies {
   TaxonId: number
@@ -399,4 +406,269 @@ export function recordsToGeoJSON(records: NBDCRecord[]): GeoJSON.FeatureCollecti
         },
       })),
   }
+}
+
+// ============================================================================
+// NEW API: Species Enrichment from NBDC
+// These functions use the working NBDC endpoints to enrich GBIF data
+// ============================================================================
+
+/**
+ * Response from NBDC species search (DataTables format)
+ */
+interface NBDCSpeciesSearchResponse {
+  iTotalRecords: number
+  iTotalDisplayRecords: number
+  sEcho: number
+  aaData: Array<
+    [
+      string, // [0] Row index
+      string, // [1] TaxonId
+      string, // [2] Display name "Common Name (Scientific Name)"
+      string, // [3] Authority
+      string, // [4] Taxon Group
+      string, // [5] Taxonomic Rank
+      string, // [6] Record Count
+      string, // [7] Links/Actions
+    ]
+  >
+}
+
+/**
+ * Response from NBDC GetTaxon API
+ */
+interface NBDCTaxonResponse {
+  result: {
+    taxonId: number
+    taxonName: string
+    commonName: string | null
+    formattedTaxonName: string
+    taxonGroupName: string
+    taxonRankName: string
+    taxonAuthority: string | null
+    designations: string | null
+    recordCount: number
+    tenKRecordCount: number
+    fiftyKRecordCount: number
+    oldestRecord: string | null
+    newestRecord: string | null
+    taxonVersionKey: string | null
+  } | null
+  success: boolean
+  error: unknown
+}
+
+/**
+ * Enriched species data from NBDC
+ */
+export interface NBDCEnrichedSpecies {
+  taxonId: number
+  scientificName: string
+  commonName: string | null
+  taxonGroup: string
+  designations: string | null
+  isProtected: boolean
+  isInvasive: boolean
+  isThreatened: boolean
+  totalRecordsInIreland: number
+  gridSquares10km: number
+  gridSquares50km: number
+  oldestRecordDate: string | null
+  newestRecordDate: string | null
+  nbdcUrl: string
+}
+
+/**
+ * Search NBDC for a species by scientific name and return the taxonId
+ *
+ * @param scientificName - The scientific name to search for (e.g., "Meles meles")
+ * @returns The NBDC taxonId if found, null otherwise
+ */
+export async function searchNBDCTaxonId(scientificName: string): Promise<number | null> {
+  try {
+    const response = await fetch(`${NBDC_BASE_URL}/Species/GetSpecies`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        speciesName: scientificName,
+        taxonomicSource: '0',
+        iDisplayStart: '0',
+        iDisplayLength: '10',
+        sEcho: '1',
+      }),
+    })
+
+    if (!response.ok) {
+      console.warn(`[NBDC] Species search failed: ${response.statusText}`)
+      return null
+    }
+
+    const data: NBDCSpeciesSearchResponse = await response.json()
+
+    // Find exact or close match
+    for (const row of data.aaData) {
+      const displayName = row[2] // "Badger (Meles meles)" or "Meles meles"
+
+      // Check if the scientific name is in the display name
+      if (displayName.toLowerCase().includes(scientificName.toLowerCase())) {
+        const taxonId = parseInt(row[1], 10)
+        if (!isNaN(taxonId)) {
+          return taxonId
+        }
+      }
+    }
+
+    return null
+  } catch (error) {
+    console.error('[NBDC] Error searching for taxonId:', error)
+    return null
+  }
+}
+
+/**
+ * Get detailed taxon information from NBDC by taxonId
+ *
+ * @param taxonId - The NBDC taxonId
+ * @returns Enriched species data or null if not found
+ */
+export async function getNBDCTaxonDetails(taxonId: number): Promise<NBDCEnrichedSpecies | null> {
+  try {
+    const response = await fetch(
+      `${NBDC_BASE_URL}/api/services/app/taxonService/GetTaxon?taxonId=${taxonId}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      }
+    )
+
+    if (!response.ok) {
+      console.warn(`[NBDC] GetTaxon failed: ${response.statusText}`)
+      return null
+    }
+
+    const data: NBDCTaxonResponse = await response.json()
+
+    if (!data.success || !data.result) {
+      return null
+    }
+
+    const r = data.result
+    const designations = r.designations || ''
+
+    return {
+      taxonId: r.taxonId,
+      scientificName: r.taxonName,
+      commonName: r.commonName,
+      taxonGroup: r.taxonGroupName,
+      designations: r.designations,
+      isProtected: designations.toLowerCase().includes('protected'),
+      isInvasive: designations.toLowerCase().includes('invasive'),
+      isThreatened: designations.toLowerCase().includes('threatened'),
+      totalRecordsInIreland: r.recordCount,
+      gridSquares10km: r.tenKRecordCount,
+      gridSquares50km: r.fiftyKRecordCount,
+      oldestRecordDate: r.oldestRecord ? r.oldestRecord.split('T')[0] : null,
+      newestRecordDate: r.newestRecord ? r.newestRecord.split('T')[0] : null,
+      nbdcUrl: `${NBDC_BASE_URL}/species/${r.taxonId}`,
+    }
+  } catch (error) {
+    console.error('[NBDC] Error fetching taxon details:', error)
+    return null
+  }
+}
+
+/**
+ * Enrich a species record with NBDC data
+ * This is the main function to use for GBIF → NBDC enrichment
+ *
+ * @param scientificName - The scientific name from GBIF
+ * @returns Enriched species data or null if not found in NBDC
+ */
+export async function enrichSpeciesFromNBDC(
+  scientificName: string
+): Promise<NBDCEnrichedSpecies | null> {
+  // Step 1: Search for taxonId
+  const taxonId = await searchNBDCTaxonId(scientificName)
+
+  if (!taxonId) {
+    return null
+  }
+
+  // Step 2: Get detailed information
+  return getNBDCTaxonDetails(taxonId)
+}
+
+/**
+ * Batch enrich multiple species with NBDC data
+ * Deduplicates species names and caches results for efficiency
+ *
+ * @param scientificNames - Array of scientific names to enrich
+ * @param delayMs - Delay between requests to respect rate limits (default: 100ms)
+ * @returns Map of scientific name to enriched data
+ */
+export async function batchEnrichSpeciesFromNBDC(
+  scientificNames: string[],
+  delayMs: number = 100
+): Promise<Map<string, NBDCEnrichedSpecies | null>> {
+  const results = new Map<string, NBDCEnrichedSpecies | null>()
+  const uniqueNames = Array.from(new Set(scientificNames))
+
+  for (const name of uniqueNames) {
+    const enriched = await enrichSpeciesFromNBDC(name)
+    results.set(name, enriched)
+
+    // Delay between requests to be respectful to the server
+    if (delayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs))
+    }
+  }
+
+  return results
+}
+
+/**
+ * Check if a species is protected in Ireland
+ *
+ * @param scientificName - The scientific name to check
+ * @returns Protection status with designations list
+ */
+export async function checkProtectionStatus(scientificName: string): Promise<{
+  isProtected: boolean
+  isInvasive: boolean
+  isThreatened: boolean
+  designations: string[]
+}> {
+  const enriched = await enrichSpeciesFromNBDC(scientificName)
+
+  if (!enriched) {
+    return {
+      isProtected: false,
+      isInvasive: false,
+      isThreatened: false,
+      designations: [],
+    }
+  }
+
+  // Parse designations string into array
+  const designations = enriched.designations
+    ? enriched.designations
+        .split(',')
+        .map((d) => d.trim())
+        .filter((d) => d.length > 0)
+    : []
+
+  return {
+    isProtected: enriched.isProtected,
+    isInvasive: enriched.isInvasive,
+    isThreatened: enriched.isThreatened,
+    designations,
+  }
+}
+
+/**
+ * Get NBDC species page URL
+ */
+export function getNBDCSpeciesUrl(taxonId: number): string {
+  return `${NBDC_BASE_URL}/species/${taxonId}`
 }

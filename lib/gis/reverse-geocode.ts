@@ -126,7 +126,7 @@ function normalizeCounty(county: string): string {
   }
 
   // Remove "Co." or "County" prefix
-  let normalized = county
+  const normalized = county
     .replace(/^Co\.\s*/i, '')
     .replace(/^County\s*/i, '')
     .trim()

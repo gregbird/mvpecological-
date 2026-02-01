@@ -22,6 +22,7 @@ Bu döküman, Dulra platformundaki GIS entegrasyonunun mevcut durumunu, beklenen
 - `docs/draft_of_key_data_and_workflow.md` - İş gereksinimleri
 - `docs/Ecological_survey_types.md` - Survey tipleri ve GIS data gereksinimleri
 - `docs/USER_PERSONAS_AND_USE_CASES.md` - Kullanıcı senaryoları
+- `docs/NBDC_API_INTEGRATION.md` - NBDC API entegrasyonu ve GBIF zenginleştirme
 
 ---
 
