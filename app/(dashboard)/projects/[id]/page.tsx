@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { useProjectContext } from '@/contexts/project-context'
+import { useRole } from '@/contexts/role-context'
 import {
   GISMappingStep,
   DataGatheringStep,
@@ -18,12 +19,10 @@ import {
   FinalSubmissionStep,
 } from '@/components/steps'
 
-// Mock user ID - in production this would come from auth context
-const MOCK_USER_ID = '00000000-0000-0000-0000-000000000001'
-
 export default function ProjectDetailPage() {
   const { project, workflowSteps, currentStepNumber, isLoading, error, navigateToNextStep } =
     useProjectContext()
+  const { user } = useRole()
 
   const currentWorkflowStep = workflowSteps.find((s) => s.step_number === currentStepNumber)
 
@@ -70,7 +69,7 @@ export default function ProjectDetailPage() {
     const stepProps = {
       project,
       workflowStep: currentWorkflowStep,
-      userId: MOCK_USER_ID,
+      userId: user?.id || '',
       onComplete: navigateToNextStep,
     }
 

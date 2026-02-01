@@ -334,110 +334,26 @@ export function getRedListDisplayName(status?: string): string {
 
 /**
  * Search for species records by bounding box
- * Uses the NBDC WMS/API to get records within a geographic area
+ *
+ * NOTE: NBDC's WFS/GeoServer service is no longer available (as of 2024).
+ * This function now returns an empty array with a warning.
+ * For species records, use GBIF instead which includes NBDC data.
+ *
+ * @deprecated Use GBIF searchOccurrences() instead for bbox-based species searches
  */
 export async function searchRecordsByBbox(
   bbox: { minLat: number; maxLat: number; minLng: number; maxLng: number },
   params?: Partial<NBDCSearchParams>
 ): Promise<NBDCRecord[]> {
-  try {
-    // NBDC doesn't have a direct bbox API, so we use their WFS service
-    const url = new URL('https://maps.biodiversityireland.ie/geoserver/ows')
+  // NBDC's WFS service is no longer available
+  // Log a warning and return empty array
+  console.warn(
+    '[NBDC] WFS service is no longer available. Use GBIF for species occurrence data instead.',
+    'GBIF includes NBDC records: https://www.gbif.org/dataset/66a51aea-8662-4685-9fd0-9d4b596617d5'
+  )
 
-    url.searchParams.set('service', 'WFS')
-    url.searchParams.set('version', '2.0.0')
-    url.searchParams.set('request', 'GetFeature')
-    url.searchParams.set('typeName', 'BiodiversityData:AllRecords')
-    url.searchParams.set('outputFormat', 'application/json')
-    url.searchParams.set('srsName', 'EPSG:4326')
-    url.searchParams.set(
-      'bbox',
-      `${bbox.minLat},${bbox.minLng},${bbox.maxLat},${bbox.maxLng},EPSG:4326`
-    )
-    url.searchParams.set('count', (params?.limit || 100).toString())
-
-    // Add CQL filter for year range if specified
-    const cqlFilters: string[] = []
-    if (params?.startYear) {
-      cqlFilters.push(`Year >= ${params.startYear}`)
-    }
-    if (params?.endYear) {
-      cqlFilters.push(`Year <= ${params.endYear}`)
-    }
-    if (params?.taxonGroup) {
-      cqlFilters.push(`TaxonGroup = '${params.taxonGroup}'`)
-    }
-    if (cqlFilters.length > 0) {
-      url.searchParams.set('CQL_FILTER', cqlFilters.join(' AND '))
-    }
-
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 second timeout
-
-    const response = await fetch(url.toString(), {
-      signal: controller.signal,
-    })
-    clearTimeout(timeoutId)
-
-    if (!response.ok) {
-      console.error(`NBDC WFS error: ${response.statusText}`)
-      return []
-    }
-
-    const data = await response.json()
-
-    // Convert GeoJSON features to NBDCRecord format
-    if (data.features) {
-      return data.features.map(
-        (feature: {
-          properties: {
-            RecordId?: number
-            TaxonId?: number
-            LatinName?: string
-            CommonName?: string
-            TaxonGroup?: string
-            GridReference?: string
-            Precision?: string
-            Date?: string
-            Year?: number
-            Recorder?: string
-            Determiner?: string
-            DatasetName?: string
-            SampleMethod?: string
-            Comment?: string
-          }
-          geometry?: { coordinates?: [number, number] }
-        }): NBDCRecord => ({
-          RecordId: feature.properties.RecordId || 0,
-          TaxonId: feature.properties.TaxonId || 0,
-          LatinName: feature.properties.LatinName || 'Unknown',
-          CommonName: feature.properties.CommonName,
-          TaxonGroup: feature.properties.TaxonGroup,
-          GridReference: feature.properties.GridReference,
-          Precision: feature.properties.Precision,
-          Date: feature.properties.Date,
-          Year: feature.properties.Year,
-          Recorder: feature.properties.Recorder,
-          Determiner: feature.properties.Determiner,
-          DatasetName: feature.properties.DatasetName,
-          SampleMethod: feature.properties.SampleMethod,
-          Comment: feature.properties.Comment,
-          Longitude: feature.geometry?.coordinates?.[0],
-          Latitude: feature.geometry?.coordinates?.[1],
-        })
-      )
-    }
-
-    return []
-  } catch (error) {
-    // Don't log abort errors
-    if (error instanceof Error && error.name === 'AbortError') {
-      console.warn('NBDC bbox search timed out')
-      return []
-    }
-    console.error('Error searching NBDC by bbox:', error)
-    return []
-  }
+  // Return empty array - the UI should handle this gracefully
+  return []
 }
 
 /**

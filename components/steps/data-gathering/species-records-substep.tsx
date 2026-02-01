@@ -359,16 +359,27 @@ export function SpeciesRecordsSubStep({
       }
 
       setNbdcResults(findings)
-      toast({
-        title: 'NBDC search complete',
-        description: `Found ${findings.length} species.`,
-      })
+
+      if (findings.length === 0) {
+        // NBDC WFS service is no longer available
+        toast({
+          title: 'NBDC service unavailable',
+          description:
+            'NBDC direct search is currently unavailable. Use GBIF instead - it includes Irish biodiversity records.',
+        })
+      } else {
+        toast({
+          title: 'NBDC search complete',
+          description: `Found ${findings.length} species.`,
+        })
+      }
     } catch (error) {
       console.error('NBDC search error:', error)
       toast({
         variant: 'destructive',
-        title: 'NBDC search failed',
-        description: 'Could not fetch Irish biodiversity records.',
+        title: 'NBDC search unavailable',
+        description:
+          'NBDC direct search is not available. Please use GBIF which includes Irish records.',
       })
     } finally {
       setIsSearching(false)

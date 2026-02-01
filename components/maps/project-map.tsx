@@ -130,14 +130,16 @@ function MapComponent({
     selectedFinding?: DeskResearchFinding | null
   }) {
     const map = useMap()
+    const initialFitDone = React.useRef(false)
 
-    // Fit to boundary on initial load
+    // Fit to boundary on initial load ONLY
     React.useEffect(() => {
-      if (boundary && map) {
+      if (boundary && map && !initialFitDone.current) {
         const L = require('leaflet')
         const geoJsonLayer = L.geoJSON(boundary)
         const bounds = geoJsonLayer.getBounds()
         map.fitBounds(bounds, { padding: [50, 50] })
+        initialFitDone.current = true
       }
     }, [boundary, map])
 
@@ -149,7 +151,7 @@ function MapComponent({
       }
     }, [map])
 
-    // Zoom to selected finding
+    // Zoom to selected finding - use setView instead of flyTo to avoid animation conflicts
     React.useEffect(() => {
       if (selectedFinding?.location && map) {
         const L = require('leaflet')
@@ -158,22 +160,22 @@ function MapComponent({
 
           if (location.type === 'Point') {
             const [lng, lat] = location.coordinates as [number, number]
-            map.flyTo([lat, lng], 14, { duration: 0.5 })
+            map.setView([lat, lng], 14, { animate: true, duration: 0.3 })
           } else if (location.type === 'Polygon' || location.type === 'MultiPolygon') {
             const geoJsonLayer = L.geoJSON(location)
             const bounds = geoJsonLayer.getBounds()
-            map.flyToBounds(bounds, { padding: [50, 50], duration: 0.5 })
+            map.fitBounds(bounds, { padding: [50, 50], animate: true })
           } else if (location.type === 'GeometryCollection') {
             // For GeometryCollection, zoom to first geometry
             const firstGeom = (location as GeoJSON.GeometryCollection).geometries[0]
             if (firstGeom?.type === 'Point') {
               const [lng, lat] = (firstGeom as GeoJSON.Point).coordinates
-              map.flyTo([lat, lng], 14, { duration: 0.5 })
+              map.setView([lat, lng], 14, { animate: true, duration: 0.3 })
             }
           } else if (location.type === 'LineString') {
             const geoJsonLayer = L.geoJSON(location)
             const bounds = geoJsonLayer.getBounds()
-            map.flyToBounds(bounds, { padding: [50, 50], duration: 0.5 })
+            map.fitBounds(bounds, { padding: [50, 50], animate: true })
           }
         } catch (error) {
           console.warn('Error zooming to finding:', error)
