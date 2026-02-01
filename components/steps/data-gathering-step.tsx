@@ -1,28 +1,53 @@
 'use client'
 
 import * as React from 'react'
-import { Search, Loader2, Check, AlertCircle, Info, Database, Save } from 'lucide-react'
+import {
+  Info,
+  MapPin,
+  Bug,
+  Droplets,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Pencil,
+  Eye,
+  EyeOff,
+} from 'lucide-react'
+import dynamic from 'next/dynamic'
 
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
 import {
-  useFindings,
   useSavedFindings,
-  useCreateFinding,
-  useDeleteFinding,
-  useCompleteWorkflowStep,
   useFindingsStats,
+  useCompleteWorkflowStep,
+  useTargetNotes,
 } from '@/hooks/use-project-data'
-import { SearchInterface } from '@/components/desk-research/search-interface'
-import type { DeskResearchFinding as FindingCardType } from '@/components/desk-research/finding-card'
-import { ProjectMap } from '@/components/maps/project-map'
-import type { Project, WorkflowStep, DeskResearchFinding, Json } from '@/types/database'
+import { useProjectContext } from '@/contexts/project-context'
+import type { Project, WorkflowStep } from '@/types/database'
+
+// Sub-step components
+import { ProjectInfoSubStep } from './data-gathering/project-info-substep'
+import { DesignatedSitesSubStep } from './data-gathering/designated-sites-substep'
+import { SpeciesRecordsSubStep } from './data-gathering/species-records-substep'
+import { AquaticFeaturesSubStep } from './data-gathering/aquatic-features-substep'
+import { ReviewExportSubStep } from './data-gathering/review-export-substep'
+
+// Dynamic import for map
+const ProjectMap = dynamic(
+  () => import('@/components/maps/project-map').then((mod) => mod.ProjectMap),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="bg-muted/50 flex h-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    ),
+  }
+)
 
 interface DataGatheringStepProps {
   project: Project
@@ -31,6 +56,18 @@ interface DataGatheringStepProps {
   onComplete?: () => void
 }
 
+// Wizard steps
+type WizardStep = 'info' | 'sites' | 'species' | 'aquatic' | 'review'
+type ViewMode = 'preview' | 'wizard'
+
+const WIZARD_STEPS: { id: WizardStep; label: string; icon: React.ElementType }[] = [
+  { id: 'info', label: 'Project Info', icon: Info },
+  { id: 'sites', label: 'Designated Sites', icon: MapPin },
+  { id: 'species', label: 'Species Records', icon: Bug },
+  { id: 'aquatic', label: 'Aquatic Features', icon: Droplets },
+  { id: 'review', label: 'Review & Export', icon: Check },
+]
+
 export function DataGatheringStep({
   project,
   workflowStep,
@@ -38,43 +75,30 @@ export function DataGatheringStep({
   onComplete,
 }: DataGatheringStepProps) {
   const { toast } = useToast()
-  const [showMap, setShowMap] = React.useState(true)
-  const [selectedFinding, setSelectedFinding] = React.useState<FindingCardType | null>(null)
-  const [localSavedFindings, setLocalSavedFindings] = React.useState<FindingCardType[]>([])
+  const { setMapFullscreen, refetchProject, refetchWorkflowSteps } = useProjectContext()
 
-  // React Query hooks
+  // Check if step is completed
+  const isStepCompleted =
+    workflowStep.status === 'approved' || workflowStep.status === 'needs_review'
+  const hasBoundary = !!project.boundary
+
+  // View mode: preview or wizard
+  const [viewMode, setViewMode] = React.useState<ViewMode>(() => {
+    if (isStepCompleted) return 'preview'
+    return 'wizard'
+  })
+
+  // Wizard state
+  const [currentStep, setCurrentStep] = React.useState<WizardStep>('info')
+  const [showMap, setShowMap] = React.useState(true)
+
+  // Data hooks
   const { data: savedFindings = [], isLoading: isLoadingFindings } = useSavedFindings(project.id)
   const { data: findingsStats } = useFindingsStats(project.id)
-  const createFinding = useCreateFinding()
-  const deleteFinding = useDeleteFinding()
+  const { data: targetNotes = [] } = useTargetNotes(project.id)
   const completeStep = useCompleteWorkflowStep()
 
-  // Convert database findings to card format
-  const dbFindingsAsCards = React.useMemo(() => {
-    return savedFindings.map(
-      (f): FindingCardType => ({
-        id: f.id,
-        source: f.source,
-        dataType: f.data_type,
-        title: f.title,
-        content: f.content || undefined,
-        rawData: f.raw_data as Record<string, unknown> | undefined,
-        location: f.location as GeoJSON.Geometry | undefined,
-        isSaved: true,
-        notes: f.notes || undefined,
-        metadata: (f.raw_data as Record<string, unknown>)?.metadata as FindingCardType['metadata'],
-      })
-    )
-  }, [savedFindings])
-
-  // Combine local and database saved findings
-  const allSavedFindings = React.useMemo(() => {
-    const dbIds = new Set(savedFindings.map((f) => f.id))
-    const localOnly = localSavedFindings.filter((f) => !dbIds.has(f.id))
-    return [...dbFindingsAsCards, ...localOnly]
-  }, [dbFindingsAsCards, localSavedFindings, savedFindings])
-
-  // Project boundary as GeoJSON
+  // Project boundary and center
   const projectBoundary = project.boundary as GeoJSON.Feature<GeoJSON.Polygon> | undefined
   const projectCenter = project.center_point
     ? {
@@ -83,89 +107,35 @@ export function DataGatheringStep({
       }
     : undefined
 
-  // Handle saving a finding
-  const handleSaveFinding = async (finding: FindingCardType) => {
-    if (finding.isSaved) {
-      // Toggle off - remove from local state first
-      setLocalSavedFindings((prev) => prev.filter((f) => f.id !== finding.id))
+  // Buffer distances from GIS step
+  const bufferDistances = (project.buffer_distances as number[] | null) ?? [2, 5]
 
-      // If it's in the database, delete it
-      const dbFinding = savedFindings.find((f) => f.id === finding.id)
-      if (dbFinding) {
-        try {
-          await deleteFinding.mutateAsync(finding.id)
-        } catch (error) {
-          toast({
-            variant: 'destructive',
-            title: 'Error removing finding',
-            description: 'Failed to remove the finding from the database.',
-          })
-        }
-      }
-    } else {
-      // Save it locally first for instant UI feedback
-      setLocalSavedFindings((prev) => [...prev, { ...finding, isSaved: true }])
+  // Toggle map fullscreen mode in wizard
+  React.useEffect(() => {
+    const isMapStep = viewMode === 'wizard' && currentStep !== 'info' && currentStep !== 'review'
+    setMapFullscreen(isMapStep)
 
-      // Then persist to database
-      try {
-        await createFinding.mutateAsync({
-          project_id: project.id,
-          source: finding.source,
-          data_type: finding.dataType,
-          title: finding.title,
-          content: finding.content || null,
-          raw_data: (finding.rawData as unknown as Json) || null,
-          location: (finding.location as unknown as Json) || null,
-          is_saved: true,
-          notes: finding.notes || null,
-          created_by: userId,
-        })
-
-        // Remove from local state after successful save (it will appear in dbFindings)
-        setLocalSavedFindings((prev) => prev.filter((f) => f.id !== finding.id))
-      } catch (error) {
-        // Revert local state on error
-        setLocalSavedFindings((prev) => prev.filter((f) => f.id !== finding.id))
-        toast({
-          variant: 'destructive',
-          title: 'Error saving finding',
-          description: 'Failed to save the finding to the database.',
-        })
-      }
+    return () => {
+      setMapFullscreen(false)
     }
+  }, [viewMode, currentStep, setMapFullscreen])
+
+  // Navigation
+  const currentStepIndex = WIZARD_STEPS.findIndex((s) => s.id === currentStep)
+  const canGoBack = currentStepIndex > 0
+  const canGoNext = currentStepIndex < WIZARD_STEPS.length - 1
+
+  const goBack = () => {
+    if (canGoBack) setCurrentStep(WIZARD_STEPS[currentStepIndex - 1].id)
   }
 
-  // Handle removing a finding
-  const handleRemoveFinding = async (finding: FindingCardType) => {
-    setLocalSavedFindings((prev) => prev.filter((f) => f.id !== finding.id))
-
-    const dbFinding = savedFindings.find((f) => f.id === finding.id)
-    if (dbFinding) {
-      try {
-        await deleteFinding.mutateAsync(finding.id)
-        toast({
-          title: 'Finding removed',
-          description: 'The finding has been removed from your research.',
-        })
-      } catch (error) {
-        toast({
-          variant: 'destructive',
-          title: 'Error removing finding',
-          description: 'Failed to remove the finding.',
-        })
-      }
-    }
+  const goNext = () => {
+    if (canGoNext) setCurrentStep(WIZARD_STEPS[currentStepIndex + 1].id)
   }
 
-  // Handle viewing a finding on the map
-  const handleViewOnMap = (finding: FindingCardType) => {
-    setSelectedFinding(finding)
-    setShowMap(true)
-  }
-
-  // Complete workflow step
+  // Handle step completion
   const handleComplete = async () => {
-    if (allSavedFindings.length === 0) {
+    if (savedFindings.length === 0) {
       toast({
         variant: 'destructive',
         title: 'Cannot complete step',
@@ -180,6 +150,7 @@ export function DataGatheringStep({
         stepNumber: workflowStep.step_number,
       })
 
+      refetchWorkflowSteps()
       toast({
         title: 'Step completed',
         description: 'Data Gathering step has been completed. Moving to Desk Assessment.',
@@ -187,6 +158,7 @@ export function DataGatheringStep({
 
       onComplete?.()
     } catch (error) {
+      console.error('[DataGatheringStep] Complete step error:', error)
       toast({
         variant: 'destructive',
         title: 'Error completing step',
@@ -195,207 +167,334 @@ export function DataGatheringStep({
     }
   }
 
+  // Handle entering edit mode from preview
+  const handleEditClick = () => {
+    setViewMode('wizard')
+    setCurrentStep('info')
+  }
+
   const isComplete = workflowStep.status === 'approved'
-  const canComplete = allSavedFindings.length > 0 && !isComplete
+  const isMapMode = currentStep !== 'info' && currentStep !== 'review'
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Step 2: Data Gathering</h2>
-          <p className="text-muted-foreground">
-            Search external databases for relevant ecological data within the project area
-          </p>
-        </div>
-        <Badge
-          variant={
-            isComplete ? 'default' : workflowStep.status === 'in_progress' ? 'secondary' : 'outline'
-          }
-        >
-          {isComplete
-            ? 'Completed'
-            : workflowStep.status === 'in_progress'
-              ? 'In Progress'
-              : 'Pending'}
-        </Badge>
-      </div>
-
-      {/* Instructions */}
-      <Alert>
-        <Info className="h-4 w-4" />
-        <AlertTitle>Data Sources</AlertTitle>
-        <AlertDescription>
-          Search NPWS for designated sites (SAC, SPA, NHA) and GBIF for species occurrence records.
-          Save relevant findings to include them in your desk research assessment. All saved data is
-          automatically stored in the project database.
-        </AlertDescription>
-      </Alert>
-
-      {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Findings</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {findingsStats?.total || allSavedFindings.length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Designated Sites</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {findingsStats?.byType.find((t) => t.type === 'designated_site')?.count ||
-                allSavedFindings.filter((f) => f.dataType === 'designated_site').length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Species Records</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {findingsStats?.byType.find((t) => t.type === 'species_record')?.count ||
-                allSavedFindings.filter((f) => f.dataType === 'species_record').length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Data Sources</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {findingsStats?.bySource.length ||
-                new Set(allSavedFindings.map((f) => f.source)).size}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Main Content */}
-      <div className={`grid gap-6 ${showMap ? 'lg:grid-cols-2' : ''}`}>
-        {/* Search Interface */}
-        <div>
-          {!projectBoundary ? (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>No Project Boundary</AlertTitle>
-              <AlertDescription>
-                Please complete Step 1 (GIS Mapping) to define a project boundary before searching
-                for data.
-              </AlertDescription>
-            </Alert>
-          ) : (
-            <SearchInterface
-              projectId={project.id}
-              projectBoundary={projectBoundary}
-              projectCenter={projectCenter}
-              gridReference={project.grid_reference || undefined}
-              searchRadius={2}
-              onFindingSave={handleSaveFinding}
-              onFindingRemove={handleRemoveFinding}
-              onViewOnMap={handleViewOnMap}
-              savedFindings={allSavedFindings}
-            />
-          )}
+  // PREVIEW MODE - Show summary when step is completed
+  if (viewMode === 'preview') {
+    return (
+      <div className="flex h-full">
+        {/* Map with findings */}
+        <div className="flex-1">
+          <ProjectMap
+            className="h-full"
+            center={projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]}
+            zoom={12}
+            boundary={projectBoundary}
+            findings={savedFindings.map((f) => ({
+              id: f.id,
+              source: f.source,
+              dataType: f.data_type,
+              title: f.title,
+              content: f.content || undefined,
+              location: f.location as GeoJSON.Geometry | undefined,
+              isSaved: true,
+            }))}
+          />
         </div>
 
-        {/* Map */}
-        {showMap && (
-          <Card className="h-fit lg:sticky lg:top-6">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Project Area</CardTitle>
-                <Button variant="outline" size="sm" onClick={() => setShowMap(false)}>
-                  Hide Map
-                </Button>
+        {/* Summary Panel */}
+        <div className="border-border w-96 overflow-y-auto border-l bg-white">
+          {/* Header */}
+          <div className="border-b p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Data Gathering</h2>
+                <p className="text-muted-foreground text-sm">Ecological data collection</p>
               </div>
-            </CardHeader>
-            <CardContent>
-              <ProjectMap
-                className="h-125"
-                center={projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]}
-                zoom={12}
-                boundary={projectBoundary}
-                findings={allSavedFindings}
-                selectedFinding={selectedFinding}
-                onFindingClick={(finding) => setSelectedFinding(finding)}
-                showControls={false}
-              />
-              {selectedFinding && (
-                <div className="bg-muted mt-3 rounded-lg p-3">
-                  <p className="text-sm font-medium">{selectedFinding.title}</p>
-                  <p className="text-muted-foreground mt-1 text-xs">
-                    {selectedFinding.metadata?.siteCode || selectedFinding.metadata?.scientificName}
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {!showMap && (
-          <Button variant="outline" onClick={() => setShowMap(true)} className="w-fit">
-            Show Map
-          </Button>
-        )}
-      </div>
-
-      {/* Progress Panel */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Step Progress</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span>Project boundary defined</span>
-              {projectBoundary ? (
-                <Check className="h-4 w-4 text-green-600" />
-              ) : (
-                <AlertCircle className="text-muted-foreground h-4 w-4" />
-              )}
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span>Findings saved</span>
-              {allSavedFindings.length > 0 ? (
-                <span className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-600" />
-                  <span className="text-muted-foreground">{allSavedFindings.length} saved</span>
-                </span>
-              ) : (
-                <AlertCircle className="text-muted-foreground h-4 w-4" />
-              )}
+              <Badge variant="default" className="bg-emerald-500">
+                Completed
+              </Badge>
             </div>
           </div>
 
-          <Progress
-            value={isComplete ? 100 : projectBoundary ? (allSavedFindings.length > 0 ? 75 : 50) : 0}
-          />
+          {/* Summary Content */}
+          <div className="space-y-6 p-6">
+            {/* Stats */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-lg border p-3 text-center">
+                <div className="text-2xl font-bold">
+                  {findingsStats?.total || savedFindings.length}
+                </div>
+                <div className="text-muted-foreground text-xs">Total Findings</div>
+              </div>
+              <div className="rounded-lg border p-3 text-center">
+                <div className="text-2xl font-bold">{targetNotes.length}</div>
+                <div className="text-muted-foreground text-xs">Target Notes</div>
+              </div>
+            </div>
 
-          <div className="flex gap-2">
-            <Button
-              onClick={handleComplete}
-              disabled={!canComplete || completeStep.isPending}
-              className="flex-1"
-            >
-              {completeStep.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Check className="mr-2 h-4 w-4" />
-              )}
-              {isComplete ? 'Completed' : 'Complete Step & Continue'}
+            {/* By Type */}
+            <div className="rounded-lg border p-4">
+              <h4 className="mb-3 font-medium">Findings by Type</h4>
+              <div className="space-y-2">
+                {findingsStats?.byType.map((item) => (
+                  <div key={item.type} className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground capitalize">
+                      {item.type.replace('_', ' ')}
+                    </span>
+                    <Badge variant="secondary">{item.count}</Badge>
+                  </div>
+                )) || (
+                  <>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Designated Sites</span>
+                      <Badge variant="secondary">
+                        {savedFindings.filter((f) => f.data_type === 'designated_site').length}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Species Records</span>
+                      <Badge variant="secondary">
+                        {savedFindings.filter((f) => f.data_type === 'species_record').length}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Water Quality</span>
+                      <Badge variant="secondary">
+                        {savedFindings.filter((f) => f.data_type === 'water_quality').length}
+                      </Badge>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* By Source */}
+            <div className="rounded-lg border p-4">
+              <h4 className="mb-3 font-medium">Findings by Source</h4>
+              <div className="flex flex-wrap gap-2">
+                {findingsStats?.bySource.map((item) => (
+                  <Badge key={item.source} variant="outline" className="gap-1">
+                    {item.source.toUpperCase()}
+                    <span className="text-muted-foreground">({item.count})</span>
+                  </Badge>
+                )) || (
+                  <>
+                    {Array.from(new Set(savedFindings.map((f) => f.source))).map((source) => (
+                      <Badge key={source} variant="outline" className="gap-1">
+                        {source.toUpperCase()}
+                        <span className="text-muted-foreground">
+                          ({savedFindings.filter((f) => f.source === source).length})
+                        </span>
+                      </Badge>
+                    ))}
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Edit Button */}
+            <Button onClick={handleEditClick} variant="outline" className="w-full">
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit Data Gathering
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
+    )
+  }
+
+  // WIZARD MODE
+  return (
+    <div className="flex h-full flex-col">
+      {/* Progress Header */}
+      <div
+        className={cn(
+          'border-border bg-card shrink-0 border-b transition-all duration-300',
+          isMapMode ? 'px-4 py-2' : 'px-6 py-4'
+        )}
+      >
+        {/* Full header for non-map steps */}
+        {!isMapMode && (
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Data Gathering</h2>
+              <p className="text-muted-foreground text-sm">
+                Search external databases for ecological data
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant={isComplete ? 'default' : 'secondary'}>
+                {isComplete ? 'Completed' : 'In Progress'}
+              </Badge>
+              <Badge variant="outline">{savedFindings.length} findings saved</Badge>
+            </div>
+          </div>
+        )}
+
+        {/* Step indicators */}
+        <div
+          className={cn(
+            'flex items-center',
+            isMapMode ? 'justify-center gap-2' : 'justify-between'
+          )}
+        >
+          {WIZARD_STEPS.map((step, index) => {
+            const Icon = step.icon
+            const isActive = step.id === currentStep
+            const isPast = index < currentStepIndex
+
+            return (
+              <React.Fragment key={step.id}>
+                <button
+                  onClick={() => setCurrentStep(step.id)}
+                  className={cn(
+                    'flex cursor-pointer items-center gap-1 transition-all',
+                    !isActive && 'opacity-60 hover:opacity-100',
+                    isMapMode ? 'flex-row' : 'flex-col'
+                  )}
+                >
+                  <div
+                    className={cn(
+                      'flex items-center justify-center rounded-full border-2 transition-all',
+                      isMapMode ? 'h-7 w-7' : 'h-10 w-10',
+                      isActive && 'border-blue-500 bg-blue-500 text-white',
+                      isPast && 'border-blue-500 bg-blue-50 text-blue-600',
+                      !isActive && !isPast && 'border-gray-300 text-gray-400'
+                    )}
+                  >
+                    {isPast ? (
+                      <Check className={cn(isMapMode ? 'h-3.5 w-3.5' : 'h-5 w-5')} />
+                    ) : (
+                      <Icon className={cn(isMapMode ? 'h-3.5 w-3.5' : 'h-5 w-5')} />
+                    )}
+                  </div>
+                  <span
+                    className={cn(
+                      'font-medium',
+                      isMapMode ? 'text-[11px]' : 'text-xs',
+                      isActive && 'text-blue-600',
+                      isPast && 'text-blue-600',
+                      !isActive && !isPast && 'text-gray-400'
+                    )}
+                  >
+                    {step.label}
+                  </span>
+                </button>
+                {index < WIZARD_STEPS.length - 1 && (
+                  <div
+                    className={cn(
+                      'h-0.5',
+                      isMapMode ? 'w-6' : 'mx-2 flex-1',
+                      index < currentStepIndex ? 'bg-blue-500' : 'bg-gray-200'
+                    )}
+                  />
+                )}
+              </React.Fragment>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Step Content */}
+      <div className="min-h-0 flex-1">
+        {/* Step 1: Project Info */}
+        {currentStep === 'info' && (
+          <ProjectInfoSubStep
+            project={project}
+            bufferDistances={bufferDistances}
+            savedFindingsCount={savedFindings.length}
+          />
+        )}
+
+        {/* Step 2: Designated Sites (NPWS) */}
+        {currentStep === 'sites' && (
+          <DesignatedSitesSubStep
+            project={project}
+            projectBoundary={projectBoundary}
+            projectCenter={projectCenter}
+            bufferDistances={bufferDistances}
+            userId={userId}
+            savedFindings={savedFindings}
+            showMap={showMap}
+            onToggleMap={() => setShowMap(!showMap)}
+          />
+        )}
+
+        {/* Step 3: Species Records (GBIF + NBDC) */}
+        {currentStep === 'species' && (
+          <SpeciesRecordsSubStep
+            project={project}
+            projectBoundary={projectBoundary}
+            projectCenter={projectCenter}
+            bufferDistances={bufferDistances}
+            userId={userId}
+            savedFindings={savedFindings}
+            showMap={showMap}
+            onToggleMap={() => setShowMap(!showMap)}
+          />
+        )}
+
+        {/* Step 4: Aquatic Features (EPA) */}
+        {currentStep === 'aquatic' && (
+          <AquaticFeaturesSubStep
+            project={project}
+            projectBoundary={projectBoundary}
+            projectCenter={projectCenter}
+            bufferDistances={bufferDistances}
+            userId={userId}
+            savedFindings={savedFindings}
+            showMap={showMap}
+            onToggleMap={() => setShowMap(!showMap)}
+          />
+        )}
+
+        {/* Step 5: Review & Export */}
+        {currentStep === 'review' && (
+          <ReviewExportSubStep
+            project={project}
+            projectBoundary={projectBoundary}
+            projectCenter={projectCenter}
+            userId={userId}
+            savedFindings={savedFindings}
+            targetNotes={targetNotes}
+            findingsStats={findingsStats}
+            onComplete={handleComplete}
+            isCompleting={completeStep.isPending}
+            isComplete={isComplete}
+          />
+        )}
+      </div>
+
+      {/* Navigation Footer */}
+      <div
+        className={cn(
+          'border-border bg-card shrink-0 border-t transition-all duration-300',
+          isMapMode ? 'px-4 py-2' : 'px-6 py-4'
+        )}
+      >
+        <div className="flex items-center justify-between">
+          <Button
+            variant="outline"
+            size={isMapMode ? 'sm' : 'default'}
+            onClick={goBack}
+            disabled={!canGoBack}
+          >
+            <ChevronLeft className={cn(isMapMode ? 'mr-1 h-3 w-3' : 'mr-2 h-4 w-4')} />
+            Back
+          </Button>
+
+          <div className={cn('text-muted-foreground', isMapMode ? 'text-xs' : 'text-sm')}>
+            Step {currentStepIndex + 1} of {WIZARD_STEPS.length}
+          </div>
+
+          {currentStep !== 'review' ? (
+            <Button size={isMapMode ? 'sm' : 'default'} onClick={goNext} disabled={!canGoNext}>
+              Next
+              <ChevronRight className={cn(isMapMode ? 'ml-1 h-3 w-3' : 'ml-2 h-4 w-4')} />
+            </Button>
+          ) : (
+            <div className="w-20" />
+          )}
+        </div>
+      </div>
     </div>
   )
 }

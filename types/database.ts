@@ -99,12 +99,16 @@ export type Database = {
           created_at: string
           created_by: string
           data_type: Database['public']['Enums']['finding_data_type']
+          distance_from_boundary_km: number | null
           id: string
+          is_protected: boolean
           is_saved: boolean
           location: unknown
           notes: string | null
           project_id: string
           raw_data: Json | null
+          red_list_status: string | null
+          relevance_level: 'high' | 'medium' | 'low' | null
           source: Database['public']['Enums']['data_source']
           title: string
           updated_at: string
@@ -114,12 +118,16 @@ export type Database = {
           created_at?: string
           created_by: string
           data_type: Database['public']['Enums']['finding_data_type']
+          distance_from_boundary_km?: number | null
           id?: string
+          is_protected?: boolean
           is_saved?: boolean
           location?: unknown
           notes?: string | null
           project_id: string
           raw_data?: Json | null
+          red_list_status?: string | null
+          relevance_level?: 'high' | 'medium' | 'low' | null
           source: Database['public']['Enums']['data_source']
           title: string
           updated_at?: string
@@ -129,12 +137,16 @@ export type Database = {
           created_at?: string
           created_by?: string
           data_type?: Database['public']['Enums']['finding_data_type']
+          distance_from_boundary_km?: number | null
           id?: string
+          is_protected?: boolean
           is_saved?: boolean
           location?: unknown
           notes?: string | null
           project_id?: string
           raw_data?: Json | null
+          red_list_status?: string | null
+          relevance_level?: 'high' | 'medium' | 'low' | null
           source?: Database['public']['Enums']['data_source']
           title?: string
           updated_at?: string
@@ -439,6 +451,11 @@ export type Database = {
           expected_end_date: string | null
           expected_start_date: string | null
           grid_reference: string | null
+          buffer_distances: number[] | null
+          visible_layers: string[] | null
+          townland: string | null
+          county: string | null
+          province: string | null
           health_status: Database['public']['Enums']['health_status']
           id: string
           name: string
@@ -461,6 +478,11 @@ export type Database = {
           expected_end_date?: string | null
           expected_start_date?: string | null
           grid_reference?: string | null
+          buffer_distances?: number[] | null
+          visible_layers?: string[] | null
+          townland?: string | null
+          county?: string | null
+          province?: string | null
           health_status?: Database['public']['Enums']['health_status']
           id?: string
           name: string
@@ -483,6 +505,11 @@ export type Database = {
           expected_end_date?: string | null
           expected_start_date?: string | null
           grid_reference?: string | null
+          buffer_distances?: number[] | null
+          visible_layers?: string[] | null
+          townland?: string | null
+          county?: string | null
+          province?: string | null
           health_status?: Database['public']['Enums']['health_status']
           id?: string
           name?: string
@@ -679,6 +706,110 @@ export type Database = {
           {
             foreignKeyName: 'species_observations_verified_by_fkey'
             columns: ['verified_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      target_notes: {
+        Row: {
+          id: string
+          project_id: string
+          finding_id: string | null
+          category:
+            | 'access_point'
+            | 'check_feature'
+            | 'habitat'
+            | 'fauna'
+            | 'flora'
+            | 'management'
+            | 'damage'
+            | 'ownership'
+          title: string
+          description: string | null
+          location: unknown
+          priority: 'high' | 'normal' | 'low'
+          is_verified: boolean
+          verified_by: string | null
+          verified_at: string | null
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          finding_id?: string | null
+          category:
+            | 'access_point'
+            | 'check_feature'
+            | 'habitat'
+            | 'fauna'
+            | 'flora'
+            | 'management'
+            | 'damage'
+            | 'ownership'
+          title: string
+          description?: string | null
+          location?: unknown
+          priority?: 'high' | 'normal' | 'low'
+          is_verified?: boolean
+          verified_by?: string | null
+          verified_at?: string | null
+          created_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          finding_id?: string | null
+          category?:
+            | 'access_point'
+            | 'check_feature'
+            | 'habitat'
+            | 'fauna'
+            | 'flora'
+            | 'management'
+            | 'damage'
+            | 'ownership'
+          title?: string
+          description?: string | null
+          location?: unknown
+          priority?: 'high' | 'normal' | 'low'
+          is_verified?: boolean
+          verified_by?: string | null
+          verified_at?: string | null
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'target_notes_project_id_fkey'
+            columns: ['project_id']
+            isOneToOne: false
+            referencedRelation: 'projects'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'target_notes_finding_id_fkey'
+            columns: ['finding_id']
+            isOneToOne: false
+            referencedRelation: 'desk_research_findings'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'target_notes_verified_by_fkey'
+            columns: ['verified_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'target_notes_created_by_fkey'
+            columns: ['created_by']
             isOneToOne: false
             referencedRelation: 'profiles'
             referencedColumns: ['id']
@@ -887,6 +1018,11 @@ export type Database = {
           p_boundary: Json
           p_center_point: Json
           p_grid_reference: string
+          p_buffer_distances?: number[] | null
+          p_visible_layers?: string[] | null
+          p_townland?: string | null
+          p_county?: string | null
+          p_province?: string | null
         }
         Returns: Database['public']['Tables']['projects']['Row']
       }
@@ -1059,8 +1195,13 @@ export type Report = Tables<'reports'>
 export type HabitatPolygon = Tables<'habitat_polygons'>
 export type SpeciesObservation = Tables<'species_observations'>
 export type DeskResearchFinding = Tables<'desk_research_findings'>
+export type TargetNote = Tables<'target_notes'>
 
 export type UserRole = Database['public']['Enums']['user_role']
+export type TargetNoteCategory = Database['public']['Tables']['target_notes']['Row']['category']
+export type TargetNotePriority = Database['public']['Tables']['target_notes']['Row']['priority']
+export type RelevanceLevel =
+  Database['public']['Tables']['desk_research_findings']['Row']['relevance_level']
 export type ProjectStatus = Database['public']['Enums']['project_status']
 export type ProjectPhase = Database['public']['Enums']['project_phase']
 export type HealthStatus = Database['public']['Enums']['health_status']

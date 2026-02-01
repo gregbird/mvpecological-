@@ -155,7 +155,12 @@ export async function updateProjectBoundary(
   projectId: string,
   boundary: GeoJSON.Feature<GeoJSON.Polygon> | GeoJSON.Polygon,
   centerPoint: GeoJSON.Point | { type: 'Point'; coordinates: [number, number] },
-  gridReference: string
+  gridReference: string,
+  bufferDistances?: number[],
+  visibleLayers?: string[],
+  townland?: string,
+  county?: string,
+  province?: string
 ): Promise<Project | null> {
   const supabase = createClient()
 
@@ -164,6 +169,11 @@ export async function updateProjectBoundary(
     gridReference,
     hasBoundary: !!boundary,
     hasCenterPoint: !!centerPoint,
+    bufferDistances,
+    visibleLayers,
+    townland,
+    county,
+    province,
   })
 
   // Use RPC function to convert GeoJSON to PostGIS geometry
@@ -175,6 +185,11 @@ export async function updateProjectBoundary(
     p_center_point:
       centerPoint as unknown as Database['public']['Functions']['update_project_boundary']['Args']['p_center_point'],
     p_grid_reference: gridReference,
+    p_buffer_distances: bufferDistances || null,
+    p_visible_layers: visibleLayers || null,
+    p_townland: townland || null,
+    p_county: county || null,
+    p_province: province || null,
   })
 
   if (error) {

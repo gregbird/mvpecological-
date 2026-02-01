@@ -64,6 +64,7 @@ export interface EPASearchParams {
 
 /**
  * Query EPA WFS service for features
+ * Note: WFS bbox format is minX,minY,maxX,maxY (lng,lat order)
  */
 async function queryEPAWFS(
   typeName: string,
@@ -78,11 +79,14 @@ async function queryEPAWFS(
   url.searchParams.set('typeName', typeName)
   url.searchParams.set('outputFormat', 'application/json')
   url.searchParams.set('srsName', 'EPSG:4326')
+  // WFS bbox format: minX,minY,maxX,maxY (lng,lat order)
   url.searchParams.set(
     'bbox',
-    `${bbox.minLat},${bbox.minLng},${bbox.maxLat},${bbox.maxLng},EPSG:4326`
+    `${bbox.minLng},${bbox.minLat},${bbox.maxLng},${bbox.maxLat},EPSG:4326`
   )
   url.searchParams.set('count', limit.toString())
+
+  console.log(`[EPA WFS] Fetching ${typeName} with URL:`, url.toString())
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 15000)
@@ -98,7 +102,9 @@ async function queryEPAWFS(
       return { type: 'FeatureCollection', features: [] }
     }
 
-    return await response.json()
+    const data = await response.json()
+    console.log(`[EPA WFS] ${typeName} returned ${data.features?.length || 0} features`)
+    return data
   } catch (error) {
     clearTimeout(timeoutId)
     if (error instanceof Error && error.name === 'AbortError') {
@@ -164,19 +170,27 @@ export async function searchRivers(params: EPASearchParams): Promise<EPARiver[]>
   if (!params.bbox) return []
 
   try {
-    // Try WFS first
-    const data = await queryEPAWFS('WFD:Rivers', params.bbox, params.limit || 50)
+    // Use correct layer name: EPA:WFD_RiverWaterBodiesActive
+    const data = await queryEPAWFS(
+      'EPA:WFD_RiverWaterBodiesActive',
+      params.bbox,
+      params.limit || 50
+    )
 
     return data.features.map(
       (feature): EPARiver => ({
-        OBJECTID: feature.properties?.OBJECTID || 0,
-        RiverCode: feature.properties?.RIVER_CODE || feature.properties?.CODE || '',
-        RiverName: feature.properties?.RIVER_NAME || feature.properties?.NAME || 'Unknown River',
-        CatchmentId: feature.properties?.CATCHMENT_ID,
-        CatchmentName: feature.properties?.CATCHMENT_NAME,
-        Length_km: feature.properties?.LENGTH_KM || feature.properties?.SHAPE_Length,
-        WFD_Status: feature.properties?.WFD_STATUS || feature.properties?.STATUS,
-        WFD_RiskStatus: feature.properties?.RISK_STATUS,
+        OBJECTID: feature.properties?.OBJECTID || feature.properties?.objectid || 0,
+        RiverCode:
+          feature.properties?.IE_CD_WB ||
+          feature.properties?.RIVER_CODE ||
+          feature.properties?.CODE ||
+          '',
+        RiverName: feature.properties?.NAME || feature.properties?.RIVER_NAME || 'Unknown River',
+        CatchmentId: feature.properties?.SUBCATCH_ID || feature.properties?.CATCHMENT_ID,
+        CatchmentName: feature.properties?.SUBCATCH_NAME || feature.properties?.CATCHMENT_NAME,
+        Length_km: feature.properties?.LENGTH_KM || feature.properties?.Shape_Length,
+        WFD_Status: feature.properties?.STATUS || feature.properties?.WFD_STATUS,
+        WFD_RiskStatus: feature.properties?.RISK || feature.properties?.RISK_STATUS,
         geometry: feature.geometry,
       })
     )
@@ -193,18 +207,23 @@ export async function searchLakes(params: EPASearchParams): Promise<EPALake[]> {
   if (!params.bbox) return []
 
   try {
-    const data = await queryEPAWFS('WFD:Lakes', params.bbox, params.limit || 50)
+    // Use correct layer name: EPA:WFD_LakeWaterBodiesActive
+    const data = await queryEPAWFS('EPA:WFD_LakeWaterBodiesActive', params.bbox, params.limit || 50)
 
     return data.features.map(
       (feature): EPALake => ({
-        OBJECTID: feature.properties?.OBJECTID || 0,
-        LakeCode: feature.properties?.LAKE_CODE || feature.properties?.CODE || '',
-        LakeName: feature.properties?.LAKE_NAME || feature.properties?.NAME || 'Unknown Lake',
-        CatchmentId: feature.properties?.CATCHMENT_ID,
-        CatchmentName: feature.properties?.CATCHMENT_NAME,
-        Area_ha: feature.properties?.AREA_HA || feature.properties?.SHAPE_Area,
-        WFD_Status: feature.properties?.WFD_STATUS || feature.properties?.STATUS,
-        WFD_RiskStatus: feature.properties?.RISK_STATUS,
+        OBJECTID: feature.properties?.OBJECTID || feature.properties?.objectid || 0,
+        LakeCode:
+          feature.properties?.IE_CD_WB ||
+          feature.properties?.LAKE_CODE ||
+          feature.properties?.CODE ||
+          '',
+        LakeName: feature.properties?.NAME || feature.properties?.LAKE_NAME || 'Unknown Lake',
+        CatchmentId: feature.properties?.SUBCATCH_ID || feature.properties?.CATCHMENT_ID,
+        CatchmentName: feature.properties?.SUBCATCH_NAME || feature.properties?.CATCHMENT_NAME,
+        Area_ha: feature.properties?.AREA_HA || feature.properties?.Shape_Area,
+        WFD_Status: feature.properties?.STATUS || feature.properties?.WFD_STATUS,
+        WFD_RiskStatus: feature.properties?.RISK || feature.properties?.RISK_STATUS,
         MaxDepth_m: feature.properties?.MAX_DEPTH,
         geometry: feature.geometry,
       })
@@ -222,15 +241,23 @@ export async function searchCatchments(params: EPASearchParams): Promise<EPACatc
   if (!params.bbox) return []
 
   try {
-    const data = await queryEPAWFS('WFD:Catchments', params.bbox, params.limit || 20)
+    // Use correct layer name: EPA:WFD_Catchments
+    const data = await queryEPAWFS('EPA:WFD_Catchments', params.bbox, params.limit || 20)
 
     return data.features.map(
       (feature): EPACatchment => ({
-        OBJECTID: feature.properties?.OBJECTID || 0,
-        CatchmentId: feature.properties?.CATCHMENT_ID || feature.properties?.ID || '',
+        OBJECTID: feature.properties?.OBJECTID || feature.properties?.objectid || 0,
+        CatchmentId:
+          feature.properties?.CATCH_ID ||
+          feature.properties?.CATCHMENT_ID ||
+          feature.properties?.ID ||
+          '',
         CatchmentName:
-          feature.properties?.CATCHMENT_NAME || feature.properties?.NAME || 'Unknown Catchment',
-        Area_km2: feature.properties?.AREA_KM2 || feature.properties?.SHAPE_Area,
+          feature.properties?.CATCH_NAME ||
+          feature.properties?.CATCHMENT_NAME ||
+          feature.properties?.NAME ||
+          'Unknown Catchment',
+        Area_km2: feature.properties?.AREA_KM2 || feature.properties?.Shape_Area,
         RiverBasinDistrict: feature.properties?.RBD || feature.properties?.RIVER_BASIN_DISTRICT,
         geometry: feature.geometry,
       })

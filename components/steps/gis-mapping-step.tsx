@@ -61,6 +61,7 @@ interface GISMappingStepProps {
 
 // Wizard steps
 type WizardStep = 'source' | 'boundary' | 'buffers' | 'layers' | 'review'
+type ViewMode = 'preview' | 'wizard'
 
 const WIZARD_STEPS: { id: WizardStep; label: string; icon: React.ElementType }[] = [
   { id: 'source', label: 'Source', icon: Globe },
@@ -163,6 +164,18 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
   const { toast } = useToast()
   const { setMapFullscreen, refetchProject, refetchWorkflowSteps } = useProjectContext()
 
+  // Check if step is completed (approved or needs_review means data exists)
+  const isStepCompleted =
+    workflowStep.status === 'approved' || workflowStep.status === 'needs_review'
+  const hasSavedData = !!(project.boundary && project.grid_reference)
+
+  // View mode: preview (summary view) or wizard (editing)
+  const [viewMode, setViewMode] = React.useState<ViewMode>(() => {
+    // Show preview if step is completed and has saved data
+    if (isStepCompleted && hasSavedData) return 'preview'
+    return 'wizard'
+  })
+
   // Wizard state
   const [currentStep, setCurrentStep] = React.useState<WizardStep>(() => {
     // Start at boundary step if we already have a boundary
@@ -177,10 +190,21 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
   const [selectedSource, setSelectedSource] = React.useState<GISSourceType>(
     project.boundary ? 'manual' : null
   )
-  const [enabledBuffers, setEnabledBuffers] = React.useState<number[]>([]) // Start with no buffers selected
+  const [enabledBuffers, setEnabledBuffers] = React.useState<number[]>(() => {
+    // Initialize from saved project data or start with empty array
+    return (project.buffer_distances as number[] | null) ?? []
+  })
   const [customBufferInput, setCustomBufferInput] = React.useState<string>('')
-  const [customBuffers, setCustomBuffers] = React.useState<number[]>([]) // User-added custom distances
-  const [visibleLayers, setVisibleLayers] = React.useState<string[]>(getDefaultVisibleLayers())
+  const [customBuffers, setCustomBuffers] = React.useState<number[]>(() => {
+    // Initialize custom buffers from project data (buffers not in standard list)
+    const saved = (project.buffer_distances as number[] | null) ?? []
+    const standardValues = STANDARD_BUFFER_DISTANCES.map((b) => b.value) as number[]
+    return saved.filter((d) => !standardValues.includes(d))
+  })
+  const [visibleLayers, setVisibleLayers] = React.useState<string[]>(() => {
+    // Initialize from saved project data or use defaults
+    return (project.visible_layers as string[] | null) ?? getDefaultVisibleLayers()
+  })
   const [bufferZones, setBufferZones] = React.useState<
     Map<number, GeoJSON.Feature<GeoJSON.Polygon>>
   >(new Map())
@@ -205,9 +229,10 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
   const updateBoundary = useUpdateProjectBoundary()
   const completeStep = useCompleteWorkflowStep()
 
-  // Toggle map fullscreen mode when entering/leaving boundary step
+  // Toggle map fullscreen mode when entering/leaving boundary step or in preview mode
   React.useEffect(() => {
     const isMapStep =
+      viewMode === 'preview' ||
       currentStep === 'boundary' ||
       currentStep === 'buffers' ||
       currentStep === 'layers' ||
@@ -218,7 +243,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
     return () => {
       setMapFullscreen(false)
     }
-  }, [currentStep, setMapFullscreen])
+  }, [viewMode, currentStep, setMapFullscreen])
 
   // Generate buffer zones when boundary or enabled buffers change
   React.useEffect(() => {
@@ -417,6 +442,11 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
           coordinates: [parseFloat(boundaryInfo.centerLng), parseFloat(boundaryInfo.centerLat)],
         },
         gridReference: boundaryInfo.gridRef,
+        bufferDistances: enabledBuffers,
+        visibleLayers: visibleLayers,
+        townland: locationInfo?.townland || undefined,
+        county: locationInfo?.county || undefined,
+        province: locationInfo?.province || undefined,
       })
 
       if (result) {
@@ -482,6 +512,168 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
   // Determine if we're in map mode (compact header)
   const isMapMode = currentStep !== 'source'
 
+  // Handle entering edit mode from preview
+  const handleEditClick = () => {
+    setViewMode('wizard')
+    setCurrentStep('source')
+  }
+
+  // PREVIEW MODE - Show summary when step is completed
+  if (viewMode === 'preview') {
+    return (
+      <div className="flex h-full">
+        {/* Map with all data */}
+        <div className="flex-1">
+          <ProjectMapWithDraw
+            className="h-full"
+            center={mapCenter}
+            zoom={mapZoom}
+            boundary={boundary ?? undefined}
+            bufferZones={bufferZones}
+            bufferColors={Object.fromEntries(enabledBuffers.map((d) => [d, getBufferColor(d)]))}
+            onViewChange={handleViewChange}
+            editable={false}
+            showLayersControl={false}
+            visibleLayers={visibleLayers}
+          />
+        </div>
+
+        {/* Summary Panel */}
+        <div className="border-border w-96 overflow-y-auto border-l bg-white">
+          {/* Header */}
+          <div className="border-b p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">GIS Mapping</h2>
+                <p className="text-muted-foreground text-sm">Project boundary configuration</p>
+              </div>
+              <Badge variant="default" className="bg-emerald-500">
+                Completed
+              </Badge>
+            </div>
+          </div>
+
+          {/* Summary Content */}
+          <div className="space-y-6 p-6">
+            {/* Boundary Info */}
+            <div className="rounded-lg border p-4">
+              <h4 className="mb-3 flex items-center gap-2 font-medium">
+                <MapPin className="h-4 w-4 text-emerald-600" />
+                Boundary
+              </h4>
+              {boundaryInfo && (
+                <dl className="space-y-2 text-sm">
+                  {locationInfo?.county && (
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">Location</dt>
+                      <dd className="font-medium">
+                        {locationInfo.townland && `${locationInfo.townland}, `}Co.{' '}
+                        {locationInfo.county}
+                      </dd>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Area</dt>
+                    <dd className="font-medium">{boundaryInfo.area} ha</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Perimeter</dt>
+                    <dd>{boundaryInfo.perimeter} km</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Grid Reference</dt>
+                    <dd className="font-mono text-xs">{boundaryInfo.gridRef}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Vertices</dt>
+                    <dd>{boundaryInfo.pointCount} points</dd>
+                  </div>
+                </dl>
+              )}
+            </div>
+
+            {/* Buffer Zones */}
+            <div className="rounded-lg border p-4">
+              <h4 className="mb-3 flex items-center gap-2 font-medium">
+                <Circle className="h-4 w-4 text-blue-500" />
+                Buffer Zones
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {enabledBuffers.length > 0 ? (
+                  enabledBuffers
+                    .sort((a, b) => a - b)
+                    .map((d) => {
+                      const color = getBufferColor(d)
+                      return (
+                        <Badge
+                          key={d}
+                          variant="secondary"
+                          className="gap-1"
+                          style={{ borderColor: color.stroke, borderWidth: 1 }}
+                        >
+                          <span
+                            className="h-2 w-2 rounded-full"
+                            style={{ backgroundColor: color.fill }}
+                          />
+                          {d} km
+                        </Badge>
+                      )
+                    })
+                ) : (
+                  <span className="text-muted-foreground text-sm">No buffers configured</span>
+                )}
+              </div>
+            </div>
+
+            {/* Data Layers */}
+            <div className="rounded-lg border p-4">
+              <h4 className="mb-3 flex items-center gap-2 font-medium">
+                <Layers className="h-4 w-4 text-purple-500" />
+                Data Layers
+              </h4>
+              <div className="space-y-2">
+                {DATASET_GROUPS.map((group) => {
+                  const activeLayers = group.layers.filter((l) => visibleLayers.includes(l.id))
+                  if (activeLayers.length === 0) return null
+                  return (
+                    <div key={group.id}>
+                      <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">
+                        {group.label}
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {activeLayers.map((layer) => (
+                          <Badge key={layer.id} variant="outline" className="gap-1 text-xs">
+                            {layer.color && (
+                              <span
+                                className="h-2 w-2 rounded-full"
+                                style={{ backgroundColor: layer.color }}
+                              />
+                            )}
+                            {layer.label}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+                {visibleLayers.length === 0 && (
+                  <span className="text-muted-foreground text-sm">No layers enabled</span>
+                )}
+              </div>
+            </div>
+
+            {/* Edit Button */}
+            <Button onClick={handleEditClick} variant="outline" className="w-full">
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit Configuration
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // WIZARD MODE - Original wizard flow
   return (
     <div className="flex h-full flex-col">
       {/* Progress Header - Compact when in map mode */}

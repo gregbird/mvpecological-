@@ -111,12 +111,23 @@ export function useEPALayers(
           limit: 100,
         }
 
+        console.log('[EPA] Fetching data for activeTypes:', activeTypes, 'bbox:', bboxParams.bbox)
+
         // Fetch only active types in parallel
         const results = await Promise.all([
           activeTypes.includes('rivers') ? searchRivers(bboxParams) : Promise.resolve([]),
           activeTypes.includes('lakes') ? searchLakes(bboxParams) : Promise.resolve([]),
           activeTypes.includes('catchments') ? searchCatchments(bboxParams) : Promise.resolve([]),
         ])
+
+        console.log(
+          '[EPA] Results - rivers:',
+          results[0].length,
+          'lakes:',
+          results[1].length,
+          'catchments:',
+          results[2].length
+        )
 
         setData({
           rivers: results[0],

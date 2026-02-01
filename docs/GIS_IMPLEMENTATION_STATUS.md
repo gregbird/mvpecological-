@@ -491,6 +491,70 @@ Dokümandan alınan minimum attribute fields (GIS data section):
 - Findings layer "Desk Research Findings" olarak layers listesine eklendi
 - Layer toggle ile findings görünürlüğü kontrol edilebiliyor
 
+### 2026-02-01 (Step 2: Data Gathering Wizard Refactoring)
+
+**Database Migrations:**
+
+- `projects` tablosuna `townland`, `county`, `province`, `enabled_buffer_distances` kolonları eklendi
+- `desk_research_findings` tablosuna `distance_from_boundary_km`, `is_protected`, `red_list_status`, `relevance_level` kolonları eklendi
+- `target_notes` tablosu oluşturuldu (RLS policies dahil)
+- `update_project_boundary` RPC fonksiyonu güncellendi
+
+**TypeScript Types:**
+
+- `types/database.ts` güncellendi
+  - Project type'a yeni kolonlar eklendi
+  - TargetNote, TargetNoteCategory, TargetNotePriority, RelevanceLevel tipleri eklendi
+  - DeskResearchFinding type'a yeni kolonlar eklendi
+
+**GIS Mapping Güncellemesi:**
+
+- `components/steps/gis-mapping-step.tsx` güncellendi
+  - `handleSave()` fonksiyonuna townland, county, province kaydetme eklendi
+- `lib/supabase/queries/projects.ts` güncellendi
+  - `updateProjectBoundary()` fonksiyonuna yeni parametreler eklendi
+- `hooks/use-project-data.ts` güncellendi
+  - `useUpdateProjectBoundary` hook'una yeni parametreler eklendi
+
+**Target Notes Altyapısı:**
+
+- `lib/supabase/queries/target-notes.ts` oluşturuldu
+  - `getProjectTargetNotes()` - Proje target notes listesi
+  - `createTargetNote()` - Target note oluşturma
+  - `updateTargetNote()` - Target note güncelleme
+  - `deleteTargetNote()` - Target note silme
+  - `verifyTargetNote()` - Target note doğrulama
+  - `getTargetNotesStats()` - İstatistikler
+- `hooks/use-project-data.ts` güncellendi
+  - `useTargetNotes`, `useTargetNote`, `useTargetNotesStats` hooks eklendi
+  - `useCreateTargetNote`, `useUpdateTargetNote`, `useDeleteTargetNote`, `useVerifyTargetNote` mutation hooks eklendi
+
+**Data Gathering Wizard:**
+
+- `components/steps/data-gathering-step.tsx` wizard yapısına dönüştürüldü
+  - 5 sub-step: Info, Sites, Species, Aquatic, Review
+  - GIS Mapping pattern kullanıldı
+  - Preview mode ve wizard mode desteği
+
+**Sub-Step Componentleri:**
+
+- `components/steps/data-gathering/project-info-substep.tsx` - GIS data özeti
+- `components/steps/data-gathering/designated-sites-substep.tsx` - NPWS araması
+- `components/steps/data-gathering/species-records-substep.tsx` - GBIF + NBDC araması
+- `components/steps/data-gathering/aquatic-features-substep.tsx` - EPA araması
+- `components/steps/data-gathering/review-export-substep.tsx` - Özet ve export
+- `components/steps/data-gathering/findings-list.tsx` - Reusable findings list
+- `components/steps/data-gathering/target-note-form.tsx` - Target note formu
+- `components/steps/data-gathering/export-findings-modal.tsx` - Export modal
+- `components/steps/data-gathering/index.ts` - Barrel export
+
+**TypeScript Fixes:**
+
+- `FindingSource` ve `FindingType` type imports eklendi
+- `ProjectMap` component'ine veri gönderirken type cast'ler eklendi
+- `Shield` icon'dan geçersiz `title` prop kaldırıldı
+- `NBDCRecord` type'da olmayan `RedList` property kullanımı kaldırıldı
+
 ### 2026-01-31 (Step 2: Data Gathering - Tam Entegrasyon)
 
 **NBDC Entegrasyonu:**
@@ -608,9 +672,200 @@ Dokümandan alınan minimum attribute fields (GIS data section):
 - [x] DataGatheringStep harita entegrasyonu ✅
 - [ ] HabitatMappingStep findings overlay (gelecek iterasyon)
 
+### Step 2: Data Gathering Wizard Refactoring Tasks (2026-02-01)
+
+- [x] Database migrations (projects, desk_research_findings, target_notes tabloları) ✅
+- [x] TypeScript types güncelleme ✅
+- [x] GIS Mapping'den location data kaydetme ✅
+- [x] Target notes queries ve hooks ✅
+- [x] Wizard yapısına dönüşüm ✅
+- [x] Sub-step componentleri oluşturma ✅
+- [x] TypeScript hataları düzeltme ✅
+
 ---
 
-## 10. Veri Kaynakları ve Kısaltmalar
+## 10. Step 2: Data Gathering Wizard
+
+### 10.1 Genel Bakış
+
+Data Gathering adımı, GIS Mapping gibi wizard-style sub-steps yapısına dönüştürüldü. Kullanıcılar her sub-step'te farklı veri kaynaklarından arama yapabilir ve bulguları projeye kaydedebilir.
+
+### 10.2 Sub-Steps
+
+| #   | ID        | Label            | Icon       | Amaç                                                       |
+| --- | --------- | ---------------- | ---------- | ---------------------------------------------------------- |
+| 1   | `info`    | Project Info     | `Info`     | GIS'ten gelen verilerin özeti, buffer zones, location info |
+| 2   | `sites`   | Designated Sites | `MapPin`   | NPWS araması (SAC, SPA, NHA, pNHA)                         |
+| 3   | `species` | Species Records  | `Bug`      | GBIF + NBDC araması, protected species                     |
+| 4   | `aquatic` | Aquatic Features | `Droplets` | EPA rivers, lakes, catchments                              |
+| 5   | `review`  | Review & Export  | `Check`    | Özet, export, target notes, tamamlama                      |
+
+### 10.3 Database Schema Değişiklikleri
+
+**1. `projects` tablosuna eklenen kolonlar:**
+
+```sql
+ALTER TABLE projects
+  ADD COLUMN IF NOT EXISTS townland text,
+  ADD COLUMN IF NOT EXISTS county text,
+  ADD COLUMN IF NOT EXISTS province text,
+  ADD COLUMN IF NOT EXISTS enabled_buffer_distances numeric[] DEFAULT ARRAY[2, 5]::numeric[];
+```
+
+**2. `desk_research_findings` tablosuna eklenen kolonlar:**
+
+```sql
+ALTER TABLE desk_research_findings
+  ADD COLUMN IF NOT EXISTS distance_from_boundary_km numeric,
+  ADD COLUMN IF NOT EXISTS is_protected boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS red_list_status text,
+  ADD COLUMN IF NOT EXISTS relevance_level text CHECK (relevance_level IN ('high', 'medium', 'low'));
+```
+
+**3. `target_notes` tablosu (Yeni):**
+
+```sql
+CREATE TABLE target_notes (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  finding_id uuid REFERENCES desk_research_findings(id) ON DELETE SET NULL,
+  category text NOT NULL CHECK (category IN ('access_point', 'check_feature', 'habitat', 'fauna', 'flora', 'management', 'damage', 'ownership')),
+  title text NOT NULL,
+  description text,
+  location jsonb,
+  priority text DEFAULT 'normal' CHECK (priority IN ('high', 'normal', 'low')),
+  is_verified boolean DEFAULT false,
+  verified_by uuid REFERENCES profiles(id),
+  verified_at timestamp with time zone,
+  created_by uuid NOT NULL REFERENCES profiles(id),
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+```
+
+### 10.4 Component Yapısı
+
+```
+components/steps/
+├── data-gathering-step.tsx          # Wizard Container
+└── data-gathering/
+    ├── index.ts                      # Barrel export
+    ├── project-info-substep.tsx      # GIS data display
+    ├── designated-sites-substep.tsx  # NPWS search
+    ├── species-records-substep.tsx   # GBIF + NBDC search
+    ├── aquatic-features-substep.tsx  # EPA search
+    ├── review-export-substep.tsx     # Summary + export + target notes
+    ├── findings-list.tsx             # Reusable findings list
+    ├── target-note-form.tsx          # Target note form
+    └── export-findings-modal.tsx     # Export modal (CSV/GeoJSON/JSON)
+```
+
+### 10.5 Sub-Step Componentleri
+
+#### ProjectInfoSubStep
+
+- GIS Mapping'den gelen boundary bilgilerini gösterir
+- Townland, County, Province bilgileri
+- Aktif buffer distances
+- Aranacak veri kaynaklarının listesi
+- Mevcut bulgu sayısı
+
+#### DesignatedSitesSubStep
+
+- NPWS API ile SAC, SPA, NHA, pNHA araması
+- Buffer zone seçimi
+- Harita ile entegre görüntüleme
+- Bulguları kaydetme/silme
+- Distance from boundary hesaplama
+
+#### SpeciesRecordsSubStep
+
+- GBIF ve NBDC tabları
+- Protected species flag'leri
+- Tür gruplandırma (scientific name bazında)
+- Record count gösterimi
+- Harita ile entegre görüntüleme
+
+#### AquaticFeaturesSubStep
+
+- EPA API ile rivers, lakes, catchments araması
+- WFD status gösterimi
+- Harita ile entegre görüntüleme
+- Distance hesaplama
+
+#### ReviewExportSubStep
+
+- Kayıtlı bulgu özeti (source ve type bazında)
+- Target notes yönetimi
+- Export seçenekleri (CSV, GeoJSON, JSON)
+- Step tamamlama butonu
+
+### 10.6 Hooks
+
+**Target Notes Hooks (`hooks/use-project-data.ts`):**
+
+```typescript
+// Target notes listesi
+useTargetNotes(projectId: string)
+
+// Tek target note
+useTargetNote(noteId: string)
+
+// Target notes istatistikleri
+useTargetNotesStats(projectId: string)
+
+// CRUD operasyonları
+useCreateTargetNote()
+useUpdateTargetNote()
+useDeleteTargetNote()
+useVerifyTargetNote()
+```
+
+### 10.7 Validation Rules
+
+| Step    | Validation                         | Atlanabilir?        |
+| ------- | ---------------------------------- | ------------------- |
+| Info    | Project boundary olmalı            | Hayır (GIS'e bağlı) |
+| Sites   | -                                  | Evet                |
+| Species | -                                  | Evet                |
+| Aquatic | -                                  | Evet                |
+| Review  | En az 1 finding kaydedilmiş olmalı | Hayır               |
+
+### 10.8 Export Formatları
+
+**CSV:**
+
+- Findings ve Target Notes ayrı bölümlerde
+- Excel uyumlu format
+- Türkçe karakter desteği
+
+**GeoJSON:**
+
+- Sadece location'ı olan findings ve notes
+- GIS yazılımlarında açılabilir (QGIS, ArcGIS)
+
+**JSON:**
+
+- Tüm data (location olmasa da)
+- Metadata dahil
+- Programatik erişim için
+
+### 10.9 Target Note Kategorileri
+
+| Kategori        | Açıklama                    |
+| --------------- | --------------------------- |
+| `access_point`  | Saha girişi/çıkışı          |
+| `check_feature` | Sahada doğrulanacak özellik |
+| `habitat`       | Habitat alanı               |
+| `fauna`         | Hayvan türü                 |
+| `flora`         | Bitki türü                  |
+| `management`    | Arazi yönetimi              |
+| `damage`        | Hasar veya tehdit           |
+| `ownership`     | Mülkiyet bilgisi            |
+
+---
+
+## 11. Veri Kaynakları ve Kısaltmalar
 
 ### 10.1 NPWS (National Parks & Wildlife Service)
 
