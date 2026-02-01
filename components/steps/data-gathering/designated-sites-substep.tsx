@@ -248,9 +248,17 @@ export function DesignatedSitesSubStep({
   }
 
   // Handle saving a finding
+  // Note: finding.isSaved represents the NEW desired state (toggled from current)
   const handleSaveFinding = async (finding: FindingDisplay) => {
-    if (finding.isSaved) {
-      // Find and delete
+    // Check current saved state in our savedFindings list
+    const isCurrentlySaved = savedFindings.some(
+      (f) =>
+        (f.raw_data as Record<string, unknown>)?.siteCode === finding.metadata?.siteCode ||
+        f.id === finding.id
+    )
+
+    if (isCurrentlySaved) {
+      // Currently saved, so user wants to remove it
       const existingFinding = savedFindings.find(
         (f) =>
           (f.raw_data as Record<string, unknown>)?.siteCode === finding.metadata?.siteCode ||
@@ -259,18 +267,12 @@ export function DesignatedSitesSubStep({
       if (existingFinding) {
         try {
           await deleteFinding.mutateAsync(existingFinding.id)
-          toast({ title: 'Finding removed' })
         } catch (error) {
           console.error('Remove finding error:', error)
-          toast({
-            variant: 'destructive',
-            title: 'Error removing finding',
-            description: error instanceof Error ? error.message : 'Unknown error',
-          })
         }
       }
     } else {
-      // Save
+      // Not saved yet, so save it
       try {
         await createFinding.mutateAsync({
           project_id: project.id,
@@ -289,14 +291,8 @@ export function DesignatedSitesSubStep({
           is_protected: true,
           created_by: userId,
         })
-        toast({ title: 'Finding saved' })
       } catch (error) {
         console.error('Save finding error:', error)
-        toast({
-          variant: 'destructive',
-          title: 'Error saving finding',
-          description: error instanceof Error ? error.message : 'Unknown error',
-        })
       }
     }
   }

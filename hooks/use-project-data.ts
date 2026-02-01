@@ -570,12 +570,10 @@ export function useCreateFinding() {
 
   return useMutation({
     mutationFn: (finding: InsertTables<'desk_research_findings'>) => createFinding(finding),
-    onSuccess: (data) => {
-      if (data) {
-        queryClient.invalidateQueries({ queryKey: ['findings'] })
-        queryClient.invalidateQueries({ queryKey: ['saved-findings'] })
-        queryClient.invalidateQueries({ queryKey: ['findings-stats'] })
-      }
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['findings'] })
+      queryClient.invalidateQueries({ queryKey: ['saved-findings'] })
+      queryClient.invalidateQueries({ queryKey: ['findings-stats'] })
     },
   })
 }

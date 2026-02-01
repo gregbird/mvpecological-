@@ -1,9 +1,15 @@
 import * as React from 'react'
 import { Leaf } from 'lucide-react'
+import { ThemeToggle } from '@/components/layout/theme-toggle'
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
+      {/* Theme Toggle - top right corner */}
+      <div className="absolute top-4 right-4 z-50">
+        <ThemeToggle />
+      </div>
+
       {/* Left side - Branding */}
       <div className="bg-primary text-primary-foreground hidden flex-col justify-between p-12 lg:flex lg:w-1/2">
         <div className="flex items-center gap-2">

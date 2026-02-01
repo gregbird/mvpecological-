@@ -99,16 +99,14 @@ export async function updateFinding(
 }
 
 // Delete finding
-export async function deleteFinding(findingId: string): Promise<boolean> {
+export async function deleteFinding(findingId: string): Promise<void> {
   const supabase = createClient()
   const { error } = await supabase.from('desk_research_findings').delete().eq('id', findingId)
 
   if (error) {
     console.error('Error deleting finding:', error)
-    return false
+    throw new Error(error.message || 'Failed to delete finding')
   }
-
-  return true
 }
 
 // Toggle finding saved status

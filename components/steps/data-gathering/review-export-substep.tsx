@@ -6,27 +6,27 @@ import {
   Download,
   FileSpreadsheet,
   FileJson,
-  FileText,
   Plus,
   Loader2,
   MapPin,
   Shield,
   AlertCircle,
   ClipboardList,
+  FileText,
+  Waves,
+  Bug,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -39,7 +39,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useToast } from '@/hooks/use-toast'
 import { TargetNoteForm } from './target-note-form'
-import type { Project, DeskResearchFinding, TargetNote, Json } from '@/types/database'
+import type { Project, DeskResearchFinding } from '@/types/database'
 import type { TargetNoteWithCreator } from '@/lib/supabase/queries/target-notes'
 
 // Dynamic import for map
@@ -102,13 +102,11 @@ export function ReviewExportSubStep({
   userId,
   savedFindings,
   targetNotes,
-  findingsStats,
   onComplete,
   isCompleting,
   isComplete,
 }: ReviewExportSubStepProps) {
   const { toast } = useToast()
-  const [activeTab, setActiveTab] = React.useState<'summary' | 'findings' | 'notes'>('summary')
   const [showNoteForm, setShowNoteForm] = React.useState(false)
 
   // Stats calculations
@@ -130,18 +128,6 @@ export function ReviewExportSubStep({
     }
     return groups
   }, [savedFindings])
-
-  // Group target notes by category
-  const notesByCategory = React.useMemo(() => {
-    const groups: Record<string, TargetNoteWithCreator[]> = {}
-    for (const note of targetNotes) {
-      if (!groups[note.category]) {
-        groups[note.category] = []
-      }
-      groups[note.category].push(note)
-    }
-    return groups
-  }, [targetNotes])
 
   // Export functions
   const exportAsCSV = () => {
@@ -173,8 +159,6 @@ export function ReviewExportSubStep({
     a.download = `${project.name.replace(/\s+/g, '_')}_findings.csv`
     a.click()
     URL.revokeObjectURL(url)
-
-    toast({ title: 'Export complete', description: 'CSV file downloaded successfully.' })
   }
 
   const exportAsGeoJSON = () => {
@@ -207,8 +191,6 @@ export function ReviewExportSubStep({
     a.download = `${project.name.replace(/\s+/g, '_')}_findings.geojson`
     a.click()
     URL.revokeObjectURL(url)
-
-    toast({ title: 'Export complete', description: 'GeoJSON file downloaded successfully.' })
   }
 
   const exportAsJSON = () => {
@@ -249,236 +231,109 @@ export function ReviewExportSubStep({
     a.download = `${project.name.replace(/\s+/g, '_')}_data.json`
     a.click()
     URL.revokeObjectURL(url)
-
-    toast({ title: 'Export complete', description: 'JSON file downloaded successfully.' })
   }
 
   const canComplete = savedFindings.length > 0 && !isComplete
 
   return (
     <div className="flex h-full">
-      {/* Review Panel - Left side, wider */}
-      <div className="flex w-[480px] flex-col border-r bg-white">
-        {/* Header with stats */}
-        <div className="border-b bg-gradient-to-r from-emerald-50 to-white p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold">Review & Export</h3>
-              <p className="text-muted-foreground text-sm">
-                Review findings and create target notes
-              </p>
-            </div>
-            {savedFindings.length > 0 && (
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">
-                  {savedFindings.length} findings
-                </Badge>
-                {protectedCount > 0 && (
-                  <Badge variant="destructive">{protectedCount} protected</Badge>
-                )}
-              </div>
-            )}
-          </div>
+      {/* Left Panel - Summary */}
+      <div className="flex w-[400px] shrink-0 flex-col border-r bg-white">
+        {/* Header */}
+        <div className="border-b p-4">
+          <h3 className="text-lg font-semibold">Review & Export</h3>
+          <p className="text-muted-foreground text-sm">{savedFindings.length} findings collected</p>
         </div>
 
-        <Tabs
-          value={activeTab}
-          onValueChange={(v) => setActiveTab(v as typeof activeTab)}
-          className="flex flex-1 flex-col"
-        >
-          <TabsList className="mx-4 mt-4">
-            <TabsTrigger value="summary" className="flex-1">
-              Summary
-            </TabsTrigger>
-            <TabsTrigger value="findings" className="flex-1">
-              Findings
-              {savedFindings.length > 0 && (
-                <Badge variant="secondary" className="ml-1.5">
-                  {savedFindings.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="notes" className="flex-1">
-              Notes
-              {targetNotes.length > 0 && (
-                <Badge variant="secondary" className="ml-1.5">
-                  {targetNotes.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
+        {/* Scrollable Content */}
+        <ScrollArea className="flex-1">
+          <div className="space-y-4 p-4">
+            {/* Quick Stats */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-lg border bg-emerald-50 p-3 text-center">
+                <MapPin className="mx-auto mb-1 h-5 w-5 text-emerald-600" />
+                <div className="text-xl font-bold text-emerald-700">{designatedSitesCount}</div>
+                <div className="text-[10px] text-emerald-600">Sites</div>
+              </div>
+              <div className="rounded-lg border bg-purple-50 p-3 text-center">
+                <Bug className="mx-auto mb-1 h-5 w-5 text-purple-600" />
+                <div className="text-xl font-bold text-purple-700">{speciesRecordsCount}</div>
+                <div className="text-[10px] text-purple-600">Species</div>
+              </div>
+              <div className="rounded-lg border bg-cyan-50 p-3 text-center">
+                <Waves className="mx-auto mb-1 h-5 w-5 text-cyan-600" />
+                <div className="text-xl font-bold text-cyan-700">{waterFeaturesCount}</div>
+                <div className="text-[10px] text-cyan-600">Aquatic</div>
+              </div>
+            </div>
 
-          {/* Summary Tab */}
-          <TabsContent value="summary" className="flex-1 overflow-hidden">
-            <ScrollArea className="h-full">
-              <div className="space-y-4 p-4">
-                {/* Stats Grid */}
-                <div className="grid grid-cols-2 gap-3">
-                  <Card>
-                    <CardContent className="p-3 text-center">
-                      <div className="text-2xl font-bold">{savedFindings.length}</div>
-                      <div className="text-muted-foreground text-xs">Total Findings</div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-3 text-center">
-                      <div className="text-2xl font-bold">{targetNotes.length}</div>
-                      <div className="text-muted-foreground text-xs">Target Notes</div>
-                    </CardContent>
-                  </Card>
+            {/* Protected Species Warning */}
+            {protectedCount > 0 && (
+              <Alert className="border-red-200 bg-red-50">
+                <Shield className="h-4 w-4 text-red-600" />
+                <AlertDescription className="text-red-700">
+                  <strong>{protectedCount}</strong> protected species found in this area
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Sources */}
+            <div className="rounded-lg border p-3">
+              <h4 className="mb-2 text-sm font-medium">Data Sources</h4>
+              <div className="flex flex-wrap gap-1.5">
+                {Object.entries(findingsBySource).map(([source, findings]) => (
+                  <Badge key={source} className={`${SOURCE_COLORS[source] || ''}`}>
+                    {source.toUpperCase()} ({findings.length})
+                  </Badge>
+                ))}
+                {Object.keys(findingsBySource).length === 0 && (
+                  <span className="text-muted-foreground text-sm">No data yet</span>
+                )}
+              </div>
+            </div>
+
+            {/* Saved Findings List */}
+            <div className="rounded-lg border p-3">
+              <h4 className="mb-2 text-sm font-medium">Saved Findings</h4>
+              {savedFindings.length === 0 ? (
+                <div className="py-4 text-center">
+                  <FileText className="mx-auto mb-2 h-8 w-8 text-gray-300" />
+                  <p className="text-muted-foreground text-sm">No findings saved</p>
                 </div>
-
-                {/* By Type */}
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">By Type</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Designated Sites</span>
-                      <Badge variant="secondary">{designatedSitesCount}</Badge>
+              ) : (
+                <div className="max-h-[200px] space-y-1.5 overflow-y-auto">
+                  {savedFindings.slice(0, 10).map((finding) => (
+                    <div
+                      key={finding.id}
+                      className="flex items-center gap-2 rounded border bg-gray-50 p-2 text-sm"
+                    >
+                      {finding.is_protected && (
+                        <Shield className="h-3.5 w-3.5 shrink-0 text-red-500" />
+                      )}
+                      <span className="min-w-0 flex-1 truncate">{finding.title}</span>
+                      <Badge variant="outline" className="shrink-0 text-[9px]">
+                        {finding.source.toUpperCase()}
+                      </Badge>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Species Records</span>
-                      <Badge variant="secondary">{speciesRecordsCount}</Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Aquatic Features</span>
-                      <Badge variant="secondary">{waterFeaturesCount}</Badge>
-                    </div>
-                    {protectedCount > 0 && (
-                      <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-1 text-red-600">
-                          <Shield className="h-3 w-3" />
-                          Protected
-                        </span>
-                        <Badge variant="destructive">{protectedCount}</Badge>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                  ))}
+                  {savedFindings.length > 10 && (
+                    <p className="text-muted-foreground pt-1 text-center text-xs">
+                      +{savedFindings.length - 10} more findings
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
 
-                {/* By Source */}
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">By Source</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap gap-2">
-                      {Object.entries(findingsBySource).map(([source, findings]) => (
-                        <Badge
-                          key={source}
-                          variant="secondary"
-                          className={SOURCE_COLORS[source] || ''}
-                        >
-                          {source.toUpperCase()} ({findings.length})
-                        </Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Export Options */}
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Export Data</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="w-full">
-                          <Download className="mr-2 h-4 w-4" />
-                          Export Findings
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem onClick={exportAsCSV}>
-                          <FileSpreadsheet className="mr-2 h-4 w-4" />
-                          Export as CSV
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={exportAsGeoJSON}>
-                          <MapPin className="mr-2 h-4 w-4" />
-                          Export as GeoJSON
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={exportAsJSON}>
-                          <FileJson className="mr-2 h-4 w-4" />
-                          Export as JSON
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </CardContent>
-                </Card>
-
-                {/* Validation */}
-                {savedFindings.length === 0 && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      You need to save at least one finding before completing this step.
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </div>
-            </ScrollArea>
-          </TabsContent>
-
-          {/* Findings Tab */}
-          <TabsContent value="findings" className="flex-1 overflow-hidden">
-            <ScrollArea className="h-full">
-              <div className="space-y-2 p-4">
-                {savedFindings.length === 0 ? (
-                  <div className="py-8 text-center">
-                    <FileText className="mx-auto mb-2 h-8 w-8 text-gray-300" />
-                    <p className="text-muted-foreground text-sm">No findings saved yet</p>
-                  </div>
-                ) : (
-                  savedFindings.map((finding) => (
-                    <Card key={finding.id} className="border-emerald-200">
-                      <CardContent className="p-3">
-                        <div className="flex items-start gap-2">
-                          {finding.is_protected && (
-                            <Shield className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <h4 className="truncate font-medium">{finding.title}</h4>
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              <Badge
-                                variant="secondary"
-                                className={`text-[10px] ${SOURCE_COLORS[finding.source] || ''}`}
-                              >
-                                {finding.source.toUpperCase()}
-                              </Badge>
-                              <Badge variant="outline" className="text-[10px]">
-                                {finding.data_type.replace('_', ' ')}
-                              </Badge>
-                              {finding.distance_from_boundary_km !== null && (
-                                <Badge variant="outline" className="text-[10px]">
-                                  {finding.distance_from_boundary_km === 0
-                                    ? 'Within site'
-                                    : `${finding.distance_from_boundary_km.toFixed(1)} km`}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                )}
-              </div>
-            </ScrollArea>
-          </TabsContent>
-
-          {/* Target Notes Tab */}
-          <TabsContent value="notes" className="flex-1 overflow-hidden">
-            <ScrollArea className="h-full">
-              <div className="space-y-4 p-4">
-                {/* Add Note Button */}
+            {/* Target Notes */}
+            <div className="rounded-lg border p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <h4 className="text-sm font-medium">Target Notes</h4>
                 <Dialog open={showNoteForm} onOpenChange={setShowNoteForm}>
                   <DialogTrigger asChild>
-                    <Button variant="outline" className="w-full">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Target Note
+                    <Button variant="ghost" size="sm" className="h-7 px-2">
+                      <Plus className="mr-1 h-3 w-3" />
+                      Add
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
@@ -491,75 +346,94 @@ export function ReviewExportSubStep({
                     <TargetNoteForm
                       projectId={project.id}
                       userId={userId}
-                      onSuccess={() => {
-                        setShowNoteForm(false)
-                        toast({ title: 'Target note created' })
-                      }}
+                      onSuccess={() => setShowNoteForm(false)}
                       onCancel={() => setShowNoteForm(false)}
                     />
                   </DialogContent>
                 </Dialog>
-
-                {/* Notes List */}
-                {targetNotes.length === 0 ? (
-                  <div className="py-8 text-center">
-                    <ClipboardList className="mx-auto mb-2 h-8 w-8 text-gray-300" />
-                    <p className="text-muted-foreground text-sm">No target notes yet</p>
-                    <p className="text-muted-foreground mt-1 text-xs">
-                      Target notes help field surveyors know what to check
-                    </p>
-                  </div>
-                ) : (
-                  Object.entries(notesByCategory).map(([category, notes]) => (
-                    <div key={category}>
-                      <h4 className="mb-2 text-sm font-medium">
-                        {CATEGORY_LABELS[category] || category}
-                      </h4>
-                      <div className="space-y-2">
-                        {notes.map((note) => (
-                          <Card key={note.id}>
-                            <CardContent className="p-3">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0 flex-1">
-                                  <h5 className="font-medium">{note.title}</h5>
-                                  {note.description && (
-                                    <p className="text-muted-foreground mt-1 line-clamp-2 text-sm">
-                                      {note.description}
-                                    </p>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  {note.priority === 'high' && (
-                                    <Badge variant="destructive" className="text-[10px]">
-                                      High
-                                    </Badge>
-                                  )}
-                                  {note.is_verified && (
-                                    <Badge variant="default" className="gap-0.5 text-[10px]">
-                                      <Check className="h-3 w-3" />
-                                      Verified
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    </div>
-                  ))
-                )}
               </div>
-            </ScrollArea>
-          </TabsContent>
-        </Tabs>
+              {targetNotes.length === 0 ? (
+                <div className="py-3 text-center">
+                  <ClipboardList className="mx-auto mb-1 h-6 w-6 text-gray-300" />
+                  <p className="text-muted-foreground text-xs">No target notes yet</p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {targetNotes.map((note) => (
+                    <div key={note.id} className="rounded border bg-gray-50 p-2">
+                      <div className="flex items-center gap-2">
+                        <span className="flex-1 truncate text-sm font-medium">{note.title}</span>
+                        {note.priority === 'high' && (
+                          <Badge variant="destructive" className="text-[9px]">
+                            High
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-muted-foreground text-xs">
+                        {CATEGORY_LABELS[note.category] || note.category}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
-        {/* Complete Button */}
-        <div className="border-t p-4">
+            {/* Export Buttons */}
+            <div className="rounded-lg border p-3">
+              <h4 className="mb-2 text-sm font-medium">Export Data</h4>
+              <div className="grid grid-cols-3 gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportAsCSV}
+                  disabled={savedFindings.length === 0}
+                  className="h-auto flex-col py-2"
+                >
+                  <FileSpreadsheet className="mb-1 h-4 w-4" />
+                  <span className="text-[10px]">CSV</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportAsGeoJSON}
+                  disabled={savedFindings.length === 0}
+                  className="h-auto flex-col py-2"
+                >
+                  <MapPin className="mb-1 h-4 w-4" />
+                  <span className="text-[10px]">GeoJSON</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportAsJSON}
+                  disabled={savedFindings.length === 0}
+                  className="h-auto flex-col py-2"
+                >
+                  <FileJson className="mb-1 h-4 w-4" />
+                  <span className="text-[10px]">JSON</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Validation Warning */}
+            {savedFindings.length === 0 && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Save at least one finding to complete this step.
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+        </ScrollArea>
+
+        {/* Complete Button - Fixed at bottom */}
+        <div className="border-t bg-white p-4">
           <Button
             onClick={onComplete}
             disabled={!canComplete || isCompleting}
             className="w-full bg-emerald-600 hover:bg-emerald-700"
+            size="lg"
           >
             {isCompleting ? (
               <>
@@ -574,19 +448,14 @@ export function ReviewExportSubStep({
             ) : (
               <>
                 <Check className="mr-2 h-4 w-4" />
-                Complete Step
+                Complete Data Gathering
               </>
             )}
           </Button>
-          {savedFindings.length === 0 && !isComplete && (
-            <p className="text-muted-foreground mt-2 text-center text-xs">
-              Save at least one finding to complete this step
-            </p>
-          )}
         </div>
       </div>
 
-      {/* Map - Right side */}
+      {/* Right - Map */}
       <div className="flex-1">
         <ProjectMap
           className="h-full"

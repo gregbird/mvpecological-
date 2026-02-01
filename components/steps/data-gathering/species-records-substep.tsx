@@ -389,27 +389,35 @@ export function SpeciesRecordsSubStep({
   }
 
   // Handle saving a finding
+  // Note: Check current saved state directly from savedFindings list
   const handleSaveFinding = async (finding: FindingDisplay) => {
-    if (finding.isSaved) {
+    // Check current saved state in our savedFindings list
+    const isCurrentlySaved = savedFindings.some(
+      (f) =>
+        ((f.raw_data as Record<string, unknown>)?.scientificName ===
+          finding.metadata?.scientificName &&
+          f.source === finding.source) ||
+        f.id === finding.id
+    )
+
+    if (isCurrentlySaved) {
+      // Currently saved, so user wants to remove it
       const existingFinding = savedFindings.find(
         (f) =>
-          (f.raw_data as Record<string, unknown>)?.scientificName ===
-            finding.metadata?.scientificName && f.source === finding.source
+          ((f.raw_data as Record<string, unknown>)?.scientificName ===
+            finding.metadata?.scientificName &&
+            f.source === finding.source) ||
+          f.id === finding.id
       )
       if (existingFinding) {
         try {
           await deleteFinding.mutateAsync(existingFinding.id)
-          toast({ title: 'Finding removed' })
         } catch (error) {
           console.error('Remove finding error:', error)
-          toast({
-            variant: 'destructive',
-            title: 'Error removing finding',
-            description: error instanceof Error ? error.message : 'Unknown error',
-          })
         }
       }
     } else {
+      // Not saved yet, so save it
       try {
         // Determine source - if enriched with NBDC, use 'nbdc' to indicate Irish data
         const source = finding.metadata?.nbdcEnriched ? 'nbdc' : 'gbif'
@@ -432,14 +440,8 @@ export function SpeciesRecordsSubStep({
           red_list_status: finding.metadata?.redListStatus || null,
           created_by: userId,
         })
-        toast({ title: 'Finding saved' })
       } catch (error) {
         console.error('Save finding error:', error)
-        toast({
-          variant: 'destructive',
-          title: 'Error saving finding',
-          description: error instanceof Error ? error.message : 'Unknown error',
-        })
       }
     }
   }
