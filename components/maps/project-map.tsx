@@ -35,6 +35,7 @@ interface ProjectMapProps {
   center?: [number, number] // [lat, lng] for Leaflet
   zoom?: number
   boundary?: GeoJSON.Feature<GeoJSON.Polygon>
+  bufferDistances?: number[] // Buffer zones in km to display
   habitatPolygons?: GeoJSON.FeatureCollection
   observationPoints?: GeoJSON.FeatureCollection
   findings?: DeskResearchFinding[]
@@ -45,6 +46,14 @@ interface ProjectMapProps {
   onMapReady?: () => void
   editable?: boolean
   showControls?: boolean
+}
+
+// Buffer zone colors (matching GIS mapping step)
+const BUFFER_COLORS: Record<number, string> = {
+  2: '#f59e0b', // amber
+  5: '#3b82f6', // blue
+  10: '#8b5cf6', // purple
+  15: '#ec4899', // pink
 }
 
 // Tile layer URLs (all free)
@@ -89,6 +98,7 @@ function MapComponent({
   center,
   zoom,
   boundary,
+  bufferDistances,
   habitatPolygons,
   observationPoints,
   findings,
@@ -103,6 +113,7 @@ function MapComponent({
   center: [number, number]
   zoom: number
   boundary?: GeoJSON.Feature<GeoJSON.Polygon>
+  bufferDistances?: number[]
   habitatPolygons?: GeoJSON.FeatureCollection
   observationPoints?: GeoJSON.FeatureCollection
   findings?: DeskResearchFinding[]
@@ -151,9 +162,19 @@ function MapComponent({
       }
     }, [map])
 
+    // Track last zoomed finding ID to prevent re-zoom on data changes
+    const lastZoomedFindingId = React.useRef<string | null>(null)
+
     // Zoom to selected finding - use setView instead of flyTo to avoid animation conflicts
+    // Only zoom when the finding ID changes, not when other properties change
     React.useEffect(() => {
       if (selectedFinding?.location && map) {
+        // Skip if we already zoomed to this finding
+        if (lastZoomedFindingId.current === selectedFinding.id) {
+          return
+        }
+        lastZoomedFindingId.current = selectedFinding.id
+
         const L = require('leaflet')
         try {
           const location = selectedFinding.location
@@ -180,6 +201,9 @@ function MapComponent({
         } catch (error) {
           console.warn('Error zooming to finding:', error)
         }
+      } else if (!selectedFinding) {
+        // Reset tracking when selection is cleared
+        lastZoomedFindingId.current = null
       }
     }, [selectedFinding, map])
 
@@ -229,6 +253,36 @@ function MapComponent({
     >
       <TileLayer url={tileConfig.url} attribution={tileConfig.attribution} />
       <MapController boundary={boundary} selectedFinding={selectedFinding} />
+
+      {/* Buffer Zones - render largest first (underneath) */}
+      {boundary &&
+        bufferDistances &&
+        bufferDistances.length > 0 &&
+        [...bufferDistances]
+          .sort((a, b) => b - a) // Largest first so they render underneath
+          .map((distance) => {
+            const turf = require('@turf/turf')
+            try {
+              const buffered = turf.buffer(boundary, distance, { units: 'kilometers' })
+              const color = BUFFER_COLORS[distance] || '#6b7280'
+              return (
+                <GeoJSON
+                  key={`buffer-${distance}`}
+                  data={buffered}
+                  style={{
+                    color: color,
+                    weight: 2,
+                    fillColor: color,
+                    fillOpacity: 0.05,
+                    dashArray: '5, 5',
+                  }}
+                />
+              )
+            } catch (error) {
+              console.warn(`Error creating buffer for ${distance}km:`, error)
+              return null
+            }
+          })}
 
       {/* Project Boundary */}
       {boundary && boundaryLayer?.visible && (
@@ -495,6 +549,7 @@ export function ProjectMap({
   center = IRELAND_CENTER,
   zoom = DEFAULT_ZOOM,
   boundary,
+  bufferDistances,
   habitatPolygons,
   observationPoints,
   findings,
@@ -560,6 +615,7 @@ export function ProjectMap({
           center={center}
           zoom={zoom}
           boundary={boundary}
+          bufferDistances={bufferDistances}
           habitatPolygons={habitatPolygons}
           observationPoints={observationPoints}
           findings={findings}

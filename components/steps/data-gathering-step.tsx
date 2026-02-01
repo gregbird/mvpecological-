@@ -469,6 +469,7 @@ export function DataGatheringStep({
             project={project}
             projectBoundary={projectBoundary}
             projectCenter={projectCenter}
+            bufferDistances={bufferDistances}
             userId={userId}
             savedFindings={savedFindings}
             targetNotes={targetNotes}

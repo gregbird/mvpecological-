@@ -1,7 +1,18 @@
 'use client'
 
 import * as React from 'react'
-import { Search, Loader2, ArrowUpDown, MapPin, Shield, Bug, Sparkles } from 'lucide-react'
+import {
+  Search,
+  Loader2,
+  ArrowUpDown,
+  MapPin,
+  Shield,
+  Bug,
+  Sparkles,
+  Waves,
+  Droplet,
+  Mountain,
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -46,6 +57,9 @@ export interface FindingDisplay {
     gridSquares10km?: number
     designations?: string
     nbdcEnriched?: boolean
+    // Source URLs for both GBIF and NBDC
+    gbifUrl?: string
+    nbdcUrl?: string
   }
 }
 
@@ -75,6 +89,31 @@ const TYPE_COLORS: Record<string, string> = {
   water_quality: 'bg-blue-100 text-blue-700',
   catchment: 'bg-teal-100 text-teal-700',
   other: 'bg-gray-100 text-gray-700',
+}
+
+// EPA site type configs with icons and colors
+const EPA_SITE_TYPE_CONFIG: Record<
+  string,
+  { label: string; color: string; borderColor: string; icon: React.ElementType }
+> = {
+  River: {
+    label: 'River',
+    color: 'bg-blue-50 text-blue-700',
+    borderColor: 'border-l-blue-500',
+    icon: Waves,
+  },
+  Lake: {
+    label: 'Lake',
+    color: 'bg-cyan-50 text-cyan-700',
+    borderColor: 'border-l-cyan-500',
+    icon: Droplet,
+  },
+  Catchment: {
+    label: 'Catchment',
+    color: 'bg-slate-50 text-slate-700',
+    borderColor: 'border-l-slate-500',
+    icon: Mountain,
+  },
 }
 
 export function FindingsList({
@@ -195,16 +234,36 @@ export function FindingsList({
         <div className="space-y-1.5 p-2">
           {paginatedFindings.map((finding) => {
             const saved = isFindingSaved(finding)
+            const isEpaFinding = finding.source === 'epa'
+            const epaConfig = finding.metadata?.siteType
+              ? EPA_SITE_TYPE_CONFIG[finding.metadata.siteType]
+              : null
+
             return (
               <div
                 key={finding.id}
-                className={`rounded-lg border p-2.5 transition-colors ${saved ? 'border-emerald-400 bg-emerald-50' : 'hover:bg-gray-50'}`}
+                className={`rounded-lg border p-2.5 transition-colors ${
+                  saved
+                    ? 'border-emerald-400 bg-emerald-50'
+                    : isEpaFinding && epaConfig
+                      ? `border-l-4 ${epaConfig.borderColor} ${epaConfig.color}`
+                      : 'hover:bg-gray-50'
+                }`}
               >
                 {/* Title + Save button row */}
                 <div className="flex items-center justify-between gap-2">
-                  <h4 className="min-w-0 flex-1 truncate text-sm font-medium" title={finding.title}>
-                    {finding.title}
-                  </h4>
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    {/* EPA type icon */}
+                    {isEpaFinding && epaConfig && (
+                      <epaConfig.icon className="h-4 w-4 shrink-0 opacity-70" />
+                    )}
+                    <h4
+                      className="min-w-0 flex-1 truncate text-sm font-medium"
+                      title={finding.title}
+                    >
+                      {finding.title}
+                    </h4>
+                  </div>
                   <Button
                     variant={saved ? 'secondary' : 'default'}
                     size="sm"
@@ -217,16 +276,48 @@ export function FindingsList({
 
                 {/* Compact badges row */}
                 <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                  <Badge
-                    variant="secondary"
-                    className={`h-5 px-1.5 text-[10px] ${SOURCE_COLORS[finding.source] || ''}`}
-                  >
-                    {finding.source.toUpperCase()}
-                  </Badge>
-                  {finding.metadata?.nbdcEnriched && (
-                    <span title="Enriched with NBDC data">
-                      <Sparkles className="h-3 w-3 text-amber-500" />
-                    </span>
+                  {/* EPA type badge */}
+                  {isEpaFinding && epaConfig ? (
+                    <Badge
+                      variant="secondary"
+                      className={`h-5 px-1.5 text-[10px] ${epaConfig.color}`}
+                    >
+                      {epaConfig.label}
+                    </Badge>
+                  ) : finding.metadata?.nbdcEnriched ? (
+                    <Badge
+                      variant="secondary"
+                      className="h-5 gap-1 bg-gradient-to-r from-purple-100 to-blue-100 px-1.5 text-[10px] text-purple-700"
+                    >
+                      <Sparkles className="h-2.5 w-2.5 text-amber-500" />
+                      GBIF+NBDC
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="secondary"
+                      className={`h-5 px-1.5 text-[10px] ${SOURCE_COLORS[finding.source] || ''}`}
+                    >
+                      {finding.source.toUpperCase()}
+                    </Badge>
+                  )}
+                  {/* WFD Status badge for EPA findings */}
+                  {isEpaFinding && finding.metadata?.designation && (
+                    <Badge
+                      variant="outline"
+                      className={`h-5 px-1.5 text-[10px] ${
+                        finding.metadata.designation === 'Good' ||
+                        finding.metadata.designation === 'High'
+                          ? 'border-green-300 bg-green-50 text-green-700'
+                          : finding.metadata.designation === 'Moderate'
+                            ? 'border-amber-300 bg-amber-50 text-amber-700'
+                            : finding.metadata.designation === 'Poor' ||
+                                finding.metadata.designation === 'Bad'
+                              ? 'border-red-300 bg-red-50 text-red-700'
+                              : ''
+                      }`}
+                    >
+                      {finding.metadata.designation}
+                    </Badge>
                   )}
                   {finding.metadata?.distance !== undefined && (
                     <Badge variant="outline" className="h-5 gap-0.5 px-1.5 text-[10px]">
@@ -263,16 +354,45 @@ export function FindingsList({
                       View on map
                     </button>
                   )}
-                  {finding.sourceUrl && (
-                    <a
-                      href={finding.sourceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-gray-500 hover:underline"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      Source ↗
-                    </a>
+                  {/* Show both GBIF and NBDC links when enriched */}
+                  {finding.metadata?.nbdcEnriched ? (
+                    <>
+                      {(finding.metadata?.gbifUrl || finding.sourceUrl) && (
+                        <a
+                          href={finding.metadata?.gbifUrl || finding.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-purple-600 hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          GBIF ↗
+                        </a>
+                      )}
+                      {finding.metadata?.nbdcUrl && (
+                        <a
+                          href={finding.metadata.nbdcUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-blue-600 hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          NBDC ↗
+                        </a>
+                      )}
+                    </>
+                  ) : (
+                    finding.sourceUrl && (
+                      <a
+                        href={finding.sourceUrl}
+                        target="_blank"
+                        title={finding.sourceUrl}
+                        rel="noopener noreferrer"
+                        className="text-gray-500 hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Source ↗
+                      </a>
+                    )
                   )}
                 </div>
               </div>

@@ -57,7 +57,7 @@ export async function getFinding(findingId: string): Promise<DeskResearchFinding
 }
 
 // Create new finding
-export async function createFinding(finding: InsertFinding): Promise<DeskResearchFinding | null> {
+export async function createFinding(finding: InsertFinding): Promise<DeskResearchFinding> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('desk_research_findings')
@@ -67,7 +67,11 @@ export async function createFinding(finding: InsertFinding): Promise<DeskResearc
 
   if (error) {
     console.error('Error creating finding:', error)
-    return null
+    throw new Error(error.message || 'Failed to create finding')
+  }
+
+  if (!data) {
+    throw new Error('No data returned from insert')
   }
 
   return data as unknown as DeskResearchFinding

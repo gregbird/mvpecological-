@@ -245,7 +245,8 @@ export function useNPWSLayers(
   // Fetch NPWS sites
   React.useEffect(() => {
     if (!boundary?.geometry?.coordinates?.[0] || activeSiteTypes.length === 0) {
-      setSites([])
+      // Only clear if not already empty to prevent infinite loops
+      setSites((prev) => (prev.length === 0 ? prev : []))
       return
     }
 
@@ -254,7 +255,7 @@ export function useNPWSLayers(
       try {
         const bbox = getBoundingBox(boundary)
         if (!bbox) {
-          setSites([])
+          setSites((prev) => (prev.length === 0 ? prev : []))
           return
         }
         const fetchedSites = await queryDesignatedSites({
@@ -264,7 +265,7 @@ export function useNPWSLayers(
         setSites(fetchedSites)
       } catch (error) {
         console.error('Error fetching NPWS sites:', error)
-        setSites([])
+        setSites((prev) => (prev.length === 0 ? prev : []))
       } finally {
         setIsLoading(false)
       }

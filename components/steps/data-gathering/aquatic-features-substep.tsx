@@ -79,9 +79,17 @@ export function AquaticFeaturesSubStep({
   const [selectedBuffer, setSelectedBuffer] = React.useState<number>(bufferDistances[0] || 2)
   const [selectedFinding, setSelectedFinding] = React.useState<FindingDisplay | null>(null)
 
-  // Save to sessionStorage when results change
+  // Save to sessionStorage when results change (without rawData to avoid quota issues)
   React.useEffect(() => {
-    if (searchResults.length > 0) sessionStorage.setItem(cacheKey, JSON.stringify(searchResults))
+    if (searchResults.length > 0) {
+      try {
+        // Strip rawData to reduce storage size
+        const cacheableResults = searchResults.map(({ rawData, ...rest }) => rest)
+        sessionStorage.setItem(cacheKey, JSON.stringify(cacheableResults))
+      } catch (e) {
+        console.warn('Failed to cache aquatic results:', e)
+      }
+    }
   }, [searchResults, cacheKey])
 
   // Calculate distance from finding location to project boundary
@@ -191,11 +199,12 @@ export function AquaticFeaturesSubStep({
       const findings: FindingDisplay[] = []
 
       // Add rivers
-      for (const river of results.rivers) {
+      for (let i = 0; i < results.rivers.length; i++) {
+        const river = results.rivers[i]
         const distance = calculateDistanceFromBoundary(river.geometry)
 
         findings.push({
-          id: `epa-river-${river.RiverCode || river.OBJECTID}`,
+          id: `epa-river-${river.RiverCode || river.OBJECTID || i}`,
           source: 'epa',
           dataType: 'water_quality',
           title: river.RiverName,
@@ -214,11 +223,12 @@ export function AquaticFeaturesSubStep({
       }
 
       // Add lakes
-      for (const lake of results.lakes) {
+      for (let i = 0; i < results.lakes.length; i++) {
+        const lake = results.lakes[i]
         const distance = calculateDistanceFromBoundary(lake.geometry)
 
         findings.push({
-          id: `epa-lake-${lake.LakeCode || lake.OBJECTID}`,
+          id: `epa-lake-${lake.LakeCode || lake.OBJECTID || i}`,
           source: 'epa',
           dataType: 'water_quality',
           title: lake.LakeName,
@@ -237,11 +247,12 @@ export function AquaticFeaturesSubStep({
       }
 
       // Add catchments
-      for (const catchment of results.catchments) {
+      for (let i = 0; i < results.catchments.length; i++) {
+        const catchment = results.catchments[i]
         const distance = calculateDistanceFromBoundary(catchment.geometry)
 
         findings.push({
-          id: `epa-catchment-${catchment.CatchmentId || catchment.OBJECTID}`,
+          id: `epa-catchment-${catchment.CatchmentId || catchment.OBJECTID || i}`,
           source: 'epa',
           dataType: 'catchment',
           title: catchment.CatchmentName,
@@ -260,21 +271,7 @@ export function AquaticFeaturesSubStep({
 
       setSearchResults(findings)
 
-      if (findings.length === 0) {
-        toast({
-          title: 'No features found',
-          description: `No aquatic features found within ${selectedBuffer}km buffer.`,
-        })
-      } else {
-        const riverCount = results.rivers.length
-        const lakeCount = results.lakes.length
-        const catchmentCount = results.catchments.length
-
-        toast({
-          title: 'EPA search complete',
-          description: `Found ${riverCount} river${riverCount !== 1 ? 's' : ''}, ${lakeCount} lake${lakeCount !== 1 ? 's' : ''}, ${catchmentCount} catchment${catchmentCount !== 1 ? 's' : ''}.`,
-        })
-      }
+      // No toast - results are shown in the UI
     } catch (error) {
       console.error('EPA search error:', error)
       toast({
@@ -300,7 +297,12 @@ export function AquaticFeaturesSubStep({
           await deleteFinding.mutateAsync(existingFinding.id)
           toast({ title: 'Finding removed' })
         } catch (error) {
-          toast({ variant: 'destructive', title: 'Error removing finding' })
+          console.error('Remove finding error:', error)
+          toast({
+            variant: 'destructive',
+            title: 'Error removing finding',
+            description: error instanceof Error ? error.message : 'Unknown error',
+          })
         }
       }
     } else {
@@ -323,7 +325,12 @@ export function AquaticFeaturesSubStep({
         })
         toast({ title: 'Finding saved' })
       } catch (error) {
-        toast({ variant: 'destructive', title: 'Error saving finding' })
+        console.error('Save finding error:', error)
+        toast({
+          variant: 'destructive',
+          title: 'Error saving finding',
+          description: error instanceof Error ? error.message : 'Unknown error',
+        })
       }
     }
   }
@@ -431,7 +438,7 @@ export function AquaticFeaturesSubStep({
             isLoading={isSearching}
             onSave={handleSaveFinding}
             onViewOnMap={(f) => setSelectedFinding(f)}
-            emptyMessage="Click 'Search EPA' to find aquatic features"
+            emptyMessage="Search to find features"
           />
         </div>
       </div>
@@ -444,6 +451,7 @@ export function AquaticFeaturesSubStep({
             center={projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]}
             zoom={11}
             boundary={projectBoundary}
+            bufferDistances={bufferDistances}
             findings={searchResults.map((f) => ({
               id: f.id,
               source: f.source as FindingSource,

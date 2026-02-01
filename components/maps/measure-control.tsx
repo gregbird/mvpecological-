@@ -205,7 +205,7 @@ export function MeasureControl({ map, className }: MeasureControlProps) {
         }
       }
     }
-  }, [])  
+  }, [])
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>

@@ -10,7 +10,6 @@ import {
   AlertCircle,
   Shield,
   Sparkles,
-  Info,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import * as turf from '@turf/turf'
@@ -18,7 +17,6 @@ import * as turf from '@turf/turf'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -26,7 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useToast } from '@/hooks/use-toast'
 import { useCreateFinding, useDeleteFinding } from '@/hooks/use-project-data'
 import { searchOccurrences } from '@/lib/external-apis/gbif'
@@ -74,35 +71,42 @@ export function SpeciesRecordsSubStep({
   const deleteFinding = useDeleteFinding()
 
   // Cache key for sessionStorage
-  const cacheKey = `species-search-${project.id}`
+  const cacheKey = `gbif-search-${project.id}`
 
   const [isSearching, setIsSearching] = React.useState(false)
   const [isEnriching, setIsEnriching] = React.useState(false)
-  const [enrichWithNBDC, setEnrichWithNBDC] = React.useState(true)
   const [searchResults, setSearchResults] = React.useState<FindingDisplay[]>(() => {
+    // Restore from sessionStorage on mount
     if (typeof window !== 'undefined') {
       const cached = sessionStorage.getItem(cacheKey)
-      if (cached)
+      if (cached) {
         try {
           return JSON.parse(cached)
         } catch {
           return []
         }
+      }
     }
     return []
   })
   const [selectedBuffer, setSelectedBuffer] = React.useState<number>(bufferDistances[0] || 2)
   const [selectedFinding, setSelectedFinding] = React.useState<FindingDisplay | null>(null)
-  const [enrichmentStats, setEnrichmentStats] = React.useState<{
+  const [enrichmentProgress, setEnrichmentProgress] = React.useState<{
+    current: number
     total: number
-    enriched: number
-    protected: number
-    invasive: number
   } | null>(null)
 
-  // Save to sessionStorage when results change
+  // Save search results to sessionStorage (without rawData to avoid quota issues)
   React.useEffect(() => {
-    if (searchResults.length > 0) sessionStorage.setItem(cacheKey, JSON.stringify(searchResults))
+    if (searchResults.length > 0) {
+      try {
+        // Strip rawData to reduce storage size
+        const cacheableResults = searchResults.map(({ rawData, ...rest }) => rest)
+        sessionStorage.setItem(cacheKey, JSON.stringify(cacheableResults))
+      } catch (e) {
+        console.warn('Failed to cache species results:', e)
+      }
+    }
   }, [searchResults, cacheKey])
 
   // Calculate distance from finding location to project boundary
@@ -185,88 +189,105 @@ export function SpeciesRecordsSubStep({
     return null
   }, [projectBoundary, projectCenter, selectedBuffer])
 
-  // Enrich GBIF results with NBDC data
-  const enrichResultsWithNBDC = async (findings: FindingDisplay[]): Promise<FindingDisplay[]> => {
-    if (!enrichWithNBDC || findings.length === 0) return findings
+  // Enrich search results with NBDC data (called separately after search)
+  const enrichWithNBDC = async () => {
+    if (searchResults.length === 0) return
 
+    // Clear selected finding to prevent map zoom during enrichment
+    setSelectedFinding(null)
     setIsEnriching(true)
-    let enrichedCount = 0
-    let protectedCount = 0
-    let invasiveCount = 0
+    setEnrichmentProgress({ current: 0, total: searchResults.length })
 
-    const enrichedFindings = await Promise.all(
-      findings.map(async (finding, index) => {
-        const scientificName = finding.metadata?.scientificName
-        if (!scientificName) return finding
+    const enrichedFindings: FindingDisplay[] = []
 
-        // Add small delay to respect NBDC rate limits
-        if (index > 0) {
-          await new Promise((resolve) => setTimeout(resolve, 100))
-        }
+    for (let i = 0; i < searchResults.length; i++) {
+      const finding = searchResults[i]
+      const scientificName = finding.metadata?.scientificName
 
-        try {
-          const nbdcData = await enrichSpeciesFromNBDC(scientificName)
+      // Update progress
+      setEnrichmentProgress({ current: i + 1, total: searchResults.length })
 
-          if (nbdcData) {
-            enrichedCount++
-            if (nbdcData.isProtected) protectedCount++
-            if (nbdcData.isInvasive) invasiveCount++
+      // Skip if already enriched or no scientific name
+      if (finding.metadata?.nbdcEnriched || !scientificName) {
+        enrichedFindings.push(finding)
+        continue
+      }
 
-            // Build enriched content
-            const contentParts = [finding.content]
-            if (nbdcData.designations) {
-              contentParts.push(`🛡️ ${nbdcData.designations}`)
-            }
-            if (nbdcData.totalRecordsInIreland > 0) {
-              contentParts.push(
-                `📊 ${nbdcData.totalRecordsInIreland.toLocaleString()} Irish records (${nbdcData.gridSquares10km} 10km squares)`
-              )
-            }
+      // Add small delay to respect NBDC rate limits
+      if (i > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 150))
+      }
 
-            return {
-              ...finding,
-              title: nbdcData.commonName || finding.title,
-              content: contentParts.join(' '),
-              sourceUrl: nbdcData.nbdcUrl,
-              metadata: {
-                ...finding.metadata,
-                commonName: nbdcData.commonName || finding.metadata?.commonName,
-                isProtected: nbdcData.isProtected,
-                isInvasive: nbdcData.isInvasive,
-                isThreatened: nbdcData.isThreatened,
-                nbdcTaxonId: nbdcData.taxonId,
-                totalIrishRecords: nbdcData.totalRecordsInIreland,
-                gridSquares10km: nbdcData.gridSquares10km,
-                designations: nbdcData.designations || undefined,
-                nbdcEnriched: true,
-              },
-              rawData: {
-                ...finding.rawData,
-                nbdcData,
-              },
-            }
+      try {
+        const nbdcData = await enrichSpeciesFromNBDC(scientificName)
+
+        if (nbdcData) {
+          // Build enriched content
+          const contentParts = [finding.content]
+          if (nbdcData.designations) {
+            contentParts.push(`🛡️ ${nbdcData.designations}`)
+          }
+          if (nbdcData.totalRecordsInIreland > 0) {
+            contentParts.push(`📊 ${nbdcData.totalRecordsInIreland.toLocaleString()} Irish records`)
           }
 
-          return finding
-        } catch (error) {
-          console.warn(`Failed to enrich ${scientificName}:`, error)
-          return finding
+          enrichedFindings.push({
+            ...finding,
+            title: nbdcData.commonName || finding.title,
+            content: contentParts.join(' '),
+            metadata: {
+              ...finding.metadata,
+              commonName: nbdcData.commonName || finding.metadata?.commonName,
+              isProtected: nbdcData.isProtected,
+              isInvasive: nbdcData.isInvasive,
+              isThreatened: nbdcData.isThreatened,
+              nbdcTaxonId: nbdcData.taxonId,
+              totalIrishRecords: nbdcData.totalRecordsInIreland,
+              gridSquares10km: nbdcData.gridSquares10km,
+              designations: nbdcData.designations || undefined,
+              nbdcEnriched: true,
+              // Keep both URLs
+              gbifUrl: finding.sourceUrl,
+              nbdcUrl: nbdcData.nbdcUrl,
+            },
+            rawData: {
+              ...finding.rawData,
+              nbdcData,
+            },
+          })
+        } else {
+          enrichedFindings.push(finding)
         }
-      })
-    )
+      } catch (error) {
+        console.warn(`Failed to enrich ${scientificName}:`, error)
+        enrichedFindings.push(finding)
+      }
+    }
 
-    setEnrichmentStats({
-      total: findings.length,
-      enriched: enrichedCount,
-      protected: protectedCount,
-      invasive: invasiveCount,
-    })
-
+    setSearchResults(enrichedFindings)
     setIsEnriching(false)
-    return enrichedFindings
+    setEnrichmentProgress(null)
+
+    // Show result toast
+    const enrichedCount = enrichedFindings.filter((f) => f.metadata?.nbdcEnriched).length
+    const protectedCount = enrichedFindings.filter((f) => f.metadata?.isProtected).length
+    const invasiveCount = enrichedFindings.filter((f) => f.metadata?.isInvasive).length
+
+    let description = `${enrichedCount} of ${enrichedFindings.length} species found in NBDC`
+    if (protectedCount > 0) {
+      description += `. ⚠️ ${protectedCount} protected!`
+    }
+    if (invasiveCount > 0) {
+      description += `. 🚨 ${invasiveCount} invasive!`
+    }
+
+    toast({
+      title: 'NBDC enrichment complete',
+      description,
+    })
   }
 
-  // Search GBIF and optionally enrich with NBDC
+  // Search GBIF only
   const performSearch = async () => {
     const bbox = getBoundingBox()
     if (!bbox) {
@@ -280,10 +301,8 @@ export function SpeciesRecordsSubStep({
 
     setIsSearching(true)
     setSearchResults([])
-    setEnrichmentStats(null)
 
     try {
-      // Step 1: Search GBIF for occurrences
       const results = await searchOccurrences({
         bbox: {
           minLat: bbox.minLat,
@@ -342,47 +361,21 @@ export function SpeciesRecordsSubStep({
           sourceUrl: firstRecord.speciesKey
             ? `https://www.gbif.org/species/${firstRecord.speciesKey}`
             : `https://www.gbif.org/occurrence/search?scientificName=${encodeURIComponent(scientificName)}`,
-          rawData: { recordCount: count, sampleRecords: records.slice(0, 5) },
+          rawData: { recordCount: count, sampleRecords: records.slice(0, 3) },
           metadata: {
             scientificName,
             commonName: firstRecord.vernacularName,
             recordCount: count,
             distance,
+            gbifUrl: firstRecord.speciesKey
+              ? `https://www.gbif.org/species/${firstRecord.speciesKey}`
+              : undefined,
           },
         })
       }
 
-      // Step 2: Enrich with NBDC data (if enabled)
-      let finalFindings = findings
-      if (enrichWithNBDC && findings.length > 0) {
-        toast({
-          title: 'Enriching with NBDC data...',
-          description: `Found ${findings.length} species from GBIF. Checking Irish protection status...`,
-        })
-        finalFindings = await enrichResultsWithNBDC(findings)
-      }
-
-      setSearchResults(finalFindings)
-
-      // Show result toast
-      const protectedCount = finalFindings.filter((f) => f.metadata?.isProtected).length
-      const invasiveCount = finalFindings.filter((f) => f.metadata?.isInvasive).length
-
-      let description = `Found ${finalFindings.length} species`
-      if (enrichWithNBDC && enrichmentStats) {
-        description += `. ${enrichmentStats.enriched} enriched with Irish data`
-      }
-      if (protectedCount > 0) {
-        description += `. ⚠️ ${protectedCount} protected species!`
-      }
-      if (invasiveCount > 0) {
-        description += `. 🚨 ${invasiveCount} invasive species!`
-      }
-
-      toast({
-        title: 'Search complete',
-        description,
-      })
+      setSearchResults(findings)
+      // No toast - results are shown in the UI
     } catch (error) {
       console.error('Search error:', error)
       toast({
@@ -408,7 +401,12 @@ export function SpeciesRecordsSubStep({
           await deleteFinding.mutateAsync(existingFinding.id)
           toast({ title: 'Finding removed' })
         } catch (error) {
-          toast({ variant: 'destructive', title: 'Error removing finding' })
+          console.error('Remove finding error:', error)
+          toast({
+            variant: 'destructive',
+            title: 'Error removing finding',
+            description: error instanceof Error ? error.message : 'Unknown error',
+          })
         }
       }
     } else {
@@ -436,7 +434,12 @@ export function SpeciesRecordsSubStep({
         })
         toast({ title: 'Finding saved' })
       } catch (error) {
-        toast({ variant: 'destructive', title: 'Error saving finding' })
+        console.error('Save finding error:', error)
+        toast({
+          variant: 'destructive',
+          title: 'Error saving finding',
+          description: error instanceof Error ? error.message : 'Unknown error',
+        })
       }
     }
   }
@@ -463,7 +466,7 @@ export function SpeciesRecordsSubStep({
   return (
     <div className="flex h-full">
       {/* Results Panel */}
-      <div className="flex w-[340px] shrink-0 flex-col border-r">
+      <div className="flex w-[420px] shrink-0 flex-col border-r">
         {/* Search Controls */}
         <div className="border-b p-4">
           <h3 className="mb-2 font-semibold">Species Records</h3>
@@ -471,8 +474,8 @@ export function SpeciesRecordsSubStep({
             Search GBIF for species occurrences and enrich with Irish protection status from NBDC.
           </p>
 
-          {/* Buffer Selection */}
-          <div className="mb-3 flex items-center gap-2">
+          {/* Search Row */}
+          <div className="flex items-center gap-2">
             <Select
               value={selectedBuffer.toString()}
               onValueChange={(v) => setSelectedBuffer(parseFloat(v))}
@@ -497,12 +500,7 @@ export function SpeciesRecordsSubStep({
               {isSearching ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Searching GBIF...
-                </>
-              ) : isEnriching ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Enriching...
+                  Searching...
                 </>
               ) : (
                 <>
@@ -513,76 +511,64 @@ export function SpeciesRecordsSubStep({
             </Button>
           </div>
 
-          {/* NBDC Enrichment Toggle */}
-          <div className="bg-muted/50 mb-3 flex items-center justify-between rounded-lg p-3">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="enrich-nbdc"
-                checked={enrichWithNBDC}
-                onCheckedChange={(checked) => setEnrichWithNBDC(checked === true)}
-              />
-              <label
-                htmlFor="enrich-nbdc"
-                className="flex cursor-pointer items-center gap-1.5 text-sm font-medium"
-              >
-                <Sparkles className="h-4 w-4 text-amber-500" />
-                Enrich with NBDC
-              </label>
-            </div>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Info className="text-muted-foreground h-4 w-4 cursor-help" />
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  <p>
-                    Adds Irish protection status, designation info, and national record counts from
-                    the National Biodiversity Data Centre.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-
-          {/* Results Summary */}
-          {searchResults.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary">{searchResults.length} species</Badge>
-                {enrichedCount > 0 && (
-                  <Badge variant="outline" className="gap-1 text-amber-600">
-                    <Sparkles className="h-3 w-3" />
-                    {enrichedCount} enriched
-                  </Badge>
-                )}
-              </div>
-
-              {(protectedCount > 0 || invasiveCount > 0) && (
+          {/* Results Summary & NBDC Enrichment */}
+          {searchResults.length > 0 && !isSearching && (
+            <div className="mt-4 space-y-3">
+              {/* Stats Row */}
+              <div className="flex items-center justify-between">
                 <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="secondary">{searchResults.length} species</Badge>
                   {protectedCount > 0 && (
                     <Badge variant="destructive" className="gap-1">
                       <Shield className="h-3 w-3" />
-                      {protectedCount} Protected
+                      {protectedCount}
                     </Badge>
                   )}
                   {invasiveCount > 0 && (
                     <Badge className="gap-1 bg-orange-500 hover:bg-orange-600">
                       <AlertCircle className="h-3 w-3" />
-                      {invasiveCount} Invasive
+                      {invasiveCount}
                     </Badge>
                   )}
                 </div>
-              )}
-
-              <div className="flex justify-end">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={performSearch}
                   disabled={isSearching || isEnriching}
                 >
-                  <RefreshCw className="mr-1 h-3 w-3" />
-                  Refresh
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+
+              {/* NBDC Enrichment */}
+              <div className="flex items-center justify-between rounded-lg border bg-amber-50/50 px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-amber-600" />
+                  <span className="text-sm">
+                    {enrichedCount === searchResults.length
+                      ? 'NBDC data added'
+                      : 'Add Irish protection data'}
+                  </span>
+                </div>
+                <Button
+                  variant={enrichedCount === searchResults.length ? 'ghost' : 'outline'}
+                  size="sm"
+                  onClick={enrichWithNBDC}
+                  disabled={isEnriching || enrichedCount === searchResults.length}
+                >
+                  {isEnriching ? (
+                    <>
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      {enrichmentProgress
+                        ? `${enrichmentProgress.current}/${enrichmentProgress.total}`
+                        : '...'}
+                    </>
+                  ) : enrichedCount === searchResults.length ? (
+                    '✓ Done'
+                  ) : (
+                    'Enrich'
+                  )}
                 </Button>
               </div>
             </div>
@@ -597,7 +583,7 @@ export function SpeciesRecordsSubStep({
             isLoading={isSearching || isEnriching}
             onSave={handleSaveFinding}
             onViewOnMap={(f) => setSelectedFinding(f)}
-            emptyMessage="Click 'Search Species' to find occurrence records"
+            emptyMessage="Search to find species"
           />
         </div>
       </div>
@@ -610,6 +596,7 @@ export function SpeciesRecordsSubStep({
             center={projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]}
             zoom={11}
             boundary={projectBoundary}
+            bufferDistances={bufferDistances}
             findings={searchResults.map((f) => ({
               id: f.id,
               source: f.metadata?.nbdcEnriched ? 'nbdc' : ('gbif' as FindingSource),

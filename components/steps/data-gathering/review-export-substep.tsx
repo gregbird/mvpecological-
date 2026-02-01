@@ -59,6 +59,7 @@ interface ReviewExportSubStepProps {
   project: Project
   projectBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
   projectCenter?: { lat: number; lng: number }
+  bufferDistances?: number[]
   userId: string
   savedFindings: DeskResearchFinding[]
   targetNotes: TargetNoteWithCreator[]
@@ -97,6 +98,7 @@ export function ReviewExportSubStep({
   project,
   projectBoundary,
   projectCenter,
+  bufferDistances,
   userId,
   savedFindings,
   targetNotes,
@@ -255,32 +257,28 @@ export function ReviewExportSubStep({
 
   return (
     <div className="flex h-full">
-      {/* Map */}
-      <div className="flex-1">
-        <ProjectMap
-          className="h-full"
-          center={projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]}
-          zoom={12}
-          boundary={projectBoundary}
-          findings={savedFindings.map((f) => ({
-            id: f.id,
-            source: f.source,
-            dataType: f.data_type,
-            title: f.title,
-            content: f.content || undefined,
-            location: f.location as GeoJSON.Geometry | undefined,
-            isSaved: true,
-          }))}
-        />
-      </div>
-
-      {/* Review Panel */}
-      <div className="flex w-[400px] flex-col border-l">
-        <div className="border-b p-4">
-          <h3 className="font-semibold">Review & Export</h3>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Review your findings and create target notes for field surveyors.
-          </p>
+      {/* Review Panel - Left side, wider */}
+      <div className="flex w-[480px] flex-col border-r bg-white">
+        {/* Header with stats */}
+        <div className="border-b bg-gradient-to-r from-emerald-50 to-white p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold">Review & Export</h3>
+              <p className="text-muted-foreground text-sm">
+                Review findings and create target notes
+              </p>
+            </div>
+            {savedFindings.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">
+                  {savedFindings.length} findings
+                </Badge>
+                {protectedCount > 0 && (
+                  <Badge variant="destructive">{protectedCount} protected</Badge>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         <Tabs
@@ -586,6 +584,26 @@ export function ReviewExportSubStep({
             </p>
           )}
         </div>
+      </div>
+
+      {/* Map - Right side */}
+      <div className="flex-1">
+        <ProjectMap
+          className="h-full"
+          center={projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]}
+          zoom={12}
+          boundary={projectBoundary}
+          bufferDistances={bufferDistances}
+          findings={savedFindings.map((f) => ({
+            id: f.id,
+            source: f.source,
+            dataType: f.data_type,
+            title: f.title,
+            content: f.content || undefined,
+            location: f.location as GeoJSON.Geometry | undefined,
+            isSaved: true,
+          }))}
+        />
       </div>
     </div>
   )

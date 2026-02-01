@@ -480,22 +480,18 @@ export interface NBDCEnrichedSpecies {
 
 /**
  * Search NBDC for a species by scientific name and return the taxonId
+ * Uses the /api/nbdc/search proxy to avoid CORS issues
  *
  * @param scientificName - The scientific name to search for (e.g., "Meles meles")
  * @returns The NBDC taxonId if found, null otherwise
  */
 export async function searchNBDCTaxonId(scientificName: string): Promise<number | null> {
   try {
-    const response = await fetch(`${NBDC_BASE_URL}/Species/GetSpecies`, {
+    // Use our API proxy to avoid CORS issues
+    const response = await fetch('/api/nbdc/search', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        speciesName: scientificName,
-        taxonomicSource: '0',
-        iDisplayStart: '0',
-        iDisplayLength: '10',
-        sEcho: '1',
-      }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scientificName }),
     })
 
     if (!response.ok) {
@@ -503,22 +499,8 @@ export async function searchNBDCTaxonId(scientificName: string): Promise<number 
       return null
     }
 
-    const data: NBDCSpeciesSearchResponse = await response.json()
-
-    // Find exact or close match
-    for (const row of data.aaData) {
-      const displayName = row[2] // "Badger (Meles meles)" or "Meles meles"
-
-      // Check if the scientific name is in the display name
-      if (displayName.toLowerCase().includes(scientificName.toLowerCase())) {
-        const taxonId = parseInt(row[1], 10)
-        if (!isNaN(taxonId)) {
-          return taxonId
-        }
-      }
-    }
-
-    return null
+    const data = await response.json()
+    return data.taxonId || null
   } catch (error) {
     console.error('[NBDC] Error searching for taxonId:', error)
     return null
@@ -527,51 +509,27 @@ export async function searchNBDCTaxonId(scientificName: string): Promise<number 
 
 /**
  * Get detailed taxon information from NBDC by taxonId
+ * Uses the /api/nbdc/taxon proxy to avoid CORS issues
  *
  * @param taxonId - The NBDC taxonId
  * @returns Enriched species data or null if not found
  */
 export async function getNBDCTaxonDetails(taxonId: number): Promise<NBDCEnrichedSpecies | null> {
   try {
-    const response = await fetch(
-      `${NBDC_BASE_URL}/api/services/app/taxonService/GetTaxon?taxonId=${taxonId}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: '{}',
-      }
-    )
+    // Use our API proxy to avoid CORS issues
+    const response = await fetch('/api/nbdc/taxon', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taxonId }),
+    })
 
     if (!response.ok) {
       console.warn(`[NBDC] GetTaxon failed: ${response.statusText}`)
       return null
     }
 
-    const data: NBDCTaxonResponse = await response.json()
-
-    if (!data.success || !data.result) {
-      return null
-    }
-
-    const r = data.result
-    const designations = r.designations || ''
-
-    return {
-      taxonId: r.taxonId,
-      scientificName: r.taxonName,
-      commonName: r.commonName,
-      taxonGroup: r.taxonGroupName,
-      designations: r.designations,
-      isProtected: designations.toLowerCase().includes('protected'),
-      isInvasive: designations.toLowerCase().includes('invasive'),
-      isThreatened: designations.toLowerCase().includes('threatened'),
-      totalRecordsInIreland: r.recordCount,
-      gridSquares10km: r.tenKRecordCount,
-      gridSquares50km: r.fiftyKRecordCount,
-      oldestRecordDate: r.oldestRecord ? r.oldestRecord.split('T')[0] : null,
-      newestRecordDate: r.newestRecord ? r.newestRecord.split('T')[0] : null,
-      nbdcUrl: `${NBDC_BASE_URL}/species/${r.taxonId}`,
-    }
+    const data = await response.json()
+    return data.taxon || null
   } catch (error) {
     console.error('[NBDC] Error fetching taxon details:', error)
     return null

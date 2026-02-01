@@ -81,10 +81,16 @@ export function DesignatedSitesSubStep({
   const [selectedBuffer, setSelectedBuffer] = React.useState<number>(bufferDistances[0] || 2)
   const [selectedFinding, setSelectedFinding] = React.useState<FindingDisplay | null>(null)
 
-  // Save to sessionStorage when results change
+  // Save to sessionStorage when results change (without rawData to avoid quota issues)
   React.useEffect(() => {
     if (searchResults.length > 0) {
-      sessionStorage.setItem(cacheKey, JSON.stringify(searchResults))
+      try {
+        // Strip rawData to reduce storage size
+        const cacheableResults = searchResults.map(({ rawData, ...rest }) => rest)
+        sessionStorage.setItem(cacheKey, JSON.stringify(cacheableResults))
+      } catch (e) {
+        console.warn('Failed to cache sites results:', e)
+      }
     }
   }, [searchResults, cacheKey])
 
@@ -228,17 +234,7 @@ export function DesignatedSitesSubStep({
 
       setSearchResults(findings)
 
-      if (findings.length === 0) {
-        toast({
-          title: 'No sites found',
-          description: `No designated sites found within ${selectedBuffer}km buffer.`,
-        })
-      } else {
-        toast({
-          title: 'Search complete',
-          description: `Found ${findings.length} designated site${findings.length > 1 ? 's' : ''}.`,
-        })
-      }
+      // No toast - results are shown in the UI
     } catch (error) {
       console.error('NPWS search error:', error)
       toast({
@@ -265,7 +261,12 @@ export function DesignatedSitesSubStep({
           await deleteFinding.mutateAsync(existingFinding.id)
           toast({ title: 'Finding removed' })
         } catch (error) {
-          toast({ variant: 'destructive', title: 'Error removing finding' })
+          console.error('Remove finding error:', error)
+          toast({
+            variant: 'destructive',
+            title: 'Error removing finding',
+            description: error instanceof Error ? error.message : 'Unknown error',
+          })
         }
       }
     } else {
@@ -290,7 +291,12 @@ export function DesignatedSitesSubStep({
         })
         toast({ title: 'Finding saved' })
       } catch (error) {
-        toast({ variant: 'destructive', title: 'Error saving finding' })
+        console.error('Save finding error:', error)
+        toast({
+          variant: 'destructive',
+          title: 'Error saving finding',
+          description: error instanceof Error ? error.message : 'Unknown error',
+        })
       }
     }
   }
@@ -371,7 +377,7 @@ export function DesignatedSitesSubStep({
             isLoading={isSearching}
             onSave={handleSaveFinding}
             onViewOnMap={(f) => setSelectedFinding(f)}
-            emptyMessage="Click 'Search NPWS' to find designated sites"
+            emptyMessage="Search to find sites"
           />
         </div>
       </div>
@@ -384,6 +390,7 @@ export function DesignatedSitesSubStep({
             center={projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]}
             zoom={11}
             boundary={projectBoundary}
+            bufferDistances={bufferDistances}
             findings={searchResults.map((f) => ({
               id: f.id,
               source: f.source as FindingSource,
