@@ -1,0 +1,19 @@
+{
+  "type": "Feature",
+  "properties": {
+    "name": "Sample Site - Connemara Area",
+    "description": "Test boundary in Connemara, Co. Galway"
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [-9.85, 53.48],
+        [-9.83, 53.48],
+        [-9.83, 53.495],
+        [-9.85, 53.495],
+        [-9.85, 53.48]
+      ]
+    ]
+  }
+}

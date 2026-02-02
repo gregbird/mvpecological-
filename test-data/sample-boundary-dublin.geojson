@@ -1,0 +1,19 @@
+{
+  "type": "Feature",
+  "properties": {
+    "name": "Sample Site - Phoenix Park Area",
+    "description": "Test boundary near Phoenix Park, Dublin"
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [-6.3295, 53.3565],
+        [-6.3195, 53.3565],
+        [-6.3195, 53.3635],
+        [-6.3295, 53.3635],
+        [-6.3295, 53.3565]
+      ]
+    ]
+  }
+}

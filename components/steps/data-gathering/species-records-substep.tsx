@@ -100,11 +100,45 @@ export function SpeciesRecordsSubStep({
   React.useEffect(() => {
     if (searchResults.length > 0) {
       try {
-        // Strip rawData to reduce storage size
-        const cacheableResults = searchResults.map(({ rawData, ...rest }) => rest)
+        // Strip rawData and location to reduce storage size
+        const cacheableResults = searchResults.map(({ rawData, location, ...rest }) => ({
+          ...rest,
+          locationCenter: location
+            ? location.type === 'Point'
+              ? location.coordinates
+              : undefined
+            : undefined,
+        }))
         sessionStorage.setItem(cacheKey, JSON.stringify(cacheableResults))
       } catch (e) {
         console.warn('Failed to cache species results:', e)
+        // Try to clear old caches and retry with minimal data
+        try {
+          const keysToRemove: string[] = []
+          for (let i = 0; i < sessionStorage.length; i++) {
+            const key = sessionStorage.key(i)
+            if (
+              key &&
+              (key.startsWith('npws-') || key.startsWith('gbif-') || key.startsWith('epa-'))
+            ) {
+              if (key !== cacheKey) keysToRemove.push(key)
+            }
+          }
+          keysToRemove.forEach((k) => sessionStorage.removeItem(k))
+          const minimalResults = searchResults.map(({ id, title, source, dataType, metadata }) => ({
+            id,
+            title,
+            source,
+            dataType,
+            metadata: {
+              scientificName: metadata?.scientificName,
+              recordCount: metadata?.recordCount,
+            },
+          }))
+          sessionStorage.setItem(cacheKey, JSON.stringify(minimalResults))
+        } catch {
+          // Give up caching
+        }
       }
     }
   }, [searchResults, cacheKey])

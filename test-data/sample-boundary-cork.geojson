@@ -1,0 +1,19 @@
+{
+  "type": "Feature",
+  "properties": {
+    "name": "Sample Site - Glengarriff Woods",
+    "description": "Test boundary near Glengarriff, Co. Cork - SAC area"
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [-9.565, 51.748],
+        [-9.545, 51.748],
+        [-9.545, 51.76],
+        [-9.565, 51.76],
+        [-9.565, 51.748]
+      ]
+    ]
+  }
+}

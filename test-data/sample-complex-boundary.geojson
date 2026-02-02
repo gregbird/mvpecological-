@@ -1,0 +1,23 @@
+{
+  "type": "Feature",
+  "properties": {
+    "name": "Complex Site - Burren Area",
+    "description": "Irregular boundary shape in The Burren, Co. Clare",
+    "site_code": "TEST-2024-001"
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [-9.05, 53.08],
+        [-9.035, 53.075],
+        [-9.02, 53.08],
+        [-9.015, 53.09],
+        [-9.025, 53.1],
+        [-9.04, 53.105],
+        [-9.055, 53.095],
+        [-9.05, 53.08]
+      ]
+    ]
+  }
+}

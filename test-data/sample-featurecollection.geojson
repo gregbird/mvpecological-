@@ -1,0 +1,43 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Main Site Boundary",
+        "area_type": "study_area"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-7.26, 52.26],
+            [-7.24, 52.26],
+            [-7.24, 52.275],
+            [-7.26, 52.275],
+            [-7.26, 52.26]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Secondary Area",
+        "area_type": "buffer"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-7.27, 52.255],
+            [-7.23, 52.255],
+            [-7.23, 52.28],
+            [-7.27, 52.28],
+            [-7.27, 52.255]
+          ]
+        ]
+      }
+    }
+  ]
+}
