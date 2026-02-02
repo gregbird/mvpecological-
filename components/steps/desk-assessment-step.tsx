@@ -512,8 +512,8 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
                           Regenerate
                         </Button>
                       </div>
-                      <div className="rounded-lg border bg-gray-50 p-4 text-sm whitespace-pre-wrap">
-                        {aiInsights}
+                      <div className="prose prose-sm max-w-none rounded-lg border bg-gray-50 p-4">
+                        <ReactMarkdown>{aiInsights}</ReactMarkdown>
                       </div>
                     </div>
                   ) : (
