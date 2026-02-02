@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
     // serverActions is now stable in Next.js 14+
   },
   images: {
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',
