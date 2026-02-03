@@ -132,6 +132,10 @@ function MapComponent({
   const obsLayer = layers.find((l) => l.id === 'observations')
   const tileConfig = TILE_LAYERS[currentStyle]
 
+  // Track if we've EVER fit to a boundary in this component instance
+  // This ref is at MapComponent level so it persists when MapController re-renders
+  const hasFitToBoundaryRef = React.useRef(false)
+
   // Component to fit bounds and handle zoom to selected finding
   function MapController({
     boundary,
@@ -141,16 +145,26 @@ function MapComponent({
     selectedFinding?: DeskResearchFinding | null
   }) {
     const map = useMap()
-    const initialFitDone = React.useRef(false)
 
     // Fit to boundary on initial load ONLY
+    // Uses hasFitToBoundaryRef from parent scope so it persists across re-renders
     React.useEffect(() => {
-      if (boundary && map && !initialFitDone.current) {
-        const L = require('leaflet')
-        const geoJsonLayer = L.geoJSON(boundary)
-        const bounds = geoJsonLayer.getBounds()
-        map.fitBounds(bounds, { padding: [50, 50] })
-        initialFitDone.current = true
+      if (boundary && map && !hasFitToBoundaryRef.current) {
+        // Check if center is at default position (user hasn't panned)
+        // IRELAND_CENTER = [53.1424, -7.6921]
+        const isDefaultCenter =
+          Math.abs(center[0] - 53.1424) < 0.0001 &&
+          Math.abs(center[1] - (-7.6921)) < 0.0001
+
+        // Only fit bounds if we haven't done it AND center is at default
+        if (isDefaultCenter) {
+          const L = require('leaflet')
+          const geoJsonLayer = L.geoJSON(boundary)
+          const bounds = geoJsonLayer.getBounds()
+          map.fitBounds(bounds, { padding: [50, 50] })
+        }
+        // Mark as done regardless of whether we actually fit
+        hasFitToBoundaryRef.current = true
       }
     }, [boundary, map])
 

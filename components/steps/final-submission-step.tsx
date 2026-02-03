@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
+import { useRole } from '@/contexts/role-context'
 import {
   useLatestReport,
   useUpdateReport,
@@ -73,6 +74,7 @@ export function FinalSubmissionStep({
   onComplete,
 }: FinalSubmissionStepProps) {
   const { toast } = useToast()
+  const { permissions } = useRole()
   const [exportFormat, setExportFormat] = React.useState('pdf')
   const [selectedAppendices, setSelectedAppendices] = React.useState<string[]>([
     'habitat_map',
@@ -464,20 +466,30 @@ Appendices: ${selectedAppendices.map((a) => APPENDIX_OPTIONS.find((o) => o.id ==
 
           <Progress value={isComplete ? 100 : isApproved ? 80 : 50} />
 
-          <Button
-            onClick={handleSubmit}
-            disabled={!canSubmit || isSubmitting}
-            className="w-full bg-green-600 hover:bg-green-700"
-          >
-            {isSubmitting ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : isComplete ? (
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-            ) : (
-              <Send className="mr-2 h-4 w-4" />
-            )}
-            {isComplete ? 'Project Completed' : 'Finalize & Submit Project'}
-          </Button>
+          {permissions.canApproveReport ? (
+            <Button
+              onClick={handleSubmit}
+              disabled={!canSubmit || isSubmitting}
+              className="w-full bg-green-600 hover:bg-green-700"
+            >
+              {isSubmitting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : isComplete ? (
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+              ) : (
+                <Send className="mr-2 h-4 w-4" />
+              )}
+              {isComplete ? 'Project Completed' : 'Finalize & Submit Project'}
+            </Button>
+          ) : (
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertTitle>Admin Required</AlertTitle>
+              <AlertDescription>
+                Only administrators can finalize and submit projects.
+              </AlertDescription>
+            </Alert>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -31,13 +31,6 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -52,7 +45,8 @@ import type { Profile, Invite, UserRole } from '@/types/database'
 
 const inviteSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
-  role: z.enum(['assessor', 'client'] as const),
+  fullName: z.string().min(2, 'Full name must be at least 2 characters'),
+  role: z.enum(['admin', 'assessor'] as const),
 })
 
 type InviteFormData = z.infer<typeof inviteSchema>
@@ -76,6 +70,7 @@ export default function TeamPage() {
     register,
     handleSubmit,
     setValue,
+    watch,
     reset,
     formState: { errors },
   } = useForm<InviteFormData>({
@@ -84,6 +79,8 @@ export default function TeamPage() {
       role: 'assessor',
     },
   })
+
+  const selectedRole = watch('role')
 
   // Check permissions
   React.useEffect(() => {
@@ -144,68 +141,53 @@ export default function TeamPage() {
 
     setIsInviting(true)
     try {
-      const supabase = createClient()
+      // Call API to create user directly
+      const response = await fetch('/api/team/create-member', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: data.email,
+          fullName: data.fullName,
+          role: data.role,
+          organizationId: user.organization_id,
+        }),
+      })
 
-      // Check if email is already in use
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', data.email)
-        .eq('organization_id', user.organization_id)
-        .single()
+      const result = await response.json()
 
-      if (existingProfile) {
+      if (!response.ok) {
         toast({
           variant: 'destructive',
           title: 'Error',
-          description: 'This email is already a team member',
+          description: result.error || 'Failed to create team member',
         })
         return
       }
 
-      // Create invite
-      const { error: inviteError } = await supabase.from('invites').insert({
-        organization_id: user.organization_id,
-        email: data.email,
-        role: data.role,
-        invited_by: user.id,
-      })
-
-      if (inviteError) {
-        if (inviteError.code === '23505') {
-          toast({
-            variant: 'destructive',
-            title: 'Error',
-            description: 'An invite has already been sent to this email',
-          })
-          return
-        }
-        throw inviteError
-      }
-
       toast({
-        title: 'Invite sent!',
-        description: `An invitation has been sent to ${data.email}`,
+        title: 'Team member created!',
+        description: `${data.fullName} has been added as ${data.role}. Password: 123456`,
       })
 
-      // Refresh invites list
-      const { data: invites } = await supabase
-        .from('invites')
+      // Refresh team members list
+      const supabase = createClient()
+      const { data: members } = await supabase
+        .from('profiles')
         .select('*')
         .eq('organization_id', user.organization_id)
-        .is('accepted_at', null)
-        .gt('expires_at', new Date().toISOString())
-        .order('created_at', { ascending: false })
+        .order('created_at', { ascending: true })
 
-      setPendingInvites(invites || [])
+      setTeamMembers(members || [])
       reset()
       setIsDialogOpen(false)
     } catch (err) {
-      console.error('Error sending invite:', err)
+      console.error('Error creating team member:', err)
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to send invitation',
+        description: 'Failed to create team member',
       })
     } finally {
       setIsInviting(false)
@@ -286,10 +268,24 @@ export default function TeamPage() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Invite Team Member</DialogTitle>
-              <DialogDescription>Send an invitation to join your organization</DialogDescription>
+              <DialogDescription>
+                Send an invitation to join your organization (Password: 123456)
+              </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit(onInviteSubmit)}>
               <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="fullName">Full Name</Label>
+                  <Input
+                    id="fullName"
+                    type="text"
+                    placeholder="John Doe"
+                    {...register('fullName')}
+                  />
+                  {errors.fullName && (
+                    <p className="text-sm text-red-600">{errors.fullName.message}</p>
+                  )}
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email Address</Label>
                   <Input
@@ -302,18 +298,15 @@ export default function TeamPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role">Role</Label>
-                  <Select
-                    defaultValue="assessor"
-                    onValueChange={(value) => setValue('role', value as 'assessor' | 'client')}
+                  <select
+                    id="role"
+                    value={selectedRole}
+                    onChange={(e) => setValue('role', e.target.value as 'admin' | 'assessor')}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="assessor">Assessor</SelectItem>
-                      <SelectItem value="client">Client</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    <option value="admin">Admin</option>
+                    <option value="assessor">Assessor</option>
+                  </select>
                   {errors.role && <p className="text-sm text-red-600">{errors.role.message}</p>}
                 </div>
               </div>

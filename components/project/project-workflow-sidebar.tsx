@@ -14,6 +14,10 @@ import {
   Settings,
   Trash2,
   Loader2,
+  Users,
+  UserPlus,
+  X,
+  Search,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -44,6 +48,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Input } from '@/components/ui/input'
+import { createClient } from '@/lib/supabase/client'
+import type { Profile } from '@/types/database'
 import { useToast } from '@/hooks/use-toast'
 import { useDeleteProject } from '@/hooks/use-project-data'
 import { useRole } from '@/contexts/role-context'
@@ -82,6 +97,20 @@ export function ProjectWorkflowSidebar() {
   // Delete confirmation dialog
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false)
 
+  // Team management dialog
+  const [showTeamDialog, setShowTeamDialog] = React.useState(false)
+  const [teamMembers, setTeamMembers] = React.useState<Array<{
+    id: string
+    user_id: string
+    role: string
+    profile: Profile
+  }>>([])
+  const [availableMembers, setAvailableMembers] = React.useState<Profile[]>([])
+  const [isLoadingTeam, setIsLoadingTeam] = React.useState(false)
+  const [isAddingMember, setIsAddingMember] = React.useState(false)
+  const [searchQuery, setSearchQuery] = React.useState('')
+  const [selectedRole, setSelectedRole] = React.useState<string>('surveyor')
+
   const handleDeleteProject = async () => {
     if (!project) return
 
@@ -105,6 +134,160 @@ export function ProjectWorkflowSidebar() {
       })
     }
     setShowDeleteDialog(false)
+  }
+
+  // Fetch team members when dialog opens
+  const fetchTeamData = React.useCallback(async () => {
+    if (!project) return
+
+    setIsLoadingTeam(true)
+    try {
+      const supabase = createClient()
+
+      // Fetch current project members with their profiles
+      const { data: members, error: membersError } = await supabase
+        .from('project_members')
+        .select('id, user_id, role')
+        .eq('project_id', project.id)
+
+      if (membersError) throw membersError
+
+      // Fetch profiles for members
+      const memberProfiles = []
+      for (const member of members || []) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', member.user_id)
+          .single()
+
+        if (profile) {
+          memberProfiles.push({
+            ...member,
+            profile,
+          })
+        }
+      }
+
+      setTeamMembers(memberProfiles)
+
+      // Fetch available members (same organization, not already assigned, only assessors)
+      const { data: orgMembers, error: orgError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('organization_id', project.organization_id)
+        .eq('role', 'assessor') // Only assessors can be assigned to projects
+
+      if (orgError) throw orgError
+
+      const assignedUserIds = members?.map((m) => m.user_id) || []
+      const available = (orgMembers || []).filter(
+        (m) => !assignedUserIds.includes(m.id)
+      )
+
+      setAvailableMembers(available)
+    } catch (err) {
+      console.error('Error fetching team data:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to load team data',
+      })
+    } finally {
+      setIsLoadingTeam(false)
+    }
+  }, [project, toast])
+
+  const handleAddMember = async (userId: string, role: string = 'surveyor') => {
+    if (!project) return
+
+    setIsAddingMember(true)
+    try {
+      const supabase = createClient()
+
+      const { error } = await supabase.from('project_members').insert({
+        project_id: project.id,
+        user_id: userId,
+        role,
+      })
+
+      if (error) throw error
+
+      toast({
+        title: 'Member added',
+        description: 'Team member has been added to the project',
+      })
+
+      // Refresh team data
+      await fetchTeamData()
+    } catch (err) {
+      console.error('Error adding member:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to add team member',
+      })
+    } finally {
+      setIsAddingMember(false)
+    }
+  }
+
+  const handleRemoveMember = async (memberId: string) => {
+    try {
+      const supabase = createClient()
+
+      const { error } = await supabase
+        .from('project_members')
+        .delete()
+        .eq('id', memberId)
+
+      if (error) throw error
+
+      toast({
+        title: 'Member removed',
+        description: 'Team member has been removed from the project',
+      })
+
+      // Refresh team data
+      await fetchTeamData()
+    } catch (err) {
+      console.error('Error removing member:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to remove team member',
+      })
+    }
+  }
+
+  // Fetch team data when dialog opens
+  React.useEffect(() => {
+    if (showTeamDialog) {
+      fetchTeamData()
+    }
+  }, [showTeamDialog, fetchTeamData])
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+  }
+
+  const getRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case 'lead':
+        return 'bg-emerald-100 text-emerald-700'
+      case 'surveyor':
+        return 'bg-blue-100 text-blue-700'
+      case 'analyst':
+        return 'bg-purple-100 text-purple-700'
+      case 'reviewer':
+        return 'bg-amber-100 text-amber-700'
+      default:
+        return 'bg-gray-100 text-gray-700'
+    }
   }
 
   // Update header collapse when step changes
@@ -321,6 +504,12 @@ export function ProjectWorkflowSidebar() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
+              {permissions.canManageTeam && (
+                <DropdownMenuItem onClick={() => setShowTeamDialog(true)}>
+                  <Users className="mr-2 h-4 w-4" />
+                  Manage Team
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem disabled>
                 <Settings className="mr-2 h-4 w-4" />
                 Project Settings
@@ -516,6 +705,187 @@ export function ProjectWorkflowSidebar() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Team Management Dialog */}
+      <Dialog open={showTeamDialog} onOpenChange={(open) => {
+        setShowTeamDialog(open)
+        if (!open) {
+          setSearchQuery('')
+          setSelectedRole('surveyor')
+        }
+      }}>
+        <DialogContent className="max-w-4xl w-[90vw] max-h-[80vh] overflow-hidden flex flex-col p-6">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Project Team
+            </DialogTitle>
+            <DialogDescription>
+              Manage team members assigned to this project
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto space-y-6 px-1 pr-3">
+            {/* Current Team Members */}
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-3">
+                Assigned Members ({teamMembers.length})
+              </h4>
+              {isLoadingTeam ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                </div>
+              ) : teamMembers.length === 0 ? (
+                <div className="text-center py-8 border border-dashed rounded-lg">
+                  <Users className="h-10 w-10 mx-auto text-gray-300 mb-2" />
+                  <p className="text-sm text-gray-500">No team members assigned yet</p>
+                </div>
+              ) : (
+                <div className="grid gap-2">
+                  {teamMembers.map((member) => (
+                    <div
+                      key={member.id}
+                      className="flex items-center justify-between rounded-lg border p-3 bg-white"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarFallback className="bg-emerald-100 text-emerald-700 text-sm">
+                            {getInitials(member.profile.full_name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-medium">{member.profile.full_name}</p>
+                          <p className="text-sm text-gray-500">{member.profile.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge className={getRoleBadgeColor(member.role)}>
+                          {member.role}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
+                          onClick={() => handleRemoveMember(member.id)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Add Team Members Section */}
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-3">
+                Add Assessors to Project
+              </h4>
+
+              {/* Search and Filter */}
+              <div className="flex gap-3 mb-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search by name or email..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <div className="w-40">
+                  <select
+                    value={selectedRole}
+                    onChange={(e) => setSelectedRole(e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  >
+                    <option value="lead">Lead</option>
+                    <option value="surveyor">Surveyor</option>
+                    <option value="analyst">Analyst</option>
+                    <option value="reviewer">Reviewer</option>
+                    <option value="viewer">Viewer</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Available Members List */}
+              {isLoadingTeam ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                </div>
+              ) : availableMembers.length === 0 ? (
+                <div className="text-center py-8 border border-dashed rounded-lg">
+                  <UserPlus className="h-10 w-10 mx-auto text-gray-300 mb-2" />
+                  <p className="text-sm text-gray-500">
+                    All assessors are already assigned to this project
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-2 max-h-[250px] overflow-y-auto">
+                  {availableMembers
+                    .filter((member) => {
+                      if (!searchQuery) return true
+                      const query = searchQuery.toLowerCase()
+                      return (
+                        member.full_name.toLowerCase().includes(query) ||
+                        member.email.toLowerCase().includes(query)
+                      )
+                    })
+                    .map((member) => (
+                      <div
+                        key={member.id}
+                        className="flex items-center justify-between rounded-lg border border-dashed p-3 hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-10 w-10">
+                            <AvatarFallback className="bg-blue-100 text-blue-700 text-sm">
+                              {getInitials(member.full_name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium">{member.full_name}</p>
+                            <p className="text-sm text-gray-500">{member.email}</p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAddMember(member.id, selectedRole)}
+                          disabled={isAddingMember}
+                          className="min-w-[100px]"
+                        >
+                          {isAddingMember ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <>
+                              <UserPlus className="h-4 w-4 mr-2" />
+                              Add as {selectedRole}
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    ))}
+                  {availableMembers.filter((member) => {
+                    if (!searchQuery) return true
+                    const query = searchQuery.toLowerCase()
+                    return (
+                      member.full_name.toLowerCase().includes(query) ||
+                      member.email.toLowerCase().includes(query)
+                    )
+                  }).length === 0 && (
+                    <div className="text-center py-4">
+                      <p className="text-sm text-gray-500">
+                        No assessors found matching &quot;{searchQuery}&quot;
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </aside>
   )
 }

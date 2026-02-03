@@ -134,6 +134,8 @@ function MapComponentWithDraw({
   // Refs for tracking internal map movements (to prevent infinite loops)
   const isInternalMoveRef = React.useRef(false)
   const debounceTimerRef = React.useRef<NodeJS.Timeout | null>(null)
+  // Track if we've EVER fit to a boundary in this component instance
+  const hasFitToBoundaryRef = React.useRef(false)
 
   // Initialize with existing boundary
   React.useEffect(() => {
@@ -188,6 +190,9 @@ function MapComponentWithDraw({
       if (boundary && featureGroupRef.current && map) {
         const L = require('leaflet')
 
+        // Create a unique key for this boundary to detect actual changes
+        const boundaryKey = JSON.stringify(boundary.geometry?.coordinates)
+
         // Clear existing layers
         featureGroupRef.current.clearLayers()
 
@@ -205,11 +210,23 @@ function MapComponentWithDraw({
           featureGroupRef.current?.addLayer(layer)
         })
 
-        // Fit bounds - mark as internal to prevent onViewChange callback
+        // SIMPLE RULE: Only fit bounds ONCE per component lifecycle
+        // AND only if no saved view position was provided (center is at default)
         const bounds = geoJsonLayer.getBounds()
-        if (bounds.isValid()) {
+
+        // Check if center is at default position (IRELAND_CENTER = [53.1424, -7.6921])
+        // If center is NOT at default, user has a saved view position - respect it
+        const isDefaultCenter =
+          Math.abs(center[0] - 53.1424) < 0.0001 &&
+          Math.abs(center[1] - (-7.6921)) < 0.0001
+
+        if (bounds.isValid() && !hasFitToBoundaryRef.current && isDefaultCenter) {
+          hasFitToBoundaryRef.current = true
           isInternalMoveRef.current = true
           map.fitBounds(bounds, { padding: [50, 50] })
+        } else {
+          // Mark as fit even if we didn't actually fit (to prevent future fits)
+          hasFitToBoundaryRef.current = true
         }
       }
     }, [boundary, map])

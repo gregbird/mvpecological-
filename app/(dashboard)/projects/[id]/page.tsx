@@ -26,8 +26,9 @@ export default function ProjectDetailPage() {
 
   const currentWorkflowStep = workflowSteps.find((s) => s.step_number === currentStepNumber)
 
-  // Loading state
-  if (isLoading) {
+  // Loading state - only show full loading screen on initial load (no project yet)
+  // Don't unmount existing content during background refetches to preserve map state
+  if (isLoading && !project) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
         <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
@@ -49,8 +50,8 @@ export default function ProjectDetailPage() {
     )
   }
 
-  // No workflow step found
-  if (!currentWorkflowStep) {
+  // No workflow step found - only show on initial load, not during refetches
+  if (!currentWorkflowStep && !isLoading) {
     return (
       <div className="p-6">
         <Alert>
@@ -60,6 +61,15 @@ export default function ProjectDetailPage() {
             administrator.
           </AlertDescription>
         </Alert>
+      </div>
+    )
+  }
+
+  // Still loading workflow steps
+  if (!currentWorkflowStep) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
       </div>
     )
   }

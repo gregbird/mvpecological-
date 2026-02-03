@@ -5,51 +5,110 @@ import { createClient } from '@/lib/supabase/client'
 import type { Profile, Organization, UserRole } from '@/types/database'
 
 export interface RolePermissions {
+  // Project Management
   canCreateProject: boolean
   canDeleteProject: boolean
+  canViewAllProjects: boolean
+  // Team & System
   canManageTeam: boolean
   canManageSettings: boolean
   canViewAuditTrail: boolean
   canViewTimesheets: boolean
-  // Assessor permissions
+  // GIS & Mapping
+  canDrawBoundary: boolean
+  canUploadShapefiles: boolean
+  // Data Gathering
+  canSearchExternalData: boolean
+  canSaveFindings: boolean
+  // Field Surveys
+  canCreateSurvey: boolean
+  canMarkAsUncertain: boolean
   canEnterFieldData: boolean
   canEditHabitats: boolean
+  // Reporting
   canWriteReports: boolean
+  canSubmitForReview: boolean
+  canApproveReport: boolean
 }
 
 const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
   admin: {
+    // Project Management
     canCreateProject: true,
     canDeleteProject: true,
+    canViewAllProjects: true,
+    // Team & System
     canManageTeam: true,
     canManageSettings: true,
     canViewAuditTrail: true,
     canViewTimesheets: true,
+    // GIS & Mapping
+    canDrawBoundary: true,
+    canUploadShapefiles: true,
+    // Data Gathering
+    canSearchExternalData: true,
+    canSaveFindings: true,
+    // Field Surveys
+    canCreateSurvey: true,
+    canMarkAsUncertain: true,
     canEnterFieldData: true,
     canEditHabitats: true,
+    // Reporting
     canWriteReports: true,
+    canSubmitForReview: true,
+    canApproveReport: true,
   },
   assessor: {
-    canCreateProject: true,
-    canDeleteProject: false,
-    canManageTeam: false,
-    canManageSettings: false,
-    canViewAuditTrail: false,
-    canViewTimesheets: false,
-    canEnterFieldData: true,
-    canEditHabitats: true,
-    canWriteReports: true,
-  },
-  client: {
+    // Project Management
     canCreateProject: false,
     canDeleteProject: false,
+    canViewAllProjects: false,
+    // Team & System
     canManageTeam: false,
     canManageSettings: false,
     canViewAuditTrail: false,
     canViewTimesheets: false,
+    // GIS & Mapping
+    canDrawBoundary: true,
+    canUploadShapefiles: true,
+    // Data Gathering
+    canSearchExternalData: true,
+    canSaveFindings: true,
+    // Field Surveys
+    canCreateSurvey: true,
+    canMarkAsUncertain: true,
+    canEnterFieldData: true,
+    canEditHabitats: true,
+    // Reporting
+    canWriteReports: true,
+    canSubmitForReview: true,
+    canApproveReport: false,
+  },
+  client: {
+    // Project Management
+    canCreateProject: false,
+    canDeleteProject: false,
+    canViewAllProjects: false,
+    // Team & System
+    canManageTeam: false,
+    canManageSettings: false,
+    canViewAuditTrail: false,
+    canViewTimesheets: false,
+    // GIS & Mapping
+    canDrawBoundary: false,
+    canUploadShapefiles: false,
+    // Data Gathering
+    canSearchExternalData: false,
+    canSaveFindings: false,
+    // Field Surveys
+    canCreateSurvey: false,
+    canMarkAsUncertain: false,
     canEnterFieldData: false,
     canEditHabitats: false,
+    // Reporting
     canWriteReports: false,
+    canSubmitForReview: false,
+    canApproveReport: false,
   },
 }
 
@@ -102,15 +161,30 @@ const RoleContext = React.createContext<RoleContextType | undefined>(undefined)
 
 // Default permissions for unauthenticated users
 const DEFAULT_PERMISSIONS: RolePermissions = {
+  // Project Management
   canCreateProject: false,
   canDeleteProject: false,
+  canViewAllProjects: false,
+  // Team & System
   canManageTeam: false,
   canManageSettings: false,
   canViewAuditTrail: false,
   canViewTimesheets: false,
+  // GIS & Mapping
+  canDrawBoundary: false,
+  canUploadShapefiles: false,
+  // Data Gathering
+  canSearchExternalData: false,
+  canSaveFindings: false,
+  // Field Surveys
+  canCreateSurvey: false,
+  canMarkAsUncertain: false,
   canEnterFieldData: false,
   canEditHabitats: false,
+  // Reporting
   canWriteReports: false,
+  canSubmitForReview: false,
+  canApproveReport: false,
 }
 
 export function RoleProvider({ children }: { children: React.ReactNode }) {

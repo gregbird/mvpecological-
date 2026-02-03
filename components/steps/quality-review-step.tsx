@@ -24,6 +24,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
+import { useRole } from '@/contexts/role-context'
 import {
   useLatestReport,
   useUpdateReport,
@@ -93,6 +94,7 @@ export function QualityReviewStep({
   onComplete,
 }: QualityReviewStepProps) {
   const { toast } = useToast()
+  const { permissions } = useRole()
   const [checkedItems, setCheckedItems] = React.useState<Record<string, boolean>>({})
   const [reviewComments, setReviewComments] = React.useState('')
   const [reviewDecision, setReviewDecision] = React.useState<'approved' | 'rejected' | null>(null)
@@ -438,25 +440,35 @@ export function QualityReviewStep({
             rows={4}
           />
 
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
-              onClick={handleReject}
-              disabled={isComplete || reviewDecision === 'approved'}
-            >
-              <XCircle className="mr-2 h-4 w-4" />
-              Request Revisions
-            </Button>
-            <Button
-              className="flex-1 bg-green-600 hover:bg-green-700"
-              onClick={handleApprove}
-              disabled={isComplete || reviewDecision === 'rejected'}
-            >
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-              Approve Report
-            </Button>
-          </div>
+          {permissions.canApproveReport ? (
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
+                onClick={handleReject}
+                disabled={isComplete || reviewDecision === 'approved'}
+              >
+                <XCircle className="mr-2 h-4 w-4" />
+                Request Revisions
+              </Button>
+              <Button
+                className="flex-1 bg-green-600 hover:bg-green-700"
+                onClick={handleApprove}
+                disabled={isComplete || reviewDecision === 'rejected'}
+              >
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+                Approve Report
+              </Button>
+            </div>
+          ) : (
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertTitle>Approval Required</AlertTitle>
+              <AlertDescription>
+                Only administrators can approve or reject reports. Please wait for an admin to review.
+              </AlertDescription>
+            </Alert>
+          )}
 
           {reviewDecision && (
             <Alert variant={reviewDecision === 'approved' ? 'default' : 'destructive'}>

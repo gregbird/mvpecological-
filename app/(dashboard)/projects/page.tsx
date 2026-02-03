@@ -21,6 +21,7 @@ interface ProjectWithProgress extends Project {
   progress: number
   client?: { name: string } | null
   assigned_to_profile?: { full_name: string } | null
+  isMember?: boolean
 }
 
 const statusConfig = {
@@ -96,6 +97,14 @@ export default function ProjectsPage() {
 
         if (projectsError) throw projectsError
 
+        // Fetch project memberships for the current user (for non-admin filtering)
+        const { data: membershipData } = await supabase
+          .from('project_members')
+          .select('project_id')
+          .eq('user_id', user.id)
+
+        const memberProjectIds = membershipData?.map((m) => m.project_id) || []
+
         // Fetch workflow steps for all projects to calculate progress
         const projectIds = projectsData?.map((p) => p.id) || []
 
@@ -128,6 +137,7 @@ export default function ProjectsPage() {
             currentStep: currentStepData?.step_number || 1,
             currentStepName: currentStepData?.name || 'GIS Mapping',
             progress: totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0,
+            isMember: memberProjectIds.includes(project.id),
           }
         })
 
@@ -148,9 +158,9 @@ export default function ProjectsPage() {
   const filteredProjects = React.useMemo(() => {
     let visibleProjects = projects
 
-    // For non-admin users, filter to only show assigned projects
+    // For non-admin users, filter to only show projects they created or are assigned to
     if (user?.role !== 'admin') {
-      visibleProjects = projects.filter((p) => p.created_by === user?.id)
+      visibleProjects = projects.filter((p) => p.created_by === user?.id || p.isMember)
     }
 
     // Apply search filter

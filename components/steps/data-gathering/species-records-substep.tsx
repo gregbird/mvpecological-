@@ -95,6 +95,21 @@ export function SpeciesRecordsSubStep({
     current: number
     total: number
   } | null>(null)
+  // Track hidden findings (for map visibility toggle)
+  const [hiddenIds, setHiddenIds] = React.useState<Set<string>>(new Set())
+
+  // Toggle visibility of a finding on the map
+  const handleToggleVisibility = React.useCallback((findingId: string) => {
+    setHiddenIds((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(findingId)) {
+        newSet.delete(findingId)
+      } else {
+        newSet.add(findingId)
+      }
+      return newSet
+    })
+  }, [])
 
   // Save search results to sessionStorage (without rawData to avoid quota issues)
   React.useEffect(() => {
@@ -620,6 +635,8 @@ export function SpeciesRecordsSubStep({
             onSave={handleSaveFinding}
             onViewOnMap={(f) => setSelectedFinding(f)}
             emptyMessage="Search to find species"
+            hiddenIds={hiddenIds}
+            onToggleVisibility={handleToggleVisibility}
           />
         </div>
       </div>
@@ -633,19 +650,21 @@ export function SpeciesRecordsSubStep({
             zoom={11}
             boundary={projectBoundary}
             bufferDistances={bufferDistances}
-            findings={searchResults.map((f) => ({
-              id: f.id,
-              source: f.metadata?.nbdcEnriched ? 'nbdc' : ('gbif' as FindingSource),
-              dataType: f.dataType as FindingType,
-              title: f.title,
-              content: f.content,
-              location: f.location,
-              isSaved: savedFindings.some(
-                (sf) =>
-                  (sf.raw_data as Record<string, unknown>)?.scientificName ===
-                  f.metadata?.scientificName
-              ),
-            }))}
+            findings={searchResults
+              .filter((f) => !hiddenIds.has(f.id)) // Filter out hidden findings
+              .map((f) => ({
+                id: f.id,
+                source: f.metadata?.nbdcEnriched ? 'nbdc' : ('gbif' as FindingSource),
+                dataType: f.dataType as FindingType,
+                title: f.title,
+                content: f.content,
+                location: f.location,
+                isSaved: savedFindings.some(
+                  (sf) =>
+                    (sf.raw_data as Record<string, unknown>)?.scientificName ===
+                    f.metadata?.scientificName
+                ),
+              }))}
             selectedFinding={
               selectedFinding
                 ? {

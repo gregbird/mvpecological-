@@ -2,10 +2,26 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { FileText, Clock, AlertCircle, CheckCircle, Plus, Loader2 } from 'lucide-react'
+import {
+  FileText,
+  Clock,
+  AlertCircle,
+  CheckCircle,
+  Plus,
+  Loader2,
+  ChevronRight,
+  MapPin,
+  Calendar,
+  FolderKanban,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
 import { useRole } from '@/contexts/role-context'
 import { createClient } from '@/lib/supabase/client'
+import { getPhaseByStepNumber } from '@/lib/config/workflow'
+import type { Project, WorkflowStep } from '@/types/database'
 
 interface DashboardStats {
   totalProjects: number
@@ -18,6 +34,12 @@ interface DashboardStats {
   deskResearch: number
   fieldResearch: number
   reporting: number
+}
+
+interface ProjectWithProgress extends Project {
+  currentStep: number
+  currentStepName: string
+  progress: number
 }
 
 // Donut chart component
@@ -34,7 +56,7 @@ function DonutChart({
   let currentAngle = 0
 
   return (
-    <div className="relative mx-auto h-48 w-48">
+    <div className="relative mx-auto h-40 w-40">
       <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
         {total === 0 ? (
           <circle cx="50" cy="50" r="40" fill="none" stroke="#e5e7eb" strokeWidth="12" />
@@ -63,11 +85,27 @@ function DonutChart({
         )}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-3xl font-bold text-gray-900">{centerValue}</span>
-        <span className="text-sm text-gray-500">{centerLabel}</span>
+        <span className="text-2xl font-bold text-gray-900">{centerValue}</span>
+        <span className="text-xs text-gray-500">{centerLabel}</span>
       </div>
     </div>
   )
+}
+
+function getPhaseInfo(stepNumber: number) {
+  const phase = getPhaseByStepNumber(stepNumber)
+  if (!phase) return { label: 'Unknown', color: 'bg-gray-100 text-gray-700' }
+
+  const colors = {
+    'desk-research': 'bg-blue-100 text-blue-700',
+    'field-research': 'bg-amber-100 text-amber-700',
+    reporting: 'bg-purple-100 text-purple-700',
+  }
+
+  return {
+    label: phase.label,
+    color: colors[phase.id as keyof typeof colors] || 'bg-gray-100 text-gray-700',
+  }
 }
 
 export default function DashboardPage() {
@@ -84,11 +122,14 @@ export default function DashboardPage() {
     fieldResearch: 0,
     reporting: 0,
   })
+  const [recentProjects, setRecentProjects] = React.useState<ProjectWithProgress[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
 
-  // Fetch dashboard stats
+  const isAdmin = user?.role === 'admin'
+
+  // Fetch dashboard data
   React.useEffect(() => {
-    async function fetchStats() {
+    async function fetchDashboardData() {
       if (!user?.organization_id) {
         setIsLoading(false)
         return
@@ -97,16 +138,53 @@ export default function DashboardPage() {
       try {
         const supabase = createClient()
 
-        // Fetch all projects for the organization
-        const { data: projects, error } = await supabase
+        // For assessors, get their assigned project IDs first
+        let assignedProjectIds: string[] = []
+        if (!isAdmin) {
+          const { data: memberships } = await supabase
+            .from('project_members')
+            .select('project_id')
+            .eq('user_id', user.id)
+
+          assignedProjectIds = memberships?.map((m) => m.project_id) || []
+        }
+
+        // Fetch projects
+        let projectsQuery = supabase
           .from('projects')
-          .select('id, status, health_status, current_phase')
+          .select('*')
           .eq('organization_id', user.organization_id)
+          .order('updated_at', { ascending: false })
+
+        // For assessors, filter to only assigned projects
+        if (!isAdmin && assignedProjectIds.length > 0) {
+          projectsQuery = projectsQuery.in('id', assignedProjectIds)
+        } else if (!isAdmin && assignedProjectIds.length === 0) {
+          // No assigned projects
+          setStats({
+            totalProjects: 0,
+            draft: 0,
+            active: 0,
+            completed: 0,
+            onTrack: 0,
+            atRisk: 0,
+            overdue: 0,
+            deskResearch: 0,
+            fieldResearch: 0,
+            reporting: 0,
+          })
+          setRecentProjects([])
+          setIsLoading(false)
+          return
+        }
+
+        const { data: projects, error } = await projectsQuery
 
         if (error) throw error
 
-        // Calculate stats
         const projectList = projects || []
+
+        // Calculate stats
         const newStats: DashboardStats = {
           totalProjects: projectList.length,
           draft: projectList.filter((p) => p.status === 'draft').length,
@@ -121,70 +199,90 @@ export default function DashboardPage() {
         }
 
         setStats(newStats)
+
+        // Fetch workflow steps for progress calculation
+        const projectIds = projectList.map((p) => p.id)
+        let workflowSteps: WorkflowStep[] = []
+
+        if (projectIds.length > 0) {
+          const { data: stepsData } = await supabase
+            .from('workflow_steps')
+            .select('*')
+            .in('project_id', projectIds)
+
+          workflowSteps = stepsData || []
+        }
+
+        // Calculate progress for recent projects (top 5)
+        const recentWithProgress: ProjectWithProgress[] = projectList.slice(0, 5).map((project) => {
+          const steps = workflowSteps.filter((s) => s.project_id === project.id)
+          const completedSteps = steps.filter(
+            (s) => s.status === 'approved' || s.status === 'needs_review'
+          ).length
+          const totalSteps = steps.length || 10
+
+          const sortedSteps = [...steps].sort((a, b) => a.step_number - b.step_number)
+          const currentStepData =
+            sortedSteps.find((s) => s.status !== 'approved') || sortedSteps[sortedSteps.length - 1]
+
+          return {
+            ...project,
+            currentStep: currentStepData?.step_number || 1,
+            currentStepName: currentStepData?.name || 'GIS Mapping',
+            progress: totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0,
+          }
+        })
+
+        setRecentProjects(recentWithProgress)
       } catch (err) {
-        console.error('Error fetching dashboard stats:', err)
+        console.error('Error fetching dashboard data:', err)
       } finally {
         setIsLoading(false)
       }
     }
 
     if (!isRoleLoading) {
-      fetchStats()
+      fetchDashboardData()
     }
-  }, [user, isRoleLoading])
+  }, [user, isRoleLoading, isAdmin])
 
-  // Build stats cards data
+  // Stats cards
   const statsCards = [
     {
-      label: 'Total Projects',
+      label: isAdmin ? 'Total Projects' : 'My Projects',
       value: stats.totalProjects,
       icon: FileText,
-      color: 'bg-blue-50 text-blue-600',
+      color: 'text-blue-600',
       iconBg: 'bg-blue-100',
-    },
-    {
-      label: 'Draft',
-      value: stats.draft,
-      icon: Clock,
-      color: 'bg-gray-50 text-gray-600',
-      iconBg: 'bg-gray-100',
     },
     {
       label: 'In Progress',
       value: stats.active,
-      icon: AlertCircle,
-      color: 'bg-orange-50 text-orange-600',
-      iconBg: 'bg-orange-100',
+      icon: Clock,
+      color: 'text-amber-600',
+      iconBg: 'bg-amber-100',
     },
     {
       label: 'Completed',
       value: stats.completed,
       icon: CheckCircle,
-      color: 'bg-emerald-50 text-emerald-600',
+      color: 'text-emerald-600',
       iconBg: 'bg-emerald-100',
     },
-  ]
-
-  const projectStatusData = [
-    { value: stats.draft, color: '#9ca3af', label: 'Draft' },
-    { value: stats.active, color: '#f97316', label: 'In Progress' },
-    { value: stats.completed, color: '#22c55e', label: 'Completed' },
+    {
+      label: 'Needs Attention',
+      value: stats.atRisk + stats.overdue,
+      icon: AlertCircle,
+      color: 'text-red-600',
+      iconBg: 'bg-red-100',
+    },
   ]
 
   const workflowData = [
     { value: stats.deskResearch, color: '#3b82f6', label: 'Desk Research' },
-    { value: stats.fieldResearch, color: '#22c55e', label: 'Field Research' },
-    { value: stats.reporting, color: '#f97316', label: 'Reporting' },
+    { value: stats.fieldResearch, color: '#f59e0b', label: 'Field Research' },
+    { value: stats.reporting, color: '#8b5cf6', label: 'Reporting' },
   ]
-
-  const timelineHealthData = [
-    { value: stats.onTrack, color: '#22c55e', label: 'On Track' },
-    { value: stats.atRisk, color: '#f97316', label: 'At Risk' },
-    { value: stats.overdue, color: '#ef4444', label: 'Overdue' },
-  ]
-
-  const healthyPercentage =
-    stats.totalProjects > 0 ? Math.round((stats.onTrack / stats.totalProjects) * 100) : 0
 
   // Loading state
   if (isLoading || isRoleLoading) {
@@ -196,12 +294,16 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="min-h-screen bg-gray-50 p-6 lg:p-8">
       {/* Page Header */}
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="mt-1 text-gray-500">Welcome back, {user?.full_name || 'User'}</p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {isAdmin ? 'Dashboard' : 'My Dashboard'}
+          </h1>
+          <p className="mt-1 text-gray-500">
+            Welcome back, {user?.full_name || 'User'}
+          </p>
         </div>
         {permissions.canCreateProject && (
           <Button asChild className="bg-emerald-600 hover:bg-emerald-700">
@@ -214,107 +316,179 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         {statsCards.map((stat) => {
           const Icon = stat.icon
           return (
-            <div key={stat.label} className="rounded-xl border border-gray-200 bg-white p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">{stat.label}</p>
-                  <p className="mt-1 text-3xl font-bold text-gray-900">{stat.value}</p>
+            <Card key={stat.label}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500">{stat.label}</p>
+                    <p className="mt-1 text-2xl font-bold text-gray-900">{stat.value}</p>
+                  </div>
+                  <div className={`rounded-full p-2.5 ${stat.iconBg}`}>
+                    <Icon className={`h-5 w-5 ${stat.color}`} />
+                  </div>
                 </div>
-                <div className={`rounded-full p-3 ${stat.iconBg}`}>
-                  <Icon className={`h-6 w-6 ${stat.color.split(' ')[1]}`} />
-                </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           )
         })}
       </div>
 
-      {/* Charts */}
-      <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Project Status Distribution */}
-        <div className="rounded-xl border border-gray-200 bg-white p-6">
-          <h3 className="mb-6 text-lg font-semibold text-gray-900">Project Status Distribution</h3>
-          <DonutChart
-            data={projectStatusData}
-            centerLabel="Projects"
-            centerValue={stats.totalProjects}
-          />
-          <div className="mt-6 grid grid-cols-2 gap-2">
-            {projectStatusData.map((item) => (
-              <div key={item.label} className="flex items-center gap-2 text-sm">
-                <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
-                <span className="text-gray-600">{item.label}:</span>
-                <span className="font-medium">{item.value}</span>
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Recent/Assigned Projects */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>{isAdmin ? 'Recent Projects' : 'My Assigned Projects'}</CardTitle>
+                <CardDescription>
+                  {isAdmin ? 'Latest project activity' : 'Projects assigned to you'}
+                </CardDescription>
               </div>
-            ))}
-          </div>
-        </div>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/projects">
+                  View all
+                  <ChevronRight className="ml-1 h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {recentProjects.length === 0 ? (
+              <div className="py-8 text-center">
+                <FolderKanban className="mx-auto mb-3 h-12 w-12 text-gray-300" />
+                <p className="text-gray-500">
+                  {isAdmin
+                    ? 'No projects yet. Create your first project to get started.'
+                    : 'No projects assigned to you yet.'}
+                </p>
+                {permissions.canCreateProject && (
+                  <Button asChild className="mt-4 bg-emerald-600 hover:bg-emerald-700">
+                    <Link href="/projects/new">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create Project
+                    </Link>
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {recentProjects.map((project) => {
+                  const phaseInfo = getPhaseInfo(project.currentStep)
+                  return (
+                    <Link
+                      key={project.id}
+                      href={`/projects/${project.id}?step=${project.currentStep}`}
+                      className="block rounded-lg border p-4 transition-colors hover:border-emerald-300 hover:bg-gray-50"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-1 flex items-center gap-2">
+                            <span className="font-mono text-xs text-gray-400">
+                              {project.site_code || project.id.slice(0, 8)}
+                            </span>
+                            <Badge className={phaseInfo.color}>{phaseInfo.label}</Badge>
+                          </div>
+                          <h4 className="font-medium text-gray-900">{project.name}</h4>
+                          <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
+                            {project.grid_reference && (
+                              <span className="flex items-center gap-1">
+                                <MapPin className="h-3.5 w-3.5" />
+                                {project.grid_reference}
+                              </span>
+                            )}
+                            {project.expected_end_date && (
+                              <span className="flex items-center gap-1">
+                                <Calendar className="h-3.5 w-3.5" />
+                                {new Date(project.expected_end_date).toLocaleDateString()}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                          <span className="text-sm text-gray-500">
+                            Step {project.currentStep}/10
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <Progress value={project.progress} className="h-2 w-20" />
+                            <span className="text-xs font-medium text-gray-600">
+                              {project.progress}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-        {/* Workflow Stage Progress */}
-        <div className="rounded-xl border border-gray-200 bg-white p-6">
-          <h3 className="mb-6 text-lg font-semibold text-gray-900">Workflow Stage Progress</h3>
-          <DonutChart data={workflowData} centerLabel="Active" centerValue={stats.active} />
-          <div className="mt-6 space-y-2">
-            {workflowData.map((item) => (
-              <div key={item.label} className="flex items-center gap-2 text-sm">
-                <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
-                <span className="text-gray-600">{item.label}:</span>
-                <span className="font-medium">{item.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Timeline Health */}
-        <div className="rounded-xl border border-gray-200 bg-white p-6">
-          <h3 className="mb-6 text-lg font-semibold text-gray-900">Timeline Health</h3>
-          <DonutChart
-            data={timelineHealthData}
-            centerLabel="Healthy"
-            centerValue={`${healthyPercentage}%`}
-          />
-          <div className="mt-6 space-y-2">
-            {timelineHealthData.map((item) => (
-              <div key={item.label} className="flex items-center gap-2 text-sm">
-                <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
-                <span className="text-gray-600">{item.label}:</span>
-                <span className="font-medium">{item.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* Workflow Distribution */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Workflow Distribution</CardTitle>
+            <CardDescription>Projects by current phase</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DonutChart
+              data={workflowData}
+              centerLabel="Active"
+              centerValue={stats.active}
+            />
+            <div className="mt-4 space-y-2">
+              {workflowData.map((item) => (
+                <div key={item.label} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="h-3 w-3 rounded-full"
+                      style={{ backgroundColor: item.color }}
+                    />
+                    <span className="text-gray-600">{item.label}</span>
+                  </div>
+                  <span className="font-medium">{item.value}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* All Projects Timeline Status */}
-      <div className="rounded-xl border border-gray-200 bg-white p-6">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900">All Projects Timeline Status</h3>
-        <div className="py-12 text-center text-gray-500">
-          {stats.totalProjects === 0 ? (
-            <>
-              <p>No projects yet. Create your first project to see analytics.</p>
-              {permissions.canCreateProject && (
-                <Button asChild className="mt-4 bg-emerald-600 hover:bg-emerald-700">
-                  <Link href="/projects/new">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create Project
+      {/* Quick Actions for Assessor */}
+      {!isAdmin && recentProjects.length > 0 && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Quick Actions</CardTitle>
+            <CardDescription>Jump back into your work</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {recentProjects.slice(0, 3).map((project) => (
+                <Button
+                  key={project.id}
+                  variant="outline"
+                  className="h-auto justify-start p-4"
+                  asChild
+                >
+                  <Link href={`/projects/${project.id}?step=${project.currentStep}`}>
+                    <div className="text-left">
+                      <p className="font-medium">{project.name}</p>
+                      <p className="text-sm text-gray-500">
+                        Continue: {project.currentStepName}
+                      </p>
+                    </div>
+                    <ChevronRight className="ml-auto h-4 w-4" />
                   </Link>
                 </Button>
-              )}
-            </>
-          ) : (
-            <>
-              <p>Project timeline visualization coming soon...</p>
-              <Link href="/projects" className="mt-2 inline-block text-emerald-600 hover:underline">
-                View all projects
-              </Link>
-            </>
-          )}
-        </div>
-      </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

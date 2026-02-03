@@ -22,6 +22,7 @@ import {
   FlaskConical,
   FileText,
   Loader2,
+  LayoutDashboard,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -173,6 +174,20 @@ export function Sidebar() {
 
       {/* Navigation */}
       <ScrollArea className="flex-1 px-3 py-4">
+        {/* Dashboard Link */}
+        <Link
+          href="/dashboard"
+          className={cn(
+            'mb-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+            pathname === '/dashboard'
+              ? 'bg-emerald-50 text-emerald-700'
+              : 'text-gray-700 hover:bg-gray-50'
+          )}
+        >
+          <LayoutDashboard className="h-5 w-5" />
+          <span>Dashboard</span>
+        </Link>
+
         {/* My Projects Link */}
         <Link
           href="/projects"

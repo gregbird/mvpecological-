@@ -12,6 +12,8 @@ import {
   Waves,
   Droplet,
   Mountain,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -71,6 +73,9 @@ interface FindingsListProps {
   onViewOnMap?: (finding: FindingDisplay) => void
   emptyMessage?: string
   showFilters?: boolean
+  // Visibility toggle for map display
+  hiddenIds?: Set<string>
+  onToggleVisibility?: (findingId: string) => void
 }
 
 // Source badge colors
@@ -124,6 +129,8 @@ export function FindingsList({
   onViewOnMap,
   emptyMessage = 'No findings found',
   showFilters = true,
+  hiddenIds,
+  onToggleVisibility,
 }: FindingsListProps) {
   const [sortBy, setSortBy] = React.useState<'distance' | 'title' | 'type'>('distance')
   const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>('asc')
@@ -238,19 +245,22 @@ export function FindingsList({
             const epaConfig = finding.metadata?.siteType
               ? EPA_SITE_TYPE_CONFIG[finding.metadata.siteType]
               : null
+            const isHidden = hiddenIds?.has(finding.id) ?? false
 
             return (
               <div
                 key={finding.id}
                 className={`rounded-lg border p-2.5 transition-colors ${
-                  saved
-                    ? 'border-emerald-400 bg-emerald-50'
-                    : isEpaFinding && epaConfig
-                      ? `border-l-4 ${epaConfig.borderColor} ${epaConfig.color}`
-                      : 'hover:bg-gray-50'
+                  isHidden
+                    ? 'border-gray-200 bg-gray-50 opacity-60'
+                    : saved
+                      ? 'border-emerald-400 bg-emerald-50'
+                      : isEpaFinding && epaConfig
+                        ? `border-l-4 ${epaConfig.borderColor} ${epaConfig.color}`
+                        : 'hover:bg-gray-50'
                 }`}
               >
-                {/* Title + Save button row */}
+                {/* Title + Visibility + Save button row */}
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex min-w-0 flex-1 items-center gap-2">
                     {/* EPA type icon */}
@@ -258,20 +268,39 @@ export function FindingsList({
                       <epaConfig.icon className="h-4 w-4 shrink-0 opacity-70" />
                     )}
                     <h4
-                      className="min-w-0 flex-1 truncate text-sm font-medium"
+                      className={`min-w-0 flex-1 truncate text-sm font-medium ${isHidden ? 'text-gray-400' : ''}`}
                       title={finding.title}
                     >
                       {finding.title}
                     </h4>
                   </div>
-                  <Button
-                    variant={saved ? 'secondary' : 'default'}
-                    size="sm"
-                    className="h-6 shrink-0 px-2 text-[11px]"
-                    onClick={() => onSave({ ...finding, isSaved: !saved })}
-                  >
-                    {saved ? '✓' : 'Save'}
-                  </Button>
+                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    {/* Visibility toggle button */}
+                    {onToggleVisibility && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={`h-5 w-5 p-0 ${isHidden ? 'text-gray-400' : 'text-gray-600 hover:text-gray-900'}`}
+                        onClick={() => onToggleVisibility(finding.id)}
+                        title={isHidden ? 'Show on map' : 'Hide from map'}
+                      >
+                        {isHidden ? (
+                          <EyeOff className="h-3 w-3" />
+                        ) : (
+                          <Eye className="h-3 w-3" />
+                        )}
+                      </Button>
+                    )}
+                    {/* Save button */}
+                    <Button
+                      variant={saved ? 'secondary' : 'default'}
+                      size="sm"
+                      className="h-5 shrink-0 px-1.5 text-[10px]"
+                      onClick={() => onSave({ ...finding, isSaved: !saved })}
+                    >
+                      {saved ? '✓' : 'Save'}
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Compact badges row */}
