@@ -9,7 +9,6 @@ import {
   FileText,
   CheckCircle2,
   XCircle,
-  User,
   MessageSquare,
 } from 'lucide-react'
 
@@ -18,7 +17,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -162,7 +160,7 @@ export function QualityReviewStep({
         title: 'Report approved',
         description: 'The report has been approved for final submission.',
       })
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error approving report',
@@ -204,7 +202,7 @@ export function QualityReviewStep({
         title: 'Revision requested',
         description: 'The report has been sent back for revisions.',
       })
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error requesting revision',
@@ -236,7 +234,7 @@ export function QualityReviewStep({
       })
 
       onComplete?.()
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error completing step',

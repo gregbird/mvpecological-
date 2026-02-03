@@ -419,7 +419,7 @@ export default function ReportsPage() {
                         handleUpdateStatus(selectedReport.id, value as ReportStatus)
                       }
                     >
-                      <SelectTrigger className="w-[160px]">
+                      <SelectTrigger className="w-40">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -437,7 +437,7 @@ export default function ReportsPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-[600px] pr-4">
+                <ScrollArea className="h-150 pr-4">
                   <Accordion type="single" collapsible className="w-full">
                     {selectedReport.sections.map((section) => (
                       <AccordionItem key={section.id} value={section.id}>
@@ -463,7 +463,7 @@ export default function ReportsPage() {
                               <Textarea
                                 value={editedContent}
                                 onChange={(e) => setEditedContent(e.target.value)}
-                                className="min-h-[300px] font-mono text-sm"
+                                className="min-h-75 font-mono text-sm"
                               />
                               <div className="flex justify-end gap-2">
                                 <Button

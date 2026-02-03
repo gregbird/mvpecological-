@@ -209,7 +209,7 @@ export function FindingsList({
           <div className="flex items-center gap-2">
             <ArrowUpDown className="h-4 w-4 text-gray-400" />
             <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
-              <SelectTrigger className="h-8 w-[110px]">
+              <SelectTrigger className="h-8 w-27.5">
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent>
@@ -312,7 +312,7 @@ export function FindingsList({
                   ) : finding.metadata?.nbdcEnriched ? (
                     <Badge
                       variant="secondary"
-                      className="h-5 gap-1 bg-gradient-to-r from-purple-100 to-blue-100 px-1.5 text-[10px] text-purple-700"
+                      className="h-5 gap-1 bg-linear-to-r from-purple-100 to-blue-100 px-1.5 text-[10px] text-purple-700"
                     >
                       <Sparkles className="h-2.5 w-2.5 text-amber-500" />
                       GBIF+NBDC

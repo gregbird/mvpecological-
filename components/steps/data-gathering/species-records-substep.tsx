@@ -517,7 +517,7 @@ export function SpeciesRecordsSubStep({
   return (
     <div className="flex h-full">
       {/* Results Panel */}
-      <div className="flex w-[420px] shrink-0 flex-col border-r">
+      <div className="flex w-105 shrink-0 flex-col border-r">
         {/* Search Controls */}
         <div className="border-b p-4">
           <h3 className="mb-2 font-semibold">Species Records</h3>
@@ -531,7 +531,7 @@ export function SpeciesRecordsSubStep({
               value={selectedBuffer.toString()}
               onValueChange={(v) => setSelectedBuffer(parseFloat(v))}
             >
-              <SelectTrigger className="w-[120px]">
+              <SelectTrigger className="w-30">
                 <SelectValue placeholder="Buffer" />
               </SelectTrigger>
               <SelectContent>
@@ -688,7 +688,7 @@ export function SpeciesRecordsSubStep({
           <Button
             variant="secondary"
             size="sm"
-            className="absolute top-4 right-4 z-[1000]"
+            className="absolute top-4 right-4 z-1000"
             onClick={onToggleMap}
           >
             <EyeOff className="mr-1 h-4 w-4" />

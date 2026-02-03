@@ -408,7 +408,7 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
         <TabsContent value="insights" className="mt-0 flex-1 overflow-hidden">
           <div className="flex h-full">
             {/* Left Panel - Stats */}
-            <div className="w-[300px] shrink-0 border-r p-4">
+            <div className="w-75 shrink-0 border-r p-4">
               <h3 className="mb-4 font-semibold">Data Summary</h3>
 
               <div className="space-y-3">
@@ -517,7 +517,7 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
                       </div>
                     </div>
                   ) : (
-                    <div className="flex h-[400px] flex-col items-center justify-center text-center">
+                    <div className="flex h-100 flex-col items-center justify-center text-center">
                       <Brain className="mb-4 h-16 w-16 text-gray-300" />
                       <h3 className="text-lg font-semibold">AI Insights</h3>
                       <p className="text-muted-foreground mt-1 max-w-md">
@@ -536,7 +536,7 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
         <TabsContent value="assessment" className="mt-0 flex-1 overflow-hidden">
           <div className="flex h-full">
             {/* Filters */}
-            <div className="w-[240px] shrink-0 border-r p-4">
+            <div className="w-60 shrink-0 border-r p-4">
               <h3 className="mb-4 font-semibold">Filter by Relevance</h3>
               <div className="space-y-1">
                 {(['all', 'high', 'medium', 'low', 'none'] as const).map((filter) => {
@@ -727,7 +727,7 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
             </div>
 
             {/* Survey Recommendations */}
-            <div className="w-[350px] shrink-0 p-6">
+            <div className="w-87.5 shrink-0 p-6">
               <h3 className="mb-4 flex items-center gap-2 font-semibold">
                 <Lightbulb className="h-5 w-5" />
                 Survey Recommendations

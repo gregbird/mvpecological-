@@ -1,7 +1,6 @@
 'use client'
 
 import * as React from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Leaf, Loader2, X, ArrowLeft } from 'lucide-react'
@@ -107,7 +106,7 @@ export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalP
               </button>
 
               {/* Header with Logo */}
-              <div className="bg-gradient-to-br from-green-500 to-emerald-600 px-8 pt-12 pb-8 text-center text-white">
+              <div className="bg-linear-to-br from-green-500 to-emerald-600 px-8 pt-12 pb-8 text-center text-white">
                 <motion.div
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
@@ -256,7 +255,7 @@ function LoginForm({
 
       <Button
         type="submit"
-        className="h-12 w-full bg-gradient-to-r from-green-600 to-emerald-600 text-base font-semibold"
+        className="h-12 w-full bg-linear-to-r from-green-600 to-emerald-600 text-base font-semibold"
         disabled={isLoading}
       >
         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -293,7 +292,6 @@ function RegisterForm({
     register,
     handleSubmit,
     setValue,
-    watch,
     formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
@@ -406,7 +404,7 @@ function RegisterForm({
             <Button
               type="button"
               onClick={() => setStep(2)}
-              className="h-12 w-full bg-gradient-to-r from-green-600 to-emerald-600 text-base font-semibold"
+              className="h-12 w-full bg-linear-to-r from-green-600 to-emerald-600 text-base font-semibold"
             >
               Continue
             </Button>
@@ -476,7 +474,7 @@ function RegisterForm({
 
             <Button
               type="submit"
-              className="h-12 w-full bg-gradient-to-r from-green-600 to-emerald-600 text-base font-semibold"
+              className="h-12 w-full bg-linear-to-r from-green-600 to-emerald-600 text-base font-semibold"
               disabled={isLoading}
             >
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

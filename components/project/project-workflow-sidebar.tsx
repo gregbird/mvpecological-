@@ -111,7 +111,9 @@ export function ProjectWorkflowSidebar() {
   const [isLoadingTeam, setIsLoadingTeam] = React.useState(false)
   const [isAddingMember, setIsAddingMember] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState('')
-  const [selectedRole, setSelectedRole] = React.useState<string>('surveyor')
+  const [selectedRole, setSelectedRole] = React.useState<
+    'lead' | 'surveyor' | 'analyst' | 'reviewer' | 'viewer'
+  >('surveyor')
 
   const handleDeleteProject = async () => {
     if (!project) return
@@ -198,7 +200,10 @@ export function ProjectWorkflowSidebar() {
     }
   }, [project, toast])
 
-  const handleAddMember = async (userId: string, role: string = 'surveyor') => {
+  const handleAddMember = async (
+    userId: string,
+    role: 'lead' | 'surveyor' | 'analyst' | 'reviewer' | 'viewer' = 'surveyor'
+  ) => {
     if (!project) return
 
     setIsAddingMember(true)
@@ -299,7 +304,7 @@ export function ProjectWorkflowSidebar() {
       <aside
         className={cn(
           'bg-background border-border/50 flex h-full flex-col border-r transition-all duration-300',
-          isSidebarCollapsed ? 'w-[60px]' : 'w-[300px]'
+          isSidebarCollapsed ? 'w-15' : 'w-75'
         )}
       >
         <div className="border-border/50 flex h-14 items-center border-b px-4">
@@ -322,7 +327,7 @@ export function ProjectWorkflowSidebar() {
   if (isSidebarCollapsed) {
     return (
       <TooltipProvider delayDuration={0}>
-        <aside className="border-border bg-card flex h-full w-[60px] flex-col border-r transition-all duration-300">
+        <aside className="border-border bg-card flex h-full w-15 flex-col border-r transition-all duration-300">
           {/* Toggle Button */}
           <div className="border-border flex h-14 items-center justify-center border-b">
             <Tooltip>
@@ -444,7 +449,7 @@ export function ProjectWorkflowSidebar() {
 
   // Expanded view
   return (
-    <aside className="border-border bg-card flex h-full w-[280px] flex-col border-r transition-all duration-300">
+    <aside className="border-border bg-card flex h-full w-70 flex-col border-r transition-all duration-300">
       {/* Back Link + Toggle */}
       <div className="border-border flex h-14 items-center justify-between border-b px-4">
         <Link
@@ -791,7 +796,11 @@ export function ProjectWorkflowSidebar() {
                 <div className="w-40">
                   <select
                     value={selectedRole}
-                    onChange={(e) => setSelectedRole(e.target.value)}
+                    onChange={(e) =>
+                      setSelectedRole(
+                        e.target.value as 'lead' | 'surveyor' | 'analyst' | 'reviewer' | 'viewer'
+                      )
+                    }
                     className="border-input bg-background ring-offset-background focus:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:ring-offset-2 focus:outline-none"
                   >
                     <option value="lead">Lead</option>
@@ -816,7 +825,7 @@ export function ProjectWorkflowSidebar() {
                   </p>
                 </div>
               ) : (
-                <div className="grid max-h-[250px] gap-2 overflow-y-auto">
+                <div className="grid max-h-62.5 gap-2 overflow-y-auto">
                   {availableMembers
                     .filter((member) => {
                       if (!searchQuery) return true
@@ -847,7 +856,7 @@ export function ProjectWorkflowSidebar() {
                           size="sm"
                           onClick={() => handleAddMember(member.id, selectedRole)}
                           disabled={isAddingMember}
-                          className="min-w-[100px]"
+                          className="min-w-25"
                         >
                           {isAddingMember ? (
                             <Loader2 className="h-4 w-4 animate-spin" />

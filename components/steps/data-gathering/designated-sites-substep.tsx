@@ -360,7 +360,7 @@ export function DesignatedSitesSubStep({
   return (
     <div className="flex h-full">
       {/* Results Panel - 340px fixed width with compact cards */}
-      <div className="flex w-[340px] shrink-0 flex-col border-r">
+      <div className="flex w-85 shrink-0 flex-col border-r">
         {/* Search Controls */}
         <div className="border-b p-4">
           <h3 className="mb-3 font-semibold">Designated Sites (NPWS)</h3>
@@ -373,7 +373,7 @@ export function DesignatedSitesSubStep({
               value={selectedBuffer.toString()}
               onValueChange={(v) => setSelectedBuffer(parseFloat(v))}
             >
-              <SelectTrigger className="w-[120px]">
+              <SelectTrigger className="w-30">
                 <SelectValue placeholder="Buffer" />
               </SelectTrigger>
               <SelectContent>
@@ -471,7 +471,7 @@ export function DesignatedSitesSubStep({
           <Button
             variant="secondary"
             size="sm"
-            className="absolute top-4 right-4 z-[1000]"
+            className="absolute top-4 right-4 z-1000"
             onClick={onToggleMap}
           >
             <EyeOff className="mr-1 h-4 w-4" />
