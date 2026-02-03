@@ -153,8 +153,7 @@ function MapComponent({
         // Check if center is at default position (user hasn't panned)
         // IRELAND_CENTER = [53.1424, -7.6921]
         const isDefaultCenter =
-          Math.abs(center[0] - 53.1424) < 0.0001 &&
-          Math.abs(center[1] - (-7.6921)) < 0.0001
+          Math.abs(center[0] - 53.1424) < 0.0001 && Math.abs(center[1] - -7.6921) < 0.0001
 
         // Only fit bounds if we haven't done it AND center is at default
         if (isDefaultCenter) {

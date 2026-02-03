@@ -28,10 +28,10 @@ This document defines the **Assessor** role for the Dulra platform. The Assessor
 
 The Assessor role consolidates multiple user personas from the USER_PERSONAS document:
 
-| User Persona | Maps to Assessor |
-|--------------|------------------|
+| User Persona            | Maps to Assessor |
+| ----------------------- | ---------------- |
 | Field Ecologist (Conor) | ✅ Primary match |
-| GIS Specialist (Lisa) | ✅ Partial match |
+| GIS Specialist (Lisa)   | ✅ Partial match |
 | Junior Ecologist (Emma) | ✅ Primary match |
 
 ### Role Hierarchy
@@ -110,127 +110,127 @@ The Assessor role consolidates multiple user personas from the USER_PERSONAS doc
 
 ### Detailed Permission Table
 
-| Permission Category | Permission | Admin | Assessor | Client |
-|---------------------|------------|-------|----------|--------|
+| Permission Category    | Permission              | Admin | Assessor | Client |
+| ---------------------- | ----------------------- | ----- | -------- | ------ |
 | **Project Management** |
-| | View assigned projects | ✅ | ✅ | ✅ |
-| | View all projects | ✅ | ❌ | ❌ |
-| | Create project | ✅ | ❌ | ❌ |
-| | Edit project details | ✅ | ❌ | ❌ |
-| | Delete project | ✅ | ❌ | ❌ |
-| | Archive project | ✅ | ❌ | ❌ |
-| **GIS & Mapping** |
-| | View GIS map | ✅ | ✅ | ✅ |
-| | Draw site boundary | ✅ | ✅ | ❌ |
-| | Edit site boundary | ✅ | ✅ | ❌ |
-| | Upload shapefiles | ✅ | ✅ | ❌ |
-| | Add buffer zones | ✅ | ✅ | ❌ |
-| | Toggle map layers | ✅ | ✅ | ✅ |
-| **Data Gathering** |
-| | Search NPWS | ✅ | ✅ | ❌ |
-| | Search GBIF | ✅ | ✅ | ❌ |
-| | Search NBDC | ✅ | ✅ | ❌ |
-| | Search EPA | ✅ | ✅ | ❌ |
-| | Save findings | ✅ | ✅ | ❌ |
-| | Edit findings | ✅ | ✅ | ❌ |
-| | Delete own findings | ✅ | ✅ | ❌ |
-| | Delete others' findings | ✅ | ❌ | ❌ |
-| **Field Surveys** |
-| | Create survey | ✅ | ✅ | ❌ |
-| | Edit survey | ✅ | ✅ | ❌ |
-| | Delete survey | ✅ | ❌ | ❌ |
-| | Add observations | ✅ | ✅ | ❌ |
-| | Edit own observations | ✅ | ✅ | ❌ |
-| | Delete own observations | ✅ | ✅ | ❌ |
-| | Mark as uncertain | ✅ | ✅ | ❌ |
-| | Upload photos | ✅ | ✅ | ❌ |
-| **Habitat Mapping** |
-| | Draw habitat polygons | ✅ | ✅ | ❌ |
-| | Edit habitat polygons | ✅ | ✅ | ❌ |
-| | Assign Fossitt codes | ✅ | ✅ | ❌ |
-| | Delete habitat polygons | ✅ | ❌ | ❌ |
-| **Target Notes** |
-| | Add target notes | ✅ | ✅ | ❌ |
-| | Edit own target notes | ✅ | ✅ | ❌ |
-| | Delete own target notes | ✅ | ✅ | ❌ |
-| | Verify target notes | ✅ | ❌ | ❌ |
-| **Reporting** |
-| | View AI draft | ✅ | ✅ | ❌ |
-| | Edit report content | ✅ | ✅ | ❌ |
-| | Add ecological opinion | ✅ | ✅ | ❌ |
-| | Submit for review | ✅ | ✅ | ❌ |
-| | Approve report | ✅ | ❌ | ❌ |
-| | Final submission | ✅ | ❌ | ❌ |
-| | Download report | ✅ | ✅ | ✅ |
-| **Team & System** |
-| | View team members | ✅ | ✅ | ❌ |
-| | Manage team | ✅ | ❌ | ❌ |
-| | View audit trail | ✅ | ❌ | ❌ |
-| | View timesheets | ✅ | ❌ | ❌ |
-| | System settings | ✅ | ❌ | ❌ |
+|                        | View assigned projects  | ✅    | ✅       | ✅     |
+|                        | View all projects       | ✅    | ❌       | ❌     |
+|                        | Create project          | ✅    | ❌       | ❌     |
+|                        | Edit project details    | ✅    | ❌       | ❌     |
+|                        | Delete project          | ✅    | ❌       | ❌     |
+|                        | Archive project         | ✅    | ❌       | ❌     |
+| **GIS & Mapping**      |
+|                        | View GIS map            | ✅    | ✅       | ✅     |
+|                        | Draw site boundary      | ✅    | ✅       | ❌     |
+|                        | Edit site boundary      | ✅    | ✅       | ❌     |
+|                        | Upload shapefiles       | ✅    | ✅       | ❌     |
+|                        | Add buffer zones        | ✅    | ✅       | ❌     |
+|                        | Toggle map layers       | ✅    | ✅       | ✅     |
+| **Data Gathering**     |
+|                        | Search NPWS             | ✅    | ✅       | ❌     |
+|                        | Search GBIF             | ✅    | ✅       | ❌     |
+|                        | Search NBDC             | ✅    | ✅       | ❌     |
+|                        | Search EPA              | ✅    | ✅       | ❌     |
+|                        | Save findings           | ✅    | ✅       | ❌     |
+|                        | Edit findings           | ✅    | ✅       | ❌     |
+|                        | Delete own findings     | ✅    | ✅       | ❌     |
+|                        | Delete others' findings | ✅    | ❌       | ❌     |
+| **Field Surveys**      |
+|                        | Create survey           | ✅    | ✅       | ❌     |
+|                        | Edit survey             | ✅    | ✅       | ❌     |
+|                        | Delete survey           | ✅    | ❌       | ❌     |
+|                        | Add observations        | ✅    | ✅       | ❌     |
+|                        | Edit own observations   | ✅    | ✅       | ❌     |
+|                        | Delete own observations | ✅    | ✅       | ❌     |
+|                        | Mark as uncertain       | ✅    | ✅       | ❌     |
+|                        | Upload photos           | ✅    | ✅       | ❌     |
+| **Habitat Mapping**    |
+|                        | Draw habitat polygons   | ✅    | ✅       | ❌     |
+|                        | Edit habitat polygons   | ✅    | ✅       | ❌     |
+|                        | Assign Fossitt codes    | ✅    | ✅       | ❌     |
+|                        | Delete habitat polygons | ✅    | ❌       | ❌     |
+| **Target Notes**       |
+|                        | Add target notes        | ✅    | ✅       | ❌     |
+|                        | Edit own target notes   | ✅    | ✅       | ❌     |
+|                        | Delete own target notes | ✅    | ✅       | ❌     |
+|                        | Verify target notes     | ✅    | ❌       | ❌     |
+| **Reporting**          |
+|                        | View AI draft           | ✅    | ✅       | ❌     |
+|                        | Edit report content     | ✅    | ✅       | ❌     |
+|                        | Add ecological opinion  | ✅    | ✅       | ❌     |
+|                        | Submit for review       | ✅    | ✅       | ❌     |
+|                        | Approve report          | ✅    | ❌       | ❌     |
+|                        | Final submission        | ✅    | ❌       | ❌     |
+|                        | Download report         | ✅    | ✅       | ✅     |
+| **Team & System**      |
+|                        | View team members       | ✅    | ✅       | ❌     |
+|                        | Manage team             | ✅    | ❌       | ❌     |
+|                        | View audit trail        | ✅    | ❌       | ❌     |
+|                        | View timesheets         | ✅    | ❌       | ❌     |
+|                        | System settings         | ✅    | ❌       | ❌     |
 
 ### Permission Code Structure
 
 ```typescript
 interface AssessorPermissions {
   // Project
-  canViewAssignedProjects: true;
-  canViewAllProjects: false;
-  canCreateProject: false;
-  canEditProject: false;
-  canDeleteProject: false;
+  canViewAssignedProjects: true
+  canViewAllProjects: false
+  canCreateProject: false
+  canEditProject: false
+  canDeleteProject: false
 
   // GIS & Mapping
-  canViewGISMap: true;
-  canDrawBoundary: true;
-  canEditBoundary: true;
-  canUploadShapefiles: true;
-  canAddBufferZones: true;
+  canViewGISMap: true
+  canDrawBoundary: true
+  canEditBoundary: true
+  canUploadShapefiles: true
+  canAddBufferZones: true
 
   // Data Gathering
-  canSearchExternalData: true;
-  canSaveFindings: true;
-  canEditFindings: true;
-  canDeleteOwnFindings: true;
-  canDeleteOthersFindings: false;
+  canSearchExternalData: true
+  canSaveFindings: true
+  canEditFindings: true
+  canDeleteOwnFindings: true
+  canDeleteOthersFindings: false
 
   // Field Surveys
-  canCreateSurvey: true;
-  canEditSurvey: true;
-  canDeleteSurvey: false;
-  canAddObservations: true;
-  canEditOwnObservations: true;
-  canDeleteOwnObservations: true;
-  canMarkAsUncertain: true;
-  canUploadPhotos: true;
+  canCreateSurvey: true
+  canEditSurvey: true
+  canDeleteSurvey: false
+  canAddObservations: true
+  canEditOwnObservations: true
+  canDeleteOwnObservations: true
+  canMarkAsUncertain: true
+  canUploadPhotos: true
 
   // Habitat Mapping
-  canDrawHabitatPolygons: true;
-  canEditHabitatPolygons: true;
-  canAssignFossittCodes: true;
-  canDeleteHabitatPolygons: false;
+  canDrawHabitatPolygons: true
+  canEditHabitatPolygons: true
+  canAssignFossittCodes: true
+  canDeleteHabitatPolygons: false
 
   // Target Notes
-  canAddTargetNotes: true;
-  canEditOwnTargetNotes: true;
-  canDeleteOwnTargetNotes: true;
-  canVerifyTargetNotes: false;
+  canAddTargetNotes: true
+  canEditOwnTargetNotes: true
+  canDeleteOwnTargetNotes: true
+  canVerifyTargetNotes: false
 
   // Reporting
-  canViewAIDraft: true;
-  canEditReport: true;
-  canAddEcologicalOpinion: true;
-  canSubmitForReview: true;
-  canApproveReport: false;
-  canFinalSubmit: false;
-  canDownloadReport: true;
+  canViewAIDraft: true
+  canEditReport: true
+  canAddEcologicalOpinion: true
+  canSubmitForReview: true
+  canApproveReport: false
+  canFinalSubmit: false
+  canDownloadReport: true
 
   // Team & System
-  canViewTeamMembers: true;
-  canManageTeam: false;
-  canViewAuditTrail: false;
-  canViewTimesheets: false;
-  canAccessSettings: false;
+  canViewTeamMembers: true
+  canManageTeam: false
+  canViewAuditTrail: false
+  canViewTimesheets: false
+  canAccessSettings: false
 }
 ```
 
@@ -240,25 +240,26 @@ interface AssessorPermissions {
 
 ### 10-Step Workflow Permissions
 
-| Step | Name | Assessor Access | Notes |
-|------|------|-----------------|-------|
-| **Phase 1: Desk Research** |
-| 1 | GIS Mapping | ✅ Full | Can draw/edit boundaries |
-| 2 | Data Gathering | ✅ Full | Can search and save findings |
-| 3 | Desk Assessment | ✅ Edit | Can edit assessments |
+| Step                        | Name             | Assessor Access | Notes                                |
+| --------------------------- | ---------------- | --------------- | ------------------------------------ |
+| **Phase 1: Desk Research**  |
+| 1                           | GIS Mapping      | ✅ Full         | Can draw/edit boundaries             |
+| 2                           | Data Gathering   | ✅ Full         | Can search and save findings         |
+| 3                           | Desk Assessment  | ✅ Edit         | Can edit assessments                 |
 | **Phase 2: Field Research** |
-| 4 | Field Survey | ✅ Full | Can create surveys, add observations |
-| 5 | Habitat Mapping | ✅ Full | Can draw polygons, assign codes |
-| 6 | Target Notes | ✅ Add/Edit | Cannot verify (Admin only) |
-| **Phase 3: Reporting** |
-| 7 | Data Analysis | ✅ View | Can view statistics |
-| 8 | AI Draft | ✅ Edit | Can edit draft content |
-| 9 | Quality Review | ⚠️ Submit only | Cannot approve |
-| 10 | Final Submission | ❌ None | Admin only |
+| 4                           | Field Survey     | ✅ Full         | Can create surveys, add observations |
+| 5                           | Habitat Mapping  | ✅ Full         | Can draw polygons, assign codes      |
+| 6                           | Target Notes     | ✅ Add/Edit     | Cannot verify (Admin only)           |
+| **Phase 3: Reporting**      |
+| 7                           | Data Analysis    | ✅ View         | Can view statistics                  |
+| 8                           | AI Draft         | ✅ Edit         | Can edit draft content               |
+| 9                           | Quality Review   | ⚠️ Submit only  | Cannot approve                       |
+| 10                          | Final Submission | ❌ None         | Admin only                           |
 
 ### Workflow Step Status Changes
 
 Assessor can change workflow status to:
+
 - ✅ `pending` → `in_progress`
 - ✅ `in_progress` → `needs_review`
 - ❌ `needs_review` → `approved` (Admin only)
@@ -271,12 +272,14 @@ Assessor can change workflow status to:
 ### Dashboard View
 
 Assessor dashboard should show:
+
 - Projects assigned to them
 - Their pending tasks
 - Recent activity on their projects
 - Upcoming survey deadlines
 
 Should NOT show:
+
 - All organization projects
 - Team management
 - Audit trail
@@ -295,6 +298,7 @@ Assessor Sidebar:
 ```
 
 Hidden from Assessor:
+
 - Team Members
 - Audit Trail
 - Timesheets
@@ -303,6 +307,7 @@ Hidden from Assessor:
 ### Project View
 
 When Assessor opens a project:
+
 - Show all 10 workflow steps
 - Enable editing for steps 1-8
 - Show step 9 as "Submit for Review" button
@@ -365,7 +370,7 @@ USING (
 
 ```typescript
 // Example permission check
-const { permissions } = useRole();
+const { permissions } = useRole()
 
 if (permissions.canApproveReport) {
   // Show approve button (Admin only)
@@ -388,6 +393,6 @@ if (permissions.canEditReport) {
 
 ## Revision History
 
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.0 | Feb 2026 | - | Initial draft |
+| Version | Date     | Author | Changes       |
+| ------- | -------- | ------ | ------------- |
+| 1.0     | Feb 2026 | -      | Initial draft |

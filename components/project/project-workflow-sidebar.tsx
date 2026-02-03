@@ -99,12 +99,14 @@ export function ProjectWorkflowSidebar() {
 
   // Team management dialog
   const [showTeamDialog, setShowTeamDialog] = React.useState(false)
-  const [teamMembers, setTeamMembers] = React.useState<Array<{
-    id: string
-    user_id: string
-    role: string
-    profile: Profile
-  }>>([])
+  const [teamMembers, setTeamMembers] = React.useState<
+    Array<{
+      id: string
+      user_id: string
+      role: string
+      profile: Profile
+    }>
+  >([])
   const [availableMembers, setAvailableMembers] = React.useState<Profile[]>([])
   const [isLoadingTeam, setIsLoadingTeam] = React.useState(false)
   const [isAddingMember, setIsAddingMember] = React.useState(false)
@@ -181,9 +183,7 @@ export function ProjectWorkflowSidebar() {
       if (orgError) throw orgError
 
       const assignedUserIds = members?.map((m) => m.user_id) || []
-      const available = (orgMembers || []).filter(
-        (m) => !assignedUserIds.includes(m.id)
-      )
+      const available = (orgMembers || []).filter((m) => !assignedUserIds.includes(m.id))
 
       setAvailableMembers(available)
     } catch (err) {
@@ -236,10 +236,7 @@ export function ProjectWorkflowSidebar() {
     try {
       const supabase = createClient()
 
-      const { error } = await supabase
-        .from('project_members')
-        .delete()
-        .eq('id', memberId)
+      const { error } = await supabase.from('project_members').delete().eq('id', memberId)
 
       if (error) throw error
 
@@ -707,28 +704,29 @@ export function ProjectWorkflowSidebar() {
       </AlertDialog>
 
       {/* Team Management Dialog */}
-      <Dialog open={showTeamDialog} onOpenChange={(open) => {
-        setShowTeamDialog(open)
-        if (!open) {
-          setSearchQuery('')
-          setSelectedRole('surveyor')
-        }
-      }}>
-        <DialogContent className="max-w-4xl w-[90vw] max-h-[80vh] overflow-hidden flex flex-col p-6">
+      <Dialog
+        open={showTeamDialog}
+        onOpenChange={(open) => {
+          setShowTeamDialog(open)
+          if (!open) {
+            setSearchQuery('')
+            setSelectedRole('surveyor')
+          }
+        }}
+      >
+        <DialogContent className="flex max-h-[80vh] w-[90vw] max-w-4xl flex-col overflow-hidden p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
               Project Team
             </DialogTitle>
-            <DialogDescription>
-              Manage team members assigned to this project
-            </DialogDescription>
+            <DialogDescription>Manage team members assigned to this project</DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto space-y-6 px-1 pr-3">
+          <div className="flex-1 space-y-6 overflow-y-auto px-1 pr-3">
             {/* Current Team Members */}
             <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-3">
+              <h4 className="mb-3 text-sm font-medium text-gray-700">
                 Assigned Members ({teamMembers.length})
               </h4>
               {isLoadingTeam ? (
@@ -736,8 +734,8 @@ export function ProjectWorkflowSidebar() {
                   <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
                 </div>
               ) : teamMembers.length === 0 ? (
-                <div className="text-center py-8 border border-dashed rounded-lg">
-                  <Users className="h-10 w-10 mx-auto text-gray-300 mb-2" />
+                <div className="rounded-lg border border-dashed py-8 text-center">
+                  <Users className="mx-auto mb-2 h-10 w-10 text-gray-300" />
                   <p className="text-sm text-gray-500">No team members assigned yet</p>
                 </div>
               ) : (
@@ -745,11 +743,11 @@ export function ProjectWorkflowSidebar() {
                   {teamMembers.map((member) => (
                     <div
                       key={member.id}
-                      className="flex items-center justify-between rounded-lg border p-3 bg-white"
+                      className="flex items-center justify-between rounded-lg border bg-white p-3"
                     >
                       <div className="flex items-center gap-3">
                         <Avatar className="h-10 w-10">
-                          <AvatarFallback className="bg-emerald-100 text-emerald-700 text-sm">
+                          <AvatarFallback className="bg-emerald-100 text-sm text-emerald-700">
                             {getInitials(member.profile.full_name)}
                           </AvatarFallback>
                         </Avatar>
@@ -759,9 +757,7 @@ export function ProjectWorkflowSidebar() {
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <Badge className={getRoleBadgeColor(member.role)}>
-                          {member.role}
-                        </Badge>
+                        <Badge className={getRoleBadgeColor(member.role)}>{member.role}</Badge>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -779,14 +775,12 @@ export function ProjectWorkflowSidebar() {
 
             {/* Add Team Members Section */}
             <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-3">
-                Add Assessors to Project
-              </h4>
+              <h4 className="mb-3 text-sm font-medium text-gray-700">Add Assessors to Project</h4>
 
               {/* Search and Filter */}
-              <div className="flex gap-3 mb-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <div className="mb-4 flex gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
                   <Input
                     placeholder="Search by name or email..."
                     value={searchQuery}
@@ -798,7 +792,7 @@ export function ProjectWorkflowSidebar() {
                   <select
                     value={selectedRole}
                     onChange={(e) => setSelectedRole(e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    className="border-input bg-background ring-offset-background focus:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:ring-offset-2 focus:outline-none"
                   >
                     <option value="lead">Lead</option>
                     <option value="surveyor">Surveyor</option>
@@ -815,14 +809,14 @@ export function ProjectWorkflowSidebar() {
                   <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
                 </div>
               ) : availableMembers.length === 0 ? (
-                <div className="text-center py-8 border border-dashed rounded-lg">
-                  <UserPlus className="h-10 w-10 mx-auto text-gray-300 mb-2" />
+                <div className="rounded-lg border border-dashed py-8 text-center">
+                  <UserPlus className="mx-auto mb-2 h-10 w-10 text-gray-300" />
                   <p className="text-sm text-gray-500">
                     All assessors are already assigned to this project
                   </p>
                 </div>
               ) : (
-                <div className="grid gap-2 max-h-[250px] overflow-y-auto">
+                <div className="grid max-h-[250px] gap-2 overflow-y-auto">
                   {availableMembers
                     .filter((member) => {
                       if (!searchQuery) return true
@@ -835,11 +829,11 @@ export function ProjectWorkflowSidebar() {
                     .map((member) => (
                       <div
                         key={member.id}
-                        className="flex items-center justify-between rounded-lg border border-dashed p-3 hover:bg-gray-50 transition-colors"
+                        className="flex items-center justify-between rounded-lg border border-dashed p-3 transition-colors hover:bg-gray-50"
                       >
                         <div className="flex items-center gap-3">
                           <Avatar className="h-10 w-10">
-                            <AvatarFallback className="bg-blue-100 text-blue-700 text-sm">
+                            <AvatarFallback className="bg-blue-100 text-sm text-blue-700">
                               {getInitials(member.full_name)}
                             </AvatarFallback>
                           </Avatar>
@@ -859,7 +853,7 @@ export function ProjectWorkflowSidebar() {
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
                             <>
-                              <UserPlus className="h-4 w-4 mr-2" />
+                              <UserPlus className="mr-2 h-4 w-4" />
                               Add as {selectedRole}
                             </>
                           )}
@@ -874,7 +868,7 @@ export function ProjectWorkflowSidebar() {
                       member.email.toLowerCase().includes(query)
                     )
                   }).length === 0 && (
-                    <div className="text-center py-4">
+                    <div className="py-4 text-center">
                       <p className="text-sm text-gray-500">
                         No assessors found matching &quot;{searchQuery}&quot;
                       </p>

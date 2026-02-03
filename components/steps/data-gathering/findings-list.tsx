@@ -284,11 +284,7 @@ export function FindingsList({
                         onClick={() => onToggleVisibility(finding.id)}
                         title={isHidden ? 'Show on map' : 'Hide from map'}
                       >
-                        {isHidden ? (
-                          <EyeOff className="h-3 w-3" />
-                        ) : (
-                          <Eye className="h-3 w-3" />
-                        )}
+                        {isHidden ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                       </Button>
                     )}
                     {/* Save button */}

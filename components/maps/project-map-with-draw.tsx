@@ -217,8 +217,7 @@ function MapComponentWithDraw({
         // Check if center is at default position (IRELAND_CENTER = [53.1424, -7.6921])
         // If center is NOT at default, user has a saved view position - respect it
         const isDefaultCenter =
-          Math.abs(center[0] - 53.1424) < 0.0001 &&
-          Math.abs(center[1] - (-7.6921)) < 0.0001
+          Math.abs(center[0] - 53.1424) < 0.0001 && Math.abs(center[1] - -7.6921) < 0.0001
 
         if (bounds.isValid() && !hasFitToBoundaryRef.current && isDefaultCenter) {
           hasFitToBoundaryRef.current = true

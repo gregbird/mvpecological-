@@ -301,9 +301,7 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-gray-900">
             {isAdmin ? 'Dashboard' : 'My Dashboard'}
           </h1>
-          <p className="mt-1 text-gray-500">
-            Welcome back, {user?.full_name || 'User'}
-          </p>
+          <p className="mt-1 text-gray-500">Welcome back, {user?.full_name || 'User'}</p>
         </div>
         {permissions.canCreateProject && (
           <Button asChild className="bg-emerald-600 hover:bg-emerald-700">
@@ -435,19 +433,12 @@ export default function DashboardPage() {
             <CardDescription>Projects by current phase</CardDescription>
           </CardHeader>
           <CardContent>
-            <DonutChart
-              data={workflowData}
-              centerLabel="Active"
-              centerValue={stats.active}
-            />
+            <DonutChart data={workflowData} centerLabel="Active" centerValue={stats.active} />
             <div className="mt-4 space-y-2">
               {workflowData.map((item) => (
                 <div key={item.label} className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">
-                    <div
-                      className="h-3 w-3 rounded-full"
-                      style={{ backgroundColor: item.color }}
-                    />
+                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
                     <span className="text-gray-600">{item.label}</span>
                   </div>
                   <span className="font-medium">{item.value}</span>
@@ -477,9 +468,7 @@ export default function DashboardPage() {
                   <Link href={`/projects/${project.id}?step=${project.currentStep}`}>
                     <div className="text-left">
                       <p className="font-medium">{project.name}</p>
-                      <p className="text-sm text-gray-500">
-                        Continue: {project.currentStepName}
-                      </p>
+                      <p className="text-sm text-gray-500">Continue: {project.currentStepName}</p>
                     </div>
                     <ChevronRight className="ml-auto h-4 w-4" />
                   </Link>

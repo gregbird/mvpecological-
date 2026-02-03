@@ -445,7 +445,8 @@ export function DesignatedSitesSubStep({
                 content: f.content,
                 location: f.location,
                 isSaved: savedFindings.some(
-                  (sf) => (sf.raw_data as Record<string, unknown>)?.siteCode === f.metadata?.siteCode
+                  (sf) =>
+                    (sf.raw_data as Record<string, unknown>)?.siteCode === f.metadata?.siteCode
                 ),
               }))}
             selectedFinding={

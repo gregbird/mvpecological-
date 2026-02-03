@@ -465,7 +465,8 @@ export function QualityReviewStep({
               <Info className="h-4 w-4" />
               <AlertTitle>Approval Required</AlertTitle>
               <AlertDescription>
-                Only administrators can approve or reject reports. Please wait for an admin to review.
+                Only administrators can approve or reject reports. Please wait for an admin to
+                review.
               </AlertDescription>
             </Alert>
           )}
