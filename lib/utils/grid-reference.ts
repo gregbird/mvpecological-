@@ -160,14 +160,21 @@ export function itmToWgs84(easting: number, northing: number): { lat: number; ln
 export function itmToGridRef(
   easting: number,
   northing: number,
-  precision: 1 | 2 | 3 | 4 | 5 = 5
+  precision: 1 | 2 | 3 | 4 | 5 = 5,
+  clampToGrid: boolean = false
 ): string {
   // Get 100km grid square letter
-  const e100k = Math.floor(easting / 100000)
-  const n100k = Math.floor(northing / 100000)
+  let e100k = Math.floor(easting / 100000)
+  let n100k = Math.floor(northing / 100000)
 
   if (e100k < 0 || e100k > 4 || n100k < 0 || n100k > 4) {
-    throw new Error('Coordinates outside Irish Grid')
+    if (clampToGrid) {
+      // Clamp to nearest valid grid square
+      e100k = Math.max(0, Math.min(4, e100k))
+      n100k = Math.max(0, Math.min(4, n100k))
+    } else {
+      throw new Error('Coordinates outside Irish Grid')
+    }
   }
 
   const letter = GRID_LETTERS[e100k][n100k]
@@ -230,10 +237,16 @@ export function gridRefToItm(gridRef: string): { easting: number; northing: numb
 
 /**
  * Convert WGS84 coordinates to Irish Grid Reference
+ * @param clampToGrid - If true, clamp coordinates to nearest valid grid square instead of throwing error
  */
-export function wgs84ToGridRef(lat: number, lng: number, precision: 1 | 2 | 3 | 4 | 5 = 5): string {
+export function wgs84ToGridRef(
+  lat: number,
+  lng: number,
+  precision: 1 | 2 | 3 | 4 | 5 = 5,
+  clampToGrid: boolean = false
+): string {
   const itm = wgs84ToItm(lat, lng)
-  return itmToGridRef(itm.easting, itm.northing, precision)
+  return itmToGridRef(itm.easting, itm.northing, precision, clampToGrid)
 }
 
 /**

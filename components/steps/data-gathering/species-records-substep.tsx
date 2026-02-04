@@ -426,98 +426,111 @@ export function SpeciesRecordsSubStep({
         })
       }
 
-      // Also search FPO (Flora Protection Order) protected species
+      // Also search FPO (Flora Protection Order) and Article 17 protected species
+      // These use Irish Grid Reference, so only works for projects in Ireland
       if (projectCenter) {
+        let gridRef: string | null = null
         try {
-          const gridRef = wgs84ToGridRef(projectCenter.lat, projectCenter.lng, 2) // Hectad level (2 digits)
-          const fpoResults = await searchFPOByGridRef(gridRef)
-
-          // Group by species
-          const fpoSpeciesGroups = new Map<string, { count: number; records: FPORecord[] }>()
-
-          for (const record of fpoResults) {
-            const key = record.latinName
-            if (!fpoSpeciesGroups.has(key)) {
-              fpoSpeciesGroups.set(key, { count: 0, records: [] })
-            }
-            const group = fpoSpeciesGroups.get(key)!
-            group.count++
-            group.records.push(record)
-          }
-
-          // Create findings for each FPO species
-          for (const [latinName, { count, records }] of fpoSpeciesGroups) {
-            const firstRecord = records[0]
-            const locations = [...new Set(records.map((r) => r.locationName).filter(Boolean))]
-
-            findings.push({
-              id: `fpo-${latinName.replace(/\s+/g, '-')}`,
-              source: 'fpo',
-              dataType: 'species_record',
-              title: `${firstRecord.commonName || latinName}`,
-              content: `${count} FPO record${count > 1 ? 's' : ''} in hectad ${gridRef}. ${firstRecord.isSensitive ? '⚠️ Sensitive species.' : ''} ${locations.length > 0 ? `Recorded at: ${locations.slice(0, 2).join(', ')}${locations.length > 2 ? '...' : ''}` : ''}`,
-              isSaved: false,
-              sourceUrl: 'https://www.npws.ie/legislation/irish-law/flora-protection-order',
-              rawData: { recordCount: count, sampleRecords: records.slice(0, 5) },
-              metadata: {
-                scientificName: latinName,
-                commonName: firstRecord.commonName,
-                recordCount: count,
-                isProtected: true,
-                designation: 'Flora Protection Order 2022',
-              },
-            })
-          }
-        } catch (error) {
-          console.warn('FPO search error:', error)
-          // Don't show error toast - FPO is supplementary
+          // Use clampToGrid=true to handle coordinates near Irish borders (sea, Northern Ireland)
+          gridRef = wgs84ToGridRef(projectCenter.lat, projectCenter.lng, 2, true) // Hectad level (2 digits), clamp to grid
+          console.log('🔍 Irish Grid ref calculated:', gridRef, 'for', projectCenter)
+        } catch (gridError) {
+          console.log('📍 Project is outside Irish Grid - skipping FPO/Article17 search')
         }
 
-        // Also search Article 17 Habitats Directive Annex species
-        try {
-          const gridRef = wgs84ToGridRef(projectCenter.lat, projectCenter.lng, 2)
-          const annexSpecies = await searchSpeciesByGridRef(gridRef)
+        // Only search if we have a valid Irish grid reference
+        if (gridRef) {
+          // Search FPO
+          try {
+            const fpoResults = await searchFPOByGridRef(gridRef)
+            console.log('🔍 FPO Results:', fpoResults.length, 'records found')
 
-          // Known common names for Annex species
-          const commonNames: Record<string, string> = {
-            '1355': 'Otter',
-            '1357': 'Pine Marten',
-            '1334': 'Irish Hare',
-            '1303': 'Lesser Horseshoe Bat',
-            '1309': 'Common Pipistrelle',
-            '1314': "Daubenton's Bat",
-            '1106': 'Atlantic Salmon',
-            '1029': 'Freshwater Pearl Mussel',
-            '1065': 'Marsh Fritillary',
-            '1024': 'Kerry Slug',
-            '1213': 'Common Frog',
-            '1092': 'White-clawed Crayfish',
+            // Group by species
+            const fpoSpeciesGroups = new Map<string, { count: number; records: FPORecord[] }>()
+
+            for (const record of fpoResults) {
+              const key = record.latinName
+              if (!fpoSpeciesGroups.has(key)) {
+                fpoSpeciesGroups.set(key, { count: 0, records: [] })
+              }
+              const group = fpoSpeciesGroups.get(key)!
+              group.count++
+              group.records.push(record)
+            }
+
+            // Create findings for each FPO species
+            for (const [latinName, { count, records }] of fpoSpeciesGroups) {
+              const firstRecord = records[0]
+              const locations = [...new Set(records.map((r) => r.locationName).filter(Boolean))]
+
+              findings.push({
+                id: `fpo-${latinName.replace(/\s+/g, '-')}`,
+                source: 'fpo',
+                dataType: 'species_record',
+                title: `${firstRecord.commonName || latinName}`,
+                content: `${count} FPO record${count > 1 ? 's' : ''} in hectad ${gridRef}. ${firstRecord.isSensitive ? '⚠️ Sensitive species.' : ''} ${locations.length > 0 ? `Recorded at: ${locations.slice(0, 2).join(', ')}${locations.length > 2 ? '...' : ''}` : ''}`,
+                isSaved: false,
+                sourceUrl: 'https://www.npws.ie/legislation/irish-law/flora-protection-order',
+                rawData: { recordCount: count, sampleRecords: records.slice(0, 5) },
+                metadata: {
+                  scientificName: latinName,
+                  commonName: firstRecord.commonName,
+                  recordCount: count,
+                  isProtected: true,
+                  designation: 'Flora Protection Order 2022',
+                },
+              })
+            }
+          } catch (error) {
+            console.warn('FPO search error:', error)
           }
 
-          for (const species of annexSpecies) {
-            const commonName = commonNames[species.code] || ''
-            const displayName = commonName || species.scientificName
+          // Search Article 17 Habitats Directive Annex species
+          try {
+            const annexSpecies = await searchSpeciesByGridRef(gridRef)
+            console.log('🔍 Article 17 Results:', annexSpecies.length, 'species found')
 
-            findings.push({
-              id: `art17-${species.code}`,
-              source: 'npws', // Use npws as source since it's NPWS data
-              dataType: 'species_record',
-              title: displayName,
-              content: `Habitats Directive Annex species. Recorded in ${species.gridCount} grid squares across Ireland. Scientific name: ${species.scientificName}`,
-              isSaved: false,
-              sourceUrl: `https://www.npws.ie/protected-sites/sac`,
-              rawData: { annexCode: species.code, hectads: species.hectads.slice(0, 10) },
-              metadata: {
-                scientificName: species.scientificName,
-                commonName: commonName,
-                recordCount: species.gridCount,
-                isProtected: true,
-                designation: 'Habitats Directive Annex II/IV/V',
-              },
-            })
+            // Known common names for Annex species
+            const commonNames: Record<string, string> = {
+              '1355': 'Otter',
+              '1357': 'Pine Marten',
+              '1334': 'Irish Hare',
+              '1303': 'Lesser Horseshoe Bat',
+              '1309': 'Common Pipistrelle',
+              '1314': "Daubenton's Bat",
+              '1106': 'Atlantic Salmon',
+              '1029': 'Freshwater Pearl Mussel',
+              '1065': 'Marsh Fritillary',
+              '1024': 'Kerry Slug',
+              '1213': 'Common Frog',
+              '1092': 'White-clawed Crayfish',
+            }
+
+            for (const species of annexSpecies) {
+              const commonName = commonNames[species.code] || ''
+              const displayName = commonName || species.scientificName
+
+              findings.push({
+                id: `art17-${species.code}`,
+                source: 'npws', // Use npws as source since it's NPWS data
+                dataType: 'species_record',
+                title: displayName,
+                content: `Habitats Directive Annex species. Recorded in ${species.gridCount} grid squares across Ireland. Scientific name: ${species.scientificName}`,
+                isSaved: false,
+                sourceUrl: `https://www.npws.ie/protected-sites/sac`,
+                rawData: { annexCode: species.code, hectads: species.hectads.slice(0, 10) },
+                metadata: {
+                  scientificName: species.scientificName,
+                  commonName: commonName,
+                  recordCount: species.gridCount,
+                  isProtected: true,
+                  designation: 'Habitats Directive Annex II/IV/V',
+                },
+              })
+            }
+          } catch (error) {
+            console.warn('Article 17 search error:', error)
           }
-        } catch (error) {
-          console.warn('Article 17 search error:', error)
         }
       }
 
