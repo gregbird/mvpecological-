@@ -63,6 +63,8 @@ export interface FindingDisplay {
     // Source URLs for both GBIF and NBDC
     gbifUrl?: string
     nbdcUrl?: string
+    // SSCO fields
+    habitatCount?: number
   }
 }
 

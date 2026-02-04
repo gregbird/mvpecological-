@@ -18,6 +18,7 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { useCreateFinding, useDeleteFinding } from '@/hooks/use-project-data'
 import { queryDesignatedSites, getSiteTypeDisplayName } from '@/lib/external-apis/npws'
+import { findIntersectingSSCO, type SSCOResult } from '@/lib/data/ssco-lookup'
 import { FindingsList, type FindingDisplay } from './findings-list'
 import type { Project, DeskResearchFinding, Json } from '@/types/database'
 import type { FindingSource, FindingType } from '@/components/desk-research/finding-card'
@@ -277,6 +278,41 @@ export function DesignatedSitesSubStep({
           },
         }
       })
+
+      // Also search SSCO (Site-specific Conservation Objectives) if we have a boundary
+      if (projectBoundary) {
+        try {
+          console.log('🔍 Searching SSCO with buffer:', selectedBuffer, 'km')
+          const sscoResults = await findIntersectingSSCO(projectBoundary, selectedBuffer)
+          console.log('🔍 SSCO Results:', sscoResults.length, 'SAC sites found')
+
+          // Add SSCO findings
+          for (const ssco of sscoResults) {
+            const habitatList = ssco.habitats.map(h => `[${h.habitatCode}] ${h.habitatName}`).join(', ')
+
+            findings.push({
+              id: `ssco-${ssco.siteCode}`,
+              source: 'npws',
+              dataType: 'designated_site',
+              title: `${ssco.siteName} - Conservation Objectives`,
+              content: `Site-specific Conservation Objectives. Protected habitats: ${habitatList}${ssco.intersectionArea ? `. Overlap: ~${ssco.intersectionArea.toFixed(1)} ha` : ''}`,
+              isSaved: false,
+              sourceUrl: `https://www.npws.ie/protected-sites/sac/${ssco.siteCode}`,
+              rawData: { ssco, habitats: ssco.habitats },
+              metadata: {
+                siteCode: ssco.siteCode,
+                siteType: 'SSCO',
+                designation: 'Site-specific Conservation Objectives',
+                habitatCount: ssco.habitats.length,
+                isProtected: true,
+              },
+            })
+          }
+        } catch (error) {
+          console.warn('SSCO search error:', error)
+          // Don't show error toast - SSCO is supplementary
+        }
+      }
 
       setSearchResults(findings)
 
