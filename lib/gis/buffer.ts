@@ -23,12 +23,37 @@ export interface BufferResult {
 
 // Standard buffer distances for ecological assessments in Ireland
 export const STANDARD_BUFFER_DISTANCES = [
-  { value: 0.5, label: '500m', description: 'Immediate surroundings' },
-  { value: 1, label: '1km', description: 'Local area' },
-  { value: 2, label: '2km', description: 'Standard buffer for designated sites' },
-  { value: 5, label: '5km', description: 'Extended buffer for mobile species' },
-  { value: 10, label: '10km', description: 'Wide area assessment' },
-  { value: 15, label: '15km', description: 'SAC/SPA zone of influence' },
+  {
+    value: 0.5,
+    label: '500m',
+    description: 'Immediate surroundings - direct impacts on habitats and species',
+  },
+  {
+    value: 1,
+    label: '1km',
+    description: 'Local area - searches NPWS designated sites within this radius',
+  },
+  {
+    value: 2,
+    label: '2km',
+    description:
+      'Standard buffer - searches all NPWS sites (SAC, SPA, NHA, pNHA) within this radius',
+  },
+  {
+    value: 5,
+    label: '5km',
+    description: 'Extended buffer - recommended for mobile species and hydrological connections',
+  },
+  {
+    value: 10,
+    label: '10km',
+    description: 'Wide area - searches NPWS Natura 2000 sites (SAC, SPA) within this radius',
+  },
+  {
+    value: 15,
+    label: '15km',
+    description: 'Zone of influence - required for AA Screening of Natura 2000 sites',
+  },
 ] as const
 
 /**

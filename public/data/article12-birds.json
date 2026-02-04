@@ -1,0 +1,823 @@
+{
+  "source": "Article 12 Birds Directive 2013-2018",
+  "description": "Breeding bird distribution in Ireland",
+  "gridType": "10km",
+  "species": [
+    {
+      "code": "A001",
+      "scientificName": "Gavia stellata",
+      "commonName": "Red-throated Diver",
+      "gridCount": 1
+    },
+    {
+      "code": "A004",
+      "scientificName": "Tachybaptus ruficollis",
+      "commonName": "Little Grebe",
+      "gridCount": 1
+    },
+    {
+      "code": "A005",
+      "scientificName": "Podiceps cristatus",
+      "commonName": "Great Crested Grebe",
+      "gridCount": 1
+    },
+    {
+      "code": "A009",
+      "scientificName": "Fulmarus glacialis",
+      "commonName": "Fulmar",
+      "gridCount": 1
+    },
+    {
+      "code": "A013",
+      "scientificName": "Puffinus puffinus",
+      "commonName": "Manx Shearwater",
+      "gridCount": 1
+    },
+    {
+      "code": "A014",
+      "scientificName": "Hydrobates pelagicus",
+      "commonName": "Storm Petrel",
+      "gridCount": 1
+    },
+    {
+      "code": "A016",
+      "scientificName": "Morus bassanus",
+      "commonName": "Gannet",
+      "gridCount": 1
+    },
+    {
+      "code": "A026",
+      "scientificName": "Egretta garzetta",
+      "commonName": "Little Egret",
+      "gridCount": 1
+    },
+    {
+      "code": "A028",
+      "scientificName": "Ardea cinerea",
+      "commonName": "Grey Heron",
+      "gridCount": 1
+    },
+    {
+      "code": "A036",
+      "scientificName": "Cygnus olor",
+      "commonName": "Mute Swan",
+      "gridCount": 1
+    },
+    {
+      "code": "A043-X",
+      "scientificName": "Anser anser",
+      "commonName": "Greylag Goose",
+      "gridCount": 1
+    },
+    {
+      "code": "A044-X",
+      "scientificName": "Branta canadensis",
+      "commonName": "Canada Goose",
+      "gridCount": 1
+    },
+    {
+      "code": "A048",
+      "scientificName": "Tadorna tadorna",
+      "commonName": "Shelduck",
+      "gridCount": 1
+    },
+    {
+      "code": "A052",
+      "scientificName": "Anas crecca",
+      "commonName": "Teal",
+      "gridCount": 1
+    },
+    {
+      "code": "A053",
+      "scientificName": "Anas platyrhynchos",
+      "commonName": "Mallard",
+      "gridCount": 1
+    },
+    {
+      "code": "A061",
+      "scientificName": "Aythya fuligula",
+      "commonName": "Tufted Duck",
+      "gridCount": 1
+    },
+    {
+      "code": "A063",
+      "scientificName": "Somateria mollissima",
+      "commonName": "Eider",
+      "gridCount": 1
+    },
+    {
+      "code": "A069",
+      "scientificName": "Mergus serrator",
+      "commonName": "Red-breasted Merganser",
+      "gridCount": 1
+    },
+    {
+      "code": "A070",
+      "scientificName": "Mergus merganser",
+      "commonName": "Goosander",
+      "gridCount": 1
+    },
+    {
+      "code": "A074",
+      "scientificName": "Milvus milvus",
+      "commonName": "Red Kite",
+      "gridCount": 1
+    },
+    {
+      "code": "A082",
+      "scientificName": "Circus cyaneus",
+      "commonName": "Hen Harrier",
+      "gridCount": 1
+    },
+    {
+      "code": "A087",
+      "scientificName": "Buteo buteo",
+      "commonName": "Buzzard",
+      "gridCount": 1
+    },
+    {
+      "code": "A096",
+      "scientificName": "Falco tinnunculus",
+      "commonName": "Kestrel",
+      "gridCount": 1
+    },
+    {
+      "code": "A098",
+      "scientificName": "Falco columbarius",
+      "commonName": "Merlin",
+      "gridCount": 1
+    },
+    {
+      "code": "A103",
+      "scientificName": "Falco peregrinus",
+      "commonName": "Peregrine",
+      "gridCount": 1
+    },
+    {
+      "code": "A113",
+      "scientificName": "Coturnix coturnix",
+      "commonName": "Quail",
+      "gridCount": 1
+    },
+    {
+      "code": "A115-X",
+      "scientificName": "Phasianus colchicus",
+      "commonName": "Pheasant",
+      "gridCount": 1
+    },
+    {
+      "code": "A118",
+      "scientificName": "Rallus aquaticus",
+      "commonName": "Water Rail",
+      "gridCount": 1
+    },
+    {
+      "code": "A122",
+      "scientificName": "Crex crex",
+      "commonName": "Corncrake",
+      "gridCount": 1
+    },
+    {
+      "code": "A123",
+      "scientificName": "Gallinula chloropus",
+      "commonName": "Moorhen",
+      "gridCount": 1
+    },
+    {
+      "code": "A125",
+      "scientificName": "Fulica atra",
+      "commonName": "Coot",
+      "gridCount": 1
+    },
+    {
+      "code": "A130",
+      "scientificName": "Haematopus ostralegus",
+      "commonName": "Oystercatcher",
+      "gridCount": 1
+    },
+    {
+      "code": "A137",
+      "scientificName": "Charadrius hiaticula",
+      "commonName": "Ringed Plover",
+      "gridCount": 1
+    },
+    {
+      "code": "A140",
+      "scientificName": "Pluvialis apricaria",
+      "commonName": "Golden Plover",
+      "gridCount": 1
+    },
+    {
+      "code": "A142",
+      "scientificName": "Vanellus vanellus",
+      "commonName": "Lapwing",
+      "gridCount": 1
+    },
+    {
+      "code": "A153",
+      "scientificName": "Gallinago gallinago",
+      "commonName": "Snipe",
+      "gridCount": 1
+    },
+    {
+      "code": "A155",
+      "scientificName": "Scolopax rusticola",
+      "commonName": "Woodcock",
+      "gridCount": 1
+    },
+    {
+      "code": "A162",
+      "scientificName": "Tringa totanus",
+      "commonName": "Redshank",
+      "gridCount": 1
+    },
+    {
+      "code": "A168",
+      "scientificName": "Actitis hypoleucos",
+      "commonName": "Common Sandpiper",
+      "gridCount": 1
+    },
+    {
+      "code": "A175",
+      "scientificName": "Catharacta skua",
+      "commonName": "Great Skua",
+      "gridCount": 1
+    },
+    {
+      "code": "A176",
+      "scientificName": "Larus melanocephalus",
+      "commonName": "Mediterranean Gull",
+      "gridCount": 1
+    },
+    {
+      "code": "A179",
+      "scientificName": "Larus ridibundus",
+      "commonName": "Black-headed Gull",
+      "gridCount": 1
+    },
+    {
+      "code": "A182",
+      "scientificName": "Larus canus",
+      "commonName": "Common Gull",
+      "gridCount": 1
+    },
+    {
+      "code": "A187",
+      "scientificName": "Larus marinus",
+      "commonName": "Great Black-backed Gull",
+      "gridCount": 1
+    },
+    {
+      "code": "A188",
+      "scientificName": "Rissa tridactyla",
+      "commonName": "Kittiwake",
+      "gridCount": 1
+    },
+    {
+      "code": "A192",
+      "scientificName": "Sterna dougallii",
+      "commonName": "Roseate Tern",
+      "gridCount": 1
+    },
+    {
+      "code": "A193",
+      "scientificName": "Sterna hirundo",
+      "commonName": "Common Tern",
+      "gridCount": 1
+    },
+    {
+      "code": "A194",
+      "scientificName": "Sterna paradisaea",
+      "commonName": "Arctic Tern",
+      "gridCount": 1
+    },
+    {
+      "code": "A200",
+      "scientificName": "Alca torda",
+      "commonName": "Razorbill",
+      "gridCount": 1
+    },
+    {
+      "code": "A202",
+      "scientificName": "Cepphus grylle",
+      "commonName": "Black Guillemot",
+      "gridCount": 1
+    },
+    {
+      "code": "A204",
+      "scientificName": "Fratercula arctica",
+      "commonName": "Puffin",
+      "gridCount": 1
+    },
+    {
+      "code": "A206-X",
+      "scientificName": "Columba livia",
+      "commonName": "Feral Pigeon",
+      "gridCount": 2
+    },
+    {
+      "code": "A207",
+      "scientificName": "Columba oenas",
+      "commonName": "Stock Dove",
+      "gridCount": 1
+    },
+    {
+      "code": "A209",
+      "scientificName": "Streptopelia decaocto",
+      "commonName": "Collared Dove",
+      "gridCount": 1
+    },
+    {
+      "code": "A212",
+      "scientificName": "Cuculus canorus",
+      "commonName": "Cuckoo",
+      "gridCount": 1
+    },
+    {
+      "code": "A213",
+      "scientificName": "Tyto alba",
+      "commonName": "Barn Owl",
+      "gridCount": 1
+    },
+    {
+      "code": "A221",
+      "scientificName": "Asio otus",
+      "commonName": "Long-eared Owl",
+      "gridCount": 1
+    },
+    {
+      "code": "A226",
+      "scientificName": "Apus apus",
+      "commonName": "Swift",
+      "gridCount": 1
+    },
+    {
+      "code": "A229",
+      "scientificName": "Alcedo atthis",
+      "commonName": "Kingfisher",
+      "gridCount": 1
+    },
+    {
+      "code": "A247",
+      "scientificName": "Alauda arvensis",
+      "commonName": "Skylark",
+      "gridCount": 1
+    },
+    {
+      "code": "A249",
+      "scientificName": "Riparia riparia",
+      "commonName": "Sand Martin",
+      "gridCount": 1
+    },
+    {
+      "code": "A251",
+      "scientificName": "Hirundo rustica",
+      "commonName": "Swallow",
+      "gridCount": 1
+    },
+    {
+      "code": "A257",
+      "scientificName": "Anthus pratensis",
+      "commonName": "Meadow Pipit",
+      "gridCount": 1
+    },
+    {
+      "code": "A261",
+      "scientificName": "Motacilla cinerea",
+      "commonName": "Grey Wagtail",
+      "gridCount": 1
+    },
+    {
+      "code": "A262",
+      "scientificName": "Motacilla alba",
+      "commonName": "Pied Wagtail",
+      "gridCount": 1
+    },
+    {
+      "code": "A264",
+      "scientificName": "Cinclus cinclus",
+      "commonName": "Dipper",
+      "gridCount": 1
+    },
+    {
+      "code": "A266",
+      "scientificName": "Prunella modularis",
+      "commonName": "Dunnock",
+      "gridCount": 1
+    },
+    {
+      "code": "A269",
+      "scientificName": "Erithacus rubecula",
+      "commonName": "Robin",
+      "gridCount": 1
+    },
+    {
+      "code": "A274",
+      "scientificName": "Phoenicurus phoenicurus",
+      "commonName": "Common Redstart",
+      "gridCount": 1
+    },
+    {
+      "code": "A275",
+      "scientificName": "Saxicola rubetra",
+      "commonName": "Whinchat",
+      "gridCount": 1
+    },
+    {
+      "code": "A276",
+      "scientificName": "Saxicola torquatus",
+      "commonName": "Stonechat",
+      "gridCount": 1
+    },
+    {
+      "code": "A277",
+      "scientificName": "Oenanthe oenanthe",
+      "commonName": "Wheatear",
+      "gridCount": 1
+    },
+    {
+      "code": "A282",
+      "scientificName": "Turdus torquatus",
+      "commonName": "Ring Ouzel",
+      "gridCount": 1
+    },
+    {
+      "code": "A283",
+      "scientificName": "Turdus merula",
+      "commonName": "Blackbird",
+      "gridCount": 1
+    },
+    {
+      "code": "A285",
+      "scientificName": "Turdus philomelos",
+      "commonName": "Song Thrush",
+      "gridCount": 1
+    },
+    {
+      "code": "A287",
+      "scientificName": "Turdus viscivorus",
+      "commonName": "Mistle Thrush",
+      "gridCount": 1
+    },
+    {
+      "code": "A290",
+      "scientificName": "Locustella naevia",
+      "commonName": "Grasshopper Warbler",
+      "gridCount": 1
+    },
+    {
+      "code": "A295",
+      "scientificName": "Acrocephalus schoenobaenus",
+      "commonName": "Sedge Warbler",
+      "gridCount": 1
+    },
+    {
+      "code": "A297",
+      "scientificName": "Acrocephalus scirpaceus",
+      "commonName": "Reed Warbler",
+      "gridCount": 1
+    },
+    {
+      "code": "A309",
+      "scientificName": "Sylvia communis",
+      "commonName": "Whitethroat",
+      "gridCount": 1
+    },
+    {
+      "code": "A310",
+      "scientificName": "Sylvia borin",
+      "commonName": "Garden Warbler",
+      "gridCount": 1
+    },
+    {
+      "code": "A311",
+      "scientificName": "Sylvia atricapilla",
+      "commonName": "Blackcap",
+      "gridCount": 1
+    },
+    {
+      "code": "A314",
+      "scientificName": "Phylloscopus sibilatrix",
+      "commonName": "Wood Warbler",
+      "gridCount": 1
+    },
+    {
+      "code": "A316",
+      "scientificName": "Phylloscopus trochilus",
+      "commonName": "Willow Warbler",
+      "gridCount": 1
+    },
+    {
+      "code": "A317",
+      "scientificName": "Regulus regulus",
+      "commonName": "Goldcrest",
+      "gridCount": 1
+    },
+    {
+      "code": "A319",
+      "scientificName": "Muscicapa striata",
+      "commonName": "Spotted Flycatcher",
+      "gridCount": 1
+    },
+    {
+      "code": "A323",
+      "scientificName": "Panurus biarmicus",
+      "commonName": "Bearded Tit",
+      "gridCount": 1
+    },
+    {
+      "code": "A324",
+      "scientificName": "Aegithalos caudatus",
+      "commonName": "Long-tailed Tit",
+      "gridCount": 1
+    },
+    {
+      "code": "A330",
+      "scientificName": "Parus major",
+      "commonName": "Great Tit",
+      "gridCount": 1
+    },
+    {
+      "code": "A334",
+      "scientificName": "Certhia familiaris",
+      "commonName": "Treecreeper",
+      "gridCount": 1
+    },
+    {
+      "code": "A342",
+      "scientificName": "Garrulus glandarius",
+      "commonName": "Jay",
+      "gridCount": 1
+    },
+    {
+      "code": "A343",
+      "scientificName": "Pica pica",
+      "commonName": "Magpie",
+      "gridCount": 1
+    },
+    {
+      "code": "A346",
+      "scientificName": "Pyrrhocorax pyrrhocorax",
+      "commonName": "Chough",
+      "gridCount": 1
+    },
+    {
+      "code": "A347",
+      "scientificName": "Corvus monedula",
+      "commonName": "Jackdaw",
+      "gridCount": 1
+    },
+    {
+      "code": "A348",
+      "scientificName": "Corvus frugilegus",
+      "commonName": "Rook",
+      "gridCount": 1
+    },
+    {
+      "code": "A349",
+      "scientificName": "Corvus corone",
+      "commonName": "Hooded Crow",
+      "gridCount": 1
+    },
+    {
+      "code": "A350",
+      "scientificName": "Corvus corax",
+      "commonName": "Raven",
+      "gridCount": 1
+    },
+    {
+      "code": "A351",
+      "scientificName": "Sturnus vulgaris",
+      "commonName": "Starling",
+      "gridCount": 1
+    },
+    {
+      "code": "A356",
+      "scientificName": "Passer montanus",
+      "commonName": "Tree Sparrow",
+      "gridCount": 1
+    },
+    {
+      "code": "A363",
+      "scientificName": "Chloris chloris",
+      "commonName": "Greenfinch",
+      "gridCount": 1
+    },
+    {
+      "code": "A364",
+      "scientificName": "Carduelis carduelis",
+      "commonName": "Goldfinch",
+      "gridCount": 1
+    },
+    {
+      "code": "A369",
+      "scientificName": "Loxia curvirostra",
+      "commonName": "Crossbill",
+      "gridCount": 1
+    },
+    {
+      "code": "A372",
+      "scientificName": "Pyrrhula pyrrhula",
+      "commonName": "Bullfinch",
+      "gridCount": 1
+    },
+    {
+      "code": "A376",
+      "scientificName": "Emberiza citrinella",
+      "commonName": "Yellowhammer",
+      "gridCount": 1
+    },
+    {
+      "code": "A381",
+      "scientificName": "Emberiza schoeniclus",
+      "commonName": "Reed Bunting",
+      "gridCount": 1
+    },
+    {
+      "code": "A463",
+      "scientificName": "Lagopus lagopus hibernica",
+      "commonName": "Red Grouse",
+      "gridCount": 1
+    },
+    {
+      "code": "A466-A",
+      "scientificName": "Calidris alpina schinzii",
+      "commonName": "Dunlin",
+      "gridCount": 1
+    },
+    {
+      "code": "A472",
+      "scientificName": "Periparus ater",
+      "commonName": "Coal Tit",
+      "gridCount": 1
+    },
+    {
+      "code": "A474",
+      "scientificName": "Acanthis flammea",
+      "commonName": "Lesser Redpoll",
+      "gridCount": 1
+    },
+    {
+      "code": "A476",
+      "scientificName": "Linaria cannabina",
+      "commonName": "Linnet",
+      "gridCount": 1
+    },
+    {
+      "code": "A477",
+      "scientificName": "Linaria flavirostris",
+      "commonName": "Twite",
+      "gridCount": 1
+    },
+    {
+      "code": "A478",
+      "scientificName": "Spinus spinus",
+      "commonName": "Siskin",
+      "gridCount": 1
+    },
+    {
+      "code": "A483",
+      "scientificName": "Cyanistes caeruleus",
+      "commonName": "Blue Tit",
+      "gridCount": 1
+    },
+    {
+      "code": "A489",
+      "scientificName": "Larus fuscus",
+      "commonName": "Lesser Black-backed Gull",
+      "gridCount": 1
+    },
+    {
+      "code": "A572",
+      "scientificName": "Phylloscopus collybita",
+      "commonName": "Chiffchaff",
+      "gridCount": 1
+    },
+    {
+      "code": "A620",
+      "scientificName": "Passer domesticus",
+      "commonName": "House Sparrow",
+      "gridCount": 1
+    },
+    {
+      "code": "A644",
+      "scientificName": "Perdix perdix",
+      "commonName": "Grey Partridge",
+      "gridCount": 1
+    },
+    {
+      "code": "A657",
+      "scientificName": "Fringilla coelebs",
+      "commonName": "Chaffinch",
+      "gridCount": 1
+    },
+    {
+      "code": "A658",
+      "scientificName": "Dendrocopos major",
+      "commonName": "Great Spotted Woodpecker",
+      "gridCount": 1
+    },
+    {
+      "code": "A666",
+      "scientificName": "Anthus petrosus",
+      "commonName": "Rock Pipit",
+      "gridCount": 1
+    },
+    {
+      "code": "A676",
+      "scientificName": "Troglodytes troglodytes",
+      "commonName": "Wren",
+      "gridCount": 1
+    },
+    {
+      "code": "A683",
+      "scientificName": "Phalacrocorax carbo carbo",
+      "commonName": "Cormorant",
+      "gridCount": 1
+    },
+    {
+      "code": "A684",
+      "scientificName": "Phalacrocorax aristotelis aristotelis",
+      "commonName": "Shag",
+      "gridCount": 1
+    },
+    {
+      "code": "A687",
+      "scientificName": "Columba palumbus palumbus",
+      "commonName": "Woodpigeon",
+      "gridCount": 1
+    },
+    {
+      "code": "A738",
+      "scientificName": "Delichon urbicum",
+      "commonName": "House Martin",
+      "gridCount": 1
+    },
+    {
+      "code": "A768",
+      "scientificName": "Numenius arquata arquata",
+      "commonName": "Curlew",
+      "gridCount": 1
+    },
+    {
+      "code": "A854",
+      "scientificName": "Hydrobates leucorhous",
+      "commonName": "Leach's Storm-petrel",
+      "gridCount": 1
+    },
+    {
+      "code": "A856",
+      "scientificName": "Spatula querquedula",
+      "commonName": "Garganey",
+      "gridCount": 1
+    },
+    {
+      "code": "A857",
+      "scientificName": "Spatula clypeata",
+      "commonName": "Shoveler",
+      "gridCount": 1
+    },
+    {
+      "code": "A863",
+      "scientificName": "Thalasseus sandvicensis",
+      "commonName": "Sandwich Tern",
+      "gridCount": 1
+    },
+    {
+      "code": "A885",
+      "scientificName": "Sternula albifrons",
+      "commonName": "Little Tern",
+      "gridCount": 1
+    },
+    {
+      "code": "A887",
+      "scientificName": "Uria aalge",
+      "commonName": "Guillemot",
+      "gridCount": 1
+    },
+    {
+      "code": "A889",
+      "scientificName": "Mareca strepera",
+      "commonName": "Gadwall",
+      "gridCount": 1
+    },
+    {
+      "code": "A895",
+      "scientificName": "Larus argentatus argenteus",
+      "commonName": "Herring Gull",
+      "gridCount": 1
+    },
+    {
+      "code": "A898",
+      "scientificName": "Accipiter nisus",
+      "commonName": "Sparrowhawk",
+      "gridCount": 1
+    },
+    {
+      "code": "A900",
+      "scientificName": "Melanitta nigra",
+      "commonName": "Common Scoter",
+      "gridCount": 1
+    }
+  ]
+}

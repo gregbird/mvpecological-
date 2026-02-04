@@ -55,6 +55,13 @@ const DATA_SOURCES: DataSource[] = [
     status: 'available',
   },
   {
+    id: 'fpo',
+    name: 'FPO 2022',
+    description: 'Flora Protection Order - protected plant species records',
+    types: ['species_record'],
+    status: 'available',
+  },
+  {
     id: 'catchments',
     name: 'Catchments.ie',
     description: 'Integrated via EPA - use EPA source',

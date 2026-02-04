@@ -14,6 +14,8 @@ import {
   getGroupColorClasses,
   type DatasetLayer,
 } from '@/lib/config/dataset-layers'
+import { getLayerMetadata, type LayerMetadata } from '@/lib/config/layer-metadata'
+import { LayerInfoModal, LayerInfoButton } from '@/components/gis/layer-info-modal'
 
 interface DatasetLayersPanelProps {
   visibleLayers: string[]
@@ -29,6 +31,18 @@ export function DatasetLayersPanel({
   className,
 }: DatasetLayersPanelProps) {
   const [expandedGroups, setExpandedGroups] = React.useState<string[]>(['npws'])
+  const [selectedLayerMetadata, setSelectedLayerMetadata] = React.useState<LayerMetadata | null>(
+    null
+  )
+  const [infoModalOpen, setInfoModalOpen] = React.useState(false)
+
+  const handleOpenLayerInfo = (layerId: string) => {
+    const metadata = getLayerMetadata(layerId)
+    if (metadata) {
+      setSelectedLayerMetadata(metadata)
+      setInfoModalOpen(true)
+    }
+  }
 
   const toggleGroup = (groupId: string) => {
     setExpandedGroups((prev) =>
@@ -147,13 +161,14 @@ export function DatasetLayersPanel({
                           <Label
                             htmlFor={`layer-${layer.id}`}
                             className={cn(
-                              'cursor-pointer text-xs leading-tight',
+                              'flex-1 cursor-pointer text-xs leading-tight',
                               isVisible ? colorClasses.text : 'text-muted-foreground'
                             )}
                             title={layer.description}
                           >
                             {layer.label}
                           </Label>
+                          <LayerInfoButton onClick={() => handleOpenLayerInfo(layer.id)} />
                         </div>
                       )
                     })}
@@ -168,6 +183,13 @@ export function DatasetLayersPanel({
       <div className="border-border text-muted-foreground border-t px-4 py-2 text-xs">
         {visibleLayers.length} layer{visibleLayers.length !== 1 ? 's' : ''} active
       </div>
+
+      {/* Layer Info Modal */}
+      <LayerInfoModal
+        metadata={selectedLayerMetadata}
+        open={infoModalOpen}
+        onOpenChange={setInfoModalOpen}
+      />
     </div>
   )
 }

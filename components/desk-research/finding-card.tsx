@@ -18,7 +18,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
-export type FindingSource = 'npws' | 'gbif' | 'nbdc' | 'epa' | 'catchments' | 'manual'
+export type FindingSource = 'npws' | 'gbif' | 'nbdc' | 'epa' | 'catchments' | 'fpo' | 'manual'
 export type FindingType =
   | 'designated_site'
   | 'species_record'
@@ -72,6 +72,10 @@ const SOURCE_LABELS: Record<FindingSource, { label: string; color: string }> = {
   catchments: {
     label: 'Catchments.ie',
     color: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100',
+  },
+  fpo: {
+    label: 'FPO 2022',
+    color: 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-100',
   },
   manual: {
     label: 'Manual',

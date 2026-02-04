@@ -9,6 +9,21 @@ import {
   type NPWSDesignatedSite,
   type DesignatedSiteType,
 } from '@/lib/external-apis/npws'
+/**
+ * Get the direct NPWS URL for a specific site
+ * Format: https://www.npws.ie/protected-sites/{type}/{sitecode}
+ */
+function getNPWSSiteUrl(siteType: DesignatedSiteType, siteCode: string): string {
+  // Map site type to URL path
+  const typeToPath: Record<DesignatedSiteType, string> = {
+    SAC: 'sac',
+    SPA: 'spa',
+    NHA: 'nha',
+    pNHA: 'pnha',
+  }
+  const path = typeToPath[siteType] || 'sac'
+  return `https://www.npws.ie/protected-sites/${path}/${siteCode}`
+}
 
 interface NPWSLayerOverlayProps {
   map: L.Map | null
@@ -142,9 +157,10 @@ export function NPWSLayerOverlay({
           },
         })
 
-        // Add popup with site info
+        // Add popup with site info - direct link to specific site page
+        const siteUrl = getNPWSSiteUrl(site.SITE_TYPE as DesignatedSiteType, site.SITECODE)
         geoJsonLayer.bindPopup(`
-          <div style="min-width: 200px;">
+          <div style="min-width: 220px;">
             <div style="font-weight: 600; margin-bottom: 4px;">${site.SITENAME}</div>
             <div style="font-size: 12px; color: #666; margin-bottom: 8px;">${displayName}</div>
             <table style="font-size: 12px; width: 100%;">
@@ -154,6 +170,17 @@ export function NPWSLayerOverlay({
               </tr>
               ${site.AREA_HA ? `<tr><td style="color: #666;">Area:</td><td style="font-weight: 500;">${site.AREA_HA.toLocaleString()} ha</td></tr>` : ''}
             </table>
+            <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #e5e7eb;">
+              <a href="${siteUrl}" target="_blank" rel="noopener noreferrer"
+                 style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #2563eb; text-decoration: none;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                  <polyline points="15 3 21 3 21 9"></polyline>
+                  <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+                View on NPWS website
+              </a>
+            </div>
           </div>
         `)
 
@@ -305,8 +332,9 @@ export function useNPWSLayers(
           },
         })
 
+        const siteUrl2 = getNPWSSiteUrl(site.SITE_TYPE as DesignatedSiteType, site.SITECODE)
         geoJsonLayer.bindPopup(`
-          <div style="min-width: 200px;">
+          <div style="min-width: 220px;">
             <div style="font-weight: 600; margin-bottom: 4px;">${site.SITENAME}</div>
             <div style="font-size: 12px; color: #666; margin-bottom: 8px;">${displayName}</div>
             <table style="font-size: 12px; width: 100%;">
@@ -316,6 +344,17 @@ export function useNPWSLayers(
               </tr>
               ${site.AREA_HA ? `<tr><td style="color: #666;">Area:</td><td style="font-weight: 500;">${site.AREA_HA.toLocaleString()} ha</td></tr>` : ''}
             </table>
+            <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #e5e7eb;">
+              <a href="${siteUrl2}" target="_blank" rel="noopener noreferrer"
+                 style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #2563eb; text-decoration: none;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                  <polyline points="15 3 21 3 21 9"></polyline>
+                  <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+                View on NPWS website
+              </a>
+            </div>
           </div>
         `)
 

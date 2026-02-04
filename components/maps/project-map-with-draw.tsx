@@ -3,7 +3,12 @@
 import * as React from 'react'
 import { Layers, Maximize2, Minimize2 } from 'lucide-react'
 import dynamic from 'next/dynamic'
-import type { Map as LeafletMap, FeatureGroup as LeafletFeatureGroup } from 'leaflet'
+import type {
+  Map as LeafletMap,
+  FeatureGroup as LeafletFeatureGroup,
+  Layer as LeafletLayer,
+} from 'leaflet'
+import type L from 'leaflet'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -23,24 +28,32 @@ import { useEPALayers } from './epa-layer-overlay'
 const IRELAND_CENTER: [number, number] = [53.1424, -7.6921]
 const DEFAULT_ZOOM = 7
 
-export type MapStyle = 'streets' | 'satellite' | 'topo'
+export type MapStyle = 'streets' | 'satellite' | 'hybrid' | 'topo'
 
-// Tile layer URLs (all free)
-const TILE_LAYERS: Record<MapStyle, { url: string; attribution: string }> = {
+// Tile layer URLs (all free, no API key required)
+const TILE_LAYERS: Record<MapStyle, { url: string; attribution: string; label: string }> = {
   streets: {
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution:
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    label: 'Streets (OSM)',
   },
   satellite: {
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     attribution:
       'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+    label: 'Satellite (ESRI)',
+  },
+  hybrid: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri &mdash; Labels &copy; OpenStreetMap contributors',
+    label: 'Hybrid (Satellite + Labels)',
   },
   topo: {
     url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
     attribution:
       'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
+    label: 'Topographic',
   },
 }
 
@@ -111,6 +124,12 @@ function MapComponentWithDraw({
   editable,
   mapRef,
   visibleLayers = [],
+  countiesData,
+  showCounties,
+  townlandsData,
+  showTownlands,
+  currentZoom = 7,
+  onZoomChange,
 }: {
   center: [number, number]
   zoom: number
@@ -123,6 +142,15 @@ function MapComponentWithDraw({
   editable: boolean
   mapRef: React.MutableRefObject<LeafletMap | null>
   visibleLayers?: string[]
+  countiesData?: GeoJSON.FeatureCollection | null
+  showCounties?: boolean
+  townlandsData?: GeoJSON.FeatureCollection | null
+  showTownlands?: boolean
+  currentZoom?: number
+  onZoomChange?: (
+    zoom: number,
+    bounds?: { west: number; south: number; east: number; north: number }
+  ) => void
 }) {
   const { MapContainer, TileLayer, GeoJSON, FeatureGroup, useMap } = require('react-leaflet')
   const { EditControl } = require('react-leaflet-draw')
@@ -185,6 +213,33 @@ function MapComponentWithDraw({
         }
       }
     }, [map, onViewChange])
+
+    // Track zoom changes for townlands loading
+    React.useEffect(() => {
+      if (!map || !onZoomChange) return
+
+      const handleZoomEnd = () => {
+        const newZoom = map.getZoom()
+        const bounds = map.getBounds()
+        onZoomChange(newZoom, {
+          west: bounds.getWest(),
+          south: bounds.getSouth(),
+          east: bounds.getEast(),
+          north: bounds.getNorth(),
+        })
+      }
+
+      map.on('zoomend', handleZoomEnd)
+      map.on('moveend', handleZoomEnd)
+
+      // Initial call
+      handleZoomEnd()
+
+      return () => {
+        map.off('zoomend', handleZoomEnd)
+        map.off('moveend', handleZoomEnd)
+      }
+    }, [map, onZoomChange])
 
     React.useEffect(() => {
       if (boundary && featureGroupRef.current && map) {
@@ -315,7 +370,81 @@ function MapComponentWithDraw({
       zoomControl={false}
     >
       <TileLayer url={tileConfig.url} attribution={tileConfig.attribution} />
+      {/* Labels overlay for hybrid mode - roads, places, boundaries */}
+      {currentStyle === 'hybrid' && (
+        <TileLayer
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+          attribution=""
+          pane="overlayPane"
+        />
+      )}
       <LoadExistingBoundary />
+
+      {/* County Boundaries - render at bottom as reference layer */}
+      {showCounties && countiesData && (
+        <GeoJSON
+          key="county-boundaries"
+          data={countiesData}
+          style={(feature: GeoJSON.Feature | undefined) => {
+            const province = feature?.properties?.province as string | undefined
+            const provinceColors: Record<string, string> = {
+              Leinster: '#3b82f6',
+              Munster: '#22c55e',
+              Connacht: '#f59e0b',
+              Ulster: '#ef4444',
+            }
+            const color = province ? provinceColors[province] || '#f97316' : '#f97316'
+            return {
+              color: color,
+              weight: 1.5,
+              fillColor: color,
+              fillOpacity: 0.03,
+              dashArray: '4, 4',
+            }
+          }}
+          onEachFeature={(feature: GeoJSON.Feature, layer: L.Layer) => {
+            const props = feature.properties as Record<string, string> | null
+            if (props) {
+              ;(layer as L.GeoJSON).bindPopup(`
+                <div style="min-width: 150px;">
+                  <strong>${props.name || 'Unknown'}</strong>
+                  ${props.nameIrish ? `<br/><em>${props.nameIrish}</em>` : ''}
+                  <br/><span style="color: #666;">Province: ${props.province || 'Unknown'}</span>
+                  <br/><small style="color: #999;">© Tailte Éireann (CC-BY 4.0)</small>
+                </div>
+              `)
+            }
+          }}
+        />
+      )}
+
+      {/* Townland Boundaries - only at zoom 12+ */}
+      {showTownlands && townlandsData && currentZoom >= 12 && (
+        <GeoJSON
+          key={`townlands-${townlandsData.features?.length || 0}`}
+          data={townlandsData}
+          style={() => ({
+            color: '#a855f7',
+            weight: 1,
+            fillColor: '#a855f7',
+            fillOpacity: 0.02,
+            dashArray: '2, 2',
+          })}
+          onEachFeature={(feature: GeoJSON.Feature, layer: L.Layer) => {
+            const props = feature.properties as Record<string, string | number | null> | null
+            if (props) {
+              ;(layer as L.GeoJSON).bindPopup(`
+                <div style="min-width: 180px;">
+                  <strong>${props.name || 'Unknown Townland'}</strong>
+                  ${props.nameIrish ? `<br/><em>${props.nameIrish}</em>` : ''}
+                  ${props.areaHectares ? `<br/><span style="color: #666;">Area: ${props.areaHectares} ha</span>` : ''}
+                  <br/><small style="color: #999;">© Tailte Éireann (CC-BY 4.0)</small>
+                </div>
+              `)
+            }
+          }}
+        />
+      )}
 
       {/* Render buffer zones (larger first so smaller ones appear on top) */}
       {bufferZonesArray.map(([distance, bufferFeature]) => (
@@ -404,6 +533,74 @@ export function ProjectMapWithDraw({
   const containerRef = React.useRef<HTMLDivElement>(null)
   const mapRef = React.useRef<LeafletMap | null>(null)
 
+  // Data layers state
+  const [showCounties, setShowCounties] = React.useState(false)
+  const [countiesData, setCountiesData] = React.useState<GeoJSON.FeatureCollection | null>(null)
+  const [countiesLoading, setCountiesLoading] = React.useState(false)
+
+  // Townlands state
+  const [showTownlands, setShowTownlands] = React.useState(false)
+  const [townlandsData, setTownlandsData] = React.useState<GeoJSON.FeatureCollection | null>(null)
+  const [townlandsLoading, setTownlandsLoading] = React.useState(false)
+  const [currentZoom, setCurrentZoom] = React.useState(zoom)
+  const townlandsBboxRef = React.useRef<string | null>(null)
+
+  // Load county boundaries when layer becomes visible
+  React.useEffect(() => {
+    if (showCounties && !countiesData && !countiesLoading) {
+      setCountiesLoading(true)
+      fetch('/data/counties-ireland.geojson')
+        .then((res) => res.json())
+        .then((data) => {
+          setCountiesData(data)
+          setCountiesLoading(false)
+        })
+        .catch((err) => {
+          console.error('Failed to load county boundaries:', err)
+          setCountiesLoading(false)
+        })
+    }
+  }, [showCounties, countiesData, countiesLoading])
+
+  // Function to load townlands for current viewport
+  const loadTownlandsForBbox = React.useCallback(
+    async (bbox: string) => {
+      if (townlandsLoading || bbox === townlandsBboxRef.current) return
+
+      setTownlandsLoading(true)
+      townlandsBboxRef.current = bbox
+
+      try {
+        const response = await fetch(`/api/boundaries/townlands?bbox=${bbox}&limit=300`)
+        if (response.ok) {
+          const data = await response.json()
+          setTownlandsData(data)
+        } else {
+          console.error('Failed to load townlands:', response.status)
+        }
+      } catch (err) {
+        console.error('Failed to load townlands:', err)
+      } finally {
+        setTownlandsLoading(false)
+      }
+    },
+    [townlandsLoading]
+  )
+
+  // Track zoom level changes from map
+  const handleZoomChange = React.useCallback(
+    (newZoom: number, bounds?: { west: number; south: number; east: number; north: number }) => {
+      setCurrentZoom(newZoom)
+
+      // Load townlands when zoom >= 12 and layer is visible
+      if (newZoom >= 12 && showTownlands && bounds) {
+        const bbox = `${bounds.west},${bounds.south},${bounds.east},${bounds.north}`
+        loadTownlandsForBbox(bbox)
+      }
+    },
+    [showTownlands, loadTownlandsForBbox]
+  )
+
   // NPWS layer overlay
   const { sites: npwsSites, isLoading: npwsLoading } = useNPWSLayers(
     mapRef.current,
@@ -484,11 +681,17 @@ export function ProjectMapWithDraw({
           editable={editable}
           mapRef={mapRef}
           visibleLayers={visibleLayers}
+          countiesData={countiesData}
+          showCounties={showCounties}
+          townlandsData={townlandsData}
+          showTownlands={showTownlands}
+          currentZoom={currentZoom}
+          onZoomChange={handleZoomChange}
         />
       </div>
 
       {/* Map controls overlay */}
-      <div className="absolute top-4 left-4 z-1000 flex flex-col gap-2">
+      <div className="absolute top-4 left-4 z-[1000] flex flex-col gap-2">
         {/* Style selector */}
         {showLayersControl && (
           <DropdownMenu>
@@ -498,25 +701,36 @@ export function ProjectMapWithDraw({
                 Layers
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuLabel>Map Style</DropdownMenuLabel>
+            <DropdownMenuContent align="start" className="z-[9999]">
+              <DropdownMenuLabel>Base Map</DropdownMenuLabel>
+              {(Object.keys(TILE_LAYERS) as MapStyle[]).map((style) => (
+                <DropdownMenuCheckboxItem
+                  key={style}
+                  checked={currentStyle === style}
+                  onCheckedChange={() => setCurrentStyle(style)}
+                >
+                  {TILE_LAYERS[style].label}
+                </DropdownMenuCheckboxItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Data Layers</DropdownMenuLabel>
               <DropdownMenuCheckboxItem
-                checked={currentStyle === 'streets'}
-                onCheckedChange={() => setCurrentStyle('streets')}
+                checked={showCounties}
+                onCheckedChange={() => setShowCounties(!showCounties)}
               >
-                Streets (OSM)
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded-full" style={{ backgroundColor: '#f97316' }} />
+                  County Boundaries
+                </div>
               </DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem
-                checked={currentStyle === 'satellite'}
-                onCheckedChange={() => setCurrentStyle('satellite')}
+                checked={showTownlands}
+                onCheckedChange={() => setShowTownlands(!showTownlands)}
               >
-                Satellite (ESRI)
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={currentStyle === 'topo'}
-                onCheckedChange={() => setCurrentStyle('topo')}
-              >
-                Topographic
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded-full" style={{ backgroundColor: '#a855f7' }} />
+                  Townlands (zoom 12+)
+                </div>
               </DropdownMenuCheckboxItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -532,7 +746,7 @@ export function ProjectMapWithDraw({
       </div>
 
       {/* Zoom controls - bottom right */}
-      <div className="absolute right-4 bottom-4 z-1000 flex flex-col gap-1">
+      <div className="absolute right-4 bottom-4 z-[1000] flex flex-col gap-1">
         <Button
           variant="secondary"
           size="icon"
@@ -556,7 +770,7 @@ export function ProjectMapWithDraw({
         visibleLayers.some((l) =>
           ['rivers', 'lakes', 'catchments', 'wfd_river_status'].includes(l)
         )) && (
-        <div className="bg-background/90 absolute bottom-4 left-4 z-1000 space-y-1 rounded-lg px-3 py-2 text-sm shadow-lg backdrop-blur-sm">
+        <div className="bg-background/90 absolute bottom-4 left-4 z-[1000] space-y-1 rounded-lg px-3 py-2 text-sm shadow-lg backdrop-blur-sm">
           {/* NPWS Sites */}
           {visibleLayers.some((l) => ['sac', 'spa', 'nha', 'pnha'].includes(l)) && (
             <div>

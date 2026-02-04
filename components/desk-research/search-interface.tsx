@@ -40,6 +40,7 @@ import {
   type EPACatchment,
 } from '@/lib/external-apis/epa'
 import { wgs84ToGridRef } from '@/lib/utils/grid-reference'
+import { searchFPOByGridRef, type FPORecord } from '@/lib/data/fpo-species'
 import * as turf from '@turf/turf'
 
 interface SearchInterfaceProps {
@@ -600,6 +601,68 @@ export function SearchInterface({
             variant: 'destructive',
             title: 'EPA search failed',
             description: 'Could not fetch water quality and catchment data.',
+          })
+        }
+      }
+
+      // Search FPO (Flora Protection Order) protected species
+      if (selectedSources.includes('fpo')) {
+        try {
+          // Get grid reference from project center or custom input
+          const gridRefToSearch = customGridRef || calculatedGridRef
+
+          if (gridRefToSearch) {
+            const fpoResults = await searchFPOByGridRef(gridRefToSearch)
+
+            // Group by species
+            const speciesGroups = new Map<string, { count: number; records: FPORecord[] }>()
+
+            for (const record of fpoResults) {
+              const key = record.latinName
+              if (!speciesGroups.has(key)) {
+                speciesGroups.set(key, { count: 0, records: [] })
+              }
+              const group = speciesGroups.get(key)!
+              group.count++
+              group.records.push(record)
+            }
+
+            // Create findings for each species
+            for (const [latinName, { count, records }] of speciesGroups) {
+              const firstRecord = records[0]
+              const isSaved = savedFindings.some(
+                (f) => f.metadata?.scientificName === latinName && f.source === 'fpo'
+              )
+
+              // FPO records have grid reference but not precise coordinates
+              // So we don't have location geometry for now
+              const locations = [...new Set(records.map((r) => r.locationName).filter(Boolean))]
+
+              results.push({
+                id: `fpo-${latinName.replace(/\s+/g, '-')}`,
+                source: 'fpo',
+                dataType: 'species_record',
+                title: `${firstRecord.commonName || latinName} (Protected)`,
+                content: `${count} FPO record${count > 1 ? 's' : ''} in this hectad. ${firstRecord.isSensitive ? '⚠️ Sensitive species.' : ''} ${locations.length > 0 ? `Recorded at: ${locations.slice(0, 3).join(', ')}${locations.length > 3 ? '...' : ''}` : ''}`,
+                isSaved,
+                sourceUrl: 'https://www.npws.ie/legislation/irish-law/flora-protection-order',
+                rawData: { recordCount: count, sampleRecords: records.slice(0, 5) },
+                metadata: {
+                  scientificName: latinName,
+                  commonName: firstRecord.commonName,
+                  recordCount: count,
+                  isProtected: true,
+                  designation: 'Flora Protection Order 2022',
+                },
+              })
+            }
+          }
+        } catch (error) {
+          console.error('FPO search error:', error)
+          toast({
+            variant: 'destructive',
+            title: 'FPO search failed',
+            description: 'Could not fetch Flora Protection Order records.',
           })
         }
       }

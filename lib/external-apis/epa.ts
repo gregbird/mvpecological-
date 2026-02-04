@@ -15,6 +15,10 @@ export interface EPARiver {
   Length_km?: number
   WFD_Status?: string
   WFD_RiskStatus?: string
+  CatchmentsUrl?: string // Direct link to catchments.ie data page
+  LocalAuthority?: string
+  RiverType?: string
+  BasinName?: string
   geometry?: GeoJSON.Geometry
 }
 
@@ -25,9 +29,13 @@ export interface EPALake {
   CatchmentId?: string
   CatchmentName?: string
   Area_ha?: number
+  Area_km2?: number
   WFD_Status?: string
   WFD_RiskStatus?: string
   MaxDepth_m?: number
+  CatchmentsUrl?: string // Direct link to catchments.ie data page
+  LocalAuthority?: string
+  BasinName?: string
   geometry?: GeoJSON.Geometry
 }
 
@@ -180,17 +188,17 @@ export async function searchRivers(params: EPASearchParams): Promise<EPARiver[]>
     return data.features.map(
       (feature): EPARiver => ({
         OBJECTID: feature.properties?.OBJECTID || feature.properties?.objectid || 0,
-        RiverCode:
-          feature.properties?.IE_CD_WB ||
-          feature.properties?.RIVER_CODE ||
-          feature.properties?.CODE ||
-          '',
-        RiverName: feature.properties?.NAME || feature.properties?.RIVER_NAME || 'Unknown River',
-        CatchmentId: feature.properties?.SUBCATCH_ID || feature.properties?.CATCHMENT_ID,
-        CatchmentName: feature.properties?.SUBCATCH_NAME || feature.properties?.CATCHMENT_NAME,
-        Length_km: feature.properties?.LENGTH_KM || feature.properties?.Shape_Length,
-        WFD_Status: feature.properties?.STATUS || feature.properties?.WFD_STATUS,
-        WFD_RiskStatus: feature.properties?.RISK || feature.properties?.RISK_STATUS,
+        RiverCode: feature.properties?.MS_CD || feature.properties?.EU_CD || '',
+        RiverName: feature.properties?.NAME || 'Unknown River',
+        CatchmentId: feature.properties?.SUB_CD,
+        CatchmentName: feature.properties?.BASIN_CD,
+        Length_km: feature.properties?.LENGTHKM,
+        WFD_Status: feature.properties?.STATUS,
+        WFD_RiskStatus: feature.properties?.RISK,
+        CatchmentsUrl: feature.properties?.URL, // catchments.ie direct link
+        LocalAuthority: feature.properties?.LocalAuthority,
+        RiverType: feature.properties?.TYPE,
+        BasinName: feature.properties?.DIST_CD,
         geometry: feature.geometry,
       })
     )
@@ -213,18 +221,18 @@ export async function searchLakes(params: EPASearchParams): Promise<EPALake[]> {
     return data.features.map(
       (feature): EPALake => ({
         OBJECTID: feature.properties?.OBJECTID || feature.properties?.objectid || 0,
-        LakeCode:
-          feature.properties?.IE_CD_WB ||
-          feature.properties?.LAKE_CODE ||
-          feature.properties?.CODE ||
-          '',
-        LakeName: feature.properties?.NAME || feature.properties?.LAKE_NAME || 'Unknown Lake',
-        CatchmentId: feature.properties?.SUBCATCH_ID || feature.properties?.CATCHMENT_ID,
-        CatchmentName: feature.properties?.SUBCATCH_NAME || feature.properties?.CATCHMENT_NAME,
-        Area_ha: feature.properties?.AREA_HA || feature.properties?.Shape_Area,
-        WFD_Status: feature.properties?.STATUS || feature.properties?.WFD_STATUS,
-        WFD_RiskStatus: feature.properties?.RISK || feature.properties?.RISK_STATUS,
+        LakeCode: feature.properties?.MS_CD || feature.properties?.EU_CD || '',
+        LakeName: feature.properties?.NAME || 'Unknown Lake',
+        CatchmentId: feature.properties?.SEG_CD,
+        CatchmentName: feature.properties?.HydrometricArea,
+        Area_ha: feature.properties?.AreaHectare,
+        Area_km2: feature.properties?.AreaKm2,
+        WFD_Status: feature.properties?.STATUS,
+        WFD_RiskStatus: feature.properties?.RISK,
         MaxDepth_m: feature.properties?.MAX_DEPTH,
+        CatchmentsUrl: feature.properties?.URL, // catchments.ie direct link
+        LocalAuthority: feature.properties?.LocalAuthority,
+        BasinName: feature.properties?.DIST_CD,
         geometry: feature.geometry,
       })
     )
@@ -247,18 +255,10 @@ export async function searchCatchments(params: EPASearchParams): Promise<EPACatc
     return data.features.map(
       (feature): EPACatchment => ({
         OBJECTID: feature.properties?.OBJECTID || feature.properties?.objectid || 0,
-        CatchmentId:
-          feature.properties?.CATCH_ID ||
-          feature.properties?.CATCHMENT_ID ||
-          feature.properties?.ID ||
-          '',
-        CatchmentName:
-          feature.properties?.CATCH_NAME ||
-          feature.properties?.CATCHMENT_NAME ||
-          feature.properties?.NAME ||
-          'Unknown Catchment',
-        Area_km2: feature.properties?.AREA_KM2 || feature.properties?.Shape_Area,
-        RiverBasinDistrict: feature.properties?.RBD || feature.properties?.RIVER_BASIN_DISTRICT,
+        CatchmentId: feature.properties?.Catchment_Id || '',
+        CatchmentName: feature.properties?.Name || 'Unknown Catchment',
+        Area_km2: feature.properties?.Area_km2,
+        RiverBasinDistrict: feature.properties?.District_Code,
         geometry: feature.geometry,
       })
     )

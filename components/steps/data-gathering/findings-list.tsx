@@ -14,6 +14,7 @@ import {
   Mountain,
   Eye,
   EyeOff,
+  Leaf,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -84,6 +85,7 @@ const SOURCE_COLORS: Record<string, string> = {
   gbif: 'bg-purple-100 text-purple-700',
   nbdc: 'bg-blue-100 text-blue-700',
   epa: 'bg-cyan-100 text-cyan-700',
+  fpo: 'bg-rose-100 text-rose-700',
   manual: 'bg-gray-100 text-gray-700',
 }
 
@@ -242,6 +244,7 @@ export function FindingsList({
           {paginatedFindings.map((finding) => {
             const saved = isFindingSaved(finding)
             const isEpaFinding = finding.source === 'epa'
+            const isFpoFinding = finding.source === 'fpo'
             const epaConfig = finding.metadata?.siteType
               ? EPA_SITE_TYPE_CONFIG[finding.metadata.siteType]
               : null
@@ -255,9 +258,11 @@ export function FindingsList({
                     ? 'border-gray-200 bg-gray-50 opacity-60'
                     : saved
                       ? 'border-emerald-400 bg-emerald-50'
-                      : isEpaFinding && epaConfig
-                        ? `border-l-4 ${epaConfig.borderColor} ${epaConfig.color}`
-                        : 'hover:bg-gray-50'
+                      : isFpoFinding
+                        ? 'border-l-4 border-l-rose-500 bg-rose-50/50'
+                        : isEpaFinding && epaConfig
+                          ? `border-l-4 ${epaConfig.borderColor} ${epaConfig.color}`
+                          : 'hover:bg-gray-50'
                 }`}
               >
                 {/* Title + Visibility + Save button row */}
@@ -301,8 +306,17 @@ export function FindingsList({
 
                 {/* Compact badges row */}
                 <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                  {/* EPA type badge */}
-                  {isEpaFinding && epaConfig ? (
+                  {/* FPO badge - special styling for protected flora */}
+                  {isFpoFinding ? (
+                    <Badge
+                      variant="secondary"
+                      className="h-5 gap-1 bg-rose-100 px-1.5 text-[10px] text-rose-700"
+                    >
+                      <Leaf className="h-2.5 w-2.5" />
+                      FPO Protected
+                    </Badge>
+                  ) : /* EPA type badge */
+                  isEpaFinding && epaConfig ? (
                     <Badge
                       variant="secondary"
                       className={`h-5 px-1.5 text-[10px] ${epaConfig.color}`}

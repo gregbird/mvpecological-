@@ -3,7 +3,8 @@
 import * as React from 'react'
 import { Layers, Maximize2, Minimize2 } from 'lucide-react'
 import dynamic from 'next/dynamic'
-import type { Map as LeafletMap } from 'leaflet'
+import type { Map as LeafletMap, Layer as LeafletLayer } from 'leaflet'
+import type L from 'leaflet'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -21,7 +22,7 @@ import type { DeskResearchFinding } from '@/components/desk-research/finding-car
 const IRELAND_CENTER: [number, number] = [53.1424, -7.6921] // Leaflet uses [lat, lng]
 const DEFAULT_ZOOM = 7
 
-export type MapStyle = 'streets' | 'satellite' | 'topo'
+export type MapStyle = 'streets' | 'satellite' | 'hybrid' | 'topo'
 
 export interface MapLayer {
   id: string
@@ -43,6 +44,7 @@ interface ProjectMapProps {
   visibleFindingTypes?: string[]
   onBoundaryChange?: (boundary: GeoJSON.Feature<GeoJSON.Polygon>) => void
   onFindingClick?: (finding: DeskResearchFinding) => void
+  onMapClick?: () => void // Called when clicking on the map (not on a finding)
   onMapReady?: () => void
   editable?: boolean
   showControls?: boolean
@@ -56,22 +58,30 @@ const BUFFER_COLORS: Record<number, string> = {
   15: '#ec4899', // pink
 }
 
-// Tile layer URLs (all free)
-const TILE_LAYERS: Record<MapStyle, { url: string; attribution: string }> = {
+// Tile layer URLs (all free, no API key required)
+const TILE_LAYERS: Record<MapStyle, { url: string; attribution: string; label: string }> = {
   streets: {
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution:
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    label: 'Streets (OSM)',
   },
   satellite: {
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     attribution:
       'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+    label: 'Satellite (ESRI)',
+  },
+  hybrid: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri &mdash; Labels &copy; OpenStreetMap contributors',
+    label: 'Hybrid (Satellite + Labels)',
   },
   topo: {
     url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
     attribution:
       'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
+    label: 'Topographic',
   },
 }
 
@@ -108,6 +118,7 @@ function MapComponent({
   layers,
   onMapReady,
   onFindingClick,
+  onMapClick,
   mapRef,
 }: {
   center: [number, number]
@@ -123,6 +134,7 @@ function MapComponent({
   layers: MapLayer[]
   onMapReady?: () => void
   onFindingClick?: (finding: DeskResearchFinding) => void
+  onMapClick?: () => void
   mapRef: React.MutableRefObject<LeafletMap | null>
 }) {
   const { MapContainer, TileLayer, GeoJSON, CircleMarker, Popup, useMap } = require('react-leaflet')
@@ -130,7 +142,61 @@ function MapComponent({
   const boundaryLayer = layers.find((l) => l.id === 'boundary')
   const habitatLayer = layers.find((l) => l.id === 'habitats')
   const obsLayer = layers.find((l) => l.id === 'observations')
+  const countiesLayer = layers.find((l) => l.id === 'counties')
+  const townlandsLayer = layers.find((l) => l.id === 'townlands')
   const tileConfig = TILE_LAYERS[currentStyle]
+
+  // County boundaries data
+  const [countiesData, setCountiesData] = React.useState<GeoJSON.FeatureCollection | null>(null)
+  const [countiesLoading, setCountiesLoading] = React.useState(false)
+
+  // Townlands data (loaded on-demand based on viewport)
+  const [townlandsData, setTownlandsData] = React.useState<GeoJSON.FeatureCollection | null>(null)
+  const [townlandsLoading, setTownlandsLoading] = React.useState(false)
+  const [currentZoom, setCurrentZoom] = React.useState(zoom)
+  const townlandsBboxRef = React.useRef<string | null>(null)
+
+  // Load county boundaries when layer becomes visible
+  React.useEffect(() => {
+    if (countiesLayer?.visible && !countiesData && !countiesLoading) {
+      setCountiesLoading(true)
+      fetch('/data/counties-ireland.geojson')
+        .then((res) => res.json())
+        .then((data) => {
+          setCountiesData(data)
+          setCountiesLoading(false)
+        })
+        .catch((err) => {
+          console.error('Failed to load county boundaries:', err)
+          setCountiesLoading(false)
+        })
+    }
+  }, [countiesLayer?.visible, countiesData, countiesLoading])
+
+  // Function to load townlands for a given bbox
+  const loadTownlandsForBbox = React.useCallback(
+    async (bbox: string) => {
+      if (townlandsLoading || bbox === townlandsBboxRef.current) return
+
+      setTownlandsLoading(true)
+      townlandsBboxRef.current = bbox
+
+      try {
+        const response = await fetch(`/api/boundaries/townlands?bbox=${bbox}&limit=500`)
+        if (response.ok) {
+          const data = await response.json()
+          setTownlandsData(data)
+        } else {
+          console.error('Failed to load townlands:', response.status)
+        }
+      } catch (err) {
+        console.error('Failed to load townlands:', err)
+      } finally {
+        setTownlandsLoading(false)
+      }
+    },
+    [townlandsLoading]
+  )
 
   // Track if we've EVER fit to a boundary in this component instance
   // This ref is at MapComponent level so it persists when MapController re-renders
@@ -140,11 +206,28 @@ function MapComponent({
   function MapController({
     boundary,
     selectedFinding,
+    onMapClick,
   }: {
     boundary?: GeoJSON.Feature<GeoJSON.Polygon>
     selectedFinding?: DeskResearchFinding | null
+    onMapClick?: () => void
   }) {
     const map = useMap()
+
+    // Handle map click to clear selection
+    React.useEffect(() => {
+      if (!map || !onMapClick) return
+
+      const handleClick = () => {
+        onMapClick()
+      }
+
+      map.on('click', handleClick)
+
+      return () => {
+        map.off('click', handleClick)
+      }
+    }, [map, onMapClick])
 
     // Fit to boundary on initial load ONLY
     // Uses hasFitToBoundaryRef from parent scope so it persists across re-renders
@@ -220,6 +303,44 @@ function MapComponent({
       }
     }, [selectedFinding, map])
 
+    // Track zoom level and load townlands when appropriate
+    React.useEffect(() => {
+      if (!map) return
+
+      const handleZoomEnd = () => {
+        const newZoom = map.getZoom()
+        setCurrentZoom(newZoom)
+
+        // Load townlands only at zoom 12+ and when layer is visible
+        if (newZoom >= 12 && townlandsLayer?.visible) {
+          const bounds = map.getBounds()
+          const bbox = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`
+          loadTownlandsForBbox(bbox)
+        }
+      }
+
+      const handleMoveEnd = () => {
+        const currentZoomLevel = map.getZoom()
+        // Reload townlands when panning at high zoom
+        if (currentZoomLevel >= 12 && townlandsLayer?.visible) {
+          const bounds = map.getBounds()
+          const bbox = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`
+          loadTownlandsForBbox(bbox)
+        }
+      }
+
+      map.on('zoomend', handleZoomEnd)
+      map.on('moveend', handleMoveEnd)
+
+      // Initial check
+      handleZoomEnd()
+
+      return () => {
+        map.off('zoomend', handleZoomEnd)
+        map.off('moveend', handleMoveEnd)
+      }
+    }, [map, townlandsLayer?.visible, loadTownlandsForBbox])
+
     return null
   }
 
@@ -265,7 +386,100 @@ function MapComponent({
       style={{ height: '100%', minHeight: '400px' }}
     >
       <TileLayer url={tileConfig.url} attribution={tileConfig.attribution} />
-      <MapController boundary={boundary} selectedFinding={selectedFinding} />
+      {/* Labels overlay for hybrid mode - roads, places, boundaries */}
+      {currentStyle === 'hybrid' && (
+        <TileLayer
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+          attribution=""
+          pane="overlayPane"
+        />
+      )}
+      <MapController
+        boundary={boundary}
+        selectedFinding={selectedFinding}
+        onMapClick={onMapClick}
+      />
+
+      {/* County Boundaries - render at bottom as reference layer */}
+      {countiesLayer?.visible && countiesData && (
+        <GeoJSON
+          key="county-boundaries"
+          data={countiesData}
+          style={(feature: GeoJSON.Feature | undefined) => {
+            const province = feature?.properties?.province as string | undefined
+            // Province-based coloring
+            const provinceColors: Record<string, string> = {
+              Leinster: '#3b82f6',
+              Munster: '#22c55e',
+              Connacht: '#f59e0b',
+              Ulster: '#ef4444',
+            }
+            const color = province ? provinceColors[province] || '#f97316' : '#f97316'
+            return {
+              color: color,
+              weight: 1.5,
+              fillColor: color,
+              fillOpacity: 0.03,
+              dashArray: '4, 4',
+            }
+          }}
+          onEachFeature={(feature: GeoJSON.Feature, layer: L.Layer) => {
+            const props = feature.properties as Record<string, string> | null
+            if (props) {
+              ;(layer as L.GeoJSON).bindPopup(`
+                <div style="min-width: 150px;">
+                  <strong>${props.name || 'Unknown'}</strong>
+                  ${props.nameIrish ? `<br/><em>${props.nameIrish}</em>` : ''}
+                  <br/><span style="color: #666;">Province: ${props.province || 'Unknown'}</span>
+                  <br/><small style="color: #999;">© Tailte Éireann (CC-BY 4.0)</small>
+                </div>
+              `)
+            }
+          }}
+        />
+      )}
+
+      {/* Townland Boundaries - render only at high zoom levels */}
+      {townlandsLayer?.visible && townlandsData && currentZoom >= 12 && (
+        <GeoJSON
+          key={`townlands-${townlandsBboxRef.current}`}
+          data={townlandsData}
+          style={() => ({
+            color: '#a855f7',
+            weight: 1,
+            fillColor: '#a855f7',
+            fillOpacity: 0.02,
+            dashArray: '2, 2',
+          })}
+          onEachFeature={(feature: GeoJSON.Feature, layer: L.Layer) => {
+            const props = feature.properties as Record<string, string | number | null> | null
+            if (props) {
+              ;(layer as L.GeoJSON).bindPopup(`
+                <div style="min-width: 180px;">
+                  <strong>${props.name || 'Unknown Townland'}</strong>
+                  ${props.nameIrish ? `<br/><em>${props.nameIrish}</em>` : ''}
+                  ${props.areaHectares ? `<br/><span style="color: #666;">Area: ${props.areaHectares} ha</span>` : ''}
+                  <br/><small style="color: #999;">© Tailte Éireann (CC-BY 4.0)</small>
+                </div>
+              `)
+            }
+          }}
+        />
+      )}
+
+      {/* Townlands loading indicator */}
+      {townlandsLayer?.visible && townlandsLoading && currentZoom >= 12 && (
+        <div className="absolute top-4 right-4 z-[1000] rounded bg-purple-100 px-2 py-1 text-xs text-purple-800">
+          Loading townlands...
+        </div>
+      )}
+
+      {/* Townlands zoom hint */}
+      {townlandsLayer?.visible && currentZoom < 12 && (
+        <div className="absolute top-4 right-4 z-[1000] rounded bg-purple-100 px-2 py-1 text-xs text-purple-800">
+          Zoom in to see townlands (zoom 12+)
+        </div>
+      )}
 
       {/* Buffer Zones - render largest first (underneath) */}
       {boundary &&
@@ -403,7 +617,11 @@ function MapComponent({
                   fillOpacity: isSelected ? 1 : 0.8,
                 }}
                 eventHandlers={{
-                  click: () => onFindingClick?.(finding),
+                  click: (e: L.LeafletMouseEvent) => {
+                    const L = require('leaflet')
+                    L.DomEvent.stopPropagation(e)
+                    onFindingClick?.(finding)
+                  },
                 }}
               >
                 <Popup>
@@ -449,7 +667,11 @@ function MapComponent({
                   fillOpacity: isSelected ? 0.4 : 0.2,
                 }}
                 eventHandlers={{
-                  click: () => onFindingClick?.(finding),
+                  click: (e: L.LeafletMouseEvent) => {
+                    const L = require('leaflet')
+                    L.DomEvent.stopPropagation(e)
+                    onFindingClick?.(finding)
+                  },
                 }}
               >
                 <Popup>
@@ -480,7 +702,11 @@ function MapComponent({
                   weight: isSelected ? 4 : 3,
                 }}
                 eventHandlers={{
-                  click: () => onFindingClick?.(finding),
+                  click: (e: L.LeafletMouseEvent) => {
+                    const L = require('leaflet')
+                    L.DomEvent.stopPropagation(e)
+                    onFindingClick?.(finding)
+                  },
                 }}
               >
                 <Popup>
@@ -522,7 +748,11 @@ function MapComponent({
                   fillOpacity: isSelected ? 1 : 0.8,
                 }}
                 eventHandlers={{
-                  click: () => onFindingClick?.(finding),
+                  click: (e: L.LeafletMouseEvent) => {
+                    const L = require('leaflet')
+                    L.DomEvent.stopPropagation(e)
+                    onFindingClick?.(finding)
+                  },
                 }}
               >
                 <Popup>
@@ -570,6 +800,7 @@ export function ProjectMap({
   visibleFindingTypes,
   onBoundaryChange,
   onFindingClick,
+  onMapClick,
   onMapReady,
   editable = false,
   showControls = true,
@@ -584,6 +815,8 @@ export function ProjectMap({
     { id: 'habitats', name: 'Habitat Polygons', visible: true },
     { id: 'observations', name: 'Species Observations', visible: true },
     { id: 'findings', name: 'Desk Research Findings', visible: true, color: '#3b82f6' },
+    { id: 'counties', name: 'County Boundaries', visible: false, color: '#f97316' },
+    { id: 'townlands', name: 'Townlands (zoom 12+)', visible: false, color: '#a855f7' },
   ])
 
   // Set map loaded on mount
@@ -638,13 +871,14 @@ export function ProjectMap({
           layers={layers}
           onMapReady={onMapReady}
           onFindingClick={onFindingClick}
+          onMapClick={onMapClick}
           mapRef={mapRef}
         />
       </div>
 
       {/* Map controls overlay */}
       {showControls && (
-        <div className="absolute top-4 left-4 z-1000 flex flex-col gap-2">
+        <div className="absolute top-4 left-4 z-[1000] flex flex-col gap-2">
           {/* Style selector */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -653,26 +887,17 @@ export function ProjectMap({
                 Layers
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuLabel>Map Style</DropdownMenuLabel>
-              <DropdownMenuCheckboxItem
-                checked={currentStyle === 'streets'}
-                onCheckedChange={() => setCurrentStyle('streets')}
-              >
-                Streets (OSM)
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={currentStyle === 'satellite'}
-                onCheckedChange={() => setCurrentStyle('satellite')}
-              >
-                Satellite (ESRI)
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={currentStyle === 'topo'}
-                onCheckedChange={() => setCurrentStyle('topo')}
-              >
-                Topographic
-              </DropdownMenuCheckboxItem>
+            <DropdownMenuContent align="start" className="z-[9999]">
+              <DropdownMenuLabel>Base Map</DropdownMenuLabel>
+              {(Object.keys(TILE_LAYERS) as MapStyle[]).map((style) => (
+                <DropdownMenuCheckboxItem
+                  key={style}
+                  checked={currentStyle === style}
+                  onCheckedChange={() => setCurrentStyle(style)}
+                >
+                  {TILE_LAYERS[style].label}
+                </DropdownMenuCheckboxItem>
+              ))}
 
               <DropdownMenuSeparator />
               <DropdownMenuLabel>Data Layers</DropdownMenuLabel>

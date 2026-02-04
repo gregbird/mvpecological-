@@ -11,6 +11,15 @@ import {
   type EPALake,
   type EPACatchment,
 } from '@/lib/external-apis/epa'
+import { getLayerMetadata } from '@/lib/config/layer-metadata'
+
+/**
+ * Get EPA source URL for a layer type
+ */
+function getEPASourceUrl(layerType: 'rivers' | 'lakes' | 'catchments'): string {
+  const metadata = getLayerMetadata(layerType)
+  return metadata?.sourceUrl || 'https://www.epa.ie/'
+}
 
 // Map layer IDs to EPA data types
 const LAYER_TO_EPA_TYPE: Record<string, 'rivers' | 'lakes' | 'catchments' | 'wfd_river_status'> = {
@@ -179,18 +188,30 @@ export function useEPALayers(
             },
           })
 
+          // Use catchments.ie URL if available, otherwise fall back to EPA
+          const riverUrl = river.CatchmentsUrl || getEPASourceUrl('rivers')
           layer.bindPopup(`
-            <div style="min-width: 180px;">
+            <div style="min-width: 240px;">
               <div style="font-weight: 600; margin-bottom: 4px;">${river.RiverName}</div>
-              <div style="font-size: 12px; color: #666; margin-bottom: 8px;">River</div>
+              <div style="font-size: 12px; color: #666; margin-bottom: 8px;">WFD River Water Body</div>
               <table style="font-size: 12px; width: 100%;">
-                <tr>
-                  <td style="color: #666;">Code:</td>
-                  <td style="font-weight: 500;">${river.RiverCode}</td>
-                </tr>
-                ${river.WFD_Status ? `<tr><td style="color: #666;">WFD Status:</td><td style="font-weight: 500;">${river.WFD_Status}</td></tr>` : ''}
-                ${river.Length_km ? `<tr><td style="color: #666;">Length:</td><td style="font-weight: 500;">${river.Length_km.toFixed(1)} km</td></tr>` : ''}
+                ${river.RiverCode ? `<tr><td style="color: #666; padding: 2px 8px 2px 0;">Code:</td><td style="font-weight: 500;">${river.RiverCode}</td></tr>` : ''}
+                ${river.BasinName ? `<tr><td style="color: #666; padding: 2px 8px 2px 0;">Basin:</td><td style="font-weight: 500;">${river.BasinName}</td></tr>` : ''}
+                ${river.Length_km ? `<tr><td style="color: #666; padding: 2px 8px 2px 0;">Length:</td><td style="font-weight: 500;">${river.Length_km.toFixed(1)} km</td></tr>` : ''}
+                ${river.RiverType ? `<tr><td style="color: #666; padding: 2px 8px 2px 0;">Type:</td><td style="font-weight: 500;">${river.RiverType}</td></tr>` : ''}
+                ${river.LocalAuthority ? `<tr><td style="color: #666; padding: 2px 8px 2px 0;">Authority:</td><td style="font-weight: 500;">${river.LocalAuthority}</td></tr>` : ''}
               </table>
+              <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #e5e7eb;">
+                <a href="${riverUrl}" target="_blank" rel="noopener noreferrer"
+                   style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #2563eb; text-decoration: none;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                    <polyline points="15 3 21 3 21 9"></polyline>
+                    <line x1="10" y1="14" x2="21" y2="3"></line>
+                  </svg>
+                  ${river.CatchmentsUrl ? 'View on Catchments.ie' : 'View on EPA website'}
+                </a>
+              </div>
             </div>
           `)
 
@@ -222,18 +243,30 @@ export function useEPALayers(
             },
           })
 
+          // Use catchments.ie URL if available, otherwise fall back to EPA
+          const lakeUrl = lake.CatchmentsUrl || getEPASourceUrl('lakes')
           layer.bindPopup(`
-            <div style="min-width: 180px;">
+            <div style="min-width: 240px;">
               <div style="font-weight: 600; margin-bottom: 4px;">${lake.LakeName}</div>
-              <div style="font-size: 12px; color: #666; margin-bottom: 8px;">Lake</div>
+              <div style="font-size: 12px; color: #666; margin-bottom: 8px;">WFD Lake Water Body</div>
               <table style="font-size: 12px; width: 100%;">
-                <tr>
-                  <td style="color: #666;">Code:</td>
-                  <td style="font-weight: 500;">${lake.LakeCode}</td>
-                </tr>
-                ${lake.WFD_Status ? `<tr><td style="color: #666;">WFD Status:</td><td style="font-weight: 500;">${lake.WFD_Status}</td></tr>` : ''}
-                ${lake.Area_ha ? `<tr><td style="color: #666;">Area:</td><td style="font-weight: 500;">${lake.Area_ha.toFixed(1)} ha</td></tr>` : ''}
+                ${lake.LakeCode ? `<tr><td style="color: #666; padding: 2px 8px 2px 0;">Code:</td><td style="font-weight: 500;">${lake.LakeCode}</td></tr>` : ''}
+                ${lake.BasinName ? `<tr><td style="color: #666; padding: 2px 8px 2px 0;">Basin:</td><td style="font-weight: 500;">${lake.BasinName}</td></tr>` : ''}
+                ${lake.Area_ha ? `<tr><td style="color: #666; padding: 2px 8px 2px 0;">Area:</td><td style="font-weight: 500;">${lake.Area_ha.toFixed(1)} ha</td></tr>` : ''}
+                ${lake.CatchmentName ? `<tr><td style="color: #666; padding: 2px 8px 2px 0;">Catchment:</td><td style="font-weight: 500;">${lake.CatchmentName}</td></tr>` : ''}
+                ${lake.LocalAuthority ? `<tr><td style="color: #666; padding: 2px 8px 2px 0;">Authority:</td><td style="font-weight: 500;">${lake.LocalAuthority}</td></tr>` : ''}
               </table>
+              <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #e5e7eb;">
+                <a href="${lakeUrl}" target="_blank" rel="noopener noreferrer"
+                   style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #2563eb; text-decoration: none;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                    <polyline points="15 3 21 3 21 9"></polyline>
+                    <line x1="10" y1="14" x2="21" y2="3"></line>
+                  </svg>
+                  ${lake.CatchmentsUrl ? 'View on Catchments.ie' : 'View on EPA website'}
+                </a>
+              </div>
             </div>
           `)
 
@@ -266,18 +299,28 @@ export function useEPALayers(
             },
           })
 
+          // Build catchments.ie URL for the catchment
+          const catchmentUrl = `https://www.catchments.ie/data/#/catchment/${catchment.CatchmentId}`
           layer.bindPopup(`
-            <div style="min-width: 180px;">
+            <div style="min-width: 240px;">
               <div style="font-weight: 600; margin-bottom: 4px;">${catchment.CatchmentName}</div>
-              <div style="font-size: 12px; color: #666; margin-bottom: 8px;">Catchment</div>
+              <div style="font-size: 12px; color: #666; margin-bottom: 8px;">WFD Catchment</div>
               <table style="font-size: 12px; width: 100%;">
-                <tr>
-                  <td style="color: #666;">ID:</td>
-                  <td style="font-weight: 500;">${catchment.CatchmentId}</td>
-                </tr>
-                ${catchment.Area_km2 ? `<tr><td style="color: #666;">Area:</td><td style="font-weight: 500;">${catchment.Area_km2.toFixed(1)} km²</td></tr>` : ''}
-                ${catchment.RiverBasinDistrict ? `<tr><td style="color: #666;">RBD:</td><td style="font-weight: 500;">${catchment.RiverBasinDistrict}</td></tr>` : ''}
+                ${catchment.CatchmentId ? `<tr><td style="color: #666; padding: 2px 8px 2px 0;">ID:</td><td style="font-weight: 500;">${catchment.CatchmentId}</td></tr>` : ''}
+                ${catchment.Area_km2 ? `<tr><td style="color: #666; padding: 2px 8px 2px 0;">Area:</td><td style="font-weight: 500;">${catchment.Area_km2.toFixed(1)} km²</td></tr>` : ''}
+                ${catchment.RiverBasinDistrict ? `<tr><td style="color: #666; padding: 2px 8px 2px 0;">District:</td><td style="font-weight: 500;">${catchment.RiverBasinDistrict}</td></tr>` : ''}
               </table>
+              <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #e5e7eb;">
+                <a href="${catchmentUrl}" target="_blank" rel="noopener noreferrer"
+                   style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #2563eb; text-decoration: none;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                    <polyline points="15 3 21 3 21 9"></polyline>
+                    <line x1="10" y1="14" x2="21" y2="3"></line>
+                  </svg>
+                  View on Catchments.ie
+                </a>
+              </div>
             </div>
           `)
 

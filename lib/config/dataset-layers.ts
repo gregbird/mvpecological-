@@ -1,4 +1,4 @@
-import { LucideIcon, Shield, Droplets, TreePine } from 'lucide-react'
+import { LucideIcon, Shield, Droplets } from 'lucide-react'
 
 export interface DatasetLayer {
   id: string
@@ -127,6 +127,7 @@ export const DATASET_GROUPS: DatasetGroup[] = [
   },
   // DAFM datasets removed - no public WMS endpoint available
   // Data available via https://opendata.agriculture.gov.ie/ but requires download
+  // Boundaries (Counties, Townlands) are available via the Base Map dropdown, not here
 ]
 
 // Helper functions

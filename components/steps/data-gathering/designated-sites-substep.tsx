@@ -471,7 +471,7 @@ export function DesignatedSitesSubStep({
           <Button
             variant="secondary"
             size="sm"
-            className="absolute top-4 right-4 z-1000"
+            className="absolute top-4 right-4 z-[1000]"
             onClick={onToggleMap}
           >
             <EyeOff className="mr-1 h-4 w-4" />
