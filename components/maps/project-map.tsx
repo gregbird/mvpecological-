@@ -229,6 +229,29 @@ function MapComponent({
       }
     }, [map, onMapClick])
 
+    // Re-enable dragging when popup closes (fixes Leaflet bug where dragging stays disabled)
+    React.useEffect(() => {
+      if (!map) return
+
+      const handlePopupClose = () => {
+        // Small delay to ensure popup is fully closed
+        setTimeout(() => {
+          if (!map.dragging.enabled()) {
+            map.dragging.enable()
+          }
+          if (!map.scrollWheelZoom.enabled()) {
+            map.scrollWheelZoom.enable()
+          }
+        }, 10)
+      }
+
+      map.on('popupclose', handlePopupClose)
+
+      return () => {
+        map.off('popupclose', handlePopupClose)
+      }
+    }, [map])
+
     // Fit to boundary on initial load ONLY
     // Uses hasFitToBoundaryRef from parent scope so it persists across re-renders
     React.useEffect(() => {
