@@ -137,7 +137,7 @@ function MapComponent({
   onMapClick?: () => void
   mapRef: React.MutableRefObject<LeafletMap | null>
 }) {
-  const { MapContainer, TileLayer, GeoJSON, CircleMarker, Popup, useMap } = require('react-leaflet')
+  const { MapContainer, TileLayer, GeoJSON, CircleMarker, Popup, useMap, ZoomControl } = require('react-leaflet')
 
   const boundaryLayer = layers.find((l) => l.id === 'boundary')
   const habitatLayer = layers.find((l) => l.id === 'habitats')
@@ -407,6 +407,7 @@ function MapComponent({
       zoom={zoom}
       className="h-full min-h-100 w-full"
       style={{ height: '100%', minHeight: '400px' }}
+      zoomControl={false}
     >
       <TileLayer url={tileConfig.url} attribution={tileConfig.attribution} />
       {/* Labels overlay for hybrid mode - roads, places, boundaries */}
@@ -901,7 +902,7 @@ export function ProjectMap({
 
       {/* Map controls overlay */}
       {showControls && (
-        <div className="absolute top-4 left-4 z-[1000] flex flex-col gap-2">
+        <div className="absolute top-4 left-4 z-[9999] flex flex-col gap-2 pointer-events-auto">
           {/* Style selector */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

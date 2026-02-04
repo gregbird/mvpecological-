@@ -152,7 +152,7 @@ function MapComponentWithDraw({
     bounds?: { west: number; south: number; east: number; north: number }
   ) => void
 }) {
-  const { MapContainer, TileLayer, GeoJSON, FeatureGroup, useMap } = require('react-leaflet')
+  const { MapContainer, TileLayer, GeoJSON, FeatureGroup, useMap, ZoomControl } = require('react-leaflet')
   const { EditControl } = require('react-leaflet-draw')
 
   const tileConfig = TILE_LAYERS[currentStyle]

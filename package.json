@@ -10,10 +10,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "type-check": "tsc --noEmit",
-    "build:cf": "npx @opennextjs/cloudflare build",
-    "preview:cf": "npx @opennextjs/cloudflare preview",
-    "deploy": "npm run build:cf && npx wrangler pages deploy .open-next/cloudflare --project-name dulra --commit-dirty=true"
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -79,7 +76,6 @@
     "@eslint/eslintrc": "^3.3.3",
     "@eslint/js": "^9.39.2",
     "@next/eslint-plugin-next": "^16.1.6",
-    "@opennextjs/cloudflare": "^1.16.2",
     "@tailwindcss/postcss": "^4.1.18",
     "@tanstack/react-query-devtools": "^5.91.3",
     "@types/js-cookie": "^3.0.6",
@@ -95,7 +91,6 @@
     "prettier-plugin-tailwindcss": "^0.7.2",
     "shp-write": "^0.3.2",
     "tailwindcss": "^4.1.18",
-    "typescript-eslint": "^8.54.0",
-    "wrangler": "^4.61.1"
+    "typescript-eslint": "^8.54.0"
   }
 }
