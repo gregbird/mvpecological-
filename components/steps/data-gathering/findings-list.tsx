@@ -15,6 +15,7 @@ import {
   Eye,
   EyeOff,
   Leaf,
+  FlaskConical,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -74,6 +75,7 @@ interface FindingsListProps {
   isLoading?: boolean
   onSave: (finding: FindingDisplay) => void
   onViewOnMap?: (finding: FindingDisplay) => void
+  onDeepResearch?: (finding: FindingDisplay) => void
   emptyMessage?: string
   showFilters?: boolean
   // Visibility toggle for map display
@@ -131,6 +133,7 @@ export function FindingsList({
   isLoading,
   onSave,
   onViewOnMap,
+  onDeepResearch,
   emptyMessage = 'No findings found',
   showFilters = true,
   hiddenIds,
@@ -393,6 +396,16 @@ export function FindingsList({
                       onClick={() => onViewOnMap(finding)}
                     >
                       View on map
+                    </button>
+                  )}
+                  {/* Deep Research button for designated sites */}
+                  {finding.dataType === 'designated_site' && onDeepResearch && (
+                    <button
+                      className="flex items-center gap-1 text-purple-600 hover:underline font-medium"
+                      onClick={() => onDeepResearch(finding)}
+                    >
+                      <FlaskConical className="h-3 w-3" />
+                      Deep Research
                     </button>
                   )}
                   {/* Show both GBIF and NBDC links when enriched */}

@@ -284,52 +284,125 @@ Her koruma alanı için "Deep Research" etiketli isteğe bağlı bir buton eklen
 
 **Yapılacaklar:**
 
-- [ ] **2.2.1** Deep Research butonunu UI'a ekle
-  - Dosya: `components/steps/data-gathering/designated-sites-substep.tsx`
-  - Her site satırına "Deep Research" butonu
-  - İkon: 🔍 veya Lucide `Search` + `Sparkles`
+- [x] ~~**2.2.1** Deep Research butonunu UI'a ekle~~
 
-- [ ] **2.2.2** Deep Research modal/panel bileşeni oluştur
+  ✅ **TAMAMLANDI (5 Şubat 2026):**
+  - `components/steps/data-gathering/findings-list.tsx` dosyasına eklendi
+  - Her designated site satırına "Deep Research" butonu (FlaskConical ikonu)
+  - Sadece SAC, SPA, NHA, pNHA türleri için görünür
+
+- [x] ~~**2.2.2** Deep Research modal/panel bileşeni oluştur~~
+
+  ✅ **TAMAMLANDI (5 Şubat 2026):**
   - Dosya: `components/desk-research/deep-research-modal.tsx`
-  - Loading durumu
-  - Kategorize sonuçlar görünümü
+  - 4 sekmeli yapılandırılmış görünüm:
+    - **Overview:** Site bilgileri, koruma durumu açıklaması
+    - **Status:** Article 17 koruma durumu özeti (FV/U1/U2), trendler
+    - **Habitats:** QI habitatları detaylı listesi
+    - **Resources:** NPWS linkleri (Synopsis, Conservation Objectives, Article 17)
+  - Loading durumu ve hata yönetimi
 
-- [ ] **2.2.3** Article 17 rapor arama fonksiyonu oluştur
-  - Dosya: `lib/external-apis/article17.ts`
-  - NPWS Article 17 raporları endpoint'i araştır
-  - Alternatif: Web scraping veya statik veri
+- [x] ~~**2.2.3** Article 17 rapor arama fonksiyonu oluştur~~
 
-- [ ] **2.2.4** Deep Research arama mantığı
-  - Dosya: `lib/services/deep-research.ts`
+  ✅ **TAMAMLANDI (5 Şubat 2026):**
+  - Dosya: `lib/data/article17-habitats.ts`
+  - NPWS Article 17 Report 2025 verileri lokal olarak eklendi
+  - ~50 Annex I habitat için: Conservation Status, Trend, Pressures, Threats, Priority habitat bilgisi
+  - Helper fonksiyonlar: `getArticle17Data()`, `getHabitatsSummary()`, `getStatusDisplay()`, `getTrendDisplay()`
 
-  ```typescript
-  interface DeepResearchResult {
-    siteName: string
-    siteCode: string
-    qualifyingInterests: QualifyingInterest[]
-    article17Reports: Article17Report[]
-    conservationStatus: ConservationStatus
-    threats: Threat[]
-    managementPlans: ManagementPlan[]
-  }
+  **⚠️ Kısıtlama:** NPWS'nin Article 17 için public API'si yok. Veriler statik olarak eklendi. Yeni Article 17 raporu yayınlandığında manuel güncelleme gerekir.
 
-  async function performDeepResearch(
-    siteName: string,
-    siteCode: string,
-    qualifyingInterests: string[]
-  ): Promise<DeepResearchResult>
-  ```
+  **🔧 Çözüm Önerisi - Hibrit Yaklaşım:**
+  - Önce lokal `article17-habitats.ts` verilerine bak (hızlı, ücretsiz)
+  - Veri yoksa veya kullanıcı "Refresh" tıklarsa → OpenAI web search ile canlı çek
+  - Sonucu 24 saat cache'le
 
-- [ ] **2.2.5** Sonuç kategorileri tanımla
-  1. **Qualifying Interests (QIs):** Habitat ve türler
-  2. **Conservation Status:** Favourable/Unfavourable
-  3. **Article 17 Reports:** Son raporlar ve durumlar
-  4. **Threats & Pressures:** Tehditler
-  5. **Management:** Yönetim planları
+- [x] ~~**2.2.4** Deep Research arama mantığı~~
 
-- [ ] **2.2.6** Deep Research sonuçlarını veritabanına kaydet
-  - Tablo: `deep_research_results`
-  - İlişki: `desk_research_findings` tablosuna foreign key
+  ✅ **TAMAMLANDI (5 Şubat 2026):**
+  - QI araması için SSCO lookup eklendi: `lib/data/ssco-lookup.ts`
+  - `getHabitatsBySiteCode()`: Site koduna göre habitat listesi
+  - `normalizeHabitatCode()`: Kirli veri temizliği
+  - Habitat kodları Article 17 verileriyle zenginleştiriliyor
+
+  **⚠️ Veri Kalitesi Sorunu:** ~158 site hiç habitat verisi yok (SSCO'da gerçekten boş)
+
+  **🔧 Çözüm Önerileri:**
+
+  | Seçenek | Açıklama | Avantaj | Dezavantaj |
+  |---------|----------|---------|------------|
+  | **NPWS Excel Import** | Müşteriden güncel SSCO Excel al | En doğru resmi veri | Manuel süreç |
+  | **OpenAI Web Search** | Boş siteler için otomatik doldur | Otomatik, hızlı | API maliyeti (~$1.58) |
+
+- [x] ~~**2.2.5** Sonuç kategorileri tanımla~~
+
+  ✅ **TAMAMLANDI (5 Şubat 2026):**
+  - 4 tab ile kategorize: Overview, Status, Habitats, Resources
+
+- [x] ~~**2.2.6** Deep Research sonuçlarını veritabanına kaydet~~
+
+  ✅ **TAMAMLANDI (5 Şubat 2026):**
+  - Tablo: `deep_research_results` (Supabase migration uygulandı)
+  - Query fonksiyonları: `lib/supabase/queries/deep-research.ts`
+  - React Query hooks: `useProjectDeepResearch()`, `useSiteDeepResearch()`, `useSaveDeepResearch()`
+  - UI: Modal'da "Save Research" butonu
+
+**📁 Eklenen/Güncellenen Dosyalar:**
+- `components/desk-research/deep-research-modal.tsx` (YENİ)
+- `lib/data/article17-habitats.ts` (YENİ)
+- `lib/data/ssco-lookup.ts` (GÜNCELLENDİ)
+- `lib/supabase/queries/deep-research.ts` (YENİ)
+- `hooks/use-project-data.ts` (GÜNCELLENDİ)
+- `components/steps/data-gathering/findings-list.tsx` (GÜNCELLENDİ)
+
+---
+
+**❌ YAPILAMAYANLAR:**
+
+| İstek | Durum | Neden | Çözüm Önerisi |
+|-------|-------|-------|---------------|
+| **Site ismi ile web araması** | ❌ Yapılmadı | Müşteri "site name" ile arama istedi, biz sadece modal başlığında gösteriyoruz | OpenAI web search ile site adı kullanarak ek bilgi çekilebilir |
+| **Article 17 gerçek zamanlı arama** | ❌ Yapılmadı | Müşteri "search for Article 17 reports" istedi, biz statik veri kullanıyoruz | OpenAI web search ile NPWS'den güncel Article 17 verisi çekilebilir |
+| **~158 site için habitat verisi** | ❌ Eksik veri | SSCO kaynak verisinde bu siteler için habitat bilgisi yok (boş/null) | OpenAI ile NPWS sitesinden çekilebilir veya müşteriden Excel alınabilir |
+
+**📋 ~158 Site Eksik Habitat Verisi - Detaylı Açıklama:**
+
+Habitat verisi `lib/data/ssco-lookup.ts` dosyasından çekiliyor (lokal statik veri).
+
+```
+SSCO Kaynak Verisi Durumu:
+┌─────────────────────────────────────────────────┐
+│ Durum                      │ Site Sayısı        │
+├────────────────────────────┼────────────────────┤
+│ Habitat verisi var         │ ~270 site ✅       │
+│ Kirli veri (düzeltildi)    │ ~173 site ✅       │
+│ Tamamen boş (null/"")      │ ~158 site ❌       │
+└─────────────────────────────────────────────────┘
+```
+
+**Neden boş?** SSCO kaynak Excel/CSV'sinde bu siteler için habitat kolonu boş veya null. Bizim kodumuz değil, kaynak veri sorunu.
+
+**Ne yaptık:**
+- `normalizeHabitatCode()` ile kirli veriyi temizledik ("Potential 1330" → "1330", "1310 / 1330" → ["1310", "1330"])
+- Ama kaynak veride hiç veri yoksa yapacak bir şey yok
+
+**Çözüm seçenekleri:**
+1. Müşteriden güncel SSCO Excel dosyası almak (en doğru)
+2. OpenAI web search ile NPWS sitesinden her site için habitat çekmek (~$1.58 maliyet)
+
+**🔧 Site İsmi Araması İçin Çözüm:**
+
+Müşteri isteği: "...using both the site's official area name and the retrieved Qualifying Interests (QIs) as key search terms"
+
+Şu an:
+- ✅ QI'ler → SSCO lookup ile habitat kodları
+- ❌ Site ismi → Sadece başlıkta gösteriliyor, arama yapılmıyor
+
+Öneri: OpenAI web search ile site adı kullanarak ek bilgi çekmek:
+- Conservation news/updates
+- Management plans
+- Recent assessments
+- Local ecological reports
 
 ---
 
@@ -1045,4 +1118,4 @@ Yeni proje başlatma süreci mevcut kullanıcı arayüzü bileşenini kullanmal�
 
 ---
 
-_Son güncelleme: 3 Şubat 2026_
+_Son güncelleme: 5 Şubat 2026_

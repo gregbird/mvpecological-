@@ -77,6 +77,14 @@ import {
   getTargetNotesStats,
   type TargetNoteWithCreator,
 } from '@/lib/supabase/queries'
+import {
+  saveDeepResearch,
+  getProjectDeepResearch,
+  getSiteDeepResearch,
+  deleteDeepResearch,
+  type CreateDeepResearchInput,
+  type DeepResearchResult,
+} from '@/lib/supabase/queries/deep-research'
 import type {
   Project,
   WorkflowStep,
@@ -791,3 +799,48 @@ export function useVerifyTargetNote() {
     },
   })
 }
+
+// ============================================================================
+// Deep Research Hooks
+// ============================================================================
+
+export function useProjectDeepResearch(projectId: string) {
+  return useQuery({
+    queryKey: ['deep-research', projectId],
+    queryFn: () => getProjectDeepResearch(projectId),
+    enabled: !!projectId,
+  })
+}
+
+export function useSiteDeepResearch(projectId: string, siteCode: string) {
+  return useQuery({
+    queryKey: ['deep-research', projectId, siteCode],
+    queryFn: () => getSiteDeepResearch(projectId, siteCode),
+    enabled: !!projectId && !!siteCode,
+  })
+}
+
+export function useSaveDeepResearch() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: CreateDeepResearchInput) => saveDeepResearch(input),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['deep-research', data.project_id] })
+    },
+  })
+}
+
+export function useDeleteDeepResearch() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => deleteDeepResearch(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deep-research'] })
+    },
+  })
+}
+
+// Re-export types
+export type { DeepResearchResult, CreateDeepResearchInput }

@@ -18,8 +18,9 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { useCreateFinding, useDeleteFinding } from '@/hooks/use-project-data'
 import { queryDesignatedSites, getSiteTypeDisplayName } from '@/lib/external-apis/npws'
-import { findIntersectingSSCO, type SSCOResult } from '@/lib/data/ssco-lookup'
+import { findIntersectingSSCO, getHabitatsBySiteCode, type SSCOResult } from '@/lib/data/ssco-lookup'
 import { FindingsList, type FindingDisplay } from './findings-list'
+import { DeepResearchModal, type DeepResearchSite } from '@/components/desk-research/deep-research-modal'
 import type { Project, DeskResearchFinding, Json } from '@/types/database'
 import type { FindingSource, FindingType } from '@/components/desk-research/finding-card'
 
@@ -83,6 +84,45 @@ export function DesignatedSitesSubStep({
   const [selectedFinding, setSelectedFinding] = React.useState<FindingDisplay | null>(null)
   // Track hidden findings (for map visibility toggle)
   const [hiddenIds, setHiddenIds] = React.useState<Set<string>>(new Set())
+  // Deep Research modal state
+  const [deepResearchSite, setDeepResearchSite] = React.useState<DeepResearchSite | null>(null)
+  const [isDeepResearchOpen, setIsDeepResearchOpen] = React.useState(false)
+
+  // Handle Deep Research click
+  const handleDeepResearch = React.useCallback(async (finding: FindingDisplay) => {
+    const siteCode = finding.metadata?.siteCode || ''
+
+    // Extract habitats from SSCO data if available in finding
+    const sscoData = finding.rawData?.ssco as SSCOResult | undefined
+    let habitats = sscoData?.habitats || finding.rawData?.habitats as Array<{ habitatCode: string; habitatName: string }> | undefined
+
+    // If no habitats in finding data, try to lookup from SSCO by site code
+    if ((!habitats || habitats.length === 0) && siteCode) {
+      try {
+        const sscoHabitats = await getHabitatsBySiteCode(siteCode)
+        if (sscoHabitats.length > 0) {
+          habitats = sscoHabitats.map(h => ({
+            habitatCode: h.habitatCode,
+            habitatName: h.habitatName,
+          }))
+        }
+      } catch (error) {
+        console.warn('Failed to lookup SSCO habitats:', error)
+      }
+    }
+
+    const site: DeepResearchSite = {
+      siteCode,
+      siteName: finding.title.replace(' - Conservation Objectives', ''),
+      siteType: (finding.metadata?.siteType as 'SAC' | 'SPA' | 'NHA' | 'pNHA') || 'SAC',
+      habitats: habitats,
+      distance: finding.metadata?.distance,
+      areaHa: finding.rawData?.AREA_HA as number | undefined,
+    }
+
+    setDeepResearchSite(site)
+    setIsDeepResearchOpen(true)
+  }, [])
 
   // Toggle visibility of a finding on the map
   const handleToggleVisibility = React.useCallback((findingId: string) => {
@@ -455,6 +495,7 @@ export function DesignatedSitesSubStep({
             isLoading={isSearching}
             onSave={handleSaveFinding}
             onViewOnMap={(f) => setSelectedFinding(f)}
+            onDeepResearch={handleDeepResearch}
             emptyMessage="Search to find sites"
             hiddenIds={hiddenIds}
             onToggleVisibility={handleToggleVisibility}
@@ -525,6 +566,15 @@ export function DesignatedSitesSubStep({
           </Button>
         </div>
       )}
+
+      {/* Deep Research Modal */}
+      <DeepResearchModal
+        open={isDeepResearchOpen}
+        onOpenChange={setIsDeepResearchOpen}
+        site={deepResearchSite}
+        projectId={project.id}
+        userId={userId}
+      />
     </div>
   )
 }

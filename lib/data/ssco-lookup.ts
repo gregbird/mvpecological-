@@ -92,15 +92,18 @@ export async function findIntersectingSSCO(
 
         const result = results.get(siteCode)!
 
-        // Add habitat if not already added
-        const habitatExists = result.habitats.some(h => h.habitatCode === props.habitatCode)
-        if (!habitatExists) {
-          result.habitats.push({
-            siteCode: props.siteCode,
-            habitatCode: props.habitatCode,
-            habitatName: props.habitatName,
-            sourceFile: props.sourceFile,
-          })
+        // Normalize and add habitats
+        const normalizedCodes = normalizeHabitatCode(props.habitatCode)
+        for (const habitatCode of normalizedCodes) {
+          const habitatExists = result.habitats.some(h => h.habitatCode === habitatCode)
+          if (!habitatExists) {
+            result.habitats.push({
+              siteCode: props.siteCode,
+              habitatCode: habitatCode,
+              habitatName: props.habitatName || getHabitatDescription(habitatCode),
+              sourceFile: props.sourceFile,
+            })
+          }
         }
 
         // Calculate intersection area
@@ -177,6 +180,58 @@ export function getHabitatDescription(code: string): string {
     '91J0': 'Taxus baccata woods',
   }
   return descriptions[code] || `EU Habitat ${code}`
+}
+
+/**
+ * Normalize habitat code - clean up messy SSCO data
+ * Handles: empty strings, "1310 / 1330" splits, "Potential 1330" prefixes
+ */
+function normalizeHabitatCode(code: string): string[] {
+  if (!code || code.trim() === '') return []
+
+  // Remove "Potential " prefix
+  let cleaned = code.replace(/^Potential\s+/i, '')
+
+  // Split by " / " for combined codes like "1310 / 1330"
+  const parts = cleaned.split(/\s*\/\s*/)
+
+  // Clean each part and filter valid 4-digit codes
+  return parts
+    .map(p => p.trim())
+    .filter(p => /^\d{4}$/.test(p))
+}
+
+/**
+ * Get habitats for a specific site code from SSCO data
+ * @param siteCode - The SAC site code (e.g., '000627')
+ */
+export async function getHabitatsBySiteCode(siteCode: string): Promise<SSCOHabitat[]> {
+  const data = await loadSSCOData()
+
+  const habitats: SSCOHabitat[] = []
+  const seenCodes = new Set<string>()
+
+  for (const feature of data.features) {
+    const props = feature.properties as SSCOHabitat
+    if (props.siteCode === siteCode) {
+      // Normalize habitat codes (handles empty, combined, prefixed codes)
+      const normalizedCodes = normalizeHabitatCode(props.habitatCode)
+
+      for (const habitatCode of normalizedCodes) {
+        if (!seenCodes.has(habitatCode)) {
+          seenCodes.add(habitatCode)
+          habitats.push({
+            siteCode: props.siteCode,
+            habitatCode: habitatCode,
+            habitatName: props.habitatName || getHabitatDescription(habitatCode),
+            sourceFile: props.sourceFile,
+          })
+        }
+      }
+    }
+  }
+
+  return habitats
 }
 
 /**
