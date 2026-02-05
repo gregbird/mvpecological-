@@ -46,7 +46,8 @@ export const ARTICLE_17_HABITATS: Record<string, Article17Habitat> = {
     pressures: ['Fishing', 'Pollution'],
     threats: ['Climate change', 'Fishing pressure'],
     priorityHabitat: false,
-    assessment: 'Inadequate status due to incomplete knowledge of extent and pressures from fishing activities.',
+    assessment:
+      'Inadequate status due to incomplete knowledge of extent and pressures from fishing activities.',
   },
   '1130': {
     code: '1130',
@@ -270,7 +271,8 @@ export const ARTICLE_17_HABITATS: Record<string, Article17Habitat> = {
     pressures: ['Drainage', 'Agriculture', 'Development'],
     threats: ['Climate change', 'Water abstraction'],
     priorityHabitat: true,
-    assessment: 'Priority habitat unique to Ireland. Bad status due to drainage and agricultural intensification.',
+    assessment:
+      'Priority habitat unique to Ireland. Bad status due to drainage and agricultural intensification.',
   },
   '3260': {
     code: '3260',
@@ -406,7 +408,8 @@ export const ARTICLE_17_HABITATS: Record<string, Article17Habitat> = {
     pressures: ['Peat extraction', 'Drainage', 'Burning'],
     threats: ['Climate change'],
     priorityHabitat: true,
-    assessment: 'Priority habitat showing improvement due to restoration programmes including Bord na Móna.',
+    assessment:
+      'Priority habitat showing improvement due to restoration programmes including Bord na Móna.',
   },
   '7120': {
     code: '7120',
@@ -603,7 +606,10 @@ export function getStatusDisplay(status: ConservationStatus): {
   bgColor: string
   description: string
 } {
-  const statusMap: Record<ConservationStatus, { label: string; color: string; bgColor: string; description: string }> = {
+  const statusMap: Record<
+    ConservationStatus,
+    { label: string; color: string; bgColor: string; description: string }
+  > = {
     FV: {
       label: 'Favourable',
       color: 'text-green-700',
@@ -669,18 +675,16 @@ export function getHabitatsSummary(habitatCodes: string[]): {
   declining: number
   priorityCount: number
 } {
-  const habitats = habitatCodes
-    .map(code => ARTICLE_17_HABITATS[code])
-    .filter(Boolean)
+  const habitats = habitatCodes.map((code) => ARTICLE_17_HABITATS[code]).filter(Boolean)
 
   return {
     total: habitats.length,
-    favourable: habitats.filter(h => h.status === 'FV').length,
-    unfavourableInadequate: habitats.filter(h => h.status === 'U1').length,
-    unfavourableBad: habitats.filter(h => h.status === 'U2').length,
-    unknown: habitats.filter(h => h.status === 'XX').length,
-    improving: habitats.filter(h => h.trend === 'improving').length,
-    declining: habitats.filter(h => h.trend === 'declining').length,
-    priorityCount: habitats.filter(h => h.priorityHabitat).length,
+    favourable: habitats.filter((h) => h.status === 'FV').length,
+    unfavourableInadequate: habitats.filter((h) => h.status === 'U1').length,
+    unfavourableBad: habitats.filter((h) => h.status === 'U2').length,
+    unknown: habitats.filter((h) => h.status === 'XX').length,
+    improving: habitats.filter((h) => h.trend === 'improving').length,
+    declining: habitats.filter((h) => h.trend === 'declining').length,
+    priorityCount: habitats.filter((h) => h.priorityHabitat).length,
   }
 }

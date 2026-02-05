@@ -125,10 +125,7 @@ export function DeepResearchModal({
   const saveResearch = useSaveDeepResearch()
 
   // Check if already saved
-  const { data: existingResearch } = useSiteDeepResearch(
-    projectId || '',
-    site?.siteCode || ''
-  )
+  const { data: existingResearch } = useSiteDeepResearch(projectId || '', site?.siteCode || '')
   const isSaved = !!existingResearch
 
   if (!site) return null
@@ -137,21 +134,22 @@ export function DeepResearchModal({
   const protectionDesc = getProtectionDescription(site.siteType)
 
   // Get Article 17 data for each habitat
-  const habitatsWithArticle17 = site.habitats?.map(h => ({
-    ...h,
-    article17: getArticle17Data(h.habitatCode),
-  })) || []
+  const habitatsWithArticle17 =
+    site.habitats?.map((h) => ({
+      ...h,
+      article17: getArticle17Data(h.habitatCode),
+    })) || []
 
   // Calculate summary
-  const habitatCodes = site.habitats?.map(h => h.habitatCode) || []
+  const habitatCodes = site.habitats?.map((h) => h.habitatCode) || []
   const summary = getHabitatsSummary(habitatCodes)
 
   // Collect all unique threats and pressures
   const allPressures = new Set<string>()
   const allThreats = new Set<string>()
-  habitatsWithArticle17.forEach(h => {
-    h.article17?.pressures.forEach(p => allPressures.add(p))
-    h.article17?.threats.forEach(t => allThreats.add(t))
+  habitatsWithArticle17.forEach((h) => {
+    h.article17?.pressures.forEach((p) => allPressures.add(p))
+    h.article17?.threats.forEach((t) => allThreats.add(t))
   })
 
   // Save handler
@@ -172,7 +170,7 @@ export function DeepResearchModal({
         site_code: site.siteCode,
         site_name: site.siteName,
         site_type: site.siteType,
-        habitats: habitatsWithArticle17.map(h => ({
+        habitats: habitatsWithArticle17.map((h) => ({
           habitatCode: h.habitatCode,
           habitatName: h.habitatName,
           status: h.article17?.status,
@@ -211,7 +209,7 @@ export function DeepResearchModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh]">
+      <DialogContent className="max-h-[85vh] max-w-2xl">
         <DialogHeader>
           <div className="flex items-start gap-3">
             <div className="rounded-lg bg-emerald-100 p-2">
@@ -220,15 +218,17 @@ export function DeepResearchModal({
             <div className="flex-1">
               <DialogTitle className="text-lg">{site.siteName}</DialogTitle>
               <DialogDescription asChild>
-                <div className="flex items-center gap-2 mt-1">
+                <div className="mt-1 flex items-center gap-2">
                   <Badge variant="outline" className="text-xs">
                     {site.siteType}
                   </Badge>
-                  <span className="text-xs text-muted-foreground">Site Code: {site.siteCode}</span>
+                  <span className="text-muted-foreground text-xs">Site Code: {site.siteCode}</span>
                   {site.distance !== undefined && site.distance !== null && (
                     <Badge variant="secondary" className="text-xs">
-                      <MapPin className="h-3 w-3 mr-1" />
-                      {site.distance === 0 ? 'Within site' : `${Number(site.distance).toFixed(1)} km`}
+                      <MapPin className="mr-1 h-3 w-3" />
+                      {site.distance === 0
+                        ? 'Within site'
+                        : `${Number(site.distance).toFixed(1)} km`}
                     </Badge>
                   )}
                 </div>
@@ -249,17 +249,17 @@ export function DeepResearchModal({
             </TabsList>
 
             {/* Overview Tab */}
-            <TabsContent value="overview" className="space-y-4 mt-4">
+            <TabsContent value="overview" className="mt-4 space-y-4">
               {/* Protection Status */}
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-sm">
                     <Shield className="h-4 w-4 text-emerald-600" />
                     Protection Status
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-muted-foreground">{protectionDesc}</p>
+                  <p className="text-muted-foreground text-sm">{protectionDesc}</p>
                 </CardContent>
               </Card>
 
@@ -270,7 +270,7 @@ export function DeepResearchModal({
                     <div className="text-2xl font-bold text-emerald-600">
                       {site.habitats?.length || '—'}
                     </div>
-                    <p className="text-xs text-muted-foreground">Qualifying Habitats</p>
+                    <p className="text-muted-foreground text-xs">Qualifying Habitats</p>
                   </CardContent>
                 </Card>
                 <Card>
@@ -278,7 +278,7 @@ export function DeepResearchModal({
                     <div className="text-2xl font-bold text-blue-600">
                       {site.areaHa ? `${site.areaHa.toFixed(0)} ha` : '—'}
                     </div>
-                    <p className="text-xs text-muted-foreground">Site Area</p>
+                    <p className="text-muted-foreground text-xs">Site Area</p>
                   </CardContent>
                 </Card>
               </div>
@@ -287,12 +287,12 @@ export function DeepResearchModal({
               <Card className="border-amber-200 bg-amber-50">
                 <CardContent className="pt-4">
                   <div className="flex gap-3">
-                    <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
+                    <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
                     <div>
                       <p className="text-sm font-medium text-amber-800">
                         Appropriate Assessment Consideration
                       </p>
-                      <p className="text-xs text-amber-700 mt-1">
+                      <p className="mt-1 text-xs text-amber-700">
                         {site.siteType === 'SAC' || site.siteType === 'SPA'
                           ? 'This is a Natura 2000 site. Any plan or project likely to have significant effects must undergo Appropriate Assessment screening under Article 6(3) of the Habitats Directive.'
                           : 'While not a Natura 2000 site, ecological connectivity to European sites should be considered in planning applications.'}
@@ -304,40 +304,47 @@ export function DeepResearchModal({
             </TabsContent>
 
             {/* Conservation Status Tab (NEW) */}
-            <TabsContent value="status" className="space-y-4 mt-4">
+            <TabsContent value="status" className="mt-4 space-y-4">
               {/* Status Summary */}
               {summary.total > 0 ? (
                 <>
                   <Card>
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center gap-2">
+                      <CardTitle className="flex items-center gap-2 text-sm">
                         <BookOpen className="h-4 w-4 text-purple-600" />
                         Article 17 (2025) Conservation Assessment
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-xs text-muted-foreground mb-3">
-                        Based on NPWS Article 17 Report 2025 - national conservation status of qualifying habitats.
+                      <p className="text-muted-foreground mb-3 text-xs">
+                        Based on NPWS Article 17 Report 2025 - national conservation status of
+                        qualifying habitats.
                       </p>
                       <div className="grid grid-cols-4 gap-2">
-                        <div className="text-center p-2 bg-green-50 rounded">
-                          <div className="text-lg font-bold text-green-700">{summary.favourable}</div>
+                        <div className="rounded bg-green-50 p-2 text-center">
+                          <div className="text-lg font-bold text-green-700">
+                            {summary.favourable}
+                          </div>
                           <div className="text-[10px] text-green-600">Favourable</div>
                         </div>
-                        <div className="text-center p-2 bg-amber-50 rounded">
-                          <div className="text-lg font-bold text-amber-700">{summary.unfavourableInadequate}</div>
+                        <div className="rounded bg-amber-50 p-2 text-center">
+                          <div className="text-lg font-bold text-amber-700">
+                            {summary.unfavourableInadequate}
+                          </div>
                           <div className="text-[10px] text-amber-600">Inadequate</div>
                         </div>
-                        <div className="text-center p-2 bg-red-50 rounded">
-                          <div className="text-lg font-bold text-red-700">{summary.unfavourableBad}</div>
+                        <div className="rounded bg-red-50 p-2 text-center">
+                          <div className="text-lg font-bold text-red-700">
+                            {summary.unfavourableBad}
+                          </div>
                           <div className="text-[10px] text-red-600">Bad</div>
                         </div>
-                        <div className="text-center p-2 bg-gray-50 rounded">
+                        <div className="rounded bg-gray-50 p-2 text-center">
                           <div className="text-lg font-bold text-gray-700">{summary.unknown}</div>
                           <div className="text-[10px] text-gray-600">Unknown</div>
                         </div>
                       </div>
-                      <div className="flex gap-4 mt-3 text-xs">
+                      <div className="mt-3 flex gap-4 text-xs">
                         <span className="flex items-center gap-1">
                           <TrendingUp className="h-3 w-3 text-green-600" />
                           {summary.improving} improving
@@ -360,7 +367,7 @@ export function DeepResearchModal({
                   {(allPressures.size > 0 || allThreats.size > 0) && (
                     <Card>
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-sm flex items-center gap-2">
+                        <CardTitle className="flex items-center gap-2 text-sm">
                           <AlertTriangle className="h-4 w-4 text-orange-600" />
                           Threats & Pressures
                         </CardTitle>
@@ -368,10 +375,12 @@ export function DeepResearchModal({
                       <CardContent className="space-y-3">
                         {allPressures.size > 0 && (
                           <div>
-                            <p className="text-xs font-medium text-muted-foreground mb-1">Current Pressures:</p>
+                            <p className="text-muted-foreground mb-1 text-xs font-medium">
+                              Current Pressures:
+                            </p>
                             <div className="flex flex-wrap gap-1">
                               {Array.from(allPressures).map((pressure, idx) => (
-                                <Badge key={idx} variant="outline" className="text-xs bg-orange-50">
+                                <Badge key={idx} variant="outline" className="bg-orange-50 text-xs">
                                   {pressure}
                                 </Badge>
                               ))}
@@ -380,10 +389,12 @@ export function DeepResearchModal({
                         )}
                         {allThreats.size > 0 && (
                           <div>
-                            <p className="text-xs font-medium text-muted-foreground mb-1">Future Threats:</p>
+                            <p className="text-muted-foreground mb-1 text-xs font-medium">
+                              Future Threats:
+                            </p>
                             <div className="flex flex-wrap gap-1">
                               {Array.from(allThreats).map((threat, idx) => (
-                                <Badge key={idx} variant="outline" className="text-xs bg-red-50">
+                                <Badge key={idx} variant="outline" className="bg-red-50 text-xs">
                                   {threat}
                                 </Badge>
                               ))}
@@ -396,7 +407,7 @@ export function DeepResearchModal({
 
                   {/* Per-habitat status */}
                   <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">Status by Habitat:</p>
+                    <p className="text-muted-foreground text-xs font-medium">Status by Habitat:</p>
                     {habitatsWithArticle17.map((habitat, idx) => {
                       const a17 = habitat.article17
                       if (!a17) return null
@@ -405,15 +416,19 @@ export function DeepResearchModal({
                       return (
                         <Card key={idx} className="p-3">
                           <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <Badge variant="secondary" className="text-xs">
                                   {habitat.habitatCode}
                                 </Badge>
-                                <Badge className={`text-xs ${statusDisplay.bgColor} ${statusDisplay.color} border-0`}>
+                                <Badge
+                                  className={`text-xs ${statusDisplay.bgColor} ${statusDisplay.color} border-0`}
+                                >
                                   {statusDisplay.label}
                                 </Badge>
-                                <span className={`flex items-center gap-1 text-xs ${trendDisplay.color}`}>
+                                <span
+                                  className={`flex items-center gap-1 text-xs ${trendDisplay.color}`}
+                                >
                                   <TrendIcon trend={a17.trend} />
                                   {trendDisplay.label}
                                 </span>
@@ -423,7 +438,7 @@ export function DeepResearchModal({
                                   </Badge>
                                 )}
                               </div>
-                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                              <p className="text-muted-foreground mt-1 line-clamp-2 text-xs">
                                 {a17.assessment}
                               </p>
                             </div>
@@ -436,11 +451,11 @@ export function DeepResearchModal({
               ) : (
                 <Card>
                   <CardContent className="pt-4 text-center">
-                    <Info className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">
+                    <Info className="text-muted-foreground mx-auto mb-2 h-8 w-8" />
+                    <p className="text-muted-foreground text-sm">
                       Conservation status data not available.
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="text-muted-foreground mt-1 text-xs">
                       Check NPWS Article 17 Reports for detailed assessments.
                     </p>
                   </CardContent>
@@ -449,10 +464,10 @@ export function DeepResearchModal({
             </TabsContent>
 
             {/* Habitats Tab */}
-            <TabsContent value="habitats" className="space-y-3 mt-4">
+            <TabsContent value="habitats" className="mt-4 space-y-3">
               {site.habitats && site.habitats.length > 0 ? (
                 <>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-muted-foreground text-sm">
                     Annex I habitats listed as Qualifying Interests for this site:
                   </p>
                   {habitatsWithArticle17.map((habitat, idx) => {
@@ -464,7 +479,7 @@ export function DeepResearchModal({
                         <CardContent className="pt-4">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1">
-                              <div className="flex items-center gap-2 flex-wrap">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <Badge
                                   variant={a17?.priorityHabitat ? 'destructive' : 'secondary'}
                                   className="text-xs"
@@ -472,25 +487,32 @@ export function DeepResearchModal({
                                   {habitat.habitatCode}
                                 </Badge>
                                 {a17?.priorityHabitat && (
-                                  <Badge variant="outline" className="text-xs border-red-300 text-red-700">
+                                  <Badge
+                                    variant="outline"
+                                    className="border-red-300 text-xs text-red-700"
+                                  >
                                     Priority*
                                   </Badge>
                                 )}
                                 {statusDisplay && (
-                                  <Badge className={`text-xs ${statusDisplay.bgColor} ${statusDisplay.color} border-0`}>
+                                  <Badge
+                                    className={`text-xs ${statusDisplay.bgColor} ${statusDisplay.color} border-0`}
+                                  >
                                     {statusDisplay.label}
                                   </Badge>
                                 )}
                                 {a17 && (
-                                  <span className={`flex items-center gap-1 text-xs ${getTrendDisplay(a17.trend).color}`}>
+                                  <span
+                                    className={`flex items-center gap-1 text-xs ${getTrendDisplay(a17.trend).color}`}
+                                  >
                                     <TrendIcon trend={a17.trend} />
                                   </span>
                                 )}
                               </div>
-                              <p className="text-sm font-medium mt-1">{habitat.habitatName}</p>
-                              <p className="text-xs text-muted-foreground mt-1">{description}</p>
+                              <p className="mt-1 text-sm font-medium">{habitat.habitatName}</p>
+                              <p className="text-muted-foreground mt-1 text-xs">{description}</p>
                             </div>
-                            <Leaf className="h-4 w-4 text-emerald-500 shrink-0" />
+                            <Leaf className="h-4 w-4 shrink-0 text-emerald-500" />
                           </div>
                         </CardContent>
                       </Card>
@@ -500,11 +522,11 @@ export function DeepResearchModal({
               ) : (
                 <Card>
                   <CardContent className="pt-4 text-center">
-                    <Info className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">
+                    <Info className="text-muted-foreground mx-auto mb-2 h-8 w-8" />
+                    <p className="text-muted-foreground text-sm">
                       Habitat information not available in local database.
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="text-muted-foreground mt-1 text-xs">
                       Check NPWS Site Synopsis for full Qualifying Interests list.
                     </p>
                   </CardContent>
@@ -513,19 +535,14 @@ export function DeepResearchModal({
             </TabsContent>
 
             {/* Resources Tab */}
-            <TabsContent value="resources" className="space-y-3 mt-4">
-              <p className="text-sm text-muted-foreground">
+            <TabsContent value="resources" className="mt-4 space-y-3">
+              <p className="text-muted-foreground text-sm">
                 Official NPWS documents and resources for this site:
               </p>
 
               {/* Site Synopsis */}
-              <a
-                href={urls.synopsis}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block"
-              >
-                <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+              <a href={urls.synopsis} target="_blank" rel="noopener noreferrer" className="block">
+                <Card className="hover:bg-muted/50 cursor-pointer transition-colors">
                   <CardContent className="pt-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -534,12 +551,12 @@ export function DeepResearchModal({
                         </div>
                         <div>
                           <p className="text-sm font-medium">Site Synopsis</p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-muted-foreground text-xs">
                             Overview, location, and ecological description
                           </p>
                         </div>
                       </div>
-                      <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                      <ExternalLink className="text-muted-foreground h-4 w-4" />
                     </div>
                   </CardContent>
                 </Card>
@@ -553,7 +570,7 @@ export function DeepResearchModal({
                   rel="noopener noreferrer"
                   className="block"
                 >
-                  <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+                  <Card className="hover:bg-muted/50 cursor-pointer transition-colors">
                     <CardContent className="pt-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -562,12 +579,12 @@ export function DeepResearchModal({
                           </div>
                           <div>
                             <p className="text-sm font-medium">Conservation Objectives</p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-muted-foreground text-xs">
                               Site-specific targets and attributes
                             </p>
                           </div>
                         </div>
-                        <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                        <ExternalLink className="text-muted-foreground h-4 w-4" />
                       </div>
                     </CardContent>
                   </Card>
@@ -582,7 +599,7 @@ export function DeepResearchModal({
                   rel="noopener noreferrer"
                   className="block"
                 >
-                  <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+                  <Card className="hover:bg-muted/50 cursor-pointer transition-colors">
                     <CardContent className="pt-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -591,12 +608,12 @@ export function DeepResearchModal({
                           </div>
                           <div>
                             <p className="text-sm font-medium">Article 17 Reports (2025)</p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-muted-foreground text-xs">
                               National conservation status assessments
                             </p>
                           </div>
                         </div>
-                        <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                        <ExternalLink className="text-muted-foreground h-4 w-4" />
                       </div>
                     </CardContent>
                   </Card>
@@ -604,13 +621,8 @@ export function DeepResearchModal({
               )}
 
               {/* NPWS Maps */}
-              <a
-                href={urls.siteMap}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block"
-              >
-                <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+              <a href={urls.siteMap} target="_blank" rel="noopener noreferrer" className="block">
+                <Card className="hover:bg-muted/50 cursor-pointer transition-colors">
                   <CardContent className="pt-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -619,12 +631,12 @@ export function DeepResearchModal({
                         </div>
                         <div>
                           <p className="text-sm font-medium">NPWS Map Viewer</p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-muted-foreground text-xs">
                             Interactive maps and spatial data
                           </p>
                         </div>
                       </div>
-                      <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                      <ExternalLink className="text-muted-foreground h-4 w-4" />
                     </div>
                   </CardContent>
                 </Card>
@@ -635,10 +647,8 @@ export function DeepResearchModal({
 
         <Separator />
 
-        <div className="flex justify-between items-center">
-          <p className="text-xs text-muted-foreground">
-            Data: NPWS Article 17 Report 2025
-          </p>
+        <div className="flex items-center justify-between">
+          <p className="text-muted-foreground text-xs">Data: NPWS Article 17 Report 2025</p>
           <div className="flex gap-2">
             {projectId && (
               <Button

@@ -329,10 +329,10 @@ Her koruma alanı için "Deep Research" etiketli isteğe bağlı bir buton eklen
 
   **🔧 Çözüm Önerileri:**
 
-  | Seçenek | Açıklama | Avantaj | Dezavantaj |
-  |---------|----------|---------|------------|
-  | **NPWS Excel Import** | Müşteriden güncel SSCO Excel al | En doğru resmi veri | Manuel süreç |
-  | **OpenAI Web Search** | Boş siteler için otomatik doldur | Otomatik, hızlı | API maliyeti (~$1.58) |
+  | Seçenek               | Açıklama                         | Avantaj             | Dezavantaj            |
+  | --------------------- | -------------------------------- | ------------------- | --------------------- |
+  | **NPWS Excel Import** | Müşteriden güncel SSCO Excel al  | En doğru resmi veri | Manuel süreç          |
+  | **OpenAI Web Search** | Boş siteler için otomatik doldur | Otomatik, hızlı     | API maliyeti (~$1.58) |
 
 - [x] ~~**2.2.5** Sonuç kategorileri tanımla~~
 
@@ -348,6 +348,7 @@ Her koruma alanı için "Deep Research" etiketli isteğe bağlı bir buton eklen
   - UI: Modal'da "Save Research" butonu
 
 **📁 Eklenen/Güncellenen Dosyalar:**
+
 - `components/desk-research/deep-research-modal.tsx` (YENİ)
 - `lib/data/article17-habitats.ts` (YENİ)
 - `lib/data/ssco-lookup.ts` (GÜNCELLENDİ)
@@ -359,11 +360,11 @@ Her koruma alanı için "Deep Research" etiketli isteğe bağlı bir buton eklen
 
 **❌ YAPILAMAYANLAR:**
 
-| İstek | Durum | Neden | Çözüm Önerisi |
-|-------|-------|-------|---------------|
-| **Site ismi ile web araması** | ❌ Yapılmadı | Müşteri "site name" ile arama istedi, biz sadece modal başlığında gösteriyoruz | OpenAI web search ile site adı kullanarak ek bilgi çekilebilir |
-| **Article 17 gerçek zamanlı arama** | ❌ Yapılmadı | Müşteri "search for Article 17 reports" istedi, biz statik veri kullanıyoruz | OpenAI web search ile NPWS'den güncel Article 17 verisi çekilebilir |
-| **~158 site için habitat verisi** | ❌ Eksik veri | SSCO kaynak verisinde bu siteler için habitat bilgisi yok (boş/null) | OpenAI ile NPWS sitesinden çekilebilir veya müşteriden Excel alınabilir |
+| İstek                               | Durum         | Neden                                                                          | Çözüm Önerisi                                                           |
+| ----------------------------------- | ------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| **Site ismi ile web araması**       | ❌ Yapılmadı  | Müşteri "site name" ile arama istedi, biz sadece modal başlığında gösteriyoruz | OpenAI web search ile site adı kullanarak ek bilgi çekilebilir          |
+| **Article 17 gerçek zamanlı arama** | ❌ Yapılmadı  | Müşteri "search for Article 17 reports" istedi, biz statik veri kullanıyoruz   | OpenAI web search ile NPWS'den güncel Article 17 verisi çekilebilir     |
+| **~158 site için habitat verisi**   | ❌ Eksik veri | SSCO kaynak verisinde bu siteler için habitat bilgisi yok (boş/null)           | OpenAI ile NPWS sitesinden çekilebilir veya müşteriden Excel alınabilir |
 
 **📋 ~158 Site Eksik Habitat Verisi - Detaylı Açıklama:**
 
@@ -383,10 +384,12 @@ SSCO Kaynak Verisi Durumu:
 **Neden boş?** SSCO kaynak Excel/CSV'sinde bu siteler için habitat kolonu boş veya null. Bizim kodumuz değil, kaynak veri sorunu.
 
 **Ne yaptık:**
+
 - `normalizeHabitatCode()` ile kirli veriyi temizledik ("Potential 1330" → "1330", "1310 / 1330" → ["1310", "1330"])
 - Ama kaynak veride hiç veri yoksa yapacak bir şey yok
 
 **Çözüm seçenekleri:**
+
 1. Müşteriden güncel SSCO Excel dosyası almak (en doğru)
 2. OpenAI web search ile NPWS sitesinden her site için habitat çekmek (~$1.58 maliyet)
 
@@ -395,10 +398,12 @@ SSCO Kaynak Verisi Durumu:
 Müşteri isteği: "...using both the site's official area name and the retrieved Qualifying Interests (QIs) as key search terms"
 
 Şu an:
+
 - ✅ QI'ler → SSCO lookup ile habitat kodları
 - ❌ Site ismi → Sadece başlıkta gösteriliyor, arama yapılmıyor
 
 Öneri: OpenAI web search ile site adı kullanarak ek bilgi çekmek:
+
 - Conservation news/updates
 - Management plans
 - Recent assessments

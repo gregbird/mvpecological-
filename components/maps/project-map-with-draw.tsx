@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Layers, Maximize2, Minimize2 } from 'lucide-react'
+import { Info, Layers, Maximize2, Minimize2, Pentagon, Square } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import type {
   Map as LeafletMap,
@@ -77,6 +77,10 @@ interface ProjectMapWithDrawProps {
   showLayersControl?: boolean
   visibleLayers?: string[]
   npwsSearchRadius?: number
+  /** Base map style - controlled externally for persistence across wizard steps */
+  baseMapStyle?: MapStyle
+  /** Callback when base map style changes */
+  onBaseMapStyleChange?: (style: MapStyle) => void
 }
 
 // Define event types for leaflet-draw
@@ -152,7 +156,14 @@ function MapComponentWithDraw({
     bounds?: { west: number; south: number; east: number; north: number }
   ) => void
 }) {
-  const { MapContainer, TileLayer, GeoJSON, FeatureGroup, useMap, ZoomControl } = require('react-leaflet')
+  const {
+    MapContainer,
+    TileLayer,
+    GeoJSON,
+    FeatureGroup,
+    useMap,
+    ZoomControl,
+  } = require('react-leaflet')
   const { EditControl } = require('react-leaflet-draw')
 
   const tileConfig = TILE_LAYERS[currentStyle]
@@ -164,11 +175,17 @@ function MapComponentWithDraw({
   const debounceTimerRef = React.useRef<NodeJS.Timeout | null>(null)
   // Track if we've EVER fit to a boundary in this component instance
   const hasFitToBoundaryRef = React.useRef(false)
+  // Track if we're currently in edit mode to prevent boundary reload during editing
+  const isEditingRef = React.useRef(false)
+  // Track the last loaded boundary to prevent unnecessary reloads
+  const lastLoadedBoundaryRef = React.useRef<string | null>(null)
 
-  // Initialize with existing boundary
+  // Initialize with existing boundary or reset when boundary is cleared
   React.useEffect(() => {
     if (boundary) {
       setDrawnFeatures([boundary])
+    } else {
+      setDrawnFeatures([])
     }
   }, [boundary])
 
@@ -243,10 +260,21 @@ function MapComponentWithDraw({
 
     React.useEffect(() => {
       if (boundary && featureGroupRef.current && map) {
+        // Skip reload if we're currently editing
+        if (isEditingRef.current) {
+          return
+        }
+
         const L = require('leaflet')
 
         // Create a unique key for this boundary to detect actual changes
         const boundaryKey = JSON.stringify(boundary.geometry?.coordinates)
+
+        // Skip if this boundary was already loaded
+        if (boundaryKey === lastLoadedBoundaryRef.current) {
+          return
+        }
+        lastLoadedBoundaryRef.current = boundaryKey
 
         // Clear existing layers
         featureGroupRef.current.clearLayers()
@@ -302,7 +330,24 @@ function MapComponentWithDraw({
     })
   }
 
+  const handleEditStart = () => {
+    isEditingRef.current = true
+  }
+
+  const handleEditStop = () => {
+    isEditingRef.current = false
+  }
+
+  const handleDeleteStart = () => {
+    isEditingRef.current = true
+  }
+
+  const handleDeleteStop = () => {
+    isEditingRef.current = false
+  }
+
   const handleEdited = (e: DrawEditedEvent) => {
+    isEditingRef.current = false
     const layers = e.layers
     const features: GeoJSON.Feature[] = []
 
@@ -314,6 +359,8 @@ function MapComponentWithDraw({
 
     if (features.length > 0) {
       setDrawnFeatures(features)
+      // Update the last loaded boundary ref so we don't reload the same boundary
+      lastLoadedBoundaryRef.current = JSON.stringify(features[0]?.geometry?.coordinates)
       onBoundaryChange?.({
         type: 'FeatureCollection',
         features,
@@ -322,6 +369,7 @@ function MapComponentWithDraw({
   }
 
   const handleDeleted = (e: DrawDeletedEvent) => {
+    isEditingRef.current = false
     // Count how many layers were deleted
     let deletedCount = 0
     e.layers.eachLayer(() => {
@@ -331,6 +379,7 @@ function MapComponentWithDraw({
     // If all features were deleted, clear everything
     if (deletedCount >= drawnFeatures.length) {
       setDrawnFeatures([])
+      lastLoadedBoundaryRef.current = null
       onBoundaryChange?.({
         type: 'FeatureCollection',
         features: [],
@@ -466,8 +515,20 @@ function MapComponentWithDraw({
             onCreated={handleCreated}
             onEdited={handleEdited}
             onDeleted={handleDeleted}
+            onEditStart={handleEditStart}
+            onEditStop={handleEditStop}
+            onDeleteStart={handleDeleteStart}
+            onDeleteStop={handleDeleteStop}
             draw={{
-              rectangle: false,
+              rectangle: {
+                showArea: true,
+                shapeOptions: {
+                  color: '#ef4444',
+                  fillColor: '#ef4444',
+                  fillOpacity: 0.1,
+                  weight: 3,
+                },
+              },
               circle: false,
               circlemarker: false,
               marker: false,
@@ -486,6 +547,7 @@ function MapComponentWithDraw({
             }}
             edit={{
               remove: true,
+              edit: true,
             }}
           />
         </FeatureGroup>
@@ -526,9 +588,14 @@ export function ProjectMapWithDraw({
   showLayersControl = true,
   visibleLayers = [],
   npwsSearchRadius = 5,
+  baseMapStyle,
+  onBaseMapStyleChange,
 }: ProjectMapWithDrawProps) {
   const [mapLoaded, setMapLoaded] = React.useState(false)
-  const [currentStyle, setCurrentStyle] = React.useState<MapStyle>('streets')
+  // Use controlled style if provided, otherwise use local state
+  const [internalStyle, setInternalStyle] = React.useState<MapStyle>('streets')
+  const currentStyle = baseMapStyle ?? internalStyle
+  const setCurrentStyle = onBaseMapStyleChange ?? setInternalStyle
   const [isFullscreen, setIsFullscreen] = React.useState(false)
   const containerRef = React.useRef<HTMLDivElement>(null)
   const mapRef = React.useRef<LeafletMap | null>(null)
@@ -689,6 +756,30 @@ export function ProjectMapWithDraw({
           onZoomChange={handleZoomChange}
         />
       </div>
+
+      {/* Drawing instructions panel - shown when editable and no boundary */}
+      {editable && !boundary && (
+        <div className="bg-card/95 absolute top-4 right-20 z-[1000] max-w-xs rounded-lg border p-3 shadow-lg backdrop-blur">
+          <h4 className="mb-2 flex items-center gap-2 text-sm font-medium">
+            <Info className="h-4 w-4" />
+            Draw Site Boundary
+          </h4>
+          <div className="text-muted-foreground space-y-1.5 text-xs">
+            <div className="flex items-start gap-2">
+              <Pentagon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
+              <span>
+                <strong>Polygon:</strong> Click points to draw, double-click to finish
+              </span>
+            </div>
+            <div className="flex items-start gap-2">
+              <Square className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-600" />
+              <span>
+                <strong>Rectangle:</strong> Click and drag to create
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Map controls overlay */}
       <div className="absolute top-4 left-4 z-[1000] flex flex-col gap-2">

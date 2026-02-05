@@ -52,7 +52,9 @@ export interface CreateDeepResearchInput {
 /**
  * Save deep research results to database
  */
-export async function saveDeepResearch(input: CreateDeepResearchInput): Promise<DeepResearchResult> {
+export async function saveDeepResearch(
+  input: CreateDeepResearchInput
+): Promise<DeepResearchResult> {
   const supabase = createClient()
 
   const { data, error } = await supabase
@@ -136,10 +138,7 @@ export async function hasDeepResearch(projectId: string, siteCode: string): Prom
 export async function deleteDeepResearch(id: string): Promise<void> {
   const supabase = createClient()
 
-  const { error } = await supabase
-    .from('deep_research_results')
-    .delete()
-    .eq('id', id)
+  const { error } = await supabase.from('deep_research_results').delete().eq('id', id)
 
   if (error) throw error
 }

@@ -18,9 +18,16 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { useCreateFinding, useDeleteFinding } from '@/hooks/use-project-data'
 import { queryDesignatedSites, getSiteTypeDisplayName } from '@/lib/external-apis/npws'
-import { findIntersectingSSCO, getHabitatsBySiteCode, type SSCOResult } from '@/lib/data/ssco-lookup'
+import {
+  findIntersectingSSCO,
+  getHabitatsBySiteCode,
+  type SSCOResult,
+} from '@/lib/data/ssco-lookup'
 import { FindingsList, type FindingDisplay } from './findings-list'
-import { DeepResearchModal, type DeepResearchSite } from '@/components/desk-research/deep-research-modal'
+import {
+  DeepResearchModal,
+  type DeepResearchSite,
+} from '@/components/desk-research/deep-research-modal'
 import type { Project, DeskResearchFinding, Json } from '@/types/database'
 import type { FindingSource, FindingType } from '@/components/desk-research/finding-card'
 
@@ -94,14 +101,16 @@ export function DesignatedSitesSubStep({
 
     // Extract habitats from SSCO data if available in finding
     const sscoData = finding.rawData?.ssco as SSCOResult | undefined
-    let habitats = sscoData?.habitats || finding.rawData?.habitats as Array<{ habitatCode: string; habitatName: string }> | undefined
+    let habitats =
+      sscoData?.habitats ||
+      (finding.rawData?.habitats as Array<{ habitatCode: string; habitatName: string }> | undefined)
 
     // If no habitats in finding data, try to lookup from SSCO by site code
     if ((!habitats || habitats.length === 0) && siteCode) {
       try {
         const sscoHabitats = await getHabitatsBySiteCode(siteCode)
         if (sscoHabitats.length > 0) {
-          habitats = sscoHabitats.map(h => ({
+          habitats = sscoHabitats.map((h) => ({
             habitatCode: h.habitatCode,
             habitatName: h.habitatName,
           }))
@@ -328,7 +337,9 @@ export function DesignatedSitesSubStep({
 
           // Add SSCO findings
           for (const ssco of sscoResults) {
-            const habitatList = ssco.habitats.map(h => `[${h.habitatCode}] ${h.habitatName}`).join(', ')
+            const habitatList = ssco.habitats
+              .map((h) => `[${h.habitatCode}] ${h.habitatName}`)
+              .join(', ')
 
             findings.push({
               id: `ssco-${ssco.siteCode}`,

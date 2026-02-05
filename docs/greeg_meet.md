@@ -1,7 +1,7 @@
 Feb 3, 2026
 Meeting Feb 3, 2026 at 11:37 GMT - Transcript
 00:00:00
- 
+
 Greg Birdthistle: P, how are you?
 Abdurrahim Balta: Hello. Can you hear me?
 Greg Birdthistle: I can. Yeah,
@@ -15,10 +15,9 @@ Abdurrahim Balta: Actually I try to deploy the project uh I have many errors for
 Greg Birdthistle: Okay.
 Abdurrahim Balta: I create the uh admin dashboard and uh people's separate two other roles right now uh admin and SSR. uh actually I see the uh PRD documents uh many different SSR ro it's someone uh just focus to water someone just focus to spa but I uh complete all role uh just assessor right now assessor see everything
 Greg Birdthistle: Okay.
- 
- 
+
 00:02:46
- 
+
 Greg Birdthistle: Yeah.
 Abdurrahim Balta: uh but assessor not uh create the new projects admit create
 Greg Birdthistle: Yeah.
@@ -40,10 +39,9 @@ Abdurrahim Balta: Uh admin create the assessor account then invite it uh assesso
 Greg Birdthistle: Yes.
 Abdurrahim Balta: uh how can I explain admin uh attend the SSR the
 Greg Birdthistle: Yeah. They they they can see the the visibility.
- 
- 
+
 00:03:47
- 
+
 Abdurrahim Balta: project
 Greg Birdthistle: So you have the assessor role would uh yeah if you have it there even if you go to the demo. Yeah. Okay.
 Abdurrahim Balta: Can you see?
@@ -63,10 +61,9 @@ Greg Birdthistle: Yeah.
 Abdurrahim Balta: uh admin see everything and every progress I just made
 Greg Birdthistle: Yes.
 Abdurrahim Balta: the just uh desk research step that's why it's not complete everything
- 
- 
+
 00:05:01
- 
+
 Greg Birdthistle: Yeah.
 Abdurrahim Balta: and admin dashboard actually uh some workflow description recent projects and how much done
 Greg Birdthistle: Yeah.
@@ -81,10 +78,9 @@ Greg Birdthistle: Yeah.
 Abdurrahim Balta: now because uh I can see every data for the AI. I can't connect every data now just see the uh uh bird name or uh motor names. it's motor area but every each information but today I can connect
 Greg Birdthistle: Okay.
 Abdurrahim Balta: the AI and uh all information and suffering uh let me think maybe okay now this is our area somewhere.
- 
- 
+
 00:07:22
- 
+
 Abdurrahim Balta: Okay, hit this site.
 Greg Birdthistle: Yeah.
 Abdurrahim Balta: Next, next. Okay, now this test is good. We create insights. Wait a
@@ -96,14 +92,13 @@ Greg Birdthistle: Okay. I was just asking what's actually happening here. So thi
 Abdurrahim Balta: Ah okay. Firstly we see the uh you know it's this mapping and we select uh everything then we uh collect the getric section
 Greg Birdthistle: Yeah.
 Abdurrahim Balta: and something uh it's necessary for us and something is not necessary. uh we see for the
-Greg Birdthistle: f***.
+Greg Birdthistle: f\*\*\*.
 Abdurrahim Balta: searching and seeing it's like uh maybe the 12 pins is not
 Greg Birdthistle: Yes.
 Abdurrahim Balta: important for us and we see that and we save
- 
- 
+
 00:08:52
- 
+
 Greg Birdthistle: Yeah.
 Abdurrahim Balta: it. Uh maybe okay
 Greg Birdthistle: There's one uh piece here. So,
@@ -118,10 +113,9 @@ Greg Birdthistle: Okay.
 Abdurrahim Balta: But I remember it's it's uh
 Greg Birdthistle: Okay.
 Abdurrahim Balta: all of them it's suitable for the uh
- 
- 
+
 00:11:11
- 
+
 Greg Birdthistle: Okay. Yeah.
 Abdurrahim Balta: PRD.
 Greg Birdthistle: Yeah. This Okay. And I I just asking if if this is feasible here. So uh once the uh assessor has identified the boundary um that the DULRA
@@ -137,10 +131,9 @@ Abdurrahim Balta: Just in
 Greg Birdthistle: Yeah. It's it's like if if you think about it,
 Abdurrahim Balta: time.
 Greg Birdthistle: you're going out with the boundary information and seeing what comes back. However, if we know facts uh such as uh this so um uh let me just where is it? I have too many bloody things open here. Let me just share I'm going to just share my screen.
- 
- 
+
 00:12:22
- 
+
 Greg Birdthistle: Okay.
 Abdurrahim Balta: Okay.
 Greg Birdthistle: So here on the draft doc uh so
@@ -158,10 +151,9 @@ Abdurrahim Balta: Yes.
 Greg Birdthistle: what's available here it's a C CSV file and if I just share that with you
 Abdurrahim Balta: Mhm.
 Greg Birdthistle: Um, okay. Hold on.
- 
- 
+
 00:13:57
- 
+
 Greg Birdthistle: Can you see that? That's this data. Okay. So it pro it's it's a protected species within an area and it
 Abdurrahim Balta: Mhm.
 Greg Birdthistle: uses this grid reference. So it's more can we convert the boundary data to grid reference or something that's in this
@@ -169,10 +161,9 @@ Abdurrahim Balta: Okay.
 Greg Birdthistle: file to do a lookup and be able to enhance the AI search with this data. So again, uh that was what you have there is letter Kenny I think or um it's Kamara hallway um you know there's certain information here probably around that area. So if if we can uh do a a lookup on this file before and take whatever uh say um you know the prompt to go out well in this area there's protected species pull back some information about this protected species to help the ecologist as the assessor with their with their evaluation.
 Abdurrahim Balta: Okay. Uh we we could make a similar things actually but it's not same. Can you uh share this documents for
 Greg Birdthistle: Yeah.
- 
- 
+
 00:15:23
- 
+
 Abdurrahim Balta: me?
 Greg Birdthistle: Uh so just uh I could share this. Yeah. To share that uh C CSV is it?
 Abdurrahim Balta: Yes,
@@ -191,10 +182,9 @@ Abdurrahim Balta: we exported with CSV but we are not uh at the some AI informat
 Greg Birdthistle: Yeah. So if I if what what we'd be looking at here is the first step here after the
 Abdurrahim Balta: but
 Greg Birdthistle: assessor has put in the boundary information you know the drawn the map let's say or uploaded a uh a sharp file or gojson uh then uh you know they press next and then uh the uh application would take that boundary data convert it to grid reference the grid reference would be able to identify by uh you know a um relevant data on that CSV
- 
- 
+
 00:17:03
- 
+
 Abdurrahim Balta: Uh-huh.
 Greg Birdthistle: file and then say okay these protected species are found within this area enhance the lookup the a AI um lookup for this There
 Abdurrahim Balta: Okay, I
@@ -207,10 +197,9 @@ Abdurrahim Balta: uh click like the spa data and when you click it you see the s
 Greg Birdthistle: Yes. And this would enhance the look as well.
 Abdurrahim Balta: See that
 Greg Birdthistle: So if you think about it, if there's data here, like if if you go out searching with very little data, you get back that minimal. How about if you go out with lots of different um you know components you get richer data back. So that's kind of what we want here is that ultimately we want to enhance that what data can we enhance within the system easily before going out to the AI because basically you know if you think about it it's it's like a good prompt you know you give a very good prompt you get good back results if you give not a great
- 
- 
+
 00:19:15
- 
+
 Abdurrahim Balta: Yeah.
 Greg Birdthistle: pro prompt you're not going to get back good results
 Abdurrahim Balta: Yes, I see. Okay.
@@ -227,10 +216,9 @@ Abdurrahim Balta: Uh it's better you I also uh ask you can you share any uh
 Greg Birdthistle: Um
 Abdurrahim Balta: example shape file document because I tested the uh gojson it's work but I don't have any shape file and I couldn't
 Greg Birdthistle: okay. So there I just shared it with you and there is h what I'll do actually I wonder is it better just uh so here on this so all these files have
- 
- 
+
 00:20:44
- 
+
 Abdurrahim Balta: It's shaped
 Greg Birdthistle: uh yeah so here I just sent you this one here if I click into that I get a zip
 Abdurrahim Balta: by
@@ -253,8 +241,7 @@ Abdurrahim Balta: just message me then I then I
 Greg Birdthistle: Okay. Perfect.
 Abdurrahim Balta: fix it.
 Greg Birdthistle: Okay. Okay. Excellent. Okay.
- 
- 
+
 Transcription ended after 00:22:38
 
 This editable transcript was computer generated and might contain errors. People can also change the text after it was created.

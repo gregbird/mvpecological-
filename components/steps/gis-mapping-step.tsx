@@ -39,6 +39,9 @@ import {
 import type { Project, WorkflowStep } from '@/types/database'
 import { useProjectContext } from '@/contexts/project-context'
 
+// Import MapStyle type
+import type { MapStyle } from '@/components/maps/project-map-with-draw'
+
 // Dynamic import for map
 const ProjectMapWithDraw = dynamic(
   () => import('@/components/maps/project-map-with-draw').then((mod) => mod.ProjectMapWithDraw),
@@ -219,6 +222,8 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
   // Map view state (persists between wizard steps)
   const [mapCenter, setMapCenter] = React.useState<[number, number] | undefined>(undefined)
   const [mapZoom, setMapZoom] = React.useState<number | undefined>(undefined)
+  // Base map style state (persists between wizard steps - fixes satellite->streets bug)
+  const [baseMapStyle, setBaseMapStyle] = React.useState<MapStyle>('streets')
 
   const handleViewChange = React.useCallback((center: [number, number], zoom: number) => {
     setMapCenter(center)
@@ -504,6 +509,15 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
     if (currentStep === 'boundary' && !boundary) {
       return
     }
+    // Auto-enable default data layers when entering the Layers step
+    if (currentStep === 'buffers') {
+      const defaultLayers = getDefaultVisibleLayers()
+      // Only set if user hasn't already configured layers
+      if (visibleLayers.length === 0) {
+        setVisibleLayers(defaultLayers)
+        setHasUnsavedChanges(true)
+      }
+    }
     if (canGoNext) setCurrentStep(WIZARD_STEPS[currentStepIndex + 1].id)
   }
 
@@ -535,6 +549,8 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
             editable={false}
             showLayersControl={true}
             visibleLayers={visibleLayers}
+            baseMapStyle={baseMapStyle}
+            onBaseMapStyleChange={setBaseMapStyle}
           />
         </div>
 
@@ -844,6 +860,8 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
               editable={!isComplete}
               showLayersControl={true}
               visibleLayers={[]}
+              baseMapStyle={baseMapStyle}
+              onBaseMapStyleChange={setBaseMapStyle}
             />
 
             {/* Boundary info overlay */}
@@ -887,6 +905,8 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                 editable={false}
                 showLayersControl={true}
                 visibleLayers={[]}
+                baseMapStyle={baseMapStyle}
+                onBaseMapStyleChange={setBaseMapStyle}
               />
             </div>
 
@@ -1081,57 +1101,182 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                 editable={false}
                 showLayersControl={true}
                 visibleLayers={visibleLayers}
+                baseMapStyle={baseMapStyle}
+                onBaseMapStyleChange={setBaseMapStyle}
               />
             </div>
 
-            {/* Layer selection panel */}
-            <div className="border-border w-80 overflow-y-auto border-l p-6">
-              <h3 className="mb-2 text-lg font-semibold">Data Layers</h3>
-              <p className="text-muted-foreground mb-6 text-sm">
-                Choose which datasets to display on the map
-              </p>
+            {/* Enhanced Layer selection panel */}
+            <div className="border-border flex w-96 flex-col border-l bg-white">
+              {/* Header */}
+              <div className="border-b p-4">
+                <h3 className="text-lg font-semibold">Data Layers</h3>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  Select datasets to display and analyze within your buffer zone
+                </p>
+                {/* Summary badge */}
+                <div className="mt-3 flex items-center gap-2">
+                  <Badge variant="secondary" className="text-xs">
+                    {visibleLayers.length} layer{visibleLayers.length !== 1 ? 's' : ''} active
+                  </Badge>
+                  {enabledBuffers.length > 0 && (
+                    <Badge variant="outline" className="text-xs">
+                      Search radius: {Math.max(...enabledBuffers)} km
+                    </Badge>
+                  )}
+                </div>
+              </div>
 
-              <div className="space-y-6">
-                {DATASET_GROUPS.map((group) => (
-                  <div key={group.id}>
-                    <div className="mb-2 flex items-center gap-2">
-                      <group.icon className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm font-medium">{group.label}</span>
-                    </div>
-                    <div className="space-y-1">
-                      {group.layers.map((layer) => {
-                        const isEnabled = visibleLayers.includes(layer.id)
+              {/* Layer groups - scrollable */}
+              <div className="flex-1 overflow-y-auto p-4">
+                <div className="space-y-4">
+                  {DATASET_GROUPS.map((group) => {
+                    const groupLayerIds = group.layers.map((l) => l.id)
+                    const activeInGroup = visibleLayers.filter((id) => groupLayerIds.includes(id))
+                    const allSelected = activeInGroup.length === group.layers.length
+                    const someSelected = activeInGroup.length > 0 && !allSelected
 
-                        return (
+                    return (
+                      <div key={group.id} className="rounded-lg border">
+                        {/* Group header */}
+                        <div className="flex items-center justify-between border-b bg-gray-50/50 p-3">
+                          <div className="flex items-center gap-2">
+                            <group.icon className="h-4 w-4 text-gray-600" />
+                            <span className="font-medium">{group.label}</span>
+                            <Badge variant="secondary" className="text-[10px]">
+                              {activeInGroup.length}/{group.layers.length}
+                            </Badge>
+                          </div>
                           <button
-                            key={layer.id}
-                            onClick={() => handleLayerToggle(layer.id)}
-                            className={cn(
-                              'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-all',
-                              isEnabled ? 'bg-emerald-50 text-emerald-700' : 'hover:bg-gray-100'
-                            )}
+                            onClick={() => {
+                              if (allSelected) {
+                                // Deselect all in group
+                                setVisibleLayers((prev) =>
+                                  prev.filter((id) => !groupLayerIds.includes(id))
+                                )
+                              } else {
+                                // Select all in group
+                                setVisibleLayers((prev) => [
+                                  ...prev.filter((id) => !groupLayerIds.includes(id)),
+                                  ...groupLayerIds,
+                                ])
+                              }
+                              setHasUnsavedChanges(true)
+                            }}
+                            className="text-muted-foreground hover:text-foreground text-xs underline"
                           >
-                            <div
-                              className={cn(
-                                'flex h-4 w-4 items-center justify-center rounded border-2',
-                                isEnabled ? 'border-emerald-500 bg-emerald-500' : 'border-gray-300'
-                              )}
-                            >
-                              {isEnabled && <Check className="h-3 w-3 text-white" />}
-                            </div>
-                            {layer.color && (
-                              <span
-                                className="h-3 w-3 rounded-full"
-                                style={{ backgroundColor: layer.color }}
-                              />
-                            )}
-                            <span>{layer.label}</span>
+                            {allSelected ? 'Clear all' : 'Select all'}
                           </button>
-                        )
-                      })}
-                    </div>
+                        </div>
+
+                        {/* Group description */}
+                        <div className="border-b bg-gray-50/30 px-3 py-2">
+                          <p className="text-muted-foreground text-xs">{group.description}</p>
+                        </div>
+
+                        {/* Layers list */}
+                        <div className="divide-y">
+                          {group.layers.map((layer) => {
+                            const isEnabled = visibleLayers.includes(layer.id)
+
+                            return (
+                              <div
+                                key={layer.id}
+                                className={cn(
+                                  'p-3 transition-colors',
+                                  isEnabled && 'bg-emerald-50/50'
+                                )}
+                              >
+                                <button
+                                  onClick={() => {
+                                    handleLayerToggle(layer.id)
+                                    setHasUnsavedChanges(true)
+                                  }}
+                                  className="flex w-full items-start gap-3 text-left"
+                                >
+                                  {/* Checkbox */}
+                                  <div
+                                    className={cn(
+                                      'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-colors',
+                                      isEnabled
+                                        ? 'border-emerald-500 bg-emerald-500'
+                                        : 'border-gray-300'
+                                    )}
+                                  >
+                                    {isEnabled && <Check className="h-3 w-3 text-white" />}
+                                  </div>
+
+                                  {/* Layer info */}
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                      {layer.color && (
+                                        <span
+                                          className="h-2.5 w-2.5 rounded-full"
+                                          style={{ backgroundColor: layer.color }}
+                                        />
+                                      )}
+                                      <span
+                                        className={cn(
+                                          'text-sm font-medium',
+                                          isEnabled && 'text-emerald-700'
+                                        )}
+                                      >
+                                        {layer.label}
+                                      </span>
+                                    </div>
+                                    <p className="text-muted-foreground mt-0.5 text-xs leading-relaxed">
+                                      {layer.description}
+                                    </p>
+                                  </div>
+                                </button>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Info note */}
+                <div className="mt-4 rounded-lg bg-blue-50 p-3">
+                  <p className="text-xs text-blue-700">
+                    <strong>Note:</strong> Data layers are queried within your selected buffer zone
+                    (
+                    {enabledBuffers.length > 0
+                      ? `up to ${Math.max(...enabledBuffers)} km`
+                      : 'no buffer set'}
+                    ). Results will be available for review in the Data Gathering step.
+                  </p>
+                </div>
+              </div>
+
+              {/* Footer with actions */}
+              <div className="border-t bg-gray-50 p-4">
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => {
+                      setVisibleLayers(getDefaultVisibleLayers())
+                      setHasUnsavedChanges(true)
+                    }}
+                    className="text-muted-foreground hover:text-foreground text-sm underline"
+                  >
+                    Reset to defaults
+                  </button>
+                  <div className="flex items-center gap-2 text-sm">
+                    {hasUnsavedChanges ? (
+                      <>
+                        <div className="h-2 w-2 rounded-full bg-amber-500" />
+                        <span className="text-amber-600">Unsaved</span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                        <span className="text-emerald-600">Saved</span>
+                      </>
+                    )}
                   </div>
-                ))}
+                </div>
               </div>
             </div>
           </div>
@@ -1153,6 +1298,8 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                 editable={false}
                 showLayersControl={true}
                 visibleLayers={visibleLayers}
+                baseMapStyle={baseMapStyle}
+                onBaseMapStyleChange={setBaseMapStyle}
               />
             </div>
 

@@ -137,7 +137,15 @@ function MapComponent({
   onMapClick?: () => void
   mapRef: React.MutableRefObject<LeafletMap | null>
 }) {
-  const { MapContainer, TileLayer, GeoJSON, CircleMarker, Popup, useMap, ZoomControl } = require('react-leaflet')
+  const {
+    MapContainer,
+    TileLayer,
+    GeoJSON,
+    CircleMarker,
+    Popup,
+    useMap,
+    ZoomControl,
+  } = require('react-leaflet')
 
   const boundaryLayer = layers.find((l) => l.id === 'boundary')
   const habitatLayer = layers.find((l) => l.id === 'habitats')
@@ -902,7 +910,7 @@ export function ProjectMap({
 
       {/* Map controls overlay */}
       {showControls && (
-        <div className="absolute top-4 left-4 z-[9999] flex flex-col gap-2 pointer-events-auto">
+        <div className="pointer-events-auto absolute top-4 left-4 z-[9999] flex flex-col gap-2">
           {/* Style selector */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

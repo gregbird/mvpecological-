@@ -401,7 +401,7 @@ export function FindingsList({
                   {/* Deep Research button for designated sites */}
                   {finding.dataType === 'designated_site' && onDeepResearch && (
                     <button
-                      className="flex items-center gap-1 text-purple-600 hover:underline font-medium"
+                      className="flex items-center gap-1 font-medium text-purple-600 hover:underline"
                       onClick={() => onDeepResearch(finding)}
                     >
                       <FlaskConical className="h-3 w-3" />

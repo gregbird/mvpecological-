@@ -68,7 +68,9 @@ export async function findIntersectingSSCO(
   // Apply buffer if specified
   let searchArea = boundary
   if (bufferKm > 0) {
-    searchArea = turf.buffer(boundary, bufferKm, { units: 'kilometers' }) as GeoJSON.Feature<GeoJSON.Polygon>
+    searchArea = turf.buffer(boundary, bufferKm, {
+      units: 'kilometers',
+    }) as GeoJSON.Feature<GeoJSON.Polygon>
   }
 
   const results = new Map<string, SSCOResult>()
@@ -95,7 +97,7 @@ export async function findIntersectingSSCO(
         // Normalize and add habitats
         const normalizedCodes = normalizeHabitatCode(props.habitatCode)
         for (const habitatCode of normalizedCodes) {
-          const habitatExists = result.habitats.some(h => h.habitatCode === habitatCode)
+          const habitatExists = result.habitats.some((h) => h.habitatCode === habitatCode)
           if (!habitatExists) {
             result.habitats.push({
               siteCode: props.siteCode,
@@ -196,9 +198,7 @@ function normalizeHabitatCode(code: string): string[] {
   const parts = cleaned.split(/\s*\/\s*/)
 
   // Clean each part and filter valid 4-digit codes
-  return parts
-    .map(p => p.trim())
-    .filter(p => /^\d{4}$/.test(p))
+  return parts.map((p) => p.trim()).filter((p) => /^\d{4}$/.test(p))
 }
 
 /**
@@ -259,7 +259,9 @@ export function formatSSCOForPrompt(results: SSCOResult[]): string {
     lines.push('')
   }
 
-  lines.push('These sites have legally binding conservation objectives. Development proposals must assess potential impacts on these habitats.')
+  lines.push(
+    'These sites have legally binding conservation objectives. Development proposals must assess potential impacts on these habitats.'
+  )
 
   return lines.join('\n')
 }

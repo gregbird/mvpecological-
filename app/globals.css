@@ -115,3 +115,30 @@ body {
   background-color: var(--color-background);
   color: var(--color-foreground);
 }
+
+/* Leaflet Draw toolbar action buttons positioning */
+/* Position Save/Cancel/Clear All buttons to the left of toolbar buttons */
+.leaflet-draw-actions {
+  top: 0 !important;
+  right: 100% !important;
+  left: auto !important;
+  margin-right: 4px !important;
+  display: flex !important;
+  flex-direction: row-reverse !important;
+}
+
+.leaflet-draw-actions li {
+  display: inline-block !important;
+}
+
+.leaflet-draw-actions li:first-child a {
+  border-radius: 0 4px 4px 0 !important;
+}
+
+.leaflet-draw-actions li:last-child a {
+  border-radius: 4px 0 0 4px !important;
+}
+
+.leaflet-draw-actions li:only-child a {
+  border-radius: 4px !important;
+}
