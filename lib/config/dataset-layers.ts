@@ -1,4 +1,4 @@
-import { LucideIcon, Shield, Droplets } from 'lucide-react'
+import { LucideIcon, Shield, Droplets, Mountain, Layers } from 'lucide-react'
 
 export interface DatasetLayer {
   id: string
@@ -29,6 +29,12 @@ const EPA_BASE_URL = 'https://gis.epa.ie/geoserver'
 
 // DAFM WMS base URL
 const DAFM_BASE_URL = 'https://gis.agriculture.gov.ie/geoserver'
+
+// GSI (Geological Survey Ireland) WMS base URL
+const GSI_BASE_URL = 'https://gis.gsi.ie/server/services'
+
+// Teagasc (Irish Soil Information System) WMS base URL
+const TEAGASC_BASE_URL = 'https://gis.teagasc.ie/arcgis/services'
 
 export const DATASET_GROUPS: DatasetGroup[] = [
   {
@@ -62,7 +68,7 @@ export const DATASET_GROUPS: DatasetGroup[] = [
         description: 'Natural Heritage Areas - Nationally designated nature conservation sites',
         url: `${NPWS_BASE_URL}/2`, // Layer 2: NHA
         type: 'arcgis',
-        defaultVisible: false,
+        defaultVisible: true,
         color: '#8b5cf6',
       },
       {
@@ -71,7 +77,7 @@ export const DATASET_GROUPS: DatasetGroup[] = [
         description: 'Proposed Natural Heritage Areas - Proposed sites of conservation interest',
         url: `${NPWS_BASE_URL}/1`, // Layer 1: pNHA
         type: 'arcgis',
-        defaultVisible: false,
+        defaultVisible: true,
         color: '#a855f7',
       },
     ],
@@ -125,9 +131,92 @@ export const DATASET_GROUPS: DatasetGroup[] = [
       },
     ],
   },
-  // DAFM datasets removed - no public WMS endpoint available
-  // Data available via https://opendata.agriculture.gov.ie/ but requires download
-  // Boundaries (Counties, Townlands) are available via the Base Map dropdown, not here
+  {
+    id: 'geology',
+    label: 'Geology & Soils',
+    description: 'Geological Survey Ireland and Teagasc soil data',
+    icon: Layers,
+    color: 'amber',
+    layers: [
+      {
+        id: 'soil_types',
+        label: 'Soil Types',
+        description: 'Irish Soil Information System - soil associations and types',
+        url: `${TEAGASC_BASE_URL}/Soils/SoilsWMS/MapServer/WMSServer`,
+        type: 'wms',
+        defaultVisible: false,
+        color: '#d97706',
+        wmsLayer: '0', // Soil Associations layer
+      },
+      {
+        id: 'soil_drainage',
+        label: 'Soil Drainage',
+        description: 'Soil drainage classification (well-drained to poorly-drained)',
+        url: `${TEAGASC_BASE_URL}/Soils/SoilsWMS/MapServer/WMSServer`,
+        type: 'wms',
+        defaultVisible: false,
+        color: '#92400e',
+        wmsLayer: '1', // Soil Drainage layer
+      },
+      {
+        id: 'bedrock_geology',
+        label: 'Bedrock Geology',
+        description: 'Bedrock geological formations and rock types',
+        url: `${GSI_BASE_URL}/Bedrock/Bedrock100k/MapServer/WMSServer`,
+        type: 'wms',
+        defaultVisible: false,
+        color: '#78716c',
+        wmsLayer: '0',
+      },
+      {
+        id: 'quaternary_geology',
+        label: 'Quaternary Deposits',
+        description: 'Superficial deposits (glacial till, alluvium, peat)',
+        url: `${GSI_BASE_URL}/Quaternary/Quaternary100k/MapServer/WMSServer`,
+        type: 'wms',
+        defaultVisible: false,
+        color: '#a8a29e',
+        wmsLayer: '0',
+      },
+    ],
+  },
+  {
+    id: 'terrain',
+    label: 'Terrain & Elevation',
+    description: 'Topographic and elevation data',
+    icon: Mountain,
+    color: 'slate',
+    layers: [
+      {
+        id: 'elevation_contours',
+        label: 'Elevation Contours',
+        description: 'Topographic contour lines at 10m intervals',
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer',
+        type: 'arcgis',
+        defaultVisible: false,
+        color: '#64748b',
+      },
+      {
+        id: 'hillshade',
+        label: 'Hillshade',
+        description: 'Shaded relief showing terrain and landforms',
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer',
+        type: 'arcgis',
+        defaultVisible: false,
+        color: '#475569',
+      },
+      {
+        id: 'slope',
+        label: 'Slope Analysis',
+        description: 'Terrain slope gradient classification',
+        url: `${GSI_BASE_URL}/Geohazards/Landslides/MapServer/WMSServer`,
+        type: 'wms',
+        defaultVisible: false,
+        color: '#334155',
+        wmsLayer: '2', // Slope layer
+      },
+    ],
+  },
 ]
 
 // Helper functions
@@ -183,6 +272,20 @@ export function getGroupColorClasses(groupId: string): {
         text: 'text-amber-700 dark:text-amber-400',
         border: 'border-amber-200 dark:border-amber-800',
         bgLight: 'bg-amber-50 dark:bg-amber-950/30',
+      }
+    case 'geology':
+      return {
+        bg: 'bg-amber-600',
+        text: 'text-amber-700 dark:text-amber-400',
+        border: 'border-amber-200 dark:border-amber-800',
+        bgLight: 'bg-amber-50 dark:bg-amber-950/30',
+      }
+    case 'terrain':
+      return {
+        bg: 'bg-slate-500',
+        text: 'text-slate-700 dark:text-slate-400',
+        border: 'border-slate-200 dark:border-slate-800',
+        bgLight: 'bg-slate-50 dark:bg-slate-950/30',
       }
     default:
       return {

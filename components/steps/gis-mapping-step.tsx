@@ -12,9 +12,15 @@ import {
   Clock,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Circle,
   Layers,
   Save,
+  Eye,
+  EyeOff,
+  ExternalLink,
+  X,
+  Ban,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
@@ -25,7 +31,26 @@ import { useToast } from '@/hooks/use-toast'
 import { useUpdateProjectBoundary, useCompleteWorkflowStep } from '@/hooks/use-project-data'
 import { calculateAreaHectares } from '@/lib/supabase/queries/habitats'
 import { GISConnectionModal, type GISSourceType } from '@/components/gis'
-import { getDefaultVisibleLayers, DATASET_GROUPS } from '@/lib/config/dataset-layers'
+import {
+  getDefaultVisibleLayers,
+  DATASET_GROUPS,
+  type DatasetLayer,
+} from '@/lib/config/dataset-layers'
+import {
+  queryDesignatedSites,
+  type NPWSDesignatedSite,
+  type DesignatedSiteType,
+} from '@/lib/external-apis/npws'
+import {
+  searchRivers,
+  searchLakes,
+  searchCatchments,
+  type EPARiver,
+  type EPALake,
+  type EPACatchment,
+} from '@/lib/external-apis/epa'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   parseShapefile,
   isShapefileType,
@@ -224,6 +249,37 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
   const [mapZoom, setMapZoom] = React.useState<number | undefined>(undefined)
   // Base map style state (persists between wizard steps - fixes satellite->streets bug)
   const [baseMapStyle, setBaseMapStyle] = React.useState<MapStyle>('streets')
+  // Fly to location state - for animating to clicked items
+  const [flyToLocation, setFlyToLocation] = React.useState<
+    | {
+        center: [number, number]
+        zoom: number
+        key: string
+      }
+    | undefined
+  >(undefined)
+
+  // Layer data state - stores fetched results for each layer
+  const [layerData, setLayerData] = React.useState<{
+    npwsSites: NPWSDesignatedSite[]
+    rivers: EPARiver[]
+    lakes: EPALake[]
+    catchments: EPACatchment[]
+  }>({
+    npwsSites: [],
+    rivers: [],
+    lakes: [],
+    catchments: [],
+  })
+  const [layerDataLoading, setLayerDataLoading] = React.useState<Record<string, boolean>>({})
+  const [expandedLayers, setExpandedLayers] = React.useState<Set<string>>(new Set())
+  // Track ignored and deleted items by their unique ID
+  const [ignoredItems, setIgnoredItems] = React.useState<Set<string>>(new Set())
+  const [deletedItems, setDeletedItems] = React.useState<Set<string>>(new Set())
+  // Track which categories show all items (not just first 5)
+  const [showAllItems, setShowAllItems] = React.useState<Set<string>>(new Set())
+  // Cache flag to prevent re-fetching on every toggle
+  const layerDataFetchedRef = React.useRef(false)
 
   const handleViewChange = React.useCallback((center: [number, number], zoom: number) => {
     setMapCenter(center)
@@ -290,6 +346,97 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
 
     const timeoutId = setTimeout(fetchLocation, 500)
     return () => clearTimeout(timeoutId)
+  }, [boundary])
+
+  // Fetch layer data when entering layers step - fetches ALL data once and caches it
+  const fetchLayerData = React.useCallback(async () => {
+    if (!boundary) return
+
+    // Don't refetch if already fetched
+    if (layerDataFetchedRef.current) return
+    layerDataFetchedRef.current = true
+
+    const coords = boundary.geometry.coordinates[0]
+    const lats = coords.map((c) => c[1])
+    const lngs = coords.map((c) => c[0])
+    const maxBuffer = enabledBuffers.length > 0 ? Math.max(...enabledBuffers) : 5
+
+    // Calculate bbox with buffer (approximate)
+    const bufferDegrees = maxBuffer / 111 // ~111km per degree
+    const bbox = {
+      minLat: Math.min(...lats) - bufferDegrees,
+      maxLat: Math.max(...lats) + bufferDegrees,
+      minLng: Math.min(...lngs) - bufferDegrees,
+      maxLng: Math.max(...lngs) + bufferDegrees,
+    }
+
+    // Fetch ALL data types in parallel (not conditional on visibleLayers)
+    // This way data is cached and toggles don't trigger refetches
+
+    // Fetch NPWS sites (all types)
+    setLayerDataLoading((prev) => ({ ...prev, npws: true }))
+    try {
+      const siteTypes: DesignatedSiteType[] = ['SAC', 'SPA', 'NHA', 'pNHA']
+      const sites = await queryDesignatedSites({
+        bbox: {
+          minX: bbox.minLng,
+          minY: bbox.minLat,
+          maxX: bbox.maxLng,
+          maxY: bbox.maxLat,
+        },
+        siteTypes,
+      })
+      setLayerData((prev) => ({ ...prev, npwsSites: sites }))
+    } catch (error) {
+      console.error('Error fetching NPWS sites:', error)
+    } finally {
+      setLayerDataLoading((prev) => ({ ...prev, npws: false }))
+    }
+
+    // Fetch Rivers
+    setLayerDataLoading((prev) => ({ ...prev, rivers: true }))
+    try {
+      const rivers = await searchRivers({ bbox, limit: 100 })
+      setLayerData((prev) => ({ ...prev, rivers }))
+    } catch (error) {
+      console.error('Error fetching rivers:', error)
+    } finally {
+      setLayerDataLoading((prev) => ({ ...prev, rivers: false }))
+    }
+
+    // Fetch Lakes
+    setLayerDataLoading((prev) => ({ ...prev, lakes: true }))
+    try {
+      const lakes = await searchLakes({ bbox, limit: 100 })
+      setLayerData((prev) => ({ ...prev, lakes }))
+    } catch (error) {
+      console.error('Error fetching lakes:', error)
+    } finally {
+      setLayerDataLoading((prev) => ({ ...prev, lakes: false }))
+    }
+
+    // Fetch Catchments
+    setLayerDataLoading((prev) => ({ ...prev, catchments: true }))
+    try {
+      const catchments = await searchCatchments({ bbox, limit: 50 })
+      setLayerData((prev) => ({ ...prev, catchments }))
+    } catch (error) {
+      console.error('Error fetching catchments:', error)
+    } finally {
+      setLayerDataLoading((prev) => ({ ...prev, catchments: false }))
+    }
+  }, [boundary, enabledBuffers])
+
+  // Trigger data fetch when layers step is active (only once)
+  React.useEffect(() => {
+    if (currentStep === 'layers' && boundary && !layerDataFetchedRef.current) {
+      fetchLayerData()
+    }
+  }, [currentStep, boundary, fetchLayerData])
+
+  // Reset cache when boundary changes
+  React.useEffect(() => {
+    layerDataFetchedRef.current = false
   }, [boundary])
 
   // Calculate boundary info
@@ -551,6 +698,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
             visibleLayers={visibleLayers}
             baseMapStyle={baseMapStyle}
             onBaseMapStyleChange={setBaseMapStyle}
+            flyToLocation={flyToLocation}
           />
         </div>
 
@@ -862,6 +1010,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
               visibleLayers={[]}
               baseMapStyle={baseMapStyle}
               onBaseMapStyleChange={setBaseMapStyle}
+              flyToLocation={flyToLocation}
             />
 
             {/* Boundary info overlay */}
@@ -907,6 +1056,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                 visibleLayers={[]}
                 baseMapStyle={baseMapStyle}
                 onBaseMapStyleChange={setBaseMapStyle}
+                flyToLocation={flyToLocation}
               />
             </div>
 
@@ -1103,180 +1253,1003 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                 visibleLayers={visibleLayers}
                 baseMapStyle={baseMapStyle}
                 onBaseMapStyleChange={setBaseMapStyle}
+                ignoredItems={ignoredItems}
+                deletedItems={deletedItems}
+                npwsSiteCount={(() => {
+                  // Map layer IDs to SITE_TYPE values (pNHA has special casing)
+                  const layerToSiteType: Record<string, string> = {
+                    sac: 'SAC',
+                    spa: 'SPA',
+                    nha: 'NHA',
+                    pnha: 'pNHA',
+                  }
+                  const selectedTypes = ['sac', 'spa', 'nha', 'pnha']
+                    .filter((l) => visibleLayers.includes(l))
+                    .map((l) => layerToSiteType[l])
+                  return layerData.npwsSites.filter(
+                    (site) =>
+                      selectedTypes.includes(site.SITE_TYPE || '') &&
+                      !deletedItems.has(`npws-${site.SITE_TYPE}-${site.SITECODE}`) &&
+                      !ignoredItems.has(`npws-${site.SITE_TYPE}-${site.SITECODE}`)
+                  ).length
+                })()}
+                flyToLocation={flyToLocation}
               />
             </div>
 
-            {/* Enhanced Layer selection panel */}
-            <div className="border-border flex w-96 flex-col border-l bg-white">
-              {/* Header */}
-              <div className="border-b p-4">
-                <h3 className="text-lg font-semibold">Data Layers</h3>
-                <p className="text-muted-foreground mt-1 text-sm">
-                  Select datasets to display and analyze within your buffer zone
-                </p>
-                {/* Summary badge */}
-                <div className="mt-3 flex items-center gap-2">
-                  <Badge variant="secondary" className="text-xs">
-                    {visibleLayers.length} layer{visibleLayers.length !== 1 ? 's' : ''} active
+            {/* Compact Layer selection panel with data preview */}
+            <div className="border-border flex w-80 flex-col border-l bg-white">
+              {/* Header - more compact */}
+              <div className="border-b px-3 py-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold">Data Layers</h3>
+                  <Badge variant="outline" className="text-[10px]">
+                    {enabledBuffers.length > 0 ? `${Math.max(...enabledBuffers)} km` : '5 km'}
                   </Badge>
-                  {enabledBuffers.length > 0 && (
-                    <Badge variant="outline" className="text-xs">
-                      Search radius: {Math.max(...enabledBuffers)} km
-                    </Badge>
-                  )}
                 </div>
+                <p className="text-muted-foreground text-xs">
+                  {visibleLayers.length} active · Toggle to view data
+                </p>
               </div>
 
-              {/* Layer groups - scrollable */}
-              <div className="flex-1 overflow-y-auto p-4">
-                <div className="space-y-4">
-                  {DATASET_GROUPS.map((group) => {
-                    const groupLayerIds = group.layers.map((l) => l.id)
-                    const activeInGroup = visibleLayers.filter((id) => groupLayerIds.includes(id))
-                    const allSelected = activeInGroup.length === group.layers.length
-                    const someSelected = activeInGroup.length > 0 && !allSelected
-
-                    return (
-                      <div key={group.id} className="rounded-lg border">
-                        {/* Group header */}
-                        <div className="flex items-center justify-between border-b bg-gray-50/50 p-3">
+              {/* Layer list with collapsible data */}
+              <ScrollArea className="flex-1">
+                <div className="p-2">
+                  {/* NPWS Designated Sites */}
+                  <div className="mb-2 rounded-lg border">
+                    <Collapsible
+                      open={expandedLayers.has('npws')}
+                      onOpenChange={(open) => {
+                        setExpandedLayers((prev) => {
+                          const next = new Set(prev)
+                          if (open) next.add('npws')
+                          else next.delete('npws')
+                          return next
+                        })
+                      }}
+                    >
+                      <CollapsibleTrigger asChild>
+                        <div className="flex w-full cursor-pointer items-center justify-between p-2 hover:bg-gray-50">
                           <div className="flex items-center gap-2">
-                            <group.icon className="h-4 w-4 text-gray-600" />
-                            <span className="font-medium">{group.label}</span>
-                            <Badge variant="secondary" className="text-[10px]">
-                              {activeInGroup.length}/{group.layers.length}
-                            </Badge>
-                          </div>
-                          <button
-                            onClick={() => {
-                              if (allSelected) {
-                                // Deselect all in group
-                                setVisibleLayers((prev) =>
-                                  prev.filter((id) => !groupLayerIds.includes(id))
+                            <div
+                              role="checkbox"
+                              aria-checked={visibleLayers.some((l) =>
+                                ['sac', 'spa', 'nha', 'pnha'].includes(l)
+                              )}
+                              tabIndex={0}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                const npwsLayers = ['sac', 'spa', 'nha', 'pnha']
+                                const allEnabled = npwsLayers.every((l) =>
+                                  visibleLayers.includes(l)
                                 )
-                              } else {
-                                // Select all in group
-                                setVisibleLayers((prev) => [
-                                  ...prev.filter((id) => !groupLayerIds.includes(id)),
-                                  ...groupLayerIds,
-                                ])
-                              }
-                              setHasUnsavedChanges(true)
-                            }}
-                            className="text-muted-foreground hover:text-foreground text-xs underline"
-                          >
-                            {allSelected ? 'Clear all' : 'Select all'}
-                          </button>
+                                if (allEnabled) {
+                                  setVisibleLayers((prev) =>
+                                    prev.filter((l) => !npwsLayers.includes(l))
+                                  )
+                                } else {
+                                  setVisibleLayers((prev) => [...new Set([...prev, ...npwsLayers])])
+                                }
+                                setHasUnsavedChanges(true)
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  const npwsLayers = ['sac', 'spa', 'nha', 'pnha']
+                                  const allEnabled = npwsLayers.every((l) =>
+                                    visibleLayers.includes(l)
+                                  )
+                                  if (allEnabled) {
+                                    setVisibleLayers((prev) =>
+                                      prev.filter((l) => !npwsLayers.includes(l))
+                                    )
+                                  } else {
+                                    setVisibleLayers((prev) => [
+                                      ...new Set([...prev, ...npwsLayers]),
+                                    ])
+                                  }
+                                  setHasUnsavedChanges(true)
+                                }
+                              }}
+                              className={cn(
+                                'flex h-4 w-4 cursor-pointer items-center justify-center rounded border-2',
+                                visibleLayers.some((l) => ['sac', 'spa', 'nha', 'pnha'].includes(l))
+                                  ? 'border-emerald-500 bg-emerald-500'
+                                  : 'border-gray-300'
+                              )}
+                            >
+                              {visibleLayers.some((l) =>
+                                ['sac', 'spa', 'nha', 'pnha'].includes(l)
+                              ) && <Check className="h-3 w-3 text-white" />}
+                            </div>
+                            <span className="text-sm font-medium">Designated Sites</span>
+                            {layerDataLoading.npws ? (
+                              <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+                            ) : (
+                              <Badge variant="secondary" className="text-[10px]">
+                                {(() => {
+                                  const layerToSiteType: Record<string, string> = {
+                                    sac: 'SAC',
+                                    spa: 'SPA',
+                                    nha: 'NHA',
+                                    pnha: 'pNHA',
+                                  }
+                                  const selectedTypes = ['sac', 'spa', 'nha', 'pnha']
+                                    .filter((l) => visibleLayers.includes(l))
+                                    .map((l) => layerToSiteType[l])
+                                  return layerData.npwsSites.filter(
+                                    (site) =>
+                                      selectedTypes.includes(site.SITE_TYPE || '') &&
+                                      !deletedItems.has(`npws-${site.SITE_TYPE}-${site.SITECODE}`)
+                                  ).length
+                                })()}
+                              </Badge>
+                            )}
+                          </div>
+                          <ChevronDown
+                            className={cn(
+                              'h-4 w-4 text-gray-400 transition-transform',
+                              expandedLayers.has('npws') && 'rotate-180'
+                            )}
+                          />
                         </div>
-
-                        {/* Group description */}
-                        <div className="border-b bg-gray-50/30 px-3 py-2">
-                          <p className="text-muted-foreground text-xs">{group.description}</p>
-                        </div>
-
-                        {/* Layers list */}
-                        <div className="divide-y">
-                          {group.layers.map((layer) => {
-                            const isEnabled = visibleLayers.includes(layer.id)
-
-                            return (
-                              <div
-                                key={layer.id}
-                                className={cn(
-                                  'p-3 transition-colors',
-                                  isEnabled && 'bg-emerald-50/50'
-                                )}
-                              >
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <div className="border-t bg-gray-50/50 p-2">
+                          {/* Layer toggles */}
+                          <div className="mb-2 flex flex-wrap gap-1">
+                            {['sac', 'spa', 'nha', 'pnha'].map((layerId) => {
+                              const layer = DATASET_GROUPS.find(
+                                (g) => g.id === 'npws'
+                              )?.layers.find((l) => l.id === layerId)
+                              const isEnabled = visibleLayers.includes(layerId)
+                              return (
                                 <button
+                                  key={layerId}
                                   onClick={() => {
-                                    handleLayerToggle(layer.id)
+                                    handleLayerToggle(layerId)
                                     setHasUnsavedChanges(true)
                                   }}
-                                  className="flex w-full items-start gap-3 text-left"
+                                  className={cn(
+                                    'flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors',
+                                    isEnabled
+                                      ? 'bg-emerald-100 text-emerald-700'
+                                      : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                  )}
                                 >
-                                  {/* Checkbox */}
-                                  <div
-                                    className={cn(
-                                      'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-colors',
-                                      isEnabled
-                                        ? 'border-emerald-500 bg-emerald-500'
-                                        : 'border-gray-300'
-                                    )}
-                                  >
-                                    {isEnabled && <Check className="h-3 w-3 text-white" />}
-                                  </div>
-
-                                  {/* Layer info */}
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2">
-                                      {layer.color && (
-                                        <span
-                                          className="h-2.5 w-2.5 rounded-full"
-                                          style={{ backgroundColor: layer.color }}
-                                        />
+                                  <span
+                                    className="h-1.5 w-1.5 rounded-full"
+                                    style={{ backgroundColor: layer?.color }}
+                                  />
+                                  {layerId.toUpperCase()}
+                                </button>
+                              )
+                            })}
+                          </div>
+                          {/* Sites list */}
+                          {(() => {
+                            // Filter by selected layer types and exclude deleted items
+                            const layerToSiteType: Record<string, string> = {
+                              sac: 'SAC',
+                              spa: 'SPA',
+                              nha: 'NHA',
+                              pnha: 'pNHA',
+                            }
+                            const selectedTypes = ['sac', 'spa', 'nha', 'pnha']
+                              .filter((l) => visibleLayers.includes(l))
+                              .map((l) => layerToSiteType[l])
+                            const filteredSites = layerData.npwsSites.filter(
+                              (site) =>
+                                selectedTypes.includes(site.SITE_TYPE || '') &&
+                                !deletedItems.has(`npws-${site.SITE_TYPE}-${site.SITECODE}`)
+                            )
+                            const displayCount = 5
+                            const isShowingAll = showAllItems.has('npws')
+                            const sitesToShow = isShowingAll
+                              ? filteredSites
+                              : filteredSites.slice(0, displayCount)
+                            return filteredSites.length > 0 ? (
+                              <div className="max-h-64 space-y-1 overflow-y-auto">
+                                {sitesToShow.map((site, idx) => {
+                                  const siteKey = `npws-${site.SITE_TYPE}-${site.SITECODE}`
+                                  const isIgnored = ignoredItems.has(siteKey)
+                                  return (
+                                    <div
+                                      key={`${site.SITE_TYPE}-${site.SITECODE}-${idx}`}
+                                      onClick={() => {
+                                        // Zoom to site on click
+                                        if (site.geometry) {
+                                          const coords =
+                                            site.geometry.type === 'Polygon'
+                                              ? site.geometry.coordinates[0]
+                                              : site.geometry.type === 'MultiPolygon'
+                                                ? site.geometry.coordinates[0][0]
+                                                : null
+                                          if (coords) {
+                                            const lats = coords.map((c: number[]) => c[1])
+                                            const lngs = coords.map((c: number[]) => c[0])
+                                            const centerLat =
+                                              (Math.min(...lats) + Math.max(...lats)) / 2
+                                            const centerLng =
+                                              (Math.min(...lngs) + Math.max(...lngs)) / 2
+                                            setFlyToLocation({
+                                              center: [centerLat, centerLng],
+                                              zoom: 13,
+                                              key: `${site.SITECODE}-${Date.now()}`,
+                                            })
+                                          }
+                                        }
+                                      }}
+                                      className={cn(
+                                        'group relative flex cursor-pointer items-start gap-2 rounded p-1.5 text-xs transition-colors',
+                                        isIgnored
+                                          ? 'bg-gray-100 opacity-50'
+                                          : 'bg-white hover:bg-gray-100'
                                       )}
+                                    >
                                       <span
+                                        className="mt-0.5 h-2 w-2 shrink-0 rounded-full"
+                                        style={{
+                                          backgroundColor:
+                                            site.SITE_TYPE === 'SAC'
+                                              ? '#10b981'
+                                              : site.SITE_TYPE === 'SPA'
+                                                ? '#3b82f6'
+                                                : site.SITE_TYPE === 'NHA'
+                                                  ? '#8b5cf6'
+                                                  : '#a855f7',
+                                        }}
+                                      />
+                                      <div
                                         className={cn(
-                                          'text-sm font-medium',
-                                          isEnabled && 'text-emerald-700'
+                                          'min-w-0 flex-1',
+                                          isIgnored && 'line-through'
                                         )}
                                       >
-                                        {layer.label}
-                                      </span>
+                                        <p className="truncate font-medium">{site.SITENAME}</p>
+                                        <p className="text-muted-foreground text-[10px]">
+                                          {site.SITE_TYPE} · {site.AREA_HA?.toFixed(0)} ha
+                                        </p>
+                                      </div>
+                                      <div className="absolute top-1 right-1 flex gap-0.5 rounded bg-white/80 p-0.5 opacity-0 shadow-sm transition-opacity group-hover:opacity-100">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            setIgnoredItems((prev) => {
+                                              const next = new Set(prev)
+                                              if (isIgnored) {
+                                                next.delete(siteKey)
+                                              } else {
+                                                next.add(siteKey)
+                                              }
+                                              return next
+                                            })
+                                            setHasUnsavedChanges(true)
+                                          }}
+                                          className={cn(
+                                            'rounded p-1 transition-colors',
+                                            isIgnored
+                                              ? 'bg-amber-100 text-amber-600 hover:bg-amber-200'
+                                              : 'text-gray-400 hover:bg-gray-200 hover:text-amber-600'
+                                          )}
+                                          title={isIgnored ? 'Show on map' : 'Hide from map'}
+                                        >
+                                          {isIgnored ? (
+                                            <Eye className="h-3 w-3" />
+                                          ) : (
+                                            <EyeOff className="h-3 w-3" />
+                                          )}
+                                        </button>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            setDeletedItems((prev) => {
+                                              const next = new Set(prev)
+                                              next.add(siteKey)
+                                              return next
+                                            })
+                                            setHasUnsavedChanges(true)
+                                          }}
+                                          className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-200 hover:text-red-600"
+                                          title="Remove from list"
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </button>
+                                      </div>
                                     </div>
-                                    <p className="text-muted-foreground mt-0.5 text-xs leading-relaxed">
-                                      {layer.description}
-                                    </p>
-                                  </div>
-                                </button>
+                                  )
+                                })}
+                                {filteredSites.length > displayCount && (
+                                  <button
+                                    onClick={() => {
+                                      setShowAllItems((prev) => {
+                                        const next = new Set(prev)
+                                        if (isShowingAll) {
+                                          next.delete('npws')
+                                        } else {
+                                          next.add('npws')
+                                        }
+                                        return next
+                                      })
+                                    }}
+                                    className="text-muted-foreground sticky bottom-0 w-full bg-gray-50/90 py-1 text-center text-[10px] backdrop-blur-sm transition-colors hover:bg-gray-100 hover:text-gray-700"
+                                  >
+                                    {isShowingAll
+                                      ? 'Show less'
+                                      : `+${filteredSites.length - displayCount} more sites`}
+                                  </button>
+                                )}
                               </div>
-                            )
-                          })}
+                            ) : !layerDataLoading.npws ? (
+                              <p className="text-muted-foreground py-2 text-center text-xs">
+                                No sites found in buffer zone
+                              </p>
+                            ) : null
+                          })()}
                         </div>
-                      </div>
-                    )
-                  })}
-                </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
 
-                {/* Info note */}
-                <div className="mt-4 rounded-lg bg-blue-50 p-3">
-                  <p className="text-xs text-blue-700">
-                    <strong>Note:</strong> Data layers are queried within your selected buffer zone
-                    (
-                    {enabledBuffers.length > 0
-                      ? `up to ${Math.max(...enabledBuffers)} km`
-                      : 'no buffer set'}
-                    ). Results will be available for review in the Data Gathering step.
-                  </p>
-                </div>
-              </div>
+                  {/* EPA Rivers */}
+                  <div className="mb-2 rounded-lg border">
+                    <Collapsible
+                      open={expandedLayers.has('rivers')}
+                      onOpenChange={(open) => {
+                        setExpandedLayers((prev) => {
+                          const next = new Set(prev)
+                          if (open) next.add('rivers')
+                          else next.delete('rivers')
+                          return next
+                        })
+                      }}
+                    >
+                      <CollapsibleTrigger asChild>
+                        <div className="flex w-full cursor-pointer items-center justify-between p-2 hover:bg-gray-50">
+                          <div className="flex items-center gap-2">
+                            <div
+                              role="checkbox"
+                              aria-checked={visibleLayers.includes('rivers')}
+                              tabIndex={0}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleLayerToggle('rivers')
+                                setHasUnsavedChanges(true)
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  handleLayerToggle('rivers')
+                                  setHasUnsavedChanges(true)
+                                }
+                              }}
+                              className={cn(
+                                'flex h-4 w-4 cursor-pointer items-center justify-center rounded border-2',
+                                visibleLayers.includes('rivers')
+                                  ? 'border-emerald-500 bg-emerald-500'
+                                  : 'border-gray-300'
+                              )}
+                            >
+                              {visibleLayers.includes('rivers') && (
+                                <Check className="h-3 w-3 text-white" />
+                              )}
+                            </div>
+                            <span
+                              className="h-2 w-2 rounded-full"
+                              style={{ backgroundColor: '#0284c7' }}
+                            />
+                            <span className="text-sm font-medium">Rivers</span>
+                            {layerDataLoading.rivers ? (
+                              <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+                            ) : (
+                              <Badge variant="secondary" className="text-[10px]">
+                                {layerData.rivers.length}
+                              </Badge>
+                            )}
+                          </div>
+                          <ChevronDown
+                            className={cn(
+                              'h-4 w-4 text-gray-400 transition-transform',
+                              expandedLayers.has('rivers') && 'rotate-180'
+                            )}
+                          />
+                        </div>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <div className="border-t bg-gray-50/50 p-2">
+                          {(() => {
+                            const filteredRivers = layerData.rivers.filter(
+                              (river) => !deletedItems.has(`river-${river.RiverCode}`)
+                            )
+                            const displayCount = 5
+                            const isShowingAll = showAllItems.has('rivers')
+                            const riversToShow = isShowingAll
+                              ? filteredRivers
+                              : filteredRivers.slice(0, displayCount)
+                            return filteredRivers.length > 0 ? (
+                              <div className="max-h-64 space-y-1 overflow-y-auto">
+                                {riversToShow.map((river, idx) => {
+                                  const itemKey = `river-${river.RiverCode}`
+                                  const isIgnored = ignoredItems.has(itemKey)
+                                  return (
+                                    <div
+                                      key={`${river.RiverCode}-${idx}`}
+                                      onClick={() => {
+                                        if (river.geometry) {
+                                          const coords =
+                                            river.geometry.type === 'LineString'
+                                              ? river.geometry.coordinates
+                                              : river.geometry.type === 'MultiLineString'
+                                                ? river.geometry.coordinates[0]
+                                                : null
+                                          if (coords && coords.length > 0) {
+                                            const lats = coords.map((c: number[]) => c[1])
+                                            const lngs = coords.map((c: number[]) => c[0])
+                                            const centerLat =
+                                              (Math.min(...lats) + Math.max(...lats)) / 2
+                                            const centerLng =
+                                              (Math.min(...lngs) + Math.max(...lngs)) / 2
+                                            setFlyToLocation({
+                                              center: [centerLat, centerLng],
+                                              zoom: 13,
+                                              key: `${river.RiverCode}-${Date.now()}`,
+                                            })
+                                          }
+                                        }
+                                      }}
+                                      className={cn(
+                                        'group relative flex cursor-pointer items-start gap-2 rounded p-1.5 text-xs transition-colors',
+                                        isIgnored
+                                          ? 'bg-gray-100 opacity-50'
+                                          : 'bg-white hover:bg-gray-100'
+                                      )}
+                                    >
+                                      <span
+                                        className="mt-0.5 h-2 w-2 shrink-0 rounded-full"
+                                        style={{ backgroundColor: '#0284c7' }}
+                                      />
+                                      <div
+                                        className={cn(
+                                          'min-w-0 flex-1',
+                                          isIgnored && 'line-through'
+                                        )}
+                                      >
+                                        <p className="truncate font-medium">{river.RiverName}</p>
+                                        <p className="text-muted-foreground text-[10px]">
+                                          {river.WFD_Status && `WFD: ${river.WFD_Status}`}
+                                          {river.Length_km && ` · ${river.Length_km.toFixed(1)} km`}
+                                        </p>
+                                      </div>
+                                      <div className="absolute top-1 right-1 flex gap-0.5 rounded bg-white/80 p-0.5 opacity-0 shadow-sm transition-opacity group-hover:opacity-100">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            setIgnoredItems((prev) => {
+                                              const next = new Set(prev)
+                                              if (isIgnored) {
+                                                next.delete(itemKey)
+                                              } else {
+                                                next.add(itemKey)
+                                              }
+                                              return next
+                                            })
+                                            setHasUnsavedChanges(true)
+                                          }}
+                                          className={cn(
+                                            'rounded p-1 transition-colors',
+                                            isIgnored
+                                              ? 'bg-amber-100 text-amber-600 hover:bg-amber-200'
+                                              : 'text-gray-400 hover:bg-gray-200 hover:text-amber-600'
+                                          )}
+                                          title={isIgnored ? 'Show on map' : 'Hide from map'}
+                                        >
+                                          {isIgnored ? (
+                                            <Eye className="h-3 w-3" />
+                                          ) : (
+                                            <EyeOff className="h-3 w-3" />
+                                          )}
+                                        </button>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            setDeletedItems((prev) => {
+                                              const next = new Set(prev)
+                                              next.add(itemKey)
+                                              return next
+                                            })
+                                            setHasUnsavedChanges(true)
+                                          }}
+                                          className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-200 hover:text-red-600"
+                                          title="Remove from list"
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                                {filteredRivers.length > displayCount && (
+                                  <button
+                                    onClick={() => {
+                                      setShowAllItems((prev) => {
+                                        const next = new Set(prev)
+                                        if (isShowingAll) {
+                                          next.delete('rivers')
+                                        } else {
+                                          next.add('rivers')
+                                        }
+                                        return next
+                                      })
+                                    }}
+                                    className="text-muted-foreground sticky bottom-0 w-full bg-gray-50/90 py-1 text-center text-[10px] backdrop-blur-sm transition-colors hover:bg-gray-100 hover:text-gray-700"
+                                  >
+                                    {isShowingAll
+                                      ? 'Show less'
+                                      : `+${filteredRivers.length - displayCount} more rivers`}
+                                  </button>
+                                )}
+                              </div>
+                            ) : !layerDataLoading.rivers ? (
+                              <p className="text-muted-foreground py-2 text-center text-xs">
+                                No rivers found in buffer zone
+                              </p>
+                            ) : null
+                          })()}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
 
-              {/* Footer with actions */}
-              <div className="border-t bg-gray-50 p-4">
-                <div className="flex items-center justify-between">
-                  <button
-                    onClick={() => {
-                      setVisibleLayers(getDefaultVisibleLayers())
-                      setHasUnsavedChanges(true)
-                    }}
-                    className="text-muted-foreground hover:text-foreground text-sm underline"
-                  >
-                    Reset to defaults
-                  </button>
-                  <div className="flex items-center gap-2 text-sm">
-                    {hasUnsavedChanges ? (
-                      <>
-                        <div className="h-2 w-2 rounded-full bg-amber-500" />
-                        <span className="text-amber-600">Unsaved</span>
-                      </>
-                    ) : (
-                      <>
-                        <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                        <span className="text-emerald-600">Saved</span>
-                      </>
-                    )}
+                  {/* EPA Lakes */}
+                  <div className="mb-2 rounded-lg border">
+                    <Collapsible
+                      open={expandedLayers.has('lakes')}
+                      onOpenChange={(open) => {
+                        setExpandedLayers((prev) => {
+                          const next = new Set(prev)
+                          if (open) next.add('lakes')
+                          else next.delete('lakes')
+                          return next
+                        })
+                      }}
+                    >
+                      <CollapsibleTrigger asChild>
+                        <div className="flex w-full cursor-pointer items-center justify-between p-2 hover:bg-gray-50">
+                          <div className="flex items-center gap-2">
+                            <div
+                              role="checkbox"
+                              aria-checked={visibleLayers.includes('lakes')}
+                              tabIndex={0}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleLayerToggle('lakes')
+                                setHasUnsavedChanges(true)
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  handleLayerToggle('lakes')
+                                  setHasUnsavedChanges(true)
+                                }
+                              }}
+                              className={cn(
+                                'flex h-4 w-4 cursor-pointer items-center justify-center rounded border-2',
+                                visibleLayers.includes('lakes')
+                                  ? 'border-emerald-500 bg-emerald-500'
+                                  : 'border-gray-300'
+                              )}
+                            >
+                              {visibleLayers.includes('lakes') && (
+                                <Check className="h-3 w-3 text-white" />
+                              )}
+                            </div>
+                            <span
+                              className="h-2 w-2 rounded-full"
+                              style={{ backgroundColor: '#0369a1' }}
+                            />
+                            <span className="text-sm font-medium">Lakes</span>
+                            {layerDataLoading.lakes ? (
+                              <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+                            ) : (
+                              <Badge variant="secondary" className="text-[10px]">
+                                {layerData.lakes.length}
+                              </Badge>
+                            )}
+                          </div>
+                          <ChevronDown
+                            className={cn(
+                              'h-4 w-4 text-gray-400 transition-transform',
+                              expandedLayers.has('lakes') && 'rotate-180'
+                            )}
+                          />
+                        </div>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <div className="border-t bg-gray-50/50 p-2">
+                          {(() => {
+                            const filteredLakes = layerData.lakes.filter(
+                              (lake) => !deletedItems.has(`lake-${lake.LakeCode}`)
+                            )
+                            const displayCount = 5
+                            const isShowingAll = showAllItems.has('lakes')
+                            const lakesToShow = isShowingAll
+                              ? filteredLakes
+                              : filteredLakes.slice(0, displayCount)
+                            return filteredLakes.length > 0 ? (
+                              <div className="max-h-64 space-y-1 overflow-y-auto">
+                                {lakesToShow.map((lake, idx) => {
+                                  const itemKey = `lake-${lake.LakeCode}`
+                                  const isIgnored = ignoredItems.has(itemKey)
+                                  return (
+                                    <div
+                                      key={`${lake.LakeCode}-${idx}`}
+                                      onClick={() => {
+                                        if (lake.geometry) {
+                                          const coords =
+                                            lake.geometry.type === 'Polygon'
+                                              ? lake.geometry.coordinates[0]
+                                              : lake.geometry.type === 'MultiPolygon'
+                                                ? lake.geometry.coordinates[0][0]
+                                                : null
+                                          if (coords && coords.length > 0) {
+                                            const lats = coords.map((c: number[]) => c[1])
+                                            const lngs = coords.map((c: number[]) => c[0])
+                                            const centerLat =
+                                              (Math.min(...lats) + Math.max(...lats)) / 2
+                                            const centerLng =
+                                              (Math.min(...lngs) + Math.max(...lngs)) / 2
+                                            setFlyToLocation({
+                                              center: [centerLat, centerLng],
+                                              zoom: 13,
+                                              key: `${lake.LakeCode}-${Date.now()}`,
+                                            })
+                                          }
+                                        }
+                                      }}
+                                      className={cn(
+                                        'group relative flex cursor-pointer items-start gap-2 rounded p-1.5 text-xs transition-colors',
+                                        isIgnored
+                                          ? 'bg-gray-100 opacity-50'
+                                          : 'bg-white hover:bg-gray-100'
+                                      )}
+                                    >
+                                      <span
+                                        className="mt-0.5 h-2 w-2 shrink-0 rounded-full"
+                                        style={{ backgroundColor: '#0369a1' }}
+                                      />
+                                      <div
+                                        className={cn(
+                                          'min-w-0 flex-1',
+                                          isIgnored && 'line-through'
+                                        )}
+                                      >
+                                        <p className="truncate font-medium">{lake.LakeName}</p>
+                                        <p className="text-muted-foreground text-[10px]">
+                                          {lake.WFD_Status && `WFD: ${lake.WFD_Status}`}
+                                          {lake.Area_ha && ` · ${lake.Area_ha.toFixed(0)} ha`}
+                                        </p>
+                                      </div>
+                                      <div className="absolute top-1 right-1 flex gap-0.5 rounded bg-white/80 p-0.5 opacity-0 shadow-sm transition-opacity group-hover:opacity-100">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            setIgnoredItems((prev) => {
+                                              const next = new Set(prev)
+                                              if (isIgnored) {
+                                                next.delete(itemKey)
+                                              } else {
+                                                next.add(itemKey)
+                                              }
+                                              return next
+                                            })
+                                            setHasUnsavedChanges(true)
+                                          }}
+                                          className={cn(
+                                            'rounded p-1 transition-colors',
+                                            isIgnored
+                                              ? 'bg-amber-100 text-amber-600 hover:bg-amber-200'
+                                              : 'text-gray-400 hover:bg-gray-200 hover:text-amber-600'
+                                          )}
+                                          title={isIgnored ? 'Show on map' : 'Hide from map'}
+                                        >
+                                          {isIgnored ? (
+                                            <Eye className="h-3 w-3" />
+                                          ) : (
+                                            <EyeOff className="h-3 w-3" />
+                                          )}
+                                        </button>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            setDeletedItems((prev) => {
+                                              const next = new Set(prev)
+                                              next.add(itemKey)
+                                              return next
+                                            })
+                                            setHasUnsavedChanges(true)
+                                          }}
+                                          className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-200 hover:text-red-600"
+                                          title="Remove from list"
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                                {filteredLakes.length > displayCount && (
+                                  <button
+                                    onClick={() => {
+                                      setShowAllItems((prev) => {
+                                        const next = new Set(prev)
+                                        if (isShowingAll) {
+                                          next.delete('lakes')
+                                        } else {
+                                          next.add('lakes')
+                                        }
+                                        return next
+                                      })
+                                    }}
+                                    className="text-muted-foreground sticky bottom-0 w-full bg-gray-50/90 py-1 text-center text-[10px] backdrop-blur-sm transition-colors hover:bg-gray-100 hover:text-gray-700"
+                                  >
+                                    {isShowingAll
+                                      ? 'Show less'
+                                      : `+${filteredLakes.length - displayCount} more lakes`}
+                                  </button>
+                                )}
+                              </div>
+                            ) : !layerDataLoading.lakes ? (
+                              <p className="text-muted-foreground py-2 text-center text-xs">
+                                No lakes found in buffer zone
+                              </p>
+                            ) : null
+                          })()}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
+
+                  {/* EPA Catchments */}
+                  <div className="mb-2 rounded-lg border">
+                    <Collapsible
+                      open={expandedLayers.has('catchments')}
+                      onOpenChange={(open) => {
+                        setExpandedLayers((prev) => {
+                          const next = new Set(prev)
+                          if (open) next.add('catchments')
+                          else next.delete('catchments')
+                          return next
+                        })
+                      }}
+                    >
+                      <CollapsibleTrigger asChild>
+                        <div className="flex w-full cursor-pointer items-center justify-between p-2 hover:bg-gray-50">
+                          <div className="flex items-center gap-2">
+                            <div
+                              role="checkbox"
+                              aria-checked={visibleLayers.includes('catchments')}
+                              tabIndex={0}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleLayerToggle('catchments')
+                                setHasUnsavedChanges(true)
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  handleLayerToggle('catchments')
+                                  setHasUnsavedChanges(true)
+                                }
+                              }}
+                              className={cn(
+                                'flex h-4 w-4 cursor-pointer items-center justify-center rounded border-2',
+                                visibleLayers.includes('catchments')
+                                  ? 'border-emerald-500 bg-emerald-500'
+                                  : 'border-gray-300'
+                              )}
+                            >
+                              {visibleLayers.includes('catchments') && (
+                                <Check className="h-3 w-3 text-white" />
+                              )}
+                            </div>
+                            <span
+                              className="h-2 w-2 rounded-full"
+                              style={{ backgroundColor: '#38bdf8' }}
+                            />
+                            <span className="text-sm font-medium">Catchments</span>
+                            {layerDataLoading.catchments ? (
+                              <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+                            ) : (
+                              <Badge variant="secondary" className="text-[10px]">
+                                {layerData.catchments.length}
+                              </Badge>
+                            )}
+                          </div>
+                          <ChevronDown
+                            className={cn(
+                              'h-4 w-4 text-gray-400 transition-transform',
+                              expandedLayers.has('catchments') && 'rotate-180'
+                            )}
+                          />
+                        </div>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <div className="border-t bg-gray-50/50 p-2">
+                          {(() => {
+                            const filteredCatchments = layerData.catchments.filter(
+                              (catchment) => !deletedItems.has(`catchment-${catchment.CatchmentId}`)
+                            )
+                            const displayCount = 5
+                            const isShowingAll = showAllItems.has('catchments')
+                            const catchmentsToShow = isShowingAll
+                              ? filteredCatchments
+                              : filteredCatchments.slice(0, displayCount)
+                            return filteredCatchments.length > 0 ? (
+                              <div className="max-h-64 space-y-1 overflow-y-auto">
+                                {catchmentsToShow.map((catchment, idx) => {
+                                  const itemKey = `catchment-${catchment.CatchmentId}`
+                                  const isIgnored = ignoredItems.has(itemKey)
+                                  return (
+                                    <div
+                                      key={`${catchment.CatchmentId}-${idx}`}
+                                      onClick={() => {
+                                        if (catchment.geometry) {
+                                          const coords =
+                                            catchment.geometry.type === 'Polygon'
+                                              ? catchment.geometry.coordinates[0]
+                                              : catchment.geometry.type === 'MultiPolygon'
+                                                ? catchment.geometry.coordinates[0][0]
+                                                : null
+                                          if (coords && coords.length > 0) {
+                                            const lats = coords.map((c: number[]) => c[1])
+                                            const lngs = coords.map((c: number[]) => c[0])
+                                            const centerLat =
+                                              (Math.min(...lats) + Math.max(...lats)) / 2
+                                            const centerLng =
+                                              (Math.min(...lngs) + Math.max(...lngs)) / 2
+                                            setFlyToLocation({
+                                              center: [centerLat, centerLng],
+                                              zoom: 11,
+                                              key: `${catchment.CatchmentId}-${Date.now()}`,
+                                            })
+                                          }
+                                        }
+                                      }}
+                                      className={cn(
+                                        'group relative flex cursor-pointer items-start gap-2 rounded p-1.5 text-xs transition-colors',
+                                        isIgnored
+                                          ? 'bg-gray-100 opacity-50'
+                                          : 'bg-white hover:bg-gray-100'
+                                      )}
+                                    >
+                                      <span
+                                        className="mt-0.5 h-2 w-2 shrink-0 rounded-full"
+                                        style={{ backgroundColor: '#38bdf8' }}
+                                      />
+                                      <div
+                                        className={cn(
+                                          'min-w-0 flex-1',
+                                          isIgnored && 'line-through'
+                                        )}
+                                      >
+                                        <p className="truncate font-medium">
+                                          {catchment.CatchmentName}
+                                        </p>
+                                        <p className="text-muted-foreground text-[10px]">
+                                          {catchment.Area_km2 &&
+                                            `${catchment.Area_km2.toFixed(0)} km²`}
+                                          {catchment.RiverBasinDistrict &&
+                                            ` · ${catchment.RiverBasinDistrict}`}
+                                        </p>
+                                      </div>
+                                      <div className="absolute top-1 right-1 flex gap-0.5 rounded bg-white/80 p-0.5 opacity-0 shadow-sm transition-opacity group-hover:opacity-100">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            setIgnoredItems((prev) => {
+                                              const next = new Set(prev)
+                                              if (isIgnored) {
+                                                next.delete(itemKey)
+                                              } else {
+                                                next.add(itemKey)
+                                              }
+                                              return next
+                                            })
+                                            setHasUnsavedChanges(true)
+                                          }}
+                                          className={cn(
+                                            'rounded p-1 transition-colors',
+                                            isIgnored
+                                              ? 'bg-amber-100 text-amber-600 hover:bg-amber-200'
+                                              : 'text-gray-400 hover:bg-gray-200 hover:text-amber-600'
+                                          )}
+                                          title={isIgnored ? 'Show on map' : 'Hide from map'}
+                                        >
+                                          {isIgnored ? (
+                                            <Eye className="h-3 w-3" />
+                                          ) : (
+                                            <EyeOff className="h-3 w-3" />
+                                          )}
+                                        </button>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            setDeletedItems((prev) => {
+                                              const next = new Set(prev)
+                                              next.add(itemKey)
+                                              return next
+                                            })
+                                            setHasUnsavedChanges(true)
+                                          }}
+                                          className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-200 hover:text-red-600"
+                                          title="Remove from list"
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                                {filteredCatchments.length > displayCount && (
+                                  <button
+                                    onClick={() => {
+                                      setShowAllItems((prev) => {
+                                        const next = new Set(prev)
+                                        if (isShowingAll) {
+                                          next.delete('catchments')
+                                        } else {
+                                          next.add('catchments')
+                                        }
+                                        return next
+                                      })
+                                    }}
+                                    className="text-muted-foreground sticky bottom-0 w-full bg-gray-50/90 py-1 text-center text-[10px] backdrop-blur-sm transition-colors hover:bg-gray-100 hover:text-gray-700"
+                                  >
+                                    {isShowingAll
+                                      ? 'Show less'
+                                      : `+${filteredCatchments.length - displayCount} more catchments`}
+                                  </button>
+                                )}
+                              </div>
+                            ) : !layerDataLoading.catchments ? (
+                              <p className="text-muted-foreground py-2 text-center text-xs">
+                                No catchments found in buffer zone
+                              </p>
+                            ) : null
+                          })()}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
+
+                  {/* Geology & Terrain - Coming soon */}
+                  <div className="rounded-lg border border-dashed bg-gray-50/50 p-3">
+                    <p className="text-muted-foreground text-center text-xs">
+                      Geology & Terrain layers coming soon
+                    </p>
                   </div>
                 </div>
+              </ScrollArea>
+
+              {/* Footer with Save button */}
+              <div className="border-t bg-gray-50 p-3">
+                <Button
+                  onClick={handleSave}
+                  disabled={!hasUnsavedChanges || updateBoundary.isPending}
+                  className="w-full"
+                  size="sm"
+                >
+                  {updateBoundary.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-4 w-4" />
+                  )}
+                  Save Layer Selection
+                </Button>
               </div>
             </div>
           </div>
@@ -1300,6 +2273,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                 visibleLayers={visibleLayers}
                 baseMapStyle={baseMapStyle}
                 onBaseMapStyleChange={setBaseMapStyle}
+                flyToLocation={flyToLocation}
               />
             </div>
 

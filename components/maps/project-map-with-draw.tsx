@@ -81,6 +81,14 @@ interface ProjectMapWithDrawProps {
   baseMapStyle?: MapStyle
   /** Callback when base map style changes */
   onBaseMapStyleChange?: (style: MapStyle) => void
+  /** Items to hide from map (ignored) - format: "npws-SAC-001234" */
+  ignoredItems?: Set<string>
+  /** Items to remove completely (deleted) - format: "npws-SAC-001234" */
+  deletedItems?: Set<string>
+  /** Override NPWS site count for display (from parent's filtered data) */
+  npwsSiteCount?: number
+  /** Fly to a specific location with animation - [lat, lng, zoom] */
+  flyToLocation?: { center: [number, number]; zoom: number; key: string }
 }
 
 // Define event types for leaflet-draw
@@ -134,6 +142,7 @@ function MapComponentWithDraw({
   showTownlands,
   currentZoom = 7,
   onZoomChange,
+  flyToLocation,
 }: {
   center: [number, number]
   zoom: number
@@ -155,6 +164,7 @@ function MapComponentWithDraw({
     zoom: number,
     bounds?: { west: number; south: number; east: number; north: number }
   ) => void
+  flyToLocation?: { center: [number, number]; zoom: number; key: string }
 }) {
   const {
     MapContainer,
@@ -179,6 +189,8 @@ function MapComponentWithDraw({
   const isEditingRef = React.useRef(false)
   // Track the last loaded boundary to prevent unnecessary reloads
   const lastLoadedBoundaryRef = React.useRef<string | null>(null)
+  // Track the last flyTo key to prevent re-triggering
+  const lastFlyToKeyRef = React.useRef<string | null>(null)
 
   // Initialize with existing boundary or reset when boundary is cleared
   React.useEffect(() => {
@@ -312,6 +324,17 @@ function MapComponentWithDraw({
         }
       }
     }, [boundary, map])
+
+    // Handle flyToLocation prop changes
+    React.useEffect(() => {
+      if (map && flyToLocation && flyToLocation.key !== lastFlyToKeyRef.current) {
+        lastFlyToKeyRef.current = flyToLocation.key
+        isInternalMoveRef.current = true
+        map.flyTo(flyToLocation.center, flyToLocation.zoom, {
+          duration: 0.8,
+        })
+      }
+    }, [map, flyToLocation])
 
     return null
   }
@@ -590,6 +613,10 @@ export function ProjectMapWithDraw({
   npwsSearchRadius = 5,
   baseMapStyle,
   onBaseMapStyleChange,
+  ignoredItems = new Set(),
+  deletedItems = new Set(),
+  npwsSiteCount,
+  flyToLocation,
 }: ProjectMapWithDrawProps) {
   const [mapLoaded, setMapLoaded] = React.useState(false)
   // Use controlled style if provided, otherwise use local state
@@ -669,12 +696,20 @@ export function ProjectMapWithDraw({
   )
 
   // NPWS layer overlay
-  const { sites: npwsSites, isLoading: npwsLoading } = useNPWSLayers(
+  const { sites: npwsSitesRaw, isLoading: npwsLoading } = useNPWSLayers(
     mapRef.current,
     boundary ?? null,
     visibleLayers,
     npwsSearchRadius
   )
+
+  // Filter out ignored and deleted sites
+  const npwsSites = React.useMemo(() => {
+    return npwsSitesRaw.filter((site) => {
+      const siteKey = `npws-${site.SITE_TYPE}-${site.SITECODE}`
+      return !ignoredItems.has(siteKey) && !deletedItems.has(siteKey)
+    })
+  }, [npwsSitesRaw, ignoredItems, deletedItems])
 
   // EPA layer overlay (rivers, lakes, catchments) - fetched within buffer zone
   const { counts: epaCounts, isLoading: epaLoading } = useEPALayers(
@@ -754,6 +789,7 @@ export function ProjectMapWithDraw({
           showTownlands={showTownlands}
           currentZoom={currentZoom}
           onZoomChange={handleZoomChange}
+          flyToLocation={flyToLocation}
         />
       </div>
 
@@ -867,9 +903,10 @@ export function ProjectMapWithDraw({
             <div>
               {npwsLoading ? (
                 <span className="text-muted-foreground">Loading NPWS sites...</span>
-              ) : npwsSites.length > 0 ? (
+              ) : (npwsSiteCount ?? npwsSites.length) > 0 ? (
                 <span className="text-emerald-600">
-                  {npwsSites.length} designated site{npwsSites.length !== 1 ? 's' : ''} found
+                  {npwsSiteCount ?? npwsSites.length} designated site
+                  {(npwsSiteCount ?? npwsSites.length) !== 1 ? 's' : ''} found
                 </span>
               ) : boundary ? (
                 <span className="text-muted-foreground">No designated sites nearby</span>
