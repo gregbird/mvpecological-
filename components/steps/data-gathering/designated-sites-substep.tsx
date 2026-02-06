@@ -660,9 +660,15 @@ export function DesignatedSitesSubStep({
                   }
                 : undefined
             }
-            onFindingClick={(f) =>
-              setSelectedFinding(searchResults.find((r) => r.id === f.id) || null)
-            }
+            onFindingClick={(f) => {
+              // Toggle selection - if clicking the same finding, deselect it
+              const found = searchResults.find((r) => r.id === f.id) || null
+              setSelectedFinding((prev) => (prev?.id === f.id ? null : found))
+            }}
+            onMapClick={() => {
+              // Clear selection when clicking on empty map space
+              setSelectedFinding(null)
+            }}
           />
 
           {/* Map toggle button */}

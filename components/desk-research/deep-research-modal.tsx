@@ -17,6 +17,9 @@ import {
   Minus,
   HelpCircle,
   AlertOctagon,
+  Bird,
+  Loader2,
+  Bug,
 } from 'lucide-react'
 
 import {
@@ -40,6 +43,7 @@ import {
   getHabitatsSummary,
   type Article17Habitat,
 } from '@/lib/data/article17-habitats'
+import { getNPWSSiteData, type NPWSSiteData } from '@/lib/data/npws-site-lookup'
 import { useSaveDeepResearch, useSiteDeepResearch } from '@/hooks/use-project-data'
 import { useToast } from '@/hooks/use-toast'
 
@@ -124,24 +128,51 @@ export function DeepResearchModal({
   const { toast } = useToast()
   const saveResearch = useSaveDeepResearch()
 
+  // AI analysis state
+  const [aiSummary, setAiSummary] = React.useState<string>('')
+  const [aiLoading, setAiLoading] = React.useState(false)
+  const [aiError, setAiError] = React.useState<string>('')
+
   // Check if already saved
   const { data: existingResearch } = useSiteDeepResearch(projectId || '', site?.siteCode || '')
   const isSaved = !!existingResearch
 
+  // Reset AI state when site changes
+  React.useEffect(() => {
+    setAiSummary('')
+    setAiLoading(false)
+    setAiError('')
+  }, [site?.siteCode])
+
   if (!site) return null
+
+  // Get Excel-derived site data (habitats, species, SSCO URL)
+  const excelData: NPWSSiteData | null = getNPWSSiteData(site.siteCode)
+
+  // Merge habitats: prefer Excel data, fallback to site.habitats
+  const mergedHabitats =
+    excelData?.habitats?.map((h) => ({
+      habitatCode: h.code,
+      habitatName: h.name,
+    })) ||
+    site.habitats ||
+    []
+
+  // Get species from Excel
+  const siteSpecies = excelData?.species || []
+  const birdSpecies = excelData?.birdSpecies || []
 
   const urls = getNPWSUrls(site.siteCode, site.siteType)
   const protectionDesc = getProtectionDescription(site.siteType)
 
   // Get Article 17 data for each habitat
-  const habitatsWithArticle17 =
-    site.habitats?.map((h) => ({
-      ...h,
-      article17: getArticle17Data(h.habitatCode),
-    })) || []
+  const habitatsWithArticle17 = mergedHabitats.map((h) => ({
+    ...h,
+    article17: getArticle17Data(h.habitatCode),
+  }))
 
   // Calculate summary
-  const habitatCodes = site.habitats?.map((h) => h.habitatCode) || []
+  const habitatCodes = mergedHabitats.map((h) => h.habitatCode)
   const summary = getHabitatsSummary(habitatCodes)
 
   // Collect all unique threats and pressures
@@ -151,6 +182,33 @@ export function DeepResearchModal({
     h.article17?.pressures.forEach((p) => allPressures.add(p))
     h.article17?.threats.forEach((t) => allThreats.add(t))
   })
+
+  // AI Analysis handler - fetches SSCO PDF and generates detailed summary
+  const handleAiAnalysis = async () => {
+    setAiLoading(true)
+    setAiError('')
+    try {
+      const response = await fetch('/api/ai/deep-research', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          siteCode: site.siteCode,
+          siteName: site.siteName,
+          siteType: site.siteType,
+        }),
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        setAiError(data.error || 'Failed to generate analysis')
+      } else {
+        setAiSummary(data.summary || '')
+      }
+    } catch {
+      setAiError('Failed to connect to AI service')
+    } finally {
+      setAiLoading(false)
+    }
+  }
 
   // Save handler
   const handleSaveResearch = async () => {
@@ -239,11 +297,15 @@ export function DeepResearchModal({
 
         <ScrollArea className="max-h-[60vh] pr-4">
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="ai-analysis">
+                <Sparkles className="mr-1 h-3 w-3" />
+                AI
+              </TabsTrigger>
               <TabsTrigger value="status">Status</TabsTrigger>
               <TabsTrigger value="habitats">
-                Habitats {site.habitats && `(${site.habitats.length})`}
+                QIs ({mergedHabitats.length + siteSpecies.length + birdSpecies.length})
               </TabsTrigger>
               <TabsTrigger value="resources">Resources</TabsTrigger>
             </TabsList>
@@ -264,19 +326,35 @@ export function DeepResearchModal({
               </Card>
 
               {/* Quick Stats */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <Card>
                   <CardContent className="pt-4">
                     <div className="text-2xl font-bold text-emerald-600">
-                      {site.habitats?.length || '—'}
+                      {mergedHabitats.length || '—'}
                     </div>
-                    <p className="text-muted-foreground text-xs">Qualifying Habitats</p>
+                    <p className="text-muted-foreground text-xs">
+                      {excelData?.siteType === 'SAC' ? 'Annex I Habitats' : 'Qualifying Habitats'}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="text-2xl font-bold text-purple-600">
+                      {siteSpecies.length + birdSpecies.length || '—'}
+                    </div>
+                    <p className="text-muted-foreground text-xs">
+                      {birdSpecies.length > 0 ? 'Bird SCIs' : 'Annex II Species'}
+                    </p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="pt-4">
                     <div className="text-2xl font-bold text-blue-600">
-                      {site.areaHa ? `${site.areaHa.toFixed(0)} ha` : '—'}
+                      {excelData?.siteArea
+                        ? `${excelData.siteArea.toFixed(0)} ha`
+                        : site.areaHa
+                          ? `${site.areaHa.toFixed(0)} ha`
+                          : '—'}
                     </div>
                     <p className="text-muted-foreground text-xs">Site Area</p>
                   </CardContent>
@@ -303,7 +381,123 @@ export function DeepResearchModal({
               </Card>
             </TabsContent>
 
-            {/* Conservation Status Tab (NEW) */}
+            {/* AI Analysis Tab - SSCO PDF + Excel data powered */}
+            <TabsContent value="ai-analysis" className="mt-4 space-y-4">
+              {aiSummary ? (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
+                      <Sparkles className="h-4 w-4 text-purple-600" />
+                      AI Conservation Analysis
+                      {excelData?.sscoUrl && (
+                        <Badge variant="outline" className="text-[10px]">
+                          SSCO PDF analysed
+                        </Badge>
+                      )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="prose prose-sm max-w-none">
+                      {aiSummary.split('\n').map((line, idx) => {
+                        if (line.startsWith('**') && line.endsWith('**')) {
+                          return (
+                            <h4 key={idx} className="mt-3 mb-1 text-sm font-semibold">
+                              {line.replace(/\*\*/g, '')}
+                            </h4>
+                          )
+                        }
+                        if (line.startsWith('**')) {
+                          const parts = line.split('**')
+                          return (
+                            <div key={idx} className="mt-3">
+                              <h4 className="mb-1 text-sm font-semibold">{parts[1]}</h4>
+                              {parts[2] && (
+                                <p className="text-muted-foreground text-xs">{parts[2]}</p>
+                              )}
+                            </div>
+                          )
+                        }
+                        if (line.trim() === '') return <div key={idx} className="h-1" />
+                        return (
+                          <p key={idx} className="text-muted-foreground text-xs leading-relaxed">
+                            {line}
+                          </p>
+                        )
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : aiError ? (
+                <Card className="border-red-200 bg-red-50">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 text-sm text-red-700">
+                      <AlertTriangle className="h-4 w-4" />
+                      {aiError}
+                    </div>
+                    <Button size="sm" variant="outline" className="mt-2" onClick={handleAiAnalysis}>
+                      Try Again
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardContent className="pt-6 text-center">
+                    <Sparkles className="mx-auto mb-3 h-10 w-10 text-purple-300" />
+                    <p className="text-sm font-medium">AI-Powered Conservation Analysis</p>
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      Analyses the SSCO PDF document and Excel data to provide a detailed
+                      conservation summary including habitats, species, threats, and development
+                      implications.
+                    </p>
+                    {excelData?.sscoUrl && (
+                      <p className="mt-1 text-[10px] text-purple-500">
+                        SSCO PDF available for this site
+                      </p>
+                    )}
+                    <Button
+                      className="mt-4 bg-purple-600 hover:bg-purple-700"
+                      size="sm"
+                      onClick={handleAiAnalysis}
+                      disabled={aiLoading}
+                    >
+                      {aiLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Analysing{excelData?.sscoUrl ? ' PDF...' : '...'}
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          Generate AI Analysis
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Data sources info */}
+              <Card className="bg-gray-50">
+                <CardContent className="pt-3 pb-3">
+                  <p className="text-muted-foreground text-[10px] font-medium">Data Sources:</p>
+                  <ul className="text-muted-foreground mt-1 space-y-0.5 text-[10px]">
+                    <li>
+                      {excelData
+                        ? '✓ NPWS Official Datasheet (May 2024)'
+                        : '✗ Site not found in NPWS datasheet'}
+                    </li>
+                    <li>
+                      {excelData?.sscoUrl
+                        ? '✓ SSCO PDF available for AI analysis'
+                        : '✗ No SSCO PDF available'}
+                    </li>
+                    <li>✓ Article 17 (2025) Conservation Status</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Conservation Status Tab */}
             <TabsContent value="status" className="mt-4 space-y-4">
               {/* Status Summary */}
               {summary.total > 0 ? (
@@ -463,13 +657,20 @@ export function DeepResearchModal({
               )}
             </TabsContent>
 
-            {/* Habitats Tab */}
+            {/* Qualifying Interests Tab - Habitats + Species */}
             <TabsContent value="habitats" className="mt-4 space-y-3">
-              {site.habitats && site.habitats.length > 0 ? (
+              {/* Habitats Section */}
+              {mergedHabitats.length > 0 && (
                 <>
-                  <p className="text-muted-foreground text-sm">
-                    Annex I habitats listed as Qualifying Interests for this site:
-                  </p>
+                  <div className="text-muted-foreground flex items-center gap-1.5 text-sm font-medium">
+                    <Leaf className="h-4 w-4 text-emerald-500" />
+                    Annex I Habitats ({mergedHabitats.length})
+                    {excelData && (
+                      <Badge variant="outline" className="text-[10px]">
+                        NPWS Datasheet
+                      </Badge>
+                    )}
+                  </div>
                   {habitatsWithArticle17.map((habitat, idx) => {
                     const a17 = habitat.article17
                     const description = getHabitatDescription(habitat.habitatCode)
@@ -519,19 +720,83 @@ export function DeepResearchModal({
                     )
                   })}
                 </>
-              ) : (
-                <Card>
-                  <CardContent className="pt-4 text-center">
-                    <Info className="text-muted-foreground mx-auto mb-2 h-8 w-8" />
-                    <p className="text-muted-foreground text-sm">
-                      Habitat information not available in local database.
-                    </p>
-                    <p className="text-muted-foreground mt-1 text-xs">
-                      Check NPWS Site Synopsis for full Qualifying Interests list.
-                    </p>
-                  </CardContent>
-                </Card>
               )}
+
+              {/* Species Section (SAC - Annex II) */}
+              {siteSpecies.length > 0 && (
+                <>
+                  <Separator />
+                  <div className="text-muted-foreground flex items-center gap-1.5 text-sm font-medium">
+                    <Bug className="h-4 w-4 text-amber-600" />
+                    Annex II Species ({siteSpecies.length})
+                  </div>
+                  {siteSpecies.map((species, idx) => (
+                    <Card key={idx}>
+                      <CardContent className="pt-3 pb-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium italic">{species.name}</p>
+                            <p className="text-muted-foreground text-xs">
+                              Species Code: {species.code}
+                            </p>
+                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            Annex II
+                          </Badge>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </>
+              )}
+
+              {/* Bird Species Section (SPA) */}
+              {birdSpecies.length > 0 && (
+                <>
+                  <Separator />
+                  <div className="text-muted-foreground flex items-center gap-1.5 text-sm font-medium">
+                    <Bird className="h-4 w-4 text-blue-600" />
+                    Special Conservation Interest Birds ({birdSpecies.length})
+                    {excelData?.isWetland && (
+                      <Badge className="bg-cyan-100 text-xs text-cyan-700">Wetland SPA</Badge>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 gap-1.5">
+                    {birdSpecies.map((bird, idx) => (
+                      <Card key={idx}>
+                        <CardContent className="px-3 py-2.5">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium italic">{bird.name}</p>
+                              <p className="text-muted-foreground text-xs">
+                                Species Code: {bird.code}
+                              </p>
+                            </div>
+                            <Bird className="h-4 w-4 text-blue-400" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* No data fallback */}
+              {mergedHabitats.length === 0 &&
+                siteSpecies.length === 0 &&
+                birdSpecies.length === 0 && (
+                  <Card>
+                    <CardContent className="pt-4 text-center">
+                      <Info className="text-muted-foreground mx-auto mb-2 h-8 w-8" />
+                      <p className="text-muted-foreground text-sm">
+                        Qualifying interest data not available.
+                      </p>
+                      <p className="text-muted-foreground mt-1 text-xs">
+                        This site may be an NHA/pNHA not covered in NPWS datasheets.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
             </TabsContent>
 
             {/* Resources Tab */}
@@ -581,6 +846,78 @@ export function DeepResearchModal({
                             <p className="text-sm font-medium">Conservation Objectives</p>
                             <p className="text-muted-foreground text-xs">
                               Site-specific targets and attributes
+                            </p>
+                          </div>
+                        </div>
+                        <ExternalLink className="text-muted-foreground h-4 w-4" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </a>
+              )}
+
+              {/* SSCO PDF Document */}
+              {excelData?.sscoUrl && (
+                <a
+                  href={excelData.sscoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block"
+                >
+                  <Card className="hover:bg-muted/50 cursor-pointer border-purple-200 transition-colors">
+                    <CardContent className="pt-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="rounded-lg bg-purple-100 p-2">
+                            <FileText className="h-4 w-4 text-purple-600" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">
+                              SSCO Document (PDF)
+                              {excelData.sscoVersion && (
+                                <span className="text-muted-foreground ml-1 text-xs">
+                                  v{excelData.sscoVersion}
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-muted-foreground text-xs">
+                              Site-Specific Conservation Objectives - official PDF
+                            </p>
+                          </div>
+                        </div>
+                        <ExternalLink className="text-muted-foreground h-4 w-4" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </a>
+              )}
+
+              {/* Statutory Instrument */}
+              {excelData?.siUrl && (
+                <a
+                  href={excelData.siUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block"
+                >
+                  <Card className="hover:bg-muted/50 cursor-pointer transition-colors">
+                    <CardContent className="pt-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="rounded-lg bg-gray-100 p-2">
+                            <Shield className="h-4 w-4 text-gray-600" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">
+                              Statutory Instrument
+                              {excelData.siNumber && (
+                                <span className="text-muted-foreground ml-1 text-xs">
+                                  S.I. {excelData.siNumber}
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-muted-foreground text-xs">
+                              Legal designation instrument - Irish Statute Book
                             </p>
                           </div>
                         </div>
@@ -648,7 +985,9 @@ export function DeepResearchModal({
         <Separator />
 
         <div className="flex items-center justify-between">
-          <p className="text-muted-foreground text-xs">Data: NPWS Article 17 Report 2025</p>
+          <p className="text-muted-foreground text-xs">
+            Data: NPWS Datasheets (May 2024) + Article 17 (2025)
+          </p>
           <div className="flex gap-2">
             {projectId && (
               <Button

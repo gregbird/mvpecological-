@@ -268,7 +268,7 @@ export function AquaticFeaturesSubStep({
           content: `River${river.Length_km ? ` (${river.Length_km.toFixed(1)} km)` : ''}. ${river.CatchmentName ? `Catchment: ${river.CatchmentName}.` : ''} ${river.WFD_Status ? `WFD Status: ${getWFDStatusDisplayName(river.WFD_Status)}` : ''}`,
           location: river.geometry,
           isSaved: false,
-          sourceUrl: `https://www.catchments.ie/data/#/waterbody/${river.RiverCode}`,
+          sourceUrl: river.CatchmentsUrl || `https://gis.epa.ie/EPAMaps/Water`,
           rawData: river as unknown as Record<string, unknown>,
           metadata: {
             siteCode: river.RiverCode,
@@ -292,7 +292,7 @@ export function AquaticFeaturesSubStep({
           content: `Lake${lake.Area_ha ? ` (${lake.Area_ha.toFixed(1)} ha)` : ''}. ${lake.CatchmentName ? `Catchment: ${lake.CatchmentName}.` : ''} ${lake.WFD_Status ? `WFD Status: ${getWFDStatusDisplayName(lake.WFD_Status)}` : ''}`,
           location: lake.geometry,
           isSaved: false,
-          sourceUrl: `https://www.catchments.ie/data/#/waterbody/${lake.LakeCode}`,
+          sourceUrl: lake.CatchmentsUrl || `https://gis.epa.ie/EPAMaps/Water`,
           rawData: lake as unknown as Record<string, unknown>,
           metadata: {
             siteCode: lake.LakeCode,
@@ -316,7 +316,7 @@ export function AquaticFeaturesSubStep({
           content: `Catchment${catchment.Area_km2 ? ` (${catchment.Area_km2.toFixed(1)} km²)` : ''}. ${catchment.RiverBasinDistrict ? `River Basin District: ${catchment.RiverBasinDistrict}` : ''}`,
           location: catchment.geometry,
           isSaved: false,
-          sourceUrl: `https://www.catchments.ie/data/#/catchment/${catchment.CatchmentId}`,
+          sourceUrl: `https://gis.epa.ie/EPAMaps/Water`,
           rawData: catchment as unknown as Record<string, unknown>,
           metadata: {
             siteCode: catchment.CatchmentId,
@@ -632,9 +632,15 @@ export function AquaticFeaturesSubStep({
                   }
                 : undefined
             }
-            onFindingClick={(f) =>
-              setSelectedFinding(searchResults.find((r) => r.id === f.id) || null)
-            }
+            onFindingClick={(f) => {
+              // Toggle selection - if clicking the same finding, deselect it
+              const found = searchResults.find((r) => r.id === f.id) || null
+              setSelectedFinding((prev) => (prev?.id === f.id ? null : found))
+            }}
+            onMapClick={() => {
+              // Clear selection when clicking on empty map space
+              setSelectedFinding(null)
+            }}
           />
 
           <Button

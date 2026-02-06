@@ -471,16 +471,18 @@ export function FindingsList({
                       View on map
                     </button>
                   )}
-                  {/* Deep Research button for designated sites */}
-                  {finding.dataType === 'designated_site' && onDeepResearch && (
-                    <button
-                      className="flex items-center gap-1 font-medium text-purple-600 hover:underline"
-                      onClick={() => onDeepResearch(finding)}
-                    >
-                      <FlaskConical className="h-3 w-3" />
-                      Deep Research
-                    </button>
-                  )}
+                  {/* Deep Research button for designated sites and species */}
+                  {(finding.dataType === 'designated_site' ||
+                    finding.dataType === 'species_record') &&
+                    onDeepResearch && (
+                      <button
+                        className="flex items-center gap-1 font-medium text-purple-600 hover:underline"
+                        onClick={() => onDeepResearch(finding)}
+                      >
+                        <FlaskConical className="h-3 w-3" />
+                        Deep Research
+                      </button>
+                    )}
                   {/* Show both GBIF and NBDC links when enriched */}
                   {finding.metadata?.nbdcEnriched ? (
                     <>

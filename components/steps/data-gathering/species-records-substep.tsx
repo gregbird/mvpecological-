@@ -32,6 +32,10 @@ import { searchFPOByGridRef, type FPORecord } from '@/lib/data/fpo-species'
 import { searchSpeciesByGridRef, type Article17Species } from '@/lib/data/article17-species'
 import { wgs84ToGridRef } from '@/lib/utils/grid-reference'
 import { FindingsList, type FindingDisplay } from './findings-list'
+import {
+  SpeciesResearchModal,
+  type SpeciesResearchData,
+} from '@/components/desk-research/species-research-modal'
 import type { Project, DeskResearchFinding, Json } from '@/types/database'
 import type { FindingSource, FindingType } from '@/components/desk-research/finding-card'
 
@@ -100,6 +104,10 @@ export function SpeciesRecordsSubStep({
   } | null>(null)
   // Track hidden findings (for map visibility toggle)
   const [hiddenIds, setHiddenIds] = React.useState<Set<string>>(new Set())
+  // Species Deep Research modal state
+  const [speciesResearchOpen, setSpeciesResearchOpen] = React.useState(false)
+  const [selectedSpeciesResearch, setSelectedSpeciesResearch] =
+    React.useState<SpeciesResearchData | null>(null)
 
   // Toggle visibility of a finding on the map
   const handleToggleVisibility = React.useCallback((findingId: string) => {
@@ -607,6 +615,27 @@ export function SpeciesRecordsSubStep({
     }
   }
 
+  // Handle species deep research
+  const handleSpeciesDeepResearch = (finding: FindingDisplay) => {
+    setSelectedSpeciesResearch({
+      scientificName: finding.metadata?.scientificName || finding.title,
+      commonName: finding.metadata?.commonName,
+      taxonGroup: finding.metadata?.taxonGroup,
+      recordCount: finding.metadata?.recordCount,
+      designations: finding.metadata?.designations,
+      distance: finding.metadata?.distance,
+      isProtected: finding.metadata?.isProtected,
+      isInvasive: finding.metadata?.isInvasive,
+      isThreatened: finding.metadata?.isThreatened,
+      totalIrishRecords: finding.metadata?.totalIrishRecords,
+      gridSquares10km: finding.metadata?.gridSquares10km,
+      gbifUrl: finding.metadata?.gbifUrl || finding.sourceUrl,
+      nbdcUrl: finding.metadata?.nbdcUrl,
+      source: finding.source,
+    })
+    setSpeciesResearchOpen(true)
+  }
+
   // No boundary check
   if (!projectBoundary) {
     return (
@@ -746,6 +775,7 @@ export function SpeciesRecordsSubStep({
             isLoading={isSearching || isEnriching}
             onSave={handleSaveFinding}
             onViewOnMap={(f) => setSelectedFinding(f)}
+            onDeepResearch={handleSpeciesDeepResearch}
             emptyMessage="Search to find species"
             hiddenIds={hiddenIds}
             onToggleVisibility={handleToggleVisibility}
@@ -823,6 +853,13 @@ export function SpeciesRecordsSubStep({
           </Button>
         </div>
       )}
+
+      {/* Species Deep Research Modal */}
+      <SpeciesResearchModal
+        open={speciesResearchOpen}
+        onOpenChange={setSpeciesResearchOpen}
+        species={selectedSpeciesResearch}
+      />
     </div>
   )
 }
