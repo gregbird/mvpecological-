@@ -65,9 +65,9 @@ export async function saveDeepResearch(
       site_code: input.site_code,
       site_name: input.site_name,
       site_type: input.site_type,
-      habitats: input.habitats,
-      conservation_summary: input.conservation_summary,
-      threats_pressures: input.threats_pressures,
+      habitats: input.habitats as unknown as null,
+      conservation_summary: input.conservation_summary as unknown as null,
+      threats_pressures: input.threats_pressures as unknown as null,
       researched_by: input.researched_by || null,
       notes: input.notes || null,
     })
@@ -75,7 +75,7 @@ export async function saveDeepResearch(
     .single()
 
   if (error) throw error
-  return data as DeepResearchResult
+  return data as unknown as DeepResearchResult
 }
 
 /**
@@ -91,7 +91,7 @@ export async function getProjectDeepResearch(projectId: string): Promise<DeepRes
     .order('researched_at', { ascending: false })
 
   if (error) throw error
-  return (data || []) as DeepResearchResult[]
+  return (data || []) as unknown as DeepResearchResult[]
 }
 
 /**
@@ -113,7 +113,7 @@ export async function getSiteDeepResearch(
     .single()
 
   if (error && error.code !== 'PGRST116') throw error // PGRST116 = no rows
-  return data as DeepResearchResult | null
+  return data as unknown as DeepResearchResult | null
 }
 
 /**

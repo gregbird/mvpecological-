@@ -383,7 +383,10 @@ function MapComponentWithDraw({
     if (features.length > 0) {
       setDrawnFeatures(features)
       // Update the last loaded boundary ref so we don't reload the same boundary
-      lastLoadedBoundaryRef.current = JSON.stringify(features[0]?.geometry?.coordinates)
+      const geometry = features[0]?.geometry
+      lastLoadedBoundaryRef.current = JSON.stringify(
+        geometry && 'coordinates' in geometry ? geometry.coordinates : null
+      )
       onBoundaryChange?.({
         type: 'FeatureCollection',
         features,
@@ -620,7 +623,7 @@ export function ProjectMapWithDraw({
 }: ProjectMapWithDrawProps) {
   const [mapLoaded, setMapLoaded] = React.useState(false)
   // Use controlled style if provided, otherwise use local state
-  const [internalStyle, setInternalStyle] = React.useState<MapStyle>('streets')
+  const [internalStyle, setInternalStyle] = React.useState<MapStyle>('satellite')
   const currentStyle = baseMapStyle ?? internalStyle
   const setCurrentStyle = onBaseMapStyleChange ?? setInternalStyle
   const [isFullscreen, setIsFullscreen] = React.useState(false)

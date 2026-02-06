@@ -838,7 +838,7 @@ export function ProjectMap({
   showControls = true,
 }: ProjectMapProps) {
   const [mapLoaded, setMapLoaded] = React.useState(false)
-  const [currentStyle, setCurrentStyle] = React.useState<MapStyle>('streets')
+  const [currentStyle, setCurrentStyle] = React.useState<MapStyle>('satellite')
   const [isFullscreen, setIsFullscreen] = React.useState(false)
   const containerRef = React.useRef<HTMLDivElement>(null)
   const mapRef = React.useRef<LeafletMap | null>(null)

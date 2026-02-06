@@ -248,7 +248,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
   const [mapCenter, setMapCenter] = React.useState<[number, number] | undefined>(undefined)
   const [mapZoom, setMapZoom] = React.useState<number | undefined>(undefined)
   // Base map style state (persists between wizard steps - fixes satellite->streets bug)
-  const [baseMapStyle, setBaseMapStyle] = React.useState<MapStyle>('streets')
+  const [baseMapStyle, setBaseMapStyle] = React.useState<MapStyle>('satellite')
   // Fly to location state - for animating to clicked items
   const [flyToLocation, setFlyToLocation] = React.useState<
     | {

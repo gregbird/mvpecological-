@@ -185,11 +185,11 @@ export async function updateProjectBoundary(
     p_center_point:
       centerPoint as unknown as Database['public']['Functions']['update_project_boundary']['Args']['p_center_point'],
     p_grid_reference: gridReference,
-    p_buffer_distances: bufferDistances || null,
-    p_visible_layers: visibleLayers || null,
-    p_townland: townland || null,
-    p_county: county || null,
-    p_province: province || null,
+    p_buffer_distances: bufferDistances || undefined,
+    p_visible_layers: visibleLayers || undefined,
+    p_townland: townland || undefined,
+    p_county: county || undefined,
+    p_province: province || undefined,
   })
 
   if (error) {

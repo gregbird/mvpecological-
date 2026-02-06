@@ -196,7 +196,8 @@ export async function getTargetNotesStats(projectId: string): Promise<{
 
   for (const note of data) {
     categoryMap.set(note.category, (categoryMap.get(note.category) || 0) + 1)
-    priorityMap.set(note.priority, (priorityMap.get(note.priority) || 0) + 1)
+    const priority = note.priority || 'normal'
+    priorityMap.set(priority, (priorityMap.get(priority) || 0) + 1)
     if (note.is_verified) {
       verified++
     } else {

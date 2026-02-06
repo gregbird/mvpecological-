@@ -93,6 +93,72 @@ export type Database = {
           },
         ]
       }
+      deep_research_results: {
+        Row: {
+          conservation_summary: Json | null
+          created_at: string | null
+          finding_id: string | null
+          habitats: Json | null
+          id: string
+          notes: string | null
+          project_id: string
+          researched_at: string | null
+          researched_by: string | null
+          site_code: string
+          site_name: string
+          site_type: string
+          threats_pressures: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          conservation_summary?: Json | null
+          created_at?: string | null
+          finding_id?: string | null
+          habitats?: Json | null
+          id?: string
+          notes?: string | null
+          project_id: string
+          researched_at?: string | null
+          researched_by?: string | null
+          site_code: string
+          site_name: string
+          site_type: string
+          threats_pressures?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          conservation_summary?: Json | null
+          created_at?: string | null
+          finding_id?: string | null
+          habitats?: Json | null
+          id?: string
+          notes?: string | null
+          project_id?: string
+          researched_at?: string | null
+          researched_by?: string | null
+          site_code?: string
+          site_name?: string
+          site_type?: string
+          threats_pressures?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'deep_research_results_finding_id_fkey'
+            columns: ['finding_id']
+            isOneToOne: false
+            referencedRelation: 'desk_research_findings'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'deep_research_results_project_id_fkey'
+            columns: ['project_id']
+            isOneToOne: false
+            referencedRelation: 'projects'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       desk_research_findings: {
         Row: {
           content: string | null
@@ -101,14 +167,14 @@ export type Database = {
           data_type: Database['public']['Enums']['finding_data_type']
           distance_from_boundary_km: number | null
           id: string
-          is_protected: boolean
+          is_protected: boolean | null
           is_saved: boolean
           location: unknown
           notes: string | null
           project_id: string
           raw_data: Json | null
           red_list_status: string | null
-          relevance_level: 'high' | 'medium' | 'low' | null
+          relevance_level: string | null
           source: Database['public']['Enums']['data_source']
           title: string
           updated_at: string
@@ -120,14 +186,14 @@ export type Database = {
           data_type: Database['public']['Enums']['finding_data_type']
           distance_from_boundary_km?: number | null
           id?: string
-          is_protected?: boolean
+          is_protected?: boolean | null
           is_saved?: boolean
           location?: unknown
           notes?: string | null
           project_id: string
           raw_data?: Json | null
           red_list_status?: string | null
-          relevance_level?: 'high' | 'medium' | 'low' | null
+          relevance_level?: string | null
           source: Database['public']['Enums']['data_source']
           title: string
           updated_at?: string
@@ -139,14 +205,14 @@ export type Database = {
           data_type?: Database['public']['Enums']['finding_data_type']
           distance_from_boundary_km?: number | null
           id?: string
-          is_protected?: boolean
+          is_protected?: boolean | null
           is_saved?: boolean
           location?: unknown
           notes?: string | null
           project_id?: string
           raw_data?: Json | null
           red_list_status?: string | null
-          relevance_level?: 'high' | 'medium' | 'low' | null
+          relevance_level?: string | null
           source?: Database['public']['Enums']['data_source']
           title?: string
           updated_at?: string
@@ -443,81 +509,81 @@ export type Database = {
           actual_start_date: string | null
           boundary: unknown
           budget_days: number | null
+          buffer_distances: number[] | null
           center_point: unknown
           client_id: string | null
+          county: string | null
           created_at: string
           created_by: string
           current_phase: Database['public']['Enums']['project_phase']
           expected_end_date: string | null
           expected_start_date: string | null
           grid_reference: string | null
-          buffer_distances: number[] | null
-          visible_layers: string[] | null
-          townland: string | null
-          county: string | null
-          province: string | null
           health_status: Database['public']['Enums']['health_status']
           id: string
           name: string
           organization_id: string
+          province: string | null
           site_code: string | null
           status: Database['public']['Enums']['project_status']
           survey_type: string | null
+          townland: string | null
           updated_at: string
+          visible_layers: string[] | null
         }
         Insert: {
           actual_end_date?: string | null
           actual_start_date?: string | null
           boundary?: unknown
           budget_days?: number | null
+          buffer_distances?: number[] | null
           center_point?: unknown
           client_id?: string | null
+          county?: string | null
           created_at?: string
           created_by: string
           current_phase?: Database['public']['Enums']['project_phase']
           expected_end_date?: string | null
           expected_start_date?: string | null
           grid_reference?: string | null
-          buffer_distances?: number[] | null
-          visible_layers?: string[] | null
-          townland?: string | null
-          county?: string | null
-          province?: string | null
           health_status?: Database['public']['Enums']['health_status']
           id?: string
           name: string
           organization_id: string
+          province?: string | null
           site_code?: string | null
           status?: Database['public']['Enums']['project_status']
           survey_type?: string | null
+          townland?: string | null
           updated_at?: string
+          visible_layers?: string[] | null
         }
         Update: {
           actual_end_date?: string | null
           actual_start_date?: string | null
           boundary?: unknown
           budget_days?: number | null
+          buffer_distances?: number[] | null
           center_point?: unknown
           client_id?: string | null
+          county?: string | null
           created_at?: string
           created_by?: string
           current_phase?: Database['public']['Enums']['project_phase']
           expected_end_date?: string | null
           expected_start_date?: string | null
           grid_reference?: string | null
-          buffer_distances?: number[] | null
-          visible_layers?: string[] | null
-          townland?: string | null
-          county?: string | null
-          province?: string | null
           health_status?: Database['public']['Enums']['health_status']
           id?: string
           name?: string
           organization_id?: string
+          province?: string | null
           site_code?: string | null
           status?: Database['public']['Enums']['project_status']
           survey_type?: string | null
+          townland?: string | null
           updated_at?: string
+          visible_layers?: string[] | null
         }
         Relationships: [
           {
@@ -712,110 +778,6 @@ export type Database = {
           },
         ]
       }
-      target_notes: {
-        Row: {
-          id: string
-          project_id: string
-          finding_id: string | null
-          category:
-            | 'access_point'
-            | 'check_feature'
-            | 'habitat'
-            | 'fauna'
-            | 'flora'
-            | 'management'
-            | 'damage'
-            | 'ownership'
-          title: string
-          description: string | null
-          location: unknown
-          priority: 'high' | 'normal' | 'low'
-          is_verified: boolean
-          verified_by: string | null
-          verified_at: string | null
-          created_by: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          project_id: string
-          finding_id?: string | null
-          category:
-            | 'access_point'
-            | 'check_feature'
-            | 'habitat'
-            | 'fauna'
-            | 'flora'
-            | 'management'
-            | 'damage'
-            | 'ownership'
-          title: string
-          description?: string | null
-          location?: unknown
-          priority?: 'high' | 'normal' | 'low'
-          is_verified?: boolean
-          verified_by?: string | null
-          verified_at?: string | null
-          created_by: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          project_id?: string
-          finding_id?: string | null
-          category?:
-            | 'access_point'
-            | 'check_feature'
-            | 'habitat'
-            | 'fauna'
-            | 'flora'
-            | 'management'
-            | 'damage'
-            | 'ownership'
-          title?: string
-          description?: string | null
-          location?: unknown
-          priority?: 'high' | 'normal' | 'low'
-          is_verified?: boolean
-          verified_by?: string | null
-          verified_at?: string | null
-          created_by?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'target_notes_project_id_fkey'
-            columns: ['project_id']
-            isOneToOne: false
-            referencedRelation: 'projects'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'target_notes_finding_id_fkey'
-            columns: ['finding_id']
-            isOneToOne: false
-            referencedRelation: 'desk_research_findings'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'target_notes_verified_by_fkey'
-            columns: ['verified_by']
-            isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'target_notes_created_by_fkey'
-            columns: ['created_by']
-            isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-        ]
-      }
       surveys: {
         Row: {
           created_at: string
@@ -876,6 +838,86 @@ export type Database = {
           {
             foreignKeyName: 'surveys_surveyor_id_fkey'
             columns: ['surveyor_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      target_notes: {
+        Row: {
+          category: string
+          created_at: string | null
+          created_by: string
+          description: string | null
+          finding_id: string | null
+          id: string
+          is_verified: boolean | null
+          location: unknown
+          priority: string | null
+          project_id: string
+          title: string
+          updated_at: string | null
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          finding_id?: string | null
+          id?: string
+          is_verified?: boolean | null
+          location?: unknown
+          priority?: string | null
+          project_id: string
+          title: string
+          updated_at?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          finding_id?: string | null
+          id?: string
+          is_verified?: boolean | null
+          location?: unknown
+          priority?: string | null
+          project_id?: string
+          title?: string
+          updated_at?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'target_notes_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'target_notes_finding_id_fkey'
+            columns: ['finding_id']
+            isOneToOne: false
+            referencedRelation: 'desk_research_findings'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'target_notes_project_id_fkey'
+            columns: ['project_id']
+            isOneToOne: false
+            referencedRelation: 'projects'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'target_notes_verified_by_fkey'
+            columns: ['verified_by']
             isOneToOne: false
             referencedRelation: 'profiles'
             referencedColumns: ['id']
@@ -1012,25 +1054,50 @@ export type Database = {
           role: Database['public']['Enums']['user_role']
         }[]
       }
+      get_project_with_geojson: {
+        Args: { p_project_id: string }
+        Returns: Json
+      }
+      get_user_organization_id: { Args: { user_id: string }; Returns: string }
       update_project_boundary: {
         Args: {
-          p_project_id: string
           p_boundary: Json
+          p_buffer_distances?: number[]
           p_center_point: Json
+          p_county?: string
           p_grid_reference: string
-          p_buffer_distances?: number[] | null
-          p_visible_layers?: string[] | null
-          p_townland?: string | null
-          p_county?: string | null
-          p_province?: string | null
-        }
-        Returns: Database['public']['Tables']['projects']['Row']
-      }
-      get_project_with_geojson: {
-        Args: {
           p_project_id: string
+          p_province?: string
+          p_townland?: string
+          p_visible_layers?: string[]
         }
-        Returns: Json
+        Returns: {
+          actual_end_date: string | null
+          actual_start_date: string | null
+          boundary: unknown
+          budget_days: number | null
+          buffer_distances: number[] | null
+          center_point: unknown
+          client_id: string | null
+          county: string | null
+          created_at: string
+          created_by: string
+          current_phase: Database['public']['Enums']['project_phase']
+          expected_end_date: string | null
+          expected_start_date: string | null
+          grid_reference: string | null
+          health_status: Database['public']['Enums']['health_status']
+          id: string
+          name: string
+          organization_id: string
+          province: string | null
+          site_code: string | null
+          status: Database['public']['Enums']['project_status']
+          survey_type: string | null
+          townland: string | null
+          updated_at: string
+          visible_layers: string[] | null
+        }
       }
     }
     Enums: {
@@ -1182,32 +1249,119 @@ export type CompositeTypes<
     ? DefaultSchema['CompositeTypes'][PublicCompositeTypeNameOrOptions]
     : never
 
-// Helper types for common use cases
-export type Profile = Tables<'profiles'>
-export type Organization = Tables<'organizations'>
-export type Project = Tables<'projects'>
-export type ProjectMember = Tables<'project_members'>
-export type Client = Tables<'clients'>
-export type Survey = Tables<'surveys'>
-export type Invite = Tables<'invites'>
-export type WorkflowStep = Tables<'workflow_steps'>
-export type Report = Tables<'reports'>
-export type HabitatPolygon = Tables<'habitat_polygons'>
-export type SpeciesObservation = Tables<'species_observations'>
-export type DeskResearchFinding = Tables<'desk_research_findings'>
-export type TargetNote = Tables<'target_notes'>
+export const Constants = {
+  public: {
+    Enums: {
+      audit_action: ['INSERT', 'UPDATE', 'DELETE'],
+      confidence_level: ['high', 'medium', 'low'],
+      data_source: ['npws', 'gbif', 'nbdc', 'epa', 'catchments', 'manual'],
+      finding_data_type: [
+        'designated_site',
+        'species_record',
+        'water_quality',
+        'catchment',
+        'other',
+      ],
+      health_status: ['on_track', 'at_risk', 'overdue'],
+      project_member_role: ['lead', 'surveyor', 'analyst', 'reviewer', 'viewer'],
+      project_phase: ['desk_research', 'field_research', 'reporting'],
+      project_status: ['draft', 'active', 'completed', 'archived'],
+      report_status: ['draft', 'internal_review', 'client_review', 'approved', 'final'],
+      survey_status: ['planned', 'in_progress', 'completed', 'approved'],
+      sync_status: ['synced', 'pending', 'conflict'],
+      user_role: ['admin', 'assessor', 'client'],
+      workflow_status: ['pending', 'in_progress', 'needs_review', 'approved', 'blocked'],
+    },
+  },
+} as const
 
+// Helper type aliases for common table types
+export type Project = Database['public']['Tables']['projects']['Row']
+export type ProjectInsert = Database['public']['Tables']['projects']['Insert']
+export type ProjectUpdate = Database['public']['Tables']['projects']['Update']
+
+export type WorkflowStep = Database['public']['Tables']['workflow_steps']['Row']
+export type WorkflowStepInsert = Database['public']['Tables']['workflow_steps']['Insert']
+export type WorkflowStepUpdate = Database['public']['Tables']['workflow_steps']['Update']
+
+export type Profile = Database['public']['Tables']['profiles']['Row']
+export type ProfileInsert = Database['public']['Tables']['profiles']['Insert']
+export type ProfileUpdate = Database['public']['Tables']['profiles']['Update']
+
+export type Organization = Database['public']['Tables']['organizations']['Row']
+export type OrganizationInsert = Database['public']['Tables']['organizations']['Insert']
+export type OrganizationUpdate = Database['public']['Tables']['organizations']['Update']
+
+export type DeskResearchFinding = Database['public']['Tables']['desk_research_findings']['Row']
+export type DeskResearchFindingInsert =
+  Database['public']['Tables']['desk_research_findings']['Insert']
+export type DeskResearchFindingUpdate =
+  Database['public']['Tables']['desk_research_findings']['Update']
+
+export type Survey = Database['public']['Tables']['surveys']['Row']
+export type SurveyInsert = Database['public']['Tables']['surveys']['Insert']
+export type SurveyUpdate = Database['public']['Tables']['surveys']['Update']
+
+export type SpeciesObservation = Database['public']['Tables']['species_observations']['Row']
+export type SpeciesObservationInsert =
+  Database['public']['Tables']['species_observations']['Insert']
+export type SpeciesObservationUpdate =
+  Database['public']['Tables']['species_observations']['Update']
+
+export type HabitatPolygon = Database['public']['Tables']['habitat_polygons']['Row']
+export type HabitatPolygonInsert = Database['public']['Tables']['habitat_polygons']['Insert']
+export type HabitatPolygonUpdate = Database['public']['Tables']['habitat_polygons']['Update']
+
+export type TargetNote = Database['public']['Tables']['target_notes']['Row']
+export type TargetNoteInsert = Database['public']['Tables']['target_notes']['Insert']
+export type TargetNoteUpdate = Database['public']['Tables']['target_notes']['Update']
+
+export type Report = Database['public']['Tables']['reports']['Row']
+export type ReportInsert = Database['public']['Tables']['reports']['Insert']
+export type ReportUpdate = Database['public']['Tables']['reports']['Update']
+
+export type ProjectMember = Database['public']['Tables']['project_members']['Row']
+export type ProjectMemberInsert = Database['public']['Tables']['project_members']['Insert']
+export type ProjectMemberUpdate = Database['public']['Tables']['project_members']['Update']
+
+export type Invite = Database['public']['Tables']['invites']['Row']
+export type InviteInsert = Database['public']['Tables']['invites']['Insert']
+export type InviteUpdate = Database['public']['Tables']['invites']['Update']
+
+export type DeepResearchResult = Database['public']['Tables']['deep_research_results']['Row']
+export type DeepResearchResultInsert =
+  Database['public']['Tables']['deep_research_results']['Insert']
+export type DeepResearchResultUpdate =
+  Database['public']['Tables']['deep_research_results']['Update']
+
+// Enum type aliases
 export type UserRole = Database['public']['Enums']['user_role']
-export type TargetNoteCategory = Database['public']['Tables']['target_notes']['Row']['category']
-export type TargetNotePriority = Database['public']['Tables']['target_notes']['Row']['priority']
-export type RelevanceLevel =
-  Database['public']['Tables']['desk_research_findings']['Row']['relevance_level']
 export type ProjectStatus = Database['public']['Enums']['project_status']
 export type ProjectPhase = Database['public']['Enums']['project_phase']
 export type HealthStatus = Database['public']['Enums']['health_status']
 export type WorkflowStatus = Database['public']['Enums']['workflow_status']
+export type DataSource = Database['public']['Enums']['data_source']
+export type FindingDataType = Database['public']['Enums']['finding_data_type']
+export type SurveyStatus = Database['public']['Enums']['survey_status']
+export type SyncStatus = Database['public']['Enums']['sync_status']
+export type ConfidenceLevel = Database['public']['Enums']['confidence_level']
+export type ProjectMemberRole = Database['public']['Enums']['project_member_role']
+export type ReportStatus = Database['public']['Enums']['report_status']
+export type AuditAction = Database['public']['Enums']['audit_action']
 
-// Insert and Update helper types
+// Target note specific types
+export type TargetNoteCategory =
+  | 'access_point'
+  | 'check_feature'
+  | 'habitat'
+  | 'fauna'
+  | 'flora'
+  | 'management'
+  | 'damage'
+  | 'ownership'
+export type TargetNotePriority = 'high' | 'normal' | 'low'
+
+// Generic helper types for Insert and Update operations
 export type InsertTables<T extends keyof Database['public']['Tables']> =
   Database['public']['Tables'][T]['Insert']
 export type UpdateTables<T extends keyof Database['public']['Tables']> =
