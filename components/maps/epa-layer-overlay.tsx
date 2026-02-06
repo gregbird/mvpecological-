@@ -49,7 +49,9 @@ export function useEPALayers(
   map: L.Map | null,
   boundary: GeoJSON.Feature<GeoJSON.Polygon> | null,
   visibleLayers: string[],
-  searchRadius = 5
+  searchRadius = 5,
+  ignoredItems: Set<string> = new Set(),
+  deletedItems: Set<string> = new Set()
 ) {
   const [data, setData] = React.useState<EPALayerData>({
     rivers: [],
@@ -176,6 +178,9 @@ export function useEPALayers(
     if (visibleLayers.includes('rivers') || showRiverStatus) {
       for (const river of data.rivers) {
         if (!river.geometry) continue
+        // Skip ignored or deleted rivers
+        const riverKey = `river-${river.RiverCode}`
+        if (ignoredItems.has(riverKey) || deletedItems.has(riverKey)) continue
 
         const color = showRiverStatus ? getWFDStatusColor(river.WFD_Status) : EPA_COLORS.rivers
 
@@ -232,6 +237,9 @@ export function useEPALayers(
     if (visibleLayers.includes('lakes')) {
       for (const lake of data.lakes) {
         if (!lake.geometry) continue
+        // Skip ignored or deleted lakes
+        const lakeKey = `lake-${lake.LakeCode}`
+        if (ignoredItems.has(lakeKey) || deletedItems.has(lakeKey)) continue
 
         try {
           const layer = L.geoJSON(lake.geometry, {
@@ -287,6 +295,9 @@ export function useEPALayers(
     if (visibleLayers.includes('catchments')) {
       for (const catchment of data.catchments) {
         if (!catchment.geometry) continue
+        // Skip ignored or deleted catchments
+        const catchmentKey = `catchment-${catchment.CatchmentId}`
+        if (ignoredItems.has(catchmentKey) || deletedItems.has(catchmentKey)) continue
 
         try {
           const layer = L.geoJSON(catchment.geometry, {
@@ -346,7 +357,7 @@ export function useEPALayers(
         }
       })
     }
-  }, [map, data, visibleLayers])
+  }, [map, data, visibleLayers, ignoredItems, deletedItems])
 
   return {
     data,

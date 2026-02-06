@@ -1,7 +1,16 @@
 'use client'
 
 import * as React from 'react'
-import { Search, Loader2, Eye, EyeOff, RefreshCw, AlertCircle, Droplets } from 'lucide-react'
+import {
+  Search,
+  Loader2,
+  Eye,
+  EyeOff,
+  RefreshCw,
+  AlertCircle,
+  Droplets,
+  Sparkles,
+} from 'lucide-react'
 import dynamic from 'next/dynamic'
 import * as turf from '@turf/turf'
 
@@ -383,6 +392,82 @@ export function AquaticFeaturesSubStep({
     }
   }
 
+  // Handle AI summary fetch for an aquatic feature
+  const handleFetchAiSummary = async (finding: FindingDisplay) => {
+    if (!finding.sourceUrl) return
+
+    // Set loading state
+    setSearchResults((prev) =>
+      prev.map((f) =>
+        f.id === finding.id ? { ...f, metadata: { ...f.metadata, aiSummaryLoading: true } } : f
+      )
+    )
+
+    try {
+      const response = await fetch('/api/ai/site-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          siteUrl: finding.sourceUrl,
+          siteName: finding.title,
+          siteCode: finding.metadata?.siteCode || '',
+          siteType: finding.metadata?.siteType || 'Waterbody',
+        }),
+      })
+
+      if (!response.ok) throw new Error('Failed to fetch summary')
+
+      const data = await response.json()
+
+      setSearchResults((prev) =>
+        prev.map((f) =>
+          f.id === finding.id
+            ? {
+                ...f,
+                metadata: {
+                  ...f.metadata,
+                  aiSummary: data.summary,
+                  aiSummaryLoading: false,
+                },
+              }
+            : f
+        )
+      )
+    } catch (error) {
+      console.error('AI summary error:', error)
+      setSearchResults((prev) =>
+        prev.map((f) =>
+          f.id === finding.id
+            ? {
+                ...f,
+                metadata: {
+                  ...f.metadata,
+                  aiSummary: 'Failed to generate summary. Try again later.',
+                  aiSummaryLoading: false,
+                },
+              }
+            : f
+        )
+      )
+    }
+  }
+
+  // Batch summarize all features
+  const [isSummarizing, setIsSummarizing] = React.useState(false)
+  const handleSummarizeAll = async () => {
+    const featuresWithoutSummary = searchResults.filter(
+      (f) => !f.metadata?.aiSummary && !f.metadata?.aiSummaryLoading && f.sourceUrl
+    )
+    if (featuresWithoutSummary.length === 0) return
+
+    setIsSummarizing(true)
+    for (const finding of featuresWithoutSummary) {
+      await handleFetchAiSummary(finding)
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    }
+    setIsSummarizing(false)
+  }
+
   // No boundary check
   if (!projectBoundary) {
     return (
@@ -405,7 +490,7 @@ export function AquaticFeaturesSubStep({
   return (
     <div className="flex h-full">
       {/* Results Panel */}
-      <div className="flex w-[340px] shrink-0 flex-col border-r">
+      <div className="flex w-[40%] shrink-0 flex-col border-r">
         {/* Search Controls */}
         <div className="border-b p-4">
           <h3 className="mb-3 flex items-center gap-2 font-semibold">
@@ -452,10 +537,26 @@ export function AquaticFeaturesSubStep({
             <div className="mt-3 space-y-2">
               <div className="flex items-center justify-between">
                 <Badge variant="secondary">{searchResults.length} features found</Badge>
-                <Button variant="ghost" size="sm" onClick={performSearch} disabled={isSearching}>
-                  <RefreshCw className="mr-1 h-3 w-3" />
-                  Refresh
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSummarizeAll}
+                    disabled={isSummarizing || isSearching}
+                    className="text-purple-600 hover:text-purple-700"
+                  >
+                    {isSummarizing ? (
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="mr-1 h-3 w-3" />
+                    )}
+                    {isSummarizing ? 'Summarizing...' : 'AI Summary'}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={performSearch} disabled={isSearching}>
+                    <RefreshCw className="mr-1 h-3 w-3" />
+                    Refresh
+                  </Button>
+                </div>
               </div>
               <div className="flex flex-wrap gap-1">
                 {riverCount > 0 && (
@@ -486,6 +587,7 @@ export function AquaticFeaturesSubStep({
             isLoading={isSearching}
             onSave={handleSaveFinding}
             onViewOnMap={(f) => setSelectedFinding(f)}
+            onFetchAiSummary={handleFetchAiSummary}
             emptyMessage="Search to find features"
             hiddenIds={hiddenIds}
             onToggleVisibility={handleToggleVisibility}

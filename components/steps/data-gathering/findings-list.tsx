@@ -60,12 +60,16 @@ export interface FindingDisplay {
     totalIrishRecords?: number
     gridSquares10km?: number
     designations?: string
+    taxonGroup?: string
     nbdcEnriched?: boolean
     // Source URLs for both GBIF and NBDC
     gbifUrl?: string
     nbdcUrl?: string
     // SSCO fields
     habitatCount?: number
+    // AI summary
+    aiSummary?: string
+    aiSummaryLoading?: boolean
   }
 }
 
@@ -81,6 +85,8 @@ interface FindingsListProps {
   // Visibility toggle for map display
   hiddenIds?: Set<string>
   onToggleVisibility?: (findingId: string) => void
+  // AI summary callback for designated sites
+  onFetchAiSummary?: (finding: FindingDisplay) => void
 }
 
 // Source badge colors
@@ -138,6 +144,7 @@ export function FindingsList({
   showFilters = true,
   hiddenIds,
   onToggleVisibility,
+  onFetchAiSummary,
 }: FindingsListProps) {
   const [sortBy, setSortBy] = React.useState<'distance' | 'title' | 'type'>('distance')
   const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>('asc')
@@ -308,6 +315,72 @@ export function FindingsList({
                     </Button>
                   </div>
                 </div>
+
+                {/* AI Summary for designated sites and aquatic features */}
+                {(finding.dataType === 'designated_site' ||
+                  finding.dataType === 'water_quality' ||
+                  finding.dataType === 'catchment') && (
+                  <div className="mt-1.5">
+                    {finding.metadata?.aiSummary ? (
+                      <p className="text-muted-foreground text-[11px] leading-relaxed">
+                        {finding.metadata.aiSummary}
+                      </p>
+                    ) : finding.metadata?.aiSummaryLoading ? (
+                      <div className="flex items-center gap-1.5 text-[11px] text-purple-600">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Generating summary...
+                      </div>
+                    ) : onFetchAiSummary ? (
+                      <button
+                        className="flex items-center gap-1 text-[11px] text-purple-600 hover:underline"
+                        onClick={() => onFetchAiSummary(finding)}
+                      >
+                        <Sparkles className="h-3 w-3" />
+                        AI Summary
+                      </button>
+                    ) : null}
+                  </div>
+                )}
+
+                {/* Content summary for EPA aquatic features */}
+                {(finding.dataType === 'water_quality' || finding.dataType === 'catchment') &&
+                  finding.content && (
+                    <p className="text-muted-foreground mt-1 text-[11px] leading-relaxed">
+                      {finding.content}
+                    </p>
+                  )}
+
+                {/* Species detail fields - shown for species records */}
+                {finding.dataType === 'species_record' && finding.metadata && (
+                  <div className="mt-1.5 space-y-0.5 text-[11px]">
+                    {finding.metadata.scientificName && (
+                      <div className="text-muted-foreground italic">
+                        {finding.metadata.scientificName}
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                      {finding.metadata.taxonGroup && (
+                        <span className="text-muted-foreground">{finding.metadata.taxonGroup}</span>
+                      )}
+                      {finding.metadata.designations && (
+                        <span className="font-medium text-red-600">
+                          {finding.metadata.designations}
+                        </span>
+                      )}
+                      {finding.metadata.recordCount && finding.metadata.recordCount > 0 && (
+                        <span className="text-muted-foreground">
+                          {finding.metadata.recordCount} records
+                        </span>
+                      )}
+                      {finding.metadata.totalIrishRecords &&
+                        finding.metadata.totalIrishRecords > 0 && (
+                          <span className="text-muted-foreground">
+                            {finding.metadata.totalIrishRecords.toLocaleString()} Irish records
+                          </span>
+                        )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Compact badges row */}
                 <div className="mt-1.5 flex flex-wrap items-center gap-1">

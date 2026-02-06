@@ -19,7 +19,6 @@ import dynamic from 'next/dynamic'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { useToast } from '@/hooks/use-toast'
 import {
   useSavedFindings,
   useFindingsStats,
@@ -74,7 +73,6 @@ export function DataGatheringStep({
   userId,
   onComplete,
 }: DataGatheringStepProps) {
-  const { toast } = useToast()
   const { setMapFullscreen, refetchProject, refetchWorkflowSteps } = useProjectContext()
 
   // Check if step is completed
@@ -152,11 +150,6 @@ export function DataGatheringStep({
   // Handle step completion
   const handleComplete = async () => {
     if (savedFindings.length === 0) {
-      toast({
-        variant: 'destructive',
-        title: 'Cannot complete step',
-        description: 'Please save at least one finding before completing this step.',
-      })
       return
     }
 
@@ -167,19 +160,9 @@ export function DataGatheringStep({
       })
 
       refetchWorkflowSteps()
-      toast({
-        title: 'Step completed',
-        description: 'Data Gathering step has been completed. Moving to Desk Assessment.',
-      })
-
       onComplete?.()
     } catch (error) {
       console.error('[DataGatheringStep] Complete step error:', error)
-      toast({
-        variant: 'destructive',
-        title: 'Error completing step',
-        description: 'Failed to complete the workflow step.',
-      })
     }
   }
 

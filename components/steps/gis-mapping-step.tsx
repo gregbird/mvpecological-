@@ -27,7 +27,6 @@ import dynamic from 'next/dynamic'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { useToast } from '@/hooks/use-toast'
 import { useUpdateProjectBoundary, useCompleteWorkflowStep } from '@/hooks/use-project-data'
 import { calculateAreaHectares } from '@/lib/supabase/queries/habitats'
 import { GISConnectionModal, type GISSourceType } from '@/components/gis'
@@ -88,7 +87,7 @@ interface GISMappingStepProps {
 }
 
 // Wizard steps
-type WizardStep = 'source' | 'boundary' | 'buffers' | 'layers' | 'review'
+type WizardStep = 'source' | 'boundary' | 'buffers' | 'layers'
 type ViewMode = 'preview' | 'wizard'
 
 const WIZARD_STEPS: { id: WizardStep; label: string; icon: React.ElementType }[] = [
@@ -96,7 +95,6 @@ const WIZARD_STEPS: { id: WizardStep; label: string; icon: React.ElementType }[]
   { id: 'boundary', label: 'Boundary', icon: MapPin },
   { id: 'buffers', label: 'Buffers', icon: Circle },
   { id: 'layers', label: 'Layers', icon: Layers },
-  { id: 'review', label: 'Review', icon: Check },
 ]
 
 // Buffer zone colors - each distance gets a unique color
@@ -189,7 +187,6 @@ const gisSourceOptions = [
 ]
 
 export function GISMappingStep({ project, workflowStep, onComplete }: GISMappingStepProps) {
-  const { toast } = useToast()
   const { setMapFullscreen, refetchProject, refetchWorkflowSteps } = useProjectContext()
 
   // Check if step is completed (approved or needs_review means data exists)
@@ -296,8 +293,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
       viewMode === 'preview' ||
       currentStep === 'boundary' ||
       currentStep === 'buffers' ||
-      currentStep === 'layers' ||
-      currentStep === 'review'
+      currentStep === 'layers'
     setMapFullscreen(isMapStep)
 
     // Cleanup: restore sidebar when component unmounts
@@ -474,11 +470,6 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
       if (isShapefileType(file)) {
         const result = await parseShapefile(file)
         if (!result.success || !result.feature) {
-          toast({
-            variant: 'destructive',
-            title: 'Error',
-            description: result.error || 'Failed to parse shapefile',
-          })
           return
         }
         setBoundary(result.feature)
@@ -518,11 +509,6 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
 
         const validation = validateBoundary(feature as GeoJSON.Feature<GeoJSON.Polygon>)
         if (!validation.valid) {
-          toast({
-            variant: 'destructive',
-            title: 'Validation Error',
-            description: validation.errors.join('. '),
-          })
           return
         }
 
@@ -535,11 +521,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
 
       throw new Error('Unsupported file format')
     } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to parse file',
-      })
+      console.error('File parse error:', error)
     } finally {
       setIsProcessing(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -604,23 +586,14 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
       if (result) {
         setHasUnsavedChanges(false)
         refetchProject()
-        toast({ title: 'Saved', description: 'Boundary saved successfully' })
-      } else {
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to save boundary' })
       }
     } catch (error) {
       console.error('[GISMappingStep] Save error:', error)
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to save boundary' })
     }
   }
 
   const handleComplete = async () => {
     if (!boundary) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Please define a boundary first',
-      })
       return
     }
 
@@ -632,11 +605,9 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
         stepNumber: workflowStep.step_number,
       })
       refetchWorkflowSteps()
-      toast({ title: 'Step Completed', description: 'GIS Mapping step completed' })
       onComplete?.()
     } catch (error) {
       console.error('[GISMappingStep] Complete step error:', error)
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to complete step' })
     }
   }
 
@@ -1450,7 +1421,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                               ? filteredSites
                               : filteredSites.slice(0, displayCount)
                             return filteredSites.length > 0 ? (
-                              <div className="max-h-64 space-y-1 overflow-y-auto">
+                              <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
                                 {sitesToShow.map((site, idx) => {
                                   const siteKey = `npws-${site.SITE_TYPE}-${site.SITECODE}`
                                   const isIgnored = ignoredItems.has(siteKey)
@@ -1482,14 +1453,14 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                                         }
                                       }}
                                       className={cn(
-                                        'group relative flex cursor-pointer items-start gap-2 rounded p-1.5 text-xs transition-colors',
+                                        'group relative flex cursor-pointer items-center gap-2 rounded p-1.5 text-xs transition-colors',
                                         isIgnored
                                           ? 'bg-gray-100 opacity-50'
                                           : 'bg-white hover:bg-gray-100'
                                       )}
                                     >
                                       <span
-                                        className="mt-0.5 h-2 w-2 shrink-0 rounded-full"
+                                        className="h-2 w-2 shrink-0 rounded-full"
                                         style={{
                                           backgroundColor:
                                             site.SITE_TYPE === 'SAC'
@@ -1512,7 +1483,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                                           {site.SITE_TYPE} · {site.AREA_HA?.toFixed(0)} ha
                                         </p>
                                       </div>
-                                      <div className="absolute top-1 right-1 flex gap-0.5 rounded bg-white/80 p-0.5 opacity-0 shadow-sm transition-opacity group-hover:opacity-100">
+                                      <div className="ml-auto flex shrink-0 items-center gap-1">
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation()
@@ -1528,7 +1499,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                                             setHasUnsavedChanges(true)
                                           }}
                                           className={cn(
-                                            'rounded p-1 transition-colors',
+                                            'rounded p-1.5 transition-colors',
                                             isIgnored
                                               ? 'bg-amber-100 text-amber-600 hover:bg-amber-200'
                                               : 'text-gray-400 hover:bg-gray-200 hover:text-amber-600'
@@ -1536,9 +1507,9 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                                           title={isIgnored ? 'Show on map' : 'Hide from map'}
                                         >
                                           {isIgnored ? (
-                                            <Eye className="h-3 w-3" />
+                                            <Eye className="h-3.5 w-3.5" />
                                           ) : (
-                                            <EyeOff className="h-3 w-3" />
+                                            <EyeOff className="h-3.5 w-3.5" />
                                           )}
                                         </button>
                                         <button
@@ -1551,10 +1522,10 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                                             })
                                             setHasUnsavedChanges(true)
                                           }}
-                                          className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-200 hover:text-red-600"
+                                          className="rounded p-1.5 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600"
                                           title="Remove from list"
                                         >
-                                          <X className="h-3 w-3" />
+                                          <X className="h-3.5 w-3.5" />
                                         </button>
                                       </div>
                                     </div>
@@ -1669,7 +1640,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                               ? filteredRivers
                               : filteredRivers.slice(0, displayCount)
                             return filteredRivers.length > 0 ? (
-                              <div className="max-h-64 space-y-1 overflow-y-auto">
+                              <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
                                 {riversToShow.map((river, idx) => {
                                   const itemKey = `river-${river.RiverCode}`
                                   const isIgnored = ignoredItems.has(itemKey)
@@ -1700,14 +1671,14 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                                         }
                                       }}
                                       className={cn(
-                                        'group relative flex cursor-pointer items-start gap-2 rounded p-1.5 text-xs transition-colors',
+                                        'group relative flex cursor-pointer items-center gap-2 rounded p-1.5 text-xs transition-colors',
                                         isIgnored
                                           ? 'bg-gray-100 opacity-50'
                                           : 'bg-white hover:bg-gray-100'
                                       )}
                                     >
                                       <span
-                                        className="mt-0.5 h-2 w-2 shrink-0 rounded-full"
+                                        className="h-2 w-2 shrink-0 rounded-full"
                                         style={{ backgroundColor: '#0284c7' }}
                                       />
                                       <div
@@ -1722,7 +1693,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                                           {river.Length_km && ` · ${river.Length_km.toFixed(1)} km`}
                                         </p>
                                       </div>
-                                      <div className="absolute top-1 right-1 flex gap-0.5 rounded bg-white/80 p-0.5 opacity-0 shadow-sm transition-opacity group-hover:opacity-100">
+                                      <div className="ml-auto flex shrink-0 items-center gap-1">
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation()
@@ -1738,7 +1709,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                                             setHasUnsavedChanges(true)
                                           }}
                                           className={cn(
-                                            'rounded p-1 transition-colors',
+                                            'rounded p-1.5 transition-colors',
                                             isIgnored
                                               ? 'bg-amber-100 text-amber-600 hover:bg-amber-200'
                                               : 'text-gray-400 hover:bg-gray-200 hover:text-amber-600'
@@ -1746,9 +1717,9 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                                           title={isIgnored ? 'Show on map' : 'Hide from map'}
                                         >
                                           {isIgnored ? (
-                                            <Eye className="h-3 w-3" />
+                                            <Eye className="h-3.5 w-3.5" />
                                           ) : (
-                                            <EyeOff className="h-3 w-3" />
+                                            <EyeOff className="h-3.5 w-3.5" />
                                           )}
                                         </button>
                                         <button
@@ -1761,10 +1732,10 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                                             })
                                             setHasUnsavedChanges(true)
                                           }}
-                                          className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-200 hover:text-red-600"
+                                          className="rounded p-1.5 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600"
                                           title="Remove from list"
                                         >
-                                          <X className="h-3 w-3" />
+                                          <X className="h-3.5 w-3.5" />
                                         </button>
                                       </div>
                                     </div>
@@ -1879,7 +1850,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                               ? filteredLakes
                               : filteredLakes.slice(0, displayCount)
                             return filteredLakes.length > 0 ? (
-                              <div className="max-h-64 space-y-1 overflow-y-auto">
+                              <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
                                 {lakesToShow.map((lake, idx) => {
                                   const itemKey = `lake-${lake.LakeCode}`
                                   const isIgnored = ignoredItems.has(itemKey)
@@ -1910,14 +1881,14 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                                         }
                                       }}
                                       className={cn(
-                                        'group relative flex cursor-pointer items-start gap-2 rounded p-1.5 text-xs transition-colors',
+                                        'group relative flex cursor-pointer items-center gap-2 rounded p-1.5 text-xs transition-colors',
                                         isIgnored
                                           ? 'bg-gray-100 opacity-50'
                                           : 'bg-white hover:bg-gray-100'
                                       )}
                                     >
                                       <span
-                                        className="mt-0.5 h-2 w-2 shrink-0 rounded-full"
+                                        className="h-2 w-2 shrink-0 rounded-full"
                                         style={{ backgroundColor: '#0369a1' }}
                                       />
                                       <div
@@ -1932,7 +1903,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                                           {lake.Area_ha && ` · ${lake.Area_ha.toFixed(0)} ha`}
                                         </p>
                                       </div>
-                                      <div className="absolute top-1 right-1 flex gap-0.5 rounded bg-white/80 p-0.5 opacity-0 shadow-sm transition-opacity group-hover:opacity-100">
+                                      <div className="ml-auto flex shrink-0 items-center gap-1">
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation()
@@ -1948,7 +1919,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                                             setHasUnsavedChanges(true)
                                           }}
                                           className={cn(
-                                            'rounded p-1 transition-colors',
+                                            'rounded p-1.5 transition-colors',
                                             isIgnored
                                               ? 'bg-amber-100 text-amber-600 hover:bg-amber-200'
                                               : 'text-gray-400 hover:bg-gray-200 hover:text-amber-600'
@@ -1956,9 +1927,9 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                                           title={isIgnored ? 'Show on map' : 'Hide from map'}
                                         >
                                           {isIgnored ? (
-                                            <Eye className="h-3 w-3" />
+                                            <Eye className="h-3.5 w-3.5" />
                                           ) : (
-                                            <EyeOff className="h-3 w-3" />
+                                            <EyeOff className="h-3.5 w-3.5" />
                                           )}
                                         </button>
                                         <button
@@ -1971,10 +1942,10 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                                             })
                                             setHasUnsavedChanges(true)
                                           }}
-                                          className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-200 hover:text-red-600"
+                                          className="rounded p-1.5 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600"
                                           title="Remove from list"
                                         >
-                                          <X className="h-3 w-3" />
+                                          <X className="h-3.5 w-3.5" />
                                         </button>
                                       </div>
                                     </div>
@@ -2089,7 +2060,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                               ? filteredCatchments
                               : filteredCatchments.slice(0, displayCount)
                             return filteredCatchments.length > 0 ? (
-                              <div className="max-h-64 space-y-1 overflow-y-auto">
+                              <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
                                 {catchmentsToShow.map((catchment, idx) => {
                                   const itemKey = `catchment-${catchment.CatchmentId}`
                                   const isIgnored = ignoredItems.has(itemKey)
@@ -2120,14 +2091,14 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                                         }
                                       }}
                                       className={cn(
-                                        'group relative flex cursor-pointer items-start gap-2 rounded p-1.5 text-xs transition-colors',
+                                        'group relative flex cursor-pointer items-center gap-2 rounded p-1.5 text-xs transition-colors',
                                         isIgnored
                                           ? 'bg-gray-100 opacity-50'
                                           : 'bg-white hover:bg-gray-100'
                                       )}
                                     >
                                       <span
-                                        className="mt-0.5 h-2 w-2 shrink-0 rounded-full"
+                                        className="h-2 w-2 shrink-0 rounded-full"
                                         style={{ backgroundColor: '#38bdf8' }}
                                       />
                                       <div
@@ -2146,7 +2117,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                                             ` · ${catchment.RiverBasinDistrict}`}
                                         </p>
                                       </div>
-                                      <div className="absolute top-1 right-1 flex gap-0.5 rounded bg-white/80 p-0.5 opacity-0 shadow-sm transition-opacity group-hover:opacity-100">
+                                      <div className="ml-auto flex shrink-0 items-center gap-1">
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation()
@@ -2162,7 +2133,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                                             setHasUnsavedChanges(true)
                                           }}
                                           className={cn(
-                                            'rounded p-1 transition-colors',
+                                            'rounded p-1.5 transition-colors',
                                             isIgnored
                                               ? 'bg-amber-100 text-amber-600 hover:bg-amber-200'
                                               : 'text-gray-400 hover:bg-gray-200 hover:text-amber-600'
@@ -2170,9 +2141,9 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                                           title={isIgnored ? 'Show on map' : 'Hide from map'}
                                         >
                                           {isIgnored ? (
-                                            <Eye className="h-3 w-3" />
+                                            <Eye className="h-3.5 w-3.5" />
                                           ) : (
-                                            <EyeOff className="h-3 w-3" />
+                                            <EyeOff className="h-3.5 w-3.5" />
                                           )}
                                         </button>
                                         <button
@@ -2185,10 +2156,10 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                                             })
                                             setHasUnsavedChanges(true)
                                           }}
-                                          className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-200 hover:text-red-600"
+                                          className="rounded p-1.5 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600"
                                           title="Remove from list"
                                         >
-                                          <X className="h-3 w-3" />
+                                          <X className="h-3.5 w-3.5" />
                                         </button>
                                       </div>
                                     </div>
@@ -2235,11 +2206,12 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                 </div>
               </ScrollArea>
 
-              {/* Footer with Save button */}
-              <div className="border-t bg-gray-50 p-3">
+              {/* Footer with Save & Complete buttons */}
+              <div className="space-y-2 border-t bg-gray-50 p-3">
                 <Button
                   onClick={handleSave}
                   disabled={!hasUnsavedChanges || updateBoundary.isPending}
+                  variant="outline"
                   className="w-full"
                   size="sm"
                 >
@@ -2248,158 +2220,20 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                   ) : (
                     <Save className="mr-2 h-4 w-4" />
                   )}
-                  Save Layer Selection
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Step 5: Review */}
-        {currentStep === 'review' && (
-          <div className="flex h-full">
-            {/* Map */}
-            <div className="flex-1">
-              <ProjectMapWithDraw
-                className="h-full"
-                center={mapCenter}
-                zoom={mapZoom}
-                boundary={boundary ?? undefined}
-                bufferZones={bufferZones}
-                bufferColors={Object.fromEntries(enabledBuffers.map((d) => [d, getBufferColor(d)]))}
-                onViewChange={handleViewChange}
-                editable={false}
-                showLayersControl={true}
-                visibleLayers={visibleLayers}
-                baseMapStyle={baseMapStyle}
-                onBaseMapStyleChange={setBaseMapStyle}
-                flyToLocation={flyToLocation}
-              />
-            </div>
-
-            {/* Review panel */}
-            <div className="border-border w-96 overflow-y-auto border-l p-6">
-              <h3 className="mb-6 text-lg font-semibold">Review & Save</h3>
-
-              {/* Boundary Summary */}
-              <div className="mb-6 rounded-lg border p-4">
-                <h4 className="mb-3 flex items-center gap-2 font-medium">
-                  <MapPin className="h-4 w-4 text-emerald-600" />
-                  Boundary
-                </h4>
-                {boundaryInfo && (
-                  <dl className="space-y-2 text-sm">
-                    {locationInfo?.county && (
-                      <div className="flex justify-between">
-                        <dt className="text-muted-foreground">Location</dt>
-                        <dd className="font-medium">
-                          {locationInfo.townland && `${locationInfo.townland}, `}Co.{' '}
-                          {locationInfo.county}
-                        </dd>
-                      </div>
-                    )}
-                    <div className="flex justify-between">
-                      <dt className="text-muted-foreground">Area</dt>
-                      <dd className="font-medium">{boundaryInfo.area} ha</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-muted-foreground">Perimeter</dt>
-                      <dd>{boundaryInfo.perimeter} km</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-muted-foreground">Grid Reference</dt>
-                      <dd className="font-mono text-xs">{boundaryInfo.gridRef}</dd>
-                    </div>
-                  </dl>
-                )}
-              </div>
-
-              {/* Buffer Summary */}
-              <div className="mb-6 rounded-lg border p-4">
-                <h4 className="mb-3 flex items-center gap-2 font-medium">
-                  <Circle className="h-4 w-4 text-blue-500" />
-                  Buffer Zones
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {enabledBuffers.length > 0 ? (
-                    enabledBuffers
-                      .sort((a, b) => a - b)
-                      .map((d) => {
-                        const color = getBufferColor(d)
-                        return (
-                          <Badge
-                            key={d}
-                            variant="secondary"
-                            className="gap-1"
-                            style={{ borderColor: color.stroke, borderWidth: 1 }}
-                          >
-                            <span
-                              className="h-2 w-2 rounded-full"
-                              style={{ backgroundColor: color.fill }}
-                            />
-                            {d} km
-                          </Badge>
-                        )
-                      })
-                  ) : (
-                    <span className="text-muted-foreground text-sm">No buffers selected</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Layers Summary */}
-              <div className="mb-6 rounded-lg border p-4">
-                <h4 className="mb-3 flex items-center gap-2 font-medium">
-                  <Layers className="h-4 w-4 text-purple-500" />
-                  Data Layers
-                </h4>
-                <p className="text-muted-foreground text-sm">
-                  {visibleLayers.length} layer{visibleLayers.length !== 1 ? 's' : ''} enabled
-                </p>
-              </div>
-
-              {/* Save status */}
-              <div className="mb-6 flex items-center gap-2 text-sm">
-                {hasUnsavedChanges ? (
-                  <>
-                    <div className="h-2 w-2 rounded-full bg-amber-500" />
-                    <span className="text-amber-600">Unsaved changes</span>
-                  </>
-                ) : (
-                  <>
-                    <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                    <span className="text-emerald-600">All changes saved</span>
-                  </>
-                )}
-              </div>
-
-              {/* Action buttons */}
-              <div className="space-y-3">
-                <Button
-                  onClick={handleSave}
-                  disabled={!hasUnsavedChanges || updateBoundary.isPending}
-                  variant="outline"
-                  className="w-full"
-                >
-                  {updateBoundary.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="mr-2 h-4 w-4" />
-                  )}
                   Save Changes
                 </Button>
-
                 <Button
                   onClick={handleComplete}
                   disabled={!boundary || hasUnsavedChanges || completeStep.isPending || isComplete}
                   className="w-full bg-emerald-600 hover:bg-emerald-700"
+                  size="sm"
                 >
                   {completeStep.isPending ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
                     <Check className="mr-2 h-4 w-4" />
                   )}
-                  Complete Step
+                  Save & Continue
                 </Button>
               </div>
             </div>
@@ -2429,13 +2263,13 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
             Step {currentStepIndex + 1} of {WIZARD_STEPS.length}
           </div>
 
-          {currentStep !== 'review' ? (
-            <Button size={isMapMode ? 'sm' : 'default'} onClick={goNext} disabled={!canGoNext}>
+          {canGoNext ? (
+            <Button size={isMapMode ? 'sm' : 'default'} onClick={goNext}>
               Next
               <ChevronRight className={cn(isMapMode ? 'ml-1 h-3 w-3' : 'ml-2 h-4 w-4')} />
             </Button>
           ) : (
-            <div className="w-20" /> // Spacer
+            <div className="w-20" />
           )}
         </div>
       </div>

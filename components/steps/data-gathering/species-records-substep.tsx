@@ -297,6 +297,7 @@ export function SpeciesRecordsSubStep({
               totalIrishRecords: nbdcData.totalRecordsInIreland,
               gridSquares10km: nbdcData.gridSquares10km,
               designations: nbdcData.designations || undefined,
+              taxonGroup: nbdcData.taxonGroup || undefined,
               nbdcEnriched: true,
               // Keep both URLs
               gbifUrl: finding.sourceUrl,
@@ -628,7 +629,7 @@ export function SpeciesRecordsSubStep({
   return (
     <div className="flex h-full">
       {/* Results Panel */}
-      <div className="flex w-105 shrink-0 flex-col border-r">
+      <div className="flex w-[40%] shrink-0 flex-col border-r">
         {/* Search Controls */}
         <div className="border-b p-4">
           <h3 className="mb-2 font-semibold">Species Records</h3>

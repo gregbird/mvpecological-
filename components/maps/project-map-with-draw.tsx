@@ -719,7 +719,9 @@ export function ProjectMapWithDraw({
     mapRef.current,
     boundary ?? null,
     visibleLayers,
-    npwsSearchRadius
+    npwsSearchRadius,
+    ignoredItems,
+    deletedItems
   )
 
   React.useEffect(() => {
