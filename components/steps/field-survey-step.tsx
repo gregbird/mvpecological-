@@ -1,7 +1,23 @@
 'use client'
 
 import * as React from 'react'
-import { Plus, Loader2, Check, AlertCircle, Info, Calendar, Users } from 'lucide-react'
+import {
+  Plus,
+  Loader2,
+  Check,
+  AlertCircle,
+  Info,
+  Calendar,
+  Users,
+  MapPin,
+  Bug,
+  Leaf,
+  Waves,
+  Shield,
+  Target,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,6 +26,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { useToast } from '@/hooks/use-toast'
 import {
   useSurveys,
@@ -18,6 +35,7 @@ import {
   useUpdateSurvey,
   useDeleteSurvey,
   useCompleteWorkflowStep,
+  useSavedFindings,
 } from '@/hooks/use-project-data'
 import { SurveyCard, type Survey as SurveyCardType } from '@/components/field-surveys/survey-card'
 import { SurveyForm } from '@/components/field-surveys/survey-form'
@@ -52,14 +70,130 @@ export function FieldSurveyStep({
   const [showSurveyForm, setShowSurveyForm] = React.useState(false)
   const [editingSurvey, setEditingSurvey] = React.useState<SurveyCardType | null>(null)
   const [activeTab, setActiveTab] = React.useState('all')
+  const [showFindings, setShowFindings] = React.useState(true)
 
   // React Query hooks
   const { data: surveys = [], isLoading } = useSurveys(project.id)
   const { data: surveyStats } = useSurveyStats(project.id)
+  const { data: savedFindings = [], isLoading: findingsLoading } = useSavedFindings(project.id)
   const createSurvey = useCreateSurvey()
   const updateSurvey = useUpdateSurvey()
   const deleteSurvey = useDeleteSurvey()
   const completeStep = useCompleteWorkflowStep()
+
+  // Helper to extract data from raw_data JSON
+  const getRawData = React.useCallback((finding: (typeof savedFindings)[0]) => {
+    const raw = finding.raw_data as Record<string, unknown> | null
+    return {
+      scientificName: (raw?.scientificName || raw?.scientific_name) as string | undefined,
+      commonName: (raw?.commonName || raw?.common_name || raw?.vernacularName) as
+        | string
+        | undefined,
+      taxonGroup: (raw?.taxonGroup || raw?.taxon_group || raw?.class) as string | undefined,
+      siteName: (raw?.SITE_NAME || raw?.siteName || raw?.site_name) as string | undefined,
+      siteCode: (raw?.SITECODE || raw?.siteCode || raw?.site_code) as string | undefined,
+    }
+  }, [])
+
+  // Process findings to extract survey recommendations
+  const surveyRecommendations = React.useMemo(() => {
+    const designatedSites = savedFindings.filter((f) => f.data_type === 'designated_site')
+    const speciesRecords = savedFindings.filter((f) => f.data_type === 'species_record')
+    const aquaticFeatures = savedFindings.filter(
+      (f) => f.data_type === 'water_quality' || f.data_type === 'catchment'
+    )
+
+    // Extract protected species that need surveys
+    const protectedSpecies = speciesRecords.filter((f) => f.is_protected)
+
+    // Determine recommended survey types based on findings
+    const recommendedSurveys: {
+      type: string
+      reason: string
+      priority: 'high' | 'medium' | 'low'
+    }[] = []
+
+    // Always recommend walkover
+    recommendedSurveys.push({
+      type: 'walkover',
+      reason: 'Initial site assessment required',
+      priority: 'high',
+    })
+
+    // Habitat mapping if designated sites nearby
+    if (designatedSites.length > 0) {
+      recommendedSurveys.push({
+        type: 'habitat_mapping',
+        reason: `${designatedSites.length} designated sites within buffer zone`,
+        priority: 'high',
+      })
+    }
+
+    // Check for bat-related species
+    const hasBats = protectedSpecies.some((s) => {
+      const raw = getRawData(s)
+      return (
+        raw.scientificName?.toLowerCase().includes('pipistrellus') ||
+        raw.scientificName?.toLowerCase().includes('myotis') ||
+        raw.scientificName?.toLowerCase().includes('plecotus') ||
+        raw.commonName?.toLowerCase().includes('bat')
+      )
+    })
+    if (hasBats) {
+      recommendedSurveys.push({
+        type: 'bat_survey',
+        reason: 'Protected bat species recorded in area',
+        priority: 'high',
+      })
+    }
+
+    // Check for bird species
+    const hasBirds = protectedSpecies.some((s) => {
+      const raw = getRawData(s)
+      return raw.taxonGroup?.toLowerCase() === 'birds' || raw.taxonGroup?.toLowerCase() === 'aves'
+    })
+    if (hasBirds) {
+      recommendedSurveys.push({
+        type: 'bird_survey',
+        reason: 'Protected bird species recorded in area',
+        priority: 'medium',
+      })
+    }
+
+    // Check for mammals (badger, otter, etc.)
+    const hasMammals = protectedSpecies.some((s) => {
+      const raw = getRawData(s)
+      return (
+        raw.scientificName?.toLowerCase().includes('meles') ||
+        raw.scientificName?.toLowerCase().includes('lutra') ||
+        raw.commonName?.toLowerCase().includes('badger') ||
+        raw.commonName?.toLowerCase().includes('otter')
+      )
+    })
+    if (hasMammals) {
+      recommendedSurveys.push({
+        type: 'mammal_survey',
+        reason: 'Protected mammal species (badger/otter) in area',
+        priority: 'high',
+      })
+    }
+
+    // Aquatic survey if water features
+    if (aquaticFeatures.length > 0) {
+      recommendedSurveys.push({
+        type: 'aquatic_survey',
+        reason: `${aquaticFeatures.length} water features identified`,
+        priority: 'medium',
+      })
+    }
+
+    return {
+      designatedSites,
+      protectedSpecies,
+      aquaticFeatures,
+      recommendedSurveys,
+    }
+  }, [savedFindings])
 
   // Convert database surveys to card format
   const surveysAsCards = React.useMemo(() => {
@@ -271,14 +405,198 @@ export function FieldSurveyStep({
         </Badge>
       </div>
 
+      {/* Desk Research Findings Summary */}
+      <Collapsible open={showFindings} onOpenChange={setShowFindings}>
+        <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20">
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Target className="h-5 w-5 text-blue-600" />
+                  <CardTitle className="text-lg">Survey Targets from Desk Research</CardTitle>
+                </div>
+                <div className="flex items-center gap-2">
+                  {savedFindings.length > 0 && (
+                    <Badge variant="secondary">{savedFindings.length} findings</Badge>
+                  )}
+                  {showFindings ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </div>
+              </div>
+              <CardDescription>
+                Based on desk research, the following ecological features require field verification
+              </CardDescription>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="space-y-4">
+              {findingsLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                </div>
+              ) : savedFindings.length === 0 ? (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    No saved findings from desk research. Complete the Data Gathering step first to
+                    get survey recommendations.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-3">
+                  {/* Designated Sites */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Shield className="h-4 w-4 text-green-600" />
+                      <span>Designated Sites</span>
+                      <Badge variant="outline" className="ml-auto">
+                        {surveyRecommendations.designatedSites.length}
+                      </Badge>
+                    </div>
+                    <ScrollArea className="h-32 rounded border p-2">
+                      {surveyRecommendations.designatedSites.length === 0 ? (
+                        <p className="text-muted-foreground text-xs">No sites found</p>
+                      ) : (
+                        <ul className="space-y-1">
+                          {surveyRecommendations.designatedSites.slice(0, 5).map((site) => {
+                            const raw = getRawData(site)
+                            return (
+                              <li key={site.id} className="text-xs">
+                                <span className="font-medium">{raw.siteName || site.title}</span>
+                                {raw.siteCode && (
+                                  <span className="text-muted-foreground ml-1">
+                                    ({raw.siteCode})
+                                  </span>
+                                )}
+                              </li>
+                            )
+                          })}
+                          {surveyRecommendations.designatedSites.length > 5 && (
+                            <li className="text-muted-foreground text-xs">
+                              +{surveyRecommendations.designatedSites.length - 5} more
+                            </li>
+                          )}
+                        </ul>
+                      )}
+                    </ScrollArea>
+                  </div>
+
+                  {/* Protected Species */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Bug className="h-4 w-4 text-amber-600" />
+                      <span>Protected Species</span>
+                      <Badge variant="outline" className="ml-auto">
+                        {surveyRecommendations.protectedSpecies.length}
+                      </Badge>
+                    </div>
+                    <ScrollArea className="h-32 rounded border p-2">
+                      {surveyRecommendations.protectedSpecies.length === 0 ? (
+                        <p className="text-muted-foreground text-xs">No protected species</p>
+                      ) : (
+                        <ul className="space-y-1">
+                          {surveyRecommendations.protectedSpecies.slice(0, 5).map((species) => {
+                            const raw = getRawData(species)
+                            return (
+                              <li key={species.id} className="text-xs">
+                                <span className="font-medium italic">
+                                  {raw.scientificName || raw.commonName || species.title}
+                                </span>
+                                {raw.taxonGroup && (
+                                  <Badge variant="secondary" className="ml-1 text-[10px]">
+                                    {raw.taxonGroup}
+                                  </Badge>
+                                )}
+                              </li>
+                            )
+                          })}
+                          {surveyRecommendations.protectedSpecies.length > 5 && (
+                            <li className="text-muted-foreground text-xs">
+                              +{surveyRecommendations.protectedSpecies.length - 5} more
+                            </li>
+                          )}
+                        </ul>
+                      )}
+                    </ScrollArea>
+                  </div>
+
+                  {/* Aquatic Features */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Waves className="h-4 w-4 text-blue-600" />
+                      <span>Aquatic Features</span>
+                      <Badge variant="outline" className="ml-auto">
+                        {surveyRecommendations.aquaticFeatures.length}
+                      </Badge>
+                    </div>
+                    <ScrollArea className="h-32 rounded border p-2">
+                      {surveyRecommendations.aquaticFeatures.length === 0 ? (
+                        <p className="text-muted-foreground text-xs">No water features</p>
+                      ) : (
+                        <ul className="space-y-1">
+                          {surveyRecommendations.aquaticFeatures.slice(0, 5).map((feature) => {
+                            const raw = getRawData(feature)
+                            return (
+                              <li key={feature.id} className="text-xs">
+                                <span className="font-medium">
+                                  {feature.title || raw.siteName || 'Aquatic Feature'}
+                                </span>
+                              </li>
+                            )
+                          })}
+                          {surveyRecommendations.aquaticFeatures.length > 5 && (
+                            <li className="text-muted-foreground text-xs">
+                              +{surveyRecommendations.aquaticFeatures.length - 5} more
+                            </li>
+                          )}
+                        </ul>
+                      )}
+                    </ScrollArea>
+                  </div>
+                </div>
+              )}
+
+              {/* Recommended Surveys */}
+              {surveyRecommendations.recommendedSurveys.length > 0 && (
+                <div className="border-t pt-4">
+                  <h4 className="mb-3 text-sm font-medium">Recommended Surveys</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {surveyRecommendations.recommendedSurveys.map((rec) => (
+                      <Badge
+                        key={rec.type}
+                        variant={rec.priority === 'high' ? 'destructive' : 'secondary'}
+                        className="cursor-pointer"
+                        onClick={() => {
+                          setEditingSurvey(null)
+                          setShowSurveyForm(true)
+                        }}
+                      >
+                        {rec.priority === 'high' && '⚠️ '}
+                        {SURVEY_TYPE_LABELS[rec.type] || rec.type}
+                      </Badge>
+                    ))}
+                  </div>
+                  <p className="text-muted-foreground mt-2 text-xs">
+                    Click on a badge to create a survey of that type
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
       {/* Instructions */}
       <Alert>
         <Info className="h-4 w-4" />
         <AlertTitle>Survey Planning</AlertTitle>
         <AlertDescription>
-          Based on the desk assessment findings, plan the required field surveys. Schedule surveys
-          for different ecological aspects such as habitat mapping, bat surveys, bird surveys, etc.
-          Each survey will capture species observations and habitat data.
+          Based on the desk assessment findings above, plan the required field surveys. Schedule
+          surveys for different ecological aspects such as habitat mapping, bat surveys, bird
+          surveys, etc. Each survey will capture species observations and habitat data.
         </AlertDescription>
       </Alert>
 

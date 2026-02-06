@@ -104,6 +104,10 @@ export function SpeciesRecordsSubStep({
   } | null>(null)
   // Track hidden findings (for map visibility toggle)
   const [hiddenIds, setHiddenIds] = React.useState<Set<string>>(new Set())
+  // Source filter: 'all' | 'gbif' | 'nbdc' | 'protected'
+  const [sourceFilter, setSourceFilter] = React.useState<'all' | 'gbif' | 'nbdc' | 'protected'>(
+    'all'
+  )
   // Species Deep Research modal state
   const [speciesResearchOpen, setSpeciesResearchOpen] = React.useState(false)
   const [selectedSpeciesResearch, setSelectedSpeciesResearch] =
@@ -168,6 +172,31 @@ export function SpeciesRecordsSubStep({
       }
     }
   }, [searchResults, cacheKey])
+
+  // Filter results based on source filter
+  const filteredResults = React.useMemo(() => {
+    if (sourceFilter === 'all') return searchResults
+
+    return searchResults.filter((finding) => {
+      switch (sourceFilter) {
+        case 'gbif':
+          // GBIF only (not enriched with NBDC)
+          return finding.source === 'gbif' && !finding.metadata?.nbdcEnriched
+        case 'nbdc':
+          // NBDC enriched results
+          return finding.metadata?.nbdcEnriched === true
+        case 'protected':
+          // Protected or threatened species
+          return (
+            finding.metadata?.isProtected ||
+            finding.metadata?.isThreatened ||
+            finding.source === 'fpo'
+          )
+        default:
+          return true
+      }
+    })
+  }, [searchResults, sourceFilter])
 
   // Calculate distance from finding location to project boundary
   const calculateDistanceFromBoundary = React.useCallback(
@@ -249,29 +278,24 @@ export function SpeciesRecordsSubStep({
     return null
   }, [projectBoundary, projectCenter, selectedBuffer])
 
-  // Enrich search results with NBDC data (called separately after search)
-  const enrichWithNBDC = async () => {
-    if (searchResults.length === 0) return
-
+  // Auto-enrich findings with NBDC data (called automatically after search)
+  const autoEnrich = async (findings: FindingDisplay[]) => {
     // Clear selected finding to prevent map zoom during enrichment
     setSelectedFinding(null)
     setIsEnriching(true)
-    setEnrichmentProgress({ current: 0, total: searchResults.length })
+    setEnrichmentProgress({ current: 0, total: findings.length })
 
-    const enrichedFindings: FindingDisplay[] = []
+    const enriched = [...findings]
 
-    for (let i = 0; i < searchResults.length; i++) {
-      const finding = searchResults[i]
+    for (let i = 0; i < findings.length; i++) {
+      const finding = findings[i]
       const scientificName = finding.metadata?.scientificName
 
       // Update progress
-      setEnrichmentProgress({ current: i + 1, total: searchResults.length })
+      setEnrichmentProgress({ current: i + 1, total: findings.length })
 
       // Skip if already enriched or no scientific name
-      if (finding.metadata?.nbdcEnriched || !scientificName) {
-        enrichedFindings.push(finding)
-        continue
-      }
+      if (finding.metadata?.nbdcEnriched || !scientificName) continue
 
       // Add small delay to respect NBDC rate limits
       if (i > 0) {
@@ -291,7 +315,7 @@ export function SpeciesRecordsSubStep({
             contentParts.push(`📊 ${nbdcData.totalRecordsInIreland.toLocaleString()} Irish records`)
           }
 
-          enrichedFindings.push({
+          enriched[i] = {
             ...finding,
             title: nbdcData.commonName || finding.title,
             content: contentParts.join(' '),
@@ -315,26 +339,24 @@ export function SpeciesRecordsSubStep({
               ...finding.rawData,
               nbdcData,
             },
-          })
-        } else {
-          enrichedFindings.push(finding)
+          }
+          // Live update - each enriched species updates the list immediately
+          setSearchResults([...enriched])
         }
       } catch (error) {
         console.warn(`Failed to enrich ${scientificName}:`, error)
-        enrichedFindings.push(finding)
       }
     }
 
-    setSearchResults(enrichedFindings)
     setIsEnriching(false)
     setEnrichmentProgress(null)
 
     // Show result toast
-    const enrichedCount = enrichedFindings.filter((f) => f.metadata?.nbdcEnriched).length
-    const protectedCount = enrichedFindings.filter((f) => f.metadata?.isProtected).length
-    const invasiveCount = enrichedFindings.filter((f) => f.metadata?.isInvasive).length
+    const enrichedCount = enriched.filter((f) => f.metadata?.nbdcEnriched).length
+    const protectedCount = enriched.filter((f) => f.metadata?.isProtected).length
+    const invasiveCount = enriched.filter((f) => f.metadata?.isInvasive).length
 
-    let description = `${enrichedCount} of ${enrichedFindings.length} species found in NBDC`
+    let description = `${enrichedCount} of ${enriched.length} species found in NBDC`
     if (protectedCount > 0) {
       description += `. ⚠️ ${protectedCount} protected!`
     }
@@ -544,7 +566,10 @@ export function SpeciesRecordsSubStep({
       }
 
       setSearchResults(findings)
-      // No toast - results are shown in the UI
+      // Auto-start NBDC enrichment
+      if (findings.length > 0) {
+        autoEnrich(findings)
+      }
     } catch (error) {
       console.error('Search error:', error)
       toast({
@@ -706,10 +731,13 @@ export function SpeciesRecordsSubStep({
           {/* Results Summary & NBDC Enrichment */}
           {searchResults.length > 0 && !isSearching && (
             <div className="mt-4 space-y-3">
-              {/* Stats Row */}
+              {/* Stats Row with Source Filter */}
               <div className="flex items-center justify-between">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="secondary">{searchResults.length} species</Badge>
+                  <Badge variant="secondary">
+                    {filteredResults.length}
+                    {sourceFilter !== 'all' && `/${searchResults.length}`} species
+                  </Badge>
                   {protectedCount > 0 && (
                     <Badge variant="destructive" className="gap-1">
                       <Shield className="h-3 w-3" />
@@ -723,46 +751,64 @@ export function SpeciesRecordsSubStep({
                     </Badge>
                   )}
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={performSearch}
-                  disabled={isSearching || isEnriching}
-                >
-                  <RefreshCw className="h-3.5 w-3.5" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  {/* Source Filter */}
+                  <Select
+                    value={sourceFilter}
+                    onValueChange={(v) => setSourceFilter(v as typeof sourceFilter)}
+                  >
+                    <SelectTrigger className="h-7 w-28 text-xs">
+                      <SelectValue placeholder="Filter" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Sources</SelectItem>
+                      <SelectItem value="gbif">GBIF Only</SelectItem>
+                      <SelectItem value="nbdc">NBDC Enriched</SelectItem>
+                      <SelectItem value="protected">Protected</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={performSearch}
+                    disabled={isSearching || isEnriching}
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
 
-              {/* NBDC Enrichment */}
-              <div className="flex items-center justify-between rounded-lg border bg-amber-50/50 px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-amber-600" />
-                  <span className="text-sm">
-                    {enrichedCount === searchResults.length
-                      ? 'NBDC data added'
-                      : 'Add Irish protection data'}
+              {/* NBDC Enrichment Progress */}
+              {isEnriching && enrichmentProgress && (
+                <div className="space-y-1.5 rounded-lg border bg-amber-50/50 px-3 py-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
+                      <span className="text-sm">
+                        Enriching with NBDC... {enrichmentProgress.current}/
+                        {enrichmentProgress.total}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full">
+                    <div
+                      className="h-full rounded-full bg-amber-500 transition-all duration-300"
+                      style={{
+                        width: `${(enrichmentProgress.current / enrichmentProgress.total) * 100}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+              {!isEnriching && enrichedCount > 0 && (
+                <div className="flex items-center gap-2 rounded-lg border bg-green-50/50 px-3 py-2">
+                  <Sparkles className="h-4 w-4 text-green-600" />
+                  <span className="text-sm text-green-700">
+                    ✓ NBDC enrichment complete — {enrichedCount}/{searchResults.length} species
+                    matched
                   </span>
                 </div>
-                <Button
-                  variant={enrichedCount === searchResults.length ? 'ghost' : 'outline'}
-                  size="sm"
-                  onClick={enrichWithNBDC}
-                  disabled={isEnriching || enrichedCount === searchResults.length}
-                >
-                  {isEnriching ? (
-                    <>
-                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                      {enrichmentProgress
-                        ? `${enrichmentProgress.current}/${enrichmentProgress.total}`
-                        : '...'}
-                    </>
-                  ) : enrichedCount === searchResults.length ? (
-                    '✓ Done'
-                  ) : (
-                    'Enrich'
-                  )}
-                </Button>
-              </div>
+              )}
             </div>
           )}
         </div>
@@ -770,9 +816,9 @@ export function SpeciesRecordsSubStep({
         {/* Results List */}
         <div className="flex-1 overflow-hidden">
           <FindingsList
-            findings={searchResults}
+            findings={filteredResults}
             savedFindings={savedFindings}
-            isLoading={isSearching || isEnriching}
+            isLoading={isSearching}
             onSave={handleSaveFinding}
             onViewOnMap={(f) => setSelectedFinding(f)}
             onDeepResearch={handleSpeciesDeepResearch}
@@ -792,7 +838,7 @@ export function SpeciesRecordsSubStep({
             zoom={11}
             boundary={projectBoundary}
             bufferDistances={bufferDistances}
-            findings={searchResults
+            findings={filteredResults
               .filter((f) => !hiddenIds.has(f.id)) // Filter out hidden findings
               .map((f) => ({
                 id: f.id,

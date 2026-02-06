@@ -112,6 +112,55 @@ export function getAllSiteCodes(): string[] {
   return Object.keys(npwsSites)
 }
 
+export interface SiteWithSpecies {
+  siteCode: string
+  siteName: string
+  siteType: 'SAC' | 'SPA'
+  speciesCode: string
+  speciesName: string
+}
+
+/**
+ * Reverse lookup: find all SAC/SPA sites where a given species is a qualifying interest
+ */
+export function findSitesWithSpecies(scientificName: string): SiteWithSpecies[] {
+  const query = scientificName.toLowerCase()
+  const results: SiteWithSpecies[] = []
+
+  for (const site of Object.values(npwsSites)) {
+    // Check SAC species (Annex II)
+    if (site.species) {
+      for (const sp of site.species) {
+        if (sp.name.toLowerCase().includes(query)) {
+          results.push({
+            siteCode: site.siteCode,
+            siteName: site.siteName,
+            siteType: site.siteType,
+            speciesCode: sp.code,
+            speciesName: sp.name,
+          })
+        }
+      }
+    }
+    // Check SPA bird species (SCIs)
+    if (site.birdSpecies) {
+      for (const sp of site.birdSpecies) {
+        if (sp.name.toLowerCase().includes(query)) {
+          results.push({
+            siteCode: site.siteCode,
+            siteName: site.siteName,
+            siteType: site.siteType,
+            speciesCode: sp.code,
+            speciesName: sp.name,
+          })
+        }
+      }
+    }
+  }
+
+  return results
+}
+
 /**
  * Get site count stats
  */

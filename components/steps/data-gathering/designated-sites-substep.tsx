@@ -200,32 +200,48 @@ export function DesignatedSitesSubStep({
   }, [searchResults, cacheKey])
 
   // Calculate distance from finding location to project boundary
+  // Returns 0 if the site intersects with or contains the project boundary
   const calculateDistanceFromBoundary = React.useCallback(
     (location?: GeoJSON.Geometry): number | undefined => {
       if (!location || !projectBoundary) return undefined
 
       try {
-        let findingPoint: GeoJSON.Feature<GeoJSON.Point>
+        // For polygon/multipolygon geometries (designated sites), check for intersection
+        if (location.type === 'Polygon' || location.type === 'MultiPolygon') {
+          const siteFeature = turf.feature(location as GeoJSON.Polygon | GeoJSON.MultiPolygon)
 
+          // Check if site intersects with project boundary (includes: overlaps, contains, within)
+          if (turf.booleanIntersects(siteFeature, projectBoundary)) {
+            return 0 // Site overlaps with or contains the project boundary
+          }
+
+          // No intersection - calculate distance from site boundary to project boundary
+          const siteCentroid = turf.centroid(siteFeature)
+          const nearestPoint = turf.nearestPointOnLine(
+            turf.polygonToLine(projectBoundary) as GeoJSON.Feature<GeoJSON.LineString>,
+            siteCentroid
+          )
+          const distance = turf.distance(siteCentroid, nearestPoint, { units: 'kilometers' })
+          return Math.round(distance * 100) / 100
+        }
+
+        // For point geometries
         if (location.type === 'Point') {
-          findingPoint = turf.point(location.coordinates)
-        } else if (location.type === 'Polygon' || location.type === 'MultiPolygon') {
-          findingPoint = turf.centroid(location as GeoJSON.Polygon | GeoJSON.MultiPolygon)
-        } else {
-          return undefined
+          const findingPoint = turf.point(location.coordinates)
+
+          if (turf.booleanPointInPolygon(findingPoint, projectBoundary)) {
+            return 0
+          }
+
+          const nearestPoint = turf.nearestPointOnLine(
+            turf.polygonToLine(projectBoundary) as GeoJSON.Feature<GeoJSON.LineString>,
+            findingPoint
+          )
+          const distance = turf.distance(findingPoint, nearestPoint, { units: 'kilometers' })
+          return Math.round(distance * 100) / 100
         }
 
-        if (turf.booleanPointInPolygon(findingPoint, projectBoundary)) {
-          return 0
-        }
-
-        const nearestPoint = turf.nearestPointOnLine(
-          turf.polygonToLine(projectBoundary) as GeoJSON.Feature<GeoJSON.LineString>,
-          findingPoint
-        )
-
-        const distance = turf.distance(findingPoint, nearestPoint, { units: 'kilometers' })
-        return Math.round(distance * 100) / 100
+        return undefined
       } catch (error) {
         console.warn('Error calculating distance:', error)
         return undefined
@@ -338,41 +354,76 @@ export function DesignatedSitesSubStep({
       })
 
       // Also search SSCO (Site-specific Conservation Objectives) if we have a boundary
+      // SSCO data enriches existing SAC findings with habitat information
       if (projectBoundary) {
         try {
           console.log('🔍 Searching SSCO with buffer:', selectedBuffer, 'km')
           const sscoResults = await findIntersectingSSCO(projectBoundary, selectedBuffer)
           console.log('🔍 SSCO Results:', sscoResults.length, 'SAC sites found')
 
-          // Add SSCO findings
+          // Enrich existing SAC findings with SSCO habitat data
           for (const ssco of sscoResults) {
-            const habitatList = ssco.habitats
-              .map((h) => `[${h.habitatCode}] ${h.habitatName}`)
-              .join(', ')
+            // Find matching SAC in findings by site code
+            const matchingFinding = findings.find(
+              (f) => f.metadata?.siteCode === ssco.siteCode && f.metadata?.siteType === 'SAC'
+            )
 
-            findings.push({
-              id: `ssco-${ssco.siteCode}`,
-              source: 'npws',
-              dataType: 'designated_site',
-              title: `${ssco.siteName} - Conservation Objectives`,
-              content: `Site-specific Conservation Objectives. Protected habitats: ${habitatList}${ssco.intersectionArea ? `. Overlap: ~${ssco.intersectionArea.toFixed(1)} ha` : ''}`,
-              isSaved: false,
-              sourceUrl: `https://www.npws.ie/protected-sites/sac/${ssco.siteCode}`,
-              rawData: { ssco, habitats: ssco.habitats },
-              metadata: {
-                siteCode: ssco.siteCode,
-                siteType: 'SSCO',
-                designation: 'Site-specific Conservation Objectives',
+            if (matchingFinding) {
+              // Enrich existing finding with habitat data
+              matchingFinding.rawData = {
+                ...matchingFinding.rawData,
+                ssco,
+                habitats: ssco.habitats,
+              }
+              matchingFinding.metadata = {
+                ...matchingFinding.metadata,
                 habitatCount: ssco.habitats.length,
-                isProtected: true,
-              },
-            })
+              }
+              // Add habitat info to content
+              const habitatList = ssco.habitats
+                .slice(0, 3)
+                .map((h) => h.habitatName)
+                .join(', ')
+              const moreCount = ssco.habitats.length > 3 ? ` +${ssco.habitats.length - 3} more` : ''
+              matchingFinding.content = `${matchingFinding.content} Habitats: ${habitatList}${moreCount}`
+            } else {
+              // SSCO found a SAC not in NPWS results - add it as new finding
+              const habitatList = ssco.habitats
+                .map((h) => `[${h.habitatCode}] ${h.habitatName}`)
+                .join(', ')
+
+              findings.push({
+                id: `ssco-${ssco.siteCode}`,
+                source: 'npws',
+                dataType: 'designated_site',
+                title: `${ssco.siteName}`,
+                content: `Special Area of Conservation. Protected habitats: ${habitatList}${ssco.intersectionArea ? `. Overlap: ~${ssco.intersectionArea.toFixed(1)} ha` : ''}`,
+                isSaved: false,
+                sourceUrl: `https://www.npws.ie/protected-sites/sac/${ssco.siteCode}`,
+                rawData: { ssco, habitats: ssco.habitats },
+                metadata: {
+                  siteCode: ssco.siteCode,
+                  siteType: 'SAC',
+                  designation: 'Special Area of Conservation',
+                  habitatCount: ssco.habitats.length,
+                  isProtected: true,
+                  distance: 0, // SSCO intersection means it overlaps with boundary
+                },
+              })
+            }
           }
         } catch (error) {
           console.warn('SSCO search error:', error)
           // Don't show error toast - SSCO is supplementary
         }
       }
+
+      // Sort findings: sites intersecting boundary (distance=0) first, then by distance
+      findings.sort((a, b) => {
+        const distA = a.metadata?.distance ?? Infinity
+        const distB = b.metadata?.distance ?? Infinity
+        return distA - distB
+      })
 
       setSearchResults(findings)
 

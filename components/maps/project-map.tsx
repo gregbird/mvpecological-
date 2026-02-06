@@ -320,7 +320,7 @@ function MapComponent({
               const [lng, lat] = (firstGeom as GeoJSON.Point).coordinates
               map.setView([lat, lng], 14, { animate: true, duration: 0.3 })
             }
-          } else if (location.type === 'LineString') {
+          } else if (location.type === 'LineString' || location.type === 'MultiLineString') {
             const geoJsonLayer = L.geoJSON(location)
             const bounds = geoJsonLayer.getBounds()
             map.fitBounds(bounds, { padding: [50, 50], animate: true })
@@ -724,7 +724,10 @@ function MapComponent({
                 </Popup>
               </GeoJSON>
             )
-          } else if (finding.location.type === 'LineString') {
+          } else if (
+            finding.location.type === 'LineString' ||
+            finding.location.type === 'MultiLineString'
+          ) {
             return (
               <GeoJSON
                 key={`finding-${finding.id}`}

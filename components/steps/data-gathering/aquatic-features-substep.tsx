@@ -89,6 +89,10 @@ export function AquaticFeaturesSubStep({
   const [selectedFinding, setSelectedFinding] = React.useState<FindingDisplay | null>(null)
   // Track hidden findings (for map visibility toggle)
   const [hiddenIds, setHiddenIds] = React.useState<Set<string>>(new Set())
+  // Filter by feature type (null = show all)
+  const [activeFilter, setActiveFilter] = React.useState<'River' | 'Lake' | 'Catchment' | null>(
+    null
+  )
 
   // Toggle visibility of a finding on the map
   const handleToggleVisibility = React.useCallback((findingId: string) => {
@@ -487,6 +491,12 @@ export function AquaticFeaturesSubStep({
   const lakeCount = searchResults.filter((f) => f.metadata?.siteType === 'Lake').length
   const catchmentCount = searchResults.filter((f) => f.metadata?.siteType === 'Catchment').length
 
+  // Filter results by active filter
+  const filteredResults = React.useMemo(() => {
+    if (!activeFilter) return searchResults
+    return searchResults.filter((f) => f.metadata?.siteType === activeFilter)
+  }, [searchResults, activeFilter])
+
   return (
     <div className="flex h-full">
       {/* Results Panel */}
@@ -560,18 +570,53 @@ export function AquaticFeaturesSubStep({
               </div>
               <div className="flex flex-wrap gap-1">
                 {riverCount > 0 && (
-                  <Badge variant="outline" className="text-xs">
+                  <Badge
+                    variant={activeFilter === 'River' ? 'default' : 'outline'}
+                    className={`cursor-pointer text-xs transition-colors ${
+                      activeFilter === 'River'
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'hover:bg-blue-50'
+                    }`}
+                    onClick={() => setActiveFilter(activeFilter === 'River' ? null : 'River')}
+                  >
                     {riverCount} river{riverCount !== 1 ? 's' : ''}
                   </Badge>
                 )}
                 {lakeCount > 0 && (
-                  <Badge variant="outline" className="text-xs">
+                  <Badge
+                    variant={activeFilter === 'Lake' ? 'default' : 'outline'}
+                    className={`cursor-pointer text-xs transition-colors ${
+                      activeFilter === 'Lake'
+                        ? 'bg-cyan-600 text-white hover:bg-cyan-700'
+                        : 'hover:bg-cyan-50'
+                    }`}
+                    onClick={() => setActiveFilter(activeFilter === 'Lake' ? null : 'Lake')}
+                  >
                     {lakeCount} lake{lakeCount !== 1 ? 's' : ''}
                   </Badge>
                 )}
                 {catchmentCount > 0 && (
-                  <Badge variant="outline" className="text-xs">
+                  <Badge
+                    variant={activeFilter === 'Catchment' ? 'default' : 'outline'}
+                    className={`cursor-pointer text-xs transition-colors ${
+                      activeFilter === 'Catchment'
+                        ? 'bg-slate-600 text-white hover:bg-slate-700'
+                        : 'hover:bg-slate-50'
+                    }`}
+                    onClick={() =>
+                      setActiveFilter(activeFilter === 'Catchment' ? null : 'Catchment')
+                    }
+                  >
                     {catchmentCount} catchment{catchmentCount !== 1 ? 's' : ''}
+                  </Badge>
+                )}
+                {activeFilter && (
+                  <Badge
+                    variant="outline"
+                    className="cursor-pointer text-xs text-gray-500 hover:bg-gray-100"
+                    onClick={() => setActiveFilter(null)}
+                  >
+                    Clear filter ×
                   </Badge>
                 )}
               </div>
@@ -582,7 +627,7 @@ export function AquaticFeaturesSubStep({
         {/* Results List */}
         <div className="flex-1 overflow-hidden">
           <FindingsList
-            findings={searchResults}
+            findings={filteredResults}
             savedFindings={savedFindings}
             isLoading={isSearching}
             onSave={handleSaveFinding}
@@ -604,7 +649,7 @@ export function AquaticFeaturesSubStep({
             zoom={11}
             boundary={projectBoundary}
             bufferDistances={bufferDistances}
-            findings={searchResults
+            findings={filteredResults
               .filter((f) => !hiddenIds.has(f.id)) // Filter out hidden findings
               .map((f) => ({
                 id: f.id,
@@ -634,7 +679,7 @@ export function AquaticFeaturesSubStep({
             }
             onFindingClick={(f) => {
               // Toggle selection - if clicking the same finding, deselect it
-              const found = searchResults.find((r) => r.id === f.id) || null
+              const found = filteredResults.find((r) => r.id === f.id) || null
               setSelectedFinding((prev) => (prev?.id === f.id ? null : found))
             }}
             onMapClick={() => {

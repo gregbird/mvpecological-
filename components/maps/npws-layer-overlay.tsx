@@ -224,6 +224,10 @@ export function useNPWSLayers(
   const [sites, setSites] = React.useState<NPWSDesignatedSite[]>([])
   const [isLoading, setIsLoading] = React.useState(false)
 
+  // Track previous values to prevent unnecessary re-fetches
+  const prevBoundaryRef = React.useRef<string | null>(null)
+  const prevSiteTypesRef = React.useRef<string>('')
+
   // Get active NPWS site types from visible layers
   const activeSiteTypes = React.useMemo(() => {
     const types: DesignatedSiteType[] = []
@@ -271,7 +275,22 @@ export function useNPWSLayers(
 
   // Fetch NPWS sites
   React.useEffect(() => {
-    if (!boundary?.geometry?.coordinates?.[0] || activeSiteTypes.length === 0) {
+    // Create stable keys for comparison
+    const boundaryKey = boundary?.geometry?.coordinates?.[0]
+      ? JSON.stringify(boundary.geometry.coordinates[0].slice(0, 3)) // First 3 coords for stability
+      : null
+    const siteTypesKey = activeSiteTypes.sort().join(',')
+
+    // Skip if nothing changed
+    if (boundaryKey === prevBoundaryRef.current && siteTypesKey === prevSiteTypesRef.current) {
+      return
+    }
+
+    // Update refs
+    prevBoundaryRef.current = boundaryKey
+    prevSiteTypesRef.current = siteTypesKey
+
+    if (!boundaryKey || activeSiteTypes.length === 0) {
       // Only clear if not already empty to prevent infinite loops
       setSites((prev) => (prev.length === 0 ? prev : []))
       return
@@ -280,7 +299,7 @@ export function useNPWSLayers(
     const fetchSites = async () => {
       setIsLoading(true)
       try {
-        const bbox = getBoundingBox(boundary)
+        const bbox = getBoundingBox(boundary!)
         if (!bbox) {
           setSites((prev) => (prev.length === 0 ? prev : []))
           return

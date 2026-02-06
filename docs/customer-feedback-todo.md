@@ -1,13 +1,14 @@
 # Dulra MVP - Müşteri Geri Bildirimleri ve Yapılacaklar Listesi
 
 > **Tarih:** 3 Şubat 2026
-> **Versiyon:** 1.0
-> **Durum:** Planlama Aşaması
+> **Versiyon:** 2.0 (6 Şubat 2026 güncellemesi)
+> **Durum:** Geliştirme Aşaması
 
 ---
 
 ## İçindekiler
 
+0. [Adım Adım Akış ve UX İyileştirmeleri (YENİ)](#0-adım-adım-akış-ve-ux-i̇yileştirmeleri)
 1. [GIS ve Haritalama İyileştirmeleri](#1-gis-ve-haritalama-i̇yileştirmeleri)
 2. [Designated Sites Araştırması ve Deep Research](#2-designated-sites-araştırması-ve-deep-research)
 3. [Değerlendirici İş Akışı ve Sonuç Yönetimi](#3-değerlendirici-i̇ş-akışı-ve-sonuç-yönetimi)
@@ -16,6 +17,138 @@
 6. [Admin Dashboard ve Demo Akışı](#6-admin-dashboard-ve-demo-akışı)
 7. [Arama ve Denetim Yetenekleri](#7-arama-ve-denetim-yetenekleri)
 8. [Yeni Proje Başlatma](#8-yeni-proje-başlatma)
+9. [Findings Summary ve Etkileşim (YENİ)](#9-findings-summary-ve-etkileşim)
+10. [Deep Research Panel - Stage 5 (YENİ)](#10-deep-research-panel---stage-5)
+
+---
+
+## 0. Adım Adım Akış ve UX İyileştirmeleri (YENİ)
+
+> **Kaynak:** Müşteri feedback dokümanının "Step 1-5" akış açıklaması. Bu bölüm feedback'te detaylı olarak tarif edilen uçtan uca kullanıcı akışını içerir.
+
+### 0.1 Satellite Layer Bug Fix
+
+**Müşteri İsteği (Orijinal):**
+
+> A persistent bug is noted: when the satellite layer is active during this step, the application incorrectly reverts the map view back to the streets layer. This must be fixed to ensure layer persistence and a consistent user experience.
+
+**Müşteri İsteği (Türkçe):**
+Buffer zone adımında satellite katmanı aktifken uygulama yanlışlıkla haritayı streets katmanına geri döndürüyor. Katman kalıcılığı ve tutarlı kullanıcı deneyimi sağlanmalı.
+
+**Yapılacaklar:**
+
+- [ ] **0.1.1** Bug'ı tespit et ve reprodüce et
+  - Dosya: `components/steps/gis-mapping-step.tsx`
+  - Buffer adımına geçişte harita state'i sıfırlanıyor olabilir
+- [ ] **0.1.2** Harita katman seçimini adımlar arası persist et
+  - SessionStorage veya parent state ile seçili base layer'ı sakla
+  - Adım geçişlerinde harita layer state'ini koru
+
+---
+
+### 0.2 Otomatik Veri Katmanı Açılması
+
+**Müşteri İsteği (Orijinal):**
+
+> Upon completing Step 2 (clicking "next"), the application must automatically enable and display the data sets layer.
+
+**Müşteri İsteği (Türkçe):**
+Step 2 (Buffer Zone) tamamlanıp "next" butonuna tıklandığında uygulama otomatik olarak veri katmanlarını açıp göstermeli.
+
+**Yapılacaklar:**
+
+- [ ] **0.2.1** Buffer adımından Layers adımına geçişte otomatik layer aktivasyonu
+  - Dosya: `components/steps/gis-mapping-step.tsx`
+  - `onNext` handler'ında NPWS + EPA katmanlarını otomatik aç
+
+---
+
+### 0.3 Veri Katmanı Yan Panel (Side UI)
+
+**Müşteri İsteği (Orijinal):**
+
+> The UI must introduce a dedicated column or side panel to display the available data layers and their details. The user should be able to review the available information from the data layers in a side UI and explicitly save or select the relevant ones for the subsequent analysis.
+
+**Müşteri İsteği (Türkçe):**
+Mevcut veri katmanlarını ve detaylarını göstermek için ayrılmış bir kolon veya yan panel eklenmeli. Kullanıcı katmanları inceleyip sonraki analiz için ilgili olanları seçip kaydedebilmeli.
+
+**Yapılacaklar:**
+
+- [ ] **0.3.1** Layers adımında veri katmanları yan paneli güncelle
+  - Dosya: `components/gis/dataset-layers-panel.tsx`
+  - Katman detayları göster (site sayısı, kapsam)
+  - Kullanıcının hangi katmanları sonraki adıma taşıyacağını seçebilmesi
+
+---
+
+### 0.4 Core Database Search (Data Gathering Otomasyonu)
+
+**Müşteri İsteği (Orijinal):**
+
+> Once the user clicks "save" and proceeds by clicking "next," the application must initiate a comprehensive search of the core environmental database. This lookup will be executed for each data layer saved in Step 3.
+
+**Müşteri İsteği (Türkçe):**
+Kullanıcı "kaydet" edip "next" tıkladığında uygulama, Step 3'te kaydedilen her veri katmanı için kapsamlı veritabanı araması başlatmalı.
+
+**Yapılacaklar:**
+
+- [ ] **0.4.1** GIS Mapping'den Data Gathering'e otomatik geçiş ve arama tetikleme
+  - GIS Mapping tamamlandığında Data Gathering'e geçerken otomatik arama başlat
+  - Seçili katmanlar için sırayla NPWS, GBIF, EPA sorgularını çalıştır
+
+---
+
+### 0.5 Harita-Bulgu Etkileşimli Senkronizasyon
+
+**Müşteri İsteği (Orijinal):**
+
+> A crucial feature is the interactive link between the map and the findings panel: As the user scrolls or hovers the map cursor over a highlighted area, the corresponding data entry in the UI side panel must highlight simultaneously.
+
+**Müşteri İsteği (Türkçe):**
+Harita ve bulgular paneli arasında etkileşimli bağlantı kurulmalı. Kullanıcı haritada bir alana tıkladığında/hover ettiğinde, UI yan panelindeki ilgili veri girişi eşzamanlı olarak vurgulanmalı.
+
+**Yapılacaklar:**
+
+- [ ] **0.5.1** Harita → Bulgular paneli senkronizasyonu
+  - Haritada bir feature'a hover/click → ilgili finding kartını highlight et ve scroll-into-view yap
+- [ ] **0.5.2** Bulgular paneli → Harita senkronizasyonu
+  - Finding kartına hover/click → haritada ilgili feature'ı highlight et ve zoom yap
+- [ ] **0.5.3** Pulse animasyonu ve geçici highlight efekti ekle
+
+---
+
+### 0.6 "Move to Next Stage" Butonu
+
+**Müşteri İsteği (Orijinal):**
+
+> To improve the flow, a clear, persistent "Move to Next Stage" button should be placed in the bottom left corner of the screen to guide the user to the next analytical phase.
+
+**Müşteri İsteği (Türkçe):**
+Akışı iyileştirmek için ekranın sol alt köşesine kullanıcıyı bir sonraki analitik aşamaya yönlendirecek kalıcı "Bir Sonraki Aşamaya Geç" butonu yerleştirilmeli.
+
+**Yapılacaklar:**
+
+- [ ] **0.6.1** Sabit "Move to Next Stage" butonu ekle
+  - Sol alt köşe, tüm adımlarda görünür
+  - Mevcut adım durumuna göre aktif/pasif
+  - Dosya: `components/steps/` - ortak footer bileşeni
+
+---
+
+### 0.7 Satellite Layer Varsayılan Yapma
+
+**Müşteri İsteği (Orijinal):**
+
+> The satellite layer must be the default map view for all subsequent stages of the analysis.
+
+**Müşteri İsteği (Türkçe):**
+Analizin sonraki tüm aşamalarında (Stage 4+) satellite katmanı varsayılan harita görünümü olmalı.
+
+**Yapılacaklar:**
+
+- [ ] **0.7.1** Data Gathering ve sonraki adımlar için varsayılan harita katmanını satellite yap
+  - Dosya: `components/maps/project-map.tsx`, `components/maps/project-map-with-draw.tsx`
+  - Step numarasına göre koşullu: Step 1-3 streets, Step 4+ satellite
 
 ---
 
@@ -208,68 +341,44 @@ NPWS Koruma Alanları Araması için uygulama resmi verileri otomatik olarak alm
 
 **Yapılacaklar:**
 
-- [ ] **2.1.1** Müşteriden 3 Excel dosyasını al
-  - Dosya 1: Annex 1 Habitat listesi
-  - Dosya 2: FOSSITT sınıflandırması (mevcut olabilir: `lib/data/fossitt-codes.ts`)
-  - Dosya 3: Tür koşulları ve koruma durumu
+- [x] ~~**2.1.1** Müşteriden Excel dosyalarını al~~
 
-- [ ] **2.1.2** Excel dosyalarını parse et ve JSON/TypeScript'e dönüştür
-  - Dosya konumu: `lib/data/npws/`
-  - `annex1-habitats.ts`
-  - `species-conditions.ts`
-  - `site-details.ts`
+  ✅ **TAMAMLANDI (6 Şubat 2026):**
+  - SAC Excel (441 site, 1496 habitat, 365 tür) + SPA Excel (167 site, 913 kuş SCI)
+  - Dosyalar müşteriden alındı ve işlendi
 
-- [ ] **2.1.3** Supabase tabloları oluştur (alternatif yaklaşım)
+- [x] ~~**2.1.2** Excel dosyalarını parse et ve JSON/TypeScript'e dönüştür~~
 
-  ```sql
-  -- Annex 1 Habitatlar
-  CREATE TABLE annex1_habitats (
-    id UUID PRIMARY KEY,
-    habitat_code TEXT NOT NULL,
-    habitat_name TEXT NOT NULL,
-    fossitt_codes TEXT[], -- İlişkili FOSSITT kodları
-    description TEXT,
-    conservation_objectives TEXT
-  );
+  ✅ **TAMAMLANDI (6 Şubat 2026):**
+  - Birleştirilmiş JSON: `lib/data/npws-sites-data.json` (608 site toplam)
+  - Lookup modülü: `lib/data/npws-site-lookup.ts`
+  - Fonksiyonlar: `getNPWSSiteData()`, `getSiteHabitats()`, `getSiteSpecies()`, vb.
 
-  -- Site-Habitat ilişkisi
-  CREATE TABLE site_habitats (
-    id UUID PRIMARY KEY,
-    site_code TEXT NOT NULL, -- SAC/SPA kodu
-    habitat_code TEXT NOT NULL,
-    condition TEXT, -- Favourable, Unfavourable, etc.
-    area_hectares DECIMAL
-  );
+- [x] ~~**2.1.3** Veritabanına entegrasyon~~
 
-  -- Site-Species ilişkisi
-  CREATE TABLE site_species (
-    id UUID PRIMARY KEY,
-    site_code TEXT NOT NULL,
-    species_name TEXT NOT NULL,
-    species_type TEXT, -- Bird, Mammal, etc.
-    conservation_status TEXT,
-    population_estimate TEXT
-  );
-  ```
+  ✅ **TAMAMLANDI (6 Şubat 2026):**
+  - JSON tabanlı lokal veri yaklaşımı kullanıldı (Supabase tabloları yerine)
+  - Deep Research modal ve AI endpoint'leri bu verileri kullanıyor
 
-- [ ] **2.1.4** Site arama sorgusunu güncelle
-  - Dosya: `lib/external-apis/npws.ts`
-  - NPWS'den site kodu alındığında lokal veritabanından zenginleştir
+- [x] ~~**2.1.4** Site arama sorgusunu güncelle~~
 
-- [ ] **2.1.5** Site özeti oluşturma fonksiyonu yaz
-  - Dosya: `lib/utils/site-summary.ts`
+  ✅ **TAMAMLANDI (6 Şubat 2026):**
+  - NPWS'den site kodu alındığında lokal JSON'dan zenginleştirme yapılıyor
+  - `deep-research-modal.tsx` bu verileri QIs sekmesinde gösteriyor
 
-  ```typescript
-  function generateSiteSummary(siteCode: string): {
-    summary: string // 4 satır
-    sscoUrl: string
-    habitats: Habitat[]
-    species: Species[]
-  }
-  ```
+- [x] ~~**2.1.5** Site özeti oluşturma fonksiyonu~~
 
-- [ ] **2.1.6** SSCO (Site Synopsis and Conservation Objectives) URL yapısını belirle
-  - Format: `https://www.npws.ie/protected-sites/sac/{site-code}` veya benzeri
+  ✅ **TAMAMLANDI (6 Şubat 2026):**
+  - AI endpoint: `/api/ai/deep-research`
+  - SSCO PDF indirilip `unpdf` ile parse edilip OpenAI'a gönderiliyor
+  - Excel verileri + SSCO PDF metni birlikte analiz ediliyor
+
+- [x] ~~**2.1.6** SSCO URL yapısı~~
+
+  ✅ **TAMAMLANDI (6 Şubat 2026):**
+  - Format: `https://www.npws.ie/sites/default/files/protected-sites/synopsis/SY{SITECODE}.pdf`
+  - Excel verilerinden Statutory Instrument linkleri de alınıyor
+  - Resources sekmesinde gösteriliyor
 
 ---
 
@@ -1089,38 +1198,218 @@ Yeni proje başlatma süreci mevcut kullanıcı arayüzü bileşenini kullanmal�
 
 ---
 
+## 9. Findings Summary ve Etkileşim (YENİ)
+
+> **Kaynak:** Müşteri feedback - "Stage 4: Findings Summary and Interaction"
+
+### 9.1 Half-Screen Findings Summary Layout
+
+**Müşteri İsteği (Orijinal):**
+
+> The UI should adopt a half-screen map / half-screen summary panel layout. The summary panel serves as a high-level reminder and grouping of the findings.
+
+**Müşteri İsteği (Türkçe):**
+UI yarı-ekran harita / yarı-ekran özet paneli düzeni kullanmalı. Özet paneli bulguların üst düzey hatırlatıcısı ve gruplandırması görevi görmeli.
+
+**Yapılacaklar:**
+
+- [ ] **9.1.1** Findings Summary sayfası/görünümü oluştur
+  - Half-map / half-panel layout
+  - Satellite varsayılan katman
+
+- [ ] **9.1.2** Bulgu gruplandırma paneli
+  - Gruplar ve sayılar:
+    - **Habitat/s** (farklı habitat tipi sayısı)
+    - **Species** (korunan tür kaydı sayısı)
+    - **Designated Sites** (benzersiz koruma alanı sayısı)
+    - **Aquatic** (nehir, su kütlesi sınıflandırması sayısı)
+  - Her gruba tıklanınca detay listesi açılır
+
+---
+
+### 9.2 Bireysel Bulgu Kartları ve AI Özet
+
+**Müşteri İsteği (Orijinal):**
+
+> A list with each individual finding is displayed, each contained within its own dedicated box/card. Clicking a prominent arrow icon on the finding's card will trigger the display of an AI-generated 3-line summary. This summary must provide key, actionable information about that specific finding.
+
+**Müşteri İsteği (Türkçe):**
+Her bulgu kendi kutu/kartı içinde gösterilmeli. Kartın üzerindeki ok ikonuna tıklamak AI üretimi 3 satırlık özeti görüntülemeli. Bu özet bulgu hakkında anahtar, eyleme geçirilebilir bilgi sağlamalı.
+
+**Yapılacaklar:**
+
+- [ ] **9.2.1** Bulgu kart bileşenini güncelle
+  - Ok ikonu → AI 3-satır özet göster/gizle
+  - AI özet: koruma durumu, ana tehditler, AOI'ye ilgililik
+
+- [ ] **9.2.2** AI 3-satır özet endpoint'i
+  - Mevcut `/api/ai/site-summary` endpoint'ini genişlet
+  - Tüm bulgu tipleri için (site, species, habitat, aquatic) özet üret
+
+---
+
+### 9.3 Bulgu Aksiyonları
+
+**Müşteri İsteği (Orijinal):**
+
+> For each finding, the user must have options to: Save a target note, Share the specific data point, Download/dataload the raw data.
+
+**Müşteri İsteği (Türkçe):**
+Her bulgu için kullanıcı şu seçeneklere sahip olmalı: Target note kaydetme, veri noktasını paylaşma, ham veriyi indirme.
+
+**Yapılacaklar:**
+
+- [ ] **9.3.1** Target note kaydetme butonu ekle
+  - Her bulgu kartında "Save Target Note" butonu
+  - Target notes tablosuna kayıt (mevcut `target_notes` tablosu kullanılabilir)
+  - Not içeriği: Kişisel açıklama veya planlama talimatı
+
+- [ ] **9.3.2** Paylaşma butonu ekle
+  - Clipboard'a link kopyalama
+  - Veya email ile paylaşma
+
+- [ ] **9.3.3** Ham veri indirme butonu ekle
+  - JSON/CSV formatında export
+  - GeoJSON formatında konum verisi
+
+---
+
+## 10. Deep Research Panel - Stage 5 (YENİ)
+
+> **Kaynak:** Müşteri feedback - "Stage 5: Deep Research and Reporting"
+
+### 10.1 Half-Map / Half-Deep Research Panel
+
+**Müşteri İsteği (Orijinal):**
+
+> This stage will also use the half-map / half-deep research panel screen configuration. The focus shifts to providing in-depth, structured research on the key findings.
+
+**Müşteri İsteği (Türkçe):**
+Bu aşama da yarı-harita / yarı-deep research panel ekran yapılandırmasını kullanacak. Odak, anahtar bulgular üzerinde derinlemesine, yapılandırılmış araştırma sunmaya kayar.
+
+**Yapılacaklar:**
+
+- [ ] **10.1.1** Deep Research panel görünümü oluştur
+  - Half-map / half-research panel layout
+  - Satellite varsayılan katman
+  - Buffer zone içindeki tüm koruma alanlarını listele
+
+---
+
+### 10.2 Designated Sites Deep Dive (NPWS Data)
+
+**Müşteri İsteği (Orijinal):**
+
+> For each identified site, the report must clearly list: Associated habitats and species, The condition or conservation status, An option to save. Key Documentation: Qualifying Interests AI 2-line summary, Site Synopsis AI 2-line summary, Conservation Objectives display.
+
+**Müşteri İsteği (Türkçe):**
+Her tanımlanan site için rapor şunları açıkça listeler: İlişkili habitatlar ve türler, Koruma durumu/koşulu, Kaydetme seçeneği. Temel dokümantasyon: QI'ler için AI 2-satır özeti, Site Synopsis AI 2-satır özeti, Koruma Hedefleri gösterimi.
+
+**Yapılacaklar:**
+
+- [ ] **10.2.1** Site detay kartı bileşeni (Deep Research paneli için)
+  - İlişkili habitatlar + türler listesi (mevcut Excel verisinden)
+  - Koruma durumu/koşulu gösterimi
+  - "Save" butonu
+
+- [ ] **10.2.2** AI Özetleri entegrasyonu
+  - QI'ler için AI 2-satır özeti (mevcut deep-research API genişletilir)
+  - Site Synopsis için AI 2-satır özeti
+  - Conservation Objectives gösterimi
+
+- [ ] **10.2.3** Batch araştırma butonu
+  - Buffer zone içindeki tüm SAC/SPA/NHA/pNHA için toplu deep research başlat
+
+---
+
 ## Öncelik Matrisi
 
-| #   | Görev                    | Öncelik   | Efor   | Bağımlılık      |
-| --- | ------------------------ | --------- | ------ | --------------- |
-| 1.1 | Çoklu harita katmanları  | 🔴 Yüksek | Orta   | -               |
-| 1.2 | Buffer zone açıklamaları | 🔴 Yüksek | Düşük  | -               |
-| 1.3 | Katman metadata          | 🟡 Orta   | Düşük  | 1.1             |
-| 2.1 | NPWS veri entegrasyonu   | 🔴 Yüksek | Yüksek | Excel dosyaları |
-| 2.2 | Deep Research (Sites)    | 🔴 Yüksek | Yüksek | 2.1             |
-| 3.1 | Bulgu yönetimi           | 🔴 Yüksek | Orta   | -               |
-| 4.1 | Deep Research (Species)  | 🔴 Yüksek | Yüksek | -               |
-| 5.1 | View on Map düzeltmesi   | 🟡 Orta   | Düşük  | -               |
-| 5.2 | Gelişmiş popup           | 🟡 Orta   | Orta   | -               |
-| 5.3 | Sonuç kaydetme           | 🔴 Yüksek | Düşük  | -               |
-| 5.4 | Baseline Report          | 🟡 Orta   | Yüksek | 3.1, 4.1        |
-| 6.1 | Logo güncelleme          | 🟢 Düşük  | Düşük  | -               |
-| 6.2 | Admin Dashboard          | 🔴 Yüksek | Yüksek | -               |
-| 6.3 | 65 demo proje            | 🔴 Yüksek | Orta   | 6.2             |
-| 6.4 | Proje detay görünümü     | 🟡 Orta   | Orta   | -               |
-| 7.1 | Gelişmiş arama           | 🟡 Orta   | Orta   | -               |
-| 7.2 | Audit Trail              | 🟡 Orta   | Orta   | -               |
-| 8.1 | Proje oluşturma          | 🟢 Düşük  | Düşük  | -               |
+### ✅ Tamamlanan Görevler
+
+| #   | Görev                    | Durum         | Tamamlanma   |
+| --- | ------------------------ | ------------- | ------------ |
+| 1.1 | Çoklu harita katmanları  | ✅ Tamamlandı | 4 Şub 2026   |
+| 1.2 | Buffer zone açıklamaları | ✅ Tamamlandı | 4 Şub 2026   |
+| 1.3 | Katman metadata          | ✅ Tamamlandı | 4 Şub 2026   |
+| 2.1 | NPWS veri entegrasyonu   | ✅ Tamamlandı | 6 Şub 2026   |
+| 2.2 | Deep Research (Sites)    | ✅ Tamamlandı | 5-6 Şub 2026 |
+
+### 🔧 Devam Eden / Yapılacak Görevler
+
+| #    | Görev                             | Öncelik   | Efor   | Bağımlılık |
+| ---- | --------------------------------- | --------- | ------ | ---------- |
+| 0.1  | Satellite layer bug fix           | 🔴 Yüksek | Düşük  | -          |
+| 0.2  | Otomatik veri katmanı açılması    | 🔴 Yüksek | Düşük  | -          |
+| 0.3  | Veri katmanı yan panel            | 🟡 Orta   | Orta   | -          |
+| 0.4  | Core DB search otomasyonu         | 🔴 Yüksek | Orta   | 0.2        |
+| 0.5  | Harita-bulgu senkronizasyonu      | 🔴 Yüksek | Yüksek | -          |
+| 0.6  | "Move to Next Stage" butonu       | 🟡 Orta   | Düşük  | -          |
+| 0.7  | Satellite varsayılan yapma        | 🟡 Orta   | Düşük  | -          |
+| 3.1  | Bulgu yönetimi (dismiss/toplu)    | 🔴 Yüksek | Orta   | -          |
+| 4.1  | Deep Research (Species) iyileştir | 🔴 Yüksek | Yüksek | -          |
+| 5.1  | View on Map düzeltmesi            | 🟡 Orta   | Düşük  | -          |
+| 5.2  | Gelişmiş popup                    | 🟡 Orta   | Orta   | -          |
+| 5.3  | Sonuç kaydetme                    | 🔴 Yüksek | Düşük  | -          |
+| 5.4  | Baseline Report                   | 🟡 Orta   | Yüksek | 3.1, 4.1   |
+| 6.1  | Logo güncelleme                   | 🟢 Düşük  | Düşük  | -          |
+| 6.2  | Admin Dashboard                   | 🔴 Yüksek | Yüksek | -          |
+| 6.3  | 65 demo proje                     | 🔴 Yüksek | Orta   | 6.2        |
+| 6.4  | Proje detay görünümü              | 🟡 Orta   | Orta   | -          |
+| 7.1  | Gelişmiş arama                    | 🟡 Orta   | Orta   | -          |
+| 7.2  | Audit Trail                       | 🟡 Orta   | Orta   | -          |
+| 8.1  | Proje oluşturma                   | 🟢 Düşük  | Düşük  | -          |
+| 9.1  | Findings Summary layout           | 🔴 Yüksek | Orta   | -          |
+| 9.2  | AI 3-satır özet kartları          | 🔴 Yüksek | Orta   | 9.1        |
+| 9.3  | Bulgu aksiyonları (note/share/dl) | 🟡 Orta   | Orta   | 9.1        |
+| 10.1 | Deep Research panel layout        | 🔴 Yüksek | Orta   | -          |
+| 10.2 | Designated sites deep dive        | 🔴 Yüksek | Orta   | 10.1, 2.1  |
+
+### Önerilen Geliştirme Sırası
+
+**Sprint 1 - Kritik Bug ve UX (1-2 gün):**
+
+- 0.1 Satellite layer bug fix
+- 0.2 Otomatik veri katmanı
+- 0.6 Move to Next Stage butonu
+- 0.7 Satellite varsayılan
+
+**Sprint 2 - Findings ve Etkileşim (3-4 gün):**
+
+- 0.5 Harita-bulgu senkronizasyonu
+- 9.1 Findings Summary layout
+- 9.2 AI 3-satır özet kartları
+- 3.1 Bulgu yönetimi (dismiss/toplu)
+
+**Sprint 3 - Deep Research ve Species (3-4 gün):**
+
+- 4.1 Species Deep Research iyileştirme
+- 10.1 Deep Research panel layout
+- 10.2 Designated sites deep dive
+- 5.1 View on Map düzeltmesi
+
+**Sprint 4 - Admin Dashboard (3-4 gün):**
+
+- 6.2 Admin Dashboard
+- 6.3 65 demo proje
+- 6.4 Proje detay görünümü
+
+**Sprint 5 - Rapor ve İleri (3-4 gün):**
+
+- 5.4 Baseline Conditions Report
+- 7.1 Gelişmiş arama
+- 7.2 Audit Trail
+- 9.3 Bulgu aksiyonları
 
 ---
 
 ## Notlar
 
-- [ ] Müşteriden 3 Excel dosyasını al (2.1.1)
+- [x] ~~Müşteriden Excel dosyalarını al (2.1.1)~~ ✅ Alındı ve entegre edildi
 - [ ] Google Drive'dan logo indir (6.1.1)
 - [ ] Harici feedback dokümanını incele (7.1.1)
 - [ ] Demo tarihi belirle ve timeline oluştur
+- [ ] ~158 site için eksik habitat verisi çözümü (OpenAI veya müşteriden ek veri)
 
 ---
 
-_Son güncelleme: 5 Şubat 2026_
+_Son güncelleme: 6 Şubat 2026_

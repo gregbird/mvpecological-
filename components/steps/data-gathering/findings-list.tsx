@@ -99,6 +99,14 @@ const SOURCE_COLORS: Record<string, string> = {
   manual: 'bg-gray-100 text-gray-700',
 }
 
+// Designated site type badge colors (SAC, SPA, NHA, pNHA)
+const SITE_TYPE_COLORS: Record<string, string> = {
+  SAC: 'bg-emerald-100 text-emerald-700', // Green for SAC
+  SPA: 'bg-sky-100 text-sky-700', // Blue for SPA (birds)
+  NHA: 'bg-amber-100 text-amber-700', // Amber for NHA
+  pNHA: 'bg-orange-100 text-orange-700', // Orange for pNHA (proposed)
+}
+
 // Type badge colors
 const TYPE_COLORS: Record<string, string> = {
   designated_site: 'bg-green-100 text-green-700',
@@ -165,10 +173,15 @@ export function FindingsList({
     )
   }
 
-  // Sort findings
+  // Sort findings - protected species always first
   const sortedFindings = React.useMemo(() => {
     const sorted = [...findings]
     sorted.sort((a, b) => {
+      // Protected species always come first
+      const aProtected = a.metadata?.isProtected ? 1 : 0
+      const bProtected = b.metadata?.isProtected ? 1 : 0
+      if (aProtected !== bProtected) return bProtected - aProtected
+
       let comparison = 0
       switch (sortBy) {
         case 'distance':
@@ -316,10 +329,11 @@ export function FindingsList({
                   </div>
                 </div>
 
-                {/* AI Summary for designated sites and aquatic features */}
+                {/* AI Summary for designated sites, species, and aquatic features */}
                 {(finding.dataType === 'designated_site' ||
                   finding.dataType === 'water_quality' ||
-                  finding.dataType === 'catchment') && (
+                  finding.dataType === 'catchment' ||
+                  finding.dataType === 'species_record') && (
                   <div className="mt-1.5">
                     {finding.metadata?.aiSummary ? (
                       <p className="text-muted-foreground text-[11px] leading-relaxed">
@@ -400,6 +414,14 @@ export function FindingsList({
                       className={`h-5 px-1.5 text-[10px] ${epaConfig.color}`}
                     >
                       {epaConfig.label}
+                    </Badge>
+                  ) : /* Designated site type badge (SAC, SPA, NHA, pNHA) */
+                  finding.dataType === 'designated_site' && finding.metadata?.siteType ? (
+                    <Badge
+                      variant="secondary"
+                      className={`h-5 px-1.5 text-[10px] ${SITE_TYPE_COLORS[finding.metadata.siteType] || SOURCE_COLORS[finding.source] || ''}`}
+                    >
+                      {finding.metadata.siteType}
                     </Badge>
                   ) : finding.metadata?.nbdcEnriched ? (
                     <Badge

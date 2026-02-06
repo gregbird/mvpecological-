@@ -244,13 +244,18 @@ function MapComponentWithDraw({
     }, [map, onViewChange])
 
     // Track zoom changes for townlands loading
+    const initialZoomReportedRef = React.useRef(false)
+    const onZoomChangeRef = React.useRef(onZoomChange)
+    onZoomChangeRef.current = onZoomChange
+
     React.useEffect(() => {
-      if (!map || !onZoomChange) return
+      if (!map) return
 
       const handleZoomEnd = () => {
+        if (!onZoomChangeRef.current) return
         const newZoom = map.getZoom()
         const bounds = map.getBounds()
-        onZoomChange(newZoom, {
+        onZoomChangeRef.current(newZoom, {
           west: bounds.getWest(),
           south: bounds.getSouth(),
           east: bounds.getEast(),
@@ -261,14 +266,17 @@ function MapComponentWithDraw({
       map.on('zoomend', handleZoomEnd)
       map.on('moveend', handleZoomEnd)
 
-      // Initial call
-      handleZoomEnd()
+      // Initial call - only once
+      if (!initialZoomReportedRef.current) {
+        initialZoomReportedRef.current = true
+        handleZoomEnd()
+      }
 
       return () => {
         map.off('zoomend', handleZoomEnd)
         map.off('moveend', handleZoomEnd)
       }
-    }, [map, onZoomChange])
+    }, [map])
 
     React.useEffect(() => {
       if (boundary && featureGroupRef.current && map) {
@@ -640,7 +648,10 @@ export function ProjectMapWithDraw({
   const [townlandsData, setTownlandsData] = React.useState<GeoJSON.FeatureCollection | null>(null)
   const [townlandsLoading, setTownlandsLoading] = React.useState(false)
   const [currentZoom, setCurrentZoom] = React.useState(zoom)
+  const currentZoomRef = React.useRef(zoom)
   const townlandsBboxRef = React.useRef<string | null>(null)
+  const showTownlandsRef = React.useRef(showTownlands)
+  showTownlandsRef.current = showTownlands
 
   // Load county boundaries when layer becomes visible
   React.useEffect(() => {
@@ -684,18 +695,25 @@ export function ProjectMapWithDraw({
     [townlandsLoading]
   )
 
-  // Track zoom level changes from map
+  // Track zoom level changes from map - use refs to avoid re-render loops
+  const loadTownlandsForBboxRef = React.useRef(loadTownlandsForBbox)
+  loadTownlandsForBboxRef.current = loadTownlandsForBbox
+
   const handleZoomChange = React.useCallback(
     (newZoom: number, bounds?: { west: number; south: number; east: number; north: number }) => {
-      setCurrentZoom(newZoom)
+      // Only update state if zoom actually changed
+      if (newZoom !== currentZoomRef.current) {
+        currentZoomRef.current = newZoom
+        setCurrentZoom(newZoom)
+      }
 
       // Load townlands when zoom >= 12 and layer is visible
-      if (newZoom >= 12 && showTownlands && bounds) {
+      if (newZoom >= 12 && showTownlandsRef.current && bounds) {
         const bbox = `${bounds.west},${bounds.south},${bounds.east},${bounds.north}`
-        loadTownlandsForBbox(bbox)
+        loadTownlandsForBboxRef.current(bbox)
       }
     },
-    [showTownlands, loadTownlandsForBbox]
+    [] // No dependencies - uses refs internally
   )
 
   // NPWS layer overlay

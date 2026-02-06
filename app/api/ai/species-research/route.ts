@@ -5,13 +5,29 @@ import { NextRequest, NextResponse } from 'next/server'
  * Uses OpenAI to generate a detailed species analysis including
  * protection status, ecology, survey recommendations, and development implications.
  *
- * Input: { scientificName, commonName, siteArea, recordCount, designations, taxonGroup }
+ * Input: { scientificName, commonName, siteArea, recordCount, designations, taxonGroup,
+ *          fpoData, article17Data, relatedSites, totalIrishRecords, gridSquares10km,
+ *          isProtected, isInvasive, isThreatened }
  * Output: { summary }
  */
 export async function POST(request: NextRequest) {
   try {
-    const { scientificName, commonName, siteArea, recordCount, designations, taxonGroup } =
-      await request.json()
+    const {
+      scientificName,
+      commonName,
+      siteArea,
+      recordCount,
+      designations,
+      taxonGroup,
+      fpoData,
+      article17Data,
+      relatedSites,
+      totalIrishRecords,
+      gridSquares10km,
+      isProtected,
+      isInvasive,
+      isThreatened,
+    } = await request.json()
 
     if (!scientificName) {
       return NextResponse.json({ error: 'scientificName is required' }, { status: 400 })
@@ -32,6 +48,40 @@ export async function POST(request: NextRequest) {
     if (recordCount) contextParts.push(`Records found in survey area: ${recordCount}`)
     if (designations) contextParts.push(`Known designations: ${designations}`)
     if (siteArea) contextParts.push(`Survey area: ${siteArea}`)
+    if (isProtected) contextParts.push('This is a legally protected species in Ireland.')
+    if (isInvasive) contextParts.push('This is classified as an invasive species in Ireland.')
+    if (isThreatened) contextParts.push('This species has a threatened conservation status.')
+
+    // Irish distribution
+    if (totalIrishRecords || gridSquares10km) {
+      const distParts: string[] = []
+      if (totalIrishRecords) distParts.push(`${totalIrishRecords} total Irish records`)
+      if (gridSquares10km) distParts.push(`across ${gridSquares10km} 10km grid squares`)
+      contextParts.push(`\nIrish Distribution: ${distParts.join(' ')}`)
+    }
+
+    // FPO data
+    if (fpoData) {
+      contextParts.push(`\nFlora Protection Order (FPO) 2022 Records:\n${fpoData}`)
+    }
+
+    // Article 17 data
+    if (article17Data) {
+      contextParts.push(`\nArticle 17 Habitats Directive Distribution:\n${article17Data}`)
+    }
+
+    // Related designated sites
+    if (relatedSites && relatedSites.length > 0) {
+      const siteLines = relatedSites
+        .slice(0, 20)
+        .map(
+          (s: { siteCode: string; siteName: string; siteType: string }) =>
+            `- ${s.siteName} (${s.siteType} ${s.siteCode})`
+        )
+      contextParts.push(
+        `\nSAC/SPA Sites Where This Species is a Qualifying Interest (${relatedSites.length} sites):\n${siteLines.join('\n')}`
+      )
+    }
 
     contextParts.push(`\nProvide your analysis in this exact format:
 
@@ -48,7 +98,13 @@ export async function POST(request: NextRequest) {
 [What surveys are recommended if this species may be affected by development - timing, methods, effort]
 
 **Development Implications:**
-[What a developer/planner must consider - buffer zones, seasonal constraints, mitigation measures, licensing requirements]`)
+[What a developer/planner must consider - buffer zones, seasonal constraints, mitigation measures, licensing requirements]
+
+**Related Designated Sites:**
+[SAC/SPA sites where this species is a qualifying interest, and Appropriate Assessment implications]
+
+**Irish Distribution:**
+[Summary of species distribution in Ireland based on available data]`)
 
     // Call OpenAI
     const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -68,7 +124,7 @@ export async function POST(request: NextRequest) {
           { role: 'user', content: contextParts.join('\n') },
         ],
         temperature: 0.3,
-        max_tokens: 800,
+        max_tokens: 1200,
       }),
     })
 
