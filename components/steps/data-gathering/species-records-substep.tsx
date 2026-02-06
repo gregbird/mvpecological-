@@ -112,6 +112,8 @@ export function SpeciesRecordsSubStep({
   const [speciesResearchOpen, setSpeciesResearchOpen] = React.useState(false)
   const [selectedSpeciesResearch, setSelectedSpeciesResearch] =
     React.useState<SpeciesResearchData | null>(null)
+  // AI Summary batch state
+  const [isSummarizing, setIsSummarizing] = React.useState(false)
 
   // Toggle visibility of a finding on the map
   const handleToggleVisibility = React.useCallback((findingId: string) => {
@@ -640,10 +642,119 @@ export function SpeciesRecordsSubStep({
     }
   }
 
-  // Handle species deep research
-  const handleSpeciesDeepResearch = (finding: FindingDisplay) => {
+  // Handle inline AI summary for a single species
+  const handleFetchAiSummary = async (finding: FindingDisplay) => {
+    // Set loading state
+    setSearchResults((prev) =>
+      prev.map((f) =>
+        f.id === finding.id ? { ...f, metadata: { ...f.metadata, aiSummaryLoading: true } } : f
+      )
+    )
+
+    try {
+      const response = await fetch('/api/ai/species-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scientificName: finding.metadata?.scientificName || finding.title,
+          commonName: finding.metadata?.commonName,
+          taxonGroup: finding.metadata?.taxonGroup,
+          designations: finding.metadata?.designations,
+          isProtected: finding.metadata?.isProtected,
+          totalIrishRecords: finding.metadata?.totalIrishRecords,
+          gridSquares10km: finding.metadata?.gridSquares10km,
+          recordCount: finding.metadata?.recordCount,
+        }),
+      })
+
+      if (!response.ok) throw new Error('Failed to fetch summary')
+
+      const data = await response.json()
+
+      setSearchResults((prev) =>
+        prev.map((f) =>
+          f.id === finding.id
+            ? {
+                ...f,
+                metadata: {
+                  ...f.metadata,
+                  aiSummary: data.summary,
+                  aiSummaryLoading: false,
+                },
+              }
+            : f
+        )
+      )
+    } catch (error) {
+      console.warn('AI summary error:', error)
+      setSearchResults((prev) =>
+        prev.map((f) =>
+          f.id === finding.id ? { ...f, metadata: { ...f.metadata, aiSummaryLoading: false } } : f
+        )
+      )
+    }
+  }
+
+  // Batch summarize all species
+  const handleSummarizeAllSpecies = async () => {
+    const speciesFindings = searchResults.filter(
+      (f) => f.dataType === 'species_record' && !f.metadata?.aiSummary
+    )
+    if (speciesFindings.length === 0) return
+
+    setIsSummarizing(true)
+    for (const finding of speciesFindings) {
+      await handleFetchAiSummary(finding)
+      // Small delay between requests
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    }
+    setIsSummarizing(false)
+    toast({
+      title: 'AI summaries complete',
+      description: `Summarized ${speciesFindings.length} species.`,
+    })
+  }
+
+  // Handle species deep research (enriched with FPO, Article 17, related sites)
+  const handleSpeciesDeepResearch = async (finding: FindingDisplay) => {
+    const scientificName = finding.metadata?.scientificName || finding.title
+
+    // Gather enrichment data in parallel
+    let fpoRecords: FPORecord[] | undefined
+    let article17Species: Article17Species[] | undefined
+    let relatedSites: import('@/lib/data/npws-site-lookup').SiteWithSpecies[] | undefined
+
+    try {
+      const [fpoModule, art17Module, npwsModule] = await Promise.all([
+        import('@/lib/data/fpo-species'),
+        import('@/lib/data/article17-species'),
+        import('@/lib/data/npws-site-lookup'),
+      ])
+
+      // FPO: if this finding comes from FPO source, use its rawData records
+      if (finding.source === 'fpo' && finding.rawData?.sampleRecords) {
+        fpoRecords = finding.rawData.sampleRecords as FPORecord[]
+      }
+
+      // Article 17: search by scientific name
+      try {
+        article17Species = await art17Module.searchSpeciesByName(scientificName)
+      } catch {
+        // silently skip
+      }
+
+      // Related sites: find SAC/SPA where this species is a qualifying interest
+      try {
+        relatedSites = npwsModule.findSitesWithSpecies(scientificName)
+      } catch {
+        // silently skip
+      }
+    } catch {
+      // Dynamic import failed, proceed without enrichment
+    }
+
     setSelectedSpeciesResearch({
-      scientificName: finding.metadata?.scientificName || finding.title,
+      scientificName,
       commonName: finding.metadata?.commonName,
       taxonGroup: finding.metadata?.taxonGroup,
       recordCount: finding.metadata?.recordCount,
@@ -657,6 +768,9 @@ export function SpeciesRecordsSubStep({
       gbifUrl: finding.metadata?.gbifUrl || finding.sourceUrl,
       nbdcUrl: finding.metadata?.nbdcUrl,
       source: finding.source,
+      fpoRecords,
+      article17Species,
+      relatedSites,
     })
     setSpeciesResearchOpen(true)
   }
@@ -809,6 +923,29 @@ export function SpeciesRecordsSubStep({
                   </span>
                 </div>
               )}
+
+              {/* AI Summary All button */}
+              {!isEnriching && !isSearching && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-1.5"
+                  onClick={handleSummarizeAllSpecies}
+                  disabled={isSummarizing}
+                >
+                  {isSummarizing ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Summarizing...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-3.5 w-3.5" />
+                      AI Summary All Species
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -822,6 +959,7 @@ export function SpeciesRecordsSubStep({
             onSave={handleSaveFinding}
             onViewOnMap={(f) => setSelectedFinding(f)}
             onDeepResearch={handleSpeciesDeepResearch}
+            onFetchAiSummary={handleFetchAiSummary}
             emptyMessage="Search to find species"
             hiddenIds={hiddenIds}
             onToggleVisibility={handleToggleVisibility}
