@@ -94,13 +94,51 @@ const FINDING_TYPE_COLORS: Record<string, string> = {
   other: '#6b7280', // Gray for other
 }
 
+// Species status colors (for species_record findings)
+const SPECIES_STATUS_COLORS = {
+  protected: '#dc2626', // Red - protected species (requires attention)
+  invasive: '#f97316', // Orange - invasive species (problem species)
+  threatened: '#eab308', // Yellow - threatened but not legally protected
+  normal: '#3b82f6', // Blue - regular species
+}
+
 // Finding source colors
 const FINDING_SOURCE_COLORS: Record<string, string> = {
   npws: '#22c55e', // Green
   gbif: '#3b82f6', // Blue
   nbdc: '#8b5cf6', // Purple
   epa: '#06b6d4', // Cyan
+  fpo: '#dc2626', // Red - Flora Protection Order (always protected)
   manual: '#f59e0b', // Amber
+}
+
+/**
+ * Get color for a species based on its conservation status
+ */
+function getSpeciesColor(finding: DeskResearchFinding): string {
+  if (finding.dataType !== 'species_record') {
+    return FINDING_TYPE_COLORS[finding.dataType] || FINDING_TYPE_COLORS.other
+  }
+
+  // FPO species are always protected
+  if (finding.source === 'fpo') {
+    return SPECIES_STATUS_COLORS.protected
+  }
+
+  const metadata = finding.metadata as Record<string, unknown> | undefined
+
+  // Priority: protected > invasive > threatened > normal
+  if (metadata?.isProtected) {
+    return SPECIES_STATUS_COLORS.protected
+  }
+  if (metadata?.isInvasive) {
+    return SPECIES_STATUS_COLORS.invasive
+  }
+  if (metadata?.isThreatened) {
+    return SPECIES_STATUS_COLORS.threatened
+  }
+
+  return SPECIES_STATUS_COLORS.normal
 }
 
 // The actual map component that uses react-leaflet
@@ -631,8 +669,15 @@ function MapComponent({
           if (!finding.location) return null
 
           const isSelected = selectedFinding?.id === finding.id
-          const color = FINDING_TYPE_COLORS[finding.dataType] || FINDING_TYPE_COLORS.other
+          // Use species-aware color function for species records
+          const color = getSpeciesColor(finding)
           const sourceColor = FINDING_SOURCE_COLORS[finding.source] || '#6b7280'
+
+          // Determine marker size based on status (protected/invasive are larger)
+          const metadata = finding.metadata as Record<string, unknown> | undefined
+          const isImportantSpecies =
+            metadata?.isProtected || metadata?.isInvasive || finding.source === 'fpo'
+          const baseRadius = isImportantSpecies ? 10 : 8
 
           // Render based on geometry type
           if (finding.location.type === 'Point') {
@@ -641,12 +686,12 @@ function MapComponent({
               <CircleMarker
                 key={`finding-${finding.id}`}
                 center={[lat, lng]}
-                radius={isSelected ? 12 : 8}
+                radius={isSelected ? baseRadius + 4 : baseRadius}
                 pathOptions={{
                   color: isSelected ? '#fbbf24' : '#ffffff',
-                  weight: isSelected ? 3 : 2,
+                  weight: isSelected ? 3 : isImportantSpecies ? 2.5 : 2,
                   fillColor: color,
-                  fillOpacity: isSelected ? 1 : 0.8,
+                  fillOpacity: isSelected ? 1 : 0.85,
                 }}
                 eventHandlers={{
                   click: (e: L.LeafletMouseEvent) => {
@@ -658,20 +703,44 @@ function MapComponent({
               >
                 <Popup>
                   <div className="max-w-xs p-2">
-                    <div className="mb-1 flex items-center gap-1">
+                    <div className="mb-1 flex flex-wrap items-center gap-1">
                       <span
                         className="rounded px-1.5 py-0.5 text-xs font-medium text-white"
                         style={{ backgroundColor: sourceColor }}
                       >
                         {finding.source.toUpperCase()}
                       </span>
-                      <span className="text-muted-foreground text-xs">
-                        {finding.dataType.replace('_', ' ')}
-                      </span>
+                      {/* Species status badges */}
+                      {Boolean(metadata?.isProtected) && (
+                        <span className="rounded bg-red-600 px-1.5 py-0.5 text-xs font-medium text-white">
+                          Protected
+                        </span>
+                      )}
+                      {Boolean(metadata?.isInvasive) && (
+                        <span className="rounded bg-orange-500 px-1.5 py-0.5 text-xs font-medium text-white">
+                          Invasive
+                        </span>
+                      )}
+                      {Boolean(metadata?.isThreatened) && !Boolean(metadata?.isProtected) && (
+                        <span className="rounded bg-yellow-500 px-1.5 py-0.5 text-xs font-medium text-white">
+                          Threatened
+                        </span>
+                      )}
                     </div>
                     <h3 className="font-semibold">{finding.title}</h3>
+                    {/* Scientific name if different from title */}
+                    {typeof metadata?.scientificName === 'string' &&
+                      metadata.scientificName !== finding.title && (
+                        <p className="text-xs text-gray-500 italic">{metadata.scientificName}</p>
+                      )}
                     {finding.content && (
                       <p className="mt-1 line-clamp-2 text-sm text-gray-600">{finding.content}</p>
+                    )}
+                    {/* Designations */}
+                    {typeof metadata?.designations === 'string' && (
+                      <p className="mt-1 text-xs text-red-700">
+                        {metadata.designations.split('||')[0].trim()}
+                      </p>
                     )}
                     {finding.metadata?.distance !== undefined && (
                       <p className="mt-1 text-xs text-gray-500">

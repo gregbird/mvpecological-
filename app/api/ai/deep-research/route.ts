@@ -63,22 +63,64 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 3. Build habitat and species context from Excel data
+    // 3. For NHA sites without Excel data, scrape the NPWS web page as fallback
+    let webPageText = ''
+    if (!siteData && siteType === 'NHA') {
+      try {
+        const nhaUrl = `https://www.npws.ie/protected-sites/nha/${siteCode}`
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 15000)
+
+        const webResponse = await fetch(nhaUrl, {
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; DulraBot/1.0; Ecological Assessment Tool)',
+          },
+        })
+        clearTimeout(timeoutId)
+
+        if (webResponse.ok) {
+          const html = await webResponse.text()
+          webPageText = html
+            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+            .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
+            .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
+            .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/\s+/g, ' ')
+            .trim()
+
+          if (webPageText.length > 6000) {
+            webPageText = webPageText.substring(0, 6000)
+          }
+        }
+      } catch (err) {
+        console.warn(`Failed to scrape NHA page for ${siteCode}:`, err)
+      }
+    }
+
+    // 4. Build habitat and species context from Excel data
     const habitatContext = buildHabitatContext(siteData)
     const speciesContext = buildSpeciesContext(siteData)
 
-    // 4. Build AI prompt
+    // 5. Build AI prompt
     const prompt = buildPrompt({
       siteName,
       siteCode,
       siteType,
       pdfText,
+      webPageText,
       habitatContext,
       speciesContext,
       siteData,
     })
 
-    // 5. Call OpenAI
+    // 6. Call OpenAI
     const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -116,6 +158,7 @@ export async function POST(request: NextRequest) {
       siteCode,
       sscoUrl,
       hadPdfContent: !!pdfText,
+      hadWebContent: !!webPageText,
       siteData: siteData
         ? {
             siteType: siteData.siteType,
@@ -163,6 +206,7 @@ function buildPrompt({
   siteCode,
   siteType,
   pdfText,
+  webPageText,
   habitatContext,
   speciesContext,
   siteData,
@@ -171,6 +215,7 @@ function buildPrompt({
   siteCode: string
   siteType: string
   pdfText: string
+  webPageText: string
   habitatContext: string
   speciesContext: string
   siteData: NPWSSiteData | null
@@ -198,6 +243,10 @@ function buildPrompt({
 
   if (pdfText) {
     parts.push(`\nSite-Specific Conservation Objectives (SSCO) document content:\n${pdfText}`)
+  }
+
+  if (webPageText) {
+    parts.push(`\nNPWS Site Synopsis (scraped from web page):\n${webPageText}`)
   }
 
   parts.push(`\nProvide your analysis in this exact format:

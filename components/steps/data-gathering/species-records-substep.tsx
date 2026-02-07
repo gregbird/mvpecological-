@@ -990,6 +990,8 @@ export function SpeciesRecordsSubStep({
                     (sf.raw_data as Record<string, unknown>)?.scientificName ===
                     f.metadata?.scientificName
                 ),
+                // Pass metadata for species status coloring (protected, invasive, threatened)
+                metadata: f.metadata,
               }))}
             selectedFinding={
               selectedFinding
@@ -1003,6 +1005,7 @@ export function SpeciesRecordsSubStep({
                     content: selectedFinding.content,
                     location: selectedFinding.location,
                     isSaved: false,
+                    metadata: selectedFinding.metadata,
                   }
                 : undefined
             }

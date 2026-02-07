@@ -59,14 +59,58 @@ export async function POST(request: NextRequest) {
     // Find exact or close match and extract taxonId
     let taxonId: number | null = null
     const searchLower = scientificName.toLowerCase()
+    const searchParts = searchLower.split(' ')
+
+    // Priority matching:
+    // 1. Exact scientific name match (row[7] is the scientific name)
+    // 2. Scientific name in display name (row[2])
+    // 3. First word (genus) match for genus-only queries
 
     for (const row of data.aaData || []) {
       const displayName = row[2] // "Badger (Meles meles)" or "Meles meles"
-      if (displayName?.toLowerCase().includes(searchLower)) {
+      const scientificNameInRow = row[7] // "Meles meles" - exact scientific name
+
+      // Priority 1: Exact match on scientific name field
+      if (scientificNameInRow?.toLowerCase() === searchLower) {
         const id = parseInt(row[1], 10)
         if (!isNaN(id)) {
           taxonId = id
           break
+        }
+      }
+    }
+
+    // Priority 2: Partial match in display name or scientific name
+    if (!taxonId) {
+      for (const row of data.aaData || []) {
+        const displayName = row[2]
+        const scientificNameInRow = row[7]
+
+        if (
+          displayName?.toLowerCase().includes(searchLower) ||
+          scientificNameInRow?.toLowerCase().includes(searchLower)
+        ) {
+          const id = parseInt(row[1], 10)
+          if (!isNaN(id)) {
+            taxonId = id
+            break
+          }
+        }
+      }
+    }
+
+    // Priority 3: For genus-only searches, find the genus entry
+    if (!taxonId && searchParts.length === 1) {
+      for (const row of data.aaData || []) {
+        const rank = row[5] // "Genus", "Species", etc.
+        const scientificNameInRow = row[7]
+
+        if (rank === 'Genus' && scientificNameInRow?.toLowerCase() === searchLower) {
+          const id = parseInt(row[1], 10)
+          if (!isNaN(id)) {
+            taxonId = id
+            break
+          }
         }
       }
     }

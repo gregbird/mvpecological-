@@ -328,10 +328,15 @@ export function DesignatedSitesSubStep({
           SAC: 'protected-sites/sac',
           SPA: 'protected-sites/spa',
           NHA: 'protected-sites/nha',
-          pNHA: 'protected-sites/pnha',
         }
-        const urlPath = siteTypeUrlMap[site.SITE_TYPE || ''] || 'protected-sites'
+        const urlPath = siteTypeUrlMap[site.SITE_TYPE || '']
         const distance = calculateDistanceFromBoundary(site.geometry)
+
+        // pNHA sites don't have individual NPWS pages — link to the portfolio PDF
+        const sourceUrl =
+          site.SITE_TYPE === 'pNHA'
+            ? 'https://www.npws.ie/sites/default/files/general/pNHA_Site_Synopsis_Portfolio.pdf'
+            : `https://www.npws.ie/${urlPath || 'protected-sites'}/${site.SITECODE}`
 
         return {
           // Use SITECODE + SITE_TYPE + OBJECTID for unique ID
@@ -342,7 +347,7 @@ export function DesignatedSitesSubStep({
           content: `${getSiteTypeDisplayName(site.SITE_TYPE as 'SAC' | 'SPA' | 'NHA' | 'pNHA')} covering ${site.AREA_HA?.toFixed(1) || 'unknown'} hectares.`,
           location: site.geometry,
           isSaved: false,
-          sourceUrl: `https://www.npws.ie/${urlPath}/${site.SITECODE}`,
+          sourceUrl,
           rawData: site as unknown as Record<string, unknown>,
           metadata: {
             siteCode: site.SITECODE,

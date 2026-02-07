@@ -45,8 +45,14 @@ export interface DeskResearchFinding {
     recordDate?: string
     recordCount?: number
     isProtected?: boolean
+    isInvasive?: boolean
+    isThreatened?: boolean
     designation?: string
+    designations?: string // Full designations string from NBDC
     distance?: number // km from project boundary
+    nbdcEnriched?: boolean
+    taxonGroup?: string
+    totalIrishRecords?: number
   }
 }
 

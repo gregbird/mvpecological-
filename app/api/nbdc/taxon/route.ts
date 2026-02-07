@@ -36,7 +36,40 @@ export async function POST(request: NextRequest) {
     }
 
     const r = data.result
-    const designations = r.designations || ''
+    const designations = (r.designations || '').toLowerCase()
+
+    // Check for protected status - Irish and EU legislation
+    const protectionIndicators = [
+      'wildlife act', // Irish Wildlife Acts
+      'habitats directive', // EU Habitats Directive (Annex II, IV, V)
+      'birds directive', // EU Birds Directive (Annex I)
+      'flora protection', // Flora Protection Order
+      'protected', // Generic "protected" mentions
+      'annex ii',
+      'annex iv',
+      'annex v',
+      'annex i',
+      'bern convention', // Bern Convention
+      'bonn convention', // Bonn Convention (migratory species)
+      'cites', // CITES
+    ]
+    const isProtected = protectionIndicators.some((indicator) => designations.includes(indicator))
+
+    // Check for invasive species
+    const invasiveIndicators = ['invasive', 'ias regulation', 'third schedule']
+    const isInvasive = invasiveIndicators.some((indicator) => designations.includes(indicator))
+
+    // Check for threatened status - Red List categories
+    const threatenedIndicators = [
+      'critically endangered',
+      'endangered',
+      'vulnerable',
+      'near threatened',
+      'red list',
+      'red data',
+      'threatened',
+    ]
+    const isThreatened = threatenedIndicators.some((indicator) => designations.includes(indicator))
 
     // Return enriched species data
     return NextResponse.json({
@@ -46,9 +79,9 @@ export async function POST(request: NextRequest) {
         commonName: r.commonName,
         taxonGroup: r.taxonGroupName,
         designations: r.designations,
-        isProtected: designations.toLowerCase().includes('protected'),
-        isInvasive: designations.toLowerCase().includes('invasive'),
-        isThreatened: designations.toLowerCase().includes('threatened'),
+        isProtected,
+        isInvasive,
+        isThreatened,
         totalRecordsInIreland: r.recordCount,
         gridSquares10km: r.tenKRecordCount,
         gridSquares50km: r.fiftyKRecordCount,

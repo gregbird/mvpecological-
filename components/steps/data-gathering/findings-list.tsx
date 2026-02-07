@@ -493,9 +493,11 @@ export function FindingsList({
                       View on map
                     </button>
                   )}
-                  {/* Deep Research button for designated sites and species */}
+                  {/* Deep Research button for designated sites, species, and aquatic features */}
                   {(finding.dataType === 'designated_site' ||
-                    finding.dataType === 'species_record') &&
+                    finding.dataType === 'species_record' ||
+                    finding.dataType === 'water_quality' ||
+                    finding.dataType === 'catchment') &&
                     onDeepResearch && (
                       <button
                         className="flex items-center gap-1 font-medium text-purple-600 hover:underline"

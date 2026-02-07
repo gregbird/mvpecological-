@@ -28,6 +28,10 @@ import { useToast } from '@/hooks/use-toast'
 import { useCreateFinding, useDeleteFinding } from '@/hooks/use-project-data'
 import { searchAllAquaticFeatures, getWFDStatusDisplayName } from '@/lib/external-apis/epa'
 import { FindingsList, type FindingDisplay } from './findings-list'
+import {
+  AquaticDeepResearchModal,
+  type AquaticDeepResearchSite,
+} from '@/components/desk-research/aquatic-deep-research-modal'
 import type { Project, DeskResearchFinding, Json } from '@/types/database'
 import type { FindingSource, FindingType } from '@/components/desk-research/finding-card'
 
@@ -93,6 +97,29 @@ export function AquaticFeaturesSubStep({
   const [activeFilter, setActiveFilter] = React.useState<'River' | 'Lake' | 'Catchment' | null>(
     null
   )
+  // Deep Research modal state
+  const [deepResearchSite, setDeepResearchSite] = React.useState<AquaticDeepResearchSite | null>(
+    null
+  )
+  const [isDeepResearchOpen, setIsDeepResearchOpen] = React.useState(false)
+
+  // Handle Deep Research click
+  const handleDeepResearch = React.useCallback((finding: FindingDisplay) => {
+    const site: AquaticDeepResearchSite = {
+      waterBodyName: finding.title,
+      waterBodyType: (finding.metadata?.siteType as 'River' | 'Lake' | 'Catchment') || 'River',
+      waterBodyCode: finding.metadata?.siteCode,
+      wfdStatus: finding.metadata?.designation,
+      catchmentName: finding.rawData?.CatchmentName as string | undefined,
+      catchmentId: finding.rawData?.CatchmentId as string | undefined,
+      distance: finding.metadata?.distance,
+      areaHa: finding.rawData?.Area_ha as number | undefined,
+      lengthKm: finding.rawData?.Length_km as number | undefined,
+    }
+
+    setDeepResearchSite(site)
+    setIsDeepResearchOpen(true)
+  }, [])
 
   // Toggle visibility of a finding on the map
   const handleToggleVisibility = React.useCallback((findingId: string) => {
@@ -632,6 +659,7 @@ export function AquaticFeaturesSubStep({
             isLoading={isSearching}
             onSave={handleSaveFinding}
             onViewOnMap={(f) => setSelectedFinding(f)}
+            onDeepResearch={handleDeepResearch}
             onFetchAiSummary={handleFetchAiSummary}
             emptyMessage="Search to find features"
             hiddenIds={hiddenIds}
@@ -708,6 +736,13 @@ export function AquaticFeaturesSubStep({
           </Button>
         </div>
       )}
+
+      {/* Deep Research Modal */}
+      <AquaticDeepResearchModal
+        open={isDeepResearchOpen}
+        onOpenChange={setIsDeepResearchOpen}
+        site={deepResearchSite}
+      />
     </div>
   )
 }

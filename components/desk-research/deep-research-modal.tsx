@@ -76,14 +76,22 @@ function getNPWSUrls(siteCode: string, siteType: string) {
     SAC: 'sac',
     SPA: 'spa',
     NHA: 'nha',
-    pNHA: 'pnha',
   }
-  const typePath = typePathMap[siteType] || 'sac'
-  const baseUrl = `https://www.npws.ie/protected-sites/${typePath}/${siteCode}`
+  const typePath = typePathMap[siteType]
+
+  // pNHA sites don't have individual NPWS pages — use portfolio PDF
+  const baseUrl = typePath
+    ? `https://www.npws.ie/protected-sites/${typePath}/${siteCode}`
+    : siteType === 'pNHA'
+      ? 'https://www.npws.ie/sites/default/files/general/pNHA_Site_Synopsis_Portfolio.pdf'
+      : `https://www.npws.ie/protected-sites/sac/${siteCode}`
 
   return {
     synopsis: baseUrl,
-    conservationObjectives: `${baseUrl}/conservation-objectives`,
+    conservationObjectives:
+      siteType === 'pNHA'
+        ? 'https://www.npws.ie/protected-sites'
+        : `${baseUrl}/conservation-objectives`,
     article17: 'https://www.npws.ie/publications/article-17-reports',
     siteMap: `https://www.npws.ie/maps-and-data`,
   }
