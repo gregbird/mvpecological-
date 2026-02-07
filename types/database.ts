@@ -8,6 +8,115 @@ export type Database = {
   }
   public: {
     Tables: {
+      aquatic_research_results: {
+        Row: {
+          ai_analysis: string | null
+          catchment_name: string | null
+          connectivity: Json | null
+          created_at: string | null
+          current_status: string | null
+          failures: Json | null
+          finding_id: string | null
+          id: string
+          linked_sac_code: string | null
+          linked_sac_habitats: Json | null
+          linked_sac_match_score: number | null
+          linked_sac_name: string | null
+          linked_sac_species: Json | null
+          notes: string | null
+          project_id: string
+          researched_at: string | null
+          researched_by: string | null
+          risk_level: string | null
+          river_basin_district: string | null
+          status_history: Json | null
+          sub_catchment_name: string | null
+          trends: Json | null
+          updated_at: string | null
+          water_body_code: string
+          water_body_name: string
+          water_body_type: string
+        }
+        Insert: {
+          ai_analysis?: string | null
+          catchment_name?: string | null
+          connectivity?: Json | null
+          created_at?: string | null
+          current_status?: string | null
+          failures?: Json | null
+          finding_id?: string | null
+          id?: string
+          linked_sac_code?: string | null
+          linked_sac_habitats?: Json | null
+          linked_sac_match_score?: number | null
+          linked_sac_name?: string | null
+          linked_sac_species?: Json | null
+          notes?: string | null
+          project_id: string
+          researched_at?: string | null
+          researched_by?: string | null
+          risk_level?: string | null
+          river_basin_district?: string | null
+          status_history?: Json | null
+          sub_catchment_name?: string | null
+          trends?: Json | null
+          updated_at?: string | null
+          water_body_code: string
+          water_body_name: string
+          water_body_type: string
+        }
+        Update: {
+          ai_analysis?: string | null
+          catchment_name?: string | null
+          connectivity?: Json | null
+          created_at?: string | null
+          current_status?: string | null
+          failures?: Json | null
+          finding_id?: string | null
+          id?: string
+          linked_sac_code?: string | null
+          linked_sac_habitats?: Json | null
+          linked_sac_match_score?: number | null
+          linked_sac_name?: string | null
+          linked_sac_species?: Json | null
+          notes?: string | null
+          project_id?: string
+          researched_at?: string | null
+          researched_by?: string | null
+          risk_level?: string | null
+          river_basin_district?: string | null
+          status_history?: Json | null
+          sub_catchment_name?: string | null
+          trends?: Json | null
+          updated_at?: string | null
+          water_body_code?: string
+          water_body_name?: string
+          water_body_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'aquatic_research_results_finding_id_fkey'
+            columns: ['finding_id']
+            isOneToOne: false
+            referencedRelation: 'desk_research_findings'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'aquatic_research_results_project_id_fkey'
+            columns: ['project_id']
+            isOneToOne: false
+            referencedRelation: 'projects'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'aquatic_research_results_researched_by_fkey'
+            columns: ['researched_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: Database['public']['Enums']['audit_action']
@@ -95,6 +204,7 @@ export type Database = {
       }
       deep_research_results: {
         Row: {
+          ai_analysis: string | null
           conservation_summary: Json | null
           created_at: string | null
           finding_id: string | null
@@ -111,6 +221,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          ai_analysis?: string | null
           conservation_summary?: Json | null
           created_at?: string | null
           finding_id?: string | null
@@ -127,6 +238,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          ai_analysis?: string | null
           conservation_summary?: Json | null
           created_at?: string | null
           finding_id?: string | null
@@ -1333,6 +1445,12 @@ export type DeepResearchResultInsert =
   Database['public']['Tables']['deep_research_results']['Insert']
 export type DeepResearchResultUpdate =
   Database['public']['Tables']['deep_research_results']['Update']
+
+export type AquaticResearchResult = Database['public']['Tables']['aquatic_research_results']['Row']
+export type AquaticResearchResultInsert =
+  Database['public']['Tables']['aquatic_research_results']['Insert']
+export type AquaticResearchResultUpdate =
+  Database['public']['Tables']['aquatic_research_results']['Update']
 
 // Enum type aliases
 export type UserRole = Database['public']['Enums']['user_role']

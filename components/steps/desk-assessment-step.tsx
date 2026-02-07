@@ -179,7 +179,6 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
         updates: { notes: structuredNotes },
       })
 
-      toast({ title: 'Assessment saved' })
       setSelectedFinding(null)
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error saving assessment' })
@@ -191,35 +190,20 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
     setIsGeneratingInsights(true)
 
     try {
-      // Prepare findings data for the edge function
-      const findingsData = savedFindings.map((f) => ({
-        id: f.id,
-        title: f.title,
-        content: f.content,
-        source: f.source,
-        data_type: f.data_type,
-        raw_data: f.raw_data,
-        distance_from_boundary_km: f.distance_from_boundary_km,
-        is_protected: f.is_protected,
-      }))
-
-      // Call the edge function
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/generate-desk-insights`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            findings: findingsData,
-            projectName: project.name,
-            projectLocation:
-              [project.townland, project.county, project.province].filter(Boolean).join(', ') ||
-              'Ireland',
-          }),
-        }
-      )
+      // Call the new desk-insights API that fetches all data server-side
+      const response = await fetch('/api/ai/desk-insights', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          projectId: project.id,
+          projectName: project.name,
+          projectLocation:
+            [project.townland, project.county, project.province].filter(Boolean).join(', ') ||
+            'Ireland',
+        }),
+      })
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
@@ -228,11 +212,6 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
 
       const data = await response.json()
       setAiInsights(data.insights)
-
-      toast({
-        title: 'AI Analysis Complete',
-        description: `Analyzed ${data.metadata?.totalFindings || savedFindings.length} findings.`,
-      })
     } catch (error) {
       console.error('Error generating insights:', error)
 
@@ -328,7 +307,6 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
       })
 
       refetchWorkflowSteps()
-      toast({ title: 'Step completed', description: 'Moving to Field Survey Planning.' })
       onComplete?.()
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error completing step' })
@@ -405,10 +383,10 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
         </div>
 
         {/* AI Insights Tab */}
-        <TabsContent value="insights" className="mt-0 flex-1 overflow-hidden">
-          <div className="flex h-full">
+        <TabsContent value="insights" className="mt-0 flex min-h-0 flex-1 overflow-hidden">
+          <div className="flex h-full min-h-0">
             {/* Left Panel - Stats */}
-            <div className="w-75 shrink-0 border-r p-4">
+            <div className="w-75 shrink-0 overflow-y-auto border-r p-4">
               <h3 className="mb-4 font-semibold">Data Summary</h3>
 
               <div className="space-y-3">
@@ -497,37 +475,35 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
             </div>
 
             {/* Right Panel - AI Insights */}
-            <div className="flex-1 overflow-hidden">
-              <ScrollArea className="h-full">
-                <div className="p-6">
-                  {aiInsights ? (
-                    <div className="prose prose-sm max-w-none">
-                      <div className="mb-4 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Sparkles className="h-5 w-5 text-purple-500" />
-                          <h3 className="m-0 text-lg font-semibold">AI Analysis</h3>
-                        </div>
-                        <Button variant="ghost" size="sm" onClick={handleGenerateInsights}>
-                          <RefreshCw className="mr-1 h-3 w-3" />
-                          Regenerate
-                        </Button>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="p-6">
+                {aiInsights ? (
+                  <div className="prose prose-sm max-w-none">
+                    <div className="mb-4 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-5 w-5 text-purple-500" />
+                        <h3 className="m-0 text-lg font-semibold">AI Analysis</h3>
                       </div>
-                      <div className="prose prose-sm max-w-none rounded-lg border bg-gray-50 p-4">
-                        <ReactMarkdown>{aiInsights}</ReactMarkdown>
-                      </div>
+                      <Button variant="ghost" size="sm" onClick={handleGenerateInsights}>
+                        <RefreshCw className="mr-1 h-3 w-3" />
+                        Regenerate
+                      </Button>
                     </div>
-                  ) : (
-                    <div className="flex h-100 flex-col items-center justify-center text-center">
-                      <Brain className="mb-4 h-16 w-16 text-gray-300" />
-                      <h3 className="text-lg font-semibold">AI Insights</h3>
-                      <p className="text-muted-foreground mt-1 max-w-md">
-                        Click "Generate AI Analysis" to get intelligent insights about your
-                        findings, risk assessment, and field survey recommendations.
-                      </p>
+                    <div className="prose prose-sm max-w-none rounded-lg border bg-gray-50 p-4">
+                      <ReactMarkdown>{aiInsights}</ReactMarkdown>
                     </div>
-                  )}
-                </div>
-              </ScrollArea>
+                  </div>
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center text-center">
+                    <Brain className="mb-4 h-16 w-16 text-gray-300" />
+                    <h3 className="text-lg font-semibold">AI Insights</h3>
+                    <p className="text-muted-foreground mt-1 max-w-md">
+                      Click "Generate AI Analysis" to get intelligent insights about your findings,
+                      risk assessment, and field survey recommendations.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </TabsContent>

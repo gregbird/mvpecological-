@@ -29,6 +29,7 @@ export interface DeepResearchResult {
     pressures?: string[]
     threats?: string[]
   }
+  ai_analysis: string | null
   researched_at: string
   researched_by: string | null
   notes: string | null
@@ -45,6 +46,7 @@ export interface CreateDeepResearchInput {
   habitats: DeepResearchHabitat[]
   conservation_summary: DeepResearchResult['conservation_summary']
   threats_pressures: DeepResearchResult['threats_pressures']
+  ai_analysis?: string | null
   researched_by?: string | null
   notes?: string | null
 }
@@ -68,6 +70,7 @@ export async function saveDeepResearch(
       habitats: input.habitats as unknown as null,
       conservation_summary: input.conservation_summary as unknown as null,
       threats_pressures: input.threats_pressures as unknown as null,
+      ai_analysis: input.ai_analysis || null,
       researched_by: input.researched_by || null,
       notes: input.notes || null,
     })

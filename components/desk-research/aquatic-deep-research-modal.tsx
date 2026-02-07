@@ -15,9 +15,22 @@ import {
   FileText,
   Waves,
   Mountain,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Activity,
+  AlertCircle,
+  ArrowRight,
+  Clock,
 } from 'lucide-react'
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -25,6 +38,7 @@ import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
+import { saveAquaticResearch } from '@/lib/supabase/queries/aquatic-research'
 
 export interface AquaticDeepResearchSite {
   waterBodyName: string
@@ -51,14 +65,49 @@ interface LinkedSAC {
   allSpecies: Array<{ code: string; name: string }>
 }
 
+interface WFDStatusHistory {
+  period: string
+  status: string
+  details: string[]
+}
+
+interface WFDTrend {
+  ParameterName: string
+  TrendDesc: string
+}
+
+interface WFDFailure {
+  Name: string
+}
+
+interface WFDConnectivity {
+  Code: string
+  Name: string
+  Type: string
+  Direction: 'Input' | 'Output'
+}
+
+interface WFDData {
+  currentStatus?: string
+  risk?: string
+  statusHistory: WFDStatusHistory[]
+  trends: WFDTrend[]
+  failures: WFDFailure[]
+  connectivity: WFDConnectivity[]
+  catchmentName?: string
+  subCatchmentName?: string
+}
+
 interface AquaticResearchResult {
   summary: string
   linkedSACs: LinkedSAC[]
+  wfdData: WFDData | null
   resources: {
     catchmentsUrl: string
     epaWaterMapUrl: string
     hydroNetUrl: string
     wfdDataUrl: string
+    waterBodyUrl?: string
     sacUrl?: string
     sscoUrl?: string
     siUrl?: string
@@ -69,6 +118,9 @@ interface AquaticDeepResearchModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   site: AquaticDeepResearchSite | null
+  projectId: string
+  userId: string
+  findingId?: string | null
 }
 
 // WFD Status colors
@@ -91,9 +143,14 @@ export function AquaticDeepResearchModal({
   open,
   onOpenChange,
   site,
+  projectId,
+  userId,
+  findingId,
 }: AquaticDeepResearchModalProps) {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = React.useState(false)
+  const [isSaving, setIsSaving] = React.useState(false)
+  const [isSaved, setIsSaved] = React.useState(false)
   const [result, setResult] = React.useState<AquaticResearchResult | null>(null)
   const [activeTab, setActiveTab] = React.useState('overview')
 
@@ -108,7 +165,53 @@ export function AquaticDeepResearchModal({
   React.useEffect(() => {
     setResult(null)
     setActiveTab('overview')
+    setIsSaved(false)
   }, [site?.waterBodyName])
+
+  // Handle save research
+  const handleSaveResearch = async () => {
+    if (!result || !site) return
+
+    setIsSaving(true)
+    try {
+      const bestMatch = result.linkedSACs?.[0]
+
+      await saveAquaticResearch({
+        project_id: projectId,
+        finding_id: findingId || null,
+        water_body_code: site.waterBodyCode || site.waterBodyName,
+        water_body_name: site.waterBodyName,
+        water_body_type: site.waterBodyType,
+        current_status: result.wfdData?.currentStatus || null,
+        risk_level: result.wfdData?.risk || null,
+        status_history: result.wfdData?.statusHistory || [],
+        trends: result.wfdData?.trends || [],
+        failures: result.wfdData?.failures || [],
+        connectivity: result.wfdData?.connectivity || [],
+        catchment_name: result.wfdData?.catchmentName || site.catchmentName || null,
+        sub_catchment_name: result.wfdData?.subCatchmentName || null,
+        river_basin_district: null,
+        linked_sac_code: bestMatch?.siteCode || null,
+        linked_sac_name: bestMatch?.siteName || null,
+        linked_sac_match_score: bestMatch?.matchScore || null,
+        linked_sac_habitats: bestMatch?.aquaticHabitats || [],
+        linked_sac_species: bestMatch?.aquaticSpecies || [],
+        ai_analysis: result.summary || null,
+        researched_by: userId,
+      })
+
+      setIsSaved(true)
+    } catch (error) {
+      console.error('Error saving aquatic research:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Save failed',
+        description: 'Could not save research data. Please try again.',
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   const fetchResearch = async () => {
     if (!site) return
@@ -184,17 +287,21 @@ export function AquaticDeepResearchModal({
           </div>
         ) : result ? (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="wfd" disabled={!result.wfdData}>
+                <Activity className="mr-1 h-3 w-3" />
+                WFD Data
+              </TabsTrigger>
               <TabsTrigger value="ai">
                 <Sparkles className="mr-1 h-3 w-3" />
-                AI Analysis
+                AI
               </TabsTrigger>
               <TabsTrigger value="sac" disabled={!bestMatch}>
                 <Link2 className="mr-1 h-3 w-3" />
-                Linked SAC
+                SAC
               </TabsTrigger>
-              <TabsTrigger value="resources">Resources</TabsTrigger>
+              <TabsTrigger value="resources">Links</TabsTrigger>
             </TabsList>
 
             <ScrollArea className="h-[50vh] pr-4">
@@ -314,6 +421,262 @@ export function AquaticDeepResearchModal({
                           This water body is not directly linked to a known Natura 2000 SAC.
                           However, it may still support protected species or connect to designated
                           sites downstream.
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+
+              {/* WFD Data Tab */}
+              <TabsContent value="wfd" className="mt-4 space-y-4">
+                {result.wfdData ? (
+                  <>
+                    {/* Current Status & Risk */}
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="flex items-center gap-2 text-base">
+                          <Activity className="h-4 w-4 text-blue-500" />
+                          WFD Assessment
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex items-center gap-4">
+                          <div>
+                            <span className="text-muted-foreground text-xs">Current Status</span>
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                className={
+                                  WFD_STATUS_COLORS[result.wfdData.currentStatus || ''] || ''
+                                }
+                              >
+                                {result.wfdData.currentStatus || 'Not Assessed'}
+                              </Badge>
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground text-xs">Risk Level</span>
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant="outline"
+                                className={
+                                  result.wfdData.risk === 'At risk'
+                                    ? 'border-red-300 bg-red-50 text-red-700'
+                                    : result.wfdData.risk === 'Not at risk'
+                                      ? 'border-green-300 bg-green-50 text-green-700'
+                                      : ''
+                                }
+                              >
+                                {result.wfdData.risk === 'At risk' && (
+                                  <AlertCircle className="mr-1 h-3 w-3" />
+                                )}
+                                {result.wfdData.risk || 'Unknown'}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+
+                        {result.wfdData.catchmentName && (
+                          <div className="text-sm">
+                            <span className="text-muted-foreground">Catchment: </span>
+                            <span className="font-medium">{result.wfdData.catchmentName}</span>
+                            {result.wfdData.subCatchmentName && (
+                              <span className="text-muted-foreground">
+                                {' '}
+                                / {result.wfdData.subCatchmentName}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Status History */}
+                    {result.wfdData.statusHistory.length > 0 && (
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="flex items-center gap-2 text-base">
+                            <Clock className="h-4 w-4 text-gray-500" />
+                            Status History
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            {result.wfdData.statusHistory.slice(0, 5).map((h, idx) => (
+                              <div
+                                key={idx}
+                                className="flex items-start justify-between rounded border px-3 py-2 text-sm"
+                              >
+                                <div>
+                                  <span className="font-medium">{h.period}</span>
+                                  {h.details.length > 0 && (
+                                    <p className="text-muted-foreground mt-1 text-xs">
+                                      {h.details.join(' • ')}
+                                    </p>
+                                  )}
+                                </div>
+                                <Badge className={WFD_STATUS_COLORS[h.status] || ''}>
+                                  {h.status}
+                                </Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Trends */}
+                    {result.wfdData.trends.length > 0 && (
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="flex items-center gap-2 text-base">
+                            <TrendingUp className="h-4 w-4 text-amber-500" />
+                            Water Quality Trends
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            {result.wfdData.trends.map((t, idx) => {
+                              const isUpward = t.TrendDesc.toLowerCase().includes('upward')
+                              const isDownward = t.TrendDesc.toLowerCase().includes('downward')
+                              const TrendIcon = isUpward
+                                ? TrendingUp
+                                : isDownward
+                                  ? TrendingDown
+                                  : Minus
+
+                              return (
+                                <div
+                                  key={idx}
+                                  className="flex items-center justify-between rounded bg-gray-50 px-3 py-2 text-sm"
+                                >
+                                  <span className="font-medium">{t.ParameterName}</span>
+                                  <div className="flex items-center gap-1">
+                                    <TrendIcon
+                                      className={`h-4 w-4 ${
+                                        isUpward
+                                          ? 'text-red-500'
+                                          : isDownward
+                                            ? 'text-green-500'
+                                            : 'text-gray-500'
+                                      }`}
+                                    />
+                                    <span
+                                      className={
+                                        isUpward
+                                          ? 'text-red-600'
+                                          : isDownward
+                                            ? 'text-green-600'
+                                            : 'text-gray-600'
+                                      }
+                                    >
+                                      {t.TrendDesc}
+                                    </span>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                          <p className="text-muted-foreground mt-2 text-xs">
+                            Note: Upward trends for pollutants indicate degrading conditions.
+                          </p>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Failures */}
+                    {result.wfdData.failures.length > 0 && (
+                      <Card className="border-red-200 bg-red-50/30">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="flex items-center gap-2 text-base text-red-700">
+                            <AlertTriangle className="h-4 w-4" />
+                            Environmental Failures
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-1">
+                            {result.wfdData.failures.map((f, idx) => (
+                              <div
+                                key={idx}
+                                className="flex items-center gap-2 rounded bg-red-100 px-3 py-2 text-sm text-red-700"
+                              >
+                                <AlertCircle className="h-4 w-4 shrink-0" />
+                                {f.Name}
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Connectivity */}
+                    {result.wfdData.connectivity.length > 0 && (
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="flex items-center gap-2 text-base">
+                            <ArrowRight className="h-4 w-4 text-cyan-500" />
+                            Hydrological Connectivity
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <h4 className="mb-2 text-sm font-medium text-gray-600">
+                                Upstream (Input)
+                              </h4>
+                              <div className="space-y-1">
+                                {result.wfdData.connectivity
+                                  .filter((c) => c.Direction === 'Input')
+                                  .map((c, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="rounded bg-blue-50 px-2 py-1 text-sm text-blue-700"
+                                    >
+                                      {c.Name}
+                                    </div>
+                                  ))}
+                                {result.wfdData.connectivity.filter((c) => c.Direction === 'Input')
+                                  .length === 0 && (
+                                  <p className="text-muted-foreground text-sm">None recorded</p>
+                                )}
+                              </div>
+                            </div>
+                            <div>
+                              <h4 className="mb-2 text-sm font-medium text-gray-600">
+                                Downstream (Output)
+                              </h4>
+                              <div className="space-y-1">
+                                {result.wfdData.connectivity
+                                  .filter((c) => c.Direction === 'Output')
+                                  .map((c, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="rounded bg-green-50 px-2 py-1 text-sm text-green-700"
+                                    >
+                                      {c.Name}
+                                    </div>
+                                  ))}
+                                {result.wfdData.connectivity.filter((c) => c.Direction === 'Output')
+                                  .length === 0 && (
+                                  <p className="text-muted-foreground text-sm">None recorded</p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </>
+                ) : (
+                  <Card className="border-amber-200 bg-amber-50/50">
+                    <CardContent className="flex items-start gap-2 pt-4">
+                      <Info className="h-4 w-4 shrink-0 text-amber-600" />
+                      <div className="text-sm">
+                        <p className="font-medium text-amber-700">No WFD Data Available</p>
+                        <p className="text-muted-foreground">
+                          Detailed WFD data was not available from Catchments.ie for this water
+                          body. This may be because the water body code was not recognized or the
+                          API is temporarily unavailable.
                         </p>
                       </div>
                     </CardContent>
@@ -523,9 +886,30 @@ export function AquaticDeepResearchModal({
                       </>
                     )}
 
+                    {/* Water Body Specific */}
+                    {result.resources.waterBodyUrl && (
+                      <>
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-medium text-gray-700">This Water Body</h4>
+                          <div className="space-y-1">
+                            <a
+                              href={result.resources.waterBodyUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 text-sm text-blue-600 hover:underline"
+                            >
+                              <Activity className="h-3 w-3" />
+                              View on Catchments.ie (Full WFD Data)
+                            </a>
+                          </div>
+                        </div>
+                        <Separator />
+                      </>
+                    )}
+
                     {/* Water Resources */}
                     <div className="space-y-2">
-                      <h4 className="text-sm font-medium text-gray-700">Water Data</h4>
+                      <h4 className="text-sm font-medium text-gray-700">Water Data Portals</h4>
                       <div className="space-y-1">
                         <a
                           href={result.resources.catchmentsUrl}
@@ -534,7 +918,7 @@ export function AquaticDeepResearchModal({
                           className="flex items-center gap-2 text-sm text-blue-600 hover:underline"
                         >
                           <ExternalLink className="h-3 w-3" />
-                          Catchments.ie - Water Data Portal
+                          Catchments.ie - Main Portal
                         </a>
                         <a
                           href={result.resources.wfdDataUrl}
@@ -577,6 +961,37 @@ export function AquaticDeepResearchModal({
               Start Research
             </Button>
           </div>
+        )}
+
+        {/* Footer with Save button */}
+        {result && (
+          <DialogFooter className="mt-4 border-t pt-4">
+            <div className="flex w-full items-center justify-between">
+              <p className="text-muted-foreground text-xs">
+                {isSaved ? (
+                  <span className="text-green-600">✓ Research saved to project</span>
+                ) : (
+                  'Save this research to include in your project report'
+                )}
+              </p>
+              <Button
+                onClick={handleSaveResearch}
+                disabled={isSaving || isSaved}
+                className="min-w-[120px]"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : isSaved ? (
+                  <>✓ Saved</>
+                ) : (
+                  <>Save Research</>
+                )}
+              </Button>
+            </div>
+          </DialogFooter>
         )}
       </DialogContent>
     </Dialog>

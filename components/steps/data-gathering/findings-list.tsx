@@ -161,16 +161,29 @@ export function FindingsList({
 
   // Check if finding is already saved
   const isFindingSaved = (finding: FindingDisplay) => {
-    return savedFindings.some(
-      (f) =>
-        f.id === finding.id ||
-        (finding.metadata?.siteCode &&
-          (f.raw_data as Record<string, unknown>)?.siteCode === finding.metadata.siteCode) ||
-        (finding.metadata?.scientificName &&
-          (f.raw_data as Record<string, unknown>)?.scientificName ===
-            finding.metadata.scientificName &&
-          f.source === finding.source)
-    )
+    return savedFindings.some((f) => {
+      // Match by ID
+      if (f.id === finding.id) return true
+
+      // Match by site code (for designated sites)
+      if (
+        finding.metadata?.siteCode &&
+        (f.raw_data as Record<string, unknown>)?.siteCode === finding.metadata.siteCode
+      ) {
+        return true
+      }
+
+      // Match by scientific name (for species records)
+      // Note: Don't check source because GBIF findings may be saved as 'nbdc' when enriched
+      if (finding.metadata?.scientificName) {
+        const savedRawData = f.raw_data as Record<string, unknown>
+        if (savedRawData?.scientificName === finding.metadata.scientificName) {
+          return true
+        }
+      }
+
+      return false
+    })
   }
 
   // Sort findings - protected species always first

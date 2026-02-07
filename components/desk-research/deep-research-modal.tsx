@@ -66,6 +66,7 @@ interface DeepResearchModalProps {
   projectId?: string
   userId?: string
   findingId?: string
+  onSaveAnalysis?: (data: { aiAnalysis: string; siteCode: string }) => void
 }
 
 /**
@@ -132,6 +133,7 @@ export function DeepResearchModal({
   projectId,
   userId,
   findingId,
+  onSaveAnalysis,
 }: DeepResearchModalProps) {
   const { toast } = useToast()
   const saveResearch = useSaveDeepResearch()
@@ -256,13 +258,14 @@ export function DeepResearchModal({
           pressures: Array.from(allPressures),
           threats: Array.from(allThreats),
         },
+        ai_analysis: aiSummary || null,
         researched_by: userId || null,
       })
 
-      toast({
-        title: 'Research saved',
-        description: 'Deep research results have been saved to the project.',
-      })
+      // Notify parent to update finding's raw_data with deep research
+      if (aiSummary) {
+        onSaveAnalysis?.({ aiAnalysis: aiSummary, siteCode: site.siteCode })
+      }
     } catch (error) {
       console.error('Failed to save research:', error)
       toast({

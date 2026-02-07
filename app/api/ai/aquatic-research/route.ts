@@ -6,13 +6,18 @@ import {
   AQUATIC_HABITAT_CODES,
   AQUATIC_SPECIES_CODES,
 } from '@/lib/data/aquatic-sac-lookup'
+import {
+  getWaterBodyData,
+  formatStatusHistory,
+  CatchmentsWaterBodyData,
+} from '@/lib/external-apis/catchments'
 
 /**
  * AI Aquatic Deep Research API
- * Finds linked SACs for rivers/lakes and generates AI analysis
+ * Finds linked SACs for rivers/lakes and generates AI analysis with real WFD data
  *
  * Input: { waterBodyName, waterBodyType, waterBodyCode, wfdStatus, catchmentName }
- * Output: { summary, linkedSACs, wfdAnalysis, resources }
+ * Output: { summary, linkedSACs, wfdData, resources }
  */
 
 export async function POST(request: NextRequest) {
@@ -33,7 +38,14 @@ export async function POST(request: NextRequest) {
     const linkedSACs = findMatchingSACs(waterBodyName, waterBodyType)
     const bestMatch = linkedSACs.length > 0 ? linkedSACs[0] : null
 
-    // 2. Extract aquatic habitats and species from best match
+    // 2. Fetch real WFD data from Catchments.ie
+    let wfdData: CatchmentsWaterBodyData | null = null
+    if (waterBodyCode) {
+      wfdData = await getWaterBodyData(waterBodyCode)
+      console.log('[Aquatic Research] WFD data:', wfdData ? 'Found' : 'Not found')
+    }
+
+    // 3. Extract aquatic habitats and species from best match
     let aquaticHabitats: Array<{ code: string; name: string; description: string }> = []
     let aquaticSpecies: Array<{ code: string; name: string; commonName: string }> = []
 
@@ -42,7 +54,7 @@ export async function POST(request: NextRequest) {
       aquaticSpecies = getAquaticSpecies(bestMatch.species)
     }
 
-    // 3. Build context for AI
+    // 4. Build context for AI with real data
     const contextParts: string[] = []
 
     contextParts.push(`Water Body: ${waterBodyName}`)
@@ -52,8 +64,57 @@ export async function POST(request: NextRequest) {
       contextParts.push(`EPA Code: ${waterBodyCode}`)
     }
 
-    if (wfdStatus) {
-      contextParts.push(`WFD Status: ${wfdStatus}`)
+    // Add real WFD data if available
+    if (wfdData) {
+      contextParts.push(`\n--- REAL WFD DATA FROM CATCHMENTS.IE ---`)
+      contextParts.push(`Current WFD Status: ${wfdData.CurrentStatus || 'Not assessed'}`)
+      contextParts.push(`Risk Assessment: ${wfdData.Tier1Risk || 'Unknown'}`)
+
+      if (wfdData.StatusHistory.length > 0) {
+        contextParts.push(`\nStatus History:`)
+        const formattedHistory = formatStatusHistory(wfdData.StatusHistory).slice(0, 4)
+        for (const h of formattedHistory) {
+          contextParts.push(`- ${h.period}: ${h.status}`)
+          if (h.details.length > 0) {
+            contextParts.push(`  (${h.details.join(', ')})`)
+          }
+        }
+      }
+
+      if (wfdData.Trends.length > 0) {
+        contextParts.push(`\nWater Quality Trends:`)
+        for (const t of wfdData.Trends) {
+          contextParts.push(`- ${t.ParameterName}: ${t.TrendDesc}`)
+        }
+      }
+
+      if (wfdData.Failures.length > 0) {
+        contextParts.push(`\nEnvironmental Failures:`)
+        for (const f of wfdData.Failures) {
+          contextParts.push(`- ${f.Name}`)
+        }
+      }
+
+      if (wfdData.InputOutputs.length > 0) {
+        const inputs = wfdData.InputOutputs.filter((io) => io.Direction === 'Input')
+        const outputs = wfdData.InputOutputs.filter((io) => io.Direction === 'Output')
+        if (inputs.length > 0) {
+          contextParts.push(`\nUpstream Water Bodies: ${inputs.map((i) => i.Name).join(', ')}`)
+        }
+        if (outputs.length > 0) {
+          contextParts.push(`Downstream Water Bodies: ${outputs.map((o) => o.Name).join(', ')}`)
+        }
+      }
+
+      if (wfdData.CatchmentName) {
+        contextParts.push(`Catchment: ${wfdData.CatchmentName}`)
+      }
+      if (wfdData.SubCatchmentName) {
+        contextParts.push(`Sub-Catchment: ${wfdData.SubCatchmentName}`)
+      }
+    } else if (wfdStatus) {
+      // Fallback to EPA data if Catchments.ie data not available
+      contextParts.push(`WFD Status (from EPA): ${wfdStatus}`)
     }
 
     if (catchmentName) {
@@ -61,7 +122,8 @@ export async function POST(request: NextRequest) {
     }
 
     if (bestMatch) {
-      contextParts.push(`\nLinked Natura 2000 Site: ${bestMatch.siteName} (${bestMatch.siteCode})`)
+      contextParts.push(`\n--- LINKED NATURA 2000 SITE ---`)
+      contextParts.push(`Linked SAC: ${bestMatch.siteName} (${bestMatch.siteCode})`)
       contextParts.push(`Match confidence: ${bestMatch.matchScore}% - ${bestMatch.matchReason}`)
 
       if (aquaticHabitats.length > 0) {
@@ -108,17 +170,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 4. Build AI prompt
+    // 5. Build AI prompt
     const prompt = buildAquaticPrompt({
       waterBodyName,
       waterBodyType: waterBodyType || 'water body',
       context: contextParts.join('\n'),
-      wfdStatus,
+      wfdData,
       hasLinkedSAC: !!bestMatch,
       aquaticSpecies,
     })
 
-    // 5. Call OpenAI
+    // 6. Call OpenAI
     const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -131,7 +193,7 @@ export async function POST(request: NextRequest) {
           {
             role: 'system',
             content:
-              'You are an expert Irish freshwater ecologist with deep knowledge of the Water Framework Directive (WFD), EU Habitats Directive, Irish rivers and lakes, aquatic habitats, and water quality assessment. You understand the ecological requirements of protected species like Atlantic Salmon, Freshwater Pearl Mussel, and Lamprey species. Provide detailed, factual analyses suitable for Ecological Impact Assessment reports and Appropriate Assessment screening.',
+              'You are an expert Irish freshwater ecologist with deep knowledge of the Water Framework Directive (WFD), EU Habitats Directive, Irish rivers and lakes, aquatic habitats, and water quality assessment. You understand the ecological requirements of protected species like Atlantic Salmon, Freshwater Pearl Mussel, and Lamprey species. Provide detailed, factual analyses suitable for Ecological Impact Assessment reports and Appropriate Assessment screening. IMPORTANT: Base your analysis ONLY on the provided data. Do not speculate about species presence if no data confirms it. If data is limited, clearly state what is known and what is unknown.',
           },
           { role: 'user', content: prompt },
         ],
@@ -151,21 +213,24 @@ export async function POST(request: NextRequest) {
     const data = await aiResponse.json()
     const summary = data.choices[0]?.message?.content?.trim() || ''
 
-    // 6. Build resource URLs
-    const resources = {
+    // 7. Build resource URLs
+    const resources: Record<string, string | undefined> = {
       catchmentsUrl: 'https://www.catchments.ie',
       epaWaterMapUrl: 'https://gis.epa.ie/EPAMaps/Water',
       hydroNetUrl: 'https://epa.ie/hydronet/',
       wfdDataUrl: 'https://www.catchments.ie/wfd-data-dashboards/',
     }
 
+    // Add water body specific URL
+    if (waterBodyCode) {
+      resources.waterBodyUrl = `https://catchments.ie/waterbodies/${encodeURIComponent(waterBodyCode)}`
+    }
+
     // Add SAC-specific URLs if we have a match
     if (bestMatch) {
-      Object.assign(resources, {
-        sacUrl: `https://www.npws.ie/protected-sites/sac/${bestMatch.siteCode.replace('IE', '')}`,
-        sscoUrl: bestMatch.sscoUrl,
-        siUrl: bestMatch.siUrl,
-      })
+      resources.sacUrl = `https://www.npws.ie/protected-sites/sac/${bestMatch.siteCode.replace('IE', '')}`
+      resources.sscoUrl = bestMatch.sscoUrl
+      resources.siUrl = bestMatch.siUrl
     }
 
     return NextResponse.json({
@@ -173,7 +238,19 @@ export async function POST(request: NextRequest) {
       waterBodyName,
       waterBodyType,
       waterBodyCode,
-      wfdStatus,
+      wfdStatus: wfdData?.CurrentStatus || wfdStatus,
+      wfdData: wfdData
+        ? {
+            currentStatus: wfdData.CurrentStatus,
+            risk: wfdData.Tier1Risk,
+            statusHistory: formatStatusHistory(wfdData.StatusHistory),
+            trends: wfdData.Trends,
+            failures: wfdData.Failures,
+            connectivity: wfdData.InputOutputs,
+            catchmentName: wfdData.CatchmentName,
+            subCatchmentName: wfdData.SubCatchmentName,
+          }
+        : null,
       linkedSACs: linkedSACs.map((sac) => ({
         siteCode: sac.siteCode,
         siteName: sac.siteName,
@@ -198,14 +275,14 @@ function buildAquaticPrompt({
   waterBodyName,
   waterBodyType,
   context,
-  wfdStatus,
+  wfdData,
   hasLinkedSAC,
   aquaticSpecies,
 }: {
   waterBodyName: string
   waterBodyType: string
   context: string
-  wfdStatus?: string
+  wfdData: CatchmentsWaterBodyData | null
   hasLinkedSAC: boolean
   aquaticSpecies: Array<{ code: string; name: string; commonName: string }>
 }): string {
@@ -218,49 +295,60 @@ function buildAquaticPrompt({
   parts.push(`\n**Available Data:**\n${context}`)
 
   // Customize prompt based on what data we have
-  if (hasLinkedSAC && aquaticSpecies.length > 0) {
+  if (wfdData) {
+    // We have real Catchments.ie data
     parts.push(`\nProvide your analysis in this exact format:
 
 **Ecological Summary:**
-[3-4 sentences describing the water body's ecological importance, its connection to the linked SAC, and key conservation features]
+[3-4 sentences describing the water body's ecological importance based on the WFD data provided. Reference the actual status and risk assessment.]
 
-**Water Quality (WFD):**
-[Current WFD status (${wfdStatus || 'if known'}), what this means for the qualifying species, and ecological implications]
+**Water Quality Assessment:**
+[Analyze the WFD status history provided. Describe the trend (improving/declining/stable). Explain what the current status means ecologically. Reference any failures or trends from the data.]
 
-**Protected Species:**
-[For each Annex II species listed, describe: habitat requirements, sensitivity to impacts, and why this water body is important for the species. Focus especially on: ${aquaticSpecies.map((s) => s.commonName).join(', ')}]
+${
+  hasLinkedSAC && aquaticSpecies.length > 0
+    ? `**Protected Species:**
+[For each Annex II species listed in the linked SAC, describe: habitat requirements, sensitivity to the current water quality conditions, and implications of the WFD status for their conservation. Focus on: ${aquaticSpecies.map((s) => s.commonName).join(', ')}]
 
 **Key Habitats:**
-[Describe the Annex I aquatic habitats present and their ecological function]
+[Describe the Annex I aquatic habitats present in the linked SAC and their ecological function]`
+    : `**Aquatic Biodiversity:**
+[Based on the water body type, location, and WFD status, describe the likely aquatic communities. Be factual - only mention species if there is evidence in the data.]`
+}
 
-**Connectivity:**
-[How this water body connects to the wider river system and why this matters for migratory species like salmon and lamprey]
+**Hydrological Connectivity:**
+[Describe the upstream/downstream connections if provided. Explain why connectivity matters for migratory species and nutrient flow.]
 
-**Threats & Sensitivities:**
-[Main pressures and sensitivities: water quality, hydrological changes, barriers to fish passage, sedimentation, invasive species]
+**Pressures & Threats:**
+[Analyze the failures and trends from the WFD data. Explain what the identified pollutants or issues mean for aquatic ecology. Be specific about what the data shows.]
 
 **Implications for Development:**
-[What a developer must consider: buffer zones, timing restrictions, pollution prevention, and when Appropriate Assessment is required]`)
+[Based on the actual WFD status and any linked SAC, provide specific guidance: buffer zones, timing restrictions, pollution prevention measures, and when Appropriate Assessment may be required.]`)
   } else {
-    parts.push(`\nProvide your analysis in this exact format:
+    // No Catchments.ie data - more limited analysis
+    parts.push(`\nNote: No detailed WFD data was available from Catchments.ie for this water body. Provide your analysis based on the limited data available.
+
+Provide your analysis in this exact format:
 
 **Ecological Summary:**
-[3-4 sentences describing the water body's ecological characteristics and importance]
+[2-3 sentences describing the water body's general characteristics based on type and location. State clearly that detailed WFD data was not available.]
 
 **Water Quality (WFD):**
-[Current WFD status (${wfdStatus || 'if known'}), what this means ecologically, and key pressures]
+[State the known WFD status if available, or note that it is unknown. Do not speculate about water quality.]
 
-**Likely Aquatic Species:**
-[Based on habitat type and location, what protected species (salmon, lamprey, otter, crayfish) might use this water body]
+${
+  hasLinkedSAC && aquaticSpecies.length > 0
+    ? `**Protected Species:**
+[For each Annex II species in the linked SAC: ${aquaticSpecies.map((s) => s.commonName).join(', ')}. Describe their general habitat requirements.]`
+    : `**Potential Ecological Value:**
+[Based on water body type, describe general ecological features without speculating about specific species presence.]`
+}
 
-**Habitat Features:**
-[Key habitat features: riffle/pool sequences, spawning gravels, marginal vegetation, connectivity]
+**Data Gaps:**
+[List what information is missing and what further data collection would be valuable.]
 
-**Threats & Pressures:**
-[Main pressures affecting water quality and ecology]
-
-**Implications for Development:**
-[What a developer should consider if proposing works near this water body]`)
+**Precautionary Recommendations:**
+[Given limited data, what precautionary measures should be considered for any development near this water body?]`)
   }
 
   return parts.join('\n')

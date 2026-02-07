@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
-import { useCreateFinding, useDeleteFinding } from '@/hooks/use-project-data'
+import { useCreateFinding, useDeleteFinding, useUpdateFinding } from '@/hooks/use-project-data'
 import { queryDesignatedSites, getSiteTypeDisplayName } from '@/lib/external-apis/npws'
 import {
   findIntersectingSSCO,
@@ -77,6 +77,7 @@ export function DesignatedSitesSubStep({
   const { toast } = useToast()
   const createFinding = useCreateFinding()
   const deleteFinding = useDeleteFinding()
+  const updateFinding = useUpdateFinding()
 
   // Cache key for sessionStorage
   const cacheKey = `npws-search-${project.id}`
@@ -103,6 +104,32 @@ export function DesignatedSitesSubStep({
   // Deep Research modal state
   const [deepResearchSite, setDeepResearchSite] = React.useState<DeepResearchSite | null>(null)
   const [isDeepResearchOpen, setIsDeepResearchOpen] = React.useState(false)
+
+  // Handle Deep Research save → update finding's raw_data with AI analysis
+  const handleDeepResearchSave = React.useCallback(
+    async (data: { aiAnalysis: string; siteCode: string }) => {
+      const finding = savedFindings.find(
+        (f) => (f.raw_data as Record<string, unknown>)?.siteCode === data.siteCode
+      )
+      if (finding) {
+        try {
+          const existingRawData = (finding.raw_data as Record<string, unknown>) || {}
+          await updateFinding.mutateAsync({
+            findingId: finding.id,
+            updates: {
+              raw_data: {
+                ...existingRawData,
+                deepResearch: { aiAnalysis: data.aiAnalysis },
+              } as unknown as Json,
+            },
+          })
+        } catch (error) {
+          console.error('Failed to update finding with deep research:', error)
+        }
+      }
+    },
+    [savedFindings, updateFinding]
+  )
 
   // Handle Deep Research click
   const handleDeepResearch = React.useCallback(async (finding: FindingDisplay) => {
@@ -757,6 +784,7 @@ export function DesignatedSitesSubStep({
         site={deepResearchSite}
         projectId={project.id}
         userId={userId}
+        onSaveAnalysis={handleDeepResearchSave}
       />
     </div>
   )

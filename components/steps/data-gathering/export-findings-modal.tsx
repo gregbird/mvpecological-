@@ -14,7 +14,6 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { useToast } from '@/hooks/use-toast'
 import type { DeskResearchFinding, TargetNote } from '@/types/database'
 import type { TargetNoteWithCreator } from '@/lib/supabase/queries/target-notes'
 
@@ -33,7 +32,6 @@ export function ExportFindingsModal({
   targetNotes,
   trigger,
 }: ExportFindingsModalProps) {
-  const { toast } = useToast()
   const [open, setOpen] = React.useState(false)
   const [selectedFormat, setSelectedFormat] = React.useState<ExportFormat>('csv')
   const [includeFindings, setIncludeFindings] = React.useState(true)
@@ -179,10 +177,6 @@ export function ExportFindingsModal({
     a.click()
     URL.revokeObjectURL(url)
 
-    toast({
-      title: 'Export complete',
-      description: `Downloaded ${filename}`,
-    })
     setOpen(false)
   }
 

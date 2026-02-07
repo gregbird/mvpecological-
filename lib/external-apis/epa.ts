@@ -188,7 +188,8 @@ export async function searchRivers(params: EPASearchParams): Promise<EPARiver[]>
     return data.features.map(
       (feature): EPARiver => ({
         OBJECTID: feature.properties?.OBJECTID || feature.properties?.objectid || 0,
-        RiverCode: feature.properties?.MS_CD || feature.properties?.EU_CD || '',
+        // Use EU_CD for Catchments.ie API compatibility (format: IE_XX_YY_ZZZ)
+        RiverCode: feature.properties?.EU_CD || feature.properties?.MS_CD || '',
         RiverName: feature.properties?.NAME || 'Unknown River',
         CatchmentId: feature.properties?.SUB_CD,
         CatchmentName: feature.properties?.BASIN_CD,
@@ -221,7 +222,8 @@ export async function searchLakes(params: EPASearchParams): Promise<EPALake[]> {
     return data.features.map(
       (feature): EPALake => ({
         OBJECTID: feature.properties?.OBJECTID || feature.properties?.objectid || 0,
-        LakeCode: feature.properties?.MS_CD || feature.properties?.EU_CD || '',
+        // Use EU_CD for Catchments.ie API compatibility (format: IE_XX_YY_ZZZ)
+        LakeCode: feature.properties?.EU_CD || feature.properties?.MS_CD || '',
         LakeName: feature.properties?.NAME || 'Unknown Lake',
         CatchmentId: feature.properties?.SEG_CD,
         CatchmentName: feature.properties?.HydrometricArea,

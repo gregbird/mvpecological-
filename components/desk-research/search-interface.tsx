@@ -209,11 +209,6 @@ export function SearchInterface({
     if (finding.isSaved && onFindingSave) {
       onFindingSave(updatedFinding)
     }
-
-    toast({
-      title: 'Notes saved',
-      description: 'Finding notes have been updated.',
-    })
   }
 
   // Get bounding box from project boundary or center point
@@ -668,18 +663,6 @@ export function SearchInterface({
       }
 
       setSearchResults(results)
-
-      if (results.length === 0) {
-        toast({
-          title: 'No results found',
-          description: 'Try expanding your search radius or selecting more sources.',
-        })
-      } else {
-        toast({
-          title: 'Search complete',
-          description: `Found ${results.length} result${results.length > 1 ? 's' : ''}.`,
-        })
-      }
     } catch (error) {
       console.error('Search error:', error)
       toast({

@@ -115,7 +115,8 @@ export default function ProjectDetailPage() {
   }
 
   // GIS Mapping and Data Gathering steps need full height without padding
-  const isFullHeightStep = currentStepNumber === 1 || currentStepNumber === 2
+  const isFullHeightStep =
+    currentStepNumber === 1 || currentStepNumber === 2 || currentStepNumber === 3
 
   return (
     <div className="h-full">

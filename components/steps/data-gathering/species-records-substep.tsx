@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
-import { useCreateFinding, useDeleteFinding } from '@/hooks/use-project-data'
+import { useCreateFinding, useDeleteFinding, useUpdateFinding } from '@/hooks/use-project-data'
 import { searchOccurrences } from '@/lib/external-apis/gbif'
 import { enrichSpeciesFromNBDC, type NBDCEnrichedSpecies } from '@/lib/external-apis/nbdc'
 import { searchFPOByGridRef, type FPORecord } from '@/lib/data/fpo-species'
@@ -76,6 +76,7 @@ export function SpeciesRecordsSubStep({
   const { toast } = useToast()
   const createFinding = useCreateFinding()
   const deleteFinding = useDeleteFinding()
+  const updateFinding = useUpdateFinding()
 
   // Cache key for sessionStorage
   const cacheKey = `gbif-search-${project.id}`
@@ -352,24 +353,6 @@ export function SpeciesRecordsSubStep({
 
     setIsEnriching(false)
     setEnrichmentProgress(null)
-
-    // Show result toast
-    const enrichedCount = enriched.filter((f) => f.metadata?.nbdcEnriched).length
-    const protectedCount = enriched.filter((f) => f.metadata?.isProtected).length
-    const invasiveCount = enriched.filter((f) => f.metadata?.isInvasive).length
-
-    let description = `${enrichedCount} of ${enriched.length} species found in NBDC`
-    if (protectedCount > 0) {
-      description += `. ⚠️ ${protectedCount} protected!`
-    }
-    if (invasiveCount > 0) {
-      description += `. 🚨 ${invasiveCount} invasive!`
-    }
-
-    toast({
-      title: 'NBDC enrichment complete',
-      description,
-    })
   }
 
   // Search GBIF only
@@ -709,10 +692,6 @@ export function SpeciesRecordsSubStep({
       await new Promise((resolve) => setTimeout(resolve, 500))
     }
     setIsSummarizing(false)
-    toast({
-      title: 'AI summaries complete',
-      description: `Summarized ${speciesFindings.length} species.`,
-    })
   }
 
   // Handle species deep research (enriched with FPO, Article 17, related sites)
@@ -773,6 +752,68 @@ export function SpeciesRecordsSubStep({
       relatedSites,
     })
     setSpeciesResearchOpen(true)
+  }
+
+  // Handle saving Deep Research analysis to finding
+  const handleSaveDeepResearchAnalysis = (data: {
+    aiAnalysis: string
+    relatedSites?: import('@/lib/data/npws-site-lookup').SiteWithSpecies[]
+    fpoRecords?: FPORecord[]
+    article17Species?: Article17Species[]
+  }) => {
+    if (!selectedSpeciesResearch) return
+
+    const scientificName = selectedSpeciesResearch.scientificName
+
+    const deepResearchData = {
+      aiAnalysis: data.aiAnalysis,
+      relatedSites: data.relatedSites?.slice(0, 10),
+      fpoRecordCount: data.fpoRecords?.length || 0,
+      article17Species: data.article17Species,
+      generatedAt: new Date().toISOString(),
+    }
+
+    // Update the finding in searchResults with the AI analysis
+    setSearchResults((prev) =>
+      prev.map((f) => {
+        if (f.metadata?.scientificName === scientificName) {
+          return {
+            ...f,
+            metadata: {
+              ...f.metadata,
+              deepResearchAnalysis: data.aiAnalysis,
+              relatedSitesCount: data.relatedSites?.length || 0,
+              hasFPORecords: (data.fpoRecords?.length || 0) > 0,
+              hasArticle17Data: (data.article17Species?.length || 0) > 0,
+            },
+            rawData: {
+              ...f.rawData,
+              deepResearch: deepResearchData,
+            },
+          }
+        }
+        return f
+      })
+    )
+
+    // Also persist to DB if finding is already saved
+    const existingSaved = savedFindings.find(
+      (f) => (f.raw_data as Record<string, unknown>)?.scientificName === scientificName
+    )
+    if (existingSaved) {
+      const existingRawData = (existingSaved.raw_data as Record<string, unknown>) || {}
+      updateFinding
+        .mutateAsync({
+          findingId: existingSaved.id,
+          updates: {
+            raw_data: {
+              ...existingRawData,
+              deepResearch: deepResearchData,
+            } as unknown as Json,
+          },
+        })
+        .catch((err) => console.error('Failed to persist deep research to finding:', err))
+    }
   }
 
   // No boundary check
@@ -1046,6 +1087,7 @@ export function SpeciesRecordsSubStep({
         open={speciesResearchOpen}
         onOpenChange={setSpeciesResearchOpen}
         species={selectedSpeciesResearch}
+        onSaveAnalysis={handleSaveDeepResearchAnalysis}
       />
     </div>
   )

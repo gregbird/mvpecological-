@@ -12,6 +12,8 @@ import {
   MapPin,
   Info,
   Globe,
+  Save,
+  Check,
 } from 'lucide-react'
 
 import {
@@ -55,19 +57,45 @@ interface SpeciesResearchModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   species: SpeciesResearchData | null
+  onSaveAnalysis?: (data: {
+    aiAnalysis: string
+    relatedSites?: SiteWithSpecies[]
+    fpoRecords?: FPORecord[]
+    article17Species?: Article17Species[]
+  }) => void
 }
 
-export function SpeciesResearchModal({ open, onOpenChange, species }: SpeciesResearchModalProps) {
+export function SpeciesResearchModal({
+  open,
+  onOpenChange,
+  species,
+  onSaveAnalysis,
+}: SpeciesResearchModalProps) {
   const [aiSummary, setAiSummary] = React.useState<string>('')
   const [aiLoading, setAiLoading] = React.useState(false)
   const [aiError, setAiError] = React.useState<string | null>(null)
+  const [isSaved, setIsSaved] = React.useState(false)
 
   // Reset state when species changes
   React.useEffect(() => {
     setAiSummary('')
     setAiError(null)
     setAiLoading(false)
+    setIsSaved(false)
   }, [species?.scientificName])
+
+  // Handle saving analysis to finding
+  const handleSaveAnalysis = () => {
+    if (!aiSummary || !onSaveAnalysis) return
+
+    onSaveAnalysis({
+      aiAnalysis: aiSummary,
+      relatedSites: species?.relatedSites,
+      fpoRecords: species?.fpoRecords,
+      article17Species: species?.article17Species,
+    })
+    setIsSaved(true)
+  }
 
   const fetchAiAnalysis = async () => {
     if (!species) return
@@ -309,22 +337,45 @@ export function SpeciesResearchModal({ open, onOpenChange, species }: SpeciesRes
                 )}
 
                 {aiSummary && (
-                  <div className="space-y-2 rounded-lg border bg-white p-4">
-                    {aiSummary.split('\n').map((line, i) => {
-                      if (line.startsWith('**') && line.endsWith('**')) {
+                  <div className="space-y-3">
+                    <div className="space-y-2 rounded-lg border bg-white p-4">
+                      {aiSummary.split('\n').map((line, i) => {
+                        if (line.startsWith('**') && line.endsWith('**')) {
+                          return (
+                            <h4 key={i} className="mt-3 text-sm font-semibold first:mt-0">
+                              {line.replace(/\*\*/g, '')}
+                            </h4>
+                          )
+                        }
+                        if (line.trim() === '') return <div key={i} className="h-1" />
                         return (
-                          <h4 key={i} className="mt-3 text-sm font-semibold first:mt-0">
-                            {line.replace(/\*\*/g, '')}
-                          </h4>
+                          <p key={i} className="text-muted-foreground text-sm leading-relaxed">
+                            {line}
+                          </p>
                         )
-                      }
-                      if (line.trim() === '') return <div key={i} className="h-1" />
-                      return (
-                        <p key={i} className="text-muted-foreground text-sm leading-relaxed">
-                          {line}
-                        </p>
-                      )
-                    })}
+                      })}
+                    </div>
+
+                    {/* Save Analysis Button */}
+                    {onSaveAnalysis && (
+                      <Button
+                        onClick={handleSaveAnalysis}
+                        disabled={isSaved}
+                        className={`w-full ${isSaved ? 'bg-green-600 hover:bg-green-600' : 'bg-purple-600 hover:bg-purple-700'}`}
+                      >
+                        {isSaved ? (
+                          <>
+                            <Check className="mr-2 h-4 w-4" />
+                            Analysis Saved to Finding
+                          </>
+                        ) : (
+                          <>
+                            <Save className="mr-2 h-4 w-4" />
+                            Save Analysis to Finding
+                          </>
+                        )}
+                      </Button>
+                    )}
                   </div>
                 )}
 

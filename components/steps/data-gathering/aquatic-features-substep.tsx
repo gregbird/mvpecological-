@@ -742,6 +742,8 @@ export function AquaticFeaturesSubStep({
         open={isDeepResearchOpen}
         onOpenChange={setIsDeepResearchOpen}
         site={deepResearchSite}
+        projectId={project.id}
+        userId={userId}
       />
     </div>
   )
