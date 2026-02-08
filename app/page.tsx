@@ -112,7 +112,7 @@ function HeroSection({ onScrollDown }: { onScrollDown: () => void }) {
       <header className="absolute top-0 right-0 left-0 z-40">
         <div className="container mx-auto flex items-center justify-between px-6 py-6">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 shadow-lg shadow-green-500/25">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-green-500 to-emerald-600 shadow-lg shadow-green-500/25">
               <Leaf className="h-5 w-5 text-white" />
             </div>
             <span className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">
@@ -126,7 +126,7 @@ function HeroSection({ onScrollDown }: { onScrollDown: () => void }) {
               </Button>
             </Link>
             <Link href="/register">
-              <Button className="bg-gradient-to-r from-green-600 to-emerald-600 shadow-lg shadow-green-500/25">
+              <Button className="bg-linear-to-r from-green-600 to-emerald-600 shadow-lg shadow-green-500/25">
                 Get Started
               </Button>
             </Link>
@@ -157,7 +157,7 @@ function HeroSection({ onScrollDown }: { onScrollDown: () => void }) {
             className="mb-6 text-5xl leading-tight font-bold tracking-tight text-gray-900 md:text-6xl lg:text-7xl dark:text-white"
           >
             Ecological Projects,{' '}
-            <span className="bg-gradient-to-r from-green-600 via-emerald-500 to-teal-500 bg-clip-text text-transparent">
+            <span className="bg-linear-to-r from-green-600 via-emerald-500 to-teal-500 bg-clip-text text-transparent">
               Simplified
             </span>
           </motion.h1>
@@ -181,7 +181,7 @@ function HeroSection({ onScrollDown }: { onScrollDown: () => void }) {
             <Link href="/register">
               <Button
                 size="lg"
-                className="group h-14 gap-2 rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 px-8 text-base font-semibold shadow-xl shadow-green-500/25"
+                className="group h-14 gap-2 rounded-xl bg-linear-to-r from-green-600 to-emerald-600 px-8 text-base font-semibold shadow-xl shadow-green-500/25"
               >
                 Start Free Trial
                 <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
@@ -318,7 +318,7 @@ function FeaturesSection() {
                   delay: i * 0.15 + 0.1,
                   ease: [0.25, 0.4, 0.25, 1],
                 }}
-                className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${feature.gradient} text-white shadow-lg`}
+                className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br ${feature.gradient} text-white shadow-lg`}
               >
                 <feature.icon className="h-6 w-6" />
               </motion.div>
@@ -470,7 +470,7 @@ function CTASection() {
     <section
       id="cta"
       ref={ref}
-      className="flex min-h-screen snap-start snap-always flex-col justify-center bg-gradient-to-br from-green-600 via-emerald-600 to-teal-600 py-20"
+      className="flex min-h-screen snap-start snap-always flex-col justify-center bg-linear-to-br from-green-600 via-emerald-600 to-teal-600 py-20"
     >
       <div className="container mx-auto px-6">
         <motion.div

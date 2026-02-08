@@ -71,7 +71,7 @@ export function Header() {
 
   if (isLoading) {
     return (
-      <header className="bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 flex h-16 items-center justify-between border-b px-6 backdrop-blur">
+      <header className="bg-background/95 supports-backdrop-filter:bg-background/60 sticky top-0 z-50 flex h-16 items-center justify-between border-b px-6 backdrop-blur">
         <div className="flex items-center gap-4">
           <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
         </div>
@@ -80,7 +80,7 @@ export function Header() {
   }
 
   return (
-    <header className="bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 flex h-16 items-center justify-between border-b px-6 backdrop-blur">
+    <header className="bg-background/95 supports-backdrop-filter:bg-background/60 sticky top-0 z-50 flex h-16 items-center justify-between border-b px-6 backdrop-blur">
       {/* Left side - Role indicator */}
       <div className="flex items-center gap-4">
         <div className={cn('flex items-center gap-2 rounded-full px-3 py-1.5', roleStyle.bg)}>
@@ -110,7 +110,7 @@ export function Header() {
           <DropdownMenuContent align="end" className="w-80">
             <DropdownMenuLabel>Notifications</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <div className="max-h-[300px] overflow-y-auto">
+            <div className="max-h-75 overflow-y-auto">
               <DropdownMenuItem className="flex flex-col items-start gap-1 p-3">
                 <span className="font-medium">Project review needed</span>
                 <span className="text-muted-foreground text-xs">

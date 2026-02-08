@@ -103,7 +103,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <header className="border-border bg-card flex h-14 items-center justify-between border-b px-4">
             <div className="flex items-center gap-3">
               <Link href="/dashboard" className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-green-500 to-emerald-600">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-green-500 to-emerald-600">
                   <Leaf className="h-4 w-4 text-white" />
                 </div>
                 <span className="text-foreground text-lg font-bold">Dulra</span>
@@ -117,7 +117,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500" />
               </Button>
               <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-gradient-to-br from-green-500 to-emerald-600 text-xs font-semibold text-white">
+                <AvatarFallback className="bg-linear-to-br from-green-500 to-emerald-600 text-xs font-semibold text-white">
                   {initials}
                 </AvatarFallback>
               </Avatar>
@@ -152,7 +152,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Logo */}
         <div className="border-border flex h-16 items-center justify-between border-b px-6">
           <Link href="/dashboard" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-green-500 to-emerald-600">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-linear-to-br from-green-500 to-emerald-600">
               <Leaf className="h-5 w-5 text-white" />
             </div>
             <span className="text-foreground text-xl font-bold">Dulra</span>
@@ -207,7 +207,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="border-border border-t p-4">
           <div className="bg-muted mb-3 flex items-center gap-3 rounded-xl p-3">
             <Avatar className="border-background h-10 w-10 border-2 shadow-sm">
-              <AvatarFallback className="bg-gradient-to-br from-green-500 to-emerald-600 text-sm font-semibold text-white">
+              <AvatarFallback className="bg-linear-to-br from-green-500 to-emerald-600 text-sm font-semibold text-white">
                 {initials}
               </AvatarFallback>
             </Avatar>
@@ -277,7 +277,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             <div className="hidden items-center gap-2 lg:flex">
               <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-gradient-to-br from-green-500 to-emerald-600 text-xs font-semibold text-white">
+                <AvatarFallback className="bg-linear-to-br from-green-500 to-emerald-600 text-xs font-semibold text-white">
                   {initials}
                 </AvatarFallback>
               </Avatar>

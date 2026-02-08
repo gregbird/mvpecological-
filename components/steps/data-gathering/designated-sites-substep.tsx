@@ -761,7 +761,7 @@ export function DesignatedSitesSubStep({
           <Button
             variant="secondary"
             size="sm"
-            className="absolute top-4 right-4 z-[1000]"
+            className="absolute top-4 right-4 z-1000"
             onClick={onToggleMap}
             data-map-control="true"
           >
@@ -775,7 +775,7 @@ export function DesignatedSitesSubStep({
             projectId={project.id}
             stepName="designated_sites"
             userId={userId}
-            className="absolute top-14 right-4 z-[1000] shadow-md"
+            className="absolute top-14 right-4 z-1000 shadow-md"
           />
         </div>
       )}

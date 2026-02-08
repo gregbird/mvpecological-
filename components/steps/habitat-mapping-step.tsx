@@ -1,16 +1,13 @@
 'use client'
 
 import * as React from 'react'
-import { Plus, Loader2, Check, AlertCircle, Info, Trash2, Eye, Pencil } from 'lucide-react'
+import { Loader2, Check, AlertCircle, Trash2, Pencil } from 'lucide-react'
 import dynamic from 'next/dynamic'
-import type { Map as LeafletMap, FeatureGroup as LeafletFeatureGroup } from 'leaflet'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { useToast } from '@/hooks/use-toast'
 import {
   useHabitats,
@@ -237,41 +234,63 @@ export function HabitatMappingStep({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Step 5: Habitat Mapping</h2>
-          <p className="text-muted-foreground">
-            Map habitat polygons using Fossitt classification codes
-          </p>
+    <div className="flex h-full flex-col">
+      {/* Header - Compact */}
+      <div className="flex items-center justify-between border-b px-6 py-3">
+        <div className="flex items-center gap-4">
+          <div>
+            <h2 className="text-lg font-semibold">Step 5: Habitat Mapping</h2>
+            <p className="text-muted-foreground text-sm">
+              Draw polygons on the map, then select Fossitt code and condition
+            </p>
+          </div>
+          {/* Inline Stats */}
+          <div className="hidden items-center gap-4 border-l pl-4 md:flex">
+            <div className="text-center">
+              <div className="text-lg font-bold">{habitats.length}</div>
+              <div className="text-muted-foreground text-xs">Habitats</div>
+            </div>
+            <div className="text-center">
+              <div className="text-lg font-bold">
+                {(habitatStats?.totalArea || 0).toFixed(1)} ha
+              </div>
+              <div className="text-muted-foreground text-xs">Total Area</div>
+            </div>
+          </div>
         </div>
-        <Badge
-          variant={
-            isComplete ? 'default' : workflowStep.status === 'in_progress' ? 'secondary' : 'outline'
-          }
-        >
-          {isComplete
-            ? 'Completed'
-            : workflowStep.status === 'in_progress'
-              ? 'In Progress'
-              : 'Pending'}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge
+            variant={
+              isComplete
+                ? 'default'
+                : workflowStep.status === 'in_progress'
+                  ? 'secondary'
+                  : 'outline'
+            }
+          >
+            {isComplete
+              ? 'Completed'
+              : workflowStep.status === 'in_progress'
+                ? 'In Progress'
+                : 'Pending'}
+          </Badge>
+          <Button
+            onClick={handleComplete}
+            disabled={!canComplete || completeStep.isPending}
+            size="sm"
+          >
+            {completeStep.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Check className="mr-2 h-4 w-4" />
+            )}
+            Complete Step
+          </Button>
+        </div>
       </div>
 
-      {/* Instructions */}
-      <Alert>
-        <Info className="h-4 w-4" />
-        <AlertTitle>Habitat Mapping Guide</AlertTitle>
-        <AlertDescription>
-          Draw polygons on the map to delineate habitat areas. For each polygon, select the
-          appropriate Fossitt habitat classification code and assess the habitat condition. The area
-          is calculated automatically based on the polygon shape.
-        </AlertDescription>
-      </Alert>
-
       {!projectBoundary && (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="mx-6 mt-3">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>No Project Boundary</AlertTitle>
           <AlertDescription>
@@ -281,62 +300,13 @@ export function HabitatMappingStep({
         </Alert>
       )}
 
-      {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Habitats</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{habitatStats?.total || habitats.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Area</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{(habitatStats?.totalArea || 0).toFixed(2)} ha</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Habitat Types</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {habitatStats?.byFossittCode.length ||
-                new Set(habitats.map((h) => h.fossitt_code)).size}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Good+ Condition</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {habitats.filter((h) => h.condition === 'excellent' || h.condition === 'good').length}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Main Content - Split View */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      {/* Main Content - Full Height Split View */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-3">
         {/* Map Section */}
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Habitat Map</CardTitle>
-                  <CardDescription>Draw polygons to delineate habitat boundaries</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="h-125 overflow-hidden rounded-lg border">
+        <div className="flex min-h-0 flex-col lg:col-span-2">
+          <Card className="flex min-h-0 flex-1 flex-col">
+            <CardContent className="flex min-h-0 flex-1 flex-col p-3">
+              <div className="min-h-0 flex-1 overflow-hidden rounded-lg border">
                 <ProjectMapWithDraw
                   center={
                     projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]
@@ -347,112 +317,44 @@ export function HabitatMappingStep({
                   editable={!isComplete}
                 />
               </div>
-              <p className="text-muted-foreground mt-2 text-sm">
-                Use the polygon tool (top right of map) to draw habitat boundaries. Click to add
-                points, double-click to complete.
-              </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Habitat List */}
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
+        {/* Habitat List - Scrollable */}
+        <div className="flex min-h-0 flex-col">
+          <Card className="flex min-h-0 flex-1 flex-col">
+            <CardHeader className="py-3">
               <div className="flex items-center justify-between">
-                <CardTitle>Mapped Habitats</CardTitle>
+                <CardTitle className="text-base">Mapped Habitats</CardTitle>
                 <Badge variant="secondary">{habitats.length}</Badge>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="min-h-0 flex-1 overflow-auto p-3 pt-0">
               {habitats.length === 0 ? (
-                <div className="text-muted-foreground py-8 text-center text-sm">
-                  No habitats mapped yet. Draw a polygon on the map to add a habitat.
+                <div className="text-muted-foreground flex h-full items-center justify-center text-center text-sm">
+                  No habitats mapped yet.
+                  <br />
+                  Draw a polygon on the map to add a habitat.
                 </div>
               ) : (
-                <ScrollArea className="h-87.5">
-                  <div className="space-y-2 pr-4">
-                    {habitats.map((habitat) => (
-                      <HabitatListItem
-                        key={habitat.id}
-                        habitat={habitat}
-                        isSelected={selectedHabitat?.id === habitat.id}
-                        onSelect={() => setSelectedHabitat(habitat)}
-                        onEdit={() => {
-                          setEditingHabitat(habitat)
-                          setShowHabitatForm(true)
-                        }}
-                        onDelete={() => handleDeleteHabitat(habitat)}
-                        disabled={isComplete}
-                      />
-                    ))}
-                  </div>
-                </ScrollArea>
+                <div className="space-y-2">
+                  {habitats.map((habitat) => (
+                    <HabitatListItem
+                      key={habitat.id}
+                      habitat={habitat}
+                      isSelected={selectedHabitat?.id === habitat.id}
+                      onSelect={() => setSelectedHabitat(habitat)}
+                      onEdit={() => {
+                        setEditingHabitat(habitat)
+                        setShowHabitatForm(true)
+                      }}
+                      onDelete={() => handleDeleteHabitat(habitat)}
+                      disabled={isComplete}
+                    />
+                  ))}
+                </div>
               )}
-            </CardContent>
-          </Card>
-
-          {/* Legend */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Condition Legend</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {Object.entries(CONDITION_LABELS).map(([key, { label, color }]) => (
-                  <div key={key} className="flex items-center gap-2 text-sm">
-                    <div className={`h-3 w-3 rounded-full ${color}`} />
-                    <span>{label}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Progress Panel */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Step Progress</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span>Project boundary defined</span>
-                  {projectBoundary ? (
-                    <Check className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <AlertCircle className="text-muted-foreground h-4 w-4" />
-                  )}
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span>Habitats mapped</span>
-                  {habitats.length > 0 ? (
-                    <span className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-green-600" />
-                      <span className="text-muted-foreground">{habitats.length} habitats</span>
-                    </span>
-                  ) : (
-                    <AlertCircle className="text-muted-foreground h-4 w-4" />
-                  )}
-                </div>
-              </div>
-
-              <Progress
-                value={isComplete ? 100 : projectBoundary ? (habitats.length > 0 ? 75 : 50) : 25}
-              />
-
-              <Button
-                onClick={handleComplete}
-                disabled={!canComplete || completeStep.isPending}
-                className="w-full"
-              >
-                {completeStep.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Check className="mr-2 h-4 w-4" />
-                )}
-                {isComplete ? 'Completed' : 'Complete Step & Continue'}
-              </Button>
             </CardContent>
           </Card>
         </div>

@@ -1067,7 +1067,7 @@ export function SpeciesRecordsSubStep({
           <Button
             variant="secondary"
             size="sm"
-            className="absolute top-4 right-4 z-[1000]"
+            className="absolute top-4 right-4 z-1000"
             onClick={onToggleMap}
             data-map-control="true"
           >
@@ -1081,7 +1081,7 @@ export function SpeciesRecordsSubStep({
             projectId={project.id}
             stepName="species_records"
             userId={userId}
-            className="absolute top-14 right-4 z-[1000] shadow-md"
+            className="absolute top-14 right-4 z-1000 shadow-md"
           />
         </div>
       )}

@@ -278,7 +278,7 @@ export default function ProjectsPage() {
                       {/* Progress and Phase */}
                       <div className="flex items-center gap-4">
                         <Badge className={cn('text-xs', phaseInfo.color)}>{phaseInfo.label}</Badge>
-                        <div className="flex max-w-[180px] flex-1 items-center gap-2">
+                        <div className="flex max-w-45 flex-1 items-center gap-2">
                           <Progress value={project.progress} className="h-2" />
                           <span className="text-muted-foreground text-xs font-medium">
                             {project.progress}%

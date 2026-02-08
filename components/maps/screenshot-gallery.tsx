@@ -89,7 +89,7 @@ export function ScreenshotGallery({ projectId, className }: ScreenshotGalleryPro
             />
 
             {/* Overlay with info */}
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+            <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/70 to-transparent p-2">
               <Badge variant="secondary" className="mb-1 bg-white/90 text-[10px] text-black">
                 {STEP_LABELS[screenshot.stepName as MapStepName] || screenshot.stepName}
               </Badge>

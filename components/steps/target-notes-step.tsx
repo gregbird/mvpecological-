@@ -6,10 +6,8 @@ import {
   Loader2,
   Check,
   AlertCircle,
-  Info,
   Trash2,
   Eye,
-  MapPin,
   Shield,
   Target,
   ClipboardList,
@@ -17,11 +15,9 @@ import {
 import dynamic from 'next/dynamic'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select,
@@ -68,7 +64,7 @@ const DynamicProjectMap = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="bg-muted/50 flex h-[400px] items-center justify-center rounded-lg">
+      <div className="bg-muted/50 flex h-100 items-center justify-center rounded-lg">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     ),
@@ -472,192 +468,195 @@ export function TargetNotesStep({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Step 6: Target Notes</h2>
-          <p className="text-muted-foreground">Record field notes and species observations</p>
+    <div className="flex h-full flex-col">
+      {/* Header - Compact */}
+      <div className="flex items-center justify-between border-b px-6 py-3">
+        <div className="flex items-center gap-4">
+          <div>
+            <h2 className="text-lg font-semibold">Step 6: Target Notes</h2>
+            <p className="text-muted-foreground text-sm">
+              Record field notes and species observations
+            </p>
+          </div>
+          {/* Inline Stats */}
+          <div className="hidden items-center gap-4 border-l pl-4 md:flex">
+            <div className="text-center">
+              <div className="text-lg font-bold">{targetNotes.length}</div>
+              <div className="text-muted-foreground text-xs">Notes</div>
+            </div>
+            <div className="text-center">
+              <div className="text-lg font-bold">{observations.length}</div>
+              <div className="text-muted-foreground text-xs">Observations</div>
+            </div>
+            <div className="text-center">
+              <div className="text-lg font-bold text-green-600">
+                {targetNotesStats?.verified || 0}
+              </div>
+              <div className="text-muted-foreground text-xs">Verified</div>
+            </div>
+          </div>
         </div>
-        <Badge
-          variant={
-            isComplete ? 'default' : workflowStep.status === 'in_progress' ? 'secondary' : 'outline'
-          }
-        >
-          {isComplete
-            ? 'Completed'
-            : workflowStep.status === 'in_progress'
-              ? 'In Progress'
-              : 'Pending'}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge
+            variant={
+              isComplete
+                ? 'default'
+                : workflowStep.status === 'in_progress'
+                  ? 'secondary'
+                  : 'outline'
+            }
+          >
+            {isComplete
+              ? 'Completed'
+              : workflowStep.status === 'in_progress'
+                ? 'In Progress'
+                : 'Pending'}
+          </Badge>
+          <Button
+            onClick={handleComplete}
+            disabled={!canComplete || completeStep.isPending}
+            size="sm"
+          >
+            {completeStep.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Check className="mr-2 h-4 w-4" />
+            )}
+            Complete Step
+          </Button>
+        </div>
       </div>
 
-      {/* Instructions */}
-      <Alert>
-        <Info className="h-4 w-4" />
-        <AlertTitle>Recording Field Data</AlertTitle>
-        <AlertDescription>
-          Use <strong>Target Notes</strong> to mark points of interest (access points, features to
-          check, habitat notes, etc.) and <strong>Species Observations</strong> to record species
-          encountered during surveys.
-        </AlertDescription>
-      </Alert>
-
-      {/* Main Tabs */}
-      <Tabs
-        value={activeMainTab}
-        onValueChange={(v) => setActiveMainTab(v as 'target-notes' | 'observations')}
-      >
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="target-notes" className="flex items-center gap-2">
-            <Target className="h-4 w-4" />
-            Target Notes ({targetNotes.length})
-          </TabsTrigger>
-          <TabsTrigger value="observations" className="flex items-center gap-2">
-            <ClipboardList className="h-4 w-4" />
-            Species Observations ({observations.length})
-          </TabsTrigger>
-        </TabsList>
-
-        {/* TARGET NOTES TAB */}
-        <TabsContent value="target-notes" className="mt-6 space-y-6">
-          {/* Stats */}
-          <div className="grid gap-4 sm:grid-cols-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Total Notes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{targetNotesStats?.total || 0}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">High Priority</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-600">
-                  {targetNotesStats?.byPriority?.find((p) => p.priority === 'high')?.count || 0}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Verified</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">
-                  {targetNotesStats?.verified || 0}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Pending</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-amber-600">
-                  {targetNotesStats?.pending || 0}
-                </div>
-              </CardContent>
-            </Card>
+      {/* Main Content - Full Height */}
+      <div className="min-h-0 flex-1 p-4">
+        <Tabs
+          value={activeMainTab}
+          onValueChange={(v) => setActiveMainTab(v as 'target-notes' | 'observations')}
+          className="flex h-full flex-col"
+        >
+          <div className="mb-3 flex items-center justify-between">
+            <TabsList>
+              <TabsTrigger value="target-notes" className="flex items-center gap-2">
+                <Target className="h-4 w-4" />
+                Target Notes ({targetNotes.length})
+              </TabsTrigger>
+              <TabsTrigger value="observations" className="flex items-center gap-2">
+                <ClipboardList className="h-4 w-4" />
+                Species Observations ({observations.length})
+              </TabsTrigger>
+            </TabsList>
+            {activeMainTab === 'target-notes' ? (
+              <Button
+                onClick={() => {
+                  setEditingTargetNote(null)
+                  setShowTargetNoteForm(true)
+                }}
+                disabled={isComplete}
+                size="sm"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Note
+              </Button>
+            ) : (
+              <Button
+                onClick={() => {
+                  setEditingObservation(null)
+                  setShowObservationForm(true)
+                }}
+                disabled={isComplete || surveys.length === 0}
+                size="sm"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Observation
+              </Button>
+            )}
           </div>
 
-          {/* Action Button */}
-          <div className="flex justify-end">
-            <Button
-              onClick={() => {
-                setEditingTargetNote(null)
-                setShowTargetNoteForm(true)
-              }}
-              disabled={isComplete}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Target Note
-            </Button>
-          </div>
+          {/* TARGET NOTES TAB */}
+          <TabsContent value="target-notes" className="mt-0 min-h-0 flex-1">
+            {/* Target Notes Content - Full Height Grid */}
+            <div className="grid h-full gap-4 lg:grid-cols-2">
+              {/* Map */}
+              <Card className="flex min-h-0 flex-col">
+                <CardHeader className="py-3">
+                  <CardTitle className="text-base">Target Notes Map</CardTitle>
+                </CardHeader>
+                <CardContent className="min-h-0 flex-1 p-3 pt-0">
+                  <div className="h-full min-h-0 overflow-hidden rounded-lg border">
+                    <DynamicProjectMap
+                      center={
+                        projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]
+                      }
+                      zoom={projectCenter ? 14 : 7}
+                      boundary={projectBoundary}
+                      targetNotes={targetNotes.map((n) => ({
+                        id: n.id,
+                        category: n.category,
+                        title: n.title,
+                        description: n.description,
+                        priority: n.priority,
+                        isVerified: n.is_verified,
+                        location: n.location as { coordinates: [number, number] } | null,
+                      }))}
+                      selectedTargetNote={
+                        selectedTargetNote
+                          ? {
+                              id: selectedTargetNote.id,
+                              category: selectedTargetNote.category,
+                              title: selectedTargetNote.title,
+                              description: selectedTargetNote.description,
+                              priority: selectedTargetNote.priority,
+                              isVerified: selectedTargetNote.is_verified,
+                              location: selectedTargetNote.location as {
+                                coordinates: [number, number]
+                              } | null,
+                            }
+                          : null
+                      }
+                      onTargetNoteClick={(note) => {
+                        const found = targetNotes.find((t) => t.id === note.id)
+                        if (found) setSelectedTargetNote(found)
+                      }}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
 
-          {/* Target Notes Content */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Map */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Target Notes Map</CardTitle>
-                <CardDescription>Locations of field notes within the project area</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[400px] overflow-hidden rounded-lg border">
-                  <DynamicProjectMap
-                    center={
-                      projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]
-                    }
-                    zoom={projectCenter ? 14 : 7}
-                    boundary={projectBoundary}
-                    targetNotes={targetNotes.map((n) => ({
-                      id: n.id,
-                      category: n.category,
-                      title: n.title,
-                      description: n.description,
-                      priority: n.priority,
-                      isVerified: n.is_verified,
-                      location: n.location as { coordinates: [number, number] } | null,
-                    }))}
-                    selectedTargetNote={
-                      selectedTargetNote
-                        ? {
-                            id: selectedTargetNote.id,
-                            category: selectedTargetNote.category,
-                            title: selectedTargetNote.title,
-                            description: selectedTargetNote.description,
-                            priority: selectedTargetNote.priority,
-                            isVerified: selectedTargetNote.is_verified,
-                            location: selectedTargetNote.location as {
-                              coordinates: [number, number]
-                            } | null,
-                          }
-                        : null
-                    }
-                    onTargetNoteClick={(note) => {
-                      const found = targetNotes.find((t) => t.id === note.id)
-                      if (found) setSelectedTargetNote(found)
-                    }}
-                  />
-                </div>
-              </CardContent>
-            </Card>
+              {/* Target Notes List */}
+              <Card className="flex min-h-0 flex-col">
+                <CardHeader className="py-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">Target Notes</CardTitle>
+                    <Badge variant="secondary">{targetNotes.length}</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="min-h-0 flex-1 overflow-auto p-3 pt-0">
+                  <Tabs
+                    value={activeCategoryTab}
+                    onValueChange={setActiveCategoryTab}
+                    className="flex h-full flex-col"
+                  >
+                    <TabsList className="flex h-auto flex-wrap gap-1">
+                      <TabsTrigger value="all" className="text-xs">
+                        All ({targetNotes.length})
+                      </TabsTrigger>
+                      {Object.entries(TARGET_NOTE_CATEGORIES)
+                        .filter(([key]) => targetNotesByCategory[key]?.length)
+                        .slice(0, 4)
+                        .map(([key, config]) => (
+                          <TabsTrigger key={key} value={key} className="text-xs">
+                            {config.label} ({targetNotesByCategory[key]?.length || 0})
+                          </TabsTrigger>
+                        ))}
+                    </TabsList>
 
-            {/* Target Notes List */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Target Notes</CardTitle>
-                  <Badge variant="secondary">{targetNotes.length}</Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Tabs value={activeCategoryTab} onValueChange={setActiveCategoryTab}>
-                  <TabsList className="flex h-auto flex-wrap gap-1">
-                    <TabsTrigger value="all" className="text-xs">
-                      All ({targetNotes.length})
-                    </TabsTrigger>
-                    {Object.entries(TARGET_NOTE_CATEGORIES)
-                      .filter(([key]) => targetNotesByCategory[key]?.length)
-                      .slice(0, 4)
-                      .map(([key, config]) => (
-                        <TabsTrigger key={key} value={key} className="text-xs">
-                          {config.label} ({targetNotesByCategory[key]?.length || 0})
-                        </TabsTrigger>
-                      ))}
-                  </TabsList>
-
-                  <TabsContent value="all" className="mt-4">
-                    <ScrollArea className="h-80">
+                    <TabsContent value="all" className="mt-3 min-h-0 flex-1 overflow-auto">
                       {targetNotes.length === 0 ? (
                         <div className="text-muted-foreground py-8 text-center text-sm">
-                          No target notes yet. Click "Add Target Note" to create one.
+                          No target notes yet. Click "Add Note" to create one.
                         </div>
                       ) : (
-                        <div className="space-y-2 pr-4">
+                        <div className="space-y-2">
                           {targetNotes.map((note) => (
                             <TargetNoteCard
                               key={note.id}
@@ -676,13 +675,15 @@ export function TargetNotesStep({
                           ))}
                         </div>
                       )}
-                    </ScrollArea>
-                  </TabsContent>
+                    </TabsContent>
 
-                  {Object.entries(targetNotesByCategory).map(([category, notes]) => (
-                    <TabsContent key={category} value={category} className="mt-4">
-                      <ScrollArea className="h-80">
-                        <div className="space-y-2 pr-4">
+                    {Object.entries(targetNotesByCategory).map(([category, notes]) => (
+                      <TabsContent
+                        key={category}
+                        value={category}
+                        className="mt-3 min-h-0 flex-1 overflow-auto"
+                      >
+                        <div className="space-y-2">
                           {notes.map((note) => (
                             <TargetNoteCard
                               key={note.id}
@@ -700,91 +701,34 @@ export function TargetNotesStep({
                             />
                           ))}
                         </div>
-                      </ScrollArea>
-                    </TabsContent>
-                  ))}
-                </Tabs>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
+                      </TabsContent>
+                    ))}
+                  </Tabs>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
 
-        {/* SPECIES OBSERVATIONS TAB */}
-        <TabsContent value="observations" className="mt-6 space-y-6">
-          {surveys.length === 0 && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>No Surveys Available</AlertTitle>
-              <AlertDescription>
-                Please complete Step 4 (Field Survey Planning) and create at least one survey before
-                recording observations.
-              </AlertDescription>
-            </Alert>
-          )}
+          {/* SPECIES OBSERVATIONS TAB */}
+          <TabsContent value="observations" className="mt-0 min-h-0 flex-1">
+            {surveys.length === 0 ? (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>No Surveys Available</AlertTitle>
+                <AlertDescription>
+                  Please complete Step 4 (Field Survey Planning) first.
+                </AlertDescription>
+              </Alert>
+            ) : null}
 
-          {/* Stats */}
-          <div className="grid gap-4 sm:grid-cols-5">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Total Observations</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {observationStats?.total || filteredObservations.length}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Protected Species</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-600">
-                  {observationStats?.protected ||
-                    filteredObservations.filter((o) => o.is_protected).length}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Needs Verification</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-amber-600">
-                  {observationStats?.needsVerification ||
-                    filteredObservations.filter((o) => o.needs_verification).length}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Taxon Groups</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{Object.keys(observationsByTaxon).length}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">High Confidence</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">
-                  {filteredObservations.filter((o) => o.confidence_level === 'high').length}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Survey Filter and Action */}
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
+            {/* Survey Filter */}
+            <div className="mb-3 flex items-center gap-2">
               <span className="text-sm font-medium">Survey:</span>
               <Select
                 value={selectedSurveyId || 'all'}
                 onValueChange={(value) => setSelectedSurveyId(value === 'all' ? '' : value)}
               >
-                <SelectTrigger className="w-[250px]">
+                <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="All surveys" />
                 </SelectTrigger>
                 <SelectContent>
@@ -797,87 +741,75 @@ export function TargetNotesStep({
                 </SelectContent>
               </Select>
             </div>
-            <Button
-              onClick={() => {
-                setEditingObservation(null)
-                setShowObservationForm(true)
-              }}
-              disabled={isComplete || surveys.length === 0}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Observation
-            </Button>
-          </div>
 
-          {/* Observations Content */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Map */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Observation Map</CardTitle>
-                <CardDescription>
-                  Species observation locations within the project area
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[400px] overflow-hidden rounded-lg border">
-                  <DynamicProjectMap
-                    center={
-                      projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]
-                    }
-                    zoom={projectCenter ? 14 : 7}
-                    boundary={projectBoundary}
-                    observationPoints={{
-                      type: 'FeatureCollection',
-                      features: filteredObservations
-                        .filter((o) => o.location)
-                        .map((o) => ({
-                          type: 'Feature' as const,
-                          geometry: o.location as GeoJSON.Point,
-                          properties: {
-                            id: o.id,
-                            name: o.species_name_common || o.species_name_scientific,
-                            isProtected: o.is_protected || false,
-                          },
-                        })),
-                    }}
-                  />
-                </div>
-              </CardContent>
-            </Card>
+            {/* Observations Content - Full Height Grid */}
+            <div className="grid h-full gap-4 lg:grid-cols-2">
+              {/* Map */}
+              <Card className="flex min-h-0 flex-col">
+                <CardHeader className="py-3">
+                  <CardTitle className="text-base">Observation Map</CardTitle>
+                </CardHeader>
+                <CardContent className="min-h-0 flex-1 p-3 pt-0">
+                  <div className="h-full min-h-0 overflow-hidden rounded-lg border">
+                    <DynamicProjectMap
+                      center={
+                        projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]
+                      }
+                      zoom={projectCenter ? 14 : 7}
+                      boundary={projectBoundary}
+                      observationPoints={{
+                        type: 'FeatureCollection',
+                        features: filteredObservations
+                          .filter((o) => o.location)
+                          .map((o) => ({
+                            type: 'Feature' as const,
+                            geometry: o.location as GeoJSON.Point,
+                            properties: {
+                              id: o.id,
+                              name: o.species_name_common || o.species_name_scientific,
+                              isProtected: o.is_protected || false,
+                            },
+                          })),
+                      }}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
 
-            {/* Observation List */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Species Observations</CardTitle>
-                  <Badge variant="secondary">{filteredObservations.length}</Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <TabsList className="flex h-auto flex-wrap gap-1">
-                    <TabsTrigger value="all" className="text-xs">
-                      All ({filteredObservations.length})
-                    </TabsTrigger>
-                    {Object.entries(observationsByTaxon)
-                      .slice(0, 4)
-                      .map(([taxon, obs]) => (
-                        <TabsTrigger key={taxon} value={taxon} className="text-xs">
-                          {TAXON_LABELS[taxon] || taxon} ({obs.length})
-                        </TabsTrigger>
-                      ))}
-                  </TabsList>
+              {/* Observation List */}
+              <Card className="flex min-h-0 flex-col">
+                <CardHeader className="py-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">Species Observations</CardTitle>
+                    <Badge variant="secondary">{filteredObservations.length}</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="min-h-0 flex-1 overflow-auto p-3 pt-0">
+                  <Tabs
+                    value={activeTab}
+                    onValueChange={setActiveTab}
+                    className="flex h-full flex-col"
+                  >
+                    <TabsList className="flex h-auto flex-wrap gap-1">
+                      <TabsTrigger value="all" className="text-xs">
+                        All ({filteredObservations.length})
+                      </TabsTrigger>
+                      {Object.entries(observationsByTaxon)
+                        .slice(0, 4)
+                        .map(([taxon, obs]) => (
+                          <TabsTrigger key={taxon} value={taxon} className="text-xs">
+                            {TAXON_LABELS[taxon] || taxon} ({obs.length})
+                          </TabsTrigger>
+                        ))}
+                    </TabsList>
 
-                  <TabsContent value="all" className="mt-4">
-                    <ScrollArea className="h-80">
+                    <TabsContent value="all" className="mt-3 min-h-0 flex-1 overflow-auto">
                       {filteredObservations.length === 0 ? (
                         <div className="text-muted-foreground py-8 text-center text-sm">
-                          No observations recorded yet. Click "Add Observation" to record species
-                          sightings.
+                          No observations yet. Click "Add Observation" to record species sightings.
                         </div>
                       ) : (
-                        <div className="space-y-2 pr-4">
+                        <div className="space-y-2">
                           {filteredObservations.map((obs) => (
                             <ObservationListItem
                               key={obs.id}
@@ -894,13 +826,15 @@ export function TargetNotesStep({
                           ))}
                         </div>
                       )}
-                    </ScrollArea>
-                  </TabsContent>
+                    </TabsContent>
 
-                  {Object.entries(observationsByTaxon).map(([taxon, taxonObs]) => (
-                    <TabsContent key={taxon} value={taxon} className="mt-4">
-                      <ScrollArea className="h-80">
-                        <div className="space-y-2 pr-4">
+                    {Object.entries(observationsByTaxon).map(([taxon, taxonObs]) => (
+                      <TabsContent
+                        key={taxon}
+                        value={taxon}
+                        className="mt-3 min-h-0 flex-1 overflow-auto"
+                      >
+                        <div className="space-y-2">
                           {taxonObs.map((obs) => (
                             <ObservationListItem
                               key={obs.id}
@@ -916,86 +850,15 @@ export function TargetNotesStep({
                             />
                           ))}
                         </div>
-                      </ScrollArea>
-                    </TabsContent>
-                  ))}
-                </Tabs>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
-
-      {/* Progress Panel */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Step Progress</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span>Target notes recorded</span>
-              {targetNotes.length > 0 ? (
-                <span className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-600" />
-                  <span className="text-muted-foreground">{targetNotes.length} notes</span>
-                </span>
-              ) : (
-                <AlertCircle className="text-muted-foreground h-4 w-4" />
-              )}
+                      </TabsContent>
+                    ))}
+                  </Tabs>
+                </CardContent>
+              </Card>
             </div>
-            <div className="flex items-center justify-between text-sm">
-              <span>Species observations</span>
-              {observations.length > 0 ? (
-                <span className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-600" />
-                  <span className="text-muted-foreground">{observations.length} observations</span>
-                </span>
-              ) : (
-                <AlertCircle className="text-muted-foreground h-4 w-4" />
-              )}
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span>Notes verified</span>
-              {(targetNotesStats?.verified || 0) > 0 ? (
-                <span className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-600" />
-                  <span className="text-muted-foreground">
-                    {targetNotesStats?.verified} verified
-                  </span>
-                </span>
-              ) : (
-                <AlertCircle className="text-muted-foreground h-4 w-4" />
-              )}
-            </div>
-          </div>
-
-          <Progress
-            value={
-              isComplete
-                ? 100
-                : targetNotes.length > 0 || observations.length > 0
-                  ? 75
-                  : surveys.length > 0
-                    ? 50
-                    : 25
-            }
-          />
-
-          <Button
-            onClick={handleComplete}
-            disabled={!canComplete || completeStep.isPending}
-            className="w-full"
-          >
-            {completeStep.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Check className="mr-2 h-4 w-4" />
-            )}
-            {isComplete ? 'Completed' : 'Complete Step & Continue'}
-          </Button>
-        </CardContent>
-      </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
 
       {/* Target Note Form Dialog */}
       <TargetNoteForm

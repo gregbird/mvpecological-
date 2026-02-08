@@ -821,7 +821,7 @@ export function SearchInterface({
                   value={filterSource}
                   onValueChange={(v) => setFilterSource(v as FindingSource | 'all')}
                 >
-                  <SelectTrigger className="h-8 w-[130px]">
+                  <SelectTrigger className="h-8 w-32.5">
                     <SelectValue placeholder="Source" />
                   </SelectTrigger>
                   <SelectContent>
@@ -836,7 +836,7 @@ export function SearchInterface({
 
                 {/* Type Filter */}
                 <Select value={filterType} onValueChange={setFilterType}>
-                  <SelectTrigger className="h-8 w-[150px]">
+                  <SelectTrigger className="h-8 w-37.5">
                     <SelectValue placeholder="Type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -858,7 +858,7 @@ export function SearchInterface({
                   value={sortBy}
                   onValueChange={(v) => setSortBy(v as 'title' | 'source' | 'type' | 'distance')}
                 >
-                  <SelectTrigger className="h-8 w-[110px]">
+                  <SelectTrigger className="h-8 w-27.5">
                     <SelectValue placeholder="Sort by" />
                   </SelectTrigger>
                   <SelectContent>
@@ -937,7 +937,7 @@ export function SearchInterface({
               </p>
             </div>
           ) : (
-            <ScrollArea className="h-[600px]">
+            <ScrollArea className="h-150">
               <div className="space-y-3 pr-4">
                 {savedFindings.map((finding) => (
                   <FindingCard

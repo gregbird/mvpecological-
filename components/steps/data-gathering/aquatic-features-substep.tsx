@@ -546,7 +546,7 @@ export function AquaticFeaturesSubStep({
               value={selectedBuffer.toString()}
               onValueChange={(v) => setSelectedBuffer(parseFloat(v))}
             >
-              <SelectTrigger className="w-[120px]">
+              <SelectTrigger className="w-30">
                 <SelectValue placeholder="Buffer" />
               </SelectTrigger>
               <SelectContent>
@@ -722,7 +722,7 @@ export function AquaticFeaturesSubStep({
           <Button
             variant="secondary"
             size="sm"
-            className="absolute top-4 right-4 z-[1000]"
+            className="absolute top-4 right-4 z-1000"
             onClick={onToggleMap}
             data-map-control="true"
           >
@@ -736,7 +736,7 @@ export function AquaticFeaturesSubStep({
             projectId={project.id}
             stepName="aquatic_features"
             userId={userId}
-            className="absolute top-14 right-4 z-[1000] shadow-md"
+            className="absolute top-14 right-4 z-1000 shadow-md"
           />
         </div>
       )}

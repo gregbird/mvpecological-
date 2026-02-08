@@ -989,7 +989,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
 
             {/* Boundary info overlay */}
             {boundary && boundaryInfo && (
-              <div className="bg-card/95 absolute bottom-4 left-4 z-[1000] rounded-lg border p-4 shadow-lg backdrop-blur">
+              <div className="bg-card/95 absolute bottom-4 left-4 z-1000 rounded-lg border p-4 shadow-lg backdrop-blur">
                 <h4 className="mb-2 font-semibold">Boundary Info</h4>
                 <dl className="space-y-1 text-sm">
                   {locationInfo?.county && (
@@ -1256,7 +1256,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                 projectId={project.id}
                 stepName="gis_mapping"
                 userId={userId}
-                className="absolute top-4 right-4 z-[1000] shadow-md"
+                className="absolute top-4 right-4 z-1000 shadow-md"
               />
             </div>
 

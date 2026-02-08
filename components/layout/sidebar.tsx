@@ -154,14 +154,14 @@ export function Sidebar() {
   // Loading state
   if (isLoading) {
     return (
-      <aside className="flex h-screen w-[280px] flex-col items-center justify-center border-r border-gray-200 bg-white">
+      <aside className="flex h-screen w-70 flex-col items-center justify-center border-r border-gray-200 bg-white">
         <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
       </aside>
     )
   }
 
   return (
-    <aside className="flex h-screen w-[280px] flex-col border-r border-gray-200 bg-white">
+    <aside className="flex h-screen w-70 flex-col border-r border-gray-200 bg-white">
       {/* Logo */}
       <div className="flex h-16 items-center gap-2 border-b border-gray-100 px-5">
         <Link href="/dashboard" className="flex items-center gap-2">

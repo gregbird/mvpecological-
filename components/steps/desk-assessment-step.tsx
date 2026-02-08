@@ -30,13 +30,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -782,31 +775,43 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
 
             <div className="space-y-2">
               <Label>Relevance Level</Label>
-              <Select value={relevance} onValueChange={(v) => setRelevance(v as Relevance)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent position="popper" sideOffset={4} className="z-[200]">
-                  {Object.entries(RELEVANCE_CONFIG).map(([key, config]) => (
-                    <SelectItem key={key} value={key}>
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={cn('h-2.5 w-2.5 rounded-full', {
-                            'bg-red-500': key === 'high',
-                            'bg-amber-500': key === 'medium',
-                            'bg-green-500': key === 'low',
-                            'bg-gray-400': key === 'none',
-                          })}
-                        />
-                        <span>{config.label}</span>
-                        <span className="text-muted-foreground text-xs">
-                          - {config.description}
-                        </span>
+              <div className="grid grid-cols-2 gap-2">
+                {(['high', 'medium', 'low', 'none'] as const).map((key) => {
+                  const config = RELEVANCE_CONFIG[key]
+                  const isSelected = relevance === key
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setRelevance(key)}
+                      className={cn(
+                        'flex items-center gap-2 rounded-lg border p-3 text-left transition-all',
+                        isSelected
+                          ? cn(config.bgColor, 'ring-2 ring-offset-1', {
+                              'ring-red-500': key === 'high',
+                              'ring-amber-500': key === 'medium',
+                              'ring-green-500': key === 'low',
+                              'ring-gray-400': key === 'none',
+                            })
+                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      )}
+                    >
+                      <div
+                        className={cn('h-3 w-3 rounded-full', {
+                          'bg-red-500': key === 'high',
+                          'bg-amber-500': key === 'medium',
+                          'bg-green-500': key === 'low',
+                          'bg-gray-400': key === 'none',
+                        })}
+                      />
+                      <div>
+                        <div className="text-sm font-medium">{config.label}</div>
+                        <div className="text-muted-foreground text-xs">{config.description}</div>
                       </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
             <div className="space-y-2">
