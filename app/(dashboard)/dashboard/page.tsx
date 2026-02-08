@@ -17,6 +17,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useRole } from '@/contexts/role-context'
 import { createClient } from '@/lib/supabase/client'
 import type { Project, WorkflowStep } from '@/types/database'
+import { useRouter } from 'next/navigation'
+import { ProjectDetailModal } from '@/components/dashboard/project-detail-modal'
 
 interface DashboardStats {
   totalProjects: number
@@ -130,6 +132,9 @@ export default function DashboardPage() {
   const [allProjects, setAllProjects] = React.useState<ProjectWithTimeline[]>([])
   const [showAllProjects, setShowAllProjects] = React.useState(false)
   const [isLoading, setIsLoading] = React.useState(true)
+  const [selectedProject, setSelectedProject] = React.useState<ProjectWithTimeline | null>(null)
+  const [workflowStepsMap, setWorkflowStepsMap] = React.useState<Record<string, WorkflowStep[]>>({})
+  const router = useRouter()
 
   const isAdmin = user?.role === 'admin'
 
@@ -244,6 +249,14 @@ export default function DashboardPage() {
 
           workflowSteps = stepsData || []
         }
+
+        // Group steps by project for modal
+        const grouped: Record<string, WorkflowStep[]> = {}
+        for (const step of workflowSteps) {
+          if (!grouped[step.project_id]) grouped[step.project_id] = []
+          grouped[step.project_id].push(step)
+        }
+        setWorkflowStepsMap(grouped)
 
         // Calculate progress and timeline for all projects
         const projectsWithTimeline: ProjectWithTimeline[] = projectList.map((project) => {
@@ -574,10 +587,16 @@ export default function DashboardPage() {
                 const endLabel = formatDate(project.expected_end_date)
 
                 return (
-                  <Link
+                  <div
                     key={project.id}
-                    href={`/projects/${project.id}?step=${project.currentStep}`}
-                    className="block"
+                    onClick={() => {
+                      if (isAdmin) {
+                        setSelectedProject(project)
+                      } else {
+                        router.push(`/projects/${project.id}?step=${project.currentStep}`)
+                      }
+                    }}
+                    className="block cursor-pointer"
                   >
                     <Card className="h-full transition-colors hover:border-blue-300 hover:shadow-md">
                       <CardContent className="p-5">
@@ -623,7 +642,7 @@ export default function DashboardPage() {
                         </div>
                       </CardContent>
                     </Card>
-                  </Link>
+                  </div>
                 )
               })}
             </div>
@@ -643,6 +662,19 @@ export default function DashboardPage() {
           </>
         )}
       </div>
+
+      {/* Project Detail Modal */}
+      {isAdmin && (
+        <ProjectDetailModal
+          project={selectedProject}
+          workflowSteps={selectedProject ? workflowStepsMap[selectedProject.id] || [] : []}
+          teamName={user?.full_name || undefined}
+          open={!!selectedProject}
+          onOpenChange={(open) => {
+            if (!open) setSelectedProject(null)
+          }}
+        />
+      )}
 
       {/* Quick Actions for Assessor */}
       {!isAdmin && allProjects.length > 0 && (

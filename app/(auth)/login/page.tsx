@@ -64,7 +64,7 @@ export default function LoginPage() {
         title: 'Welcome back!',
         description: 'You have successfully logged in.',
       })
-      router.push('/projects')
+      router.push('/dashboard')
       router.refresh()
     } catch {
       toast({

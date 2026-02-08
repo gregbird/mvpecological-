@@ -2,8 +2,9 @@
 
 ## 1. Mevcut Durum
 
-Şu anki dashboard (`app/(dashboard)/page.tsx`) sadece `/projects` sayfasına redirect ediyor.
-Gerçek dashboard `app/(dashboard)/dashboard/page.tsx` dosyasında mevcut ama Bolt.new versiyonuna göre eksik ve farklı.
+~~Şu anki dashboard (`app/(dashboard)/page.tsx`) sadece `/projects` sayfasına redirect ediyor.~~
+✅ Tüm yönlendirmeler `/dashboard`'a güncellendi (middleware, layout, sidebar, auth modal, login).
+Gerçek dashboard `app/(dashboard)/dashboard/page.tsx` dosyasında mevcut.
 
 ### Mevcut Dashboard'da Olan:
 - 4 stat kartı (Total Projects, Not Started, In Progress, Completed) ✅ Bolt.new'e uyarlandı
@@ -161,7 +162,7 @@ Configuration
 - [x] ~~`ProjectWithTimeline` interface: `timelineProgress`, `healthStatus`, `daysInfo` alanları~~
 - [x] ~~Tüm projeler için hesaplama (`slice(0,5)` kaldırıldı)~~
 - [x] ~~Tarihler progress bar altında: sol başlangıç, sağ bitiş (en-IE formatında)~~
-- [ ] **Kart tıklama -> Proje Detay Modal'ı aç** (bkz. 4.5) — opsiyonel, şimdilik direkt link
+- [x] ~~**Kart tıklama -> Proje Detay Modal'ı aç** (bkz. 4.5)~~ ✅ Admin görünümünde tamamlandı
 
 ### 4.4 Layout Düzeni ✅
 - [x] ~~Recent Projects tablo formatı → Timeline kartları grid formatına dönüştürüldü~~
@@ -242,12 +243,21 @@ Her faz için bir özet kartı:
 ```
 
 #### Modal Davranışları:
-- [ ] Proje kartına tıklayınca modal açılır (shadcn Dialog kullan)
-- [ ] X butonu veya overlay tıklama ile kapanır
-- [ ] Accordion'lar varsayılan kapalı, tıklayınca açılır
-- [ ] Workflow step durumları `workflow_steps` tablosundan çekilir
-- [ ] Bağımlılıklar step_number sıralamasına göre gösterilir
-- [ ] Modal'dan projeye gitme linki eklenebilir ("Go to Project" butonu)
+- [x] ~~Proje kartına tıklayınca modal açılır (shadcn Dialog kullan)~~ ✅
+- [x] ~~X butonu veya overlay tıklama ile kapanır~~ ✅
+- [x] ~~Accordion'lar varsayılan kapalı, tıklayınca açılır~~ ✅
+- [x] ~~Workflow step durumları `workflow_steps` tablosundan çekilir~~ ✅
+- [x] ~~Bağımlılıklar step_number sıralamasına göre gösterilir~~ ✅
+- [x] ~~Modal'dan projeye gitme linki eklenebilir ("Go to Project" butonu)~~ ✅
+
+#### Uygulama Detayları (2026-02-08):
+- **Component:** `components/dashboard/project-detail-modal.tsx`
+- **Veri kaynağı:** Dashboard'daki mevcut `workflow_steps` fetch'i kullanılıyor (yeni query yok)
+- **Admin only:** Sadece admin rolünde kart tıklama ile modal açılıyor
+- **Assessor:** `router.push()` ile proje sayfasına yönlendirme (mevcut davranış)
+- **Status ikonları:** SVG tabanlı (○ pending, ◑ in_progress, ● approved, ◑ needs_review, ○ blocked)
+- **Bağımlılıklar:** Lineer zincir (her adım bir öncekine bağlı, `ALL_WORKFLOW_STEPS` kullanılarak)
+- **Fazlar:** Bizim 10-step workflow'a uyarlanmış (3+3+4 = Desk/Field/Reporting)
 
 ---
 
@@ -390,3 +400,49 @@ const percentage = Math.round((completedCount / steps.length) * 100)
 ### Veri Yenileme:
 - İlk yüklemede Supabase'den fetch
 - Realtime subscription ile güncel tutma opsiyonel
+
+---
+
+## 7. Tamamlanan İşler (2026-02-08)
+
+### Dashboard UI ✅
+- [x] 4 Stat Kartı (Bolt.new tasarımına uyarlandı)
+- [x] 3 Donut Chart (Project Status, Workflow Stage, Timeline Health)
+- [x] All Projects Timeline Status grid (proje kartları + progress bar)
+- [x] Show more / Show less pagination (12+ proje)
+- [x] Quick Actions (assessor only, alt kısımda)
+
+### Proje Detay Modal ✅
+- [x] `components/dashboard/project-detail-modal.tsx` oluşturuldu
+- [x] Admin: kart tıklama → modal açılır
+- [x] Assessor: kart tıklama → proje sayfasına yönlendirme
+- [x] 3 Faz Özet Kartı (progress bar + yüzde)
+- [x] 3 Accordion (Desk Research, Field Research, Reporting steps)
+- [x] SVG durum ikonları (pending, in_progress, approved, needs_review, blocked)
+- [x] Status Legend
+- [x] "Go to Project" butonu
+- [x] Bolt.new referans ikonları (BookOpen, Compass, BarChart3)
+
+### Yönlendirme Düzeltmeleri ✅
+- [x] Middleware: auth sayfalarından `/dashboard`'a yönlendirme (middleware.ts:65)
+- [x] Layout logo: `/dashboard`'a link (layout.tsx:105, 154)
+- [x] Sidebar logo: `/dashboard`'a link (sidebar.tsx:167)
+- [x] Auth modal: login sonrası `/dashboard`'a yönlendirme (auth-modal.tsx:204)
+- [x] Login sayfası: login sonrası `/dashboard`'a yönlendirme (login/page.tsx:67)
+
+---
+
+## 8. Kalan İşler & Öncelikler
+
+### P0 - Kritik (Veri Bütünlüğü)
+- [ ] **Workflow steps 16→10 migration:** DB'deki eski 16-step şema, kodda 10-step config var. Trigger function `create_default_workflow_steps` hala 16 adım oluşturuyor. CHECK constraint `step_number <= 16` → `<= 10` olmalı. Mevcut projelerin workflow_steps'leri migre edilmeli.
+- [ ] **current_phase düzeltmesi:** Bazı projelerde `current_phase = 'field_research'` ama gerçekte hala desk research'te. Migration ile birlikte düzeltilmeli.
+
+### P1 - Önemli (Fonksiyonellik)
+- [ ] **Assessor rolü / görünümü:** Henüz başlanmadı. Dashboard'da admin vs assessor deneyimi farklı olacak.
+- [ ] **Sidebar navigasyonu:** Bolt.new'deki "Configuration", "Switch to Assessor View" gibi öğeler eksik.
+
+### P2 - İyileştirme
+- [ ] **Donut chart animasyonları:** Sayfa yüklendiğinde chart'ların animasyonla dolması
+- [ ] **Realtime güncellemeler:** Supabase realtime subscription ile dashboard verilerinin otomatik güncellenmesi
+- [ ] **Modal içi aksiyonlar:** Modal'dan direkt step status değiştirme (admin için)

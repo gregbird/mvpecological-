@@ -201,7 +201,7 @@ function LoginForm({
         description: 'You have successfully logged in.',
       })
       onSuccess()
-      router.push('/projects')
+      router.push('/dashboard')
       router.refresh()
     } catch {
       toast({

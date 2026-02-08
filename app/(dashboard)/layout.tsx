@@ -102,7 +102,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex flex-1 flex-col overflow-hidden">
           <header className="border-border bg-card flex h-14 items-center justify-between border-b px-4">
             <div className="flex items-center gap-3">
-              <Link href="/projects" className="flex items-center gap-2">
+              <Link href="/dashboard" className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-green-500 to-emerald-600">
                   <Leaf className="h-4 w-4 text-white" />
                 </div>
@@ -151,7 +151,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       >
         {/* Logo */}
         <div className="border-border flex h-16 items-center justify-between border-b px-6">
-          <Link href="/projects" className="flex items-center gap-2.5">
+          <Link href="/dashboard" className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-green-500 to-emerald-600">
               <Leaf className="h-5 w-5 text-white" />
             </div>
