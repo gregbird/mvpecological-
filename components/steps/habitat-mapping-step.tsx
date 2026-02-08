@@ -142,13 +142,20 @@ export function HabitatMappingStep({
   // Handle clicking a finding - fly to its location on the map
   const handleFindingClick = React.useCallback((finding: DeskResearchFinding) => {
     const location = finding.location as { coordinates: [number, number] } | null
-    if (location?.coordinates) {
-      const [lng, lat] = location.coordinates
-      setFlyToLocation({
-        center: [lat, lng],
-        zoom: 15,
-        key: `finding-${finding.id}-${Date.now()}`,
-      })
+    if (
+      location?.coordinates &&
+      Array.isArray(location.coordinates) &&
+      location.coordinates.length >= 2
+    ) {
+      const lng = Number(location.coordinates[0])
+      const lat = Number(location.coordinates[1])
+      if (!isNaN(lat) && !isNaN(lng)) {
+        setFlyToLocation({
+          center: [lat, lng],
+          zoom: 15,
+          key: `finding-${finding.id}-${Date.now()}`,
+        })
+      }
     }
   }, [])
 
