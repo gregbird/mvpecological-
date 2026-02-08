@@ -11,7 +11,7 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
         <ProjectWorkflowSidebar />
 
         {/* Main Content Area */}
-        <main className="bg-background flex-1 overflow-hidden">{children}</main>
+        <main className="bg-background flex-1 overflow-auto">{children}</main>
       </div>
     </ProjectProvider>
   )

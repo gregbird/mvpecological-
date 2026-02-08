@@ -764,8 +764,12 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
       </Tabs>
 
       {/* Assessment Dialog */}
-      <Dialog open={!!selectedFinding} onOpenChange={(open) => !open && setSelectedFinding(null)}>
-        <DialogContent className="max-w-lg">
+      <Dialog
+        open={!!selectedFinding}
+        onOpenChange={(open) => !open && setSelectedFinding(null)}
+        modal={false}
+      >
+        <DialogContent className="max-w-lg" onPointerDownOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Assess Finding</DialogTitle>
             <DialogDescription className="line-clamp-2">{selectedFinding?.title}</DialogDescription>
@@ -782,7 +786,7 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper" sideOffset={4} className="z-[200]">
                   {Object.entries(RELEVANCE_CONFIG).map(([key, config]) => (
                     <SelectItem key={key} value={key}>
                       <div className="flex items-center gap-2">

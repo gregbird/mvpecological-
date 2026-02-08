@@ -259,12 +259,15 @@ function buildContext(input: ContextInput): string {
       parts.push(`- Ecologist Notes: "${assessment.notes}"`)
     }
 
-    // Find matching deep research
+    // Find matching deep research - first check database, then raw_data
     const siteCode = rawData?.siteCode || rawData?.SITECODE
     const deepData = input.deepResearch.find((d) => d.site_code === siteCode)
 
+    // Also check if deep research is stored in raw_data (for sites not saved to DB)
+    const rawDeepResearch = rawData?.deepResearch
+
     if (deepData) {
-      parts.push(`\n  **Deep Research Results:**`)
+      parts.push(`\n  **Deep Research Results (from DB):**`)
 
       if (deepData.habitats?.length > 0) {
         parts.push(`  Qualifying Interest Habitats:`)
@@ -296,9 +299,24 @@ function buildContext(input: ContextInput): string {
       }
 
       if (deepData.ai_analysis) {
-        // Extract key points from AI analysis (first 500 chars)
         const summary = deepData.ai_analysis.substring(0, 500)
         parts.push(`  AI Conservation Summary: ${summary}...`)
+      }
+    } else if (rawDeepResearch) {
+      // Fallback to raw_data.deepResearch if not in DB
+      parts.push(`\n  **Deep Research Results:**`)
+
+      if (rawDeepResearch.aiAnalysis) {
+        const summary = rawDeepResearch.aiAnalysis.substring(0, 500)
+        parts.push(`  AI Analysis: ${summary}...`)
+      }
+
+      if (rawDeepResearch.habitats?.length > 0) {
+        parts.push(`  Habitats found: ${rawDeepResearch.habitats.length}`)
+      }
+
+      if (rawDeepResearch.species?.length > 0) {
+        parts.push(`  Species of conservation interest: ${rawDeepResearch.species.length}`)
       }
     }
     parts.push('')
@@ -326,6 +344,9 @@ function buildContext(input: ContextInput): string {
       parts.push(`- **${species.title}**`)
       parts.push(`  Scientific name: ${rawData?.scientificName || 'N/A'}`)
       parts.push(`  Taxon group: ${rawData?.taxonGroup || 'Unknown'}`)
+      if (species.distance_from_boundary_km != null) {
+        parts.push(`  Distance from site: ${species.distance_from_boundary_km.toFixed(2)} km`)
+      }
       if (rawData?.redListStatus) {
         parts.push(`  Red List Status: ${rawData.redListStatus}`)
       }
@@ -339,6 +360,14 @@ function buildContext(input: ContextInput): string {
       if (assessment.notes) {
         parts.push(`  Ecologist Notes: "${assessment.notes}"`)
       }
+
+      // Include Deep Research AI Analysis if available
+      const deepResearch = rawData?.deepResearch
+      if (deepResearch?.aiAnalysis) {
+        const summary = deepResearch.aiAnalysis.substring(0, 600)
+        parts.push(`  **Species Deep Research:**`)
+        parts.push(`  ${summary}${deepResearch.aiAnalysis.length > 600 ? '...' : ''}`)
+      }
     }
     parts.push('')
   }
@@ -348,9 +377,20 @@ function buildContext(input: ContextInput): string {
     for (const species of otherSpecies.slice(0, 10)) {
       const assessment = parseAssessment(species.notes)
       const rawData = species.raw_data as any
+      const distance =
+        species.distance_from_boundary_km != null
+          ? ` - ${species.distance_from_boundary_km.toFixed(1)}km`
+          : ''
       parts.push(
-        `- ${species.title} (${rawData?.taxonGroup || 'Unknown'}) - ${assessment.relevance}`
+        `- ${species.title} (${rawData?.taxonGroup || 'Unknown'})${distance} - ${assessment.relevance}`
       )
+
+      // Include Deep Research AI Analysis if available for other species too
+      const deepResearch = rawData?.deepResearch
+      if (deepResearch?.aiAnalysis) {
+        const summary = deepResearch.aiAnalysis.substring(0, 300)
+        parts.push(`  Deep Research: ${summary}...`)
+      }
     }
     if (otherSpecies.length > 10) {
       parts.push(`- ... and ${otherSpecies.length - 10} more species`)

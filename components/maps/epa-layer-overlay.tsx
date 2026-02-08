@@ -61,17 +61,22 @@ export function useEPALayers(
   const [isLoading, setIsLoading] = React.useState(false)
   const layersRef = React.useRef<L.Layer[]>([])
 
-  // Get active EPA layer types from visible layers
-  const activeTypes = React.useMemo(() => {
-    const types: Set<'rivers' | 'lakes' | 'catchments'> = new Set()
+  // Get active EPA layer types from visible layers - use stable string key
+  const activeTypesKey = React.useMemo(() => {
+    const types: string[] = []
     for (const layerId of visibleLayers) {
       const epaType = LAYER_TO_EPA_TYPE[layerId]
       if (epaType === 'rivers' || epaType === 'lakes' || epaType === 'catchments') {
-        types.add(epaType)
+        if (!types.includes(epaType)) types.push(epaType)
       }
     }
-    return Array.from(types)
+    return types.sort().join(',')
   }, [visibleLayers])
+
+  const activeTypes = React.useMemo(() => {
+    if (!activeTypesKey) return [] as ('rivers' | 'lakes' | 'catchments')[]
+    return activeTypesKey.split(',') as ('rivers' | 'lakes' | 'catchments')[]
+  }, [activeTypesKey])
 
   // Calculate bounding box from boundary with buffer
   const getBoundingBox = React.useCallback(
@@ -104,7 +109,13 @@ export function useEPALayers(
   // Fetch EPA data when boundary or active layers change
   React.useEffect(() => {
     if (!boundary || activeTypes.length === 0) {
-      setData({ rivers: [], lakes: [], catchments: [] })
+      // Only reset if data is not already empty to avoid infinite loop
+      setData((prev) => {
+        if (prev.rivers.length === 0 && prev.lakes.length === 0 && prev.catchments.length === 0) {
+          return prev
+        }
+        return { rivers: [], lakes: [], catchments: [] }
+      })
       return
     }
 
@@ -154,7 +165,7 @@ export function useEPALayers(
     }
 
     fetchData()
-  }, [boundary, activeTypes, getBoundingBox])
+  }, [boundary, activeTypesKey, getBoundingBox])
 
   // Render layers on map
   React.useEffect(() => {

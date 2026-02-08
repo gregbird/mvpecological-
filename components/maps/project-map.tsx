@@ -31,6 +31,29 @@ export interface MapLayer {
   color?: string
 }
 
+// Target Note marker interface
+export interface TargetNoteMarker {
+  id: string
+  category: string
+  title: string
+  description?: string | null
+  priority?: string | null
+  isVerified?: boolean | null
+  location: { coordinates: [number, number] } | null
+}
+
+// Target note category colors for markers
+const TARGET_NOTE_COLORS: Record<string, string> = {
+  access_point: '#3b82f6', // blue
+  check_feature: '#8b5cf6', // purple
+  habitat: '#22c55e', // green
+  fauna: '#f59e0b', // amber
+  flora: '#ec4899', // pink
+  management: '#64748b', // slate
+  damage: '#ef4444', // red
+  ownership: '#6366f1', // indigo
+}
+
 interface ProjectMapProps {
   className?: string
   center?: [number, number] // [lat, lng] for Leaflet
@@ -39,6 +62,9 @@ interface ProjectMapProps {
   bufferDistances?: number[] // Buffer zones in km to display
   habitatPolygons?: GeoJSON.FeatureCollection
   observationPoints?: GeoJSON.FeatureCollection
+  targetNotes?: TargetNoteMarker[]
+  selectedTargetNote?: TargetNoteMarker | null
+  onTargetNoteClick?: (note: TargetNoteMarker) => void
   findings?: DeskResearchFinding[]
   selectedFinding?: DeskResearchFinding | null
   visibleFindingTypes?: string[]
@@ -149,6 +175,9 @@ function MapComponent({
   bufferDistances,
   habitatPolygons,
   observationPoints,
+  targetNotes,
+  selectedTargetNote,
+  onTargetNoteClick,
   findings,
   selectedFinding,
   visibleFindingTypes,
@@ -165,6 +194,9 @@ function MapComponent({
   bufferDistances?: number[]
   habitatPolygons?: GeoJSON.FeatureCollection
   observationPoints?: GeoJSON.FeatureCollection
+  targetNotes?: TargetNoteMarker[]
+  selectedTargetNote?: TargetNoteMarker | null
+  onTargetNoteClick?: (note: TargetNoteMarker) => void
   findings?: DeskResearchFinding[]
   selectedFinding?: DeskResearchFinding | null
   visibleFindingTypes?: string[]
@@ -188,6 +220,7 @@ function MapComponent({
   const boundaryLayer = layers.find((l) => l.id === 'boundary')
   const habitatLayer = layers.find((l) => l.id === 'habitats')
   const obsLayer = layers.find((l) => l.id === 'observations')
+  const targetNotesLayer = layers.find((l) => l.id === 'target-notes')
   const countiesLayer = layers.find((l) => l.id === 'counties')
   const townlandsLayer = layers.find((l) => l.id === 'townlands')
   const tileConfig = TILE_LAYERS[currentStyle]
@@ -662,6 +695,68 @@ function MapComponent({
           )
         })}
 
+      {/* Target Notes */}
+      {targetNotes &&
+        targetNotes.length > 0 &&
+        (targetNotesLayer?.visible ?? true) &&
+        targetNotes.map((note) => {
+          if (!note.location?.coordinates) return null
+
+          const [lng, lat] = note.location.coordinates
+          const isSelected = selectedTargetNote?.id === note.id
+          const color = TARGET_NOTE_COLORS[note.category] || '#8b5cf6'
+          const isHighPriority = note.priority === 'high'
+          const baseRadius = isHighPriority ? 10 : 8
+
+          return (
+            <CircleMarker
+              key={`target-note-${note.id}`}
+              center={[lat, lng]}
+              radius={isSelected ? baseRadius + 4 : baseRadius}
+              pathOptions={{
+                color: isSelected ? '#fbbf24' : '#ffffff',
+                weight: isSelected ? 3 : 2,
+                fillColor: note.isVerified ? '#22c55e' : color,
+                fillOpacity: isSelected ? 1 : 0.85,
+              }}
+              eventHandlers={{
+                click: (e: L.LeafletMouseEvent) => {
+                  const L = require('leaflet')
+                  L.DomEvent.stopPropagation(e)
+                  onTargetNoteClick?.(note)
+                },
+              }}
+            >
+              <Popup>
+                <div className="max-w-xs p-2">
+                  <div className="mb-1 flex flex-wrap items-center gap-1">
+                    <span
+                      className="rounded px-1.5 py-0.5 text-xs font-medium text-white capitalize"
+                      style={{ backgroundColor: color }}
+                    >
+                      {note.category.replace('_', ' ')}
+                    </span>
+                    {isHighPriority && (
+                      <span className="rounded bg-red-600 px-1.5 py-0.5 text-xs font-medium text-white">
+                        High Priority
+                      </span>
+                    )}
+                    {note.isVerified && (
+                      <span className="rounded bg-green-600 px-1.5 py-0.5 text-xs font-medium text-white">
+                        Verified
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="font-semibold">{note.title}</h3>
+                  {note.description && (
+                    <p className="mt-1 line-clamp-2 text-sm text-gray-600">{note.description}</p>
+                  )}
+                </div>
+              </Popup>
+            </CircleMarker>
+          )
+        })}
+
       {/* Desk Research Findings */}
       {visibleFindings.length > 0 &&
         findingsLayer?.visible &&
@@ -899,6 +994,9 @@ export function ProjectMap({
   bufferDistances,
   habitatPolygons,
   observationPoints,
+  targetNotes,
+  selectedTargetNote,
+  onTargetNoteClick,
   findings,
   selectedFinding,
   visibleFindingTypes,
@@ -918,6 +1016,7 @@ export function ProjectMap({
     { id: 'boundary', name: 'Project Boundary', visible: true, color: '#ef4444' },
     { id: 'habitats', name: 'Habitat Polygons', visible: true },
     { id: 'observations', name: 'Species Observations', visible: true },
+    { id: 'target-notes', name: 'Target Notes', visible: true, color: '#8b5cf6' },
     { id: 'findings', name: 'Desk Research Findings', visible: true, color: '#3b82f6' },
     { id: 'counties', name: 'County Boundaries', visible: false, color: '#f97316' },
     { id: 'townlands', name: 'Townlands (zoom 12+)', visible: false, color: '#a855f7' },
@@ -968,6 +1067,9 @@ export function ProjectMap({
           bufferDistances={bufferDistances}
           habitatPolygons={habitatPolygons}
           observationPoints={observationPoints}
+          targetNotes={targetNotes}
+          selectedTargetNote={selectedTargetNote}
+          onTargetNoteClick={onTargetNoteClick}
           findings={findings}
           selectedFinding={selectedFinding}
           visibleFindingTypes={visibleFindingTypes}

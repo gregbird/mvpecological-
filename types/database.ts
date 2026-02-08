@@ -1010,6 +1010,7 @@ export type Database = {
           id: string
           is_verified: boolean | null
           location: unknown
+          photos: string[] | null
           priority: string | null
           project_id: string
           title: string
@@ -1026,6 +1027,7 @@ export type Database = {
           id?: string
           is_verified?: boolean | null
           location?: unknown
+          photos?: string[] | null
           priority?: string | null
           project_id: string
           title: string
@@ -1042,6 +1044,7 @@ export type Database = {
           id?: string
           is_verified?: boolean | null
           location?: unknown
+          photos?: string[] | null
           priority?: string | null
           project_id?: string
           title?: string
