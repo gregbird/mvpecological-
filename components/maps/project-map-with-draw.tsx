@@ -63,6 +63,25 @@ interface BufferColorConfig {
   name: string
 }
 
+// Finding marker interface for displaying desk research findings on map
+export interface FindingMarker {
+  id: string
+  title: string
+  dataType: 'designated_site' | 'species_record' | 'water_quality' | 'catchment' | 'other'
+  location: { coordinates: [number, number] } | null // [lng, lat] GeoJSON format
+  isProtected?: boolean
+  source?: string
+}
+
+// Finding type colors for markers
+const FINDING_MARKER_COLORS: Record<string, string> = {
+  designated_site: '#22c55e', // Green for protected sites
+  species_record: '#3b82f6', // Blue for species
+  water_quality: '#06b6d4', // Cyan for water
+  catchment: '#8b5cf6', // Purple for catchments
+  other: '#6b7280', // Gray for other
+}
+
 interface ProjectMapWithDrawProps {
   className?: string
   center?: [number, number]
@@ -89,6 +108,10 @@ interface ProjectMapWithDrawProps {
   npwsSiteCount?: number
   /** Fly to a specific location with animation - [lat, lng, zoom] */
   flyToLocation?: { center: [number, number]; zoom: number; key: string }
+  /** Desk research findings to display as markers on the map */
+  findings?: FindingMarker[]
+  /** Callback when a finding marker is clicked */
+  onFindingClick?: (finding: FindingMarker) => void
 }
 
 // Define event types for leaflet-draw
@@ -143,6 +166,8 @@ function MapComponentWithDraw({
   currentZoom = 7,
   onZoomChange,
   flyToLocation,
+  findings = [],
+  onFindingClick,
 }: {
   center: [number, number]
   zoom: number
@@ -165,6 +190,8 @@ function MapComponentWithDraw({
     bounds?: { west: number; south: number; east: number; north: number }
   ) => void
   flyToLocation?: { center: [number, number]; zoom: number; key: string }
+  findings?: FindingMarker[]
+  onFindingClick?: (finding: FindingMarker) => void
 }) {
   const {
     MapContainer,
@@ -173,6 +200,8 @@ function MapComponentWithDraw({
     FeatureGroup,
     useMap,
     ZoomControl,
+    CircleMarker,
+    Popup,
   } = require('react-leaflet')
   const { EditControl } = require('react-leaflet-draw')
 
@@ -335,7 +364,18 @@ function MapComponentWithDraw({
 
     // Handle flyToLocation prop changes
     React.useEffect(() => {
-      if (map && flyToLocation && flyToLocation.key !== lastFlyToKeyRef.current) {
+      if (
+        map &&
+        flyToLocation &&
+        flyToLocation.center &&
+        Array.isArray(flyToLocation.center) &&
+        flyToLocation.center.length >= 2 &&
+        typeof flyToLocation.center[0] === 'number' &&
+        typeof flyToLocation.center[1] === 'number' &&
+        !isNaN(flyToLocation.center[0]) &&
+        !isNaN(flyToLocation.center[1]) &&
+        flyToLocation.key !== lastFlyToKeyRef.current
+      ) {
         lastFlyToKeyRef.current = flyToLocation.key
         isInternalMoveRef.current = true
         map.flyTo(flyToLocation.center, flyToLocation.zoom, {
@@ -538,6 +578,67 @@ function MapComponentWithDraw({
         />
       ))}
 
+      {/* Finding markers from desk research */}
+      {findings.map((finding) => {
+        if (!finding.location?.coordinates) return null
+
+        // Parse coordinates - handle various formats
+        const coords = finding.location.coordinates
+        let lat: number | undefined
+        let lng: number | undefined
+
+        if (Array.isArray(coords) && coords.length >= 2) {
+          // Standard GeoJSON [lng, lat] format
+          const parsedLng =
+            typeof coords[0] === 'number' ? coords[0] : parseFloat(String(coords[0]))
+          const parsedLat =
+            typeof coords[1] === 'number' ? coords[1] : parseFloat(String(coords[1]))
+          if (!isNaN(parsedLng) && !isNaN(parsedLat)) {
+            lng = parsedLng
+            lat = parsedLat
+          }
+        }
+
+        // Skip if we couldn't parse valid coordinates
+        if (lat === undefined || lng === undefined || isNaN(lat) || isNaN(lng)) {
+          return null
+        }
+
+        const color = FINDING_MARKER_COLORS[finding.dataType] || FINDING_MARKER_COLORS.other
+        return (
+          <CircleMarker
+            key={finding.id}
+            center={[lat, lng]}
+            radius={8}
+            pathOptions={{
+              color: color,
+              fillColor: color,
+              fillOpacity: 0.7,
+              weight: 2,
+            }}
+            eventHandlers={{
+              click: () => onFindingClick?.(finding),
+            }}
+          >
+            <Popup>
+              <div className="text-sm">
+                <strong>{finding.title}</strong>
+                <br />
+                <span className="text-gray-500 capitalize">
+                  {finding.dataType.replace('_', ' ')}
+                </span>
+                {finding.isProtected && (
+                  <>
+                    <br />
+                    <span className="font-medium text-red-600">Protected</span>
+                  </>
+                )}
+              </div>
+            </Popup>
+          </CircleMarker>
+        )
+      })}
+
       {editable ? (
         <FeatureGroup
           ref={(ref: LeafletFeatureGroup | null) => {
@@ -628,6 +729,8 @@ export function ProjectMapWithDraw({
   deletedItems = new Set(),
   npwsSiteCount,
   flyToLocation,
+  findings = [],
+  onFindingClick,
 }: ProjectMapWithDrawProps) {
   const [mapLoaded, setMapLoaded] = React.useState(false)
   // Use controlled style if provided, otherwise use local state
@@ -817,6 +920,8 @@ export function ProjectMapWithDraw({
           currentZoom={currentZoom}
           onZoomChange={handleZoomChange}
           flyToLocation={flyToLocation}
+          findings={findings}
+          onFindingClick={onFindingClick}
         />
       </div>
 

@@ -1,7 +1,17 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2, Check, AlertCircle, Trash2, Pencil } from 'lucide-react'
+import {
+  Loader2,
+  Check,
+  AlertCircle,
+  Trash2,
+  Pencil,
+  MapPin,
+  TreePine,
+  Fish,
+  Shield,
+} from 'lucide-react'
 import dynamic from 'next/dynamic'
 
 import { Button } from '@/components/ui/button'
@@ -16,6 +26,7 @@ import {
   useUpdateHabitat,
   useDeleteHabitat,
   useCompleteWorkflowStep,
+  useSavedFindings,
 } from '@/hooks/use-project-data'
 import {
   HabitatForm,
@@ -23,7 +34,17 @@ import {
 } from '@/components/field-surveys/habitat-form'
 import { calculateAreaHectares } from '@/lib/supabase/queries/habitats'
 import { getHabitatByCode } from '@/lib/data/fossitt-codes'
-import type { Project, WorkflowStep, HabitatPolygon, Json } from '@/types/database'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import type {
+  Project,
+  WorkflowStep,
+  HabitatPolygon,
+  DeskResearchFinding,
+  Json,
+} from '@/types/database'
+
+import type { FindingMarker } from '@/components/maps/project-map-with-draw'
 
 // Dynamic import for map with draw controls
 const ProjectMapWithDraw = dynamic(
@@ -66,14 +87,70 @@ export function HabitatMappingStep({
     null
   )
   const [selectedHabitat, setSelectedHabitat] = React.useState<HabitatPolygon | null>(null)
+  const [flyToLocation, setFlyToLocation] = React.useState<{
+    center: [number, number]
+    zoom: number
+    key: string
+  } | null>(null)
 
   // React Query hooks
   const { data: habitats = [], isLoading } = useHabitats(project.id)
   const { data: habitatStats } = useHabitatStats(project.id)
+  const { data: savedFindings = [], isLoading: findingsLoading } = useSavedFindings(project.id)
   const createHabitat = useCreateHabitat()
   const updateHabitat = useUpdateHabitat()
   const deleteHabitat = useDeleteHabitat()
   const completeStep = useCompleteWorkflowStep()
+
+  // Group findings by data_type
+  const findingsByType = React.useMemo(() => {
+    const groups: Record<string, DeskResearchFinding[]> = {
+      designated_site: [],
+      species_record: [],
+      aquatic: [], // water_quality + catchment
+      other: [],
+    }
+    savedFindings.forEach((finding) => {
+      const type = finding.data_type
+      if (type === 'designated_site') {
+        groups.designated_site.push(finding)
+      } else if (type === 'species_record') {
+        groups.species_record.push(finding)
+      } else if (type === 'water_quality' || type === 'catchment') {
+        groups.aquatic.push(finding)
+      } else {
+        groups.other.push(finding)
+      }
+    })
+    return groups
+  }, [savedFindings])
+
+  // Convert findings to map markers
+  const findingMarkers: FindingMarker[] = React.useMemo(() => {
+    return savedFindings
+      .filter((f) => f.location)
+      .map((f) => ({
+        id: f.id,
+        title: f.title,
+        dataType: f.data_type,
+        location: f.location as { coordinates: [number, number] } | null,
+        isProtected: f.is_protected ?? undefined,
+        source: f.source,
+      }))
+  }, [savedFindings])
+
+  // Handle clicking a finding - fly to its location on the map
+  const handleFindingClick = React.useCallback((finding: DeskResearchFinding) => {
+    const location = finding.location as { coordinates: [number, number] } | null
+    if (location?.coordinates) {
+      const [lng, lat] = location.coordinates
+      setFlyToLocation({
+        center: [lat, lng],
+        zoom: 15,
+        key: `finding-${finding.id}-${Date.now()}`,
+      })
+    }
+  }, [])
 
   // Project boundary
   const projectBoundary = project.boundary as GeoJSON.Feature<GeoJSON.Polygon> | undefined
@@ -247,6 +324,10 @@ export function HabitatMappingStep({
           {/* Inline Stats */}
           <div className="hidden items-center gap-4 border-l pl-4 md:flex">
             <div className="text-center">
+              <div className="text-lg font-bold">{savedFindings.length}</div>
+              <div className="text-muted-foreground text-xs">Findings</div>
+            </div>
+            <div className="text-center">
               <div className="text-lg font-bold">{habitats.length}</div>
               <div className="text-muted-foreground text-xs">Habitats</div>
             </div>
@@ -315,47 +396,143 @@ export function HabitatMappingStep({
                   boundary={projectBoundary}
                   onBoundaryChange={handleBoundaryChange}
                   editable={!isComplete}
+                  findings={findingMarkers}
+                  flyToLocation={flyToLocation ?? undefined}
                 />
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Habitat List - Scrollable */}
+        {/* Right Panel - Tabbed Interface */}
         <div className="flex min-h-0 flex-col">
           <Card className="flex min-h-0 flex-1 flex-col">
-            <CardHeader className="py-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">Mapped Habitats</CardTitle>
-                <Badge variant="secondary">{habitats.length}</Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="min-h-0 flex-1 overflow-auto p-3 pt-0">
-              {habitats.length === 0 ? (
-                <div className="text-muted-foreground flex h-full items-center justify-center text-center text-sm">
-                  No habitats mapped yet.
-                  <br />
-                  Draw a polygon on the map to add a habitat.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {habitats.map((habitat) => (
-                    <HabitatListItem
-                      key={habitat.id}
-                      habitat={habitat}
-                      isSelected={selectedHabitat?.id === habitat.id}
-                      onSelect={() => setSelectedHabitat(habitat)}
-                      onEdit={() => {
-                        setEditingHabitat(habitat)
-                        setShowHabitatForm(true)
-                      }}
-                      onDelete={() => handleDeleteHabitat(habitat)}
-                      disabled={isComplete}
-                    />
-                  ))}
-                </div>
-              )}
-            </CardContent>
+            <Tabs defaultValue="findings" className="flex min-h-0 flex-1 flex-col">
+              <TabsList className="mx-3 mt-3 grid w-auto grid-cols-2">
+                <TabsTrigger value="findings" className="text-xs">
+                  Desk Research ({savedFindings.length})
+                </TabsTrigger>
+                <TabsTrigger value="habitats" className="text-xs">
+                  Habitats ({habitats.length})
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Desk Research Findings Tab */}
+              <TabsContent value="findings" className="mt-0 min-h-0 flex-1">
+                <CardContent className="h-full p-3">
+                  {findingsLoading ? (
+                    <div className="flex h-full items-center justify-center">
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    </div>
+                  ) : savedFindings.length === 0 ? (
+                    <div className="text-muted-foreground flex h-full items-center justify-center text-center text-sm">
+                      No saved findings from Data Gathering.
+                      <br />
+                      Complete Step 2 first.
+                    </div>
+                  ) : (
+                    <ScrollArea className="h-full">
+                      <div className="space-y-4 pr-3">
+                        {/* Designated Sites */}
+                        {findingsByType.designated_site.length > 0 && (
+                          <div>
+                            <div className="mb-2 flex items-center gap-2">
+                              <Shield className="text-primary h-4 w-4" />
+                              <span className="text-sm font-medium">
+                                Designated Sites ({findingsByType.designated_site.length})
+                              </span>
+                            </div>
+                            <div className="space-y-1.5">
+                              {findingsByType.designated_site.map((finding) => (
+                                <FindingItem
+                                  key={finding.id}
+                                  finding={finding}
+                                  onClick={() => handleFindingClick(finding)}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Species Records */}
+                        {findingsByType.species_record.length > 0 && (
+                          <div>
+                            <div className="mb-2 flex items-center gap-2">
+                              <TreePine className="text-primary h-4 w-4" />
+                              <span className="text-sm font-medium">
+                                Species Records ({findingsByType.species_record.length})
+                              </span>
+                            </div>
+                            <div className="space-y-1.5">
+                              {findingsByType.species_record.map((finding) => (
+                                <FindingItem
+                                  key={finding.id}
+                                  finding={finding}
+                                  onClick={() => handleFindingClick(finding)}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Aquatic Features */}
+                        {findingsByType.aquatic.length > 0 && (
+                          <div>
+                            <div className="mb-2 flex items-center gap-2">
+                              <Fish className="text-primary h-4 w-4" />
+                              <span className="text-sm font-medium">
+                                Aquatic Features ({findingsByType.aquatic.length})
+                              </span>
+                            </div>
+                            <div className="space-y-1.5">
+                              {findingsByType.aquatic.map((finding) => (
+                                <FindingItem
+                                  key={finding.id}
+                                  finding={finding}
+                                  onClick={() => handleFindingClick(finding)}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </ScrollArea>
+                  )}
+                </CardContent>
+              </TabsContent>
+
+              {/* Mapped Habitats Tab */}
+              <TabsContent value="habitats" className="mt-0 min-h-0 flex-1">
+                <CardContent className="h-full p-3">
+                  {habitats.length === 0 ? (
+                    <div className="text-muted-foreground flex h-full items-center justify-center text-center text-sm">
+                      No habitats mapped yet.
+                      <br />
+                      Draw a polygon on the map to add a habitat.
+                    </div>
+                  ) : (
+                    <ScrollArea className="h-full">
+                      <div className="space-y-2 pr-3">
+                        {habitats.map((habitat) => (
+                          <HabitatListItem
+                            key={habitat.id}
+                            habitat={habitat}
+                            isSelected={selectedHabitat?.id === habitat.id}
+                            onSelect={() => setSelectedHabitat(habitat)}
+                            onEdit={() => {
+                              setEditingHabitat(habitat)
+                              setShowHabitatForm(true)
+                            }}
+                            onDelete={() => handleDeleteHabitat(habitat)}
+                            disabled={isComplete}
+                          />
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  )}
+                </CardContent>
+              </TabsContent>
+            </Tabs>
           </Card>
         </div>
       </div>
@@ -452,6 +629,57 @@ function HabitatListItem({
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Finding item component for desk research data
+function FindingItem({ finding, onClick }: { finding: DeskResearchFinding; onClick?: () => void }) {
+  const rawData = finding.raw_data as Record<string, unknown> | null
+
+  // Get site type for designated sites
+  const siteType =
+    rawData?.siteType || rawData?.SITETYPE || rawData?.type || finding.source?.toUpperCase()
+
+  // Get distance
+  const distance = finding.distance_from_boundary_km
+
+  // Check if finding has a location
+  const hasLocation = !!(finding.location as { coordinates?: unknown } | null)?.coordinates
+
+  return (
+    <div
+      className={`bg-card rounded-md border p-2 text-sm transition-colors ${
+        hasLocation ? 'hover:bg-muted/50 cursor-pointer' : ''
+      }`}
+      onClick={hasLocation ? onClick : undefined}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            {siteType && (
+              <Badge variant="outline" className="text-[10px]">
+                {String(siteType)}
+              </Badge>
+            )}
+            {finding.is_protected && (
+              <Badge variant="destructive" className="text-[10px]">
+                Protected
+              </Badge>
+            )}
+          </div>
+          <p className="mt-1 truncate font-medium">{finding.title}</p>
+          {finding.content && (
+            <p className="text-muted-foreground mt-0.5 line-clamp-2 text-xs">{finding.content}</p>
+          )}
+        </div>
+        {distance !== null && distance !== undefined && (
+          <div className="text-muted-foreground flex shrink-0 items-center gap-1 text-xs">
+            <MapPin className="h-3 w-3" />
+            {distance.toFixed(1)} km
           </div>
         )}
       </div>

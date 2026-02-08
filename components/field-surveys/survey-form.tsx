@@ -36,7 +36,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
+import { useRole } from '@/contexts/role-context'
+import { createClient } from '@/lib/supabase/client'
 import type { Survey, SurveyType } from './survey-card'
+import type { Profile } from '@/types/database'
 
 const surveyFormSchema = z.object({
   surveyType: z.enum([
@@ -99,13 +102,6 @@ const PRECIPITATION_OPTIONS = [
 
 const VISIBILITY_OPTIONS = ['Excellent', 'Good', 'Moderate', 'Poor', 'Very Poor']
 
-// Mock surveyors - will be fetched from Supabase
-const MOCK_SURVEYORS = [
-  { id: '1', name: "Dr. Sarah O'Brien" },
-  { id: '2', name: 'Michael Murphy' },
-  { id: '3', name: 'Emma Kelly' },
-]
-
 export function SurveyForm({
   open,
   onOpenChange,
@@ -114,6 +110,40 @@ export function SurveyForm({
   projectId,
 }: SurveyFormProps) {
   const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const [teamMembers, setTeamMembers] = React.useState<Profile[]>([])
+  const [isLoadingMembers, setIsLoadingMembers] = React.useState(true)
+  const { user } = useRole()
+
+  // Fetch team members from organization
+  React.useEffect(() => {
+    async function fetchTeamMembers() {
+      setIsLoadingMembers(true)
+
+      try {
+        const supabase = createClient()
+
+        // If user has organization_id, filter by it; otherwise get all profiles
+        let query = supabase.from('profiles').select('*').order('full_name', { ascending: true })
+
+        if (user?.organization_id) {
+          query = query.eq('organization_id', user.organization_id)
+        }
+
+        const { data: members, error } = await query
+
+        if (error) throw error
+        setTeamMembers(members || [])
+      } catch (err) {
+        console.error('Error fetching team members:', err)
+      } finally {
+        setIsLoadingMembers(false)
+      }
+    }
+
+    if (open) {
+      fetchTeamMembers()
+    }
+  }, [open, user?.organization_id])
 
   const form = useForm<SurveyFormValues>({
     resolver: zodResolver(surveyFormSchema),
@@ -136,7 +166,7 @@ export function SurveyForm({
   const handleSubmit = async (values: SurveyFormValues) => {
     setIsSubmitting(true)
     try {
-      const surveyor = MOCK_SURVEYORS.find((s) => s.id === values.surveyorId)
+      const surveyor = teamMembers.find((s) => s.id === values.surveyorId)
 
       await onSubmit({
         id: initialData?.id,
@@ -145,7 +175,7 @@ export function SurveyForm({
         startTime: values.startTime || undefined,
         endTime: values.endTime || undefined,
         surveyor: surveyor
-          ? { id: surveyor.id, name: surveyor.name }
+          ? { id: surveyor.id, name: surveyor.full_name }
           : { id: values.surveyorId, name: 'Unknown' },
         weather: {
           temperature: values.temperature ? parseFloat(values.temperature) : undefined,
@@ -281,18 +311,30 @@ export function SurveyForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Surveyor</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select surveyor" />
+                          <SelectValue
+                            placeholder={isLoadingMembers ? 'Loading...' : 'Select surveyor'}
+                          />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {MOCK_SURVEYORS.map((surveyor) => (
-                          <SelectItem key={surveyor.id} value={surveyor.id}>
-                            {surveyor.name}
+                        {isLoadingMembers ? (
+                          <SelectItem value="_loading" disabled>
+                            Loading team members...
                           </SelectItem>
-                        ))}
+                        ) : teamMembers.length === 0 ? (
+                          <SelectItem value="_none" disabled>
+                            No team members found
+                          </SelectItem>
+                        ) : (
+                          teamMembers.map((member) => (
+                            <SelectItem key={member.id} value={member.id}>
+                              {member.full_name}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                     <FormMessage />

@@ -95,11 +95,16 @@ export function SmartScopingPanel({
     return findings.filter((f) => f.data_type === 'designated_site')
   }, [findings])
 
-  // Extract habitats from deep research if available
+  // Extract aquatic features
+  const aquaticFeatures = React.useMemo(() => {
+    return findings.filter((f) => f.data_type === 'water_quality')
+  }, [findings])
+
+  // Extract habitats from multiple sources
   const extractedHabitatCodes = React.useMemo(() => {
     const codes = new Set<string>(habitatCodes)
 
-    // Try to extract habitat codes from designated site deep research
+    // 1. Try to extract habitat codes from designated site deep research
     for (const site of designatedSites) {
       const rawData = site.raw_data as Record<string, unknown> | null
       if (rawData?.deepResearch) {
@@ -113,18 +118,73 @@ export function SmartScopingPanel({
           }
         }
       }
+
+      // 2. Infer habitats from site names
+      const title = (site.title || '').toLowerCase()
+      const siteName = (((rawData?.SITE_NAME || rawData?.siteName) as string) || '').toLowerCase()
+      const combinedName = `${title} ${siteName}`
+
+      if (combinedName.includes('bog') || combinedName.includes('peatland')) {
+        codes.add('PB1') // Raised Bog
+        codes.add('PB2') // Blanket Bog
+      }
+      if (combinedName.includes('river') || combinedName.includes('stream')) {
+        codes.add('FW2') // Depositing Rivers
+      }
+      if (combinedName.includes('lake') || combinedName.includes('lough')) {
+        codes.add('FL3') // Mesotrophic Lakes
+      }
+      if (combinedName.includes('woodland') || combinedName.includes('forest')) {
+        codes.add('WN1') // Oak-Birch-Holly Woodland
+        codes.add('WN2') // Oak-Ash-Hazel Woodland
+      }
+      if (combinedName.includes('fen') || combinedName.includes('marsh')) {
+        codes.add('PF1') // Rich Fen
+        codes.add('GS4') // Wet Grassland
+      }
+      if (combinedName.includes('heath')) {
+        codes.add('HH1') // Dry Heath
+        codes.add('HH3') // Wet Heath
+      }
+      if (combinedName.includes('dune') || combinedName.includes('coastal')) {
+        codes.add('CD2') // Marram Dunes
+        codes.add('CM1') // Salt Marsh
+      }
+    }
+
+    // 3. Add habitats based on aquatic features
+    if (aquaticFeatures.length > 0) {
+      codes.add('FW2') // Rivers
+      codes.add('FW4') // Drainage Ditches
+    }
+
+    // 4. Always add common habitats that need checking
+    if (codes.size === 0) {
+      // If no habitats found, add basic survey habitats
+      codes.add('WL1') // Hedgerows - almost always present
+      codes.add('GA1') // Improved Grassland - common
     }
 
     return Array.from(codes)
-  }, [habitatCodes, designatedSites])
+  }, [habitatCodes, designatedSites, aquaticFeatures])
 
   // Get species recommendations and enrich with GBIF data
   const enrichedSpecies = React.useMemo(() => {
     // Get base recommendations from habitat mapping
     const baseSpecies = getSpeciesForHabitats(extractedHabitatCodes)
 
-    // Create a map to track GBIF records by scientific name
-    const gbifRecordsBySpecies: Record<string, { count: number; minDistance: number }> = {}
+    // Create a map to track species records (from GBIF/NBDC)
+    const recordedSpeciesMap: Record<
+      string,
+      {
+        count: number
+        minDistance: number
+        title: string
+        isProtected: boolean
+        taxonGroup: string
+        designations: string[]
+      }
+    > = {}
 
     for (const record of speciesRecords) {
       const rawData = record.raw_data as Record<string, unknown> | null
@@ -134,14 +194,21 @@ export function SmartScopingPanel({
       if (scientificName) {
         const normalizedName = scientificName.toLowerCase()
 
-        if (!gbifRecordsBySpecies[normalizedName]) {
-          gbifRecordsBySpecies[normalizedName] = { count: 0, minDistance: Infinity }
+        if (!recordedSpeciesMap[normalizedName]) {
+          recordedSpeciesMap[normalizedName] = {
+            count: 0,
+            minDistance: Infinity,
+            title: record.title || scientificName,
+            isProtected: record.is_protected || (rawData?.isProtected as boolean) || false,
+            taxonGroup: (rawData?.taxonGroup || rawData?.class || 'Unknown') as string,
+            designations: (rawData?.designations as string[]) || [],
+          }
         }
-        gbifRecordsBySpecies[normalizedName].count++
+        recordedSpeciesMap[normalizedName].count++
 
         const distance = record.distance_from_boundary_km
-        if (distance !== null && distance < gbifRecordsBySpecies[normalizedName].minDistance) {
-          gbifRecordsBySpecies[normalizedName].minDistance = distance
+        if (distance !== null && distance < recordedSpeciesMap[normalizedName].minDistance) {
+          recordedSpeciesMap[normalizedName].minDistance = distance
         }
       }
     }
@@ -160,17 +227,16 @@ export function SmartScopingPanel({
       }
     }
 
-    // Enrich each species with GBIF data and calculate priority
+    const nearDesignatedSite = designatedSites.some((s) => {
+      const distance = s.distance_from_boundary_km
+      return distance !== null && distance < 5
+    })
+
+    // Enrich habitat-based species with recorded data
     const enriched: EnrichedSpecies[] = baseSpecies.map((species) => {
       const normalizedName = species.scientificName.toLowerCase()
-      const gbifData = gbifRecordsBySpecies[normalizedName] || { count: 0, minDistance: Infinity }
+      const recordData = recordedSpeciesMap[normalizedName]
 
-      const nearDesignatedSite = designatedSites.some((s) => {
-        const distance = s.distance_from_boundary_km
-        return distance !== null && distance < 5
-      })
-
-      // Check if species is a qualifying interest of a nearby SAC
       const isQualifyingInterest = designatedSites.some((s) => {
         const rawData = s.raw_data as Record<string, unknown> | null
         const deepResearch = rawData?.deepResearch as Record<string, unknown> | undefined
@@ -182,20 +248,49 @@ export function SmartScopingPanel({
 
       const calculatedPriority = calculateSpeciesPriority(
         species,
-        gbifData.count,
-        gbifData.minDistance === Infinity ? 10 : gbifData.minDistance,
+        recordData?.count || 0,
+        recordData?.minDistance === Infinity ? 10 : (recordData?.minDistance ?? 10),
         nearDesignatedSite,
         isQualifyingInterest
       )
 
       return {
         ...species,
-        gbifRecordCount: gbifData.count,
-        distanceToNearestRecord: gbifData.minDistance === Infinity ? -1 : gbifData.minDistance,
+        gbifRecordCount: recordData?.count || 0,
+        distanceToNearestRecord:
+          recordData?.minDistance === Infinity ? -1 : (recordData?.minDistance ?? -1),
         calculatedPriority,
         habitats: speciesHabitatMap[species.scientificName] || [],
       }
     })
+
+    // Add protected species from records that aren't in habitat mapping
+    const existingScientificNames = new Set(baseSpecies.map((s) => s.scientificName.toLowerCase()))
+
+    for (const [normalizedName, data] of Object.entries(recordedSpeciesMap)) {
+      if (!existingScientificNames.has(normalizedName) && data.isProtected) {
+        // This is a protected species from records not covered by habitat mapping
+        const surveyType = getSurveyTypeForTaxon(data.taxonGroup)
+
+        enriched.push({
+          species: data.title,
+          scientificName: normalizedName
+            .split(' ')
+            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(' '),
+          reason: `${data.count} record(s) found within search area`,
+          priority: 'high',
+          surveyType,
+          optimalMonths: getOptimalMonthsForTaxon(data.taxonGroup),
+          protectionStatus:
+            data.designations.length > 0 ? data.designations : ['Protected Species'],
+          gbifRecordCount: data.count,
+          distanceToNearestRecord: data.minDistance === Infinity ? -1 : data.minDistance,
+          calculatedPriority: 'high', // Protected species with records = high priority
+          habitats: [],
+        })
+      }
+    }
 
     // Sort by priority
     return enriched.sort((a, b) => {
@@ -203,6 +298,31 @@ export function SmartScopingPanel({
       return priorityOrder[a.calculatedPriority] - priorityOrder[b.calculatedPriority]
     })
   }, [extractedHabitatCodes, speciesRecords, designatedSites])
+
+  // Helper function to get survey type based on taxon group
+  function getSurveyTypeForTaxon(taxonGroup: string): string {
+    const group = taxonGroup.toLowerCase()
+    if (group.includes('bird') || group === 'aves') return 'Bird Survey'
+    if (group.includes('mammal') || group === 'mammalia') return 'Mammal Survey'
+    if (group.includes('bat') || group.includes('chiroptera')) return 'Bat Survey'
+    if (group.includes('amphibian')) return 'Amphibian Survey'
+    if (group.includes('reptile')) return 'Reptile Survey'
+    if (group.includes('fish')) return 'Fish Survey'
+    if (group.includes('insect') || group.includes('invertebrate')) return 'Invertebrate Survey'
+    if (group.includes('plant') || group.includes('flora')) return 'Botanical Survey'
+    return 'Species Survey'
+  }
+
+  // Helper function to get optimal survey months based on taxon
+  function getOptimalMonthsForTaxon(taxonGroup: string): string[] {
+    const group = taxonGroup.toLowerCase()
+    if (group.includes('bird') || group === 'aves') return ['Mar', 'Apr', 'May', 'Jun', 'Jul']
+    if (group.includes('bat') || group.includes('chiroptera'))
+      return ['May', 'Jun', 'Jul', 'Aug', 'Sep']
+    if (group.includes('amphibian')) return ['Mar', 'Apr', 'May', 'Jun']
+    if (group.includes('reptile')) return ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep']
+    return ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep']
+  }
 
   // Group by calculated priority
   const speciesByPriority = React.useMemo(() => {
@@ -338,36 +458,38 @@ export function SmartScopingPanel({
                       }
                     >
                       <div className={cn('rounded-lg border', config.bgColor)}>
-                        <CollapsibleTrigger className="flex w-full items-center justify-between p-3">
-                          <div className="flex items-center gap-2">
-                            <Icon className={cn('h-4 w-4', config.color)} />
-                            <span className={cn('font-medium', config.color)}>{config.label}</span>
-                            <Badge variant={config.badgeVariant} className="ml-2">
-                              {species.length}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 text-xs"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                selectAllInGroup(priority)
-                              }}
+                        <div className="flex w-full items-center justify-between p-3">
+                          <CollapsibleTrigger asChild>
+                            <button
+                              type="button"
+                              className="flex flex-1 items-center gap-2 text-left"
                             >
-                              Select All
-                            </Button>
-                            {expandedPriority[priority] ? (
-                              <ChevronUp className="h-4 w-4" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4" />
-                            )}
-                          </div>
-                        </CollapsibleTrigger>
+                              <Icon className={cn('h-4 w-4', config.color)} />
+                              <span className={cn('font-medium', config.color)}>
+                                {config.label}
+                              </span>
+                              <Badge variant={config.badgeVariant} className="ml-2">
+                                {species.length}
+                              </Badge>
+                              {expandedPriority[priority] ? (
+                                <ChevronUp className="ml-auto h-4 w-4" />
+                              ) : (
+                                <ChevronDown className="ml-auto h-4 w-4" />
+                              )}
+                            </button>
+                          </CollapsibleTrigger>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="ml-2 h-6 text-xs"
+                            onClick={() => selectAllInGroup(priority)}
+                          >
+                            Select All
+                          </Button>
+                        </div>
 
                         <CollapsibleContent>
-                          <div className="space-y-2 p-3 pt-0">
+                          <div className="max-h-64 space-y-2 overflow-y-auto p-3 pt-0">
                             {species.map((s) => (
                               <div
                                 key={s.scientificName}

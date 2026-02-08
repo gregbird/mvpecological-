@@ -40,6 +40,11 @@ import {
 import { SurveyCard, type Survey as SurveyCardType } from '@/components/field-surveys/survey-card'
 import { SurveyForm } from '@/components/field-surveys/survey-form'
 import { SmartScopingPanel } from '@/components/field-surveys/smart-scoping-panel'
+import {
+  generateFieldChecklistPDF,
+  type FieldChecklistData,
+} from '@/lib/pdf/field-checklist-generator'
+import type { SpeciesRecommendation } from '@/lib/data/habitat-species-mapping'
 import type { Project, WorkflowStep, Json } from '@/types/database'
 
 interface FieldSurveyStepProps {
@@ -598,9 +603,40 @@ export function FieldSurveyStep({
           setEditingSurvey(null)
           setShowSurveyForm(true)
         }}
-        onGenerateChecklist={(species) => {
-          // TODO: Generate PDF checklist
-          console.log('Generate checklist for:', species)
+        onGenerateChecklist={(species: SpeciesRecommendation[]) => {
+          // Extract habitat codes from findings
+          const habitatCodes: string[] = []
+          for (const finding of savedFindings) {
+            const rawData = finding.raw_data as Record<string, unknown> | null
+            if (rawData?.deepResearch) {
+              const deepResearch = rawData.deepResearch as Record<string, unknown>
+              const habitats = deepResearch.habitats as Array<{ habitatCode?: string }> | undefined
+              if (habitats) {
+                for (const h of habitats) {
+                  if (h.habitatCode && !habitatCodes.includes(h.habitatCode)) {
+                    habitatCodes.push(h.habitatCode)
+                  }
+                }
+              }
+            }
+          }
+
+          // Generate PDF checklist
+          const checklistData: FieldChecklistData = {
+            projectName: project.name,
+            projectCode: project.site_code || project.id.substring(0, 8),
+            siteName: project.townland || project.county || undefined,
+            gridReference: project.grid_reference || undefined,
+            species,
+            habitatCodes,
+          }
+
+          generateFieldChecklistPDF(checklistData)
+
+          toast({
+            title: 'Field Checklist Generated',
+            description: `PDF checklist with ${species.length} species has been downloaded.`,
+          })
         }}
       />
 
