@@ -977,7 +977,7 @@ export function AquaticDeepResearchModal({
               <Button
                 onClick={handleSaveResearch}
                 disabled={isSaving || isSaved}
-                className="min-w-[120px]"
+                className="min-w-30"
               >
                 {isSaving ? (
                   <>

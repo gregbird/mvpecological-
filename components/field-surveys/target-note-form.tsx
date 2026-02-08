@@ -234,7 +234,7 @@ export function TargetNoteForm({
                   <FormControl>
                     <Textarea
                       placeholder="Add more details about this target note..."
-                      className="min-h-[80px]"
+                      className="min-h-20"
                       {...field}
                     />
                   </FormControl>

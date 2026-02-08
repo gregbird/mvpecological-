@@ -224,12 +224,12 @@ export function HabitatForm({
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[500px] p-0" align="start">
+                    <PopoverContent className="w-125 p-0" align="start">
                       <Command>
                         <CommandInput placeholder="Search by code or name..." />
                         <CommandList>
                           <CommandEmpty>No habitat found.</CommandEmpty>
-                          <ScrollArea className="h-[300px]">
+                          <ScrollArea className="h-75">
                             {groupedHabitats.map((group) => (
                               <CommandGroup
                                 key={group.category.code}
@@ -375,7 +375,7 @@ export function HabitatForm({
                   <FormControl>
                     <Textarea
                       placeholder="Additional notes about the habitat (species composition, management, threats, etc.)..."
-                      className="min-h-[100px]"
+                      className="min-h-25"
                       {...field}
                     />
                   </FormControl>

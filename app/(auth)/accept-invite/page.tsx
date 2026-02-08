@@ -154,7 +154,7 @@ function AcceptInviteContent() {
   // Loading state
   if (isLoadingInvite) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
+      <div className="flex min-h-100 items-center justify-center">
         <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
       </div>
     )
@@ -294,7 +294,7 @@ export default function AcceptInvitePage() {
   return (
     <React.Suspense
       fallback={
-        <div className="flex min-h-[400px] items-center justify-center">
+        <div className="flex min-h-100 items-center justify-center">
           <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
         </div>
       }

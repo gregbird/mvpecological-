@@ -332,7 +332,7 @@ export function DataAnalysisStep({ project, workflowStep, onComplete }: DataAnal
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="text-muted-foreground flex h-[300px] items-center justify-center text-sm">
+                  <div className="text-muted-foreground flex h-75 items-center justify-center text-sm">
                     No habitat data available
                   </div>
                 )}
@@ -368,7 +368,7 @@ export function DataAnalysisStep({ project, workflowStep, onComplete }: DataAnal
                     </RechartsPieChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="text-muted-foreground flex h-[300px] items-center justify-center text-sm">
+                  <div className="text-muted-foreground flex h-75 items-center justify-center text-sm">
                     No condition data available
                   </div>
                 )}
@@ -416,7 +416,7 @@ export function DataAnalysisStep({ project, workflowStep, onComplete }: DataAnal
                     </RechartsPieChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="text-muted-foreground flex h-[300px] items-center justify-center text-sm">
+                  <div className="text-muted-foreground flex h-75 items-center justify-center text-sm">
                     No species observation data available
                   </div>
                 )}
@@ -520,7 +520,7 @@ export function DataAnalysisStep({ project, workflowStep, onComplete }: DataAnal
                     {habitatStats?.byFossittCode.slice(0, 10).map((h) => (
                       <TableRow key={h.code}>
                         <TableCell className="font-mono">{h.code}</TableCell>
-                        <TableCell className="max-w-[200px] truncate">{h.name}</TableCell>
+                        <TableCell className="max-w-50 truncate">{h.name}</TableCell>
                         <TableCell className="text-right">{h.area.toFixed(2)}</TableCell>
                         <TableCell className="text-right">{h.count}</TableCell>
                       </TableRow>

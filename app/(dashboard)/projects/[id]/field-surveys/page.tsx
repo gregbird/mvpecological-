@@ -303,7 +303,7 @@ export default function FieldSurveysPage() {
               {/* Filters */}
               <div className="flex flex-wrap gap-2">
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[140px]">
+                  <SelectTrigger className="w-35">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -316,7 +316,7 @@ export default function FieldSurveysPage() {
                 </Select>
 
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-45">
                     <SelectValue placeholder="Survey Type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -393,7 +393,7 @@ export default function FieldSurveysPage() {
             </CardHeader>
             <CardContent>
               <ProjectMap
-                className="h-[500px]"
+                className="h-125"
                 center={[mockProject.center.lng, mockProject.center.lat]}
                 zoom={12}
                 boundary={mockProject.boundary}

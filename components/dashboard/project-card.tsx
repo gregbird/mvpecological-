@@ -63,7 +63,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
             {project.client && (
               <div className="flex items-center gap-1">
                 <MapPin className="h-3.5 w-3.5" />
-                <span className="max-w-[120px] truncate">{project.client.name}</span>
+                <span className="max-w-30 truncate">{project.client.name}</span>
               </div>
             )}
             {project.expected_end_date && (

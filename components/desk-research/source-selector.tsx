@@ -107,7 +107,7 @@ export function SourceSelector({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="min-w-[200px] justify-between"
+          className="min-w-50 justify-between"
           disabled={disabled}
         >
           <span className="truncate">
@@ -118,7 +118,7 @@ export function SourceSelector({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[320px] p-0" align="start">
+      <PopoverContent className="w-80 p-0" align="start">
         <Command>
           <CommandInput placeholder="Search sources..." />
           <CommandList>

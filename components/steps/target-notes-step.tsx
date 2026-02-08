@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 import {
-  useObservations,
+  useProjectObservations,
   useObservationStats,
   useSurveys,
   useCreateObservation,
@@ -128,7 +128,9 @@ export function TargetNotesStep({
 
   // React Query hooks - Observations
   const { data: surveys = [] } = useSurveys(project.id)
-  const { data: observations = [], isLoading: observationsLoading } = useObservations(project.id)
+  const { data: observations = [], isLoading: observationsLoading } = useProjectObservations(
+    project.id
+  )
   const { data: observationStats } = useObservationStats(project.id)
   const createObservation = useCreateObservation()
   const updateObservation = useUpdateObservation()
@@ -728,7 +730,7 @@ export function TargetNotesStep({
                 value={selectedSurveyId || 'all'}
                 onValueChange={(value) => setSelectedSurveyId(value === 'all' ? '' : value)}
               >
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-50">
                   <SelectValue placeholder="All surveys" />
                 </SelectTrigger>
                 <SelectContent>

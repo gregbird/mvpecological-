@@ -143,7 +143,7 @@ export function CountyBoundariesLayer({
         const props = feature.properties as CountyProperties
         return (
           <Popup key={`county-popup-${index}`}>
-            <div className="min-w-[200px] p-2">
+            <div className="min-w-50 p-2">
               <h3 className="text-base font-semibold">{props.name}</h3>
               {props.nameIrish && <p className="text-sm text-gray-600 italic">{props.nameIrish}</p>}
               <div className="mt-2 space-y-1 text-sm">

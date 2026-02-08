@@ -716,7 +716,7 @@ export function FieldSurveyStep({
               </TabsList>
 
               <TabsContent value="all" className="mt-4">
-                <ScrollArea className="h-[400px]">
+                <ScrollArea className="h-100">
                   <div className="grid gap-4 pr-4 md:grid-cols-2">
                     {surveysAsCards.map((survey) => (
                       <SurveyCard
@@ -734,7 +734,7 @@ export function FieldSurveyStep({
 
               {Object.entries(surveysByStatus).map(([status, statusSurveys]) => (
                 <TabsContent key={status} value={status} className="mt-4">
-                  <ScrollArea className="h-[400px]">
+                  <ScrollArea className="h-100">
                     {statusSurveys.length === 0 ? (
                       <div className="text-muted-foreground py-8 text-center text-sm">
                         No {status.replace('_', ' ')} surveys

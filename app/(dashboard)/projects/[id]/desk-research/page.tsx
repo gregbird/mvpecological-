@@ -127,7 +127,7 @@ export default function DeskResearchPage() {
             </CardHeader>
             <CardContent>
               <ProjectMap
-                className="h-[500px]"
+                className="h-125"
                 center={[mockProject.center.lng, mockProject.center.lat]}
                 zoom={12}
                 boundary={mockProject.boundary}

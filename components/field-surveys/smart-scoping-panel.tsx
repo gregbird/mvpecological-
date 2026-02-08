@@ -320,7 +320,7 @@ export function SmartScopingPanel({
             )}
 
             {/* Priority Groups */}
-            <ScrollArea className="max-h-[500px] pr-4">
+            <ScrollArea className="max-h-125 pr-4">
               <div className="space-y-4">
                 {(['high', 'medium', 'low'] as const).map((priority) => {
                   const config = PRIORITY_CONFIG[priority]

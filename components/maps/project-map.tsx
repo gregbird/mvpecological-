@@ -572,14 +572,14 @@ function MapComponent({
 
       {/* Townlands loading indicator */}
       {townlandsLayer?.visible && townlandsLoading && currentZoom >= 12 && (
-        <div className="absolute top-4 right-4 z-[1000] rounded bg-purple-100 px-2 py-1 text-xs text-purple-800">
+        <div className="absolute top-4 right-4 z-1000 rounded bg-purple-100 px-2 py-1 text-xs text-purple-800">
           Loading townlands...
         </div>
       )}
 
       {/* Townlands zoom hint */}
       {townlandsLayer?.visible && currentZoom < 12 && (
-        <div className="absolute top-4 right-4 z-[1000] rounded bg-purple-100 px-2 py-1 text-xs text-purple-800">
+        <div className="absolute top-4 right-4 z-1000 rounded bg-purple-100 px-2 py-1 text-xs text-purple-800">
           Zoom in to see townlands (zoom 12+)
         </div>
       )}
@@ -1086,7 +1086,7 @@ export function ProjectMap({
       {showControls && (
         <div
           data-map-control="true"
-          className="pointer-events-auto absolute top-4 left-4 z-[9999] flex flex-col gap-2"
+          className="pointer-events-auto absolute top-4 left-4 z-9999 flex flex-col gap-2"
         >
           {/* Style selector */}
           <DropdownMenu>
@@ -1096,7 +1096,7 @@ export function ProjectMap({
                 Layers
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="z-[9999]">
+            <DropdownMenuContent align="start" className="z-9999">
               <DropdownMenuLabel>Base Map</DropdownMenuLabel>
               {(Object.keys(TILE_LAYERS) as MapStyle[]).map((style) => (
                 <DropdownMenuCheckboxItem

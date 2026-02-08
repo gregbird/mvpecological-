@@ -451,7 +451,7 @@ export default function DashboardPage() {
       {/* Donut Charts */}
       <div className="mb-6 grid gap-6 lg:grid-cols-3">
         {/* Project Status Distribution */}
-        <Card className="min-h-[420px]">
+        <Card className="min-h-105">
           <CardHeader className="px-8 pt-8 pb-4">
             <CardTitle className="text-xl">Project Status Distribution</CardTitle>
           </CardHeader>
@@ -479,7 +479,7 @@ export default function DashboardPage() {
         </Card>
 
         {/* Workflow Stage Progress */}
-        <Card className="min-h-[420px]">
+        <Card className="min-h-105">
           <CardHeader className="px-8 pt-8 pb-4">
             <CardTitle className="text-xl">Workflow Stage Progress</CardTitle>
           </CardHeader>
@@ -503,7 +503,7 @@ export default function DashboardPage() {
         </Card>
 
         {/* Timeline Health */}
-        <Card className="min-h-[420px]">
+        <Card className="min-h-105">
           <CardHeader className="px-8 pt-8 pb-4">
             <CardTitle className="text-xl">Timeline Health</CardTitle>
           </CardHeader>

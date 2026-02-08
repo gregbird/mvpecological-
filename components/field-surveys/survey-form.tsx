@@ -441,7 +441,7 @@ export function SurveyForm({
                   <FormControl>
                     <Textarea
                       placeholder="Any additional notes about the survey..."
-                      className="min-h-[100px]"
+                      className="min-h-25"
                       {...field}
                     />
                   </FormControl>

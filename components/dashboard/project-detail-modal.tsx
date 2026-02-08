@@ -121,7 +121,7 @@ export function ProjectDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] max-w-[800px] gap-0 overflow-y-auto p-0">
+      <DialogContent className="max-h-[85vh] max-w-200 gap-0 overflow-y-auto p-0">
         {/* Header */}
         <div className="border-b border-gray-100 px-8 pt-8 pb-5">
           <DialogTitle className="pr-8 text-2xl font-bold text-gray-900">
