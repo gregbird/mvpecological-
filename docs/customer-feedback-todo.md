@@ -19,6 +19,12 @@
 8. [Yeni Proje Başlatma](#8-yeni-proje-başlatma)
 9. [Findings Summary ve Etkileşim (YENİ)](#9-findings-summary-ve-etkileşim)
 10. [Deep Research Panel - Stage 5 (YENİ)](#10-deep-research-panel---stage-5)
+11. [Caspio Bird Database Entegrasyonu (YENİ - 8 Şubat)](#11-caspio-bird-database-entegrasyonu)
+12. [Automated Web Search - Ecological Reports (YENİ - 8 Şubat)](#12-automated-web-search---ecological-reports)
+13. [Ecological Summary Auto-Generation (YENİ - 8 Şubat)](#13-ecological-summary-auto-generation)
+14. [Smart Scoping - Field Survey Önerileri (YENİ - 8 Şubat)](#14-smart-scoping---field-survey-önerileri)
+15. [Photo & Asset Management (YENİ - 8 Şubat)](#15-photo--asset-management)
+16. [Relevé Survey Entegrasyonu (YENİ - 8 Şubat)](#16-relevé-survey-entegrasyonu)
 
 ---
 
@@ -1412,4 +1418,303 @@ Her tanımlanan site için rapor şunları açıkça listeler: İlişkili habita
 
 ---
 
-_Son güncelleme: 6 Şubat 2026_
+## 11. Caspio Bird Database Entegrasyonu (YENİ - 8 Şubat 2026)
+
+> **Kaynak:** Greg'in yeni feedback'i - "Species Bird Database Integration and Localised Search"
+
+### 11.1 Kuş Veritabanı Entegrasyonu
+
+**Müşteri İsteği (Orijinal):**
+
+> This step introduces a dedicated functionality to query and integrate data from a comprehensive species bird database. The search mechanism must allow for highly granular location-based filtering. Within the selected site, the system should execute a final search to identify all bird species records. The ultimate goal is to retrieve the mean number and name for the species (i.e., the common or standardized name) for all recorded bird species within the defined area.
+>
+> URL: https://c0cre470.caspio.com/dp/4BAE30005dbe20614b404564be88
+
+**Müşteri İsteği (Türkçe):**
+Kapsamlı bir kuş veritabanından veri sorgulamak ve entegre etmek için özel işlevsellik eklenmeli. Arama mekanizması yüksek granüler lokasyon tabanlı filtreleme yapabilmeli. Seçilen site içinde tüm kuş türü kayıtlarını bulmak için son bir arama yapılmalı. Amaç, tanımlanan alan içindeki tüm kaydedilmiş kuş türleri için **ortalama sayı (mean number)** ve **tür adını** almak.
+
+**❓ Belirsiz Noktalar - Greg'e Sorulacak:**
+
+1. GBIF zaten kuş kayıtları getiriyor. Caspio'dan ek olarak **mean number** mı istiyorsunuz?
+2. Caspio API'si nasıl çalışıyor? Authentication gerekiyor mu?
+3. Bu ayrı bir substep mi olsun, yoksa mevcut Species Records içine mi entegre edelim?
+
+**Yapılacaklar:**
+
+- [ ] **11.1.1** Caspio API'yi incele ve dokümantasyonunu bul
+  - URL: `https://c0cre470.caspio.com/dp/4BAE30005dbe20614b404564be88`
+  - API endpoints, auth, query parameters
+
+- [ ] **11.1.2** Caspio entegrasyonu için karar ver
+  - **Seçenek A:** Ayrı substep (`bird-records-substep.tsx`)
+  - **Seçenek B:** Mevcut `species-records-substep.tsx` içine "Birds (Caspio)" tab'ı ekle ✅ Önerimiz
+
+- [ ] **11.1.3** Caspio API client oluştur
+  - Dosya: `lib/external-apis/caspio.ts`
+  - Bbox/koordinat ile kuş araması
+  - Mean number + species name döndürme
+
+- [ ] **11.1.4** UI entegrasyonu
+  - Kuş kayıtlarını listele
+  - Mean number gösterimi (GBIF'den farklı olan bu)
+  - Findings'e kaydetme
+
+---
+
+## 12. Automated Web Search - Ecological Reports (YENİ - 8 Şubat 2026)
+
+> **Kaynak:** Greg'in yeni feedback'i - "Automated Web Search and Report Identification"
+
+### 12.1 Otomatik Web Araması
+
+**Müşteri İsteği (Orijinal):**
+
+> This step focuses on performing automated, targeted desk research to gather relevant ecological reports and contextual information from the public web. The application must initiate a search on the web for reports that are relevant to the defined location. The search query should be dynamically constructed using critical data points extracted from the "Create a project" phase. These search parameters must include: location area name, known habitats within the area, identified species, and relevant water features.
+
+**Standart Prompt Yapısı (Orijinal):**
+
+> "Find an ecological report that is relevant to this area [INSERT LOCATION/SITE NAME], is associated with these habitats [INSERT HABITAT TYPES], and relates to the report sector '[INSERT REPORT SECTOR, e.g., Wind farm]'."
+
+**Müşteri İsteği (Türkçe):**
+Bu adım, kamuya açık web'den ilgili ekolojik raporları ve bağlamsal bilgileri toplamak için otomatik, hedefli desk research yapmaya odaklanır. Uygulama, tanımlanan lokasyonla ilgili raporlar için web'de arama başlatmalı. Arama sorgusu, proje oluşturma aşamasından çıkarılan kritik veri noktaları kullanılarak dinamik olarak oluşturulmalı: lokasyon adı, alan içindeki habitatlar, tanımlanan türler ve ilgili su özellikleri.
+
+**❓ Belirsiz Noktalar - Greg'e Sorulacak:**
+
+1. Hangi kaynaklardan arama yapılacak?
+   - Genel Google Search mi?
+   - Planning portals (ABP, County Councils) mı?
+   - Specific databases mi?
+2. Raporlar genelde PDF formatında. Bunları nasıl işleyeceğiz?
+3. "Report sector" bilgisi nereden gelecek? Proje oluştururken mı sorulacak?
+
+**Yapılacaklar:**
+
+- [ ] **12.1.1** Web search stratejisi belirle
+  - Google Custom Search API?
+  - OpenAI web search?
+  - Planning portal scraping?
+
+- [ ] **12.1.2** Report sector field'ı ekle
+  - Proje oluşturma formuna "Sector" dropdown ekle
+  - Seçenekler: Wind farm, Housing, Infrastructure, Port, Industrial, etc.
+
+- [ ] **12.1.3** Web search API endpoint oluştur
+  - Dosya: `app/api/search/ecological-reports/route.ts`
+  - Input: location, habitats, species, sector
+  - Output: report listesi (title, URL, snippet)
+
+- [ ] **12.1.4** UI substep oluştur
+  - Dosya: `components/steps/data-gathering/ecological-reports-substep.tsx`
+  - Bulunan raporları listele
+  - Kaydetme ve Deep Research seçenekleri
+
+---
+
+## 13. Ecological Summary Auto-Generation (YENİ - 8 Şubat 2026)
+
+> **Kaynak:** Greg'in yeni feedback'i - "Ecological Summary Generation"
+
+### 13.1 Otomatik Ekolojik Özet Üretimi
+
+**Müşteri İsteği (Orijinal):**
+
+> Upon the successful completion of the desk research (Steps 1 and 2), the application must automatically synthesize the collected findings into a structured and comprehensive Ecological Summary. The summary should be presented in a clear, easily digestible format, utilizing either bullet points or a concise text summary. The summary must ensure the inclusion of detailed findings for the following mandatory categories:
+>
+> - Habitats: Description and condition of primary habitat types found.
+> - Species (Bird, Fauna, and Flora): A list of key species identified.
+> - Aquatic Features: Details regarding significant water features, including their ecological status.
+> - Designated Areas: A comprehensive list of all conservation designation areas relevant to the site.
+
+**Müşteri İsteği (Türkçe):**
+Desk research başarıyla tamamlandığında, uygulama toplanan bulguları yapılandırılmış ve kapsamlı bir Ekolojik Özet'e otomatik olarak sentezlemeli. Özet, bullet points veya özlü metin formatında sunulmalı. Zorunlu kategoriler:
+
+- **Habitats:** Bulunan birincil habitat tiplerinin açıklaması ve durumu
+- **Species:** Tanımlanan anahtar türlerin listesi (kuş, fauna, flora)
+- **Aquatic Features:** Önemli su özelliklerinin detayları ve ekolojik durumu
+- **Designated Areas:** Site ile ilgili tüm koruma alanlarının kapsamlı listesi
+
+**📝 Mevcut Durum:**
+Bu özellik **kısmen mevcut**. Step 3 (Desk Assessment) → "Generate AI Insights" butonu benzer bir iş yapıyor. Ancak:
+
+- Mevcut format Greg'in istediği yapıda değil
+- Otomatik değil, manuel butona tıklamak gerekiyor
+
+**Yapılacaklar:**
+
+- [ ] **13.1.1** Mevcut AI Insights çıktısını Greg'in formatına uyarla
+  - 4 zorunlu kategori: Habitats, Species, Aquatic, Designated Areas
+  - Bullet points formatı
+
+- [ ] **13.1.2** Otomatik tetikleme ekle
+  - Data Gathering (Step 2) tamamlandığında otomatik özet üret
+  - Veya Step 3'e geçişte otomatik çalıştır
+
+- [ ] **13.1.3** Ecological Summary panel bileşeni
+  - Dosya: `components/desk-research/ecological-summary-panel.tsx`
+  - 4 kategori collapsible sections
+  - Export seçeneği (PDF/Word)
+
+---
+
+## 14. Smart Scoping - Field Survey Önerileri (YENİ - 8 Şubat 2026)
+
+> **Kaynak:** Greg'in yeni feedback'i - "Field Survey & Digital Collection - Smart Scoping"
+
+### 14.1 Akıllı Saha Araştırması Önerileri
+
+**Müşteri İsteği (Orijinal):**
+
+> Smart Scoping: The system must recommend specific protected species for field verification based on the findings of the initial Desk Research.
+
+**Müşteri İsteği (Türkçe):**
+Sistem, ilk Desk Research bulgularına dayalı olarak saha doğrulaması için belirli korunan türleri önermeli.
+
+**📝 Mevcut Durum:**
+Bu özellik **şu an yok**. Field survey'e geçildiğinde ecologist kendi kararıyla neyi arayacağına karar veriyor. Sistem öneri sunmuyor.
+
+**Yapılacaklar:**
+
+- [ ] **14.1.1** Habitat-Species mapping oluştur
+  - Dosya: `lib/data/habitat-species-mapping.ts`
+  - Her habitat tipi için potansiyel korunan türler
+  - Örnek: WL1 (Hedgerow) → Badger, nesting birds
+  - Örnek: FW2 (River) → Otter, Kingfisher, Salmon
+
+- [ ] **14.1.2** Smart Scoping algoritması
+  - Input: Desk research findings (habitats, existing species records, designated sites)
+  - Output: Öncelikli tür listesi + gerekçe
+  - Öncelik seviyeleri: High, Medium, Low
+
+- [ ] **14.1.3** Smart Scoping UI paneli
+  - Dosya: `components/field-surveys/smart-scoping-panel.tsx`
+  - Field Survey step'ine entegre
+  - Önerilen türler listesi
+  - Her tür için: isim, gerekçe, survey metodu önerisi
+  - Checklist oluşturma butonu
+
+- [ ] **14.1.4** Survey checklist entegrasyonu
+  - Önerilen türlerden otomatik checklist oluştur
+  - Field survey formuna aktarma
+
+---
+
+## 15. Photo & Asset Management (YENİ - 8 Şubat 2026)
+
+> **Kaynak:** Greg'in yeni feedback'i - "Photo & Asset Management"
+
+### 15.1 Geotagged Photo Archiving
+
+**Müşteri İsteği (Orijinal):**
+
+> Geotagged Photo Archiving: Photos taken in the field must be automatically geotagged and synced to the specific project record.
+>
+> Streamlined Retrieval: Unlike "clunky" existing solutions (e.g., Survey 123), the system must provide a lightweight gallery view that allows ecologists to quickly tag and retrieve photos for report writing without high latency or storage friction.
+
+**Müşteri İsteği (Türkçe):**
+
+- Sahada çekilen fotoğraflar otomatik olarak geotag'lenmeli ve proje kaydına senkronize edilmeli
+- Survey 123 gibi "hantal" çözümlerin aksine, sistem hafif bir galeri görünümü sunmalı
+- Ekolojistler, yüksek gecikme veya depolama sürtünmesi olmadan fotoğrafları hızlıca tag'leyip alabilmeli
+
+**Yapılacaklar:**
+
+- [ ] **15.1.1** Supabase Storage bucket oluştur
+  - `project-photos` bucket
+  - RLS policies: proje üyeleri erişebilir
+
+- [ ] **15.1.2** Photo upload bileşeni
+  - Dosya: `components/field-surveys/photo-capture.tsx`
+  - Kameradan çekim veya galeri seçimi
+  - Otomatik EXIF geotag okuma
+  - Manuel konum düzeltme seçeneği
+
+- [ ] **15.1.3** Photo metadata tablosu
+
+  ```sql
+  CREATE TABLE project_photos (
+    id UUID PRIMARY KEY,
+    project_id UUID REFERENCES projects(id),
+    survey_id UUID REFERENCES surveys(id),
+    file_path TEXT NOT NULL,
+    latitude DECIMAL,
+    longitude DECIMAL,
+    taken_at TIMESTAMPTZ,
+    tags TEXT[], -- ['habitat', 'species', 'damage']
+    notes TEXT,
+    created_by UUID REFERENCES profiles(id),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+  ```
+
+- [ ] **15.1.4** Lightweight gallery bileşeni
+  - Dosya: `components/field-surveys/photo-gallery.tsx`
+  - Grid view (hızlı yükleme, lazy loading)
+  - Tag filtreleme
+  - Haritada görüntüleme (geotag'e göre)
+  - Rapor yazarken drag & drop
+
+- [ ] **15.1.5** Relevé Survey entegrasyonu
+  - Mevcut prototip: `https://dulraecological.bolt.host/admin/projects/:projectId/releve-survey`
+  - Fotoğrafları survey kaydına bağlama
+
+---
+
+## 16. Relevé Survey Entegrasyonu (YENİ - 8 Şubat 2026)
+
+> **Kaynak:** Greg'in yeni feedback'i - "Use the Habitat Survey here and the Relevé Survey structure"
+
+### 16.1 Relevé Survey Yapısı
+
+**Müşteri İsteği (Orijinal):**
+
+> Use the Habitat Survey here and the Relevé Survey structure here from the existing prototype. See the link here to the Releve Survey fields: https://dulraecological.bolt.host/admin/projects/:projectId/releve-survey
+> The ecologists will have to do many of the releve surveys on the site: https://dulraecological.bolt.host/admin/habitat-mapping
+
+**Müşteri İsteği (Türkçe):**
+Mevcut prototipteki Habitat Survey ve Relevé Survey yapısını kullan. Ekolojistler sahada birçok relevé survey yapacak.
+
+**❓ Belirsiz Noktalar - Greg'e Sorulacak:**
+
+1. Mevcut prototipteki Relevé Survey field'ları neler?
+2. Bu bizim mevcut Habitat Mapping step'inin yerine mi geçecek, yoksa ek mi olacak?
+
+**Yapılacaklar:**
+
+- [ ] **16.1.1** Mevcut Relevé Survey prototipini incele
+  - URL: `https://dulraecological.bolt.host/admin/projects/:projectId/releve-survey`
+  - Field listesini çıkar
+
+- [ ] **16.1.2** Relevé Survey form bileşeni
+  - Dosya: `components/field-surveys/releve-survey-form.tsx`
+  - Prototipteki field'ları uygula
+
+- [ ] **16.1.3** Habitat Mapping ile entegrasyon
+  - Her habitat polygon'u için Relevé Survey kaydı
+  - Çoklu survey desteği (bir sahada birden fazla relevé)
+
+---
+
+## Güncellenmiş Öncelik Matrisi
+
+### 🆕 Yeni Eklenen Görevler (8 Şubat 2026)
+
+| #    | Görev                    | Öncelik     | Efor   | Belirsizlik |
+| ---- | ------------------------ | ----------- | ------ | ----------- |
+| 11.1 | Caspio Bird Database     | ❓ Belirsiz | Orta   | 🔴 Yüksek   |
+| 12.1 | Automated Web Search     | ❓ Belirsiz | Yüksek | 🔴 Yüksek   |
+| 13.1 | Ecological Summary       | 🟡 Orta     | Düşük  | 🟢 Düşük    |
+| 14.1 | Smart Scoping            | 🔴 Yüksek   | Orta   | 🟢 Düşük    |
+| 15.1 | Photo & Asset Management | 🟡 Orta     | Yüksek | 🟢 Düşük    |
+| 16.1 | Relevé Survey            | ❓ Belirsiz | Orta   | 🟡 Orta     |
+
+### Greg'e Sorulacak Sorular
+
+1. **Caspio Bird DB:** GBIF zaten kuş kayıtları getiriyor. Caspio'dan ek olarak "mean number" mı istiyorsunuz? API dokümantasyonu var mı?
+
+2. **Web Search:** Hangi kaynaklardan arama yapılacak? (Google, Planning portals, specific databases?) "Report sector" bilgisi nereden gelecek?
+
+3. **Relevé Survey:** Mevcut prototipteki field'ların listesini paylaşabilir misiniz?
+
+---
+
+_Son güncelleme: 8 Şubat 2026_

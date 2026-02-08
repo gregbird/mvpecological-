@@ -346,6 +346,50 @@ export type Database = {
           },
         ]
       }
+      map_screenshots: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          height: number | null
+          id: string
+          label: string
+          project_id: string
+          step_name: string
+          storage_path: string
+          width: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          height?: number | null
+          id?: string
+          label: string
+          project_id: string
+          step_name: string
+          storage_path: string
+          width?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          height?: number | null
+          id?: string
+          label?: string
+          project_id?: string
+          step_name?: string
+          storage_path?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'map_screenshots_project_id_fkey'
+            columns: ['project_id']
+            isOneToOne: false
+            referencedRelation: 'projects'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       habitat_polygons: {
         Row: {
           area_hectares: number | null

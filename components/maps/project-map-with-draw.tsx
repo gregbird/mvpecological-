@@ -753,7 +753,11 @@ export function ProjectMapWithDraw({
     const handleResize = () => {
       // Small delay to let the DOM settle
       setTimeout(() => {
-        mapRef.current?.invalidateSize()
+        try {
+          mapRef.current?.invalidateSize()
+        } catch {
+          // Ignore Leaflet internal errors during resize
+        }
       }, 100)
     }
 
@@ -818,7 +822,10 @@ export function ProjectMapWithDraw({
 
       {/* Drawing instructions panel - shown when editable and no boundary */}
       {editable && !boundary && (
-        <div className="bg-card/95 absolute top-4 right-20 z-[1000] max-w-xs rounded-lg border p-3 shadow-lg backdrop-blur">
+        <div
+          data-map-control="true"
+          className="bg-card/95 absolute top-4 right-20 z-[1000] max-w-xs rounded-lg border p-3 shadow-lg backdrop-blur"
+        >
           <h4 className="mb-2 flex items-center gap-2 text-sm font-medium">
             <Info className="h-4 w-4" />
             Draw Site Boundary
@@ -841,7 +848,7 @@ export function ProjectMapWithDraw({
       )}
 
       {/* Map controls overlay */}
-      <div className="absolute top-4 left-4 z-[1000] flex flex-col gap-2">
+      <div data-map-control="true" className="absolute top-4 left-4 z-[1000] flex flex-col gap-2">
         {/* Style selector */}
         {showLayersControl && (
           <DropdownMenu>
@@ -896,7 +903,10 @@ export function ProjectMapWithDraw({
       </div>
 
       {/* Zoom controls - bottom right */}
-      <div className="absolute right-4 bottom-4 z-[1000] flex flex-col gap-1">
+      <div
+        data-map-control="true"
+        className="absolute right-4 bottom-4 z-[1000] flex flex-col gap-1"
+      >
         <Button
           variant="secondary"
           size="icon"
@@ -920,7 +930,10 @@ export function ProjectMapWithDraw({
         visibleLayers.some((l) =>
           ['rivers', 'lakes', 'catchments', 'wfd_river_status'].includes(l)
         )) && (
-        <div className="bg-background/90 absolute bottom-4 left-4 z-[1000] space-y-1 rounded-lg px-3 py-2 text-sm shadow-lg backdrop-blur-sm">
+        <div
+          data-map-control="true"
+          className="bg-background/90 absolute bottom-4 left-4 z-[1000] space-y-1 rounded-lg px-3 py-2 text-sm shadow-lg backdrop-blur-sm"
+        >
           {/* NPWS Sites */}
           {visibleLayers.some((l) => ['sac', 'spa', 'nha', 'pnha'].includes(l)) && (
             <div>

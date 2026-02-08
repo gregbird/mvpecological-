@@ -98,7 +98,14 @@ function DonutChart({
     <div className="relative mx-auto h-56 w-56">
       <svg viewBox="0 0 100 100" className="h-full w-full">
         {total === 0 ? (
-          <circle cx={cx} cy={cy} r={(outerR + innerR) / 2} fill="none" stroke="#e5e7eb" strokeWidth={outerR - innerR} />
+          <circle
+            cx={cx}
+            cy={cy}
+            r={(outerR + innerR) / 2}
+            fill="none"
+            stroke="#e5e7eb"
+            strokeWidth={outerR - innerR}
+          />
         ) : (
           segments.map((seg, i) =>
             seg.value === 0 ? null : (
@@ -284,7 +291,10 @@ export default function DashboardPage() {
             const elapsed = now.getTime() - startDate.getTime()
 
             if (totalDuration > 0) {
-              timelineProgress = Math.min(100, Math.max(0, Math.round((elapsed / totalDuration) * 100)))
+              timelineProgress = Math.min(
+                100,
+                Math.max(0, Math.round((elapsed / totalDuration) * 100))
+              )
             }
 
             const diffMs = endDate.getTime() - now.getTime()
@@ -385,8 +395,7 @@ export default function DashboardPage() {
     { value: stats.overdue, color: '#ef4444', label: 'Overdue' },
   ]
   const activeTotal = stats.onTrack + stats.atRisk + stats.overdue
-  const healthyPercentage =
-    activeTotal > 0 ? Math.round((stats.onTrack / activeTotal) * 100) : 0
+  const healthyPercentage = activeTotal > 0 ? Math.round((stats.onTrack / activeTotal) * 100) : 0
 
   // Loading state
   if (isLoading || isRoleLoading) {
@@ -456,7 +465,10 @@ export default function DashboardPage() {
               {statusData.map((item) => (
                 <div key={item.label} className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="h-3.5 w-3.5 rounded-sm" style={{ backgroundColor: item.color }} />
+                    <div
+                      className="h-3.5 w-3.5 rounded-sm"
+                      style={{ backgroundColor: item.color }}
+                    />
                     <span className="text-sm text-gray-600">{item.label}</span>
                   </div>
                   <span className="text-sm font-semibold">{item.value}</span>
@@ -477,7 +489,10 @@ export default function DashboardPage() {
               {workflowData.map((item) => (
                 <div key={item.label} className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="h-3.5 w-3.5 rounded-sm" style={{ backgroundColor: item.color }} />
+                    <div
+                      className="h-3.5 w-3.5 rounded-sm"
+                      style={{ backgroundColor: item.color }}
+                    />
                     <span className="text-sm text-gray-600">{item.label}</span>
                   </div>
                   <span className="text-sm font-semibold">{item.value}</span>
@@ -502,7 +517,10 @@ export default function DashboardPage() {
               {healthData.map((item) => (
                 <div key={item.label} className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="h-3.5 w-3.5 rounded-full" style={{ backgroundColor: item.color }} />
+                    <div
+                      className="h-3.5 w-3.5 rounded-full"
+                      style={{ backgroundColor: item.color }}
+                    />
                     <span className="text-sm text-gray-600">{item.label}</span>
                   </div>
                   <span className="text-sm font-semibold">{item.value}</span>
@@ -603,13 +621,13 @@ export default function DashboardPage() {
                         {/* Row 1: Status dot + Project name */}
                         <div className="mb-1 flex items-center gap-2.5">
                           <div className={`h-3.5 w-3.5 flex-shrink-0 rounded-full ${colors.dot}`} />
-                          <h3 className="font-semibold text-gray-900 leading-tight line-clamp-1">
+                          <h3 className="line-clamp-1 leading-tight font-semibold text-gray-900">
                             {project.name}
                           </h3>
                         </div>
 
                         {/* Row 2: Site code */}
-                        <p className="mb-3 text-xs text-gray-400 font-mono pl-6">
+                        <p className="mb-3 pl-6 font-mono text-xs text-gray-400">
                           {project.site_code || project.id.slice(0, 8)}
                         </p>
 
@@ -633,12 +651,8 @@ export default function DashboardPage() {
 
                         {/* Row 5: Start - End dates */}
                         <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-400">
-                            {startLabel || '—'}
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            {endLabel || '—'}
-                          </span>
+                          <span className="text-xs text-gray-400">{startLabel || '—'}</span>
+                          <span className="text-xs text-gray-400">{endLabel || '—'}</span>
                         </div>
                       </CardContent>
                     </Card>

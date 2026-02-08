@@ -46,6 +46,7 @@ import { useToast } from '@/hooks/use-toast'
 import { TargetNoteForm } from './target-note-form'
 import type { Project, DeskResearchFinding } from '@/types/database'
 import type { TargetNoteWithCreator } from '@/lib/supabase/queries/target-notes'
+import { ScreenshotGallery } from '@/components/maps/screenshot-gallery'
 
 // Dynamic import for map
 const ProjectMap = dynamic(
@@ -420,6 +421,12 @@ export function ReviewExportSubStep({
                   )}
                 </div>
               </div>
+            </div>
+
+            {/* Map Screenshots */}
+            <div className="rounded-lg border p-3">
+              <h4 className="mb-2 text-sm font-medium">Map Screenshots</h4>
+              <ScreenshotGallery projectId={project.id} />
             </div>
 
             {/* Saved Findings List */}

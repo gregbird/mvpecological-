@@ -982,7 +982,10 @@ export function ProjectMap({
 
       {/* Map controls overlay */}
       {showControls && (
-        <div className="pointer-events-auto absolute top-4 left-4 z-[9999] flex flex-col gap-2">
+        <div
+          data-map-control="true"
+          className="pointer-events-auto absolute top-4 left-4 z-[9999] flex flex-col gap-2"
+        >
           {/* Style selector */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

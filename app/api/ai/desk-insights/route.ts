@@ -437,76 +437,92 @@ function buildContext(input: ContextInput): string {
 }
 
 function buildPrompt(context: string): string {
-  return `Based on the following comprehensive desk study data for an ecological assessment project in Ireland, provide a detailed analysis suitable for a Preliminary Ecological Appraisal (PEA) report.
+  return `Based on the following comprehensive desk study data for an ecological assessment project in Ireland, provide a detailed Ecological Summary suitable for a Preliminary Ecological Appraisal (PEA) report.
 
 ${context}
 
 ---
 
-Provide your analysis in the following format:
+Provide your analysis in the following structured format (Greg's 4-Category Structure):
 
-## 1. Executive Summary
-[3-4 sentences summarizing the key ecological constraints and opportunities identified through desk study. Be specific about what was found.]
+## Ecological Summary
 
-## 2. Designated Sites Assessment
+### 🌿 Habitats
 
-### Sites Within Zone of Influence
-[For each designated site, assess:
-- Potential connectivity pathways to the project site
-- Qualifying interests that may be affected
-- Whether Appropriate Assessment screening is likely required]
+[For each habitat identified, provide:
+- **[FOSSITT Code] - [Habitat Name]:** Description and condition
+- Area coverage if known
+- Ecological significance
+- Any notable features
 
-### Cumulative Considerations
-[Any cumulative or in-combination effects to consider with nearby projects]
+Example format:
+- **GA1 - Improved Agricultural Grassland:** Dominant habitat type, covers 60% of site. Poor condition due to intensive grazing.
+- **WL1 - Hedgerows:** Linear habitat along northern boundary. Good condition, species-rich with Hawthorn and Blackthorn.]
 
-## 3. Species Assessment
+### 🦎 Species
 
-### Protected Species
-[For each protected species recorded:
-- Likelihood of presence at the project site based on habitat suitability
-- Legal protection status and survey implications
-- Seasonal constraints for surveys]
+**Birds:**
+[List key bird species with:
+- Common name (Scientific name)
+- Number of records and distance from site
+- Conservation status (Annex I, Red/Amber listed, etc.)
+- Breeding/wintering status if known]
 
-### Species of Conservation Concern
-[Other notable species requiring consideration]
+**Mammals:**
+[List mammal species with:
+- Common name (Scientific name)
+- Likelihood of presence based on habitat
+- Legal protection (Annex II/IV, Wildlife Acts)
+- Survey recommendations]
 
-## 4. Aquatic Environment
+**Flora:**
+[List any notable or protected plant species, or state "No protected flora recorded"]
 
-### Water Quality Context
-[Analysis of WFD status and trends for relevant water bodies]
+**Other Taxa:**
+[Include amphibians, reptiles, invertebrates if relevant]
 
-### Hydrological Connectivity
-[How water bodies may be affected by the proposed development]
+### 💧 Aquatic Features
 
-### Aquatic Species
-[Protected aquatic species that may require targeted surveys]
+[For each water body:
+- **[Water Body Name]:** Type (River/Lake/Stream)
+- WFD Status and Risk Level
+- Key pressures identified
+- Downstream connectivity (especially to designated sites)
+- Associated aquatic species of conservation concern]
 
-## 5. Key Ecological Constraints
-[Bulleted list of the main constraints identified, ranked by importance]
+### 🏛️ Designated Areas
 
-## 6. Recommended Field Surveys
+[Create a table format:]
+
+| Site | Code | Type | Distance | Qualifying Interests |
+|------|------|------|----------|---------------------|
+[List all designated sites with their key qualifying interests]
+
+---
+
+## Key Ecological Constraints
+
+[Bulleted list of the main constraints identified, ranked by importance. Be specific about:
+- Which findings drive each constraint
+- Implications for project design
+- Regulatory requirements triggered]
+
+## Recommended Field Surveys
 
 ### Essential Surveys
-[Surveys that MUST be completed based on the evidence]
+[Surveys that MUST be completed based on the evidence - be specific about species/habitats]
 
 ### Recommended Surveys
-[Surveys that are advisable based on the findings]
+[Surveys that are advisable based on habitat suitability]
 
 ### Optimal Survey Timing
-[Calendar showing when each survey type should be conducted]
 
-## 7. Regulatory Requirements
+| Survey Type | Optimal Months | Constraints |
+|-------------|----------------|-------------|
+[List each survey type with optimal timing]
 
-### Appropriate Assessment
-[Is AA screening likely required? Why?]
+## Data Gaps and Limitations
 
-### Protected Species Licensing
-[Any derogation licenses that may be required]
-
-### Other Permits
-[EPA, planning conditions, etc.]
-
-## 8. Data Gaps and Limitations
 [What information is missing that should be addressed through field survey or further desk study]
 
 ---
@@ -515,5 +531,6 @@ IMPORTANT:
 - Base all conclusions on the data provided - do not speculate
 - Be specific about which findings drive each recommendation
 - Use the ecologist's assessment notes to understand site-specific priorities
-- Reference the deep research and WFD data where available`
+- Reference the deep research and WFD data where available
+- Format should be clear and easily digestible for report writing`
 }

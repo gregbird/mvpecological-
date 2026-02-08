@@ -3,12 +3,7 @@
 import Link from 'next/link'
 import { CornerDownRight, BookOpen, Compass, BarChart3 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import {
   Accordion,
   AccordionContent,
@@ -152,15 +147,10 @@ export function ProjectDetailModal({
             {phaseData.map((phase) => {
               const PhaseIcon = PHASE_ICONS[phase.id] || phase.icon
               return (
-                <div
-                  key={phase.id}
-                  className="rounded-lg border border-gray-200 px-5 py-4"
-                >
+                <div key={phase.id} className="rounded-lg border border-gray-200 px-5 py-4">
                   <div className="mb-1.5 flex items-center gap-2.5">
                     <PhaseIcon className="h-5 w-5 text-gray-500" />
-                    <span className="text-sm font-semibold text-gray-900">
-                      {phase.label}
-                    </span>
+                    <span className="text-sm font-semibold text-gray-900">{phase.label}</span>
                   </div>
                   <p className="mb-4 text-sm text-gray-500">
                     {phase.completed} of {phase.total} completed
@@ -202,9 +192,7 @@ export function ProjectDetailModal({
                   <AccordionContent className="pb-4">
                     <div className="space-y-3">
                       {phase.steps.map((step) => {
-                        const dbStep = phase.dbSteps.find(
-                          (s) => s.step_number === step.number
-                        )
+                        const dbStep = phase.dbSteps.find((s) => s.step_number === step.number)
                         const status = dbStep?.status || 'pending'
                         const prevStep = ALL_WORKFLOW_STEPS.find(
                           (s) => s.number === step.number - 1
@@ -219,12 +207,8 @@ export function ProjectDetailModal({
                               <StatusIcon status={status} />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="font-semibold text-gray-900">
-                                {step.label}
-                              </p>
-                              <p className="mt-0.5 text-sm text-gray-500">
-                                {step.description}
-                              </p>
+                              <p className="font-semibold text-gray-900">{step.label}</p>
+                              <p className="mt-0.5 text-sm text-gray-500">{step.description}</p>
                               {prevStep && (
                                 <p className="mt-1.5 flex items-center gap-1 text-xs text-gray-400">
                                   <CornerDownRight className="h-3 w-3" />
@@ -233,7 +217,7 @@ export function ProjectDetailModal({
                               )}
                             </div>
                             <span
-                              className={`mt-1 whitespace-nowrap text-sm font-medium ${getStatusColor(status)}`}
+                              className={`mt-1 text-sm font-medium whitespace-nowrap ${getStatusColor(status)}`}
                             >
                               {getStatusLabel(status)}
                             </span>
@@ -249,9 +233,7 @@ export function ProjectDetailModal({
 
           {/* Status Legend */}
           <div className="border-t border-gray-200 pt-5">
-            <p className="mb-3 text-sm font-medium text-gray-700">
-              Status Legend
-            </p>
+            <p className="mb-3 text-sm font-medium text-gray-700">Status Legend</p>
             <div className="flex flex-wrap items-center gap-5">
               {[
                 { status: 'pending', label: 'Not Started' },

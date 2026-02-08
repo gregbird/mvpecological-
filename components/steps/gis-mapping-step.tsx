@@ -60,6 +60,7 @@ import {
   STANDARD_BUFFER_DISTANCES,
   type IrishLocationInfo,
 } from '@/lib/gis'
+import { MapCaptureButton } from '@/components/maps/map-capture-button'
 import type { Project, WorkflowStep } from '@/types/database'
 import { useProjectContext } from '@/contexts/project-context'
 
@@ -186,7 +187,7 @@ const gisSourceOptions = [
   },
 ]
 
-export function GISMappingStep({ project, workflowStep, onComplete }: GISMappingStepProps) {
+export function GISMappingStep({ project, workflowStep, userId, onComplete }: GISMappingStepProps) {
   const { setMapFullscreen, refetchProject, refetchWorkflowSteps } = useProjectContext()
 
   // Check if step is completed (approved or needs_review means data exists)
@@ -241,6 +242,8 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
   const [showConnectionModal, setShowConnectionModal] = React.useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false)
 
+  // Map container ref for screenshot capture
+  const gisMapContainerRef = React.useRef<HTMLDivElement>(null)
   // Map view state (persists between wizard steps)
   const [mapCenter, setMapCenter] = React.useState<[number, number] | undefined>(undefined)
   const [mapZoom, setMapZoom] = React.useState<number | undefined>(undefined)
@@ -1211,7 +1214,7 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
         {currentStep === 'layers' && (
           <div className="flex h-full">
             {/* Map */}
-            <div className="flex-1">
+            <div className="relative flex-1" ref={gisMapContainerRef}>
               <ProjectMapWithDraw
                 className="h-full"
                 center={mapCenter}
@@ -1245,6 +1248,15 @@ export function GISMappingStep({ project, workflowStep, onComplete }: GISMapping
                   ).length
                 })()}
                 flyToLocation={flyToLocation}
+              />
+
+              {/* Map capture button */}
+              <MapCaptureButton
+                containerRef={gisMapContainerRef}
+                projectId={project.id}
+                stepName="gis_mapping"
+                userId={userId}
+                className="absolute top-4 right-4 z-[1000] shadow-md"
               />
             </div>
 

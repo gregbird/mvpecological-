@@ -39,6 +39,7 @@ import {
 } from '@/hooks/use-project-data'
 import { SurveyCard, type Survey as SurveyCardType } from '@/components/field-surveys/survey-card'
 import { SurveyForm } from '@/components/field-surveys/survey-form'
+import { SmartScopingPanel } from '@/components/field-surveys/smart-scoping-panel'
 import type { Project, WorkflowStep, Json } from '@/types/database'
 
 interface FieldSurveyStepProps {
@@ -588,6 +589,20 @@ export function FieldSurveyStep({
           </CollapsibleContent>
         </Card>
       </Collapsible>
+
+      {/* Smart Scoping Panel */}
+      <SmartScopingPanel
+        findings={savedFindings}
+        onAddToSurvey={(species) => {
+          // Pre-select appropriate survey type when creating survey
+          setEditingSurvey(null)
+          setShowSurveyForm(true)
+        }}
+        onGenerateChecklist={(species) => {
+          // TODO: Generate PDF checklist
+          console.log('Generate checklist for:', species)
+        }}
+      />
 
       {/* Instructions */}
       <Alert>

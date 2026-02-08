@@ -34,6 +34,7 @@ import {
 } from '@/components/desk-research/aquatic-deep-research-modal'
 import type { Project, DeskResearchFinding, Json } from '@/types/database'
 import type { FindingSource, FindingType } from '@/components/desk-research/finding-card'
+import { MapCaptureButton } from '@/components/maps/map-capture-button'
 
 // Dynamic import for map
 const ProjectMap = dynamic(
@@ -97,6 +98,8 @@ export function AquaticFeaturesSubStep({
   const [activeFilter, setActiveFilter] = React.useState<'River' | 'Lake' | 'Catchment' | null>(
     null
   )
+  // Map container ref for screenshot capture
+  const mapContainerRef = React.useRef<HTMLDivElement>(null)
   // Deep Research modal state
   const [deepResearchSite, setDeepResearchSite] = React.useState<AquaticDeepResearchSite | null>(
     null
@@ -670,7 +673,7 @@ export function AquaticFeaturesSubStep({
 
       {/* Map */}
       {showMap && (
-        <div className="relative flex-1">
+        <div className="relative flex-1" ref={mapContainerRef}>
           <ProjectMap
             className="h-full"
             center={projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]}
@@ -721,10 +724,20 @@ export function AquaticFeaturesSubStep({
             size="sm"
             className="absolute top-4 right-4 z-[1000]"
             onClick={onToggleMap}
+            data-map-control="true"
           >
             <EyeOff className="mr-1 h-4 w-4" />
             Hide Map
           </Button>
+
+          {/* Map capture button */}
+          <MapCaptureButton
+            containerRef={mapContainerRef}
+            projectId={project.id}
+            stepName="aquatic_features"
+            userId={userId}
+            className="absolute top-14 right-4 z-[1000] shadow-md"
+          />
         </div>
       )}
 
