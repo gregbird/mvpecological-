@@ -63,6 +63,7 @@ interface DesignatedSitesSubStepProps {
   savedFindings: DeskResearchFinding[]
   showMap: boolean
   onToggleMap: () => void
+  isActive?: boolean
 }
 
 export function DesignatedSitesSubStep({
@@ -74,6 +75,7 @@ export function DesignatedSitesSubStep({
   savedFindings,
   showMap,
   onToggleMap,
+  isActive,
 }: DesignatedSitesSubStepProps) {
   const { toast } = useToast()
   const createFinding = useCreateFinding()
@@ -107,6 +109,36 @@ export function DesignatedSitesSubStep({
   // Deep Research modal state
   const [deepResearchSite, setDeepResearchSite] = React.useState<DeepResearchSite | null>(null)
   const [isDeepResearchOpen, setIsDeepResearchOpen] = React.useState(false)
+
+  // Restore location data from savedFindings when cache is missing geometries
+  React.useEffect(() => {
+    if (searchResults.length === 0 || savedFindings.length === 0) return
+    const needsRestore = searchResults.some((r) => !r.location)
+    if (!needsRestore) return
+
+    setSearchResults((prev) =>
+      prev.map((result) => {
+        if (result.location) return result
+        const match = savedFindings.find(
+          (sf) => (sf.raw_data as Record<string, unknown>)?.siteCode === result.metadata?.siteCode
+        )
+        if (match?.location) {
+          return { ...result, location: match.location as GeoJSON.Geometry }
+        }
+        return result
+      })
+    )
+  }, [savedFindings]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Invalidate Leaflet map size when substep becomes visible again (after being hidden)
+  React.useEffect(() => {
+    if (isActive) {
+      const timer = setTimeout(() => {
+        window.dispatchEvent(new Event('resize'))
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [isActive])
 
   // Handle Deep Research save → update finding's raw_data with AI analysis
   const handleDeepResearchSave = React.useCallback(

@@ -111,10 +111,6 @@ export default function NewProjectPage() {
 
       // Workflow steps are automatically created by database trigger
 
-      toast({
-        title: 'Project created!',
-        description: 'Your new project has been created successfully.',
-      })
       router.push(`/projects/${project.id}`)
     } catch (err: unknown) {
       const errorObj = err as { message?: string; code?: string; details?: string }

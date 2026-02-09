@@ -175,6 +175,18 @@ export function DataGatheringStep({
   const isComplete = workflowStep.status === 'approved'
   const isMapMode = currentStep !== 'info' && currentStep !== 'review'
 
+  // Track visited substeps so we keep them mounted (preserves searchResults + map state)
+  const [visitedSteps, setVisitedSteps] = React.useState<Set<WizardStep>>(
+    () => new Set([currentStep])
+  )
+
+  React.useEffect(() => {
+    setVisitedSteps((prev) => {
+      if (prev.has(currentStep)) return prev
+      return new Set(prev).add(currentStep)
+    })
+  }, [currentStep])
+
   // PREVIEW MODE - Show summary when step is completed
   if (viewMode === 'preview') {
     return (
@@ -393,8 +405,8 @@ export function DataGatheringStep({
       </div>
 
       {/* Step Content */}
-      <div className="min-h-0 flex-1">
-        {/* Step 1: Project Info */}
+      <div className="relative min-h-0 flex-1">
+        {/* Step 1: Project Info - simple step, conditional render is fine */}
         {currentStep === 'info' && (
           <ProjectInfoSubStep
             project={project}
@@ -404,49 +416,73 @@ export function DataGatheringStep({
           />
         )}
 
-        {/* Step 2: Designated Sites (NPWS) */}
-        {currentStep === 'sites' && (
-          <DesignatedSitesSubStep
-            project={project}
-            projectBoundary={projectBoundary}
-            projectCenter={projectCenter}
-            bufferDistances={bufferDistances}
-            userId={userId}
-            savedFindings={savedFindings}
-            showMap={showMap}
-            onToggleMap={() => setShowMap(!showMap)}
-          />
+        {/* Step 2: Designated Sites (NPWS) - keep mounted once visited */}
+        {visitedSteps.has('sites') && (
+          <div
+            className={cn(
+              'absolute inset-0',
+              currentStep === 'sites' ? 'visible z-10' : 'invisible z-0'
+            )}
+          >
+            <DesignatedSitesSubStep
+              project={project}
+              projectBoundary={projectBoundary}
+              projectCenter={projectCenter}
+              bufferDistances={bufferDistances}
+              userId={userId}
+              savedFindings={savedFindings}
+              showMap={showMap}
+              onToggleMap={() => setShowMap(!showMap)}
+              isActive={currentStep === 'sites'}
+            />
+          </div>
         )}
 
-        {/* Step 3: Species Records (GBIF + NBDC) */}
-        {currentStep === 'species' && (
-          <SpeciesRecordsSubStep
-            project={project}
-            projectBoundary={projectBoundary}
-            projectCenter={projectCenter}
-            bufferDistances={bufferDistances}
-            userId={userId}
-            savedFindings={savedFindings}
-            showMap={showMap}
-            onToggleMap={() => setShowMap(!showMap)}
-          />
+        {/* Step 3: Species Records (GBIF + NBDC) - keep mounted once visited */}
+        {visitedSteps.has('species') && (
+          <div
+            className={cn(
+              'absolute inset-0',
+              currentStep === 'species' ? 'visible z-10' : 'invisible z-0'
+            )}
+          >
+            <SpeciesRecordsSubStep
+              project={project}
+              projectBoundary={projectBoundary}
+              projectCenter={projectCenter}
+              bufferDistances={bufferDistances}
+              userId={userId}
+              savedFindings={savedFindings}
+              showMap={showMap}
+              onToggleMap={() => setShowMap(!showMap)}
+              isActive={currentStep === 'species'}
+            />
+          </div>
         )}
 
-        {/* Step 4: Aquatic Features (EPA) */}
-        {currentStep === 'aquatic' && (
-          <AquaticFeaturesSubStep
-            project={project}
-            projectBoundary={projectBoundary}
-            projectCenter={projectCenter}
-            bufferDistances={bufferDistances}
-            userId={userId}
-            savedFindings={savedFindings}
-            showMap={showMap}
-            onToggleMap={() => setShowMap(!showMap)}
-          />
+        {/* Step 4: Aquatic Features (EPA) - keep mounted once visited */}
+        {visitedSteps.has('aquatic') && (
+          <div
+            className={cn(
+              'absolute inset-0',
+              currentStep === 'aquatic' ? 'visible z-10' : 'invisible z-0'
+            )}
+          >
+            <AquaticFeaturesSubStep
+              project={project}
+              projectBoundary={projectBoundary}
+              projectCenter={projectCenter}
+              bufferDistances={bufferDistances}
+              userId={userId}
+              savedFindings={savedFindings}
+              showMap={showMap}
+              onToggleMap={() => setShowMap(!showMap)}
+              isActive={currentStep === 'aquatic'}
+            />
+          </div>
         )}
 
-        {/* Step 5: Review & Export */}
+        {/* Step 5: Review & Export - simple step, conditional render is fine */}
         {currentStep === 'review' && (
           <ReviewExportSubStep
             project={project}

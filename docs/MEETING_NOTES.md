@@ -149,7 +149,4 @@ Greg has a demo call with an ecological firm. Need a working end-to-end prototyp
 
 ---
 
-_Last Updated: Feb 6, 2026_
-Arazi Araştırması ve Dijital Koleksiyon
-Akıllı Kapsam Belirleme: Sistem, ilk Masa Başı Araştırmasının bulgularına dayanarak, saha doğrulaması için belirli koruma altındaki türleri önermelidir.
-Burada Habitat Araştırmasını ve burada Relevé Araştırma yapısını kullanın (Relevé Araştırma alanlarına ilişkin bağlantıya buradan ulaşabilirsiniz: https://dulraecological.bolt.host/admin/projects/:projectId/releve-survey) (ekologların birçok relevé araştırmasını sahada yapması gerekecektir (https://dulraecological.bolt.host/admin/habitat-mapping))
+
