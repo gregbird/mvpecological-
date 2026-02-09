@@ -164,11 +164,8 @@ export function Sidebar() {
     <aside className="flex h-screen w-70 flex-col border-r border-gray-200 bg-white">
       {/* Logo */}
       <div className="flex h-16 items-center gap-2 border-b border-gray-100 px-5">
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500">
-            <Compass className="h-5 w-5 text-white" />
-          </div>
-          <span className="text-xl font-semibold text-gray-900">dulra</span>
+        <Link href="/dashboard" className="flex items-center">
+          <img src="/dulra-logo.jpg" alt="Dulra" className="h-7" />
         </Link>
       </div>
 

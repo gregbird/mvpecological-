@@ -9,7 +9,6 @@ import {
   Clock,
   History,
   LogOut,
-  Leaf,
   Settings,
   Bell,
   Search,
@@ -102,11 +101,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex flex-1 flex-col overflow-hidden">
           <header className="border-border bg-card flex h-14 items-center justify-between border-b px-4">
             <div className="flex items-center gap-3">
-              <Link href="/dashboard" className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-green-500 to-emerald-600">
-                  <Leaf className="h-4 w-4 text-white" />
-                </div>
-                <span className="text-foreground text-lg font-bold">Dulra</span>
+              <Link href="/dashboard" className="flex items-center">
+                <img src="/dulra-logo.jpg" alt="Dulra" className="h-6" />
               </Link>
             </div>
 
@@ -151,11 +147,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       >
         {/* Logo */}
         <div className="border-border flex h-16 items-center justify-between border-b px-6">
-          <Link href="/dashboard" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-linear-to-br from-green-500 to-emerald-600">
-              <Leaf className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-foreground text-xl font-bold">Dulra</span>
+          <Link href="/dashboard" className="flex items-center">
+            <img src="/dulra-logo.jpg" alt="Dulra" className="h-7" />
           </Link>
           <button
             onClick={() => setSidebarOpen(false)}

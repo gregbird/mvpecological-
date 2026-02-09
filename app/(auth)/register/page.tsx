@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Leaf, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -119,11 +119,8 @@ function RegisterContent() {
   return (
     <>
       {/* Mobile Logo */}
-      <div className="mb-8 flex items-center justify-center gap-2 lg:hidden">
-        <div className="bg-primary flex h-10 w-10 items-center justify-center rounded-lg">
-          <Leaf className="text-primary-foreground h-6 w-6" />
-        </div>
-        <span className="text-2xl font-bold">Dulra</span>
+      <div className="mb-8 flex items-center justify-center lg:hidden">
+        <img src="/dulra-logo.jpg" alt="Dulra" className="h-10" />
       </div>
 
       <Card>

@@ -1,5 +1,4 @@
 import * as React from 'react'
-import { Leaf } from 'lucide-react'
 import { ThemeToggle } from '@/components/layout/theme-toggle'
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -12,11 +11,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
       {/* Left side - Branding */}
       <div className="bg-primary text-primary-foreground hidden flex-col justify-between p-12 lg:flex lg:w-1/2">
-        <div className="flex items-center gap-2">
-          <div className="bg-primary-foreground/20 flex h-10 w-10 items-center justify-center rounded-lg">
-            <Leaf className="h-6 w-6" />
-          </div>
-          <span className="text-2xl font-bold">Dulra</span>
+        <div className="flex items-center">
+          <img src="/dulra-logo.jpg" alt="Dulra" className="h-8 mix-blend-multiply" />
         </div>
 
         <div className="space-y-6">
