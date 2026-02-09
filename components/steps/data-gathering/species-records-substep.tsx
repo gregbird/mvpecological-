@@ -166,9 +166,14 @@ export function SpeciesRecordsSubStep({
     })
   }, [])
 
-  // Save search results to sessionStorage (without rawData to avoid quota issues)
+  // Save search results to sessionStorage (debounced to avoid thrashing during enrichment)
+  const cacheTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   React.useEffect(() => {
-    if (searchResults.length > 0) {
+    if (searchResults.length === 0) return
+
+    // Clear previous timer — only write cache after 1s of no changes
+    if (cacheTimerRef.current) clearTimeout(cacheTimerRef.current)
+    cacheTimerRef.current = setTimeout(() => {
       try {
         // Strip rawData and location to reduce storage size
         const cacheableResults = searchResults.map(({ rawData, location, ...rest }) => ({
@@ -182,7 +187,6 @@ export function SpeciesRecordsSubStep({
         sessionStorage.setItem(cacheKey, JSON.stringify(cacheableResults))
       } catch (e) {
         console.warn('Failed to cache species results:', e)
-        // Try to clear old caches and retry with minimal data
         try {
           const keysToRemove: string[] = []
           for (let i = 0; i < sessionStorage.length; i++) {
@@ -210,6 +214,10 @@ export function SpeciesRecordsSubStep({
           // Give up caching
         }
       }
+    }, 1000)
+
+    return () => {
+      if (cacheTimerRef.current) clearTimeout(cacheTimerRef.current)
     }
   }, [searchResults, cacheKey])
 

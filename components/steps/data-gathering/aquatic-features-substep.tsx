@@ -171,14 +171,17 @@ export function AquaticFeaturesSubStep({
     })
   }, [])
 
-  // Save to sessionStorage when results change (without rawData to avoid quota issues)
+  // Save to sessionStorage when results change (debounced to avoid thrashing)
+  const cacheTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   React.useEffect(() => {
-    if (searchResults.length > 0) {
+    if (searchResults.length === 0) return
+
+    if (cacheTimerRef.current) clearTimeout(cacheTimerRef.current)
+    cacheTimerRef.current = setTimeout(() => {
       try {
         // Strip rawData and location to reduce storage size significantly
         const cacheableResults = searchResults.map(({ rawData, location, ...rest }) => ({
           ...rest,
-          // Only keep point coordinates for location, not full geometry
           locationCenter: location
             ? location.type === 'Point'
               ? location.coordinates
@@ -188,7 +191,6 @@ export function AquaticFeaturesSubStep({
         sessionStorage.setItem(cacheKey, JSON.stringify(cacheableResults))
       } catch (e) {
         console.warn('Failed to cache aquatic results:', e)
-        // Try to clear old caches if quota exceeded
         try {
           const keysToRemove: string[] = []
           for (let i = 0; i < sessionStorage.length; i++) {
@@ -201,7 +203,6 @@ export function AquaticFeaturesSubStep({
             }
           }
           keysToRemove.forEach((k) => sessionStorage.removeItem(k))
-          // Retry with minimal data
           const minimalResults = searchResults.map(({ id, title, source, dataType, metadata }) => ({
             id,
             title,
@@ -214,6 +215,10 @@ export function AquaticFeaturesSubStep({
           // Give up caching
         }
       }
+    }, 1000)
+
+    return () => {
+      if (cacheTimerRef.current) clearTimeout(cacheTimerRef.current)
     }
   }, [searchResults, cacheKey])
 
