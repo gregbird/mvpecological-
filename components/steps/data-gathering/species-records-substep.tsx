@@ -108,6 +108,8 @@ export function SpeciesRecordsSubStep({
   } | null>(null)
   // Track hidden findings (for map visibility toggle)
   const [hiddenIds, setHiddenIds] = React.useState<Set<string>>(new Set())
+  // Track which findings are currently saving
+  const [savingIds, setSavingIds] = React.useState<Set<string>>(new Set())
   // Source filter: 'all' | 'gbif' | 'nbdc' | 'protected'
   const [sourceFilter, setSourceFilter] = React.useState<'all' | 'gbif' | 'nbdc' | 'protected'>(
     'all'
@@ -388,14 +390,15 @@ export function SpeciesRecordsSubStep({
               nbdcData,
             },
           }
-          // Live update - each enriched species updates the list immediately
-          setSearchResults([...enriched])
+          // Don't update UI during loop — final update happens after loop ends
         }
       } catch (error) {
         console.warn(`Failed to enrich ${scientificName}:`, error)
       }
     }
 
+    // Final update with all enriched results
+    setSearchResults([...enriched])
     setIsEnriching(false)
     setEnrichmentProgress(null)
   }
@@ -615,34 +618,23 @@ export function SpeciesRecordsSubStep({
   // Handle saving a finding
   // Note: Check current saved state directly from savedFindings list
   const handleSaveFinding = async (finding: FindingDisplay) => {
-    // Check current saved state in our savedFindings list
-    const isCurrentlySaved = savedFindings.some(
-      (f) =>
-        ((f.raw_data as Record<string, unknown>)?.scientificName ===
-          finding.metadata?.scientificName &&
-          f.source === finding.source) ||
-        f.id === finding.id
-    )
-
-    if (isCurrentlySaved) {
-      // Currently saved, so user wants to remove it
-      const existingFinding = savedFindings.find(
-        (f) =>
-          ((f.raw_data as Record<string, unknown>)?.scientificName ===
-            finding.metadata?.scientificName &&
-            f.source === finding.source) ||
-          f.id === finding.id
+    setSavingIds((prev) => new Set(prev).add(finding.id))
+    try {
+      // Check current saved state in our savedFindings list
+      const isCurrentlySaved = savedFindings.some(
+        (f) => f.title === finding.title || f.id === finding.id
       )
-      if (existingFinding) {
-        try {
+
+      if (isCurrentlySaved) {
+        // Currently saved, so user wants to remove it
+        const existingFinding = savedFindings.find(
+          (f) => f.title === finding.title || f.id === finding.id
+        )
+        if (existingFinding) {
           await deleteFinding.mutateAsync(existingFinding.id)
-        } catch (error) {
-          console.error('Remove finding error:', error)
         }
-      }
-    } else {
-      // Not saved yet, so save it
-      try {
+      } else {
+        // Not saved yet, so save it
         // Determine source - if enriched with NBDC, use 'nbdc' to indicate Irish data
         const source = finding.metadata?.nbdcEnriched ? 'nbdc' : 'gbif'
 
@@ -664,9 +656,15 @@ export function SpeciesRecordsSubStep({
           red_list_status: finding.metadata?.redListStatus || null,
           created_by: userId,
         })
-      } catch (error) {
-        console.error('Save finding error:', error)
       }
+    } catch (error) {
+      console.error('Save finding error:', error)
+    } finally {
+      setSavingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(finding.id)
+        return next
+      })
     }
   }
 
@@ -1049,6 +1047,7 @@ export function SpeciesRecordsSubStep({
             emptyMessage="Search to find species"
             hiddenIds={hiddenIds}
             onToggleVisibility={handleToggleVisibility}
+            savingIds={savingIds}
           />
         </div>
       </div>

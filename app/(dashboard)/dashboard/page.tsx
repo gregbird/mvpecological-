@@ -65,11 +65,13 @@ function DonutChart({
   }
 
   function arcPath(startDeg: number, endDeg: number) {
+    // SVG arcs can't draw a full 360° (start===end draws nothing), so cap at 359.9°
+    const clampedEnd = endDeg - startDeg >= 360 ? startDeg + 359.9 : endDeg
     const s1 = polarToXY(startDeg, outerR)
-    const e1 = polarToXY(endDeg, outerR)
-    const s2 = polarToXY(endDeg, innerR)
+    const e1 = polarToXY(clampedEnd, outerR)
+    const s2 = polarToXY(clampedEnd, innerR)
     const e2 = polarToXY(startDeg, innerR)
-    const large = endDeg - startDeg > 180 ? 1 : 0
+    const large = clampedEnd - startDeg > 180 ? 1 : 0
     return [
       `M ${s1.x} ${s1.y}`,
       `A ${outerR} ${outerR} 0 ${large} 1 ${e1.x} ${e1.y}`,

@@ -578,10 +578,15 @@ export function useCreateFinding() {
 
   return useMutation({
     mutationFn: (finding: InsertTables<'desk_research_findings'>) => createFinding(finding),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['findings'] })
-      queryClient.invalidateQueries({ queryKey: ['saved-findings'] })
-      queryClient.invalidateQueries({ queryKey: ['findings-stats'] })
+    onSuccess: (data, variables) => {
+      // Immediately add to cache so UI updates in sync with spinner
+      const key = ['saved-findings', variables.project_id]
+      const prev = queryClient.getQueryData<DeskResearchFinding[]>(key)
+      if (prev && data) {
+        queryClient.setQueryData(key, [data, ...prev])
+      } else {
+        queryClient.invalidateQueries({ queryKey: key })
+      }
     },
   })
 }
@@ -610,10 +615,18 @@ export function useDeleteFinding() {
 
   return useMutation({
     mutationFn: (findingId: string) => deleteFinding(findingId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['findings'] })
-      queryClient.invalidateQueries({ queryKey: ['saved-findings'] })
-      queryClient.invalidateQueries({ queryKey: ['findings-stats'] })
+    onSuccess: (_data, findingId) => {
+      // Immediately remove from cache so UI updates in sync with spinner
+      const queries = queryClient.getQueryCache().findAll({ queryKey: ['saved-findings'] })
+      for (const query of queries) {
+        const data = query.state.data as DeskResearchFinding[] | undefined
+        if (data?.some((f) => f.id === findingId)) {
+          queryClient.setQueryData(
+            query.queryKey,
+            data.filter((f) => f.id !== findingId)
+          )
+        }
+      }
     },
   })
 }

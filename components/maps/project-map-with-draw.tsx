@@ -244,9 +244,12 @@ function MapComponentWithDraw({
       if (!map || !onViewChange) return
 
       const handleMoveEnd = () => {
-        // Skip if this was triggered by fitBounds or other internal operations
         if (isInternalMoveRef.current) {
           isInternalMoveRef.current = false
+          // Still report the new position to parent so it persists across step changes
+          const center = map.getCenter()
+          const zoom = map.getZoom()
+          onViewChange([center.lat, center.lng], zoom)
           return
         }
 

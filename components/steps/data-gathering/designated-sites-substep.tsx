@@ -106,6 +106,8 @@ export function DesignatedSitesSubStep({
   const [hiddenIds, setHiddenIds] = React.useState<Set<string>>(new Set())
   // Map container ref for screenshot capture
   const mapContainerRef = React.useRef<HTMLDivElement>(null)
+  // Track which findings are currently saving
+  const [savingIds, setSavingIds] = React.useState<Set<string>>(new Set())
   // Deep Research modal state
   const [deepResearchSite, setDeepResearchSite] = React.useState<DeepResearchSite | null>(null)
   const [isDeepResearchOpen, setIsDeepResearchOpen] = React.useState(false)
@@ -517,30 +519,23 @@ export function DesignatedSitesSubStep({
   // Handle saving a finding
   // Note: finding.isSaved represents the NEW desired state (toggled from current)
   const handleSaveFinding = async (finding: FindingDisplay) => {
-    // Check current saved state in our savedFindings list
-    const isCurrentlySaved = savedFindings.some(
-      (f) =>
-        (f.raw_data as Record<string, unknown>)?.siteCode === finding.metadata?.siteCode ||
-        f.id === finding.id
-    )
-
-    if (isCurrentlySaved) {
-      // Currently saved, so user wants to remove it
-      const existingFinding = savedFindings.find(
-        (f) =>
-          (f.raw_data as Record<string, unknown>)?.siteCode === finding.metadata?.siteCode ||
-          f.id === finding.id
+    setSavingIds((prev) => new Set(prev).add(finding.id))
+    try {
+      // Check current saved state in our savedFindings list
+      const isCurrentlySaved = savedFindings.some(
+        (f) => f.title === finding.title || f.id === finding.id
       )
-      if (existingFinding) {
-        try {
+
+      if (isCurrentlySaved) {
+        // Currently saved, so user wants to remove it
+        const existingFinding = savedFindings.find(
+          (f) => f.title === finding.title || f.id === finding.id
+        )
+        if (existingFinding) {
           await deleteFinding.mutateAsync(existingFinding.id)
-        } catch (error) {
-          console.error('Remove finding error:', error)
         }
-      }
-    } else {
-      // Not saved yet, so save it
-      try {
+      } else {
+        // Not saved yet, so save it
         await createFinding.mutateAsync({
           project_id: project.id,
           source: 'npws',
@@ -558,9 +553,15 @@ export function DesignatedSitesSubStep({
           is_protected: true,
           created_by: userId,
         })
-      } catch (error) {
-        console.error('Save finding error:', error)
       }
+    } catch (error) {
+      console.error('Save finding error:', error)
+    } finally {
+      setSavingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(finding.id)
+        return next
+      })
     }
   }
 
@@ -745,6 +746,7 @@ export function DesignatedSitesSubStep({
             emptyMessage="Search to find sites"
             hiddenIds={hiddenIds}
             onToggleVisibility={handleToggleVisibility}
+            savingIds={savingIds}
           />
         </div>
       </div>

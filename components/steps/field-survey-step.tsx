@@ -57,6 +57,7 @@ interface FieldSurveyStepProps {
 const SURVEY_TYPE_LABELS: Record<string, string> = {
   walkover: 'Walkover Survey',
   habitat_mapping: 'Habitat Mapping',
+  releve_survey: 'Relevé Survey',
   bat_survey: 'Bat Survey',
   bird_survey: 'Bird Survey',
   mammal_survey: 'Mammal Survey',
@@ -77,6 +78,8 @@ export function FieldSurveyStep({
   const [editingSurvey, setEditingSurvey] = React.useState<SurveyCardType | null>(null)
   const [activeTab, setActiveTab] = React.useState('all')
   const [showFindings, setShowFindings] = React.useState(true)
+  const [highlightedSurveyId, setHighlightedSurveyId] = React.useState<string | null>(null)
+  const surveyListRef = React.useRef<HTMLDivElement>(null)
 
   // React Query hooks
   const { data: surveys = [], isLoading } = useSurveys(project.id)
@@ -239,7 +242,7 @@ export function FieldSurveyStep({
   // Handle creating a new survey
   const handleCreateSurvey = async (data: Partial<SurveyCardType>) => {
     try {
-      await createSurvey.mutateAsync({
+      const newSurvey = await createSurvey.mutateAsync({
         project_id: project.id,
         survey_type: data.surveyType!,
         survey_date: data.surveyDate!,
@@ -257,6 +260,17 @@ export function FieldSurveyStep({
       })
 
       setShowSurveyForm(false)
+      setActiveTab('all')
+
+      // Highlight and scroll to newly created survey
+      if (newSurvey?.id) {
+        setHighlightedSurveyId(newSurvey.id)
+        setTimeout(() => {
+          surveyListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }, 300)
+        // Remove highlight after 3 seconds
+        setTimeout(() => setHighlightedSurveyId(null), 3000)
+      }
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -728,7 +742,7 @@ export function FieldSurveyStep({
           </AlertDescription>
         </Alert>
       ) : (
-        <Card>
+        <Card ref={surveyListRef}>
           <CardHeader>
             <CardTitle>Survey Schedule</CardTitle>
             <CardDescription>Manage and track all field surveys for this project</CardDescription>
@@ -762,6 +776,7 @@ export function FieldSurveyStep({
                         onEdit={handleViewSurvey}
                         onDelete={handleDeleteSurvey}
                         onApprove={handleApproveSurvey}
+                        isHighlighted={survey.id === highlightedSurveyId}
                       />
                     ))}
                   </div>
@@ -785,6 +800,7 @@ export function FieldSurveyStep({
                             onEdit={handleViewSurvey}
                             onDelete={handleDeleteSurvey}
                             onApprove={handleApproveSurvey}
+                            isHighlighted={survey.id === highlightedSurveyId}
                           />
                         ))}
                       </div>

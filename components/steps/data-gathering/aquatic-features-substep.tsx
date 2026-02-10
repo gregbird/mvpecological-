@@ -96,6 +96,8 @@ export function AquaticFeaturesSubStep({
   const [selectedFinding, setSelectedFinding] = React.useState<FindingDisplay | null>(null)
   // Track hidden findings (for map visibility toggle)
   const [hiddenIds, setHiddenIds] = React.useState<Set<string>>(new Set())
+  // Track which findings are currently saving
+  const [savingIds, setSavingIds] = React.useState<Set<string>>(new Set())
   // Filter by feature type (null = show all)
   const [activeFilter, setActiveFilter] = React.useState<'River' | 'Lake' | 'Catchment' | null>(
     null
@@ -417,32 +419,23 @@ export function AquaticFeaturesSubStep({
   // Handle saving a finding
   // Note: Check current saved state directly from savedFindings list
   const handleSaveFinding = async (finding: FindingDisplay) => {
-    // Check current saved state in our savedFindings list
-    const isCurrentlySaved = savedFindings.some(
-      (f) =>
-        ((f.raw_data as Record<string, unknown>)?.siteCode === finding.metadata?.siteCode &&
-          f.source === 'epa') ||
-        f.id === finding.id
-    )
-
-    if (isCurrentlySaved) {
-      // Currently saved, so user wants to remove it
-      const existingFinding = savedFindings.find(
-        (f) =>
-          ((f.raw_data as Record<string, unknown>)?.siteCode === finding.metadata?.siteCode &&
-            f.source === 'epa') ||
-          f.id === finding.id
+    setSavingIds((prev) => new Set(prev).add(finding.id))
+    try {
+      // Check current saved state in our savedFindings list
+      const isCurrentlySaved = savedFindings.some(
+        (f) => f.title === finding.title || f.id === finding.id
       )
-      if (existingFinding) {
-        try {
+
+      if (isCurrentlySaved) {
+        // Currently saved, so user wants to remove it
+        const existingFinding = savedFindings.find(
+          (f) => f.title === finding.title || f.id === finding.id
+        )
+        if (existingFinding) {
           await deleteFinding.mutateAsync(existingFinding.id)
-        } catch (error) {
-          console.error('Remove finding error:', error)
         }
-      }
-    } else {
-      // Not saved yet, so save it
-      try {
+      } else {
+        // Not saved yet, so save it
         await createFinding.mutateAsync({
           project_id: project.id,
           source: 'epa',
@@ -459,9 +452,15 @@ export function AquaticFeaturesSubStep({
           distance_from_boundary_km: finding.metadata?.distance || null,
           created_by: userId,
         })
-      } catch (error) {
-        console.error('Save finding error:', error)
       }
+    } catch (error) {
+      console.error('Save finding error:', error)
+    } finally {
+      setSavingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(finding.id)
+        return next
+      })
     }
   }
 
@@ -706,6 +705,7 @@ export function AquaticFeaturesSubStep({
             emptyMessage="Search to find features"
             hiddenIds={hiddenIds}
             onToggleVisibility={handleToggleVisibility}
+            savingIds={savingIds}
           />
         </div>
       </div>

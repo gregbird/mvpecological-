@@ -16,6 +16,8 @@ import {
   EyeOff,
   Leaf,
   FlaskConical,
+  Check,
+  Save,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -87,6 +89,8 @@ interface FindingsListProps {
   onToggleVisibility?: (findingId: string) => void
   // AI summary callback for designated sites
   onFetchAiSummary?: (finding: FindingDisplay) => void
+  // IDs of findings currently being saved/deleted
+  savingIds?: Set<string>
 }
 
 // Source badge colors
@@ -153,6 +157,7 @@ export function FindingsList({
   hiddenIds,
   onToggleVisibility,
   onFetchAiSummary,
+  savingIds,
 }: FindingsListProps) {
   const [sortBy, setSortBy] = React.useState<'distance' | 'title' | 'type'>('distance')
   const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>('asc')
@@ -165,22 +170,8 @@ export function FindingsList({
       // Match by ID
       if (f.id === finding.id) return true
 
-      // Match by site code (for designated sites)
-      if (
-        finding.metadata?.siteCode &&
-        (f.raw_data as Record<string, unknown>)?.siteCode === finding.metadata.siteCode
-      ) {
-        return true
-      }
-
-      // Match by scientific name (for species records)
-      // Note: Don't check source because GBIF findings may be saved as 'nbdc' when enriched
-      if (finding.metadata?.scientificName) {
-        const savedRawData = f.raw_data as Record<string, unknown>
-        if (savedRawData?.scientificName === finding.metadata.scientificName) {
-          return true
-        }
-      }
+      // Match by title (most reliable - titles are unique per search result)
+      if (f.title === finding.title) return true
 
       return false
     })
@@ -281,6 +272,7 @@ export function FindingsList({
         <div className="space-y-1.5 p-2">
           {paginatedFindings.map((finding) => {
             const saved = isFindingSaved(finding)
+            const isSaving = savingIds?.has(finding.id) ?? false
             const isEpaFinding = finding.source === 'epa'
             const isFpoFinding = finding.source === 'fpo'
             const epaConfig = finding.metadata?.siteType
@@ -303,41 +295,59 @@ export function FindingsList({
                           : 'hover:bg-gray-50'
                 }`}
               >
-                {/* Title + Visibility + Save button row */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex min-w-0 flex-1 items-center gap-2">
-                    {/* EPA type icon */}
-                    {isEpaFinding && epaConfig && (
-                      <epaConfig.icon className="h-4 w-4 shrink-0 opacity-70" />
-                    )}
-                    <h4
-                      className={`min-w-0 flex-1 truncate text-sm font-medium ${isHidden ? 'text-gray-400' : ''}`}
-                      title={finding.title}
-                    >
-                      {finding.title}
-                    </h4>
+                {/* Title + actions row */}
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      {/* EPA type icon */}
+                      {isEpaFinding && epaConfig && (
+                        <epaConfig.icon className="h-4 w-4 shrink-0 opacity-70" />
+                      )}
+                      <h4
+                        className={`line-clamp-2 text-sm leading-tight font-medium ${isHidden ? 'text-gray-400' : ''}`}
+                        title={finding.title}
+                      >
+                        {finding.title}
+                      </h4>
+                    </div>
                   </div>
-                  <div className="flex shrink-0 flex-col items-end gap-1.5">
-                    {/* Visibility toggle button */}
+                  <div className="flex shrink-0 items-center gap-1">
+                    {/* Visibility toggle */}
                     {onToggleVisibility && (
                       <Button
                         variant="ghost"
                         size="sm"
-                        className={`h-5 w-5 p-0 ${isHidden ? 'text-gray-400' : 'text-gray-600 hover:text-gray-900'}`}
+                        className={`h-7 w-7 p-0 ${isHidden ? 'text-gray-400' : 'text-gray-600 hover:text-gray-900'}`}
                         onClick={() => onToggleVisibility(finding.id)}
                         title={isHidden ? 'Show on map' : 'Hide from map'}
                       >
-                        {isHidden ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                        {isHidden ? (
+                          <EyeOff className="h-3.5 w-3.5" />
+                        ) : (
+                          <Eye className="h-3.5 w-3.5" />
+                        )}
                       </Button>
                     )}
                     {/* Save button */}
                     <Button
-                      variant={saved ? 'secondary' : 'default'}
+                      variant={saved ? 'outline' : 'default'}
                       size="sm"
-                      className="h-5 shrink-0 px-1.5 text-[10px]"
+                      className={`h-7 w-7 p-0 ${
+                        saved
+                          ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                          : ''
+                      }`}
+                      disabled={isSaving}
                       onClick={() => onSave({ ...finding, isSaved: !saved })}
+                      title={saved ? 'Remove from saved' : 'Save finding'}
                     >
-                      {saved ? '✓' : 'Save'}
+                      {isSaving ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : saved ? (
+                        <Check className="h-3.5 w-3.5" />
+                      ) : (
+                        <Save className="h-3.5 w-3.5" />
+                      )}
                     </Button>
                   </div>
                 </div>

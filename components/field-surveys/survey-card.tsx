@@ -31,6 +31,7 @@ export type SurveyStatus = 'planned' | 'in_progress' | 'completed' | 'approved'
 export type SurveyType =
   | 'walkover'
   | 'habitat_mapping'
+  | 'releve_survey'
   | 'bat_survey'
   | 'bird_survey'
   | 'mammal_survey'
@@ -72,6 +73,7 @@ interface SurveyCardProps {
   onEdit?: (survey: Survey) => void
   onDelete?: (survey: Survey) => void
   onApprove?: (survey: Survey) => void
+  isHighlighted?: boolean
 }
 
 const STATUS_STYLES: Record<
@@ -87,6 +89,7 @@ const STATUS_STYLES: Record<
 const SURVEY_TYPE_LABELS: Record<SurveyType, string> = {
   walkover: 'Walkover Survey',
   habitat_mapping: 'Habitat Mapping',
+  releve_survey: 'Relevé Survey',
   bat_survey: 'Bat Survey',
   bird_survey: 'Bird Survey',
   mammal_survey: 'Mammal Survey',
@@ -96,7 +99,14 @@ const SURVEY_TYPE_LABELS: Record<SurveyType, string> = {
   other: 'Other Survey',
 }
 
-export function SurveyCard({ survey, onView, onEdit, onDelete, onApprove }: SurveyCardProps) {
+export function SurveyCard({
+  survey,
+  onView,
+  onEdit,
+  onDelete,
+  onApprove,
+  isHighlighted,
+}: SurveyCardProps) {
   const statusStyle = STATUS_STYLES[survey.status]
   const surveyTypeLabel = SURVEY_TYPE_LABELS[survey.surveyType]
 
@@ -111,7 +121,12 @@ export function SurveyCard({ survey, onView, onEdit, onDelete, onApprove }: Surv
   }
 
   return (
-    <Card className={cn(survey.status === 'approved' && 'border-green-500/50')}>
+    <Card
+      className={cn(
+        survey.status === 'approved' && 'border-green-500/50',
+        isHighlighted && 'ring-primary animate-pulse ring-2'
+      )}
+    >
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">

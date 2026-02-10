@@ -13,6 +13,7 @@ export interface Article12BirdSpecies {
 interface Article12Data {
   source: string
   description: string
+  
   gridType: string
   species: Article12BirdSpecies[]
 }

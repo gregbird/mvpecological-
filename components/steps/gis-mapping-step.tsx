@@ -1261,7 +1261,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
             </div>
 
             {/* Compact Layer selection panel with data preview */}
-            <div className="border-border flex w-80 flex-col border-l bg-white">
+            <div className="border-border flex w-80 shrink-0 flex-col overflow-hidden border-l bg-white">
               {/* Header - more compact */}
               <div className="border-b px-3 py-2">
                 <div className="flex items-center justify-between">
@@ -1276,8 +1276,8 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
               </div>
 
               {/* Layer list with collapsible data */}
-              <ScrollArea className="flex-1">
-                <div className="p-2">
+              <ScrollArea className="min-h-0 flex-1">
+                <div className="w-full overflow-hidden p-2">
                   {/* NPWS Designated Sites */}
                   <div className="mb-2 rounded-lg border">
                     <Collapsible
@@ -1292,8 +1292,8 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                       }}
                     >
                       <CollapsibleTrigger asChild>
-                        <div className="flex w-full cursor-pointer items-center justify-between p-2 hover:bg-gray-50">
-                          <div className="flex items-center gap-2">
+                        <div className="flex w-full min-w-0 cursor-pointer items-center justify-between p-2 hover:bg-gray-50">
+                          <div className="flex min-w-0 items-center gap-2">
                             <div
                               role="checkbox"
                               aria-checked={visibleLayers.some((l) =>
@@ -1433,7 +1433,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                               ? filteredSites
                               : filteredSites.slice(0, displayCount)
                             return filteredSites.length > 0 ? (
-                              <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
+                              <div className="max-h-64 space-y-1 overflow-x-hidden overflow-y-auto">
                                 {sitesToShow.map((site, idx) => {
                                   const siteKey = `npws-${site.SITE_TYPE}-${site.SITECODE}`
                                   const isIgnored = ignoredItems.has(siteKey)
@@ -1465,14 +1465,14 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                                         }
                                       }}
                                       className={cn(
-                                        'group relative flex cursor-pointer items-center gap-2 rounded p-1.5 text-xs transition-colors',
+                                        'group flex cursor-pointer items-start gap-1.5 rounded p-1.5 text-xs transition-colors',
                                         isIgnored
                                           ? 'bg-gray-100 opacity-50'
                                           : 'bg-white hover:bg-gray-100'
                                       )}
                                     >
                                       <span
-                                        className="h-2 w-2 shrink-0 rounded-full"
+                                        className="mt-1 h-2 w-2 shrink-0 rounded-full"
                                         style={{
                                           backgroundColor:
                                             site.SITE_TYPE === 'SAC'
@@ -1486,16 +1486,20 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                                       />
                                       <div
                                         className={cn(
-                                          'min-w-0 flex-1',
+                                          'min-w-0 flex-1 overflow-hidden',
                                           isIgnored && 'line-through'
                                         )}
                                       >
-                                        <p className="truncate font-medium">{site.SITENAME}</p>
+                                        <p className="font-medium" title={site.SITENAME}>
+                                          {site.SITENAME && site.SITENAME.length > 28
+                                            ? site.SITENAME.slice(0, 28) + '…'
+                                            : site.SITENAME}
+                                        </p>
                                         <p className="text-muted-foreground text-[10px]">
                                           {site.SITE_TYPE} · {site.AREA_HA?.toFixed(0)} ha
                                         </p>
                                       </div>
-                                      <div className="ml-auto flex shrink-0 items-center gap-1">
+                                      <div className="flex shrink-0 items-center gap-0.5">
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation()
@@ -1511,7 +1515,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                                             setHasUnsavedChanges(true)
                                           }}
                                           className={cn(
-                                            'rounded p-1.5 transition-colors',
+                                            'rounded p-1 transition-colors',
                                             isIgnored
                                               ? 'bg-amber-100 text-amber-600 hover:bg-amber-200'
                                               : 'text-gray-400 hover:bg-gray-200 hover:text-amber-600'
@@ -1519,9 +1523,9 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                                           title={isIgnored ? 'Show on map' : 'Hide from map'}
                                         >
                                           {isIgnored ? (
-                                            <Eye className="h-3.5 w-3.5" />
+                                            <Eye className="h-3 w-3" />
                                           ) : (
-                                            <EyeOff className="h-3.5 w-3.5" />
+                                            <EyeOff className="h-3 w-3" />
                                           )}
                                         </button>
                                         <button
@@ -1534,10 +1538,10 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                                             })
                                             setHasUnsavedChanges(true)
                                           }}
-                                          className="rounded p-1.5 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600"
+                                          className="rounded p-1 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600"
                                           title="Remove from list"
                                         >
-                                          <X className="h-3.5 w-3.5" />
+                                          <X className="h-3 w-3" />
                                         </button>
                                       </div>
                                     </div>
@@ -1652,7 +1656,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                               ? filteredRivers
                               : filteredRivers.slice(0, displayCount)
                             return filteredRivers.length > 0 ? (
-                              <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
+                              <div className="max-h-64 space-y-1 overflow-x-hidden overflow-y-auto">
                                 {riversToShow.map((river, idx) => {
                                   const itemKey = `river-${river.RiverCode}`
                                   const isIgnored = ignoredItems.has(itemKey)
@@ -1683,29 +1687,33 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                                         }
                                       }}
                                       className={cn(
-                                        'group relative flex cursor-pointer items-center gap-2 rounded p-1.5 text-xs transition-colors',
+                                        'group flex cursor-pointer items-start gap-1.5 rounded p-1.5 text-xs transition-colors',
                                         isIgnored
                                           ? 'bg-gray-100 opacity-50'
                                           : 'bg-white hover:bg-gray-100'
                                       )}
                                     >
                                       <span
-                                        className="h-2 w-2 shrink-0 rounded-full"
+                                        className="mt-1 h-2 w-2 shrink-0 rounded-full"
                                         style={{ backgroundColor: '#0284c7' }}
                                       />
                                       <div
                                         className={cn(
-                                          'min-w-0 flex-1',
+                                          'min-w-0 flex-1 overflow-hidden',
                                           isIgnored && 'line-through'
                                         )}
                                       >
-                                        <p className="truncate font-medium">{river.RiverName}</p>
+                                        <p className="font-medium" title={river.RiverName}>
+                                          {river.RiverName && river.RiverName.length > 28
+                                            ? river.RiverName.slice(0, 28) + '…'
+                                            : river.RiverName}
+                                        </p>
                                         <p className="text-muted-foreground text-[10px]">
                                           {river.WFD_Status && `WFD: ${river.WFD_Status}`}
                                           {river.Length_km && ` · ${river.Length_km.toFixed(1)} km`}
                                         </p>
                                       </div>
-                                      <div className="ml-auto flex shrink-0 items-center gap-1">
+                                      <div className="flex shrink-0 items-center gap-0.5">
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation()
@@ -1721,7 +1729,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                                             setHasUnsavedChanges(true)
                                           }}
                                           className={cn(
-                                            'rounded p-1.5 transition-colors',
+                                            'rounded p-1 transition-colors',
                                             isIgnored
                                               ? 'bg-amber-100 text-amber-600 hover:bg-amber-200'
                                               : 'text-gray-400 hover:bg-gray-200 hover:text-amber-600'
@@ -1729,9 +1737,9 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                                           title={isIgnored ? 'Show on map' : 'Hide from map'}
                                         >
                                           {isIgnored ? (
-                                            <Eye className="h-3.5 w-3.5" />
+                                            <Eye className="h-3 w-3" />
                                           ) : (
-                                            <EyeOff className="h-3.5 w-3.5" />
+                                            <EyeOff className="h-3 w-3" />
                                           )}
                                         </button>
                                         <button
@@ -1744,10 +1752,10 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                                             })
                                             setHasUnsavedChanges(true)
                                           }}
-                                          className="rounded p-1.5 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600"
+                                          className="rounded p-1 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600"
                                           title="Remove from list"
                                         >
-                                          <X className="h-3.5 w-3.5" />
+                                          <X className="h-3 w-3" />
                                         </button>
                                       </div>
                                     </div>
@@ -1862,7 +1870,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                               ? filteredLakes
                               : filteredLakes.slice(0, displayCount)
                             return filteredLakes.length > 0 ? (
-                              <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
+                              <div className="max-h-64 space-y-1 overflow-x-hidden overflow-y-auto">
                                 {lakesToShow.map((lake, idx) => {
                                   const itemKey = `lake-${lake.LakeCode}`
                                   const isIgnored = ignoredItems.has(itemKey)
@@ -1893,29 +1901,33 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                                         }
                                       }}
                                       className={cn(
-                                        'group relative flex cursor-pointer items-center gap-2 rounded p-1.5 text-xs transition-colors',
+                                        'group flex cursor-pointer items-start gap-1.5 rounded p-1.5 text-xs transition-colors',
                                         isIgnored
                                           ? 'bg-gray-100 opacity-50'
                                           : 'bg-white hover:bg-gray-100'
                                       )}
                                     >
                                       <span
-                                        className="h-2 w-2 shrink-0 rounded-full"
+                                        className="mt-1 h-2 w-2 shrink-0 rounded-full"
                                         style={{ backgroundColor: '#0369a1' }}
                                       />
                                       <div
                                         className={cn(
-                                          'min-w-0 flex-1',
+                                          'min-w-0 flex-1 overflow-hidden',
                                           isIgnored && 'line-through'
                                         )}
                                       >
-                                        <p className="truncate font-medium">{lake.LakeName}</p>
+                                        <p className="font-medium" title={lake.LakeName}>
+                                          {lake.LakeName && lake.LakeName.length > 28
+                                            ? lake.LakeName.slice(0, 28) + '…'
+                                            : lake.LakeName}
+                                        </p>
                                         <p className="text-muted-foreground text-[10px]">
                                           {lake.WFD_Status && `WFD: ${lake.WFD_Status}`}
                                           {lake.Area_ha && ` · ${lake.Area_ha.toFixed(0)} ha`}
                                         </p>
                                       </div>
-                                      <div className="ml-auto flex shrink-0 items-center gap-1">
+                                      <div className="flex shrink-0 items-center gap-0.5">
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation()
@@ -1931,7 +1943,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                                             setHasUnsavedChanges(true)
                                           }}
                                           className={cn(
-                                            'rounded p-1.5 transition-colors',
+                                            'rounded p-1 transition-colors',
                                             isIgnored
                                               ? 'bg-amber-100 text-amber-600 hover:bg-amber-200'
                                               : 'text-gray-400 hover:bg-gray-200 hover:text-amber-600'
@@ -1939,9 +1951,9 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                                           title={isIgnored ? 'Show on map' : 'Hide from map'}
                                         >
                                           {isIgnored ? (
-                                            <Eye className="h-3.5 w-3.5" />
+                                            <Eye className="h-3 w-3" />
                                           ) : (
-                                            <EyeOff className="h-3.5 w-3.5" />
+                                            <EyeOff className="h-3 w-3" />
                                           )}
                                         </button>
                                         <button
@@ -1954,10 +1966,10 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                                             })
                                             setHasUnsavedChanges(true)
                                           }}
-                                          className="rounded p-1.5 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600"
+                                          className="rounded p-1 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600"
                                           title="Remove from list"
                                         >
-                                          <X className="h-3.5 w-3.5" />
+                                          <X className="h-3 w-3" />
                                         </button>
                                       </div>
                                     </div>
@@ -2072,7 +2084,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                               ? filteredCatchments
                               : filteredCatchments.slice(0, displayCount)
                             return filteredCatchments.length > 0 ? (
-                              <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
+                              <div className="max-h-64 space-y-1 overflow-x-hidden overflow-y-auto">
                                 {catchmentsToShow.map((catchment, idx) => {
                                   const itemKey = `catchment-${catchment.CatchmentId}`
                                   const isIgnored = ignoredItems.has(itemKey)
@@ -2103,24 +2115,27 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                                         }
                                       }}
                                       className={cn(
-                                        'group relative flex cursor-pointer items-center gap-2 rounded p-1.5 text-xs transition-colors',
+                                        'group flex cursor-pointer items-start gap-1.5 rounded p-1.5 text-xs transition-colors',
                                         isIgnored
                                           ? 'bg-gray-100 opacity-50'
                                           : 'bg-white hover:bg-gray-100'
                                       )}
                                     >
                                       <span
-                                        className="h-2 w-2 shrink-0 rounded-full"
+                                        className="mt-1 h-2 w-2 shrink-0 rounded-full"
                                         style={{ backgroundColor: '#38bdf8' }}
                                       />
                                       <div
                                         className={cn(
-                                          'min-w-0 flex-1',
+                                          'min-w-0 flex-1 overflow-hidden',
                                           isIgnored && 'line-through'
                                         )}
                                       >
-                                        <p className="truncate font-medium">
-                                          {catchment.CatchmentName}
+                                        <p className="font-medium" title={catchment.CatchmentName}>
+                                          {catchment.CatchmentName &&
+                                          catchment.CatchmentName.length > 28
+                                            ? catchment.CatchmentName.slice(0, 28) + '…'
+                                            : catchment.CatchmentName}
                                         </p>
                                         <p className="text-muted-foreground text-[10px]">
                                           {catchment.Area_km2 &&
@@ -2129,7 +2144,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                                             ` · ${catchment.RiverBasinDistrict}`}
                                         </p>
                                       </div>
-                                      <div className="ml-auto flex shrink-0 items-center gap-1">
+                                      <div className="flex shrink-0 items-center gap-0.5">
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation()
@@ -2145,7 +2160,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                                             setHasUnsavedChanges(true)
                                           }}
                                           className={cn(
-                                            'rounded p-1.5 transition-colors',
+                                            'rounded p-1 transition-colors',
                                             isIgnored
                                               ? 'bg-amber-100 text-amber-600 hover:bg-amber-200'
                                               : 'text-gray-400 hover:bg-gray-200 hover:text-amber-600'
@@ -2153,9 +2168,9 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                                           title={isIgnored ? 'Show on map' : 'Hide from map'}
                                         >
                                           {isIgnored ? (
-                                            <Eye className="h-3.5 w-3.5" />
+                                            <Eye className="h-3 w-3" />
                                           ) : (
-                                            <EyeOff className="h-3.5 w-3.5" />
+                                            <EyeOff className="h-3 w-3" />
                                           )}
                                         </button>
                                         <button
@@ -2168,10 +2183,10 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                                             })
                                             setHasUnsavedChanges(true)
                                           }}
-                                          className="rounded p-1.5 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600"
+                                          className="rounded p-1 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600"
                                           title="Remove from list"
                                         >
-                                          <X className="h-3.5 w-3.5" />
+                                          <X className="h-3 w-3" />
                                         </button>
                                       </div>
                                     </div>

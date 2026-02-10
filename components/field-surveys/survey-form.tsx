@@ -45,6 +45,7 @@ const surveyFormSchema = z.object({
   surveyType: z.enum([
     'walkover',
     'habitat_mapping',
+    'releve_survey',
     'bat_survey',
     'bird_survey',
     'mammal_survey',
@@ -79,6 +80,7 @@ interface SurveyFormProps {
 const SURVEY_TYPES: { value: SurveyType; label: string }[] = [
   { value: 'walkover', label: 'Walkover Survey' },
   { value: 'habitat_mapping', label: 'Habitat Mapping' },
+  { value: 'releve_survey', label: 'Relevé Survey' },
   { value: 'bat_survey', label: 'Bat Survey' },
   { value: 'bird_survey', label: 'Bird Survey' },
   { value: 'mammal_survey', label: 'Mammal Survey' },
