@@ -78,10 +78,12 @@ interface ProjectMapProps {
 
 // Buffer zone colors (matching GIS mapping step)
 const BUFFER_COLORS: Record<number, string> = {
-  2: '#f59e0b', // amber
-  5: '#3b82f6', // blue
-  10: '#8b5cf6', // purple
-  15: '#ec4899', // pink
+  0.5: '#ef4444', // red
+  1: '#f97316', // orange
+  2: '#eab308', // yellow
+  5: '#22c55e', // green
+  10: '#3b82f6', // blue
+  15: '#8b5cf6', // purple
 }
 
 // Tile layer URLs (all free, no API key required)

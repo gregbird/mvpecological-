@@ -1373,7 +1373,6 @@ Her tanımlanan site için rapor şunları açıkça listeler: İlişkili habita
 
 | # | Görev | Öncelik | Efor | Bağımlılık |
 | 0.2 | Otomatik veri katmanı açılması | 🔴 Yüksek | Düşük | - |
-| 0.3 | Veri katmanı yan panel | 🟡 Orta | Orta | - |
 | 0.4 | Core DB search otomasyonu | 🔴 Yüksek | Orta | 0.2 |
 | 0.5 | Harita-bulgu senkronizasyonu | 🔴 Yüksek | Yüksek | - |
 | 0.6 | "Move to Next Stage" butonu | 🟡 Orta | Düşük | - |
@@ -2004,6 +2003,7 @@ AI raporları uygulama içinde düzenlenebilir ve tamamlanabilir olmalı. Rapor 
 | 2.1 | NPWS veri entegrasyonu   | ✅ Tamamlandı | 6 Şub 2026   |
 | 2.2 | Deep Research (Sites)    | ✅ Tamamlandı | 5-6 Şub 2026 |
 | 0.1 | Satellite layer bug fix  | ✅ Tamamlandı | 11 Şub 2026  |
+| 0.3 | Veri katmanı yan panel   | ✅ Tamamlandı | Zaten mevcut |
 
 ### ❌ İptal Edilen Görevler
 

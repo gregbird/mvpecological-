@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2 } from 'lucide-react'
+import { AlertTriangle, Loader2 } from 'lucide-react'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { useProjectContext } from '@/contexts/project-context'
@@ -118,8 +118,22 @@ export default function ProjectDetailPage() {
   const isFullHeightStep =
     currentStepNumber === 1 || currentStepNumber === 2 || currentStepNumber === 3
 
+  const showNeedsReviewBanner =
+    currentWorkflowStep.status === 'needs_review' && currentStepNumber > 1
+
   return (
     <div className="h-full">
+      {showNeedsReviewBanner && (
+        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2">
+          <div className="flex items-center gap-2 text-sm text-amber-800">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>
+              The GIS Mapping configuration has been updated. Please review the data in this step to
+              ensure it is still accurate.
+            </span>
+          </div>
+        </div>
+      )}
       {isFullHeightStep ? renderStepContent() : <div className="p-6">{renderStepContent()}</div>}
     </div>
   )

@@ -59,6 +59,8 @@ interface AquaticFeaturesSubStepProps {
   showMap: boolean
   onToggleMap: () => void
   isActive?: boolean
+  autoSearchTrigger?: boolean
+  onAutoSearchComplete?: (status: 'done' | 'error' | 'skipped') => void
 }
 
 export function AquaticFeaturesSubStep({
@@ -71,6 +73,8 @@ export function AquaticFeaturesSubStep({
   showMap,
   onToggleMap,
   isActive,
+  autoSearchTrigger,
+  onAutoSearchComplete,
 }: AquaticFeaturesSubStepProps) {
   const { toast } = useToast()
   const createFinding = useCreateFinding()
@@ -135,6 +139,29 @@ export function AquaticFeaturesSubStep({
       return () => clearTimeout(timer)
     }
   }, [isActive])
+
+  // Auto-search trigger from parent (Data Gathering step)
+  const autoSearchHandledRef = React.useRef(false)
+  React.useEffect(() => {
+    if (!autoSearchTrigger || autoSearchHandledRef.current) return
+    autoSearchHandledRef.current = true
+
+    // Skip if we already have cached results
+    if (searchResults.length > 0) {
+      onAutoSearchComplete?.('skipped')
+      return
+    }
+
+    // Skip if no boundary
+    if (!projectBoundary) {
+      onAutoSearchComplete?.('skipped')
+      return
+    }
+
+    performSearch()
+      .then(() => onAutoSearchComplete?.('done'))
+      .catch(() => onAutoSearchComplete?.('error'))
+  }, [autoSearchTrigger])
 
   // Deep Research modal state
   const [deepResearchSite, setDeepResearchSite] = React.useState<AquaticDeepResearchSite | null>(

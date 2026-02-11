@@ -64,6 +64,8 @@ interface DesignatedSitesSubStepProps {
   showMap: boolean
   onToggleMap: () => void
   isActive?: boolean
+  autoSearchTrigger?: boolean
+  onAutoSearchComplete?: (status: 'done' | 'error' | 'skipped') => void
 }
 
 export function DesignatedSitesSubStep({
@@ -76,6 +78,8 @@ export function DesignatedSitesSubStep({
   showMap,
   onToggleMap,
   isActive,
+  autoSearchTrigger,
+  onAutoSearchComplete,
 }: DesignatedSitesSubStepProps) {
   const { toast } = useToast()
   const createFinding = useCreateFinding()
@@ -141,6 +145,29 @@ export function DesignatedSitesSubStep({
       return () => clearTimeout(timer)
     }
   }, [isActive])
+
+  // Auto-search trigger from parent (Data Gathering step)
+  const autoSearchHandledRef = React.useRef(false)
+  React.useEffect(() => {
+    if (!autoSearchTrigger || autoSearchHandledRef.current) return
+    autoSearchHandledRef.current = true
+
+    // Skip if we already have cached results
+    if (searchResults.length > 0) {
+      onAutoSearchComplete?.('skipped')
+      return
+    }
+
+    // Skip if no boundary
+    if (!projectBoundary) {
+      onAutoSearchComplete?.('skipped')
+      return
+    }
+
+    performSearch()
+      .then(() => onAutoSearchComplete?.('done'))
+      .catch(() => onAutoSearchComplete?.('error'))
+  }, [autoSearchTrigger])
 
   // Handle Deep Research save → update finding's raw_data with AI analysis
   const handleDeepResearchSave = React.useCallback(

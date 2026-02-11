@@ -22,6 +22,14 @@
 - Delete boundary now works correctly and clears the map properly
 - Added safety checks so broken or incomplete shapes are ignored
 
+### GIS Mapping - Edit Configuration
+
+- Boundary can now be edited again after the step has been completed
+- Buffer zone colours now match across all screens (were showing different colours before)
+- Warning dialog shown when editing if other steps have already been started
+- If boundary or buffers are changed, later steps are automatically marked for review
+- A yellow banner appears on affected steps telling the user to check their data
+
 ---
 
 ## To-Do

@@ -27,7 +27,22 @@ import dynamic from 'next/dynamic'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { useUpdateProjectBoundary, useCompleteWorkflowStep } from '@/hooks/use-project-data'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
+  useUpdateProjectBoundary,
+  useCompleteWorkflowStep,
+  useWorkflowSteps,
+  useUpdateWorkflowStep,
+} from '@/hooks/use-project-data'
 import { calculateAreaHectares } from '@/lib/supabase/queries/habitats'
 import { GISConnectionModal, type GISSourceType } from '@/components/gis'
 import {
@@ -243,6 +258,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
   const [isProcessing, setIsProcessing] = React.useState(false)
   const [showConnectionModal, setShowConnectionModal] = React.useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false)
+  const [showEditWarning, setShowEditWarning] = React.useState(false)
 
   // Map container ref for screenshot capture
   const gisMapContainerRef = React.useRef<HTMLDivElement>(null)
@@ -322,6 +338,20 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const updateBoundary = useUpdateProjectBoundary()
   const completeStep = useCompleteWorkflowStep()
+  const { data: allWorkflowSteps } = useWorkflowSteps(project.id)
+  const updateWorkflowStep = useUpdateWorkflowStep()
+
+  // Track original boundary/buffer for detecting changes on save
+  const originalBoundaryRef = React.useRef<string | null>(
+    project.boundary
+      ? JSON.stringify(
+          (project.boundary as GeoJSON.Feature<GeoJSON.Polygon>)?.geometry?.coordinates
+        )
+      : null
+  )
+  const originalBuffersRef = React.useRef<string>(
+    JSON.stringify((project.buffer_distances as number[] | null) ?? [])
+  )
 
   // Toggle map fullscreen mode when entering/leaving boundary step or in preview mode
   React.useEffect(() => {
@@ -626,8 +656,32 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
       })
 
       if (result) {
+        // Check if boundary or buffers actually changed
+        const newBoundaryKey = JSON.stringify(boundary.geometry?.coordinates)
+        const newBuffersKey = JSON.stringify(enabledBuffers)
+        const boundaryChanged = newBoundaryKey !== originalBoundaryRef.current
+        const buffersChanged = newBuffersKey !== originalBuffersRef.current
+
+        if ((boundaryChanged || buffersChanged) && allWorkflowSteps) {
+          // Mark later completed steps as needs_review
+          const laterSteps = allWorkflowSteps.filter(
+            (s) => s.step_number > 1 && (s.status === 'approved' || s.status === 'in_progress')
+          )
+          for (const step of laterSteps) {
+            await updateWorkflowStep.mutateAsync({
+              stepId: step.id,
+              updates: { status: 'needs_review' },
+            })
+          }
+        }
+
+        // Update refs to new values
+        originalBoundaryRef.current = newBoundaryKey
+        originalBuffersRef.current = newBuffersKey
+
         setHasUnsavedChanges(false)
         refetchProject()
+        refetchWorkflowSteps()
       }
     } catch (error) {
       console.error('[GISMappingStep] Save error:', error)
@@ -690,8 +744,24 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
   // Determine if we're in map mode (compact header)
   const isMapMode = currentStep !== 'source'
 
+  // Check if any later workflow steps have been started
+  const hasLaterStepsStarted = React.useMemo(() => {
+    if (!allWorkflowSteps) return false
+    return allWorkflowSteps.some((s) => s.step_number > 1 && s.status !== 'pending')
+  }, [allWorkflowSteps])
+
   // Handle entering edit mode from preview
   const handleEditClick = () => {
+    if (hasLaterStepsStarted) {
+      setShowEditWarning(true)
+    } else {
+      setViewMode('wizard')
+      setCurrentStep('source')
+    }
+  }
+
+  const confirmEdit = () => {
+    setShowEditWarning(false)
     setViewMode('wizard')
     setCurrentStep('source')
   }
@@ -850,6 +920,24 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
             </Button>
           </div>
         </div>
+
+        {/* Edit warning dialog */}
+        <AlertDialog open={showEditWarning} onOpenChange={setShowEditWarning}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Edit GIS Configuration?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Other steps in this project have already been started. If you change the site
+                boundary or buffer zones, the data in those steps (such as Data Gathering and Desk
+                Assessment) may no longer be accurate and will need to be reviewed.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmEdit}>Continue Editing</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     )
   }
@@ -1022,7 +1110,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
               boundary={boundary ?? undefined}
               onBoundaryChange={handleBoundaryChange}
               onViewChange={handleViewChange}
-              editable={!isComplete}
+              editable={true}
               showLayersControl={true}
               visibleLayers={[]}
               baseMapStyle={baseMapStyle}
@@ -1274,6 +1362,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                 zoom={mapZoom}
                 boundary={boundary ?? undefined}
                 bufferZones={bufferZones}
+                bufferColors={Object.fromEntries(enabledBuffers.map((d) => [d, getBufferColor(d)]))}
                 onViewChange={handleViewChange}
                 editable={false}
                 showLayersControl={true}
@@ -2304,7 +2393,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                 </Button>
                 <Button
                   onClick={handleComplete}
-                  disabled={!boundary || hasUnsavedChanges || completeStep.isPending || isComplete}
+                  disabled={!boundary || completeStep.isPending || updateBoundary.isPending}
                   className="w-full bg-emerald-600 hover:bg-emerald-700"
                   size="sm"
                 >

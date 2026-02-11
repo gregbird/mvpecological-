@@ -13,6 +13,7 @@ import {
   Pencil,
   Eye,
   EyeOff,
+  Database,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
@@ -106,6 +107,16 @@ export function DataGatheringStep({
     sessionStorage.setItem(wizardStepCacheKey, currentStep)
   }, [currentStep, wizardStepCacheKey])
 
+  // Auto-search state
+  type AutoSearchStatus = 'idle' | 'searching' | 'done' | 'skipped' | 'error'
+  const [autoSearchStatus, setAutoSearchStatus] = React.useState<{
+    triggered: boolean
+    sites: AutoSearchStatus
+    species: AutoSearchStatus
+    aquatic: AutoSearchStatus
+  }>({ triggered: false, sites: 'idle', species: 'idle', aquatic: 'idle' })
+  const [showAutoSearchBanner, setShowAutoSearchBanner] = React.useState(false)
+
   // Data hooks
   const { data: savedFindings = [], isLoading: isLoadingFindings } = useSavedFindings(project.id)
   const { data: findingsStats } = useFindingsStats(project.id)
@@ -123,6 +134,84 @@ export function DataGatheringStep({
 
   // Buffer distances from GIS step
   const bufferDistances = (project.buffer_distances as number[] | null) ?? [2, 5]
+
+  // Compute a simple boundary hash to detect GIS changes
+  const boundaryHash = React.useMemo(() => {
+    if (!projectBoundary) return ''
+    try {
+      const coords = projectBoundary.geometry.coordinates[0]
+      // Use first/last coords + length as a lightweight fingerprint
+      const first = coords[0]
+      const last = coords[coords.length - 1]
+      return `${coords.length}:${first[0].toFixed(6)},${first[1].toFixed(6)}:${last[0].toFixed(6)},${last[1].toFixed(6)}`
+    } catch {
+      return ''
+    }
+  }, [projectBoundary])
+
+  // Invalidate caches when boundary changes (GIS re-edited)
+  React.useEffect(() => {
+    if (!boundaryHash) return
+    const hashKey = `boundary-hash-${project.id}`
+    const storedHash = sessionStorage.getItem(hashKey)
+
+    if (storedHash && storedHash !== boundaryHash) {
+      // Boundary changed — clear all search caches and auto-search flag
+      sessionStorage.removeItem(`auto-search-triggered-${project.id}`)
+      sessionStorage.removeItem(`npws-search-${project.id}`)
+      sessionStorage.removeItem(`gbif-search-${project.id}`)
+      sessionStorage.removeItem(`epa-search-${project.id}`)
+      // Reset auto-search state so it re-triggers
+      setAutoSearchStatus({ triggered: false, sites: 'idle', species: 'idle', aquatic: 'idle' })
+    }
+
+    sessionStorage.setItem(hashKey, boundaryHash)
+  }, [boundaryHash, project.id])
+
+  // Auto-search: trigger when boundary exists and no prior auto-search in this session
+  React.useEffect(() => {
+    if (autoSearchStatus.triggered) return
+    if (!projectBoundary) return
+    if (isStepCompleted) return
+    if (viewMode !== 'wizard') return
+
+    // Check if already triggered this session
+    const autoSearchKey = `auto-search-triggered-${project.id}`
+    if (sessionStorage.getItem(autoSearchKey)) return
+
+    // Check if all substeps already have cache
+    const hasSitesCache = !!sessionStorage.getItem(`npws-search-${project.id}`)
+    const hasSpeciesCache = !!sessionStorage.getItem(`gbif-search-${project.id}`)
+    const hasAquaticCache = !!sessionStorage.getItem(`epa-search-${project.id}`)
+
+    // If all caches exist, no need to auto-search
+    if (hasSitesCache && hasSpeciesCache && hasAquaticCache) return
+
+    // Trigger auto-search
+    sessionStorage.setItem(autoSearchKey, 'true')
+    setAutoSearchStatus({
+      triggered: true,
+      sites: hasSitesCache ? 'skipped' : 'searching',
+      species: hasSpeciesCache ? 'skipped' : 'searching',
+      aquatic: hasAquaticCache ? 'skipped' : 'searching',
+    })
+    setShowAutoSearchBanner(true)
+  }, [projectBoundary, project.id, autoSearchStatus.triggered, isStepCompleted, viewMode])
+
+  // Auto-hide banner 5 seconds after all searches complete
+  React.useEffect(() => {
+    if (!showAutoSearchBanner) return
+    const { sites, species, aquatic } = autoSearchStatus
+    const allDone =
+      ['done', 'skipped', 'error'].includes(sites) &&
+      ['done', 'skipped', 'error'].includes(species) &&
+      ['done', 'skipped', 'error'].includes(aquatic)
+
+    if (!allDone) return
+
+    const timer = setTimeout(() => setShowAutoSearchBanner(false), 5000)
+    return () => clearTimeout(timer)
+  }, [autoSearchStatus, showAutoSearchBanner])
 
   // Toggle map fullscreen mode in wizard
   React.useEffect(() => {
@@ -198,6 +287,7 @@ export function DataGatheringStep({
             center={projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]}
             zoom={12}
             boundary={projectBoundary}
+            bufferDistances={bufferDistances}
             findings={savedFindings.map((f) => ({
               id: f.id,
               source: f.source,
@@ -404,6 +494,70 @@ export function DataGatheringStep({
         </div>
       </div>
 
+      {/* Auto-search Progress Banner */}
+      {showAutoSearchBanner && (
+        <div className="border-border shrink-0 border-b bg-blue-50/80 px-4 py-2">
+          <div className="flex items-center gap-3">
+            <Database className="h-4 w-4 text-blue-600" />
+            <span className="text-sm font-medium text-blue-800">
+              {(() => {
+                const { sites, species, aquatic } = autoSearchStatus
+                const total = 3
+                const completed = [sites, species, aquatic].filter((s) =>
+                  ['done', 'skipped', 'error'].includes(s)
+                ).length
+                if (completed >= total) return 'Auto-search complete'
+                return `Auto-searching ecological databases... (${completed}/${total})`
+              })()}
+            </span>
+            <div className="ml-auto flex items-center gap-2">
+              {/* Sites status */}
+              <div className="flex items-center gap-1">
+                <div
+                  className={cn(
+                    'h-2 w-2 rounded-full',
+                    autoSearchStatus.sites === 'searching' && 'animate-pulse bg-blue-500',
+                    autoSearchStatus.sites === 'done' && 'bg-emerald-500',
+                    autoSearchStatus.sites === 'skipped' && 'bg-gray-400',
+                    autoSearchStatus.sites === 'error' && 'bg-red-500',
+                    autoSearchStatus.sites === 'idle' && 'bg-gray-300'
+                  )}
+                />
+                <span className="text-xs text-blue-700">NPWS</span>
+              </div>
+              {/* Species status */}
+              <div className="flex items-center gap-1">
+                <div
+                  className={cn(
+                    'h-2 w-2 rounded-full',
+                    autoSearchStatus.species === 'searching' && 'animate-pulse bg-blue-500',
+                    autoSearchStatus.species === 'done' && 'bg-emerald-500',
+                    autoSearchStatus.species === 'skipped' && 'bg-gray-400',
+                    autoSearchStatus.species === 'error' && 'bg-red-500',
+                    autoSearchStatus.species === 'idle' && 'bg-gray-300'
+                  )}
+                />
+                <span className="text-xs text-blue-700">GBIF</span>
+              </div>
+              {/* Aquatic status */}
+              <div className="flex items-center gap-1">
+                <div
+                  className={cn(
+                    'h-2 w-2 rounded-full',
+                    autoSearchStatus.aquatic === 'searching' && 'animate-pulse bg-blue-500',
+                    autoSearchStatus.aquatic === 'done' && 'bg-emerald-500',
+                    autoSearchStatus.aquatic === 'skipped' && 'bg-gray-400',
+                    autoSearchStatus.aquatic === 'error' && 'bg-red-500',
+                    autoSearchStatus.aquatic === 'idle' && 'bg-gray-300'
+                  )}
+                />
+                <span className="text-xs text-blue-700">EPA</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Step Content */}
       <div className="relative min-h-0 flex-1">
         {/* Step 1: Project Info - simple step, conditional render is fine */}
@@ -416,8 +570,8 @@ export function DataGatheringStep({
           />
         )}
 
-        {/* Step 2: Designated Sites (NPWS) - keep mounted once visited */}
-        {visitedSteps.has('sites') && (
+        {/* Step 2: Designated Sites (NPWS) - keep mounted once visited or during auto-search */}
+        {(visitedSteps.has('sites') || autoSearchStatus.sites === 'searching') && (
           <div
             className={cn(
               'absolute inset-0',
@@ -434,12 +588,16 @@ export function DataGatheringStep({
               showMap={showMap}
               onToggleMap={() => setShowMap(!showMap)}
               isActive={currentStep === 'sites'}
+              autoSearchTrigger={autoSearchStatus.sites === 'searching'}
+              onAutoSearchComplete={(status) =>
+                setAutoSearchStatus((prev) => ({ ...prev, sites: status }))
+              }
             />
           </div>
         )}
 
-        {/* Step 3: Species Records (GBIF + NBDC) - keep mounted once visited */}
-        {visitedSteps.has('species') && (
+        {/* Step 3: Species Records (GBIF + NBDC) - keep mounted once visited or during auto-search */}
+        {(visitedSteps.has('species') || autoSearchStatus.species === 'searching') && (
           <div
             className={cn(
               'absolute inset-0',
@@ -456,12 +614,16 @@ export function DataGatheringStep({
               showMap={showMap}
               onToggleMap={() => setShowMap(!showMap)}
               isActive={currentStep === 'species'}
+              autoSearchTrigger={autoSearchStatus.species === 'searching'}
+              onAutoSearchComplete={(status) =>
+                setAutoSearchStatus((prev) => ({ ...prev, species: status }))
+              }
             />
           </div>
         )}
 
-        {/* Step 4: Aquatic Features (EPA) - keep mounted once visited */}
-        {visitedSteps.has('aquatic') && (
+        {/* Step 4: Aquatic Features (EPA) - keep mounted once visited or during auto-search */}
+        {(visitedSteps.has('aquatic') || autoSearchStatus.aquatic === 'searching') && (
           <div
             className={cn(
               'absolute inset-0',
@@ -478,6 +640,10 @@ export function DataGatheringStep({
               showMap={showMap}
               onToggleMap={() => setShowMap(!showMap)}
               isActive={currentStep === 'aquatic'}
+              autoSearchTrigger={autoSearchStatus.aquatic === 'searching'}
+              onAutoSearchComplete={(status) =>
+                setAutoSearchStatus((prev) => ({ ...prev, aquatic: status }))
+              }
             />
           </div>
         )}
