@@ -163,53 +163,6 @@ export function calculateAreaHa(feature: Feature<Polygon | MultiPolygon>): numbe
 }
 
 /**
- * Get buffer zone style based on distance
- */
-export function getBufferStyle(distance: number): {
-  color: string
-  fillColor: string
-  fillOpacity: number
-  weight: number
-  dashArray?: string
-} {
-  // Color scheme: closer = more opaque, further = less opaque
-  const baseColor = '#3b82f6' // Blue
-
-  if (distance <= 1) {
-    return {
-      color: baseColor,
-      fillColor: baseColor,
-      fillOpacity: 0.15,
-      weight: 2,
-    }
-  } else if (distance <= 2) {
-    return {
-      color: baseColor,
-      fillColor: baseColor,
-      fillOpacity: 0.1,
-      weight: 2,
-      dashArray: '5, 5',
-    }
-  } else if (distance <= 5) {
-    return {
-      color: baseColor,
-      fillColor: baseColor,
-      fillOpacity: 0.05,
-      weight: 1,
-      dashArray: '10, 5',
-    }
-  } else {
-    return {
-      color: baseColor,
-      fillColor: baseColor,
-      fillOpacity: 0.02,
-      weight: 1,
-      dashArray: '15, 10',
-    }
-  }
-}
-
-/**
  * Format distance for display
  */
 export function formatDistance(km: number): string {

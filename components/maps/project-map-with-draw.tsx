@@ -395,7 +395,22 @@ function MapComponentWithDraw({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const geoJSON = (layer as any).toGeoJSON() as GeoJSON.Feature
 
-    const newFeatures = [...drawnFeatures, geoJSON]
+    // Validate the geometry before accepting
+    if (
+      !geoJSON?.geometry ||
+      (geoJSON.geometry.type === 'Polygon' &&
+        (!geoJSON.geometry.coordinates?.[0] || geoJSON.geometry.coordinates[0].length < 4))
+    ) {
+      return
+    }
+
+    // Clear previous drawings - only allow one boundary at a time
+    if (featureGroupRef.current) {
+      featureGroupRef.current.clearLayers()
+      featureGroupRef.current.addLayer(layer)
+    }
+
+    const newFeatures = [geoJSON]
     setDrawnFeatures(newFeatures)
 
     onBoundaryChange?.({
@@ -428,7 +443,10 @@ function MapComponentWithDraw({
     layers.eachLayer((layer: L.Layer) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const geoJSON = (layer as any).toGeoJSON() as GeoJSON.Feature
-      features.push(geoJSON)
+      // Validate geometry before accepting
+      if (geoJSON?.geometry?.type === 'Polygon' && geoJSON.geometry.coordinates?.[0]?.length >= 4) {
+        features.push(geoJSON)
+      }
     })
 
     if (features.length > 0) {
@@ -447,38 +465,32 @@ function MapComponentWithDraw({
 
   const handleDeleted = (e: DrawDeletedEvent) => {
     isEditingRef.current = false
-    // Count how many layers were deleted
-    let deletedCount = 0
-    e.layers.eachLayer(() => {
-      deletedCount++
-    })
 
-    // If all features were deleted, clear everything
-    if (deletedCount >= drawnFeatures.length) {
-      setDrawnFeatures([])
-      lastLoadedBoundaryRef.current = null
-      onBoundaryChange?.({
-        type: 'FeatureCollection',
-        features: [],
-      })
-    } else {
-      // Get remaining features from the FeatureGroup
-      const remainingFeatures: GeoJSON.Feature[] = []
-      if (featureGroupRef.current) {
-        featureGroupRef.current.eachLayer((layer: L.Layer) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const geoJSON = (layer as any).toGeoJSON?.() as GeoJSON.Feature | undefined
-          if (geoJSON) {
-            remainingFeatures.push(geoJSON)
-          }
-        })
-      }
-      setDrawnFeatures(remainingFeatures)
-      onBoundaryChange?.({
-        type: 'FeatureCollection',
-        features: remainingFeatures,
+    // Get remaining features from the FeatureGroup
+    const remainingFeatures: GeoJSON.Feature[] = []
+    if (featureGroupRef.current) {
+      featureGroupRef.current.eachLayer((layer: L.Layer) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const geoJSON = (layer as any).toGeoJSON?.() as GeoJSON.Feature | undefined
+        if (
+          geoJSON?.geometry?.type === 'Polygon' &&
+          geoJSON.geometry.coordinates?.[0]?.length >= 4
+        ) {
+          remainingFeatures.push(geoJSON)
+        }
       })
     }
+
+    setDrawnFeatures(remainingFeatures)
+    const geom = remainingFeatures[0]?.geometry
+    lastLoadedBoundaryRef.current =
+      remainingFeatures.length > 0 && geom && 'coordinates' in geom
+        ? JSON.stringify(geom.coordinates)
+        : null
+    onBoundaryChange?.({
+      type: 'FeatureCollection',
+      features: remainingFeatures,
+    })
   }
 
   // Convert buffer zones Map to array for rendering
@@ -495,10 +507,11 @@ function MapComponentWithDraw({
       style={{ height: '100%', minHeight: '400px' }}
       zoomControl={false}
     >
-      <TileLayer url={tileConfig.url} attribution={tileConfig.attribution} />
+      <TileLayer key={currentStyle} url={tileConfig.url} attribution={tileConfig.attribution} />
       {/* Labels overlay for hybrid mode - roads, places, boundaries */}
       {currentStyle === 'hybrid' && (
         <TileLayer
+          key="hybrid-labels"
           url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
           attribution=""
           pane="overlayPane"
@@ -744,6 +757,14 @@ export function ProjectMapWithDraw({
   const containerRef = React.useRef<HTMLDivElement>(null)
   const mapRef = React.useRef<LeafletMap | null>(null)
 
+  // Auto-hide drawing hint after 5 seconds
+  const [showDrawingHint, setShowDrawingHint] = React.useState(true)
+  React.useEffect(() => {
+    if (!editable || boundary) return
+    const timer = setTimeout(() => setShowDrawingHint(false), 5000)
+    return () => clearTimeout(timer)
+  }, [editable, boundary])
+
   // Data layers state
   const [showCounties, setShowCounties] = React.useState(false)
   const [countiesData, setCountiesData] = React.useState<GeoJSON.FeatureCollection | null>(null)
@@ -928,11 +949,11 @@ export function ProjectMapWithDraw({
         />
       </div>
 
-      {/* Drawing instructions panel - shown when editable and no boundary */}
-      {editable && !boundary && (
+      {/* Drawing instructions panel - auto-hides after 5 seconds */}
+      {editable && !boundary && showDrawingHint && (
         <div
           data-map-control="true"
-          className="bg-card/95 absolute top-4 right-20 z-1000 max-w-xs rounded-lg border p-3 shadow-lg backdrop-blur"
+          className="bg-card/95 absolute top-4 right-20 z-1000 max-w-xs rounded-lg border p-3 shadow-lg backdrop-blur transition-opacity duration-500"
         >
           <h4 className="mb-2 flex items-center gap-2 text-sm font-medium">
             <Info className="h-4 w-4" />

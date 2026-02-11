@@ -32,7 +32,6 @@ export {
   createMultipleBuffers,
   calculatePerimeter,
   calculateAreaHa,
-  getBufferStyle,
   formatDistance,
   STANDARD_BUFFER_DISTANCES,
   type BufferOptions,

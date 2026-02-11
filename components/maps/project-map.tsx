@@ -488,10 +488,11 @@ function MapComponent({
       style={{ height: '100%', minHeight: '400px' }}
       zoomControl={false}
     >
-      <TileLayer url={tileConfig.url} attribution={tileConfig.attribution} />
+      <TileLayer key={currentStyle} url={tileConfig.url} attribution={tileConfig.attribution} />
       {/* Labels overlay for hybrid mode - roads, places, boundaries */}
       {currentStyle === 'hybrid' && (
         <TileLayer
+          key="hybrid-labels"
           url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
           attribution=""
           pane="overlayPane"

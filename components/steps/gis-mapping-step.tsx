@@ -61,6 +61,8 @@ import {
   type IrishLocationInfo,
 } from '@/lib/gis'
 import { MapCaptureButton } from '@/components/maps/map-capture-button'
+import { LayerInfoButton, LayerInfoModal } from '@/components/gis/layer-info-modal'
+import { getLayerMetadata, type LayerMetadata } from '@/lib/config/layer-metadata'
 import type { Project, WorkflowStep } from '@/types/database'
 import { useProjectContext } from '@/contexts/project-context'
 
@@ -247,8 +249,17 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
   // Map view state (persists between wizard steps)
   const [mapCenter, setMapCenter] = React.useState<[number, number] | undefined>(undefined)
   const [mapZoom, setMapZoom] = React.useState<number | undefined>(undefined)
-  // Base map style state (persists between wizard steps - fixes satellite->streets bug)
-  const [baseMapStyle, setBaseMapStyle] = React.useState<MapStyle>('satellite')
+  // Base map style state (persists between wizard steps and page navigations)
+  const [baseMapStyle, setBaseMapStyle] = React.useState<MapStyle>(() => {
+    if (typeof window !== 'undefined') {
+      return (sessionStorage.getItem(`gis-map-style-${project.id}`) as MapStyle) || 'satellite'
+    }
+    return 'satellite'
+  })
+  // Persist base map style to sessionStorage
+  React.useEffect(() => {
+    sessionStorage.setItem(`gis-map-style-${project.id}`, baseMapStyle)
+  }, [baseMapStyle, project.id])
   // Fly to location state - for animating to clicked items
   const [flyToLocation, setFlyToLocation] = React.useState<
     | {
@@ -273,11 +284,33 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
   })
   const [layerDataLoading, setLayerDataLoading] = React.useState<Record<string, boolean>>({})
   const [expandedLayers, setExpandedLayers] = React.useState<Set<string>>(new Set())
-  // Track ignored and deleted items by their unique ID
-  const [ignoredItems, setIgnoredItems] = React.useState<Set<string>>(new Set())
-  const [deletedItems, setDeletedItems] = React.useState<Set<string>>(new Set())
+  // Track ignored and deleted items by their unique ID (persisted to sessionStorage)
+  const [ignoredItems, setIgnoredItems] = React.useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = sessionStorage.getItem(`gis-ignored-${project.id}`)
+      if (cached) return new Set(JSON.parse(cached))
+    }
+    return new Set()
+  })
+  const [deletedItems, setDeletedItems] = React.useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = sessionStorage.getItem(`gis-deleted-${project.id}`)
+      if (cached) return new Set(JSON.parse(cached))
+    }
+    return new Set()
+  })
+  // Persist ignored/deleted items to sessionStorage
+  React.useEffect(() => {
+    sessionStorage.setItem(`gis-ignored-${project.id}`, JSON.stringify([...ignoredItems]))
+  }, [ignoredItems, project.id])
+  React.useEffect(() => {
+    sessionStorage.setItem(`gis-deleted-${project.id}`, JSON.stringify([...deletedItems]))
+  }, [deletedItems, project.id])
   // Track which categories show all items (not just first 5)
   const [showAllItems, setShowAllItems] = React.useState<Set<string>>(new Set())
+  // Layer info modal state
+  const [layerInfoMetadata, setLayerInfoMetadata] = React.useState<LayerMetadata | null>(null)
+  const [layerInfoOpen, setLayerInfoOpen] = React.useState(false)
   // Cache flag to prevent re-fetching on every toggle
   const layerDataFetchedRef = React.useRef(false)
 
@@ -442,8 +475,8 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
   const boundaryInfo = React.useMemo(() => {
     if (!boundary?.geometry) return null
 
-    const coords = boundary.geometry.coordinates[0]
-    if (coords.length < 3) return null
+    const coords = boundary.geometry.coordinates?.[0]
+    if (!coords || coords.length < 3) return null
 
     const lats = coords.map((c) => c[1])
     const lngs = coords.map((c) => c[0])
@@ -534,8 +567,13 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
   // Handlers
   const handleBoundaryChange = (features: GeoJSON.FeatureCollection) => {
     if (features.features.length > 0) {
-      setBoundary(features.features[0] as GeoJSON.Feature<GeoJSON.Polygon>)
-      setHasUnsavedChanges(true)
+      // Use the last drawn feature (so new drawing replaces previous)
+      const feature = features.features[features.features.length - 1]
+      // Validate geometry before setting
+      if (feature?.geometry?.type === 'Polygon' && feature.geometry.coordinates?.[0]?.length >= 4) {
+        setBoundary(feature as GeoJSON.Feature<GeoJSON.Polygon>)
+        setHasUnsavedChanges(true)
+      }
     } else {
       // Boundary was deleted
       setBoundary(null)
@@ -565,6 +603,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
     setVisibleLayers((prev) =>
       prev.includes(layerId) ? prev.filter((id) => id !== layerId) : [...prev, layerId]
     )
+    setHasUnsavedChanges(true)
   }
 
   const handleSave = async () => {
@@ -628,6 +667,10 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
       return
     }
     if (currentStep === 'boundary' && !boundary) {
+      return
+    }
+    // Require at least one buffer zone before proceeding to layers
+    if (currentStep === 'buffers' && enabledBuffers.length === 0) {
       return
     }
     // Auto-enable default data layers when entering the Layers step
@@ -1174,6 +1217,11 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                 <p className="text-muted-foreground mt-1 text-xs">
                   Enter distance in kilometers (0.1 - 50)
                 </p>
+                {customBufferInput && parseFloat(customBufferInput) > 15 && (
+                  <p className="mt-1 text-xs text-amber-600">
+                    Large buffers may slow down searches and map rendering
+                  </p>
+                )}
               </div>
 
               {/* Selected summary */}
@@ -1182,6 +1230,11 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                   <span className="text-sm font-medium">Selected Buffers</span>
                   <span className="text-muted-foreground text-sm">{enabledBuffers.length}</span>
                 </div>
+                {enabledBuffers.length === 0 && (
+                  <p className="mt-2 text-xs text-amber-600">
+                    Select at least one buffer zone to proceed
+                  </p>
+                )}
                 {enabledBuffers.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">
                     {enabledBuffers

@@ -1,7 +1,7 @@
 # Dulra MVP - Müşteri Geri Bildirimleri ve Yapılacaklar Listesi
 
 > **Tarih:** 3 Şubat 2026
-> **Versiyon:** 2.0 (6 Şubat 2026 güncellemesi)
+> **Versiyon:** 3.0 (11 Şubat 2026 güncellemesi)
 > **Durum:** Geliştirme Aşaması
 
 ---
@@ -9,8 +9,8 @@
 ## İçindekiler
 
 0. [Adım Adım Akış ve UX İyileştirmeleri (YENİ)](#0-adım-adım-akış-ve-ux-i̇yileştirmeleri)
-1. [GIS ve Haritalama İyileştirmeleri](#1-gis-ve-haritalama-i̇yileştirmeleri)
-2. [Designated Sites Araştırması ve Deep Research](#2-designated-sites-araştırması-ve-deep-research)
+1. [GIS ve Haritalama İyileştirmeleri ✅](#1-gis-ve-haritalama-i̇yileştirmeleri)
+2. [Designated Sites Araştırması ve Deep Research ✅](#2-designated-sites-araştırması-ve-deep-research)
 3. [Değerlendirici İş Akışı ve Sonuç Yönetimi](#3-değerlendirici-i̇ş-akışı-ve-sonuç-yönetimi)
 4. [Tür Kaydı ve GBIF Entegrasyonu](#4-tür-kaydı-ve-gbif-entegrasyonu)
 5. [Sonuçlar ve Harita Etkileşimi](#5-sonuçlar-ve-harita-etkileşimi)
@@ -22,9 +22,15 @@
 11. [Caspio Bird Database Entegrasyonu (YENİ - 8 Şubat)](#11-caspio-bird-database-entegrasyonu)
 12. [Automated Web Search - Ecological Reports (YENİ - 8 Şubat)](#12-automated-web-search---ecological-reports)
 13. [Ecological Summary Auto-Generation (YENİ - 8 Şubat)](#13-ecological-summary-auto-generation)
-14. [Smart Scoping - Field Survey Önerileri (YENİ - 8 Şubat)](#14-smart-scoping---field-survey-önerileri)
+14. [~~Smart Scoping~~ ❌ İPTAL](#14-smart-scoping---field-survey-önerileri)
 15. [Photo & Asset Management (YENİ - 8 Şubat)](#15-photo--asset-management)
 16. [Relevé Survey Entegrasyonu (YENİ - 8 Şubat)](#16-relevé-survey-entegrasyonu)
+17. [Desk Assessment İşlevsellik İyileştirmeleri (YENİ - 11 Şubat)](#17-desk-assessment-i̇şlevsellik-i̇yileştirmeleri)
+18. [Field Survey Sayfa Düzenlemeleri (YENİ - 11 Şubat)](#18-field-survey-sayfa-düzenlemeleri)
+19. [Habitat Mapping Araç Güncellemeleri (YENİ - 11 Şubat)](#19-habitat-mapping-araç-güncellemeleri)
+20. [Target Notes ve Species Observations Güncellemeleri (YENİ - 11 Şubat)](#20-target-notes-ve-species-observations-güncellemeleri)
+21. [Reporting ve Data Analysis Kapsamlı Erişim (YENİ - 11 Şubat)](#21-reporting-ve-data-analysis-kapsamlı-erişim)
+22. [AI Reporting - Uygulama İçi Rapor Düzenleme (YENİ - 11 Şubat)](#22-ai-reporting---uygulama-i̇çi-rapor-düzenleme)
 
 ---
 
@@ -43,12 +49,19 @@ Buffer zone adımında satellite katmanı aktifken uygulama yanlışlıkla harit
 
 **Yapılacaklar:**
 
-- [ ] **0.1.1** Bug'ı tespit et ve reprodüce et
-  - Dosya: `components/steps/gis-mapping-step.tsx`
-  - Buffer adımına geçişte harita state'i sıfırlanıyor olabilir
-- [ ] **0.1.2** Harita katman seçimini adımlar arası persist et
-  - SessionStorage veya parent state ile seçili base layer'ı sakla
-  - Adım geçişlerinde harita layer state'ini koru
+- [x] ~~**0.1.1** Bug'ı tespit et ve reprodüce et~~
+
+  ✅ **TAMAMLANDI (11 Şubat 2026):**
+  - Kök neden: react-leaflet `TileLayer` `url` prop değiştiğinde tile'ları güncellemiyordu
+  - `key={currentStyle}` prop'u eklenerek `TileLayer` katman değişiminde yeniden mount ediliyor
+  - Dosyalar: `project-map-with-draw.tsx`, `project-map.tsx`
+
+- [x] ~~**0.1.2** Harita katman seçimini adımlar arası persist et~~
+
+  ✅ **TAMAMLANDI (11 Şubat 2026):**
+  - `baseMapStyle` state'i zaten parent'ta substep'ler arası korunuyordu
+  - SessionStorage ile sayfa navigasyonlarında da persist ediliyor (`gis-map-style-{projectId}`)
+  - Dosya: `gis-mapping-step.tsx`
 
 ---
 
@@ -63,9 +76,14 @@ Step 2 (Buffer Zone) tamamlanıp "next" butonuna tıklandığında uygulama otom
 
 **Yapılacaklar:**
 
-- [ ] **0.2.1** Buffer adımından Layers adımına geçişte otomatik layer aktivasyonu
-  - Dosya: `components/steps/gis-mapping-step.tsx`
-  - `onNext` handler'ında NPWS + EPA katmanlarını otomatik aç
+- [x] ~~**0.2.1** Buffer adımından Layers adımına geçişte otomatik layer aktivasyonu~~
+
+  ✅ **TAMAMLANDI (zaten mevcut):**
+  - `goNext()` fonksiyonu `buffers` → `layers` geçişinde `getDefaultVisibleLayers()` ile NPWS katmanlarını (SAC, SPA, NHA, pNHA) otomatik aktif ediyor
+  - `layers` adımına geçildiğinde `fetchLayerData()` otomatik tetikleniyor
+  - Tüm veri tipleri (NPWS + Rivers + Lakes + Catchments) paralel çekiliyor
+  - Arama alanı: boundary + en büyük buffer (seçilmediyse varsayılan 5km)
+  - Dosya: `components/steps/gis-mapping-step.tsx` (satır 626-643, 430-434, 360-427)
 
 ---
 
@@ -80,10 +98,15 @@ Mevcut veri katmanlarını ve detaylarını göstermek için ayrılmış bir kol
 
 **Yapılacaklar:**
 
-- [ ] **0.3.1** Layers adımında veri katmanları yan paneli güncelle
-  - Dosya: `components/gis/dataset-layers-panel.tsx`
-  - Katman detayları göster (site sayısı, kapsam)
-  - Kullanıcının hangi katmanları sonraki adıma taşıyacağını seçebilmesi
+- [x] ~~**0.3.1** Layers adımında veri katmanları yan paneli güncelle~~
+
+  ✅ **TAMAMLANDI (zaten mevcut):**
+  - 320px yan panel zaten layers substep'te mevcut (`gis-mapping-step.tsx`)
+  - 4 kategori (NPWS, Rivers, Lakes, Catchments) collapsible sections
+  - Her item'da: isim, tip, alan/uzunluk, WFD durumu, count badge
+  - Toggle, ignore (göz), delete (X) butonları
+  - Tıklayınca haritada fly-to, NPWS/EPA linkleri
+  - `visibleLayers` veritabanına persist ediliyor (`project.visible_layers`)
 
 ---
 
@@ -1328,7 +1351,12 @@ Her tanımlanan site için rapor şunları açıkça listeler: İlişkili habita
 
 ---
 
-## Öncelik Matrisi
+## Eski Öncelik Matrisi (8 Şubat 2026 - Arşiv)
+
+> **Not:** Bu matris 11 Şubat güncellemesi öncesi referans olarak saklanmaktadır. Güncel matris dokümanın sonundadır.
+
+<details>
+<summary>Eski matrisi göster (tıkla)</summary>
 
 ### ✅ Tamamlanan Görevler
 
@@ -1339,72 +1367,37 @@ Her tanımlanan site için rapor şunları açıkça listeler: İlişkili habita
 | 1.3 | Katman metadata          | ✅ Tamamlandı | 4 Şub 2026   |
 | 2.1 | NPWS veri entegrasyonu   | ✅ Tamamlandı | 6 Şub 2026   |
 | 2.2 | Deep Research (Sites)    | ✅ Tamamlandı | 5-6 Şub 2026 |
+| 0.1 | Satellite layer bug fix  | ✅ Tamamlandı | 11 Şub 2026  |
 
 ### 🔧 Devam Eden / Yapılacak Görevler
 
-| #    | Görev                             | Öncelik   | Efor   | Bağımlılık |
-| ---- | --------------------------------- | --------- | ------ | ---------- |
-| 0.1  | Satellite layer bug fix           | 🔴 Yüksek | Düşük  | -          |
-| 0.2  | Otomatik veri katmanı açılması    | 🔴 Yüksek | Düşük  | -          |
-| 0.3  | Veri katmanı yan panel            | 🟡 Orta   | Orta   | -          |
-| 0.4  | Core DB search otomasyonu         | 🔴 Yüksek | Orta   | 0.2        |
-| 0.5  | Harita-bulgu senkronizasyonu      | 🔴 Yüksek | Yüksek | -          |
-| 0.6  | "Move to Next Stage" butonu       | 🟡 Orta   | Düşük  | -          |
-| 0.7  | Satellite varsayılan yapma        | 🟡 Orta   | Düşük  | -          |
-| 3.1  | Bulgu yönetimi (dismiss/toplu)    | 🔴 Yüksek | Orta   | -          |
-| 4.1  | Deep Research (Species) iyileştir | 🔴 Yüksek | Yüksek | -          |
-| 5.1  | View on Map düzeltmesi            | 🟡 Orta   | Düşük  | -          |
-| 5.2  | Gelişmiş popup                    | 🟡 Orta   | Orta   | -          |
-| 5.3  | Sonuç kaydetme                    | 🔴 Yüksek | Düşük  | -          |
-| 5.4  | Baseline Report                   | 🟡 Orta   | Yüksek | 3.1, 4.1   |
-| 6.1  | Logo güncelleme                   | 🟢 Düşük  | Düşük  | -          |
-| 6.2  | Admin Dashboard                   | 🔴 Yüksek | Yüksek | -          |
-| 6.3  | 65 demo proje                     | 🔴 Yüksek | Orta   | 6.2        |
-| 6.4  | Proje detay görünümü              | 🟡 Orta   | Orta   | -          |
-| 7.1  | Gelişmiş arama                    | 🟡 Orta   | Orta   | -          |
-| 7.2  | Audit Trail                       | 🟡 Orta   | Orta   | -          |
-| 8.1  | Proje oluşturma                   | 🟢 Düşük  | Düşük  | -          |
-| 9.1  | Findings Summary layout           | 🔴 Yüksek | Orta   | -          |
-| 9.2  | AI 3-satır özet kartları          | 🔴 Yüksek | Orta   | 9.1        |
-| 9.3  | Bulgu aksiyonları (note/share/dl) | 🟡 Orta   | Orta   | 9.1        |
-| 10.1 | Deep Research panel layout        | 🔴 Yüksek | Orta   | -          |
-| 10.2 | Designated sites deep dive        | 🔴 Yüksek | Orta   | 10.1, 2.1  |
+| # | Görev | Öncelik | Efor | Bağımlılık |
+| 0.2 | Otomatik veri katmanı açılması | 🔴 Yüksek | Düşük | - |
+| 0.3 | Veri katmanı yan panel | 🟡 Orta | Orta | - |
+| 0.4 | Core DB search otomasyonu | 🔴 Yüksek | Orta | 0.2 |
+| 0.5 | Harita-bulgu senkronizasyonu | 🔴 Yüksek | Yüksek | - |
+| 0.6 | "Move to Next Stage" butonu | 🟡 Orta | Düşük | - |
+| 0.7 | Satellite varsayılan yapma | 🟡 Orta | Düşük | - |
+| 3.1 | Bulgu yönetimi (dismiss/toplu) | 🔴 Yüksek | Orta | - |
+| 4.1 | Deep Research (Species) iyileştir | 🔴 Yüksek | Yüksek | - |
+| 5.1 | View on Map düzeltmesi | 🟡 Orta | Düşük | - |
+| 5.2 | Gelişmiş popup | 🟡 Orta | Orta | - |
+| 5.3 | Sonuç kaydetme | 🔴 Yüksek | Düşük | - |
+| 5.4 | Baseline Report | 🟡 Orta | Yüksek | 3.1, 4.1 |
+| 6.1 | Logo güncelleme | 🟢 Düşük | Düşük | - |
+| 6.2 | Admin Dashboard | 🔴 Yüksek | Yüksek | - |
+| 6.3 | 65 demo proje | 🔴 Yüksek | Orta | 6.2 |
+| 6.4 | Proje detay görünümü | 🟡 Orta | Orta | - |
+| 7.1 | Gelişmiş arama | 🟡 Orta | Orta | - |
+| 7.2 | Audit Trail | 🟡 Orta | Orta | - |
+| 8.1 | Proje oluşturma | 🟢 Düşük | Düşük | - |
+| 9.1 | Findings Summary layout | 🔴 Yüksek | Orta | - |
+| 9.2 | AI 3-satır özet kartları | 🔴 Yüksek | Orta | 9.1 |
+| 9.3 | Bulgu aksiyonları (note/share/dl) | 🟡 Orta | Orta | 9.1 |
+| 10.1 | Deep Research panel layout | 🔴 Yüksek | Orta | - |
+| 10.2 | Designated sites deep dive | 🔴 Yüksek | Orta | 10.1, 2.1 |
 
-### Önerilen Geliştirme Sırası
-
-**Sprint 1 - Kritik Bug ve UX (1-2 gün):**
-
-- 0.1 Satellite layer bug fix
-- 0.2 Otomatik veri katmanı
-- 0.6 Move to Next Stage butonu
-- 0.7 Satellite varsayılan
-
-**Sprint 2 - Findings ve Etkileşim (3-4 gün):**
-
-- 0.5 Harita-bulgu senkronizasyonu
-- 9.1 Findings Summary layout
-- 9.2 AI 3-satır özet kartları
-- 3.1 Bulgu yönetimi (dismiss/toplu)
-
-**Sprint 3 - Deep Research ve Species (3-4 gün):**
-
-- 4.1 Species Deep Research iyileştirme
-- 10.1 Deep Research panel layout
-- 10.2 Designated sites deep dive
-- 5.1 View on Map düzeltmesi
-
-**Sprint 4 - Admin Dashboard (3-4 gün):**
-
-- 6.2 Admin Dashboard
-- 6.3 65 demo proje
-- 6.4 Proje detay görünümü
-
-**Sprint 5 - Rapor ve İleri (3-4 gün):**
-
-- 5.4 Baseline Conditions Report
-- 7.1 Gelişmiş arama
-- 7.2 Audit Trail
-- 9.3 Bulgu aksiyonları
+</details>
 
 ---
 
@@ -1556,11 +1549,13 @@ Bu özellik **kısmen mevcut**. Step 3 (Desk Assessment) → "Generate AI Insigh
 
 ---
 
-## 14. Smart Scoping - Field Survey Önerileri (YENİ - 8 Şubat 2026)
+## ~~14. Smart Scoping - Field Survey Önerileri~~ ❌ İPTAL (11 Şubat 2026)
 
-> **Kaynak:** Greg'in yeni feedback'i - "Field Survey & Digital Collection - Smart Scoping"
+> **⚠️ İPTAL EDİLDİ:** Müşterinin 11 Şubat feedback'inde "The existing Smart Scoping section should be removed entirely" denilmiştir. Bu bölümdeki görevler iptal edilmiştir. Yerine **Bölüm 18.1 (Survey Targets kutusu)** uygulanacaktır.
+>
+> **Kaynak (eski):** Greg'in yeni feedback'i - "Field Survey & Digital Collection - Smart Scoping"
 
-### 14.1 Akıllı Saha Araştırması Önerileri
+### ~~14.1 Akıllı Saha Araştırması Önerileri~~ ❌ İPTAL
 
 **Müşteri İsteği (Orijinal):**
 
@@ -1574,27 +1569,10 @@ Bu özellik **şu an yok**. Field survey'e geçildiğinde ecologist kendi karar�
 
 **Yapılacaklar:**
 
-- [ ] **14.1.1** Habitat-Species mapping oluştur
-  - Dosya: `lib/data/habitat-species-mapping.ts`
-  - Her habitat tipi için potansiyel korunan türler
-  - Örnek: WL1 (Hedgerow) → Badger, nesting birds
-  - Örnek: FW2 (River) → Otter, Kingfisher, Salmon
-
-- [ ] **14.1.2** Smart Scoping algoritması
-  - Input: Desk research findings (habitats, existing species records, designated sites)
-  - Output: Öncelikli tür listesi + gerekçe
-  - Öncelik seviyeleri: High, Medium, Low
-
-- [ ] **14.1.3** Smart Scoping UI paneli
-  - Dosya: `components/field-surveys/smart-scoping-panel.tsx`
-  - Field Survey step'ine entegre
-  - Önerilen türler listesi
-  - Her tür için: isim, gerekçe, survey metodu önerisi
-  - Checklist oluşturma butonu
-
-- [ ] **14.1.4** Survey checklist entegrasyonu
-  - Önerilen türlerden otomatik checklist oluştur
-  - Field survey formuna aktarma
+- ~~[ ] **14.1.1** Habitat-Species mapping oluştur~~ ❌ İPTAL
+- ~~[ ] **14.1.2** Smart Scoping algoritması~~ ❌ İPTAL
+- ~~[ ] **14.1.3** Smart Scoping UI paneli~~ ❌ İPTAL
+- ~~[ ] **14.1.4** Survey checklist entegrasyonu~~ ❌ İPTAL
 
 ---
 
@@ -1694,7 +1672,344 @@ Mevcut prototipteki Habitat Survey ve Relevé Survey yapısını kullan. Ekoloji
 
 ---
 
+## 17. Desk Assessment İşlevsellik İyileştirmeleri (YENİ - 11 Şubat 2026)
+
+> **Kaynak:** MVP Feedback Summary - "Desk Assessment Functionality Improvements" ve "Desk Assessment UI/UX Changes"
+
+### 17.1 AI Insights Düzenlenebilirlik
+
+**Müşteri İsteği (Orijinal):**
+
+> AI-Generated Insights: The AI Insights should be editable by the ecologist. Once saved, these insights need to be stored in the "Reporting Data Analysis" section under a new dedicated tab titled "Desk Assessments."
+
+**Müşteri İsteği (Türkçe):**
+AI üretimi Insights ekolojist tarafından düzenlenebilir olmalı. Kaydedildikten sonra, Reporting Data Analysis bölümünde yeni bir "Desk Assessments" tab'ında saklanmalı.
+
+**Yapılacaklar:**
+
+- [ ] **17.1.1** AI Insights içeriğini düzenlenebilir hale getir
+  - Dosya: `components/steps/desk-assessment-step.tsx`
+  - Mevcut read-only AI çıktısını editable textarea/rich-text editor'e dönüştür
+  - "Edit" / "Save" toggle butonu ekle
+
+- [ ] **17.1.2** Düzenlenen insights'ı veritabanına kaydet
+  - Mevcut `reports` veya yeni `desk_assessments` tablosuna persist et
+  - Versiyon takibi (orijinal AI çıktısı + düzenlenmiş hali)
+
+- [ ] **17.1.3** Reporting Data Analysis (Step 7) sayfasına "Desk Assessments" tab'ı ekle
+  - Dosya: `components/steps/data-analysis-step.tsx`
+  - Yeni tab: kaydedilmiş desk assessment insights'ları göster
+  - Düzenleme imkanı burada da olmalı
+
+---
+
+### 17.2 Desk Assessment UI/UX Değişiklikleri
+
+**Müşteri İsteği (Orijinal):**
+
+> Tab Removal: The "Assessment" and "Field Plan" tabs should be removed from the Desk Assessment view.
+> Feature Relocation: Relocate the "Survey Recommendations" and the "Complete & Continue to Field Survey" green button to the "AI INSIGHTS" tab.
+
+**Müşteri İsteği (Türkçe):**
+Desk Assessment görünümünden "Assessment" ve "Field Plan" tab'ları kaldırılmalı. "Survey Recommendations" ve "Complete & Continue to Field Survey" yeşil butonu "AI INSIGHTS" tab'ına taşınmalı.
+
+**Yapılacaklar:**
+
+- [ ] **17.2.1** "Assessment" ve "Field Plan" tab'larını kaldır
+  - Dosya: `components/steps/desk-assessment-step.tsx`
+  - Bu tab'lardaki gerekli içerikleri başka yerlere taşı veya tamamen kaldır
+
+- [ ] **17.2.2** "Survey Recommendations" bölümünü AI Insights tab'ına taşı
+  - Dosya: `components/steps/desk-assessment-step.tsx`
+  - Survey recommendations AI Insights tab'ının alt bölümü olacak
+
+- [ ] **17.2.3** "Complete & Continue to Field Survey" yeşil butonunu AI Insights tab'ına taşı
+  - Mevcut konumundan kaldır ve AI Insights tab'ının sonuna yerleştir
+
+---
+
+### 17.3 Veri Kaynaklarına Direkt Linkler
+
+**Müşteri İsteği (Orijinal):**
+
+> Data Sources: Ensure that all data sources are easily accessible via direct links.
+
+**Müşteri İsteği (Türkçe):**
+Desk Assessment'ta tüm veri kaynaklarına direkt linklerle kolayca erişilebilmeli.
+
+**Yapılacaklar:**
+
+- [ ] **17.3.1** Desk Assessment görünümünde her veri kaynağına direkt link ekle
+  - Dosya: `components/steps/desk-assessment-step.tsx`
+  - NPWS, GBIF, NBDC, EPA kaynak linkleri her bulgu kartında görünür olmalı
+
+---
+
+## 18. Field Survey Sayfa Düzenlemeleri (YENİ - 11 Şubat 2026)
+
+> **Kaynak:** MVP Feedback Summary - "Field Survey Page Adjustments" ve "Survey Creation Updates"
+
+### 18.1 Survey Targets Kutusu (Habitats)
+
+**Müşteri İsteği (Orijinal):**
+
+> New Box Requirement: Create a new display box on the Field Survey page to list the "Survey Targets" derived from "Desk Research" specifically for "Habitats."
+> Style Consistency: The background for this new box should be updated to match the style of the existing "Smart Scoping" section.
+> Section Removal: The existing "Smart Scoping" section should be removed entirely.
+
+**Müşteri İsteği (Türkçe):**
+Field Survey sayfasında Desk Research'ten gelen "Habitats" için yeni "Survey Targets" kutusu oluşturulmalı. Stil mevcut Smart Scoping bölümüyle eşleşmeli. Mevcut Smart Scoping bölümü tamamen kaldırılmalı.
+
+**⚠️ ÖNEMLİ: Bu madde bölüm 14 (Smart Scoping) ile ÇELİŞİYOR!**
+Müşteri Smart Scoping'i kaldırmamızı istiyor. Bölüm 14'teki Smart Scoping geliştirme görevleri İPTAL EDİLMELİ. Yerine bu Survey Targets kutusu gelecek.
+
+**Yapılacaklar:**
+
+- [ ] **18.1.1** Mevcut Smart Scoping bölümünü Field Survey sayfasından kaldır
+  - Dosya: `components/steps/field-survey-step.tsx`
+  - İlgili bileşenler: `components/field-surveys/smart-scoping-panel.tsx` (varsa kaldır)
+
+- [ ] **18.1.2** Yeni "Survey Targets (Habitats)" kutusu oluştur
+  - Dosya: `components/field-surveys/survey-targets-box.tsx`
+  - Desk Research'ten gelen habitat bulgularını listele
+  - Smart Scoping arka plan stili ile eşleşen tasarım
+  - Field Survey sayfasının üst kısmına yerleştir
+
+---
+
+### 18.2 Survey Oluşturma Güncellemeleri
+
+**Müşteri İsteği (Orijinal):**
+
+> Simplify Scheduling: Remove the "Weather conditions" section and the "start time" / "end time" fields.
+> Add Expected Volume: Introduce a new section titled "Number of surveys expected."
+> Template Navigation: Upon selecting "create survey," users should be directed to a template page specific to the chosen survey type, based on the existing Releve Survey template.
+> After it is created the ecologists can edit it by clicking the 3 buttons
+
+**Müşteri İsteği (Türkçe):**
+Survey oluşturma formunu basitleştir: Weather conditions, start/end time kaldır. "Number of surveys expected" alanı ekle. "Create survey" tıklandığında survey tipine özel template sayfasına yönlendir. Oluşturulduktan sonra 3 butonla düzenlenebilmeli.
+
+**Yapılacaklar:**
+
+- [ ] **18.2.1** Survey formundan gereksiz alanları kaldır
+  - Dosya: `components/field-surveys/survey-form.tsx` (veya ilgili form bileşeni)
+  - Kaldır: "Weather conditions" bölümü
+  - Kaldır: "Start time" / "End time" alanları
+
+- [ ] **18.2.2** "Number of surveys expected" alanı ekle
+  - Survey oluşturma formuna sayısal input ekle
+  - Label: "Number of surveys expected"
+
+- [ ] **18.2.3** Survey tipi bazlı template navigasyonu
+  - "Create survey" tıklandığında seçilen survey tipine göre template sayfasına yönlendir
+  - Relevé Survey template referansı: Google Sheets link
+  - Her survey tipi için template yapısı
+
+- [ ] **18.2.4** Survey oluşturulduktan sonra 3 aksiyon butonu
+  - Survey kartı/satırında 3 butonlu düzenleme menüsü
+  - Butonlar: Edit, View, Delete (veya müşteriden detay alınacak)
+
+---
+
+## 19. Habitat Mapping Araç Güncellemeleri (YENİ - 11 Şubat 2026)
+
+> **Kaynak:** MVP Feedback Summary - "Habitat Mapping Tool"
+
+### 19.1 Habitat Mapping Sayfa Düzeni ve Butonlar
+
+**Müşteri İsteği (Orijinal):**
+
+> The primary function of the Habitat Mapping page is to assist the ecologist in estimating habitats within the project boundary.
+> The map should be positioned to the bottom of the page.
+> An "Add Habitat" and edit buttons is required.
+
+**Müşteri İsteği (Türkçe):**
+Habitat Mapping sayfasının birincil işlevi, proje sınırı içindeki habitatları tahmin etmede ekolojiste yardımcı olmaktır. Harita sayfanın alt kısmına konumlanmalı. "Add Habitat" ve edit butonları gerekli.
+
+**Yapılacaklar:**
+
+- [ ] **19.1.1** Habitat Mapping sayfa düzenini yeniden organize et
+  - Dosya: `components/steps/habitat-mapping-step.tsx`
+  - Haritayı sayfanın alt kısmına taşı
+  - Üst kısım: Habitat listesi, ekleme/düzenleme araçları
+
+- [ ] **19.1.2** "Add Habitat" butonu ekle
+  - Belirgin "Add Habitat" butonu (sayfanın üst kısmında)
+  - Tıklandığında habitat ekleme formu/modalı açılır
+  - FOSSITT kodu seçimi, alan çizimi workflow'u
+
+- [ ] **19.1.3** Habitat düzenleme butonları ekle
+  - Her habitat kartında edit butonu
+  - Mevcut habitat verilerini düzenleme imkanı
+
+---
+
+## 20. Target Notes ve Species Observations Güncellemeleri (YENİ - 11 Şubat 2026)
+
+> **Kaynak:** MVP Feedback Summary - "Target Notes and Species Observations"
+
+### 20.1 Haritada Tıklama ile GPS Otomatik Kayıt
+
+**Müşteri İsteği (Orijinal):**
+
+> Ecologists must be able to click on an area of interest, automatically saving the GPS coordinates to a list along with an ecologist-provided note.
+
+**Müşteri İsteği (Türkçe):**
+Ekolojistler haritada bir ilgi alanına tıklayarak GPS koordinatlarını otomatik olarak bir listeye kaydetmeli ve not ekleyebilmeli.
+
+**Yapılacaklar:**
+
+- [ ] **20.1.1** Haritada tıklama → otomatik GPS kayıt mekanizması
+  - Dosya: `components/steps/target-notes-step.tsx`
+  - Haritada tıklanan noktanın koordinatlarını otomatik yakala
+  - Target notes listesine yeni satır olarak ekle
+  - Not giriş alanı (popup veya yan panel)
+
+- [ ] **20.1.2** GPS koordinat listesi bileşeni
+  - Kaydedilen noktaların listesi (koordinat + not + zaman)
+  - Düzenleme ve silme imkanı
+  - Field survey kaydına bağlama
+
+---
+
+### 20.2 Species Observations - NBDC Verilerinden Ön Doldurma
+
+**Müşteri İsteği (Orijinal):**
+
+> Species observations should be derived from saved map areas collected during the data gathering stage, utilizing datasets such as those from the NBDC.
+> These notes should be saved to the field survey for the ecologists.
+
+**Müşteri İsteği (Türkçe):**
+Species observations, data gathering aşamasında toplanan harita alanlarından ve NBDC veri setlerinden türetilmeli. Notlar field survey'e kaydedilmeli.
+
+**Yapılacaklar:**
+
+- [ ] **20.2.1** Data Gathering → Field Survey veri aktarımı
+  - Data Gathering'de kaydedilen NBDC species verilerini Field Survey'e aktar
+  - Species observations listesini otomatik ön doldur
+
+- [ ] **20.2.2** Ön doldurulmuş species listesini göster
+  - Dosya: `components/steps/target-notes-step.tsx` veya `field-survey-step.tsx`
+  - NBDC kaynaklı türleri "Desk Research'ten" etiketi ile göster
+  - Ekolojist saha gözlemleriyle güncelleyebilmeli
+
+- [ ] **20.2.3** Notes'ları field survey kaydına kaydet
+  - Target notes ve species observations → surveys tablosuna bağla
+  - Ekolojistlerin rapor yazarken erişebilmesi için
+
+---
+
+## 21. Reporting ve Data Analysis Kapsamlı Erişim (YENİ - 11 Şubat 2026)
+
+> **Kaynak:** MVP Feedback Summary - "Reporting and Data Analysis"
+
+### 21.1 Tüm Aşamalardan Veri Erişimi
+
+**Müşteri İsteği (Orijinal):**
+
+> The reporting/data analysis page must give ecologists comprehensive access to all data and findings from every project stage.
+> The system requires a tab for each stage, allowing ecologists to easily edit and add report data.
+> The User Interface (UI) must reflect this structure, including maps for each dataset utilized, such as those for habitat mapping and target notes.
+
+**Müşteri İsteği (Türkçe):**
+Reporting/Data Analysis sayfası ekolojistlere her proje aşamasından tüm veri ve bulgulara kapsamlı erişim sağlamalı. Her aşama için ayrı tab olmalı. UI, habitat mapping ve target notes gibi her dataset için harita içermeli.
+
+**Yapılacaklar:**
+
+- [ ] **21.1.1** Data Analysis sayfasını (Step 7) yeniden tasarla
+  - Dosya: `components/steps/data-analysis-step.tsx`
+  - Tab yapısı: Her proje aşaması için ayrı tab
+
+- [ ] **21.1.2** Aşama tab'ları oluştur
+  - Tab 1: **GIS Mapping** - Site boundary, buffer zone bilgileri
+  - Tab 2: **Data Gathering** - NPWS, GBIF, NBDC, EPA bulguları
+  - Tab 3: **Desk Assessment** - AI insights, kaydedilmiş değerlendirmeler (17.1.3 ile bağlantılı)
+  - Tab 4: **Field Survey** - Survey kayıtları, gözlemler
+  - Tab 5: **Habitat Mapping** - Habitat haritası ve verileri
+  - Tab 6: **Target Notes** - Saha notları ve species observations
+
+- [ ] **21.1.3** Her tab'da düzenleme ve veri ekleme imkanı
+  - Tab içindeki verileri inline edit edebilme
+  - Yeni veri/not ekleyebilme
+  - Rapor'a dahil etme/çıkarma toggle'ı
+
+- [ ] **21.1.4** Her dataset için harita görünümü
+  - Habitat mapping haritası → Habitat tab'ında
+  - Target notes haritası → Target Notes tab'ında
+  - Designated sites haritası → Data Gathering tab'ında
+  - Mini harita bileşeni (her tab'da ilgili verileri gösterir)
+
+---
+
+## 22. AI Reporting - Uygulama İçi Rapor Düzenleme (YENİ - 11 Şubat 2026)
+
+> **Kaynak:** MVP Feedback Summary - "AI reporting: In-Application Editing and Finalizing Reports"
+
+### 22.1 Uygulama İçi Rapor Düzenleme ve Tamamlama
+
+**Müşteri İsteği (Orijinal):**
+
+> AI reporting: In-Application Editing and Finalizing Reports. Following the existing prototype, here the structure of the report for this demo is what I shared with you already in the upwork chat.
+
+**Müşteri İsteği (Türkçe):**
+AI raporları uygulama içinde düzenlenebilir ve tamamlanabilir olmalı. Rapor yapısı müşterinin paylaştığı prototipe uygun olmalı.
+
+**Yapılacaklar:**
+
+- [ ] **22.1.1** In-app rapor editörü oluştur
+  - Dosya: `components/steps/ai-draft-step.tsx` (güncelle)
+  - Rich text editor entegrasyonu (TipTap, Slate, veya benzer)
+  - Bölüm bazlı düzenleme (section collapse/expand)
+  - Markdown veya WYSIWYG modu
+
+- [ ] **22.1.2** Müşteri rapor yapısını uygula
+  - Müşterinin Upwork chat'te paylaştığı rapor yapısı baz alınacak
+  - PEA report template'i: Introduction, Methodology, Results, Constraints, Discussion, Appendices
+  - Her bölüm ayrı düzenlenebilir blok
+
+- [ ] **22.1.3** Rapor versiyon yönetimi
+  - AI draft → düzenlenmiş versiyonlar takibi
+  - Önceki versiyona geri dönme
+  - Değişiklik geçmişi (diff view)
+
+- [ ] **22.1.4** Rapor tamamlama ve export
+  - "Finalize Report" butonu
+  - PDF export
+  - Word document export
+  - Onay workflow'u (Quality Review step ile entegre)
+
+---
+
+## ⚠️ Bölüm 14 - Smart Scoping GÜNCELLEME
+
+> **DİKKAT:** Bölüm 14 (Smart Scoping) müşterinin son feedback'i ile **ÇELİŞMEKTEDİR**.
+>
+> - **Eski feedback (8 Şubat):** Smart Scoping sistemi oluştur, habitat-species mapping yap
+> - **Yeni feedback (11 Şubat):** "The existing Smart Scoping section should be removed entirely."
+>
+> **Karar:** Bölüm 14'teki görevler (14.1.1 - 14.1.4) **İPTAL**. Yerine Bölüm 18.1 (Survey Targets kutusu) uygulanacak.
+> Smart Scoping'in temel konsepti (Desk Research'ten field survey önerileri) Survey Targets kutusunda daha basit formda yaşayacak.
+
+---
+
 ## Güncellenmiş Öncelik Matrisi
+
+### ✅ Tamamlanan Görevler
+
+| #   | Görev                    | Durum         | Tamamlanma   |
+| --- | ------------------------ | ------------- | ------------ |
+| 1.1 | Çoklu harita katmanları  | ✅ Tamamlandı | 4 Şub 2026   |
+| 1.2 | Buffer zone açıklamaları | ✅ Tamamlandı | 4 Şub 2026   |
+| 1.3 | Katman metadata          | ✅ Tamamlandı | 4 Şub 2026   |
+| 2.1 | NPWS veri entegrasyonu   | ✅ Tamamlandı | 6 Şub 2026   |
+| 2.2 | Deep Research (Sites)    | ✅ Tamamlandı | 5-6 Şub 2026 |
+| 0.1 | Satellite layer bug fix  | ✅ Tamamlandı | 11 Şub 2026  |
+
+### ❌ İptal Edilen Görevler
+
+| #    | Görev                           | Durum    | Neden                                                                    |
+| ---- | ------------------------------- | -------- | ------------------------------------------------------------------------ |
+| 14.1 | Smart Scoping (14.1.1 - 14.1.4) | ❌ İPTAL | Müşteri Smart Scoping kaldırılmasını istiyor. Yerine 18.1 Survey Targets |
 
 ### 🆕 Yeni Eklenen Görevler (8 Şubat 2026)
 
@@ -1703,9 +2018,85 @@ Mevcut prototipteki Habitat Survey ve Relevé Survey yapısını kullan. Ekoloji
 | 11.1 | Caspio Bird Database     | ❓ Belirsiz | Orta   | 🔴 Yüksek   |
 | 12.1 | Automated Web Search     | ❓ Belirsiz | Yüksek | 🔴 Yüksek   |
 | 13.1 | Ecological Summary       | 🟡 Orta     | Düşük  | 🟢 Düşük    |
-| 14.1 | Smart Scoping            | 🔴 Yüksek   | Orta   | 🟢 Düşük    |
 | 15.1 | Photo & Asset Management | 🟡 Orta     | Yüksek | 🟢 Düşük    |
 | 16.1 | Relevé Survey            | ❓ Belirsiz | Orta   | 🟡 Orta     |
+
+### 🆕 Yeni Eklenen Görevler (11 Şubat 2026)
+
+| #    | Görev                                               | Öncelik   | Efor   | Bağımlılık |
+| ---- | --------------------------------------------------- | --------- | ------ | ---------- |
+| 17.1 | AI Insights düzenlenebilirlik                       | 🔴 Yüksek | Orta   | -          |
+| 17.2 | Desk Assessment UI değişiklikleri (tab kaldır/taşı) | 🔴 Yüksek | Düşük  | -          |
+| 17.3 | Veri kaynaklarına direkt linkler                    | 🟡 Orta   | Düşük  | -          |
+| 18.1 | Survey Targets kutusu + Smart Scoping kaldır        | 🔴 Yüksek | Orta   | -          |
+| 18.2 | Survey oluşturma güncellemeleri                     | 🔴 Yüksek | Orta   | -          |
+| 19.1 | Habitat Mapping düzen + butonlar                    | 🟡 Orta   | Düşük  | -          |
+| 20.1 | Target Notes GPS otomatik kayıt                     | 🔴 Yüksek | Orta   | -          |
+| 20.2 | Species observations NBDC ön doldurma               | 🔴 Yüksek | Orta   | -          |
+| 21.1 | Reporting tüm aşamalar tab yapısı                   | 🔴 Yüksek | Yüksek | 17.1       |
+| 22.1 | In-app rapor düzenleme ve tamamlama                 | 🔴 Yüksek | Yüksek | 21.1       |
+
+### Güncellenmiş Önerilen Geliştirme Sırası
+
+**Sprint 1 - Kritik Bug ve UX (1-2 gün):**
+
+- ~~0.1 Satellite layer bug fix~~ ✅
+- 0.2 Otomatik veri katmanı
+- 0.6 Move to Next Stage butonu
+- 0.7 Satellite varsayılan
+
+**Sprint 2 - Desk Assessment Yenileme (2-3 gün):**
+
+- 17.2 Tab kaldırma ve taşıma (Assessment, Field Plan kaldır; Survey Rec → AI Insights)
+- 17.1 AI Insights düzenlenebilirlik + Desk Assessments tab
+- 17.3 Veri kaynaklarına direkt linkler
+
+**Sprint 3 - Findings ve Etkileşim (3-4 gün):**
+
+- 0.5 Harita-bulgu senkronizasyonu
+- 9.1 Findings Summary layout
+- 9.2 AI 3-satır özet kartları
+- 3.1 Bulgu yönetimi (dismiss/toplu)
+
+**Sprint 4 - Field Survey Yenileme (3-4 gün):**
+
+- 18.1 Smart Scoping kaldır + Survey Targets kutusu
+- 18.2 Survey oluşturma güncellemeleri (form sadeleştirme, template)
+- 20.1 Target Notes GPS otomatik kayıt
+- 20.2 Species observations NBDC ön doldurma
+
+**Sprint 5 - Habitat Mapping ve Target Notes (2-3 gün):**
+
+- 19.1 Habitat Mapping düzen + butonlar
+- 5.1 View on Map düzeltmesi
+- 5.2 Gelişmiş popup
+
+**Sprint 6 - Deep Research ve Species (3-4 gün):**
+
+- 4.1 Species Deep Research iyileştirme
+- 10.1 Deep Research panel layout
+- 10.2 Designated sites deep dive
+
+**Sprint 7 - Reporting Overhaul (4-5 gün):**
+
+- 21.1 Data Analysis tüm aşamalar tab yapısı + haritalar
+- 22.1 In-app rapor düzenleme (rich text editor, export)
+- 5.4 Baseline Conditions Report
+
+**Sprint 8 - Admin Dashboard (3-4 gün):**
+
+- 6.2 Admin Dashboard
+- 6.3 65 demo proje
+- 6.4 Proje detay görünümü
+
+**Sprint 9 - Ek Özellikler (3-4 gün):**
+
+- 11.1 Caspio Bird Database
+- 12.1 Automated Web Search
+- 13.1 Ecological Summary Auto-Generation
+- 7.1 Gelişmiş arama
+- 7.2 Audit Trail
+- 9.3 Bulgu aksiyonları
 
 ### Greg'e Sorulacak Sorular
 
@@ -1715,6 +2106,10 @@ Mevcut prototipteki Habitat Survey ve Relevé Survey yapısını kullan. Ekoloji
 
 3. **Relevé Survey:** Mevcut prototipteki field'ların listesini paylaşabilir misiniz?
 
+4. **Survey Oluşturma 3 Buton:** "After it is created the ecologists can edit it by clicking the 3 buttons" - Bu 3 buton neler? (Edit/View/Delete mi yoksa başka aksiyonlar mı?)
+
+5. **Rapor Yapısı:** Upwork chat'te paylaşılan rapor yapısını tekrar paylaşabilir misiniz? (Demo için hangi bölümler olmalı?)
+
 ---
 
-_Son güncelleme: 8 Şubat 2026_
+_Son güncelleme: 11 Şubat 2026_
