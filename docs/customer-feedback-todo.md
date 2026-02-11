@@ -146,7 +146,7 @@ Harita ve bulgular paneli arasında etkileşimli bağlantı kurulmalı. Kullanı
 
 ---
 
-### 0.6 "Move to Next Stage" Butonu
+### 0.6 "Move to Next Stage" Butonu ✅ ZATEN MEVCUT
 
 **Müşteri İsteği (Orijinal):**
 
@@ -155,12 +155,9 @@ Harita ve bulgular paneli arasında etkileşimli bağlantı kurulmalı. Kullanı
 **Müşteri İsteği (Türkçe):**
 Akışı iyileştirmek için ekranın sol alt köşesine kullanıcıyı bir sonraki analitik aşamaya yönlendirecek kalıcı "Bir Sonraki Aşamaya Geç" butonu yerleştirilmeli.
 
-**Yapılacaklar:**
+**Durum:** Zaten mevcut. Tüm 10 step'te alt bar'da "Complete Step & Continue" butonu var, tıklayınca bir sonraki ana step'e geçiyor. Wizard'lı step'lerde (GIS Mapping, Data Gathering) substep navigasyonu (Back/Next) + son substep'te Complete butonu mevcut. Sidebar'dan da istenen step'e doğrudan geçilebiliyor. Ekstra sabit buton gereksiz.
 
-- [ ] **0.6.1** Sabit "Move to Next Stage" butonu ekle
-  - Sol alt köşe, tüm adımlarda görünür
-  - Mevcut adım durumuna göre aktif/pasif
-  - Dosya: `components/steps/` - ortak footer bileşeni
+- [x] **0.6.1** ~~Sabit "Move to Next Stage" butonu ekle~~ — Zaten mevcut (her step'te Complete Step & Continue + sidebar navigasyonu)
 
 ---
 

@@ -30,6 +30,16 @@
 - If boundary or buffers are changed, later steps are automatically marked for review
 - A yellow banner appears on affected steps telling the user to check their data
 
+### Data Gathering - Auto-Search (0.4.1)
+
+- Data Gathering step now automatically searches all ecological databases (NPWS, GBIF, EPA) when opened
+- Three searches run in parallel with a progress banner showing real-time status
+- Each source has a status indicator: blue pulse (searching), green (done), grey (skipped), red (error)
+- Banner auto-hides 5 seconds after all searches complete
+- If boundary is changed in GIS Mapping, all caches are invalidated and auto-search re-triggers
+- SessionStorage prevents duplicate auto-searches on page refresh or re-navigation
+- Manual search buttons and buffer selection still work as before for re-searching
+
 ---
 
 ## To-Do
