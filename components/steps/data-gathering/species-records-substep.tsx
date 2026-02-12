@@ -935,9 +935,10 @@ export function SpeciesRecordsSubStep({
             </Select>
 
             <Button
+              variant="outline"
               onClick={performSearch}
               disabled={isSearching || isEnriching}
-              className="flex-1"
+              className="flex-1 border-purple-300 text-purple-700 hover:bg-gray-50"
             >
               {isSearching ? (
                 <>
@@ -1075,6 +1076,7 @@ export function SpeciesRecordsSubStep({
             hiddenIds={hiddenIds}
             onToggleVisibility={handleToggleVisibility}
             savingIds={savingIds}
+            selectedFindingId={selectedFinding?.id}
           />
         </div>
       </div>
@@ -1125,6 +1127,10 @@ export function SpeciesRecordsSubStep({
               // Toggle selection - if clicking the same finding, deselect it
               const found = searchResults.find((r) => r.id === f.id) || null
               setSelectedFinding((prev) => (prev?.id === f.id ? null : found))
+              // Scroll to the finding card in the panel
+              document
+                .getElementById(`finding-${f.id}`)
+                ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
             }}
             onMapClick={() => {
               // Clear selection when clicking on empty map space

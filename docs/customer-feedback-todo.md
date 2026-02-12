@@ -172,9 +172,9 @@ Analizin sonraki tüm aşamalarında (Stage 4+) satellite katmanı varsayılan h
 
 **Yapılacaklar:**
 
-- [ ] **0.7.1** Data Gathering ve sonraki adımlar için varsayılan harita katmanını satellite yap
+- [x] **0.7.1** Data Gathering ve sonraki adımlar için varsayılan harita katmanını satellite yap ✅
   - Dosya: `components/maps/project-map.tsx`, `components/maps/project-map-with-draw.tsx`
-  - Step numarasına göre koşullu: Step 1-3 streets, Step 4+ satellite
+  - Her iki harita bileşeninde varsayılan `'satellite'` olarak ayarlandı
 
 ---
 
@@ -1370,10 +1370,10 @@ Her tanımlanan site için rapor şunları açıkça listeler: İlişkili habita
 
 | # | Görev | Öncelik | Efor | Bağımlılık |
 | 0.2 | Otomatik veri katmanı açılması | 🔴 Yüksek | Düşük | - |
-| 0.4 | Core DB search otomasyonu | 🔴 Yüksek | Orta | 0.2 |
+| 0.4 | Core DB search otomasyonu | ✅ Yapıldı | Orta | 0.2 |
 | 0.5 | Harita-bulgu senkronizasyonu | 🔴 Yüksek | Yüksek | - |
 | 0.6 | "Move to Next Stage" butonu | 🟡 Orta | Düşük | - |
-| 0.7 | Satellite varsayılan yapma | 🟡 Orta | Düşük | - |
+| 0.7 | Satellite varsayılan yapma | ✅ Yapıldı | Düşük | - |
 | 3.1 | Bulgu yönetimi (dismiss/toplu) | 🔴 Yüksek | Orta | - |
 | 4.1 | Deep Research (Species) iyileştir | 🔴 Yüksek | Yüksek | - |
 | 5.1 | View on Map düzeltmesi | 🟡 Orta | Düşük | - |
@@ -2039,8 +2039,9 @@ AI raporları uygulama içinde düzenlenebilir ve tamamlanabilir olmalı. Rapor 
 
 - ~~0.1 Satellite layer bug fix~~ ✅
 - 0.2 Otomatik veri katmanı
+- ~~0.4 Core DB search otomasyonu~~ ✅
 - 0.6 Move to Next Stage butonu
-- 0.7 Satellite varsayılan
+- ~~0.7 Satellite varsayılan~~ ✅
 
 **Sprint 2 - Desk Assessment Yenileme (2-3 gün):**
 

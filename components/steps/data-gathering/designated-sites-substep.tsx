@@ -112,6 +112,8 @@ export function DesignatedSitesSubStep({
   const mapContainerRef = React.useRef<HTMLDivElement>(null)
   // Track which findings are currently saving
   const [savingIds, setSavingIds] = React.useState<Set<string>>(new Set())
+  // Site type filter for map sync (SAC, SPA, NHA, pNHA)
+  const [activeSiteTypeFilter, setActiveSiteTypeFilter] = React.useState<string | null>(null)
   // Deep Research modal state
   const [deepResearchSite, setDeepResearchSite] = React.useState<DeepResearchSite | null>(null)
   const [isDeepResearchOpen, setIsDeepResearchOpen] = React.useState(false)
@@ -501,6 +503,7 @@ export function DesignatedSitesSubStep({
                 dataType: 'designated_site',
                 title: `${ssco.siteName}`,
                 content: `Special Area of Conservation. Protected habitats: ${habitatList}${ssco.intersectionArea ? `. Overlap: ~${ssco.intersectionArea.toFixed(1)} ha` : ''}`,
+                location: ssco.geometry,
                 isSaved: false,
                 sourceUrl: `https://www.npws.ie/protected-sites/sac/${ssco.siteCode}`,
                 rawData: { ssco, habitats: ssco.habitats },
@@ -718,7 +721,12 @@ export function DesignatedSitesSubStep({
               </SelectContent>
             </Select>
 
-            <Button onClick={performSearch} disabled={isSearching} className="flex-1">
+            <Button
+              variant="outline"
+              onClick={performSearch}
+              disabled={isSearching}
+              className="flex-1 border-emerald-300 text-emerald-700 hover:bg-gray-50"
+            >
               {isSearching ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -732,32 +740,6 @@ export function DesignatedSitesSubStep({
               )}
             </Button>
           </div>
-
-          {searchResults.length > 0 && (
-            <div className="mt-3 flex items-center justify-between">
-              <Badge variant="secondary">{searchResults.length} sites found</Badge>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleSummarizeAll}
-                  disabled={isSummarizing || isSearching}
-                  className="text-purple-600 hover:text-purple-700"
-                >
-                  {isSummarizing ? (
-                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                  ) : (
-                    <Sparkles className="mr-1 h-3 w-3" />
-                  )}
-                  {isSummarizing ? 'Summarizing...' : 'AI Summary'}
-                </Button>
-                <Button variant="ghost" size="sm" onClick={performSearch} disabled={isSearching}>
-                  <RefreshCw className="mr-1 h-3 w-3" />
-                  Refresh
-                </Button>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Results List */}
@@ -774,6 +756,11 @@ export function DesignatedSitesSubStep({
             hiddenIds={hiddenIds}
             onToggleVisibility={handleToggleVisibility}
             savingIds={savingIds}
+            selectedFindingId={selectedFinding?.id}
+            showSiteTypeFilter
+            onSiteTypeFilterChange={setActiveSiteTypeFilter}
+            onSummarizeAll={handleSummarizeAll}
+            isSummarizing={isSummarizing}
           />
         </div>
       </div>
@@ -789,6 +776,7 @@ export function DesignatedSitesSubStep({
             bufferDistances={bufferDistances}
             findings={searchResults
               .filter((f) => !hiddenIds.has(f.id)) // Filter out hidden findings
+              .filter((f) => !activeSiteTypeFilter || f.metadata?.siteType === activeSiteTypeFilter) // Filter by site type
               .map((f) => ({
                 id: f.id,
                 source: f.source as FindingSource,
@@ -818,6 +806,10 @@ export function DesignatedSitesSubStep({
               // Toggle selection - if clicking the same finding, deselect it
               const found = searchResults.find((r) => r.id === f.id) || null
               setSelectedFinding((prev) => (prev?.id === f.id ? null : found))
+              // Scroll to the finding card in the panel
+              document
+                .getElementById(`finding-${f.id}`)
+                ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
             }}
             onMapClick={() => {
               // Clear selection when clicking on empty map space

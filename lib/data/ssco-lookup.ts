@@ -17,6 +17,7 @@ export interface SSCOResult {
   siteName: string
   habitats: SSCOHabitat[]
   intersectionArea?: number // in hectares
+  geometry?: GeoJSON.Geometry // combined geometry from intersecting features
 }
 
 // Cache for SSCO data
@@ -89,6 +90,7 @@ export async function findIntersectingSSCO(
             siteCode,
             siteName: SAC_SITE_NAMES[siteCode] || `SAC ${siteCode}`,
             habitats: [],
+            geometry: feature.geometry,
           })
         }
 

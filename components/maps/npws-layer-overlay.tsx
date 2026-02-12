@@ -219,7 +219,9 @@ export function useNPWSLayers(
   map: L.Map | null,
   boundary: GeoJSON.Feature<GeoJSON.Polygon> | null,
   visibleLayers: string[],
-  searchRadius = 5
+  searchRadius = 5,
+  ignoredItems: Set<string> = new Set(),
+  deletedItems: Set<string> = new Set()
 ) {
   const [sites, setSites] = React.useState<NPWSDesignatedSite[]>([])
   const [isLoading, setIsLoading] = React.useState(false)
@@ -337,6 +339,10 @@ export function useNPWSLayers(
       )?.[0]
       if (!layerId || !visibleLayers.includes(layerId)) continue
 
+      // Skip ignored or deleted sites
+      const siteKey = `npws-${site.SITE_TYPE}-${site.SITECODE}`
+      if (ignoredItems.has(siteKey) || deletedItems.has(siteKey)) continue
+
       const color = getSiteTypeColor(site.SITE_TYPE as DesignatedSiteType)
       const displayName = getSiteTypeDisplayName(site.SITE_TYPE as DesignatedSiteType)
 
@@ -398,7 +404,7 @@ export function useNPWSLayers(
         }
       })
     }
-  }, [map, sites, visibleLayers])
+  }, [map, sites, visibleLayers, ignoredItems, deletedItems])
 
   return {
     sites,

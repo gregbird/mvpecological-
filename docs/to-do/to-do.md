@@ -30,6 +30,20 @@
 - If boundary or buffers are changed, later steps are automatically marked for review
 - A yellow banner appears on affected steps telling the user to check their data
 
+### GIS Mapping - Layers (Step 4)
+
+- Buffer zones now show correct colours on the Layers screen (were all blue before)
+- "Save & Continue" button now works properly after editing (was stuck disabled)
+
+### Data Gathering - Preview Screen
+
+- Buffer zones now appear on the map in the completed Data Gathering view (were missing)
+
+### Data Gathering - Deep Research Panel
+
+- Overview tab now shows the actual habitat and species names, not just counts
+- AI analysis now starts automatically when the panel opens (no need to click a button)
+
 ### Data Gathering - Auto-Search (0.4.1)
 
 - Data Gathering step now automatically searches all ecological databases (NPWS, GBIF, EPA) when opened

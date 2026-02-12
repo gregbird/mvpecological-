@@ -91,6 +91,15 @@ interface FindingsListProps {
   onFetchAiSummary?: (finding: FindingDisplay) => void
   // IDs of findings currently being saved/deleted
   savingIds?: Set<string>
+  // Currently selected finding ID (from map click)
+  selectedFindingId?: string | null
+  // Enable site type filter buttons (SAC, SPA, NHA, pNHA) - for designated sites substep
+  showSiteTypeFilter?: boolean
+  // Callback when site type filter changes (for syncing map display)
+  onSiteTypeFilterChange?: (siteType: string | null) => void
+  // AI Summary button in header
+  onSummarizeAll?: () => void
+  isSummarizing?: boolean
 }
 
 // Source badge colors
@@ -158,11 +167,17 @@ export function FindingsList({
   onToggleVisibility,
   onFetchAiSummary,
   savingIds,
+  selectedFindingId,
+  showSiteTypeFilter,
+  onSiteTypeFilterChange,
+  onSummarizeAll,
+  isSummarizing,
 }: FindingsListProps) {
   const [sortBy, setSortBy] = React.useState<'distance' | 'title' | 'type'>('distance')
   const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>('asc')
   const [displayLimit, setDisplayLimit] = React.useState(20)
   const RESULTS_PER_PAGE = 20
+  const [activeSiteTypeFilter, setActiveSiteTypeFilter] = React.useState<string | null>(null)
 
   // Check if finding is already saved
   const isFindingSaved = (finding: FindingDisplay) => {
@@ -205,14 +220,31 @@ export function FindingsList({
     return sorted
   }, [findings, sortBy, sortOrder])
 
-  // Paginated findings
-  const paginatedFindings = sortedFindings.slice(0, displayLimit)
-  const hasMoreResults = sortedFindings.length > displayLimit
+  // Available site types with counts (for filter buttons)
+  const siteTypeCounts = React.useMemo(() => {
+    if (!showSiteTypeFilter) return null
+    const counts: Record<string, number> = {}
+    for (const f of sortedFindings) {
+      const st = f.metadata?.siteType
+      if (st) counts[st] = (counts[st] || 0) + 1
+    }
+    return counts
+  }, [sortedFindings, showSiteTypeFilter])
 
-  // Reset display limit when findings change
+  // Apply site type filter
+  const filteredFindings = React.useMemo(() => {
+    if (!activeSiteTypeFilter) return sortedFindings
+    return sortedFindings.filter((f) => f.metadata?.siteType === activeSiteTypeFilter)
+  }, [sortedFindings, activeSiteTypeFilter])
+
+  // Paginated findings
+  const paginatedFindings = filteredFindings.slice(0, displayLimit)
+  const hasMoreResults = filteredFindings.length > displayLimit
+
+  // Reset display limit when findings or filter change
   React.useEffect(() => {
     setDisplayLimit(RESULTS_PER_PAGE)
-  }, [findings])
+  }, [findings, activeSiteTypeFilter])
 
   if (isLoading) {
     return (
@@ -235,13 +267,77 @@ export function FindingsList({
     <div className="flex h-full flex-col">
       {/* Header with count and filters */}
       {showFilters && (
-        <div className="flex items-center justify-between border-b px-4 py-2">
-          <span className="text-sm font-medium">{sortedFindings.length} results</span>
-          <div className="flex items-center gap-2">
-            <ArrowUpDown className="h-4 w-4 text-gray-400" />
+        <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <button
+              className={`shrink-0 text-sm font-medium ${activeSiteTypeFilter ? 'text-blue-600 hover:underline' : ''}`}
+              onClick={() => {
+                if (activeSiteTypeFilter) {
+                  setActiveSiteTypeFilter(null)
+                  onSiteTypeFilterChange?.(null)
+                }
+              }}
+            >
+              {sortedFindings.length} results
+            </button>
+            {/* Site type filter buttons */}
+            {showSiteTypeFilter && siteTypeCounts && Object.keys(siteTypeCounts).length > 0 && (
+              <>
+                {(['SAC', 'SPA', 'NHA', 'pNHA'] as const).map((siteType) => {
+                  const count = siteTypeCounts[siteType]
+                  if (!count) return null
+                  const isActive = activeSiteTypeFilter === siteType
+                  const colorMap: Record<string, string> = {
+                    SAC: isActive
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200',
+                    SPA: isActive
+                      ? 'bg-sky-600 text-white'
+                      : 'bg-sky-100 text-sky-700 hover:bg-sky-200',
+                    NHA: isActive
+                      ? 'bg-amber-600 text-white'
+                      : 'bg-amber-100 text-amber-700 hover:bg-amber-200',
+                    pNHA: isActive
+                      ? 'bg-orange-600 text-white'
+                      : 'bg-orange-100 text-orange-700 hover:bg-orange-200',
+                  }
+                  return (
+                    <button
+                      key={siteType}
+                      onClick={() => {
+                        const newValue = isActive ? null : siteType
+                        setActiveSiteTypeFilter(newValue)
+                        onSiteTypeFilterChange?.(newValue)
+                      }}
+                      className={`rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors ${colorMap[siteType]}`}
+                    >
+                      {siteType} {count}
+                    </button>
+                  )
+                })}
+              </>
+            )}
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            {onSummarizeAll && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs text-purple-600 hover:text-purple-700"
+                onClick={onSummarizeAll}
+                disabled={isSummarizing}
+              >
+                {isSummarizing ? (
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-1 h-3 w-3" />
+                )}
+                AI
+              </Button>
+            )}
             <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
-              <SelectTrigger className="h-8 w-27.5">
-                <SelectValue placeholder="Sort by" />
+              <SelectTrigger className="h-7 w-[74px] border-0 bg-transparent px-1.5 text-xs shadow-none">
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="distance">Distance</SelectItem>
@@ -249,20 +345,13 @@ export function FindingsList({
                 <SelectItem value="type">Type</SelectItem>
               </SelectContent>
             </Select>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 px-2"
+            <button
+              className="text-muted-foreground hover:text-foreground p-0.5"
               onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+              title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
             >
-              {sortBy === 'distance'
-                ? sortOrder === 'asc'
-                  ? 'Nearest'
-                  : 'Farthest'
-                : sortOrder === 'asc'
-                  ? 'A-Z'
-                  : 'Z-A'}
-            </Button>
+              <ArrowUpDown className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
       )}
@@ -280,19 +369,24 @@ export function FindingsList({
               : null
             const isHidden = hiddenIds?.has(finding.id) ?? false
 
+            const isSelected = selectedFindingId === finding.id
+
             return (
               <div
                 key={finding.id}
+                id={`finding-${finding.id}`}
                 className={`rounded-lg border p-2.5 transition-colors ${
-                  isHidden
-                    ? 'border-gray-200 bg-gray-50 opacity-60'
-                    : saved
-                      ? 'border-emerald-400 bg-emerald-50'
-                      : isFpoFinding
-                        ? 'border-l-4 border-l-rose-500 bg-rose-50/50'
-                        : isEpaFinding && epaConfig
-                          ? `border-l-4 ${epaConfig.borderColor} ${epaConfig.color}`
-                          : 'hover:bg-gray-50'
+                  isSelected
+                    ? 'border-blue-400 bg-blue-50 ring-2 ring-blue-400'
+                    : isHidden
+                      ? 'border-gray-200 bg-gray-50 opacity-60'
+                      : saved
+                        ? 'border-l-4 border-l-emerald-500'
+                        : isFpoFinding
+                          ? 'border-l-4 border-l-rose-500 bg-rose-50/50'
+                          : isEpaFinding && epaConfig
+                            ? `border-l-4 ${epaConfig.borderColor} ${epaConfig.color}`
+                            : 'hover:bg-gray-50'
                 }`}
               >
                 {/* Title + actions row */}
@@ -329,13 +423,11 @@ export function FindingsList({
                       </Button>
                     )}
                     {/* Save button */}
-                    <Button
-                      variant={saved ? 'outline' : 'default'}
-                      size="sm"
-                      className={`h-7 w-7 p-0 ${
+                    <button
+                      className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
                         saved
-                          ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                          : ''
+                          ? 'text-emerald-600 hover:text-emerald-700'
+                          : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                       }`}
                       disabled={isSaving}
                       onClick={() => onSave({ ...finding, isSaved: !saved })}
@@ -348,7 +440,7 @@ export function FindingsList({
                       ) : (
                         <Save className="h-3.5 w-3.5" />
                       )}
-                    </Button>
+                    </button>
                   </div>
                 </div>
 
@@ -582,7 +674,7 @@ export function FindingsList({
                 variant="outline"
                 onClick={() => setDisplayLimit((prev) => prev + RESULTS_PER_PAGE)}
               >
-                Load More ({sortedFindings.length - displayLimit} remaining)
+                Load More ({filteredFindings.length - displayLimit} remaining)
               </Button>
             </div>
           )}

@@ -623,7 +623,12 @@ export function AquaticFeaturesSubStep({
               </SelectContent>
             </Select>
 
-            <Button onClick={performSearch} disabled={isSearching} className="flex-1">
+            <Button
+              variant="outline"
+              onClick={performSearch}
+              disabled={isSearching}
+              className="flex-1 border-cyan-300 text-cyan-700 hover:bg-gray-50"
+            >
               {isSearching ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -733,6 +738,7 @@ export function AquaticFeaturesSubStep({
             hiddenIds={hiddenIds}
             onToggleVisibility={handleToggleVisibility}
             savingIds={savingIds}
+            selectedFindingId={selectedFinding?.id}
           />
         </div>
       </div>
@@ -778,6 +784,10 @@ export function AquaticFeaturesSubStep({
               // Toggle selection - if clicking the same finding, deselect it
               const found = filteredResults.find((r) => r.id === f.id) || null
               setSelectedFinding((prev) => (prev?.id === f.id ? null : found))
+              // Scroll to the finding card in the panel
+              document
+                .getElementById(`finding-${f.id}`)
+                ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
             }}
             onMapClick={() => {
               // Clear selection when clicking on empty map space

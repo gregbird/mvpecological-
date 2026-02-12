@@ -147,12 +147,29 @@ export function DeepResearchModal({
   const { data: existingResearch } = useSiteDeepResearch(projectId || '', site?.siteCode || '')
   const isSaved = !!existingResearch
 
-  // Reset AI state when site changes
+  // Reset AI state and auto-start analysis when site changes
+  const hasTriggeredRef = React.useRef<string | null>(null)
   React.useEffect(() => {
     setAiSummary('')
     setAiLoading(false)
     setAiError('')
+    hasTriggeredRef.current = null
   }, [site?.siteCode])
+
+  // Auto-start AI analysis when modal opens
+  React.useEffect(() => {
+    if (
+      open &&
+      site?.siteCode &&
+      !aiSummary &&
+      !aiLoading &&
+      hasTriggeredRef.current !== site.siteCode
+    ) {
+      hasTriggeredRef.current = site.siteCode
+      handleAiAnalysis()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, site?.siteCode])
 
   if (!site) return null
 
@@ -308,17 +325,23 @@ export function DeepResearchModal({
 
         <ScrollArea className="max-h-[60vh] pr-4">
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="ai-analysis">
+            <TabsList className="grid w-full grid-cols-5 text-xs">
+              <TabsTrigger value="overview" className="px-2 text-xs">
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="ai-analysis" className="px-2 text-xs">
                 <Sparkles className="mr-1 h-3 w-3" />
                 AI
               </TabsTrigger>
-              <TabsTrigger value="status">Status</TabsTrigger>
-              <TabsTrigger value="habitats">
+              <TabsTrigger value="status" className="px-2 text-xs">
+                Status
+              </TabsTrigger>
+              <TabsTrigger value="habitats" className="px-2 text-xs">
                 QIs ({mergedHabitats.length + siteSpecies.length + birdSpecies.length})
               </TabsTrigger>
-              <TabsTrigger value="resources">Resources</TabsTrigger>
+              <TabsTrigger value="resources" className="px-2 text-xs">
+                Links
+              </TabsTrigger>
             </TabsList>
 
             {/* Overview Tab */}
@@ -371,6 +394,77 @@ export function DeepResearchModal({
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Habitat & Species Lists */}
+              {(mergedHabitats.length > 0 || siteSpecies.length > 0 || birdSpecies.length > 0) && (
+                <Card>
+                  <CardContent className="space-y-3 pt-4">
+                    {mergedHabitats.length > 0 && (
+                      <div>
+                        <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium">
+                          <Leaf className="h-3.5 w-3.5 text-emerald-500" />
+                          Annex I Habitats
+                        </p>
+                        <div className="space-y-1.5">
+                          {mergedHabitats.map((h, idx) => {
+                            const a17 = getArticle17Data(h.habitatCode)
+                            const statusDisplay = a17 ? getStatusDisplay(a17.status) : null
+                            return (
+                              <div key={idx} className="text-xs">
+                                <div className="flex flex-wrap items-center gap-1">
+                                  <Badge variant="secondary" className="shrink-0 text-[10px]">
+                                    {h.habitatCode}
+                                  </Badge>
+                                  {statusDisplay && (
+                                    <Badge
+                                      className={`shrink-0 text-[10px] ${statusDisplay.bgColor} ${statusDisplay.color} border-0`}
+                                    >
+                                      {statusDisplay.label}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-muted-foreground mt-0.5 text-[11px] leading-tight">
+                                  {h.habitatName}
+                                </p>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {siteSpecies.length > 0 && (
+                      <div>
+                        <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium">
+                          <Bug className="h-3.5 w-3.5 text-amber-600" />
+                          Annex II Species
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {siteSpecies.map((s, idx) => (
+                            <Badge key={idx} variant="outline" className="text-[10px]">
+                              {s.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {birdSpecies.length > 0 && (
+                      <div>
+                        <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium">
+                          <Bird className="h-3.5 w-3.5 text-blue-600" />
+                          Bird SCIs
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {birdSpecies.map((b, idx) => (
+                            <Badge key={idx} variant="outline" className="text-[10px]">
+                              {b.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
               {/* AA Screening Note */}
               <Card className="border-amber-200 bg-amber-50">

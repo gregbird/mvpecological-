@@ -571,7 +571,7 @@ export function DataGatheringStep({
         )}
 
         {/* Step 2: Designated Sites (NPWS) - keep mounted once visited or during auto-search */}
-        {(visitedSteps.has('sites') || autoSearchStatus.sites === 'searching') && (
+        {(visitedSteps.has('sites') || autoSearchStatus.triggered) && (
           <div
             className={cn(
               'absolute inset-0',
@@ -597,7 +597,7 @@ export function DataGatheringStep({
         )}
 
         {/* Step 3: Species Records (GBIF + NBDC) - keep mounted once visited or during auto-search */}
-        {(visitedSteps.has('species') || autoSearchStatus.species === 'searching') && (
+        {(visitedSteps.has('species') || autoSearchStatus.triggered) && (
           <div
             className={cn(
               'absolute inset-0',
@@ -623,7 +623,7 @@ export function DataGatheringStep({
         )}
 
         {/* Step 4: Aquatic Features (EPA) - keep mounted once visited or during auto-search */}
-        {(visitedSteps.has('aquatic') || autoSearchStatus.aquatic === 'searching') && (
+        {(visitedSteps.has('aquatic') || autoSearchStatus.triggered) && (
           <div
             className={cn(
               'absolute inset-0',

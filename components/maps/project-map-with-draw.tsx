@@ -848,7 +848,9 @@ export function ProjectMapWithDraw({
     mapRef.current,
     boundary ?? null,
     visibleLayers,
-    npwsSearchRadius
+    npwsSearchRadius,
+    ignoredItems,
+    deletedItems
   )
 
   // Filter out ignored and deleted sites
