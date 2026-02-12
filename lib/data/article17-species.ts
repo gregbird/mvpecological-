@@ -5,6 +5,7 @@
 
 export interface Article17Species {
   code: string
+  commonName: string
   scientificName: string
   hectads: string[] // 10km grid squares where species occurs
   gridCount: number
@@ -75,7 +76,10 @@ export async function searchSpeciesByName(query: string): Promise<Article17Speci
   const q = query.toLowerCase()
 
   return data.species.filter(
-    (s) => s.scientificName.toLowerCase().includes(q) || s.code.includes(q)
+    (s) =>
+      s.scientificName.toLowerCase().includes(q) ||
+      (s.commonName && s.commonName.toLowerCase().includes(q)) ||
+      s.code.includes(q)
   )
 }
 
@@ -89,23 +93,8 @@ export function formatArticle17ForPrompt(species: Article17Species[]): string {
 
   const lines = [`Habitats Directive Annex Species in this area (${species.length} species):`, '']
 
-  // Known common names for some species codes
-  const commonNames: Record<string, string> = {
-    '1355': 'Otter',
-    '1357': 'Pine Marten',
-    '1334': 'Irish Hare',
-    '1303': 'Lesser Horseshoe Bat',
-    '1309': 'Common Pipistrelle',
-    '1106': 'Atlantic Salmon',
-    '1029': 'Freshwater Pearl Mussel',
-    '1065': 'Marsh Fritillary',
-    '1024': 'Kerry Slug',
-    '1213': 'Common Frog',
-  }
-
   for (const sp of species) {
-    const common = commonNames[sp.code] || ''
-    const name = common ? `${common} (${sp.scientificName})` : sp.scientificName
+    const name = sp.commonName ? `${sp.commonName} (${sp.scientificName})` : sp.scientificName
     lines.push(`- ${name} [Annex species code: ${sp.code}] - ${sp.gridCount} grid squares`)
   }
 

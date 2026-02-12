@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
-import { useCreateFinding, useDeleteFinding } from '@/hooks/use-project-data'
+import { useCreateFinding, useDeleteFinding, useUpdateFinding } from '@/hooks/use-project-data'
 import { searchAllAquaticFeatures, getWFDStatusDisplayName } from '@/lib/external-apis/epa'
 import { FindingsList, type FindingDisplay } from './findings-list'
 import {
@@ -79,6 +79,7 @@ export function AquaticFeaturesSubStep({
   const { toast } = useToast()
   const createFinding = useCreateFinding()
   const deleteFinding = useDeleteFinding()
+  const updateFinding = useUpdateFinding()
 
   // Cache key for sessionStorage
   const cacheKey = `epa-search-${project.id}`
@@ -168,24 +169,44 @@ export function AquaticFeaturesSubStep({
     null
   )
   const [isDeepResearchOpen, setIsDeepResearchOpen] = React.useState(false)
+  const [aquaticExistingAnalysis, setAquaticExistingAnalysis] = React.useState<string | undefined>()
 
   // Handle Deep Research click
-  const handleDeepResearch = React.useCallback((finding: FindingDisplay) => {
-    const site: AquaticDeepResearchSite = {
-      waterBodyName: finding.title,
-      waterBodyType: (finding.metadata?.siteType as 'River' | 'Lake' | 'Catchment') || 'River',
-      waterBodyCode: finding.metadata?.siteCode,
-      wfdStatus: finding.metadata?.designation,
-      catchmentName: finding.rawData?.CatchmentName as string | undefined,
-      catchmentId: finding.rawData?.CatchmentId as string | undefined,
-      distance: finding.metadata?.distance,
-      areaHa: finding.rawData?.Area_ha as number | undefined,
-      lengthKm: finding.rawData?.Length_km as number | undefined,
-    }
+  const handleDeepResearch = React.useCallback(
+    (finding: FindingDisplay) => {
+      const site: AquaticDeepResearchSite = {
+        waterBodyName: finding.title,
+        waterBodyType: (finding.metadata?.siteType as 'River' | 'Lake' | 'Catchment') || 'River',
+        waterBodyCode: finding.metadata?.siteCode,
+        wfdStatus: finding.metadata?.designation,
+        catchmentName: finding.rawData?.CatchmentName as string | undefined,
+        catchmentId: finding.rawData?.CatchmentId as string | undefined,
+        distance: finding.metadata?.distance,
+        areaHa: finding.rawData?.Area_ha as number | undefined,
+        lengthKm: finding.rawData?.Length_km as number | undefined,
+      }
 
-    setDeepResearchSite(site)
-    setIsDeepResearchOpen(true)
-  }, [])
+      // Check for existing analysis in savedFindings
+      let cachedAnalysis: string | undefined
+      const savedMatch = savedFindings.find(
+        (f) =>
+          (f.raw_data as Record<string, unknown>)?.siteCode === finding.metadata?.siteCode &&
+          f.source === 'epa'
+      )
+      if (savedMatch) {
+        const rawData = savedMatch.raw_data as Record<string, unknown>
+        const aquaticResearch = rawData?.aquaticResearch as Record<string, unknown> | undefined
+        if (aquaticResearch?.aiAnalysis) {
+          cachedAnalysis = aquaticResearch.aiAnalysis as string
+        }
+      }
+
+      setDeepResearchSite(site)
+      setAquaticExistingAnalysis(cachedAnalysis)
+      setIsDeepResearchOpen(true)
+    },
+    [savedFindings]
+  )
 
   // Toggle visibility of a finding on the map
   const handleToggleVisibility = React.useCallback((findingId: string) => {
@@ -307,22 +328,26 @@ export function AquaticFeaturesSubStep({
         maxLat = Math.max(maxLat, coord[1])
       }
 
-      const buffer = selectedBuffer * 0.009
+      // 1 degree latitude ≈ 111km; longitude varies with cos(latitude)
+      const midLat = (minLat + maxLat) / 2
+      const latBuffer = selectedBuffer / 111
+      const lngBuffer = selectedBuffer / (111 * Math.cos((midLat * Math.PI) / 180))
       return {
-        minLng: minLng - buffer,
-        maxLng: maxLng + buffer,
-        minLat: minLat - buffer,
-        maxLat: maxLat + buffer,
+        minLng: minLng - lngBuffer,
+        maxLng: maxLng + lngBuffer,
+        minLat: minLat - latBuffer,
+        maxLat: maxLat + latBuffer,
       }
     }
 
     if (projectCenter) {
-      const buffer = selectedBuffer * 0.009
+      const latBuffer = selectedBuffer / 111
+      const lngBuffer = selectedBuffer / (111 * Math.cos((projectCenter.lat * Math.PI) / 180))
       return {
-        minLng: projectCenter.lng - buffer,
-        maxLng: projectCenter.lng + buffer,
-        minLat: projectCenter.lat - buffer,
-        maxLat: projectCenter.lat + buffer,
+        minLng: projectCenter.lng - lngBuffer,
+        maxLng: projectCenter.lng + lngBuffer,
+        minLat: projectCenter.lat - latBuffer,
+        maxLat: projectCenter.lat + latBuffer,
       }
     }
 
@@ -532,6 +557,26 @@ export function AquaticFeaturesSubStep({
             : f
         )
       )
+
+      // Persist AI summary to DB if finding is already saved
+      const existingSaved = savedFindings.find(
+        (f) => f.title === finding.title || f.id === finding.id
+      )
+      if (existingSaved) {
+        const existingRawData = (existingSaved.raw_data as Record<string, unknown>) || {}
+        const existingMetadata = (existingRawData.metadata as Record<string, unknown>) || {}
+        updateFinding
+          .mutateAsync({
+            findingId: existingSaved.id,
+            updates: {
+              raw_data: {
+                ...existingRawData,
+                metadata: { ...existingMetadata, aiSummary: data.summary },
+              } as unknown as Json,
+            },
+          })
+          .catch((err) => console.error('Failed to persist AI summary:', err))
+      }
     } catch (error) {
       console.error('AI summary error:', error)
       setSearchResults((prev) =>
@@ -553,19 +598,28 @@ export function AquaticFeaturesSubStep({
 
   // Batch summarize all features
   const [isSummarizing, setIsSummarizing] = React.useState(false)
+  const summarizeCancelRef = React.useRef(false)
   const handleSummarizeAll = async () => {
     const featuresWithoutSummary = searchResults.filter(
       (f) => !f.metadata?.aiSummary && !f.metadata?.aiSummaryLoading && f.sourceUrl
     )
     if (featuresWithoutSummary.length === 0) return
 
+    summarizeCancelRef.current = false
     setIsSummarizing(true)
     for (const finding of featuresWithoutSummary) {
+      if (summarizeCancelRef.current) break
       await handleFetchAiSummary(finding)
       await new Promise((resolve) => setTimeout(resolve, 500))
     }
     setIsSummarizing(false)
   }
+  const handleStopSummarize = () => {
+    summarizeCancelRef.current = true
+  }
+
+  // Saved filter for map sync
+  const [showSavedOnMap, setShowSavedOnMap] = React.useState(false)
 
   // No boundary check
   if (!projectBoundary) {
@@ -651,16 +705,20 @@ export function AquaticFeaturesSubStep({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={handleSummarizeAll}
-                    disabled={isSummarizing || isSearching}
-                    className="text-purple-600 hover:text-purple-700"
+                    onClick={isSummarizing ? handleStopSummarize : handleSummarizeAll}
+                    disabled={isSearching}
+                    className={
+                      isSummarizing
+                        ? 'text-red-600 hover:text-red-700'
+                        : 'text-purple-600 hover:text-purple-700'
+                    }
                   >
                     {isSummarizing ? (
                       <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                     ) : (
                       <Sparkles className="mr-1 h-3 w-3" />
                     )}
-                    {isSummarizing ? 'Summarizing...' : 'AI Summary'}
+                    {isSummarizing ? 'Stop' : 'AI Summary'}
                   </Button>
                   <Button variant="ghost" size="sm" onClick={performSearch} disabled={isSearching}>
                     <RefreshCw className="mr-1 h-3 w-3" />
@@ -739,6 +797,7 @@ export function AquaticFeaturesSubStep({
             onToggleVisibility={handleToggleVisibility}
             savingIds={savingIds}
             selectedFindingId={selectedFinding?.id}
+            onSavedFilterChange={setShowSavedOnMap}
           />
         </div>
       </div>
@@ -754,6 +813,15 @@ export function AquaticFeaturesSubStep({
             bufferDistances={bufferDistances}
             findings={filteredResults
               .filter((f) => !hiddenIds.has(f.id)) // Filter out hidden findings
+              .filter(
+                (f) =>
+                  !showSavedOnMap ||
+                  savedFindings.some(
+                    (sf) =>
+                      (sf.raw_data as Record<string, unknown>)?.siteCode === f.metadata?.siteCode &&
+                      sf.source === 'epa'
+                  )
+              )
               .map((f) => ({
                 id: f.id,
                 source: f.source as FindingSource,
@@ -833,6 +901,7 @@ export function AquaticFeaturesSubStep({
         site={deepResearchSite}
         projectId={project.id}
         userId={userId}
+        existingAnalysis={aquaticExistingAnalysis}
       />
     </div>
   )

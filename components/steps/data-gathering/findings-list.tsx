@@ -18,6 +18,7 @@ import {
   FlaskConical,
   Check,
   Save,
+  AlertCircle,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -99,7 +100,16 @@ interface FindingsListProps {
   onSiteTypeFilterChange?: (siteType: string | null) => void
   // AI Summary button in header
   onSummarizeAll?: () => void
+  onStopSummarize?: () => void
   isSummarizing?: boolean
+  // Callback when saved filter changes (for syncing map display)
+  onSavedFilterChange?: (showSavedOnly: boolean) => void
+  // Species-specific header props
+  showSpeciesHeader?: boolean
+  speciesCounts?: { total: number; protected: number; invasive: number; enriched: number }
+  enrichmentStatus?: { isEnriching: boolean; current: number; total: number } | null
+  sourceFilter?: 'all' | 'gbif' | 'nbdc' | 'protected'
+  onSourceFilterChange?: (filter: 'all' | 'gbif' | 'nbdc' | 'protected') => void
 }
 
 // Source badge colors
@@ -171,13 +181,21 @@ export function FindingsList({
   showSiteTypeFilter,
   onSiteTypeFilterChange,
   onSummarizeAll,
+  onStopSummarize,
   isSummarizing,
+  onSavedFilterChange,
+  showSpeciesHeader,
+  speciesCounts,
+  enrichmentStatus,
+  sourceFilter,
+  onSourceFilterChange,
 }: FindingsListProps) {
-  const [sortBy, setSortBy] = React.useState<'distance' | 'title' | 'type'>('distance')
+  const [sortBy, setSortBy] = React.useState<'distance' | 'title' | 'type'>('type')
   const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>('asc')
   const [displayLimit, setDisplayLimit] = React.useState(20)
   const RESULTS_PER_PAGE = 20
   const [activeSiteTypeFilter, setActiveSiteTypeFilter] = React.useState<string | null>(null)
+  const [showSavedOnly, setShowSavedOnly] = React.useState(false)
 
   // Check if finding is already saved
   const isFindingSaved = (finding: FindingDisplay) => {
@@ -231,11 +249,22 @@ export function FindingsList({
     return counts
   }, [sortedFindings, showSiteTypeFilter])
 
-  // Apply site type filter
+  // Count saved findings
+  const savedCount = React.useMemo(() => {
+    return sortedFindings.filter((f) => isFindingSaved(f)).length
+  }, [sortedFindings, savedFindings]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Apply site type filter + saved filter
   const filteredFindings = React.useMemo(() => {
-    if (!activeSiteTypeFilter) return sortedFindings
-    return sortedFindings.filter((f) => f.metadata?.siteType === activeSiteTypeFilter)
-  }, [sortedFindings, activeSiteTypeFilter])
+    let result = sortedFindings
+    if (activeSiteTypeFilter) {
+      result = result.filter((f) => f.metadata?.siteType === activeSiteTypeFilter)
+    }
+    if (showSavedOnly) {
+      result = result.filter((f) => isFindingSaved(f))
+    }
+    return result
+  }, [sortedFindings, activeSiteTypeFilter, showSavedOnly, savedFindings]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Paginated findings
   const paginatedFindings = filteredFindings.slice(0, displayLimit)
@@ -244,7 +273,7 @@ export function FindingsList({
   // Reset display limit when findings or filter change
   React.useEffect(() => {
     setDisplayLimit(RESULTS_PER_PAGE)
-  }, [findings, activeSiteTypeFilter])
+  }, [findings, activeSiteTypeFilter, showSavedOnly])
 
   if (isLoading) {
     return (
@@ -267,54 +296,147 @@ export function FindingsList({
     <div className="flex h-full flex-col">
       {/* Header with count and filters */}
       {showFilters && (
-        <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <button
-              className={`shrink-0 text-sm font-medium ${activeSiteTypeFilter ? 'text-blue-600 hover:underline' : ''}`}
-              onClick={() => {
-                if (activeSiteTypeFilter) {
-                  setActiveSiteTypeFilter(null)
-                  onSiteTypeFilterChange?.(null)
-                }
-              }}
-            >
-              {sortedFindings.length} results
-            </button>
-            {/* Site type filter buttons */}
-            {showSiteTypeFilter && siteTypeCounts && Object.keys(siteTypeCounts).length > 0 && (
+        <div className="flex items-center justify-between gap-1.5 border-b px-3 py-2">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
+            {/* Species header: enrichment status + count + filter badges */}
+            {showSpeciesHeader ? (
               <>
-                {(['SAC', 'SPA', 'NHA', 'pNHA'] as const).map((siteType) => {
-                  const count = siteTypeCounts[siteType]
-                  if (!count) return null
-                  const isActive = activeSiteTypeFilter === siteType
-                  const colorMap: Record<string, string> = {
-                    SAC: isActive
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200',
-                    SPA: isActive
-                      ? 'bg-sky-600 text-white'
-                      : 'bg-sky-100 text-sky-700 hover:bg-sky-200',
-                    NHA: isActive
-                      ? 'bg-amber-600 text-white'
-                      : 'bg-amber-100 text-amber-700 hover:bg-amber-200',
-                    pNHA: isActive
-                      ? 'bg-orange-600 text-white'
-                      : 'bg-orange-100 text-orange-700 hover:bg-orange-200',
-                  }
-                  return (
-                    <button
-                      key={siteType}
-                      onClick={() => {
-                        const newValue = isActive ? null : siteType
-                        setActiveSiteTypeFilter(newValue)
-                        onSiteTypeFilterChange?.(newValue)
-                      }}
-                      className={`rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors ${colorMap[siteType]}`}
-                    >
-                      {siteType} {count}
-                    </button>
-                  )
-                })}
+                {enrichmentStatus?.isEnriching ? (
+                  <span className="flex shrink-0 items-center gap-1.5 text-xs font-medium">
+                    <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
+                    <span className="text-blue-600">
+                      NBDC {enrichmentStatus.current}/{enrichmentStatus.total}
+                    </span>
+                  </span>
+                ) : (
+                  <button
+                    className={`shrink-0 text-sm font-medium ${showSavedOnly || sourceFilter !== 'all' ? 'text-blue-600 hover:underline' : ''}`}
+                    onClick={() => {
+                      if (showSavedOnly || (sourceFilter && sourceFilter !== 'all')) {
+                        setShowSavedOnly(false)
+                        onSavedFilterChange?.(false)
+                        onSourceFilterChange?.('all')
+                      }
+                    }}
+                  >
+                    {sortedFindings.length} results
+                  </button>
+                )}
+                {(speciesCounts?.protected ?? 0) > 0 && (
+                  <button
+                    onClick={() =>
+                      onSourceFilterChange?.(sourceFilter === 'protected' ? 'all' : 'protected')
+                    }
+                    className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
+                      sourceFilter === 'protected'
+                        ? 'bg-red-600 text-white'
+                        : 'bg-red-100 text-red-700 hover:bg-red-200'
+                    }`}
+                  >
+                    <Shield className="h-2.5 w-2.5" />
+                    {speciesCounts!.protected}
+                  </button>
+                )}
+                {(speciesCounts?.invasive ?? 0) > 0 && (
+                  <button
+                    onClick={() => onSourceFilterChange?.(sourceFilter === 'nbdc' ? 'all' : 'nbdc')}
+                    className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
+                      sourceFilter === 'nbdc'
+                        ? 'bg-orange-600 text-white'
+                        : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                    }`}
+                  >
+                    <AlertCircle className="h-2.5 w-2.5" />
+                    {speciesCounts!.invasive}
+                  </button>
+                )}
+                {savedCount > 0 && (
+                  <button
+                    onClick={() => {
+                      const next = !showSavedOnly
+                      setShowSavedOnly(next)
+                      onSavedFilterChange?.(next)
+                    }}
+                    className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
+                      showSavedOnly
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                    }`}
+                  >
+                    <Check className="h-2.5 w-2.5" />
+                    {savedCount}
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <button
+                  className={`shrink-0 text-sm font-medium ${activeSiteTypeFilter || showSavedOnly ? 'text-blue-600 hover:underline' : ''}`}
+                  onClick={() => {
+                    if (activeSiteTypeFilter || showSavedOnly) {
+                      setActiveSiteTypeFilter(null)
+                      setShowSavedOnly(false)
+                      onSiteTypeFilterChange?.(null)
+                      onSavedFilterChange?.(false)
+                    }
+                  }}
+                >
+                  {sortedFindings.length} results
+                </button>
+                {savedCount > 0 && (
+                  <button
+                    onClick={() => {
+                      const next = !showSavedOnly
+                      setShowSavedOnly(next)
+                      onSavedFilterChange?.(next)
+                    }}
+                    className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
+                      showSavedOnly
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                    }`}
+                  >
+                    <Check className="h-2.5 w-2.5" />
+                    Saved {savedCount}
+                  </button>
+                )}
+                {/* Site type filter buttons */}
+                {showSiteTypeFilter && siteTypeCounts && Object.keys(siteTypeCounts).length > 0 && (
+                  <>
+                    {(['SAC', 'SPA', 'NHA', 'pNHA'] as const).map((siteType) => {
+                      const count = siteTypeCounts[siteType]
+                      if (!count) return null
+                      const isActive = activeSiteTypeFilter === siteType
+                      const colorMap: Record<string, string> = {
+                        SAC: isActive
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200',
+                        SPA: isActive
+                          ? 'bg-sky-600 text-white'
+                          : 'bg-sky-100 text-sky-700 hover:bg-sky-200',
+                        NHA: isActive
+                          ? 'bg-amber-600 text-white'
+                          : 'bg-amber-100 text-amber-700 hover:bg-amber-200',
+                        pNHA: isActive
+                          ? 'bg-orange-600 text-white'
+                          : 'bg-orange-100 text-orange-700 hover:bg-orange-200',
+                      }
+                      return (
+                        <button
+                          key={siteType}
+                          onClick={() => {
+                            const newValue = isActive ? null : siteType
+                            setActiveSiteTypeFilter(newValue)
+                            onSiteTypeFilterChange?.(newValue)
+                          }}
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${colorMap[siteType]}`}
+                        >
+                          {siteType} {count}
+                        </button>
+                      )
+                    })}
+                  </>
+                )}
               </>
             )}
           </div>
@@ -323,20 +445,43 @@ export function FindingsList({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 px-2 text-xs text-purple-600 hover:text-purple-700"
-                onClick={onSummarizeAll}
-                disabled={isSummarizing}
+                className={`h-7 px-2 text-xs ${isSummarizing ? 'text-red-600 hover:text-red-700' : 'text-purple-600 hover:text-purple-700'}`}
+                onClick={isSummarizing ? onStopSummarize : onSummarizeAll}
               >
                 {isSummarizing ? (
-                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  <>
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    Stop
+                  </>
                 ) : (
-                  <Sparkles className="mr-1 h-3 w-3" />
+                  <>
+                    <Sparkles className="mr-1 h-3 w-3" />
+                    AI
+                  </>
                 )}
-                AI
               </Button>
             )}
+            {/* Source filter dropdown for species */}
+            {onSourceFilterChange && (
+              <Select
+                value={sourceFilter || 'all'}
+                onValueChange={(v) =>
+                  onSourceFilterChange(v as 'all' | 'gbif' | 'nbdc' | 'protected')
+                }
+              >
+                <SelectTrigger className="h-7 w-auto min-w-[80px] border-0 bg-transparent px-1.5 text-xs shadow-none">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Sources</SelectItem>
+                  <SelectItem value="gbif">GBIF Only</SelectItem>
+                  <SelectItem value="nbdc">NBDC Enriched</SelectItem>
+                  <SelectItem value="protected">Protected</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
             <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
-              <SelectTrigger className="h-7 w-[74px] border-0 bg-transparent px-1.5 text-xs shadow-none">
+              <SelectTrigger className="h-7 w-auto min-w-[80px] border-0 bg-transparent px-1.5 text-xs shadow-none">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

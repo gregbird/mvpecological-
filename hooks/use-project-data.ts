@@ -85,6 +85,7 @@ import {
   type CreateDeepResearchInput,
   type DeepResearchResult,
 } from '@/lib/supabase/queries/deep-research'
+import { getWaterBodyResearch } from '@/lib/supabase/queries/aquatic-research'
 import type {
   Project,
   WorkflowStep,
@@ -852,6 +853,14 @@ export function useDeleteDeepResearch() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['deep-research'] })
     },
+  })
+}
+
+export function useWaterBodyResearch(projectId: string, waterBodyCode: string) {
+  return useQuery({
+    queryKey: ['aquatic-research', projectId, waterBodyCode],
+    queryFn: () => getWaterBodyResearch(projectId, waterBodyCode),
+    enabled: !!projectId && !!waterBodyCode,
   })
 }
 

@@ -147,33 +147,117 @@ export function DeepResearchModal({
   const [aiLoading, setAiLoading] = React.useState(false)
   const [aiError, setAiError] = React.useState<string>('')
 
+  // AI response metadata
+  const [aiMeta, setAiMeta] = React.useState<{
+    hadPdfContent?: boolean
+    hadWebContent?: boolean
+    hadNbdcData?: boolean
+  }>({})
+
+  // Scraped NPWS page data (for NHA/pNHA without Excel data)
+  const [scrapedInfo, setScrapedInfo] = React.useState<{
+    qualifyingInterests: string[]
+    statutoryInstrumentUrl: string | null
+    county: string | null
+  } | null>(null)
+
   // Check if already saved
   const { data: existingResearch } = useSiteDeepResearch(projectId || '', site?.siteCode || '')
   const isSaved = !!existingResearch
 
-  // Reset AI state and auto-start analysis when site changes
+  // Reset state when site changes — restore from DB cache if available
   const hasTriggeredRef = React.useRef<string | null>(null)
+  const hasFetchedScrapeRef = React.useRef<string | null>(null)
   React.useEffect(() => {
-    setAiSummary('')
     setAiLoading(false)
     setAiError('')
-    hasTriggeredRef.current = null
-  }, [site?.siteCode])
+    setScrapedInfo(null)
+    hasFetchedScrapeRef.current = null
 
-  // Auto-start AI analysis when modal opens
+    // If we have existing research in DB, restore AI analysis from it
+    if (existingResearch?.ai_analysis) {
+      setAiSummary(existingResearch.ai_analysis)
+      hasTriggeredRef.current = site?.siteCode || null
+    } else {
+      setAiSummary('')
+      hasTriggeredRef.current = null
+    }
+  }, [site?.siteCode, existingResearch?.ai_analysis])
+
+  // Immediately scrape NPWS page for NHA/pNHA sites without Excel data
+  React.useEffect(() => {
+    if (
+      open &&
+      site?.siteCode &&
+      (site.siteType === 'NHA' || site.siteType === 'pNHA') &&
+      !getNPWSSiteData(site.siteCode) &&
+      hasFetchedScrapeRef.current !== site.siteCode
+    ) {
+      hasFetchedScrapeRef.current = site.siteCode
+      fetch('/api/npws/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ siteCode: site.siteCode, siteType: site.siteType }),
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data) setScrapedInfo(data)
+        })
+        .catch(() => {})
+    }
+  }, [open, site?.siteCode, site?.siteType])
+
+  // AI Analysis handler - fetches SSCO/Synopsis PDF and generates detailed summary
+  const handleAiAnalysis = React.useCallback(async () => {
+    if (!site?.siteCode) return
+    setAiLoading(true)
+    setAiError('')
+    try {
+      const response = await fetch('/api/ai/deep-research', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          siteCode: site.siteCode,
+          siteName: site.siteName,
+          siteType: site.siteType,
+        }),
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        setAiError(data.error || 'Failed to generate analysis')
+      } else {
+        setAiSummary(data.summary || '')
+        setAiMeta({
+          hadPdfContent: data.hadPdfContent,
+          hadWebContent: data.hadWebContent,
+          hadNbdcData: data.hadNbdcData,
+        })
+        // Also update scraped info from AI response if not already fetched
+        if (data.scrapedSiteInfo) {
+          setScrapedInfo((prev) => prev || data.scrapedSiteInfo)
+        }
+      }
+    } catch {
+      setAiError('Failed to connect to AI service')
+    } finally {
+      setAiLoading(false)
+    }
+  }, [site?.siteCode, site?.siteName, site?.siteType])
+
+  // Auto-start AI analysis when modal opens (skip if existing research is cached)
   React.useEffect(() => {
     if (
       open &&
       site?.siteCode &&
       !aiSummary &&
       !aiLoading &&
+      !existingResearch?.ai_analysis &&
       hasTriggeredRef.current !== site.siteCode
     ) {
       hasTriggeredRef.current = site.siteCode
       handleAiAnalysis()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, site?.siteCode])
+  }, [open, site?.siteCode, aiSummary, aiLoading, existingResearch?.ai_analysis, handleAiAnalysis])
 
   if (!site) return null
 
@@ -213,45 +297,6 @@ export function DeepResearchModal({
     h.article17?.pressures.forEach((p) => allPressures.add(p))
     h.article17?.threats.forEach((t) => allThreats.add(t))
   })
-
-  // AI response metadata
-  const [aiMeta, setAiMeta] = React.useState<{
-    hadPdfContent?: boolean
-    hadWebContent?: boolean
-    hadNbdcData?: boolean
-  }>({})
-
-  // AI Analysis handler - fetches SSCO/Synopsis PDF and generates detailed summary
-  const handleAiAnalysis = async () => {
-    setAiLoading(true)
-    setAiError('')
-    try {
-      const response = await fetch('/api/ai/deep-research', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          siteCode: site.siteCode,
-          siteName: site.siteName,
-          siteType: site.siteType,
-        }),
-      })
-      const data = await response.json()
-      if (!response.ok) {
-        setAiError(data.error || 'Failed to generate analysis')
-      } else {
-        setAiSummary(data.summary || '')
-        setAiMeta({
-          hadPdfContent: data.hadPdfContent,
-          hadWebContent: data.hadWebContent,
-          hadNbdcData: data.hadNbdcData,
-        })
-      }
-    } catch {
-      setAiError('Failed to connect to AI service')
-    } finally {
-      setAiLoading(false)
-    }
-  }
 
   // Save handler
   const handleSaveResearch = async () => {
@@ -482,6 +527,30 @@ export function DeepResearchModal({
                 </Card>
               )}
 
+              {/* Qualifying Interests from NPWS (NHA/pNHA scraped data) */}
+              {scrapedInfo?.qualifyingInterests &&
+                scrapedInfo.qualifyingInterests.length > 0 &&
+                mergedHabitats.length === 0 && (
+                  <Card>
+                    <CardContent className="space-y-2 pt-4">
+                      <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium">
+                        <Leaf className="h-3.5 w-3.5 text-emerald-500" />
+                        Qualifying Interests
+                        <Badge variant="outline" className="text-[10px]">
+                          NPWS
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {scrapedInfo.qualifyingInterests.map((qi, idx) => (
+                          <Badge key={idx} variant="secondary" className="text-[10px]">
+                            {qi}
+                          </Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
               {/* AA Screening Note */}
               <Card className="border-amber-200 bg-amber-50">
                 <CardContent className="pt-4">
@@ -525,6 +594,20 @@ export function DeepResearchModal({
                           NBDC enriched
                         </Badge>
                       )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="ml-auto h-6 px-2 text-[10px] text-purple-600 hover:text-purple-700"
+                        onClick={handleAiAnalysis}
+                        disabled={aiLoading}
+                      >
+                        {aiLoading ? (
+                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                        ) : (
+                          <Sparkles className="mr-1 h-3 w-3" />
+                        )}
+                        Regenerate
+                      </Button>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -1065,9 +1148,9 @@ export function DeepResearchModal({
               )}
 
               {/* Statutory Instrument */}
-              {excelData?.siUrl && (
+              {(excelData?.siUrl || scrapedInfo?.statutoryInstrumentUrl) && (
                 <a
-                  href={excelData.siUrl}
+                  href={excelData?.siUrl || scrapedInfo?.statutoryInstrumentUrl || '#'}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block"
@@ -1082,7 +1165,7 @@ export function DeepResearchModal({
                           <div>
                             <p className="text-sm font-medium">
                               Statutory Instrument
-                              {excelData.siNumber && (
+                              {excelData?.siNumber && (
                                 <span className="text-muted-foreground ml-1 text-xs">
                                   S.I. {excelData.siNumber}
                                 </span>

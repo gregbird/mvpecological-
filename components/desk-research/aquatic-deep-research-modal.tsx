@@ -38,6 +38,7 @@ import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
+import { useWaterBodyResearch } from '@/hooks/use-project-data'
 import { saveAquaticResearch } from '@/lib/supabase/queries/aquatic-research'
 
 export interface AquaticDeepResearchSite {
@@ -121,6 +122,7 @@ interface AquaticDeepResearchModalProps {
   projectId: string
   userId: string
   findingId?: string | null
+  existingAnalysis?: string
 }
 
 // WFD Status colors
@@ -146,6 +148,7 @@ export function AquaticDeepResearchModal({
   projectId,
   userId,
   findingId,
+  existingAnalysis,
 }: AquaticDeepResearchModalProps) {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = React.useState(false)
@@ -154,19 +157,49 @@ export function AquaticDeepResearchModal({
   const [result, setResult] = React.useState<AquaticResearchResult | null>(null)
   const [activeTab, setActiveTab] = React.useState('overview')
 
-  // Fetch research when modal opens
+  // Check for existing research in DB
+  const { data: existingDbResearch } = useWaterBodyResearch(
+    projectId,
+    site?.waterBodyCode || site?.waterBodyName || ''
+  )
+
+  // Determine cached analysis: prefer prop, fallback to DB
+  const cachedAnalysis = existingAnalysis || existingDbResearch?.ai_analysis || undefined
+
+  // Fetch research when modal opens (skip if cached analysis exists)
   React.useEffect(() => {
-    if (open && site && !result) {
+    if (open && site && !result && !cachedAnalysis) {
       fetchResearch()
     }
-  }, [open, site])
+  }, [open, site, cachedAnalysis])
 
-  // Reset when site changes
+  // Reset when site changes — restore from cache if available
   React.useEffect(() => {
-    setResult(null)
     setActiveTab('overview')
-    setIsSaved(false)
-  }, [site?.waterBodyName])
+
+    if (cachedAnalysis) {
+      // Build a minimal result from cached analysis so the UI renders
+      setResult((prev) =>
+        prev
+          ? prev
+          : {
+              summary: cachedAnalysis,
+              linkedSACs: [],
+              wfdData: null,
+              resources: {
+                catchmentsUrl: 'https://www.catchments.ie',
+                epaWaterMapUrl: 'https://gis.epa.ie/EPAMaps/Water',
+                hydroNetUrl: 'https://www.hydronet.ie',
+                wfdDataUrl: 'https://wfd.edenireland.ie',
+              },
+            }
+      )
+      setIsSaved(true)
+    } else {
+      setResult(null)
+      setIsSaved(false)
+    }
+  }, [site?.waterBodyName, cachedAnalysis])
 
   // Handle save research
   const handleSaveResearch = async () => {
@@ -974,22 +1007,41 @@ export function AquaticDeepResearchModal({
                   'Save this research to include in your project report'
                 )}
               </p>
-              <Button
-                onClick={handleSaveResearch}
-                disabled={isSaving || isSaved}
-                className="min-w-30"
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : isSaved ? (
-                  <>✓ Saved</>
-                ) : (
-                  <>Save Research</>
-                )}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setResult(null)
+                    setIsSaved(false)
+                    fetchResearch()
+                  }}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <Sparkles className="mr-1 h-3 w-3" />
+                  )}
+                  Refresh
+                </Button>
+                <Button
+                  onClick={handleSaveResearch}
+                  disabled={isSaving || isSaved}
+                  className="min-w-30"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : isSaved ? (
+                    <>✓ Saved</>
+                  ) : (
+                    <>Save Research</>
+                  )}
+                </Button>
+              </div>
             </div>
           </DialogFooter>
         )}

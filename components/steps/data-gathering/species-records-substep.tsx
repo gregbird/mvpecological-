@@ -1,21 +1,11 @@
 'use client'
 
 import * as React from 'react'
-import {
-  Search,
-  Loader2,
-  Eye,
-  EyeOff,
-  RefreshCw,
-  AlertCircle,
-  Shield,
-  Sparkles,
-} from 'lucide-react'
+import { Search, Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import * as turf from '@turf/turf'
 
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Select,
@@ -120,6 +110,15 @@ export function SpeciesRecordsSubStep({
   )
   // Map container ref for screenshot capture
   const mapContainerRef = React.useRef<HTMLDivElement>(null)
+  // Delay map render by one tick to ensure container is in DOM
+  const [mapReady, setMapReady] = React.useState(false)
+  React.useEffect(() => {
+    if (showMap) {
+      const timer = requestAnimationFrame(() => setMapReady(true))
+      return () => cancelAnimationFrame(timer)
+    }
+    setMapReady(false)
+  }, [showMap])
 
   // Restore location data from savedFindings when cache is missing geometries
   React.useEffect(() => {
@@ -179,6 +178,7 @@ export function SpeciesRecordsSubStep({
   const [speciesResearchOpen, setSpeciesResearchOpen] = React.useState(false)
   const [selectedSpeciesResearch, setSelectedSpeciesResearch] =
     React.useState<SpeciesResearchData | null>(null)
+  const [speciesExistingAnalysis, setSpeciesExistingAnalysis] = React.useState<string | undefined>()
   // AI Summary batch state
   const [isSummarizing, setIsSummarizing] = React.useState(false)
 
@@ -333,22 +333,26 @@ export function SpeciesRecordsSubStep({
         maxLat = Math.max(maxLat, coord[1])
       }
 
-      const buffer = selectedBuffer * 0.009
+      // 1 degree latitude ≈ 111km; longitude varies with cos(latitude)
+      const midLat = (minLat + maxLat) / 2
+      const latBuffer = selectedBuffer / 111
+      const lngBuffer = selectedBuffer / (111 * Math.cos((midLat * Math.PI) / 180))
       return {
-        minLng: minLng - buffer,
-        maxLng: maxLng + buffer,
-        minLat: minLat - buffer,
-        maxLat: maxLat + buffer,
+        minLng: minLng - lngBuffer,
+        maxLng: maxLng + lngBuffer,
+        minLat: minLat - latBuffer,
+        maxLat: maxLat + latBuffer,
       }
     }
 
     if (projectCenter) {
-      const buffer = selectedBuffer * 0.009
+      const latBuffer = selectedBuffer / 111
+      const lngBuffer = selectedBuffer / (111 * Math.cos((projectCenter.lat * Math.PI) / 180))
       return {
-        minLng: projectCenter.lng - buffer,
-        maxLng: projectCenter.lng + buffer,
-        minLat: projectCenter.lat - buffer,
-        maxLat: projectCenter.lat + buffer,
+        minLng: projectCenter.lng - lngBuffer,
+        maxLng: projectCenter.lng + lngBuffer,
+        minLat: projectCenter.lat - latBuffer,
+        maxLat: projectCenter.lat + latBuffer,
       }
     }
 
@@ -454,7 +458,7 @@ export function SpeciesRecordsSubStep({
           maxLng: bbox.maxLng,
         },
         limit: 100,
-        year: '2015,2025',
+        year: `2015,${new Date().getFullYear()}`,
       })
 
       // Group by species
@@ -738,6 +742,26 @@ export function SpeciesRecordsSubStep({
             : f
         )
       )
+
+      // Persist AI summary to DB if finding is already saved
+      const existingSaved = savedFindings.find(
+        (f) => f.title === finding.title || f.id === finding.id
+      )
+      if (existingSaved) {
+        const existingRawData = (existingSaved.raw_data as Record<string, unknown>) || {}
+        const existingMetadata = (existingRawData.metadata as Record<string, unknown>) || {}
+        updateFinding
+          .mutateAsync({
+            findingId: existingSaved.id,
+            updates: {
+              raw_data: {
+                ...existingRawData,
+                metadata: { ...existingMetadata, aiSummary: data.summary },
+              } as unknown as Json,
+            },
+          })
+          .catch((err) => console.error('Failed to persist AI summary:', err))
+      }
     } catch (error) {
       console.warn('AI summary error:', error)
       setSearchResults((prev) =>
@@ -749,20 +773,29 @@ export function SpeciesRecordsSubStep({
   }
 
   // Batch summarize all species
+  const summarizeCancelRef = React.useRef(false)
   const handleSummarizeAllSpecies = async () => {
     const speciesFindings = searchResults.filter(
       (f) => f.dataType === 'species_record' && !f.metadata?.aiSummary
     )
     if (speciesFindings.length === 0) return
 
+    summarizeCancelRef.current = false
     setIsSummarizing(true)
     for (const finding of speciesFindings) {
+      if (summarizeCancelRef.current) break
       await handleFetchAiSummary(finding)
       // Small delay between requests
       await new Promise((resolve) => setTimeout(resolve, 500))
     }
     setIsSummarizing(false)
   }
+  const handleStopSummarize = () => {
+    summarizeCancelRef.current = true
+  }
+
+  // Saved filter for map sync
+  const [showSavedOnMap, setShowSavedOnMap] = React.useState(false)
 
   // Handle species deep research (enriched with FPO, Article 17, related sites)
   const handleSpeciesDeepResearch = async (finding: FindingDisplay) => {
@@ -802,6 +835,26 @@ export function SpeciesRecordsSubStep({
       // Dynamic import failed, proceed without enrichment
     }
 
+    // Check for existing deep research analysis in rawData or savedFindings
+    let cachedAnalysis: string | undefined
+    const deepResearchFromRaw = (finding.rawData as Record<string, unknown>)?.deepResearch as
+      | Record<string, unknown>
+      | undefined
+    if (deepResearchFromRaw?.aiAnalysis) {
+      cachedAnalysis = deepResearchFromRaw.aiAnalysis as string
+    } else {
+      const savedMatch = savedFindings.find(
+        (f) => (f.raw_data as Record<string, unknown>)?.scientificName === scientificName
+      )
+      if (savedMatch) {
+        const rawData = savedMatch.raw_data as Record<string, unknown>
+        const deepResearch = rawData?.deepResearch as Record<string, unknown> | undefined
+        if (deepResearch?.aiAnalysis) {
+          cachedAnalysis = deepResearch.aiAnalysis as string
+        }
+      }
+    }
+
     setSelectedSpeciesResearch({
       scientificName,
       commonName: finding.metadata?.commonName,
@@ -821,6 +874,7 @@ export function SpeciesRecordsSubStep({
       article17Species,
       relatedSites,
     })
+    setSpeciesExistingAnalysis(cachedAnalysis)
     setSpeciesResearchOpen(true)
   }
 
@@ -872,12 +926,22 @@ export function SpeciesRecordsSubStep({
     )
     if (existingSaved) {
       const existingRawData = (existingSaved.raw_data as Record<string, unknown>) || {}
+      // Merge session AI summary into DB data if present
+      const sessionFinding = searchResults.find(
+        (r) => r.metadata?.scientificName === scientificName
+      )
+      const existingMetadata = (existingRawData.metadata as Record<string, unknown>) || {}
+      const mergedMetadata = sessionFinding?.metadata?.aiSummary
+        ? { ...existingMetadata, aiSummary: sessionFinding.metadata.aiSummary }
+        : existingMetadata
+
       updateFinding
         .mutateAsync({
           findingId: existingSaved.id,
           updates: {
             raw_data: {
               ...existingRawData,
+              metadata: mergedMetadata,
               deepResearch: deepResearchData,
             } as unknown as Json,
           },
@@ -913,7 +977,7 @@ export function SpeciesRecordsSubStep({
         <div className="border-b p-4">
           <h3 className="mb-2 font-semibold">Species Records</h3>
           <p className="text-muted-foreground mb-4 text-sm">
-            Search GBIF for species occurrences and enrich with Irish protection status from NBDC.
+            Search GBIF for species occurrences and enrich with NBDC protection status.
           </p>
 
           {/* Search Row */}
@@ -953,113 +1017,6 @@ export function SpeciesRecordsSubStep({
               )}
             </Button>
           </div>
-
-          {/* Results Summary & NBDC Enrichment */}
-          {searchResults.length > 0 && !isSearching && (
-            <div className="mt-4 space-y-3">
-              {/* Stats Row with Source Filter */}
-              <div className="flex items-center justify-between">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="secondary">
-                    {filteredResults.length}
-                    {sourceFilter !== 'all' && `/${searchResults.length}`} species
-                  </Badge>
-                  {protectedCount > 0 && (
-                    <Badge variant="destructive" className="gap-1">
-                      <Shield className="h-3 w-3" />
-                      {protectedCount}
-                    </Badge>
-                  )}
-                  {invasiveCount > 0 && (
-                    <Badge className="gap-1 bg-orange-500 hover:bg-orange-600">
-                      <AlertCircle className="h-3 w-3" />
-                      {invasiveCount}
-                    </Badge>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  {/* Source Filter */}
-                  <Select
-                    value={sourceFilter}
-                    onValueChange={(v) => setSourceFilter(v as typeof sourceFilter)}
-                  >
-                    <SelectTrigger className="h-7 w-28 text-xs">
-                      <SelectValue placeholder="Filter" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Sources</SelectItem>
-                      <SelectItem value="gbif">GBIF Only</SelectItem>
-                      <SelectItem value="nbdc">NBDC Enriched</SelectItem>
-                      <SelectItem value="protected">Protected</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={performSearch}
-                    disabled={isSearching || isEnriching}
-                  >
-                    <RefreshCw className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* NBDC Enrichment Progress */}
-              {isEnriching && enrichmentProgress && (
-                <div className="space-y-1.5 rounded-lg border bg-amber-50/50 px-3 py-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
-                      <span className="text-sm">
-                        Enriching with NBDC... {enrichmentProgress.current}/
-                        {enrichmentProgress.total}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full">
-                    <div
-                      className="h-full rounded-full bg-amber-500 transition-all duration-300"
-                      style={{
-                        width: `${(enrichmentProgress.current / enrichmentProgress.total) * 100}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-              {!isEnriching && enrichedCount > 0 && (
-                <div className="flex items-center gap-2 rounded-lg border bg-green-50/50 px-3 py-2">
-                  <Sparkles className="h-4 w-4 text-green-600" />
-                  <span className="text-sm text-green-700">
-                    ✓ NBDC enrichment complete — {enrichedCount}/{searchResults.length} species
-                    matched
-                  </span>
-                </div>
-              )}
-
-              {/* AI Summary All button */}
-              {!isEnriching && !isSearching && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full gap-1.5"
-                  onClick={handleSummarizeAllSpecies}
-                  disabled={isSummarizing}
-                >
-                  {isSummarizing ? (
-                    <>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Summarizing...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-3.5 w-3.5" />
-                      AI Summary All Species
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Results List */}
@@ -1077,6 +1034,30 @@ export function SpeciesRecordsSubStep({
             onToggleVisibility={handleToggleVisibility}
             savingIds={savingIds}
             selectedFindingId={selectedFinding?.id}
+            showSpeciesHeader
+            speciesCounts={{
+              total: searchResults.length,
+              protected: protectedCount,
+              invasive: invasiveCount,
+              enriched: enrichedCount,
+            }}
+            enrichmentStatus={
+              isEnriching && enrichmentProgress
+                ? enrichmentProgress
+                  ? {
+                      isEnriching: true,
+                      current: enrichmentProgress.current,
+                      total: enrichmentProgress.total,
+                    }
+                  : null
+                : null
+            }
+            sourceFilter={sourceFilter}
+            onSourceFilterChange={setSourceFilter}
+            onSummarizeAll={handleSummarizeAllSpecies}
+            isSummarizing={isSummarizing}
+            onStopSummarize={handleStopSummarize}
+            onSavedFilterChange={setShowSavedOnMap}
           />
         </div>
       </div>
@@ -1084,79 +1065,93 @@ export function SpeciesRecordsSubStep({
       {/* Map */}
       {showMap && (
         <div className="relative flex-1" ref={mapContainerRef}>
-          <ProjectMap
-            className="h-full"
-            center={projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]}
-            zoom={11}
-            boundary={projectBoundary}
-            bufferDistances={bufferDistances}
-            findings={filteredResults
-              .filter((f) => !hiddenIds.has(f.id)) // Filter out hidden findings
-              .map((f) => ({
-                id: f.id,
-                source: f.metadata?.nbdcEnriched ? 'nbdc' : ('gbif' as FindingSource),
-                dataType: f.dataType as FindingType,
-                title: f.title,
-                content: f.content,
-                location: f.location,
-                isSaved: savedFindings.some(
-                  (sf) =>
-                    (sf.raw_data as Record<string, unknown>)?.scientificName ===
-                    f.metadata?.scientificName
-                ),
-                // Pass metadata for species status coloring (protected, invasive, threatened)
-                metadata: f.metadata,
-              }))}
-            selectedFinding={
-              selectedFinding
-                ? {
-                    id: selectedFinding.id,
-                    source: selectedFinding.metadata?.nbdcEnriched
-                      ? 'nbdc'
-                      : (selectedFinding.source as FindingSource),
-                    dataType: selectedFinding.dataType as FindingType,
-                    title: selectedFinding.title,
-                    content: selectedFinding.content,
-                    location: selectedFinding.location,
-                    isSaved: false,
-                    metadata: selectedFinding.metadata,
-                  }
-                : undefined
-            }
-            onFindingClick={(f) => {
-              // Toggle selection - if clicking the same finding, deselect it
-              const found = searchResults.find((r) => r.id === f.id) || null
-              setSelectedFinding((prev) => (prev?.id === f.id ? null : found))
-              // Scroll to the finding card in the panel
-              document
-                .getElementById(`finding-${f.id}`)
-                ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-            }}
-            onMapClick={() => {
-              // Clear selection when clicking on empty map space
-              setSelectedFinding(null)
-            }}
-          />
+          {mapReady && (
+            <>
+              <ProjectMap
+                key={`species-map-${project.id}`}
+                className="h-full"
+                center={projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]}
+                zoom={11}
+                boundary={projectBoundary}
+                bufferDistances={bufferDistances}
+                findings={filteredResults
+                  .filter((f) => !hiddenIds.has(f.id)) // Filter out hidden findings
+                  .filter(
+                    (f) =>
+                      !showSavedOnMap ||
+                      savedFindings.some(
+                        (sf) =>
+                          (sf.raw_data as Record<string, unknown>)?.scientificName ===
+                          f.metadata?.scientificName
+                      )
+                  )
+                  .map((f) => ({
+                    id: f.id,
+                    source: f.metadata?.nbdcEnriched ? 'nbdc' : ('gbif' as FindingSource),
+                    dataType: f.dataType as FindingType,
+                    title: f.title,
+                    content: f.content,
+                    location: f.location,
+                    isSaved: savedFindings.some(
+                      (sf) =>
+                        (sf.raw_data as Record<string, unknown>)?.scientificName ===
+                        f.metadata?.scientificName
+                    ),
+                    // Pass metadata for species status coloring (protected, invasive, threatened)
+                    metadata: f.metadata,
+                  }))}
+                selectedFinding={
+                  selectedFinding
+                    ? {
+                        id: selectedFinding.id,
+                        source: selectedFinding.metadata?.nbdcEnriched
+                          ? 'nbdc'
+                          : (selectedFinding.source as FindingSource),
+                        dataType: selectedFinding.dataType as FindingType,
+                        title: selectedFinding.title,
+                        content: selectedFinding.content,
+                        location: selectedFinding.location,
+                        isSaved: false,
+                        metadata: selectedFinding.metadata,
+                      }
+                    : undefined
+                }
+                onFindingClick={(f) => {
+                  // Toggle selection - if clicking the same finding, deselect it
+                  const found = searchResults.find((r) => r.id === f.id) || null
+                  setSelectedFinding((prev) => (prev?.id === f.id ? null : found))
+                  // Scroll to the finding card in the panel
+                  document
+                    .getElementById(`finding-${f.id}`)
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                }}
+                onMapClick={() => {
+                  // Clear selection when clicking on empty map space
+                  setSelectedFinding(null)
+                }}
+              />
 
-          <Button
-            variant="secondary"
-            size="sm"
-            className="absolute top-4 right-4 z-1000"
-            onClick={onToggleMap}
-            data-map-control="true"
-          >
-            <EyeOff className="mr-1 h-4 w-4" />
-            Hide Map
-          </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="absolute top-4 right-4 z-1000"
+                onClick={onToggleMap}
+                data-map-control="true"
+              >
+                <EyeOff className="mr-1 h-4 w-4" />
+                Hide Map
+              </Button>
 
-          {/* Map capture button */}
-          <MapCaptureButton
-            containerRef={mapContainerRef}
-            projectId={project.id}
-            stepName="species_records"
-            userId={userId}
-            className="absolute top-14 right-4 z-1000 shadow-md"
-          />
+              {/* Map capture button */}
+              <MapCaptureButton
+                containerRef={mapContainerRef}
+                projectId={project.id}
+                stepName="species_records"
+                userId={userId}
+                className="absolute top-14 right-4 z-1000 shadow-md"
+              />
+            </>
+          )}
         </div>
       )}
 
@@ -1174,6 +1169,7 @@ export function SpeciesRecordsSubStep({
         open={speciesResearchOpen}
         onOpenChange={setSpeciesResearchOpen}
         species={selectedSpeciesResearch}
+        existingAnalysis={speciesExistingAnalysis}
         onSaveAnalysis={handleSaveDeepResearchAnalysis}
       />
     </div>

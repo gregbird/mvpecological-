@@ -48,11 +48,12 @@ export async function POST(request: NextRequest) {
       synopsisPdfText = await fetchAndParsePdf(synopsisUrl)
     }
 
-    // 4. For NHA/pNHA without PDF content: scrape the NPWS web page
-    let webPageText = ''
-    if (!siteData && (siteType === 'NHA' || siteType === 'pNHA') && !synopsisPdfText) {
-      webPageText = await scrapeNPWSPage(siteCode, siteType)
+    // 4. For NHA/pNHA: always scrape NPWS web page for structured data (QIs, SI URL)
+    let scrapedData: ScrapedSiteData | null = null
+    if (!siteData && (siteType === 'NHA' || siteType === 'pNHA')) {
+      scrapedData = await scrapeNPWSPage(siteCode, siteType)
     }
+    const webPageText = !synopsisPdfText && scrapedData?.plainText ? scrapedData.plainText : ''
 
     // 5. Build habitat and species context from Excel data
     const habitatContext = buildHabitatContext(siteData)
@@ -63,12 +64,16 @@ export async function POST(request: NextRequest) {
     const nbdcResults = await enrichSpeciesFromNBDC(speciesNames)
 
     // 7. Build AI prompt with all available data
+    const qiContext = scrapedData?.qualifyingInterests?.length
+      ? `\nQualifying Interests (from NPWS):\n${scrapedData.qualifyingInterests.map((qi) => `- ${qi}`).join('\n')}`
+      : ''
+
     const prompt = buildPrompt({
       siteName,
       siteCode,
       siteType,
       pdfText: pdfText || synopsisPdfText,
-      webPageText,
+      webPageText: webPageText + qiContext,
       habitatContext,
       speciesContext,
       siteData,
@@ -113,9 +118,17 @@ export async function POST(request: NextRequest) {
       siteCode,
       sscoUrl: sscoUrl || (synopsisPdfText ? synopsisUrl : null),
       hadPdfContent: !!(pdfText || synopsisPdfText),
-      hadWebContent: !!webPageText,
+      hadWebContent: !!(webPageText || scrapedData),
       hadNbdcData: nbdcResults.length > 0,
       nbdcSpecies: nbdcResults,
+      scrapedSiteInfo: scrapedData
+        ? {
+            qualifyingInterests: scrapedData.qualifyingInterests,
+            statutoryInstrumentUrl: scrapedData.statutoryInstrumentUrl,
+            county: scrapedData.county,
+            coordinates: scrapedData.coordinates,
+          }
+        : null,
       siteData: siteData
         ? {
             siteType: siteData.siteType,
@@ -188,16 +201,23 @@ async function fetchAndParsePdf(url: string): Promise<string> {
 }
 
 // ============================================================================
-// Web Scraping (fallback for NHA/pNHA when no PDF)
+// Web Scraping for NHA/pNHA
 // ============================================================================
 
+interface ScrapedSiteData {
+  plainText: string
+  qualifyingInterests: string[]
+  statutoryInstrumentUrl: string | null
+  county: string | null
+  coordinates: { lat: number; lng: number } | null
+}
+
 /**
- * Scrape NPWS web page for site information
+ * Scrape NPWS web page for structured site information
  */
-async function scrapeNPWSPage(siteCode: string, siteType: string): Promise<string> {
-  // NHA has individual pages, pNHA does not have official pages
+async function scrapeNPWSPage(siteCode: string, siteType: string): Promise<ScrapedSiteData | null> {
   const typePath = siteType === 'NHA' ? 'nha' : siteType === 'pNHA' ? 'pnha' : null
-  if (!typePath) return ''
+  if (!typePath) return null
 
   try {
     const url = `https://www.npws.ie/protected-sites/${typePath}/${siteCode}`
@@ -210,10 +230,50 @@ async function scrapeNPWSPage(siteCode: string, siteType: string): Promise<strin
     })
     clearTimeout(timeoutId)
 
-    if (!response.ok) return ''
+    if (!response.ok) return null
 
     const html = await response.text()
-    let text = html
+
+    // Extract Qualifying Interests
+    const qiMatch = html.match(/Qualifying Interests[\s\S]*?<\/(?:div|section|ul|p)>/i)
+    const qualifyingInterests: string[] = []
+    if (qiMatch) {
+      const qiText = qiMatch[0]
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/Qualifying Interests/i, '')
+        .trim()
+      // Parse items like "Peatlands [4]" or "Blanket Bogs"
+      const items = qiText
+        .split(/[,;\n]/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+      qualifyingInterests.push(...items)
+    }
+
+    // Extract Statutory Instrument URL
+    let statutoryInstrumentUrl: string | null = null
+    const siMatch = html.match(/href="(https?:\/\/www\.irishstatutebook\.ie[^"]+)"/i)
+    if (siMatch) {
+      statutoryInstrumentUrl = siMatch[1]
+    }
+
+    // Extract County
+    let county: string | null = null
+    const countyMatch = html.match(/County[\s:]*<[^>]*>([^<]+)/i)
+    if (countyMatch) {
+      county = countyMatch[1].trim()
+    }
+
+    // Extract Coordinates
+    let coordinates: { lat: number; lng: number } | null = null
+    const latMatch = html.match(/Latitude[:\s]*([0-9.-]+)/i)
+    const lngMatch = html.match(/Longitude[:\s]*([0-9.-]+)/i)
+    if (latMatch && lngMatch) {
+      coordinates = { lat: parseFloat(latMatch[1]), lng: parseFloat(lngMatch[1]) }
+    }
+
+    // Full plain text (for AI fallback)
+    let plainText = html
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
       .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
@@ -227,13 +287,14 @@ async function scrapeNPWSPage(siteCode: string, siteType: string): Promise<strin
       .replace(/\s+/g, ' ')
       .trim()
 
-    if (text.length > 6000) {
-      text = text.substring(0, 6000)
+    if (plainText.length > 6000) {
+      plainText = plainText.substring(0, 6000)
     }
-    return text
+
+    return { plainText, qualifyingInterests, statutoryInstrumentUrl, county, coordinates }
   } catch (err) {
     console.warn(`Failed to scrape ${siteType} page for ${siteCode}:`, err)
-    return ''
+    return null
   }
 }
 

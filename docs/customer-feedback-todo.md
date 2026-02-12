@@ -121,13 +121,16 @@ Kullanıcı "kaydet" edip "next" tıkladığında uygulama, Step 3'te kaydedilen
 
 **Yapılacaklar:**
 
-- [ ] **0.4.1** GIS Mapping'den Data Gathering'e otomatik geçiş ve arama tetikleme
-  - GIS Mapping tamamlandığında Data Gathering'e geçerken otomatik arama başlat
-  - Seçili katmanlar için sırayla NPWS, GBIF, EPA sorgularını çalıştır
+- [x] **0.4.1** GIS Mapping'den Data Gathering'e otomatik geçiş ve arama tetikleme ✅
+  - GIS Mapping tamamlandığında Data Gathering'e geçerken 3 arama (NPWS, GBIF, EPA) paralel otomatik başlıyor
+  - Progress banner ile durum gösteriliyor (searching/done/skipped/error)
+  - Boundary değiştiğinde cache invalidate edilip yeniden aranıyor
+  - SessionStorage ile tekrar tetikleme engelleniyor
+  - Substep'ler mount kalarak sonuçlar + haritalar hazır bekliyor
 
 ---
 
-### 0.5 Harita-Bulgu Etkileşimli Senkronizasyon
+### 0.5 Harita-Bulgu Etkileşimli Senkronizasyon ✅ TAMAMLANDI
 
 **Müşteri İsteği (Orijinal):**
 
@@ -136,13 +139,16 @@ Kullanıcı "kaydet" edip "next" tıkladığında uygulama, Step 3'te kaydedilen
 **Müşteri İsteği (Türkçe):**
 Harita ve bulgular paneli arasında etkileşimli bağlantı kurulmalı. Kullanıcı haritada bir alana tıkladığında/hover ettiğinde, UI yan panelindeki ilgili veri girişi eşzamanlı olarak vurgulanmalı.
 
-**Yapılacaklar:**
+**Yapılanlar:**
 
-- [ ] **0.5.1** Harita → Bulgular paneli senkronizasyonu
-  - Haritada bir feature'a hover/click → ilgili finding kartını highlight et ve scroll-into-view yap
-- [ ] **0.5.2** Bulgular paneli → Harita senkronizasyonu
-  - Finding kartına hover/click → haritada ilgili feature'ı highlight et ve zoom yap
-- [ ] **0.5.3** Pulse animasyonu ve geçici highlight efekti ekle
+- [x] **0.5.1** Harita → Bulgular paneli senkronizasyonu
+  - Haritada marker tıklama → panelde scroll-into-view + mavi ring highlight (3 substep'te de)
+- [x] **0.5.2** Bulgular paneli → Harita senkronizasyonu
+  - "View on Map" butonu → haritada zoom + gold border highlight (zaten mevcuttu)
+  - SAC/SPA/NHA/pNHA filtre butonları → hem panel hem harita senkronize filtre
+- [x] **0.5.3** GIS Mapping "Hide from Map" düzeltmesi (NPWS designated sites)
+- [x] **0.5.4** SSCO findings'e geometry eklendi (View on Map eksik olan SAC'lar düzeltildi)
+- [x] **0.5.5** UI iyileştirmeleri: search butonları outline stile, kayıtlı kart sol yeşil şerit, filtre bar kompakt tasarım
 
 ---
 
@@ -482,6 +488,14 @@ Her koruma alanı için "Deep Research" etiketli isteğe bağlı bir buton eklen
   - React Query hooks: `useProjectDeepResearch()`, `useSiteDeepResearch()`, `useSaveDeepResearch()`
   - UI: Modal'da "Save Research" butonu
 
+- [x] **2.2.7** Deep Research modal cache — tekrar açıldığında mevcut analizi yükle
+
+  ✅ **TAMAMLANDI (12 Şubat 2026):**
+  - Modal tekrar açıldığında DB'deki (`useSiteDeepResearch`) mevcut `ai_analysis`'i yüklüyor
+  - Auto-trigger cache varken API call yapmıyor → gereksiz OpenAI maliyeti önlendi
+  - "Regenerate" butonu eklendi — kullanıcı isterse yeni analiz üretebilir
+  - Aynı cache mekanizması Species ve Aquatic modallara da eklendi (bkz. 4.1, Aquatic)
+
 **📁 Eklenen/Güncellenen Dosyalar:**
 
 - `components/desk-research/deep-research-modal.tsx` (YENİ)
@@ -548,7 +562,7 @@ Müşteri isteği: "...using both the site's official area name and the retrieve
 
 ## 3. Değerlendirici İş Akışı ve Sonuç Yönetimi
 
-### 3.1 Bulgu Yönetim Seçenekleri
+### 3.1 Bulgu Yönetim Seçenekleri ✅ TAMAMLANDI (minimal)
 
 **Müşteri İsteği (Orijinal):**
 
@@ -557,56 +571,22 @@ Müşteri isteği: "...using both the site's official area name and the retrieve
 **Müşteri İsteği (Türkçe):**
 Sonuçlar veya bulgular sayfasında değerlendirici şu seçeneklere sahip olmalı: Kaldırma - İlgisiz bulguları kalıcı olarak kaldırma. Kaydetme - Mevcut bulgu setini daha sonra incelemek üzere Desk Assessment için kaydetme.
 
-**Yapılacaklar:**
+**Durum:** Kaydetme (save/unsave toggle) zaten çalışıyor. Arama sonuçları session bazlı olduğu için kalıcı dismiss gereksiz — kullanıcı beğenmediği bulguyu kaydetmiyor, o kadar. Dismiss/toplu seçim/migration MVP için overengineering olarak değerlendirildi.
 
-- [ ] **3.1.1** Mevcut bulgu yönetimi durumunu incele
-  - Dosya: `components/steps/data-gathering/findings-list.tsx`
-  - Mevcut: `is_saved` boolean flag var
-  - Eksik: Kalıcı silme/kaldırma
+**Yapılanlar:**
 
-- [ ] **3.1.2** Bulgu kaldırma (dismiss) özelliği ekle
-  - Veritabanı: `is_dismissed` boolean kolonu ekle
-  - UI: Her bulgu satırına "Kaldır" butonu (X ikonu)
-  - Onay modal'ı: "Bu bulguyu kaldırmak istediğinizden emin misiniz?"
+- [x] **3.1.1** Save/unsave toggle — Zaten mevcuttu (tek tıkla DB'ye kaydet/kaldır)
+- [x] **3.1.2** "Saved" filtre butonu eklendi — Tüm 3 substep'te (Designated Sites, Species Records, Aquatic Features) header bar'a "Saved X" pill butonu eklendi
+  - Tıklayınca sadece kayıtlı bulguları gösterir
+  - Tekrar tıklayınca tümüne döner
+  - "X results" tıklayınca da tüm filtreler temizlenir
+- [x] **3.1.3** Geçici visibility toggle — Eye ikonu ile haritada gizleme (zaten mevcuttu)
 
-- [ ] **3.1.3** Toplu seçim ve işlem özelliği ekle
-  - Checkbox ile çoklu seçim
-  - "Seçilenleri Kaydet" butonu
-  - "Seçilenleri Kaldır" butonu
+**Ertelenen / Gereksiz görülen:**
 
-- [ ] **3.1.4** Filtreleme seçenekleri ekle
-  - "Tümü" | "Kaydedilenler" | "Kaldırılanlar"
-  - Kaynak bazlı filtre: NPWS, GBIF, EPA, NBDC
-
-- [ ] **3.1.5** Supabase query'lerini güncelle
-  - Dosya: `lib/supabase/queries/findings.ts`
-
-  ```typescript
-  // Kaldırılan bulgular hariç getir
-  async function getActiveFindings(projectId: string) {
-    return supabase
-      .from('desk_research_findings')
-      .select('*')
-      .eq('project_id', projectId)
-      .eq('is_dismissed', false)
-  }
-
-  // Bulguyu kaldır
-  async function dismissFinding(findingId: string) {
-    return supabase
-      .from('desk_research_findings')
-      .update({ is_dismissed: true, dismissed_at: new Date() })
-      .eq('id', findingId)
-  }
-  ```
-
-- [ ] **3.1.6** Migration dosyası oluştur
-  ```sql
-  ALTER TABLE desk_research_findings
-  ADD COLUMN is_dismissed BOOLEAN DEFAULT FALSE,
-  ADD COLUMN dismissed_at TIMESTAMPTZ,
-  ADD COLUMN dismissed_by UUID REFERENCES profiles(id);
-  ```
+- ~~Kalıcı dismiss (is_dismissed kolonu)~~ — Session bazlı arama sonuçları için gereksiz
+- ~~Toplu seçim (checkbox + bulk actions)~~ — 18-30 sonuçta tek tek yeterli
+- ~~DB migration~~ — Ek kolon gerekmedi
 
 ---
 
@@ -623,64 +603,40 @@ GBIF'den alınan her bireysel tür bulgusu için ilişkili otomatik "Deep Resear
 
 **Yapılacaklar:**
 
-- [ ] **4.1.1** Species Deep Research butonu ekle
-  - Dosya: `components/steps/data-gathering/species-records-substep.tsx`
-  - Her tür satırına "Deep Research" butonu
+- [x] **4.1.1** Species Deep Research butonu ekle ✅
+  - Her tür kartında "Deep Research" butonu mevcut (Flask ikonu, `findings-list.tsx`)
 
-- [ ] **4.1.2** Species Deep Research servisi oluştur
-  - Dosya: `lib/services/species-deep-research.ts`
+- [x] **4.1.2** Species Deep Research servisi oluştur ✅
+  - `species-research-modal.tsx` — 4 tab'lı modal (Overview, AI Analysis, Related Sites, Resources)
+  - `/api/ai/species-research/route.ts` — OpenAI deep research endpoint
+  - FPO, Article 17, NPWS site lookup entegrasyonları çalışıyor
 
-  ```typescript
-  interface SpeciesDeepResearchResult {
-    scientificName: string
-    commonName: string
-    twoLineSummary: string // Kritik!
-    protectionStatus: {
-      wildlife_act: boolean
-      eu_habitats_directive: boolean
-      eu_birds_directive: boolean
-      red_list_status: string
-    }
-    localContext: {
-      recordCount: number
-      lastSeen: Date
-      typicalHabitat: string
-    }
-  }
-  ```
+- [x] **4.1.3** İki satırlık özet oluşturma mantığı ✅
+  - `/api/ai/species-summary/route.ts` — AI ile 2-3 cümlelik özet üretiyor
+  - Tekli + toplu "Summarize All Species" butonu çalışıyor
+  - Özet finding kartında inline gösteriliyor
 
-- [ ] **4.1.3** İki satırlık özet oluşturma mantığı
+- [x] **4.1.4** NBDC entegrasyonunu güçlendir ✅
+  - `lib/external-apis/nbdc.ts` — Otomatik enrichment: koruma durumu, invasive, threatened, Red List
+  - GBIF araması sonrası otomatik NBDC enrichment çalışıyor (progress bar ile)
+  - Source filter: All / GBIF Only / NBDC Enriched / Protected
 
-  ```typescript
-  // Örnek çıktı:
-  // "Lutra lutra (Otter) - Annex II/IV species, strictly protected under Wildlife Act.
-  //  12 records within 2km since 2015, associated with FW2 river habitats."
+- [x] **4.1.5** UI/UX yeniden tasarımı - Bulgular öncelikli ✅
+  - Split view: Sol %40 detaylı bulgular listesi, sağ %60 interaktif harita
+  - Koruma badge'leri (Protected, Invasive, Threatened, GBIF+NBDC)
+  - Harita toggle ile gizlenebilir
 
-  function generateTwoLineSummary(species: SpeciesData, context: AreaContext): string {
-    const line1 = `${species.scientificName} (${species.commonName}) - ${getProtectionSummary(species)}`
-    const line2 = `${context.recordCount} records within ${context.bufferKm}km since ${context.startYear}, associated with ${context.habitats.join(', ')} habitats.`
-    return `${line1}\n${line2}`
-  }
-  ```
+- [x] **4.1.6** Species card bileşeni ✅
+  - Finding kartlarında: AI özet, koruma rozetleri, "Haritada Göster", "Deep Research" butonları
+  - Map-finding senkronizasyonu (tıklayınca haritada highlight + scroll)
 
-- [ ] **4.1.4** NBDC entegrasyonunu güçlendir
-  - Dosya: `lib/external-apis/nbdc.ts`
-  - Koruma durumu bilgisini zenginleştir
-  - Red List durumu ekle
+- [x] **4.1.7** Species Deep Research modal cache ✅
 
-- [ ] **4.1.5** UI/UX yeniden tasarımı - Bulgular öncelikli
-  - Dosya: `components/steps/data-gathering/species-records-substep.tsx`
-  - Mevcut layout'u değiştir:
-    - Önce: Harita büyük, liste küçük
-    - Sonra: Liste/detay büyük, harita küçük veya toggle
-  - Split view: Sol taraf detaylı bulgular, sağ taraf mini harita
-
-- [ ] **4.1.6** Species card bileşeni oluştur
-  - Dosya: `components/species/species-detail-card.tsx`
-  - 2 satırlık özet prominent şekilde göster
-  - Koruma rozetleri (badges)
-  - "Haritada Göster" butonu
-  - "Deep Research" butonu
+  ✅ **TAMAMLANDI (12 Şubat 2026):**
+  - Modal tekrar açıldığında finding'in `rawData.deepResearch.aiAnalysis` veya `savedFindings` DB verisinden mevcut analizi yüklüyor
+  - `existingAnalysis` prop'u ile cache geçiliyor, `isSaved = true` set ediliyor
+  - "Regenerate" butonu eklendi — mevcut analiz varken yeni üretim mümkün
+  - Aquatic modal da aynı pattern ile güncellendi (`useWaterBodyResearch` hook + `existingAnalysis` prop)
 
 ---
 
@@ -697,44 +653,25 @@ GBIF'den alınan her bireysel tür bulgusu için ilişkili otomatik "Deep Resear
 
 **Yapılacaklar:**
 
-- [ ] **5.1.1** Mevcut "View on Map" implementasyonunu incele
-  - Dosya: `components/steps/data-gathering/findings-list.tsx`
-  - Hangi durumlarda çalışmıyor tespit et
+- [x] ~~**5.1.1** Mevcut "View on Map" implementasyonunu incele~~ ✅
+  - `findings-list.tsx:733-740` — `finding.location` varsa buton gösteriliyor, `onViewOnMap` callback çağırıyor
 
-- [ ] **5.1.2** Koordinat validasyonu ekle
+- [x] ~~**5.1.2** Koordinat validasyonu ekle~~ ✅
+  - `lib/gis/validation.ts` — `IRELAND_BOUNDS` sabiti + `isWithinIreland()` + `validateBoundary()` fonksiyonları mevcut
 
-  ```typescript
-  function isValidCoordinate(lat: number, lng: number): boolean {
-    // İrlanda sınırları içinde mi?
-    const IRELAND_BOUNDS = {
-      minLat: 51.4,
-      maxLat: 55.5,
-      minLng: -10.5,
-      maxLng: -5.5,
-    }
-    return (
-      lat >= IRELAND_BOUNDS.minLat &&
-      lat <= IRELAND_BOUNDS.maxLat &&
-      lng >= IRELAND_BOUNDS.minLng &&
-      lng <= IRELAND_BOUNDS.maxLng
-    )
-  }
-  ```
+- [x] ~~**5.1.3** Geometri türüne göre zoom/focus mantığı~~ ✅
+  - `project-map.tsx:368-408` — Point → `setView(zoom:14)`, Polygon/MultiPolygon → `fitBounds(padding:50)`, GeometryCollection → ilk Point'e zoom, LineString → fitBounds
+  - Koordinatsız bulgularda buton gizleniyor
 
-- [ ] **5.1.3** Geometri türüne göre zoom/focus mantığı
-  - Point: Doğrudan zoom + marker highlight
-  - Polygon: `fitBounds()` ile sığdır + polygon highlight
-  - Null koordinat: Uyarı mesajı göster
+- [x] ~~**5.1.4** Harita-bulgu senkronizasyonu~~ ✅
+  - 3 substep'te `onViewOnMap → setSelectedFinding` + `onFindingClick → scrollIntoView` çift yönlü senkronizasyon
+  - Seçili finding mavi border+bg+ring ile highlight ediliyor (`findings-list.tsx:508-520`)
+  - Haritadan tıklayınca listeye scroll, listeden tıklayınca haritada zoom
+  - ⚠️ Pulse animasyon henüz eklenmedi (nice-to-have)
 
-- [ ] **5.1.4** Harita-bulgu senkronizasyonu
-  - Bulgular listesinden haritaya event emit
-  - Harita bileşeninde highlight state
-  - Scroll-into-view + pulse animasyon
-
-- [ ] **5.1.5** Koordinatı olmayan bulgular için fallback
-  - Grid reference'dan koordinat hesapla
-  - Site adından geocoding
-  - "Konum bilgisi mevcut değil" mesajı
+- [x] ~~**5.1.5** Koordinatı olmayan bulgular için fallback~~ ✅
+  - Buton `finding.location &&` kontrolü ile gizleniyor — kullanıcı kafa karışıklığı yok
+  - 3 substep'te `savedFindings`'den lokasyon restore mekanizması mevcut (cache'te geometri kaybolursa)
 
 ---
 
@@ -749,43 +686,20 @@ Değerlendirici haritada bir konuma veya bulguya tıkladığında, ortaya çıka
 
 **Yapılacaklar:**
 
-- [ ] **5.2.1** Mevcut popup içeriğini incele
-  - Dosya: `components/maps/project-map.tsx`
-  - Şu anda ne gösteriliyor?
+- [x] ~~**5.2.1** Mevcut popup içeriğini incele~~ ✅
+  - `project-map.tsx` — Source badge, title, scientific name, content (2 satır clamp), designations, distance gösteriyor
 
-- [ ] **5.2.2** Zenginleştirilmiş popup bileşeni oluştur
-  - Dosya: `components/maps/finding-popup.tsx`
+- [x] ~~**5.2.2** Zenginleştirilmiş popup bileşeni~~ ✅ Gereksiz
+  - Popup zaten source, title, özet, koruma badge'leri, mesafe bilgisi gösteriyor
+  - Aksiyon butonları (Save, Deep Research vb.) sol paneldeki finding kartlarında mevcut — haritada tıklayınca listeye scroll ediliyor
+  - Popup'a buton eklemek gereksiz tekrar olur; popup'ın görevi "bu ne, nerede" bilgisini hızlıca göstermek
 
-  ```tsx
-  interface FindingPopupProps {
-    finding: Finding
-    onSave: () => void
-    onDismiss: () => void
-    onDeepResearch: () => void
-  }
+- [x] ~~**5.2.3** Popup genişliği ve stil ayarları~~ ✅
+  - `max-w-xs` ile makul genişlikte, p-2 padding, content `line-clamp-2` ile sınırlı
 
-  // İçerik yapısı:
-  // ┌─────────────────────────────────┐
-  // │ 🏛️ Site Adı / Tür Adı          │
-  // │ Kaynak: NPWS | Tip: SAC        │
-  // ├─────────────────────────────────┤
-  // │ Detaylı özet satır 1...        │
-  // │ Detaylı özet satır 2...        │
-  // ├─────────────────────────────────┤
-  // │ [💾 Kaydet] [🔍 Deep Research]  │
-  // └─────────────────────────────────┘
-  ```
-
-- [ ] **5.2.3** Popup genişliği ve stil ayarları
-  - Min-width: 300px
-  - Max-width: 400px
-  - Scroll için max-height
-
-- [ ] **5.2.4** Popup'tan aksiyonlar
-  - Kaydet butonu
-  - Kaldır butonu
-  - Deep Research butonu
-  - "Daha Fazla" linki (tam detay modal)
+- [x] ~~**5.2.4** Popup'tan aksiyonlar~~ ✅ Gereksiz
+  - Save, Deep Research, AI Summary butonları finding kartlarında (sol panel) zaten mevcut
+  - Haritada tıklama → listeye `scrollIntoView` ile senkronize — kullanıcı oradan aksiyon alıyor
 
 ---
 
@@ -1371,11 +1285,11 @@ Her tanımlanan site için rapor şunları açıkça listeler: İlişkili habita
 | # | Görev | Öncelik | Efor | Bağımlılık |
 | 0.2 | Otomatik veri katmanı açılması | 🔴 Yüksek | Düşük | - |
 | 0.4 | Core DB search otomasyonu | ✅ Yapıldı | Orta | 0.2 |
-| 0.5 | Harita-bulgu senkronizasyonu | 🔴 Yüksek | Yüksek | - |
-| 0.6 | "Move to Next Stage" butonu | 🟡 Orta | Düşük | - |
+| 0.5 | Harita-bulgu senkronizasyonu | ✅ Tamamlandı | 11 Şub 2026 | - |
+| 0.6 | "Move to Next Stage" butonu | ✅ Zaten mevcut | - | - |
 | 0.7 | Satellite varsayılan yapma | ✅ Yapıldı | Düşük | - |
-| 3.1 | Bulgu yönetimi (dismiss/toplu) | 🔴 Yüksek | Orta | - |
-| 4.1 | Deep Research (Species) iyileştir | 🔴 Yüksek | Yüksek | - |
+| 3.1 | Bulgu yönetimi (Saved filtre) | ✅ Tamamlandı | 11 Şub 2026 | - |
+| 4.1 | Deep Research (Species) iyileştir | ✅ Yapıldı | Yüksek | - |
 | 5.1 | View on Map düzeltmesi | 🟡 Orta | Düşük | - |
 | 5.2 | Gelişmiş popup | 🟡 Orta | Orta | - |
 | 5.3 | Sonuç kaydetme | 🔴 Yüksek | Düşük | - |
@@ -1992,15 +1906,16 @@ AI raporları uygulama içinde düzenlenebilir ve tamamlanabilir olmalı. Rapor 
 
 ### ✅ Tamamlanan Görevler
 
-| #   | Görev                    | Durum         | Tamamlanma   |
-| --- | ------------------------ | ------------- | ------------ |
-| 1.1 | Çoklu harita katmanları  | ✅ Tamamlandı | 4 Şub 2026   |
-| 1.2 | Buffer zone açıklamaları | ✅ Tamamlandı | 4 Şub 2026   |
-| 1.3 | Katman metadata          | ✅ Tamamlandı | 4 Şub 2026   |
-| 2.1 | NPWS veri entegrasyonu   | ✅ Tamamlandı | 6 Şub 2026   |
-| 2.2 | Deep Research (Sites)    | ✅ Tamamlandı | 5-6 Şub 2026 |
-| 0.1 | Satellite layer bug fix  | ✅ Tamamlandı | 11 Şub 2026  |
-| 0.3 | Veri katmanı yan panel   | ✅ Tamamlandı | Zaten mevcut |
+| #   | Görev                                 | Durum         | Tamamlanma   |
+| --- | ------------------------------------- | ------------- | ------------ |
+| 1.1 | Çoklu harita katmanları               | ✅ Tamamlandı | 4 Şub 2026   |
+| 1.2 | Buffer zone açıklamaları              | ✅ Tamamlandı | 4 Şub 2026   |
+| 1.3 | Katman metadata                       | ✅ Tamamlandı | 4 Şub 2026   |
+| 2.1 | NPWS veri entegrasyonu                | ✅ Tamamlandı | 6 Şub 2026   |
+| 2.2 | Deep Research (Sites)                 | ✅ Tamamlandı | 5-6 Şub 2026 |
+| 0.1 | Satellite layer bug fix               | ✅ Tamamlandı | 11 Şub 2026  |
+| 0.3 | Veri katmanı yan panel                | ✅ Tamamlandı | Zaten mevcut |
+| 0.8 | Deep Research modal cache (reopening) | ✅ Tamamlandı | 12 Şub 2026  |
 
 ### ❌ İptal Edilen Görevler
 
@@ -2071,7 +1986,7 @@ AI raporları uygulama içinde düzenlenebilir ve tamamlanabilir olmalı. Rapor 
 
 **Sprint 6 - Deep Research ve Species (3-4 gün):**
 
-- 4.1 Species Deep Research iyileştirme
+- ~~4.1 Species Deep Research iyileştirme~~ ✅
 - 10.1 Deep Research panel layout
 - 10.2 Designated sites deep dive
 

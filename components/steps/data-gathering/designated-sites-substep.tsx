@@ -180,11 +180,19 @@ export function DesignatedSitesSubStep({
       if (finding) {
         try {
           const existingRawData = (finding.raw_data as Record<string, unknown>) || {}
+          // Merge session AI summary into DB data if present
+          const sessionFinding = searchResults.find((r) => r.metadata?.siteCode === data.siteCode)
+          const existingMetadata = (existingRawData.metadata as Record<string, unknown>) || {}
+          const mergedMetadata = sessionFinding?.metadata?.aiSummary
+            ? { ...existingMetadata, aiSummary: sessionFinding.metadata.aiSummary }
+            : existingMetadata
+
           await updateFinding.mutateAsync({
             findingId: finding.id,
             updates: {
               raw_data: {
                 ...existingRawData,
+                metadata: mergedMetadata,
                 deepResearch: { aiAnalysis: data.aiAnalysis },
               } as unknown as Json,
             },
@@ -194,7 +202,7 @@ export function DesignatedSitesSubStep({
         }
       }
     },
-    [savedFindings, updateFinding]
+    [savedFindings, updateFinding, searchResults]
   )
 
   // Handle Deep Research click
@@ -368,22 +376,26 @@ export function DesignatedSitesSubStep({
         maxLat = Math.max(maxLat, coord[1])
       }
 
-      const buffer = selectedBuffer * 0.009
+      // 1 degree latitude ≈ 111km; longitude varies with cos(latitude)
+      const midLat = (minLat + maxLat) / 2
+      const latBuffer = selectedBuffer / 111
+      const lngBuffer = selectedBuffer / (111 * Math.cos((midLat * Math.PI) / 180))
       return {
-        minLng: minLng - buffer,
-        maxLng: maxLng + buffer,
-        minLat: minLat - buffer,
-        maxLat: maxLat + buffer,
+        minLng: minLng - lngBuffer,
+        maxLng: maxLng + lngBuffer,
+        minLat: minLat - latBuffer,
+        maxLat: maxLat + latBuffer,
       }
     }
 
     if (projectCenter) {
-      const buffer = selectedBuffer * 0.009
+      const latBuffer = selectedBuffer / 111
+      const lngBuffer = selectedBuffer / (111 * Math.cos((projectCenter.lat * Math.PI) / 180))
       return {
-        minLng: projectCenter.lng - buffer,
-        maxLng: projectCenter.lng + buffer,
-        minLat: projectCenter.lat - buffer,
-        maxLat: projectCenter.lat + buffer,
+        minLng: projectCenter.lng - lngBuffer,
+        maxLng: projectCenter.lng + lngBuffer,
+        minLat: projectCenter.lat - latBuffer,
+        maxLat: projectCenter.lat + latBuffer,
       }
     }
 
@@ -639,6 +651,26 @@ export function DesignatedSitesSubStep({
             : f
         )
       )
+
+      // Persist AI summary to DB if finding is already saved
+      const existingSaved = savedFindings.find(
+        (f) => f.title === finding.title || f.id === finding.id
+      )
+      if (existingSaved) {
+        const existingRawData = (existingSaved.raw_data as Record<string, unknown>) || {}
+        const existingMetadata = (existingRawData.metadata as Record<string, unknown>) || {}
+        updateFinding
+          .mutateAsync({
+            findingId: existingSaved.id,
+            updates: {
+              raw_data: {
+                ...existingRawData,
+                metadata: { ...existingMetadata, aiSummary: data.summary },
+              } as unknown as Json,
+            },
+          })
+          .catch((err) => console.error('Failed to persist AI summary:', err))
+      }
     } catch (error) {
       console.error('AI summary error:', error)
       setSearchResults((prev) =>
@@ -660,6 +692,7 @@ export function DesignatedSitesSubStep({
 
   // Batch summarize all sites that don't have summaries yet
   const [isSummarizing, setIsSummarizing] = React.useState(false)
+  const summarizeCancelRef = React.useRef(false)
   const handleSummarizeAll = async () => {
     const sitesWithoutSummary = searchResults.filter(
       (f) =>
@@ -670,14 +703,21 @@ export function DesignatedSitesSubStep({
     )
     if (sitesWithoutSummary.length === 0) return
 
+    summarizeCancelRef.current = false
     setIsSummarizing(true)
     for (const finding of sitesWithoutSummary) {
+      if (summarizeCancelRef.current) break
       await handleFetchAiSummary(finding)
-      // Small delay between requests
       await new Promise((resolve) => setTimeout(resolve, 500))
     }
     setIsSummarizing(false)
   }
+  const handleStopSummarize = () => {
+    summarizeCancelRef.current = true
+  }
+
+  // Saved filter for map sync
+  const [showSavedOnMap, setShowSavedOnMap] = React.useState(false)
 
   // No boundary check
   if (!projectBoundary) {
@@ -760,7 +800,9 @@ export function DesignatedSitesSubStep({
             showSiteTypeFilter
             onSiteTypeFilterChange={setActiveSiteTypeFilter}
             onSummarizeAll={handleSummarizeAll}
+            onStopSummarize={handleStopSummarize}
             isSummarizing={isSummarizing}
+            onSavedFilterChange={setShowSavedOnMap}
           />
         </div>
       </div>
@@ -775,8 +817,13 @@ export function DesignatedSitesSubStep({
             boundary={projectBoundary}
             bufferDistances={bufferDistances}
             findings={searchResults
-              .filter((f) => !hiddenIds.has(f.id)) // Filter out hidden findings
-              .filter((f) => !activeSiteTypeFilter || f.metadata?.siteType === activeSiteTypeFilter) // Filter by site type
+              .filter((f) => !hiddenIds.has(f.id))
+              .filter((f) => !activeSiteTypeFilter || f.metadata?.siteType === activeSiteTypeFilter)
+              .filter(
+                (f) =>
+                  !showSavedOnMap ||
+                  savedFindings.some((sf) => sf.title === f.title || sf.id === f.id)
+              )
               .map((f) => ({
                 id: f.id,
                 source: f.source as FindingSource,
