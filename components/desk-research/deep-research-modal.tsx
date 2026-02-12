@@ -80,15 +80,19 @@ function getNPWSUrls(siteCode: string, siteType: string) {
   }
   const typePath = typePathMap[siteType]
 
-  // pNHA sites don't have individual NPWS pages — use portfolio PDF
+  // pNHA sites: use synopsis PDF URL directly
+  const numericCode = siteCode.replace(/^IE/, '').padStart(6, '0')
+  const synopsisPdfUrl = `https://www.npws.ie/sites/default/files/protected-sites/synopsis/SY${numericCode}.pdf`
+
   const baseUrl = typePath
     ? `https://www.npws.ie/protected-sites/${typePath}/${siteCode}`
     : siteType === 'pNHA'
-      ? 'https://www.npws.ie/sites/default/files/general/pNHA_Site_Synopsis_Portfolio.pdf'
+      ? synopsisPdfUrl
       : `https://www.npws.ie/protected-sites/sac/${siteCode}`
 
   return {
     synopsis: baseUrl,
+    synopsisPdf: synopsisPdfUrl,
     conservationObjectives:
       siteType === 'pNHA'
         ? 'https://www.npws.ie/protected-sites'
@@ -210,7 +214,14 @@ export function DeepResearchModal({
     h.article17?.threats.forEach((t) => allThreats.add(t))
   })
 
-  // AI Analysis handler - fetches SSCO PDF and generates detailed summary
+  // AI response metadata
+  const [aiMeta, setAiMeta] = React.useState<{
+    hadPdfContent?: boolean
+    hadWebContent?: boolean
+    hadNbdcData?: boolean
+  }>({})
+
+  // AI Analysis handler - fetches SSCO/Synopsis PDF and generates detailed summary
   const handleAiAnalysis = async () => {
     setAiLoading(true)
     setAiError('')
@@ -229,6 +240,11 @@ export function DeepResearchModal({
         setAiError(data.error || 'Failed to generate analysis')
       } else {
         setAiSummary(data.summary || '')
+        setAiMeta({
+          hadPdfContent: data.hadPdfContent,
+          hadWebContent: data.hadWebContent,
+          hadNbdcData: data.hadNbdcData,
+        })
       }
     } catch {
       setAiError('Failed to connect to AI service')
@@ -494,9 +510,19 @@ export function DeepResearchModal({
                     <CardTitle className="flex items-center gap-2 text-sm">
                       <Sparkles className="h-4 w-4 text-purple-600" />
                       AI Conservation Analysis
-                      {excelData?.sscoUrl && (
+                      {aiMeta.hadPdfContent && (
                         <Badge variant="outline" className="text-[10px]">
-                          SSCO PDF analysed
+                          {site.siteType === 'NHA' || site.siteType === 'pNHA'
+                            ? 'Synopsis PDF analysed'
+                            : 'SSCO PDF analysed'}
+                        </Badge>
+                      )}
+                      {aiMeta.hadNbdcData && (
+                        <Badge
+                          variant="outline"
+                          className="border-emerald-300 text-[10px] text-emerald-700"
+                        >
+                          NBDC enriched
                         </Badge>
                       )}
                     </CardTitle>
@@ -589,14 +615,26 @@ export function DeepResearchModal({
                     <li>
                       {excelData
                         ? '✓ NPWS Official Datasheet (May 2024)'
-                        : '✗ Site not found in NPWS datasheet'}
+                        : site.siteType === 'NHA' || site.siteType === 'pNHA'
+                          ? '○ No Excel datasheet (NHA/pNHA)'
+                          : '✗ Site not found in NPWS datasheet'}
                     </li>
                     <li>
                       {excelData?.sscoUrl
                         ? '✓ SSCO PDF available for AI analysis'
-                        : '✗ No SSCO PDF available'}
+                        : site.siteType === 'NHA' || site.siteType === 'pNHA'
+                          ? (aiMeta.hadPdfContent ? '✓' : '○') + ' Synopsis PDF (NPWS)'
+                          : '✗ No SSCO PDF available'}
                     </li>
-                    <li>✓ Article 17 (2025) Conservation Status</li>
+                    <li>
+                      {aiMeta.hadNbdcData
+                        ? '✓ NBDC species records & protection status'
+                        : '○ NBDC species enrichment'}
+                    </li>
+                    {(site.siteType === 'SAC' || site.siteType === 'SPA') && (
+                      <li>✓ Article 17 (2025) Conservation Status</li>
+                    )}
+                    {aiMeta.hadWebContent && <li>✓ NPWS web page scraped</li>}
                   </ul>
                 </CardContent>
               </Card>
@@ -961,6 +999,35 @@ export function DeepResearchModal({
                 </a>
               )}
 
+              {/* Synopsis PDF for NHA/pNHA */}
+              {(site.siteType === 'NHA' || site.siteType === 'pNHA') && (
+                <a
+                  href={urls.synopsisPdf}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block"
+                >
+                  <Card className="hover:bg-muted/50 cursor-pointer border-emerald-200 transition-colors">
+                    <CardContent className="pt-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="rounded-lg bg-emerald-100 p-2">
+                            <FileText className="h-4 w-4 text-emerald-600" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">Site Synopsis (PDF)</p>
+                            <p className="text-muted-foreground text-xs">
+                              NPWS site synopsis document
+                            </p>
+                          </div>
+                        </div>
+                        <ExternalLink className="text-muted-foreground h-4 w-4" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </a>
+              )}
+
               {/* SSCO PDF Document */}
               {excelData?.sscoUrl && (
                 <a
@@ -1090,9 +1157,7 @@ export function DeepResearchModal({
         <Separator />
 
         <div className="flex items-center justify-between">
-          <p className="text-muted-foreground text-xs">
-            Data: NPWS Datasheets (May 2024) + Article 17 (2025)
-          </p>
+          <p className="text-muted-foreground text-xs">Data: NPWS + NBDC + Article 17 (2025)</p>
           <div className="flex gap-2">
             {projectId && (
               <Button

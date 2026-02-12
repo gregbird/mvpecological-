@@ -43,6 +43,11 @@
 
 - Overview tab now shows the actual habitat and species names, not just counts
 - AI analysis now starts automatically when the panel opens (no need to click a button)
+- NHA and pNHA sites now get proper AI analysis using Synopsis PDF documents from NPWS
+- pNHA sites now link directly to their individual Synopsis PDF (instead of the portfolio PDF)
+- AI analysis now includes species data from NBDC (protection status, Irish records, designations)
+- Data sources section in the AI tab now shows which sources were actually used (PDF, NBDC, web scraping)
+- AI badges show "Synopsis PDF analysed" for NHA/pNHA and "NBDC enriched" when species data was found
 
 ### Data Gathering - Auto-Search (0.4.1)
 

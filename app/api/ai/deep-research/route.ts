@@ -2,13 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { extractText } from 'unpdf'
 import { getNPWSSiteData, type NPWSSiteData } from '@/lib/data/npws-site-lookup'
 
+const NPWS_USER_AGENT = 'Mozilla/5.0 (compatible; DulraBot/1.0; Ecological Assessment Tool)'
+const NBDC_BASE_URL = 'https://maps.biodiversityireland.ie'
+
 /**
  * AI Deep Research API
- * Fetches the SSCO PDF for a designated site, extracts text,
- * and uses OpenAI to generate a detailed conservation summary.
+ * Fetches SSCO/Synopsis PDFs for designated sites, extracts text,
+ * enriches with NBDC species data, and uses OpenAI to generate
+ * a detailed conservation summary.
+ *
+ * Supports: SAC, SPA (SSCO PDF + Excel), NHA, pNHA (Synopsis PDF + web scraping)
  *
  * Input: { siteCode, siteName, siteType }
- * Output: { summary, habitats, species, sscoUrl, siteData }
+ * Output: { summary, habitats, species, sscoUrl, siteData, nbdcSpecies }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -23,104 +29,53 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 })
     }
 
-    // 1. Get site data from Excel-derived JSON
+    // 1. Get site data from Excel-derived JSON (SAC/SPA only)
     const siteData = getNPWSSiteData(siteCode)
 
-    // 2. Try to fetch and parse SSCO PDF
+    // 2. Try to fetch and parse SSCO PDF (SAC/SPA with known SSCO URL)
     let pdfText = ''
     const sscoUrl = siteData?.sscoUrl || null
 
     if (sscoUrl) {
-      try {
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 20000)
-
-        const pdfResponse = await fetch(sscoUrl, {
-          signal: controller.signal,
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; DulraBot/1.0; Ecological Assessment Tool)',
-          },
-        })
-        clearTimeout(timeoutId)
-
-        if (pdfResponse.ok) {
-          const arrayBuffer = await pdfResponse.arrayBuffer()
-          const pdfData = await extractText(new Uint8Array(arrayBuffer), { mergePages: true })
-          pdfText =
-            typeof pdfData.text === 'string'
-              ? pdfData.text
-              : Array.isArray(pdfData.text)
-                ? (pdfData.text as string[]).join('\n')
-                : String(pdfData.text || '')
-
-          // Limit text to avoid token limits (approx 8000 chars)
-          if (pdfText.length > 8000) {
-            pdfText = pdfText.substring(0, 8000)
-          }
-        }
-      } catch (err) {
-        console.warn(`Failed to fetch/parse SSCO PDF: ${sscoUrl}`, err)
-      }
+      pdfText = await fetchAndParsePdf(sscoUrl)
     }
 
-    // 3. For NHA sites without Excel data, scrape the NPWS web page as fallback
+    // 3. For NHA/pNHA: fetch Synopsis PDF from NPWS
+    let synopsisPdfText = ''
+    const synopsisUrl = buildSynopsisPdfUrl(siteCode)
+
+    if (!siteData && (siteType === 'NHA' || siteType === 'pNHA')) {
+      synopsisPdfText = await fetchAndParsePdf(synopsisUrl)
+    }
+
+    // 4. For NHA/pNHA without PDF content: scrape the NPWS web page
     let webPageText = ''
-    if (!siteData && siteType === 'NHA') {
-      try {
-        const nhaUrl = `https://www.npws.ie/protected-sites/nha/${siteCode}`
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 15000)
-
-        const webResponse = await fetch(nhaUrl, {
-          signal: controller.signal,
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; DulraBot/1.0; Ecological Assessment Tool)',
-          },
-        })
-        clearTimeout(timeoutId)
-
-        if (webResponse.ok) {
-          const html = await webResponse.text()
-          webPageText = html
-            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-            .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
-            .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
-            .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
-            .replace(/<[^>]+>/g, ' ')
-            .replace(/&nbsp;/g, ' ')
-            .replace(/&amp;/g, '&')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/\s+/g, ' ')
-            .trim()
-
-          if (webPageText.length > 6000) {
-            webPageText = webPageText.substring(0, 6000)
-          }
-        }
-      } catch (err) {
-        console.warn(`Failed to scrape NHA page for ${siteCode}:`, err)
-      }
+    if (!siteData && (siteType === 'NHA' || siteType === 'pNHA') && !synopsisPdfText) {
+      webPageText = await scrapeNPWSPage(siteCode, siteType)
     }
 
-    // 4. Build habitat and species context from Excel data
+    // 5. Build habitat and species context from Excel data
     const habitatContext = buildHabitatContext(siteData)
     const speciesContext = buildSpeciesContext(siteData)
 
-    // 5. Build AI prompt
+    // 6. NBDC species enrichment (for all site types)
+    const speciesNames = collectSpeciesNames(siteData)
+    const nbdcResults = await enrichSpeciesFromNBDC(speciesNames)
+
+    // 7. Build AI prompt with all available data
     const prompt = buildPrompt({
       siteName,
       siteCode,
       siteType,
-      pdfText,
+      pdfText: pdfText || synopsisPdfText,
       webPageText,
       habitatContext,
       speciesContext,
       siteData,
+      nbdcContext: buildNBDCContext(nbdcResults),
     })
 
-    // 6. Call OpenAI
+    // 8. Call OpenAI
     const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -156,9 +111,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       summary,
       siteCode,
-      sscoUrl,
-      hadPdfContent: !!pdfText,
+      sscoUrl: sscoUrl || (synopsisPdfText ? synopsisUrl : null),
+      hadPdfContent: !!(pdfText || synopsisPdfText),
       hadWebContent: !!webPageText,
+      hadNbdcData: nbdcResults.length > 0,
+      nbdcSpecies: nbdcResults,
       siteData: siteData
         ? {
             siteType: siteData.siteType,
@@ -178,6 +135,304 @@ export async function POST(request: NextRequest) {
     console.error('Deep research error:', error)
     return NextResponse.json({ error: 'Failed to generate deep research' }, { status: 500 })
   }
+}
+
+// ============================================================================
+// PDF Fetching & Parsing
+// ============================================================================
+
+/**
+ * Build Synopsis PDF URL from site code
+ * Works for SAC, SPA, NHA, pNHA - all use the same pattern
+ */
+function buildSynopsisPdfUrl(siteCode: string): string {
+  // Ensure 6-digit format (e.g., '001159' not 'IE0001159')
+  const numericCode = siteCode.replace(/^IE/, '').padStart(6, '0')
+  return `https://www.npws.ie/sites/default/files/protected-sites/synopsis/SY${numericCode}.pdf`
+}
+
+/**
+ * Fetch a PDF from URL and extract text using unpdf
+ */
+async function fetchAndParsePdf(url: string): Promise<string> {
+  try {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 20000)
+
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { 'User-Agent': NPWS_USER_AGENT },
+    })
+    clearTimeout(timeoutId)
+
+    if (!response.ok) return ''
+
+    const arrayBuffer = await response.arrayBuffer()
+    const pdfData = await extractText(new Uint8Array(arrayBuffer), { mergePages: true })
+    let text =
+      typeof pdfData.text === 'string'
+        ? pdfData.text
+        : Array.isArray(pdfData.text)
+          ? (pdfData.text as string[]).join('\n')
+          : String(pdfData.text || '')
+
+    // Limit text to avoid token limits
+    if (text.length > 8000) {
+      text = text.substring(0, 8000)
+    }
+    return text
+  } catch (err) {
+    console.warn(`Failed to fetch/parse PDF: ${url}`, err)
+    return ''
+  }
+}
+
+// ============================================================================
+// Web Scraping (fallback for NHA/pNHA when no PDF)
+// ============================================================================
+
+/**
+ * Scrape NPWS web page for site information
+ */
+async function scrapeNPWSPage(siteCode: string, siteType: string): Promise<string> {
+  // NHA has individual pages, pNHA does not have official pages
+  const typePath = siteType === 'NHA' ? 'nha' : siteType === 'pNHA' ? 'pnha' : null
+  if (!typePath) return ''
+
+  try {
+    const url = `https://www.npws.ie/protected-sites/${typePath}/${siteCode}`
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 15000)
+
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { 'User-Agent': NPWS_USER_AGENT },
+    })
+    clearTimeout(timeoutId)
+
+    if (!response.ok) return ''
+
+    const html = await response.text()
+    let text = html
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
+      .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
+      .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/\s+/g, ' ')
+      .trim()
+
+    if (text.length > 6000) {
+      text = text.substring(0, 6000)
+    }
+    return text
+  } catch (err) {
+    console.warn(`Failed to scrape ${siteType} page for ${siteCode}:`, err)
+    return ''
+  }
+}
+
+// ============================================================================
+// NBDC Species Enrichment (server-side)
+// ============================================================================
+
+interface NBDCEnrichedResult {
+  scientificName: string
+  commonName: string | null
+  taxonGroup: string | null
+  designations: string | null
+  isProtected: boolean
+  isInvasive: boolean
+  isThreatened: boolean
+  totalRecords: number
+  nbdcUrl: string | null
+}
+
+/**
+ * Collect species names from site data for NBDC enrichment
+ */
+function collectSpeciesNames(siteData: NPWSSiteData | null): string[] {
+  if (!siteData) return []
+  const names: string[] = []
+  if (siteData.species) {
+    names.push(...siteData.species.map((s) => s.name))
+  }
+  if (siteData.birdSpecies) {
+    names.push(...siteData.birdSpecies.map((s) => s.name))
+  }
+  return names
+}
+
+/**
+ * Clean scientific name by removing author citation
+ */
+function cleanScientificName(name: string): string {
+  let cleaned = name.replace(/\s*\([^)]*\)\s*$/, '').trim()
+  cleaned = cleaned.replace(/\s+[A-Z][a-z]*\.?\s*$/, '').trim()
+  cleaned = cleaned.replace(/\s+[A-ZÁ-Ž][a-zá-ž]*\.?\s*&.*$/, '').trim()
+  return cleaned
+}
+
+/**
+ * Search NBDC for a species and get taxon details (server-side, no CORS issues)
+ */
+async function lookupNBDCSpecies(scientificName: string): Promise<NBDCEnrichedResult | null> {
+  try {
+    const cleanName = cleanScientificName(scientificName)
+
+    // Step 1: Search for taxonId
+    const searchResponse = await fetch(`${NBDC_BASE_URL}/Species/GetSpecies`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        speciesName: cleanName,
+        taxonomicSource: '0',
+        iDisplayStart: '0',
+        iDisplayLength: '10',
+        sEcho: '1',
+      }),
+    })
+
+    if (!searchResponse.ok) return null
+    const searchData = await searchResponse.json()
+
+    // Find taxonId from search results
+    let taxonId: number | null = null
+    const searchLower = cleanName.toLowerCase()
+
+    for (const row of searchData.aaData || []) {
+      const scientificNameInRow = row[7]
+      if (scientificNameInRow?.toLowerCase() === searchLower) {
+        const id = parseInt(row[1], 10)
+        if (!isNaN(id)) {
+          taxonId = id
+          break
+        }
+      }
+    }
+    if (!taxonId) {
+      for (const row of searchData.aaData || []) {
+        const displayName = row[2]
+        const scientificNameInRow = row[7]
+        if (
+          displayName?.toLowerCase().includes(searchLower) ||
+          scientificNameInRow?.toLowerCase().includes(searchLower)
+        ) {
+          const id = parseInt(row[1], 10)
+          if (!isNaN(id)) {
+            taxonId = id
+            break
+          }
+        }
+      }
+    }
+
+    if (!taxonId) return null
+
+    // Step 2: Get taxon details
+    const taxonResponse = await fetch(
+      `${NBDC_BASE_URL}/api/services/app/taxonService/GetTaxon?taxonId=${taxonId}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }
+    )
+
+    if (!taxonResponse.ok) return null
+    const taxonData = await taxonResponse.json()
+    if (!taxonData.success || !taxonData.result) return null
+
+    const r = taxonData.result
+    const designations = (r.designations || '').toLowerCase()
+
+    const protectionIndicators = [
+      'wildlife act',
+      'habitats directive',
+      'birds directive',
+      'flora protection',
+      'protected',
+      'annex ii',
+      'annex iv',
+      'annex v',
+      'annex i',
+      'bern convention',
+      'bonn convention',
+      'cites',
+    ]
+    const invasiveIndicators = ['invasive', 'ias regulation', 'third schedule']
+    const threatenedIndicators = [
+      'critically endangered',
+      'endangered',
+      'vulnerable',
+      'near threatened',
+      'red list',
+      'red data',
+      'threatened',
+    ]
+
+    return {
+      scientificName: r.taxonName,
+      commonName: r.commonName,
+      taxonGroup: r.taxonGroupName,
+      designations: r.designations,
+      isProtected: protectionIndicators.some((i) => designations.includes(i)),
+      isInvasive: invasiveIndicators.some((i) => designations.includes(i)),
+      isThreatened: threatenedIndicators.some((i) => designations.includes(i)),
+      totalRecords: r.recordCount || 0,
+      nbdcUrl: `${NBDC_BASE_URL}/species/${r.taxonId}`,
+    }
+  } catch (err) {
+    console.warn(`NBDC lookup failed for ${scientificName}:`, err)
+    return null
+  }
+}
+
+/**
+ * Enrich multiple species from NBDC (with concurrency limit)
+ */
+async function enrichSpeciesFromNBDC(speciesNames: string[]): Promise<NBDCEnrichedResult[]> {
+  if (speciesNames.length === 0) return []
+
+  const unique = Array.from(new Set(speciesNames))
+  // Limit to 10 species to avoid excessive API calls and latency
+  const toEnrich = unique.slice(0, 10)
+
+  const results: NBDCEnrichedResult[] = []
+  // Process in batches of 3 for reasonable concurrency
+  for (let i = 0; i < toEnrich.length; i += 3) {
+    const batch = toEnrich.slice(i, i + 3)
+    const batchResults = await Promise.allSettled(batch.map((name) => lookupNBDCSpecies(name)))
+    for (const result of batchResults) {
+      if (result.status === 'fulfilled' && result.value) {
+        results.push(result.value)
+      }
+    }
+  }
+
+  return results
+}
+
+/**
+ * Build NBDC context string for AI prompt
+ */
+function buildNBDCContext(nbdcResults: NBDCEnrichedResult[]): string {
+  if (nbdcResults.length === 0) return ''
+
+  return nbdcResults
+    .map((sp) => {
+      const parts = [`- ${sp.scientificName}`]
+      if (sp.commonName) parts[0] += ` (${sp.commonName})`
+      if (sp.taxonGroup) parts.push(`  Group: ${sp.taxonGroup}`)
+      if (sp.isProtected) parts.push(`  Status: PROTECTED`)
+      if (sp.isInvasive) parts.push(`  Status: INVASIVE`)
+      if (sp.isThreatened) parts.push(`  Status: THREATENED`)
+      if (sp.designations) parts.push(`  Designations: ${sp.designations}`)
+      parts.push(`  Irish records: ${sp.totalRecords}`)
+      return parts.join('\n')
+    })
+    .join('\n')
 }
 
 function buildHabitatContext(siteData: NPWSSiteData | null): string {
@@ -210,6 +465,7 @@ function buildPrompt({
   habitatContext,
   speciesContext,
   siteData,
+  nbdcContext,
 }: {
   siteName: string
   siteCode: string
@@ -219,6 +475,7 @@ function buildPrompt({
   habitatContext: string
   speciesContext: string
   siteData: NPWSSiteData | null
+  nbdcContext: string
 }): string {
   const parts: string[] = []
 
@@ -241,8 +498,16 @@ function buildPrompt({
     parts.push(`\nQualifying Interest Species:\n${speciesContext}`)
   }
 
+  if (nbdcContext) {
+    parts.push(`\nNBDC Species Data (Irish biodiversity records):\n${nbdcContext}`)
+  }
+
   if (pdfText) {
-    parts.push(`\nSite-Specific Conservation Objectives (SSCO) document content:\n${pdfText}`)
+    const pdfLabel =
+      siteType === 'NHA' || siteType === 'pNHA'
+        ? 'Site Synopsis (from NPWS PDF)'
+        : 'Site-Specific Conservation Objectives (SSCO) document content'
+    parts.push(`\n${pdfLabel}:\n${pdfText}`)
   }
 
   if (webPageText) {
