@@ -538,14 +538,14 @@ export function FindingsList({
               <div
                 key={finding.id}
                 id={`finding-${finding.id}`}
-                className={`rounded-lg border p-2.5 transition-colors ${
+                className={`rounded-lg p-2.5 transition-colors ${
                   isSelected
-                    ? 'border-blue-400 bg-blue-50 ring-2 ring-blue-400'
+                    ? 'border border-blue-400 bg-blue-50 ring-2 ring-blue-400'
                     : isHidden
-                      ? 'border-gray-200 bg-gray-50 opacity-60'
+                      ? 'border border-gray-200 bg-gray-50 opacity-60'
                       : saved
-                        ? 'border-l-4 border-l-emerald-500 bg-emerald-50/60'
-                        : 'hover:bg-gray-50'
+                        ? 'border-t border-r border-b border-l-4 border-gray-200 border-l-emerald-500 bg-emerald-50/60'
+                        : 'border hover:bg-gray-50'
                 }`}
               >
                 {/* Title + actions row */}

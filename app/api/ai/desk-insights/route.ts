@@ -244,12 +244,18 @@ function buildContext(input: ContextInput): string {
     const assessment = parseAssessment(site.notes)
     const rawData = site.raw_data as any
 
+    const siteMetadataObj = rawData?.metadata as Record<string, unknown> | undefined
+    const siteType =
+      rawData?.siteType || rawData?.SITETYPE || siteMetadataObj?.siteType || 'Unknown'
+    const siteCodeVal = rawData?.siteCode || rawData?.SITECODE || siteMetadataObj?.siteCode || 'N/A'
+    const distanceKm = site.distance_from_boundary_km ?? siteMetadataObj?.distance ?? null
+
     parts.push(`### ${site.title}`)
     parts.push(`- Source: ${site.source.toUpperCase()}`)
-    parts.push(`- Site Type: ${rawData?.siteType || rawData?.SITETYPE || 'Unknown'}`)
-    parts.push(`- Site Code: ${rawData?.siteCode || rawData?.SITECODE || 'N/A'}`)
-    if (site.distance_from_boundary_km != null) {
-      parts.push(`- Distance from site: ${site.distance_from_boundary_km.toFixed(2)} km`)
+    parts.push(`- Site Type: ${siteType}`)
+    parts.push(`- Site Code: ${siteCodeVal}`)
+    if (distanceKm != null) {
+      parts.push(`- Distance from site: ${Number(distanceKm).toFixed(2)} km`)
     }
     parts.push(`- Assessment Relevance: ${assessment.relevance.toUpperCase()}`)
     if (assessment.notes) {
@@ -257,13 +263,12 @@ function buildContext(input: ContextInput): string {
     }
 
     // Include AI Summary if available in metadata
-    const siteMetadata = rawData?.metadata as Record<string, unknown> | undefined
-    if (siteMetadata?.aiSummary) {
-      parts.push(`- AI Summary: ${String(siteMetadata.aiSummary).substring(0, 400)}`)
+    if (siteMetadataObj?.aiSummary) {
+      parts.push(`- AI Summary: ${String(siteMetadataObj.aiSummary).substring(0, 400)}`)
     }
 
     // Find matching deep research - first check database, then raw_data
-    const siteCode = rawData?.siteCode || rawData?.SITECODE
+    const siteCode = siteCodeVal !== 'N/A' ? siteCodeVal : undefined
     const deepData = input.deepResearch.find((d) => d.site_code === siteCode)
 
     // Also check if deep research is stored in raw_data (for sites not saved to DB)
@@ -344,20 +349,38 @@ function buildContext(input: ContextInput): string {
       const assessment = parseAssessment(species.notes)
       const rawData = species.raw_data as any
 
+      const speciesMeta = rawData?.metadata as Record<string, unknown> | undefined
+      const nbdc = rawData?.nbdcData as Record<string, unknown> | undefined
+      const speciesDistance = species.distance_from_boundary_km ?? speciesMeta?.distance ?? null
+
       parts.push(`- **${species.title}**`)
-      parts.push(`  Scientific name: ${rawData?.scientificName || 'N/A'}`)
-      parts.push(`  Taxon group: ${rawData?.taxonGroup || 'Unknown'}`)
-      if (species.distance_from_boundary_km != null) {
-        parts.push(`  Distance from site: ${species.distance_from_boundary_km.toFixed(2)} km`)
+      parts.push(
+        `  Scientific name: ${rawData?.scientificName || speciesMeta?.scientificName || 'N/A'}`
+      )
+      parts.push(
+        `  Taxon group: ${rawData?.taxonGroup || nbdc?.taxonGroup || speciesMeta?.taxonGroup || 'Unknown'}`
+      )
+      if (speciesDistance != null) {
+        parts.push(`  Distance from site: ${Number(speciesDistance).toFixed(2)} km`)
       }
-      if (rawData?.redListStatus) {
-        parts.push(`  Red List Status: ${rawData.redListStatus}`)
+      if (rawData?.redListStatus || nbdc?.isThreatened) {
+        parts.push(`  Red List Status: ${rawData?.redListStatus || 'Irish Red List (threatened)'}`)
       }
-      if (rawData?.designations?.length) {
-        parts.push(`  Designations: ${rawData.designations.join(', ')}`)
+      const designationStr = rawData?.designations?.length
+        ? rawData.designations.join(', ')
+        : nbdc?.designations || speciesMeta?.designations || null
+      if (designationStr) {
+        parts.push(`  Designations: ${designationStr}`)
       }
-      if (rawData?.recordCount) {
-        parts.push(`  Historical records: ${rawData.recordCount}`)
+      const recCount = rawData?.recordCount || speciesMeta?.recordCount
+      if (recCount) {
+        parts.push(`  Records in project area: ${recCount}`)
+      }
+      if (nbdc?.totalRecordsInIreland) {
+        parts.push(`  Total Irish records: ${nbdc.totalRecordsInIreland}`)
+      }
+      if (nbdc?.isInvasive) {
+        parts.push(`  ⚠ INVASIVE SPECIES`)
       }
       parts.push(`  Assessment: ${assessment.relevance.toUpperCase()}`)
       if (assessment.notes) {
@@ -365,9 +388,8 @@ function buildContext(input: ContextInput): string {
       }
 
       // Include AI Summary if available
-      const speciesMetadata = rawData?.metadata as Record<string, unknown> | undefined
-      if (speciesMetadata?.aiSummary) {
-        parts.push(`  AI Summary: ${String(speciesMetadata.aiSummary).substring(0, 400)}`)
+      if (speciesMeta?.aiSummary) {
+        parts.push(`  AI Summary: ${String(speciesMeta.aiSummary).substring(0, 400)}`)
       }
 
       // Include Deep Research AI Analysis if available
@@ -386,13 +408,13 @@ function buildContext(input: ContextInput): string {
     for (const species of otherSpecies.slice(0, 10)) {
       const assessment = parseAssessment(species.notes)
       const rawData = species.raw_data as any
-      const distance =
-        species.distance_from_boundary_km != null
-          ? ` - ${species.distance_from_boundary_km.toFixed(1)}km`
-          : ''
-      parts.push(
-        `- ${species.title} (${rawData?.taxonGroup || 'Unknown'})${distance} - ${assessment.relevance}`
-      )
+      const otherMeta = rawData?.metadata as Record<string, unknown> | undefined
+      const otherNbdc = rawData?.nbdcData as Record<string, unknown> | undefined
+      const dist = species.distance_from_boundary_km ?? otherMeta?.distance ?? null
+      const distStr = dist != null ? ` - ${Number(dist).toFixed(1)}km` : ''
+      const taxon =
+        rawData?.taxonGroup || otherNbdc?.taxonGroup || otherMeta?.taxonGroup || 'Unknown'
+      parts.push(`- ${species.title} (${taxon})${distStr} - ${assessment.relevance}`)
 
       // Include Deep Research AI Analysis if available for other species too
       const deepResearch = rawData?.deepResearch
@@ -416,16 +438,41 @@ function buildContext(input: ContextInput): string {
     const assessment = parseAssessment(feature.notes)
     const rawData = feature.raw_data as any
 
+    const aquaticMetadata = rawData?.metadata as Record<string, unknown> | undefined
+    const waterBodyType =
+      rawData?.waterBodyType ||
+      aquaticMetadata?.siteType ||
+      rawData?.metadata?.siteType ||
+      'Unknown'
+    const waterCode =
+      rawData?.waterBodyCode ||
+      rawData?.RiverCode ||
+      rawData?.LakeCode ||
+      rawData?.CatchmentId ||
+      rawData?.siteCode
+    const wfdStatus =
+      rawData?.wfdStatus ||
+      rawData?.WFD_Status ||
+      aquaticMetadata?.designation ||
+      rawData?.metadata?.designation
+
     parts.push(`### ${feature.title}`)
-    parts.push(`- Type: ${rawData?.waterBodyType || 'Unknown'}`)
-    parts.push(
-      `- EPA Code: ${rawData?.waterBodyCode || rawData?.RiverCode || rawData?.LakeCode || 'N/A'}`
-    )
-    if (rawData?.wfdStatus) {
-      parts.push(`- WFD Status: ${rawData.wfdStatus}`)
+    parts.push(`- Type: ${waterBodyType}`)
+    parts.push(`- EPA Code: ${waterCode || 'N/A'}`)
+    if (wfdStatus) {
+      parts.push(`- WFD Status: ${wfdStatus}`)
     }
     if (feature.distance_from_boundary_km != null) {
       parts.push(`- Distance: ${feature.distance_from_boundary_km.toFixed(2)} km`)
+    }
+    if (rawData?.Length_km) {
+      parts.push(`- Length: ${rawData.Length_km} km`)
+    }
+    if (rawData?.Area_ha) {
+      parts.push(`- Area: ${rawData.Area_ha} ha`)
+    }
+    if (rawData?.CatchmentName) {
+      parts.push(`- Catchment: ${rawData.CatchmentName}`)
     }
     parts.push(`- Assessment: ${assessment.relevance.toUpperCase()}`)
     if (assessment.notes) {
@@ -433,13 +480,11 @@ function buildContext(input: ContextInput): string {
     }
 
     // Include AI Summary if available
-    const aquaticMetadata = rawData?.metadata as Record<string, unknown> | undefined
     if (aquaticMetadata?.aiSummary) {
       parts.push(`- AI Summary: ${String(aquaticMetadata.aiSummary).substring(0, 400)}`)
     }
 
     // Find matching aquatic research
-    const waterCode = rawData?.waterBodyCode || rawData?.RiverCode || rawData?.LakeCode
     const aquaticData = input.aquaticResearch.find((a) => a.water_body_code === waterCode)
 
     if (aquaticData) {

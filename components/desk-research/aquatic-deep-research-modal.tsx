@@ -823,7 +823,7 @@ export function AquaticDeepResearchModal({
                             </p>
                           )
                         }
-                        return null
+                        return <div key={idx} className="h-1" />
                       })}
                     </div>
                   </CardContent>

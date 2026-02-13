@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import {
   Loader2,
   Check,
@@ -125,6 +126,41 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
       setAiInsights(meta.aiInsights)
     }
   }, [workflowStep.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-reopen step when saved findings change after completion
+  const findingsFingerprint = React.useMemo(
+    () =>
+      savedFindings
+        .map((f) => `${f.id}:${f.updated_at || ''}`)
+        .sort()
+        .join(','),
+    [savedFindings]
+  )
+  const prevFingerprintRef = React.useRef(findingsFingerprint)
+
+  React.useEffect(() => {
+    const prev = prevFingerprintRef.current
+    prevFingerprintRef.current = findingsFingerprint
+
+    // Skip initial load — only trigger on actual changes
+    if (!prev || prev === findingsFingerprint) return
+
+    if (workflowStep.status === 'approved') {
+      updateWorkflowStep
+        .mutateAsync({
+          stepId: workflowStep.id,
+          updates: { status: 'in_progress' },
+        })
+        .then(() => {
+          refetchWorkflowSteps()
+          toast({
+            title: 'Step reopened',
+            description: 'Findings have changed — please review and re-complete.',
+          })
+        })
+        .catch((err) => console.error('Failed to reopen step:', err))
+    }
+  }, [findingsFingerprint]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Parse relevance from notes
   const findingsWithRelevance = React.useMemo(() => {
@@ -425,7 +461,7 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
 
         {/* AI Insights Tab */}
         <TabsContent value="insights" className="mt-0 flex min-h-0 flex-1 overflow-hidden">
-          <div className="flex h-full min-h-0">
+          <div className="flex h-full min-h-0 w-full">
             {/* Left Panel - Stats (hidden during edit mode) */}
             <div
               className={cn(
@@ -523,7 +559,7 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
             {/* Right Panel - AI Insights */}
             <div
               className={cn(
-                'min-h-0 flex-1',
+                'min-h-0 min-w-0 flex-1',
                 isEditingInsights ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'
               )}
             >
@@ -589,12 +625,12 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
                       <Textarea
                         value={editedInsights}
                         onChange={(e) => setEditedInsights(e.target.value)}
-                        className="h-full min-h-[600px] flex-1 resize-none font-mono text-sm"
+                        className="h-full min-h-[600px] w-full flex-1 resize-none font-mono text-sm"
                         placeholder="Edit the AI analysis in markdown..."
                       />
                     ) : (
                       <div className="prose prose-sm max-w-none overflow-x-auto rounded-lg border bg-gray-50 p-4">
-                        <ReactMarkdown>{aiInsights}</ReactMarkdown>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{aiInsights}</ReactMarkdown>
                       </div>
                     )}
                   </div>
@@ -622,10 +658,14 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
               <h3 className="mb-4 font-semibold">Filter by Relevance</h3>
               <div className="space-y-1">
                 {(['all', 'high', 'medium', 'low', 'none'] as const).map((filter) => {
+                  // Count respects the current type filter
+                  const base = typeFilter
+                    ? findingsWithRelevance.filter((f) => f.data_type === typeFilter)
+                    : findingsWithRelevance
                   const count =
                     filter === 'all'
-                      ? findingsWithRelevance.length
-                      : findingsWithRelevance.filter((f) => f.relevance === filter).length
+                      ? base.length
+                      : base.filter((f) => f.relevance === filter).length
                   const isActive = relevanceFilter === filter
                   return (
                     <button
@@ -662,6 +702,11 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
                 <div className="space-y-1">
                   {Object.entries(findingsByType).map(([type, findings]) => {
                     const isActive = typeFilter === type
+                    // Count filtered by current relevance filter
+                    const count =
+                      relevanceFilter === 'all'
+                        ? findings.length
+                        : findings.filter((f) => f.relevance === relevanceFilter).length
                     return (
                       <button
                         key={type}
@@ -671,8 +716,8 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
                           isActive ? 'bg-gray-200 font-medium' : 'hover:bg-gray-100'
                         )}
                       >
-                        <span className="capitalize">{type.replace('_', ' ')}</span>
-                        <Badge variant="outline">{findings.length}</Badge>
+                        <span className="capitalize">{type.replaceAll('_', ' ')}</span>
+                        <Badge variant="outline">{count}</Badge>
                       </button>
                     )
                   })}
