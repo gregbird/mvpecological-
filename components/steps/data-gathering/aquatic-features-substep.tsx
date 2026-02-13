@@ -1,21 +1,11 @@
 'use client'
 
 import * as React from 'react'
-import {
-  Search,
-  Loader2,
-  Eye,
-  EyeOff,
-  RefreshCw,
-  AlertCircle,
-  Droplets,
-  Sparkles,
-} from 'lucide-react'
+import { Search, Loader2, Eye, EyeOff, AlertCircle, Droplets } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import * as turf from '@turf/turf'
 
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Select,
@@ -518,8 +508,6 @@ export function AquaticFeaturesSubStep({
 
   // Handle AI summary fetch for an aquatic feature
   const handleFetchAiSummary = async (finding: FindingDisplay) => {
-    if (!finding.sourceUrl) return
-
     // Set loading state
     setSearchResults((prev) =>
       prev.map((f) =>
@@ -528,14 +516,20 @@ export function AquaticFeaturesSubStep({
     )
 
     try {
-      const response = await fetch('/api/ai/site-summary', {
+      const rawData = finding.rawData as Record<string, unknown> | undefined
+      const response = await fetch('/api/ai/aquatic-summary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          siteUrl: finding.sourceUrl,
-          siteName: finding.title,
-          siteCode: finding.metadata?.siteCode || '',
-          siteType: finding.metadata?.siteType || 'Waterbody',
+          waterBodyName: finding.title,
+          waterBodyType: finding.metadata?.siteType || 'River',
+          waterBodyCode: finding.metadata?.siteCode,
+          wfdStatus: finding.metadata?.designation,
+          catchmentName: rawData?.CatchmentName,
+          distance: finding.metadata?.distance,
+          areaHa: rawData?.Area_ha,
+          lengthKm: rawData?.Length_km,
+          riverBasinDistrict: rawData?.RiverBasinDistrict,
         }),
       })
 
@@ -635,12 +629,7 @@ export function AquaticFeaturesSubStep({
     )
   }
 
-  // Count by type
-  const riverCount = searchResults.filter((f) => f.metadata?.siteType === 'River').length
-  const lakeCount = searchResults.filter((f) => f.metadata?.siteType === 'Lake').length
-  const catchmentCount = searchResults.filter((f) => f.metadata?.siteType === 'Catchment').length
-
-  // Filter results by active filter
+  // Filter results by active filter (for map sync)
   const filteredResults = React.useMemo(() => {
     if (!activeFilter) return searchResults
     return searchResults.filter((f) => f.metadata?.siteType === activeFilter)
@@ -696,96 +685,12 @@ export function AquaticFeaturesSubStep({
               )}
             </Button>
           </div>
-
-          {searchResults.length > 0 && (
-            <div className="mt-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <Badge variant="secondary">{searchResults.length} features found</Badge>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={isSummarizing ? handleStopSummarize : handleSummarizeAll}
-                    disabled={isSearching}
-                    className={
-                      isSummarizing
-                        ? 'text-red-600 hover:text-red-700'
-                        : 'text-purple-600 hover:text-purple-700'
-                    }
-                  >
-                    {isSummarizing ? (
-                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                    ) : (
-                      <Sparkles className="mr-1 h-3 w-3" />
-                    )}
-                    {isSummarizing ? 'Stop' : 'AI Summary'}
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={performSearch} disabled={isSearching}>
-                    <RefreshCw className="mr-1 h-3 w-3" />
-                    Refresh
-                  </Button>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {riverCount > 0 && (
-                  <Badge
-                    variant={activeFilter === 'River' ? 'default' : 'outline'}
-                    className={`cursor-pointer text-xs transition-colors ${
-                      activeFilter === 'River'
-                        ? 'bg-blue-600 text-white hover:bg-blue-700'
-                        : 'hover:bg-blue-50'
-                    }`}
-                    onClick={() => setActiveFilter(activeFilter === 'River' ? null : 'River')}
-                  >
-                    {riverCount} river{riverCount !== 1 ? 's' : ''}
-                  </Badge>
-                )}
-                {lakeCount > 0 && (
-                  <Badge
-                    variant={activeFilter === 'Lake' ? 'default' : 'outline'}
-                    className={`cursor-pointer text-xs transition-colors ${
-                      activeFilter === 'Lake'
-                        ? 'bg-cyan-600 text-white hover:bg-cyan-700'
-                        : 'hover:bg-cyan-50'
-                    }`}
-                    onClick={() => setActiveFilter(activeFilter === 'Lake' ? null : 'Lake')}
-                  >
-                    {lakeCount} lake{lakeCount !== 1 ? 's' : ''}
-                  </Badge>
-                )}
-                {catchmentCount > 0 && (
-                  <Badge
-                    variant={activeFilter === 'Catchment' ? 'default' : 'outline'}
-                    className={`cursor-pointer text-xs transition-colors ${
-                      activeFilter === 'Catchment'
-                        ? 'bg-slate-600 text-white hover:bg-slate-700'
-                        : 'hover:bg-slate-50'
-                    }`}
-                    onClick={() =>
-                      setActiveFilter(activeFilter === 'Catchment' ? null : 'Catchment')
-                    }
-                  >
-                    {catchmentCount} catchment{catchmentCount !== 1 ? 's' : ''}
-                  </Badge>
-                )}
-                {activeFilter && (
-                  <Badge
-                    variant="outline"
-                    className="cursor-pointer text-xs text-gray-500 hover:bg-gray-100"
-                    onClick={() => setActiveFilter(null)}
-                  >
-                    Clear filter ×
-                  </Badge>
-                )}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Results List */}
         <div className="flex-1 overflow-hidden">
           <FindingsList
-            findings={filteredResults}
+            findings={searchResults}
             savedFindings={savedFindings}
             isLoading={isSearching}
             onSave={handleSaveFinding}
@@ -798,6 +703,25 @@ export function AquaticFeaturesSubStep({
             savingIds={savingIds}
             selectedFindingId={selectedFinding?.id}
             onSavedFilterChange={setShowSavedOnMap}
+            showSiteTypeFilter
+            siteTypeFilterOrder={['River', 'Lake', 'Catchment']}
+            siteTypeFilterConfig={{
+              River: {
+                active: 'bg-blue-600 text-white',
+                inactive: 'bg-blue-100 text-blue-700 hover:bg-blue-200',
+              },
+              Lake: {
+                active: 'bg-cyan-600 text-white',
+                inactive: 'bg-cyan-100 text-cyan-700 hover:bg-cyan-200',
+              },
+              Catchment: {
+                active: 'bg-slate-600 text-white',
+                inactive: 'bg-slate-100 text-slate-700 hover:bg-slate-200',
+              },
+            }}
+            onSiteTypeFilterChange={setActiveFilter as (siteType: string | null) => void}
+            onSummarizeAll={isSummarizing ? handleStopSummarize : handleSummarizeAll}
+            isSummarizing={isSummarizing}
           />
         </div>
       </div>

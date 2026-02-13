@@ -1090,6 +1090,7 @@ export type Database = {
           created_at: string
           due_date: string | null
           id: string
+          metadata: Json | null
           name: string
           notes: string | null
           phase: Database['public']['Enums']['project_phase']
@@ -1106,6 +1107,7 @@ export type Database = {
           created_at?: string
           due_date?: string | null
           id?: string
+          metadata?: Json | null
           name: string
           notes?: string | null
           phase: Database['public']['Enums']['project_phase']
@@ -1122,6 +1124,7 @@ export type Database = {
           created_at?: string
           due_date?: string | null
           id?: string
+          metadata?: Json | null
           name?: string
           notes?: string | null
           phase?: Database['public']['Enums']['project_phase']

@@ -718,9 +718,18 @@ export function SpeciesRecordsSubStep({
           taxonGroup: finding.metadata?.taxonGroup,
           designations: finding.metadata?.designations,
           isProtected: finding.metadata?.isProtected,
+          isInvasive: finding.metadata?.isInvasive,
+          isThreatened: finding.metadata?.isThreatened,
           totalIrishRecords: finding.metadata?.totalIrishRecords,
           gridSquares10km: finding.metadata?.gridSquares10km,
           recordCount: finding.metadata?.recordCount,
+          distance: finding.metadata?.distance,
+          source: finding.source,
+          hasFPO:
+            finding.source === 'fpo' ||
+            finding.metadata?.designation === 'Flora Protection Order 2022',
+          hasArticle17: finding.metadata?.designation === 'Habitats Directive Annex II/IV/V',
+          relatedSitesCount: finding.metadata?.relatedSitesCount,
         }),
       })
 

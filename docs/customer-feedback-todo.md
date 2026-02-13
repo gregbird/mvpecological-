@@ -714,25 +714,23 @@ Eksik kritik bir gereksinim var: bireysel arama sonuçlarını kaydetme yeteneğ
 
 **Yapılacaklar:**
 
-- [ ] **5.3.1** Mevcut kaydetme mekanizmasını incele
-  - `desk_research_findings.is_saved` kolonu mevcut
-  - Toggle fonksiyonu: `useToggleFindingSaved` hook'u mevcut
-  - Sorun: UI'da yeterince belirgin değil mi?
+- [x] ~~**5.3.1** Mevcut kaydetme mekanizmasını incele~~ ✅
+  - `desk_research_findings.is_saved` kolonu + `toggleFindingSaved()` + `useCreateFinding/useDeleteFinding` hooks
+  - `findings-list.tsx` — `isFindingSaved()` helper, `savedCount` hesaplama, `showSavedOnly` filtre
 
-- [ ] **5.3.2** Her sonuç satırına kaydet/kaldır butonları ekle
-  - Kaydedilmemiş: ☆ (boş yıldız) → "Kaydet"
-  - Kaydedilmiş: ★ (dolu yıldız) → "Kaydedildi"
-  - Animasyonlu geçiş
+- [x] ~~**5.3.2** Her sonuç satırına kaydet/kaldır butonları ekle~~ ✅
+  - `findings-list.tsx:570-588` — Save/Check ikonu toggle, emerald/gray renk, `transition-colors` animasyonu
+  - Loading durumu: spinning Loader2, `savingIds` ile disable kontrolü
 
-- [ ] **5.3.3** Kaydetme durumu göstergesi
-  - Badge: "Kaydedildi ✓"
-  - Liste filtreleme: Sadece kaydedilenler
+- [x] ~~**5.3.3** Kaydetme durumu göstergesi~~ ✅
+  - `findings-list.tsx:353-402` — Emerald badge + sayı, tıklanınca `showSavedOnly` filtre toggle
+  - Filtre harita ile senkronize (`onSavedFilterChange` callback)
 
-- [ ] **5.3.4** Deep Research butonu her sonuca ekle
-  - Sonuç tipine göre farklı Deep Research:
-    - Designated Site → Site Deep Research
-    - Species Record → Species Deep Research
-    - Water Body → Hydrology Research
+- [x] ~~**5.3.4** Deep Research butonu her sonuca ekle~~ ✅
+  - `findings-list.tsx:756-769` — `designated_site`, `species_record`, `water_quality`, `catchment` tipleri için Flask ikonu
+  - Designated Site → `DeepResearchModal` (NPWS/Article17/NBDC)
+  - Species Record → `SpeciesResearchModal` (FPO/Article17/Related Sites)
+  - Water Body → `AquaticDeepResearchModal` (WFD/SAC linking/AI)
 
 ---
 

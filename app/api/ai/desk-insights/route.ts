@@ -130,29 +130,26 @@ export async function POST(request: NextRequest) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',
         messages: [
           {
             role: 'system',
-            content: `You are an expert Irish ecological consultant preparing a desk study assessment for a Preliminary Ecological Appraisal (PEA). You have deep knowledge of:
-- Irish designated sites (SAC, SPA, NHA, pNHA) and their conservation objectives
-- EU Habitats Directive and Birds Directive requirements
-- Water Framework Directive (WFD) and freshwater ecology
-- Protected species under Irish Wildlife Acts
-- Appropriate Assessment (AA) screening requirements
-- CIEEM guidelines for ecological assessment
+            content: `You are a senior Irish ecological consultant writing a desk study assessment for a Preliminary Ecological Appraisal (PEA) under CIEEM guidelines.
 
-Your analysis should be:
-- Professional and suitable for inclusion in ecological reports
-- Based ONLY on the data provided - do not speculate
-- Clear about data gaps and uncertainties
-- Actionable with specific field survey recommendations
-- Compliant with Irish and EU environmental legislation`,
+Expertise: Irish designated sites (SAC, SPA, NHA, pNHA), EU Habitats & Birds Directives, Water Framework Directive, Wildlife Acts 1976-2021, AA Screening, FOSSITT habitat classification, Irish Red Lists.
+
+Rules:
+- Write professionally for direct inclusion in PEA reports
+- Base ALL conclusions strictly on the provided data — never speculate or invent species/sites
+- Clearly identify data gaps
+- Give specific, actionable field survey recommendations with optimal timing
+- Reference site codes, distances, and conservation status throughout
+- Use markdown formatting with headers, tables, and bullet points`,
           },
           { role: 'user', content: prompt },
         ],
         temperature: 0.3,
-        max_tokens: 2500,
+        max_tokens: 4000,
       }),
     })
 
@@ -259,6 +256,12 @@ function buildContext(input: ContextInput): string {
       parts.push(`- Ecologist Notes: "${assessment.notes}"`)
     }
 
+    // Include AI Summary if available in metadata
+    const siteMetadata = rawData?.metadata as Record<string, unknown> | undefined
+    if (siteMetadata?.aiSummary) {
+      parts.push(`- AI Summary: ${String(siteMetadata.aiSummary).substring(0, 400)}`)
+    }
+
     // Find matching deep research - first check database, then raw_data
     const siteCode = rawData?.siteCode || rawData?.SITECODE
     const deepData = input.deepResearch.find((d) => d.site_code === siteCode)
@@ -361,6 +364,12 @@ function buildContext(input: ContextInput): string {
         parts.push(`  Ecologist Notes: "${assessment.notes}"`)
       }
 
+      // Include AI Summary if available
+      const speciesMetadata = rawData?.metadata as Record<string, unknown> | undefined
+      if (speciesMetadata?.aiSummary) {
+        parts.push(`  AI Summary: ${String(speciesMetadata.aiSummary).substring(0, 400)}`)
+      }
+
       // Include Deep Research AI Analysis if available
       const deepResearch = rawData?.deepResearch
       if (deepResearch?.aiAnalysis) {
@@ -423,6 +432,12 @@ function buildContext(input: ContextInput): string {
       parts.push(`- Ecologist Notes: "${assessment.notes}"`)
     }
 
+    // Include AI Summary if available
+    const aquaticMetadata = rawData?.metadata as Record<string, unknown> | undefined
+    if (aquaticMetadata?.aiSummary) {
+      parts.push(`- AI Summary: ${String(aquaticMetadata.aiSummary).substring(0, 400)}`)
+    }
+
     // Find matching aquatic research
     const waterCode = rawData?.waterBodyCode || rawData?.RiverCode || rawData?.LakeCode
     const aquaticData = input.aquaticResearch.find((a) => a.water_body_code === waterCode)
@@ -477,100 +492,75 @@ function buildContext(input: ContextInput): string {
 }
 
 function buildPrompt(context: string): string {
-  return `Based on the following comprehensive desk study data for an ecological assessment project in Ireland, provide a detailed Ecological Summary suitable for a Preliminary Ecological Appraisal (PEA) report.
+  return `You are writing a desk study assessment for a PEA report in Ireland. Analyze the following data and produce a structured ecological summary.
 
 ${context}
 
 ---
 
-Provide your analysis in the following structured format (Greg's 4-Category Structure):
+Write the report using exactly this structure:
 
-## Ecological Summary
+## 1. Designated Sites
 
-### 🌿 Habitats
+| Site Name | Code | Type | Distance (km) | Key Qualifying Interests |
+|-----------|------|------|---------------|--------------------------|
+[Table of ALL designated sites from the data]
 
-[For each habitat identified, provide:
-- **[FOSSITT Code] - [Habitat Name]:** Description and condition
-- Area coverage if known
-- Ecological significance
-- Any notable features
+For each site within 2km, add a brief paragraph on connectivity and potential impact pathways. Reference deep research data and AI summaries where available.
 
-Example format:
-- **GA1 - Improved Agricultural Grassland:** Dominant habitat type, covers 60% of site. Poor condition due to intensive grazing.
-- **WL1 - Hedgerows:** Linear habitat along northern boundary. Good condition, species-rich with Hawthorn and Blackthorn.]
+## 2. Species
 
-### 🦎 Species
+Group by taxon. For each species include: common name, scientific name, records, distance, conservation status, and relevance to the project.
 
-**Birds:**
-[List key bird species with:
-- Common name (Scientific name)
-- Number of records and distance from site
-- Conservation status (Annex I, Red/Amber listed, etc.)
-- Breeding/wintering status if known]
+**Protected / Annex Species:**
+[Priority species requiring targeted surveys — reference Wildlife Acts, Habitats Directive Annex II/IV/V]
 
-**Mammals:**
-[List mammal species with:
-- Common name (Scientific name)
-- Likelihood of presence based on habitat
-- Legal protection (Annex II/IV, Wildlife Acts)
-- Survey recommendations]
+**Other Notable Species:**
+[Non-protected but ecologically relevant species]
 
-**Flora:**
-[List any notable or protected plant species, or state "No protected flora recorded"]
+Include individual AI summaries and deep research findings where available to enrich species accounts.
 
-**Other Taxa:**
-[Include amphibians, reptiles, invertebrates if relevant]
+## 3. Aquatic Environment
 
-### 💧 Aquatic Features
+For each water body:
+- Name, type, EPA code, distance
+- Current WFD status and risk level
+- Status trends (improving/declining/stable)
+- Key pressures and failures
+- Connectivity to designated sites (linked SACs)
+- Relevant aquatic species
 
-[For each water body:
-- **[Water Body Name]:** Type (River/Lake/Stream)
-- WFD Status and Risk Level
-- Key pressures identified
-- Downstream connectivity (especially to designated sites)
-- Associated aquatic species of conservation concern]
+## 4. Ecological Constraints
 
-### 🏛️ Designated Areas
-
-[Create a table format:]
-
-| Site | Code | Type | Distance | Qualifying Interests |
-|------|------|------|----------|---------------------|
-[List all designated sites with their key qualifying interests]
-
----
-
-## Key Ecological Constraints
-
-[Bulleted list of the main constraints identified, ranked by importance. Be specific about:
-- Which findings drive each constraint
+Ranked bullet list of constraints with:
+- The specific finding(s) driving each constraint
+- Regulatory implications (AA Screening, derogation licences, etc.)
 - Implications for project design
-- Regulatory requirements triggered]
 
-## Recommended Field Surveys
+## 5. Recommended Field Surveys
 
-### Essential Surveys
-[Surveys that MUST be completed based on the evidence - be specific about species/habitats]
+### Essential (evidence-based)
+[Surveys required by the data — specify target species/habitats and justification]
 
-### Recommended Surveys
-[Surveys that are advisable based on habitat suitability]
+### Advisable (precautionary)
+[Surveys recommended based on habitat suitability]
 
-### Optimal Survey Timing
+### Survey Timing
 
-| Survey Type | Optimal Months | Constraints |
-|-------------|----------------|-------------|
-[List each survey type with optimal timing]
+| Survey | Optimal Months | Notes |
+|--------|---------------|-------|
+[Timing table for all recommended surveys]
 
-## Data Gaps and Limitations
+## 6. Data Gaps
 
-[What information is missing that should be addressed through field survey or further desk study]
+[Specific information gaps that field work or further desk study should address]
 
 ---
 
-IMPORTANT:
-- Base all conclusions on the data provided - do not speculate
-- Be specific about which findings drive each recommendation
-- Use the ecologist's assessment notes to understand site-specific priorities
-- Reference the deep research and WFD data where available
-- Format should be clear and easily digestible for report writing`
+RULES:
+- Base ALL conclusions on provided data only — do not invent species, sites, or habitats
+- Reference site codes, distances, and specific data throughout
+- Use ecologist assessment notes and AI summaries to inform analysis
+- Be concise but thorough — this text will be edited by the ecologist before inclusion in the report
+- Use markdown tables, bold, and bullet points for clarity`
 }

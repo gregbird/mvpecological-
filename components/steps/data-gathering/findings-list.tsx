@@ -70,6 +70,11 @@ export interface FindingDisplay {
     nbdcUrl?: string
     // SSCO fields
     habitatCount?: number
+    // Deep research enrichment
+    deepResearchAnalysis?: string
+    relatedSitesCount?: number
+    hasFPORecords?: boolean
+    hasArticle17Data?: boolean
     // AI summary
     aiSummary?: string
     aiSummaryLoading?: boolean
@@ -94,8 +99,12 @@ interface FindingsListProps {
   savingIds?: Set<string>
   // Currently selected finding ID (from map click)
   selectedFindingId?: string | null
-  // Enable site type filter buttons (SAC, SPA, NHA, pNHA) - for designated sites substep
+  // Enable site type filter buttons - for designated sites and aquatic substeps
   showSiteTypeFilter?: boolean
+  // Custom site type filter config (keys, colors). If not provided, defaults to SAC/SPA/NHA/pNHA
+  siteTypeFilterConfig?: Record<string, { active: string; inactive: string }>
+  // Ordered list of site type keys to display (e.g. ['SAC','SPA','NHA','pNHA'] or ['River','Lake','Catchment'])
+  siteTypeFilterOrder?: string[]
   // Callback when site type filter changes (for syncing map display)
   onSiteTypeFilterChange?: (siteType: string | null) => void
   // AI Summary button in header
@@ -142,24 +151,21 @@ const TYPE_COLORS: Record<string, string> = {
 // EPA site type configs with icons and colors
 const EPA_SITE_TYPE_CONFIG: Record<
   string,
-  { label: string; color: string; borderColor: string; icon: React.ElementType }
+  { label: string; color: string; icon: React.ElementType }
 > = {
   River: {
     label: 'River',
     color: 'bg-blue-50 text-blue-700',
-    borderColor: 'border-l-blue-500',
     icon: Waves,
   },
   Lake: {
     label: 'Lake',
     color: 'bg-cyan-50 text-cyan-700',
-    borderColor: 'border-l-cyan-500',
     icon: Droplet,
   },
   Catchment: {
     label: 'Catchment',
     color: 'bg-slate-50 text-slate-700',
-    borderColor: 'border-l-slate-500',
     icon: Mountain,
   },
 }
@@ -179,6 +185,8 @@ export function FindingsList({
   savingIds,
   selectedFindingId,
   showSiteTypeFilter,
+  siteTypeFilterConfig,
+  siteTypeFilterOrder,
   onSiteTypeFilterChange,
   onSummarizeAll,
   onStopSummarize,
@@ -403,23 +411,33 @@ export function FindingsList({
                 {/* Site type filter buttons */}
                 {showSiteTypeFilter && siteTypeCounts && Object.keys(siteTypeCounts).length > 0 && (
                   <>
-                    {(['SAC', 'SPA', 'NHA', 'pNHA'] as const).map((siteType) => {
+                    {(siteTypeFilterOrder || ['SAC', 'SPA', 'NHA', 'pNHA']).map((siteType) => {
                       const count = siteTypeCounts[siteType]
                       if (!count) return null
                       const isActive = activeSiteTypeFilter === siteType
-                      const colorMap: Record<string, string> = {
-                        SAC: isActive
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200',
-                        SPA: isActive
-                          ? 'bg-sky-600 text-white'
-                          : 'bg-sky-100 text-sky-700 hover:bg-sky-200',
-                        NHA: isActive
-                          ? 'bg-amber-600 text-white'
-                          : 'bg-amber-100 text-amber-700 hover:bg-amber-200',
-                        pNHA: isActive
-                          ? 'bg-orange-600 text-white'
-                          : 'bg-orange-100 text-orange-700 hover:bg-orange-200',
+                      const defaultColorMap: Record<string, { active: string; inactive: string }> =
+                        {
+                          SAC: {
+                            active: 'bg-emerald-600 text-white',
+                            inactive: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200',
+                          },
+                          SPA: {
+                            active: 'bg-sky-600 text-white',
+                            inactive: 'bg-sky-100 text-sky-700 hover:bg-sky-200',
+                          },
+                          NHA: {
+                            active: 'bg-amber-600 text-white',
+                            inactive: 'bg-amber-100 text-amber-700 hover:bg-amber-200',
+                          },
+                          pNHA: {
+                            active: 'bg-orange-600 text-white',
+                            inactive: 'bg-orange-100 text-orange-700 hover:bg-orange-200',
+                          },
+                        }
+                      const config = siteTypeFilterConfig || defaultColorMap
+                      const colors = config[siteType] || {
+                        active: 'bg-gray-600 text-white',
+                        inactive: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
                       }
                       return (
                         <button
@@ -429,7 +447,7 @@ export function FindingsList({
                             setActiveSiteTypeFilter(newValue)
                             onSiteTypeFilterChange?.(newValue)
                           }}
-                          className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${colorMap[siteType]}`}
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${isActive ? colors.active : colors.inactive}`}
                         >
                           {siteType} {count}
                         </button>
@@ -526,12 +544,8 @@ export function FindingsList({
                     : isHidden
                       ? 'border-gray-200 bg-gray-50 opacity-60'
                       : saved
-                        ? 'border-l-4 border-l-emerald-500'
-                        : isFpoFinding
-                          ? 'border-l-4 border-l-rose-500 bg-rose-50/50'
-                          : isEpaFinding && epaConfig
-                            ? `border-l-4 ${epaConfig.borderColor} ${epaConfig.color}`
-                            : 'hover:bg-gray-50'
+                        ? 'border-l-4 border-l-emerald-500 bg-emerald-50/60'
+                        : 'hover:bg-gray-50'
                 }`}
               >
                 {/* Title + actions row */}

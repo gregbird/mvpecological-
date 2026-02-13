@@ -20,6 +20,8 @@ import {
   AlertTriangle,
   Lightbulb,
   RefreshCw,
+  Pencil,
+  X,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -42,6 +44,7 @@ import { useToast } from '@/hooks/use-toast'
 import {
   useSavedFindings,
   useUpdateFinding,
+  useUpdateWorkflowStep,
   useCompleteWorkflowStep,
   useFindingsStats,
 } from '@/hooks/use-project-data'
@@ -102,12 +105,26 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
   const [relevance, setRelevance] = React.useState<Relevance>('medium')
   const [isGeneratingInsights, setIsGeneratingInsights] = React.useState(false)
   const [aiInsights, setAiInsights] = React.useState<string | null>(null)
+  const [isEditingInsights, setIsEditingInsights] = React.useState(false)
+  const [editedInsights, setEditedInsights] = React.useState('')
+  // Assessment tab filters
+  const [relevanceFilter, setRelevanceFilter] = React.useState<'all' | Relevance>('all')
+  const [typeFilter, setTypeFilter] = React.useState<string | null>(null)
 
   // React Query hooks
   const { data: savedFindings = [], isLoading } = useSavedFindings(project.id)
   const { data: findingsStats } = useFindingsStats(project.id)
   const updateFinding = useUpdateFinding()
+  const updateWorkflowStep = useUpdateWorkflowStep()
   const completeStep = useCompleteWorkflowStep()
+
+  // Load persisted AI insights from workflow step metadata on mount
+  React.useEffect(() => {
+    const meta = workflowStep.metadata as Record<string, unknown> | null
+    if (meta?.aiInsights && typeof meta.aiInsights === 'string') {
+      setAiInsights(meta.aiInsights)
+    }
+  }, [workflowStep.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Parse relevance from notes
   const findingsWithRelevance = React.useMemo(() => {
@@ -140,6 +157,15 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
     }
     return groups
   }, [findingsWithRelevance])
+
+  // Filtered findings for assessment tab
+  const filteredAssessmentFindings = React.useMemo(() => {
+    return findingsWithRelevance.filter((f) => {
+      if (relevanceFilter !== 'all' && f.relevance !== relevanceFilter) return false
+      if (typeFilter && f.data_type !== typeFilter) return false
+      return true
+    })
+  }, [findingsWithRelevance, relevanceFilter, typeFilter])
 
   // Stats
   const assessedCount = findingsWithRelevance.filter(
@@ -178,6 +204,26 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
     }
   }
 
+  // Persist AI insights to workflow step metadata
+  const persistInsights = React.useCallback(
+    (insights: string) => {
+      const existingMeta = (workflowStep.metadata as Record<string, unknown>) || {}
+      updateWorkflowStep
+        .mutateAsync({
+          stepId: workflowStep.id,
+          updates: {
+            metadata: {
+              ...existingMeta,
+              aiInsights: insights,
+              aiInsightsUpdatedAt: new Date().toISOString(),
+            },
+          },
+        })
+        .catch((err) => console.error('Failed to persist AI insights:', err))
+    },
+    [workflowStep.id, workflowStep.metadata, updateWorkflowStep]
+  )
+
   // Generate AI insights
   const handleGenerateInsights = async () => {
     setIsGeneratingInsights(true)
@@ -205,6 +251,7 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
 
       const data = await response.json()
       setAiInsights(data.insights)
+      persistInsights(data.insights)
     } catch (error) {
       console.error('Error generating insights:', error)
 
@@ -271,6 +318,7 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
 *Note: AI analysis unavailable. This is a template-based summary.*`
 
       setAiInsights(fallbackInsights)
+      persistInsights(fallbackInsights)
 
       toast({
         variant: 'destructive',
@@ -378,8 +426,13 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
         {/* AI Insights Tab */}
         <TabsContent value="insights" className="mt-0 flex min-h-0 flex-1 overflow-hidden">
           <div className="flex h-full min-h-0">
-            {/* Left Panel - Stats */}
-            <div className="w-75 shrink-0 overflow-y-auto border-r p-4">
+            {/* Left Panel - Stats (hidden during edit mode) */}
+            <div
+              className={cn(
+                'w-75 shrink-0 overflow-y-auto border-r p-4',
+                isEditingInsights && 'hidden'
+              )}
+            >
               <h3 className="mb-4 font-semibold">Data Summary</h3>
 
               <div className="space-y-3">
@@ -468,31 +521,91 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
             </div>
 
             {/* Right Panel - AI Insights */}
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <div className="p-6">
+            <div
+              className={cn(
+                'min-h-0 flex-1',
+                isEditingInsights ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'
+              )}
+            >
+              <div className={cn('p-6', isEditingInsights && 'flex min-h-0 flex-1 flex-col')}>
                 {aiInsights ? (
-                  <div className="prose prose-sm max-w-none">
+                  <div
+                    className={cn(
+                      'max-w-none',
+                      isEditingInsights && 'flex min-h-0 flex-1 flex-col'
+                    )}
+                  >
                     <div className="mb-4 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Sparkles className="h-5 w-5 text-purple-500" />
                         <h3 className="m-0 text-lg font-semibold">AI Analysis</h3>
                       </div>
-                      <Button variant="ghost" size="sm" onClick={handleGenerateInsights}>
-                        <RefreshCw className="mr-1 h-3 w-3" />
-                        Regenerate
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        {isEditingInsights ? (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setAiInsights(editedInsights)
+                                setIsEditingInsights(false)
+                                persistInsights(editedInsights)
+                              }}
+                            >
+                              <Check className="mr-1 h-3 w-3" />
+                              Save
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setIsEditingInsights(false)}
+                            >
+                              <X className="mr-1 h-3 w-3" />
+                              Cancel
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setEditedInsights(aiInsights)
+                                setIsEditingInsights(true)
+                              }}
+                            >
+                              <Pencil className="mr-1 h-3 w-3" />
+                              Edit
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={handleGenerateInsights}>
+                              <RefreshCw className="mr-1 h-3 w-3" />
+                              Regenerate
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </div>
-                    <div className="prose prose-sm max-w-none rounded-lg border bg-gray-50 p-4">
-                      <ReactMarkdown>{aiInsights}</ReactMarkdown>
-                    </div>
+                    {isEditingInsights ? (
+                      <Textarea
+                        value={editedInsights}
+                        onChange={(e) => setEditedInsights(e.target.value)}
+                        className="h-full min-h-[600px] flex-1 resize-none font-mono text-sm"
+                        placeholder="Edit the AI analysis in markdown..."
+                      />
+                    ) : (
+                      <div className="prose prose-sm max-w-none overflow-x-auto rounded-lg border bg-gray-50 p-4">
+                        <ReactMarkdown>{aiInsights}</ReactMarkdown>
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  <div className="flex h-full flex-col items-center justify-center text-center">
+                  <div className="flex h-full min-h-[400px] flex-col items-center justify-center text-center">
                     <Brain className="mb-4 h-16 w-16 text-gray-300" />
                     <h3 className="text-lg font-semibold">AI Insights</h3>
-                    <p className="text-muted-foreground mt-1 max-w-md">
-                      Click "Generate AI Analysis" to get intelligent insights about your findings,
-                      risk assessment, and field survey recommendations.
+                    <p className="text-muted-foreground mt-2 max-w-sm text-sm leading-relaxed">
+                      Click <strong>&quot;Generate AI Analysis&quot;</strong> to get intelligent
+                      insights about your findings, risk assessment, and field survey
+                      recommendations.
                     </p>
                   </div>
                 )}
@@ -513,12 +626,14 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
                     filter === 'all'
                       ? findingsWithRelevance.length
                       : findingsWithRelevance.filter((f) => f.relevance === filter).length
+                  const isActive = relevanceFilter === filter
                   return (
                     <button
                       key={filter}
+                      onClick={() => setRelevanceFilter(filter)}
                       className={cn(
-                        'flex w-full items-center justify-between rounded-md px-3 py-2 text-sm transition-colors hover:bg-gray-100',
-                        filter === 'all' && 'font-medium'
+                        'flex w-full items-center justify-between rounded-md px-3 py-2 text-sm transition-colors',
+                        isActive ? 'bg-gray-200 font-medium' : 'hover:bg-gray-100'
                       )}
                     >
                       <div className="flex items-center gap-2">
@@ -545,15 +660,22 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
               <div className="mt-6 border-t pt-4">
                 <h3 className="mb-4 font-semibold">Filter by Type</h3>
                 <div className="space-y-1">
-                  {Object.entries(findingsByType).map(([type, findings]) => (
-                    <button
-                      key={type}
-                      className="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm transition-colors hover:bg-gray-100"
-                    >
-                      <span className="capitalize">{type.replace('_', ' ')}</span>
-                      <Badge variant="outline">{findings.length}</Badge>
-                    </button>
-                  ))}
+                  {Object.entries(findingsByType).map(([type, findings]) => {
+                    const isActive = typeFilter === type
+                    return (
+                      <button
+                        key={type}
+                        onClick={() => setTypeFilter(isActive ? null : type)}
+                        className={cn(
+                          'flex w-full items-center justify-between rounded-md px-3 py-2 text-sm transition-colors',
+                          isActive ? 'bg-gray-200 font-medium' : 'hover:bg-gray-100'
+                        )}
+                      >
+                        <span className="capitalize">{type.replace('_', ' ')}</span>
+                        <Badge variant="outline">{findings.length}</Badge>
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             </div>
@@ -562,7 +684,7 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
             <div className="flex-1 overflow-hidden">
               <ScrollArea className="h-full">
                 <div className="space-y-2 p-4">
-                  {findingsWithRelevance.map((finding) => (
+                  {filteredAssessmentFindings.map((finding) => (
                     <div
                       key={finding.id}
                       className={cn(
