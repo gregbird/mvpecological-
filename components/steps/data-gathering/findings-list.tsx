@@ -218,11 +218,12 @@ export function FindingsList({
 
       let comparison = 0
       switch (sortBy) {
-        case 'distance':
+        case 'distance': {
           const distA = a.metadata?.distance ?? Infinity
           const distB = b.metadata?.distance ?? Infinity
           comparison = distA - distB
           break
+        }
         case 'title':
           comparison = a.title.localeCompare(b.title)
           break

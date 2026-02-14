@@ -99,12 +99,13 @@ export function SearchInterface({
         case 'type':
           comparison = a.dataType.localeCompare(b.dataType)
           break
-        case 'distance':
+        case 'distance': {
           // Handle undefined distances - put them at the end
           const distA = a.metadata?.distance ?? Infinity
           const distB = b.metadata?.distance ?? Infinity
           comparison = distA - distB
           break
+        }
       }
       return sortOrder === 'asc' ? comparison : -comparison
     })

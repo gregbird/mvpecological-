@@ -179,7 +179,13 @@ export function SpeciesResearchModal({
     }
   }, [open, species?.scientificName, aiSummary, aiLoading, existingAnalysis, fetchAiAnalysis])
 
-  if (!species) return null
+  if (!species) {
+    return (
+      <Dialog open={false} onOpenChange={onOpenChange}>
+        <DialogContent className="max-h-[85vh] max-w-2xl" />
+      </Dialog>
+    )
+  }
 
   const hasRelatedSites = species.relatedSites && species.relatedSites.length > 0
   const hasFPO = species.fpoRecords && species.fpoRecords.length > 0

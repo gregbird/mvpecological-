@@ -51,9 +51,7 @@ const inviteSchema = z.object({
 
 type InviteFormData = z.infer<typeof inviteSchema>
 
-interface TeamMember extends Profile {
-  // Add any additional fields if needed
-}
+type TeamMember = Profile
 
 export default function TeamPage() {
   const router = useRouter()

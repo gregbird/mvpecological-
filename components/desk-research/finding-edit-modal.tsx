@@ -82,7 +82,13 @@ export function FindingEditModal({ finding, open, onOpenChange, onSave }: Findin
     onOpenChange(false)
   }
 
-  if (!finding) return null
+  if (!finding) {
+    return (
+      <Dialog open={false} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-lg" />
+      </Dialog>
+    )
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

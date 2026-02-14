@@ -1,17 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import {
-  Loader2,
-  Check,
-  AlertCircle,
-  Info,
-  Sparkles,
-  FileText,
-  Edit,
-  Save,
-  RotateCcw,
-} from 'lucide-react'
+import { Loader2, Check, Info, Sparkles, Edit, Save } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -323,7 +313,7 @@ The following appendices are included with this report:
         title: 'Report saved',
         description: 'Your draft report has been saved.',
       })
-    } catch (error) {
+    } catch (_error) {
       toast({
         variant: 'destructive',
         title: 'Error saving report',
@@ -349,7 +339,7 @@ The following appendices are included with this report:
       })
 
       onComplete?.()
-    } catch (error) {
+    } catch (_error) {
       toast({
         variant: 'destructive',
         title: 'Error completing step',

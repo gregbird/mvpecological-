@@ -283,7 +283,27 @@ export function AquaticDeepResearchModal({
     }
   }, [open, site?.waterBodyName, result, isLoading, cachedAnalysis, fetchResearch])
 
-  if (!site) return null
+  if (!site) {
+    return (
+      <DeepResearchShell
+        open={false}
+        onOpenChange={onOpenChange}
+        headerIcon={
+          <div className="rounded-lg bg-cyan-100 p-2">
+            <Droplets className="h-5 w-5 text-cyan-600" />
+          </div>
+        }
+        title=""
+        headerBadges={null}
+        tabs={[{ value: 'overview', label: 'Overview', content: null }]}
+        footerInfo=""
+        isSaved={false}
+        isSaving={false}
+        canSave={false}
+        onSave={() => {}}
+      />
+    )
+  }
 
   const WaterBodyIcon = WATER_BODY_ICONS[site.waterBodyType] || Droplets
   const bestMatch = result?.linkedSACs?.[0]

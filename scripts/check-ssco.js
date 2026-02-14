@@ -1,4 +1,3 @@
-/* eslint-env node */
 const fs = require('fs')
 const data = JSON.parse(fs.readFileSync('public/data/ssco-sac-habitats.json', 'utf8'))
 

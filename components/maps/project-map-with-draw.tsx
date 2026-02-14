@@ -121,7 +121,7 @@ function MapComponentWithDraw({
   onViewChange,
   editable,
   mapRef,
-  visibleLayers = [],
+  visibleLayers: _visibleLayers = [],
   countiesData,
   showCounties,
   townlandsData,
