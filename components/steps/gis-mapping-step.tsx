@@ -77,6 +77,7 @@ import {
 } from '@/lib/gis'
 import { MapCaptureButton } from '@/components/maps/map-capture-button'
 import { LayerInfoButton, LayerInfoModal } from '@/components/gis/layer-info-modal'
+import { CollapsibleLayerSection } from '@/components/gis/collapsible-layer-section'
 import { getLayerMetadata, type LayerMetadata } from '@/lib/config/layer-metadata'
 import type { Project, WorkflowStep } from '@/types/database'
 import { useProjectContext } from '@/contexts/project-context'
@@ -203,6 +204,35 @@ const gisSourceOptions = [
     comingSoon: false,
   },
 ]
+
+// --- Geometry center helpers for CollapsibleLayerSection ---
+function getLineCenterFromGeometry(geometry?: GeoJSON.Geometry): [number, number] | null {
+  if (!geometry) return null
+  const coords =
+    geometry.type === 'LineString'
+      ? geometry.coordinates
+      : geometry.type === 'MultiLineString'
+        ? geometry.coordinates[0]
+        : null
+  if (!coords || coords.length === 0) return null
+  const lats = coords.map((c: GeoJSON.Position) => c[1])
+  const lngs = coords.map((c: GeoJSON.Position) => c[0])
+  return [(Math.min(...lats) + Math.max(...lats)) / 2, (Math.min(...lngs) + Math.max(...lngs)) / 2]
+}
+
+function getPolygonCenterFromGeometry(geometry?: GeoJSON.Geometry): [number, number] | null {
+  if (!geometry) return null
+  const coords =
+    geometry.type === 'Polygon'
+      ? geometry.coordinates[0]
+      : geometry.type === 'MultiPolygon'
+        ? geometry.coordinates[0][0]
+        : null
+  if (!coords || coords.length === 0) return null
+  const lats = coords.map((c: GeoJSON.Position) => c[1])
+  const lngs = coords.map((c: GeoJSON.Position) => c[0])
+  return [(Math.min(...lats) + Math.max(...lats)) / 2, (Math.min(...lngs) + Math.max(...lngs)) / 2]
+}
 
 export function GISMappingStep({ project, workflowStep, userId, onComplete }: GISMappingStepProps) {
   const { setMapFullscreen, refetchProject, refetchWorkflowSteps } = useProjectContext()
@@ -1722,649 +1752,199 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                   </div>
 
                   {/* EPA Rivers */}
-                  <div className="mb-2 rounded-lg border">
-                    <Collapsible
-                      open={expandedLayers.has('rivers')}
-                      onOpenChange={(open) => {
-                        setExpandedLayers((prev) => {
-                          const next = new Set(prev)
-                          if (open) next.add('rivers')
-                          else next.delete('rivers')
-                          return next
-                        })
-                      }}
-                    >
-                      <CollapsibleTrigger asChild>
-                        <div className="flex w-full cursor-pointer items-center justify-between p-2 hover:bg-gray-50">
-                          <div className="flex items-center gap-2">
-                            <div
-                              role="checkbox"
-                              aria-checked={visibleLayers.includes('rivers')}
-                              tabIndex={0}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleLayerToggle('rivers')
-                                setHasUnsavedChanges(true)
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                  handleLayerToggle('rivers')
-                                  setHasUnsavedChanges(true)
-                                }
-                              }}
-                              className={cn(
-                                'flex h-4 w-4 cursor-pointer items-center justify-center rounded border-2',
-                                visibleLayers.includes('rivers')
-                                  ? 'border-emerald-500 bg-emerald-500'
-                                  : 'border-gray-300'
-                              )}
-                            >
-                              {visibleLayers.includes('rivers') && (
-                                <Check className="h-3 w-3 text-white" />
-                              )}
-                            </div>
-                            <span
-                              className="h-2 w-2 rounded-full"
-                              style={{ backgroundColor: '#0284c7' }}
-                            />
-                            <span className="text-sm font-medium">Rivers</span>
-                            {layerDataLoading.rivers ? (
-                              <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
-                            ) : (
-                              <Badge variant="secondary" className="text-[10px]">
-                                {layerData.rivers.length}
-                              </Badge>
-                            )}
-                          </div>
-                          <ChevronDown
-                            className={cn(
-                              'h-4 w-4 text-gray-400 transition-transform',
-                              expandedLayers.has('rivers') && 'rotate-180'
-                            )}
-                          />
-                        </div>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <div className="border-t bg-gray-50/50 p-2">
-                          {(() => {
-                            const filteredRivers = layerData.rivers.filter(
-                              (river) => !deletedItems.has(`river-${river.RiverCode}`)
-                            )
-                            const displayCount = 5
-                            const isShowingAll = showAllItems.has('rivers')
-                            const riversToShow = isShowingAll
-                              ? filteredRivers
-                              : filteredRivers.slice(0, displayCount)
-                            return filteredRivers.length > 0 ? (
-                              <div className="max-h-64 space-y-1 overflow-x-hidden overflow-y-auto">
-                                {riversToShow.map((river, idx) => {
-                                  const itemKey = `river-${river.RiverCode}`
-                                  const isIgnored = ignoredItems.has(itemKey)
-                                  return (
-                                    <div
-                                      key={`${river.RiverCode}-${idx}`}
-                                      onClick={() => {
-                                        if (river.geometry) {
-                                          const coords =
-                                            river.geometry.type === 'LineString'
-                                              ? river.geometry.coordinates
-                                              : river.geometry.type === 'MultiLineString'
-                                                ? river.geometry.coordinates[0]
-                                                : null
-                                          if (coords && coords.length > 0) {
-                                            const lats = coords.map((c: number[]) => c[1])
-                                            const lngs = coords.map((c: number[]) => c[0])
-                                            const centerLat =
-                                              (Math.min(...lats) + Math.max(...lats)) / 2
-                                            const centerLng =
-                                              (Math.min(...lngs) + Math.max(...lngs)) / 2
-                                            setFlyToLocation({
-                                              center: [centerLat, centerLng],
-                                              zoom: 13,
-                                              key: `${river.RiverCode}-${Date.now()}`,
-                                            })
-                                          }
-                                        }
-                                      }}
-                                      className={cn(
-                                        'group flex cursor-pointer items-start gap-1.5 rounded p-1.5 text-xs transition-colors',
-                                        isIgnored
-                                          ? 'bg-gray-100 opacity-50'
-                                          : 'bg-white hover:bg-gray-100'
-                                      )}
-                                    >
-                                      <span
-                                        className="mt-1 h-2 w-2 shrink-0 rounded-full"
-                                        style={{ backgroundColor: '#0284c7' }}
-                                      />
-                                      <div
-                                        className={cn(
-                                          'min-w-0 flex-1 overflow-hidden',
-                                          isIgnored && 'line-through'
-                                        )}
-                                      >
-                                        <p className="font-medium" title={river.RiverName}>
-                                          {river.RiverName && river.RiverName.length > 28
-                                            ? river.RiverName.slice(0, 28) + '…'
-                                            : river.RiverName}
-                                        </p>
-                                        <p className="text-muted-foreground text-[10px]">
-                                          {river.WFD_Status && `WFD: ${river.WFD_Status}`}
-                                          {river.Length_km && ` · ${river.Length_km.toFixed(1)} km`}
-                                        </p>
-                                      </div>
-                                      <div className="flex shrink-0 items-center gap-0.5">
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            setIgnoredItems((prev) => {
-                                              const next = new Set(prev)
-                                              if (isIgnored) {
-                                                next.delete(itemKey)
-                                              } else {
-                                                next.add(itemKey)
-                                              }
-                                              return next
-                                            })
-                                            setHasUnsavedChanges(true)
-                                          }}
-                                          className={cn(
-                                            'rounded p-1 transition-colors',
-                                            isIgnored
-                                              ? 'bg-amber-100 text-amber-600 hover:bg-amber-200'
-                                              : 'text-gray-400 hover:bg-gray-200 hover:text-amber-600'
-                                          )}
-                                          title={isIgnored ? 'Show on map' : 'Hide from map'}
-                                        >
-                                          {isIgnored ? (
-                                            <Eye className="h-3 w-3" />
-                                          ) : (
-                                            <EyeOff className="h-3 w-3" />
-                                          )}
-                                        </button>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            setDeletedItems((prev) => {
-                                              const next = new Set(prev)
-                                              next.add(itemKey)
-                                              return next
-                                            })
-                                            setHasUnsavedChanges(true)
-                                          }}
-                                          className="rounded p-1 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600"
-                                          title="Remove from list"
-                                        >
-                                          <X className="h-3 w-3" />
-                                        </button>
-                                      </div>
-                                    </div>
-                                  )
-                                })}
-                                {filteredRivers.length > displayCount && (
-                                  <button
-                                    onClick={() => {
-                                      setShowAllItems((prev) => {
-                                        const next = new Set(prev)
-                                        if (isShowingAll) {
-                                          next.delete('rivers')
-                                        } else {
-                                          next.add('rivers')
-                                        }
-                                        return next
-                                      })
-                                    }}
-                                    className="text-muted-foreground sticky bottom-0 w-full bg-gray-50/90 py-1 text-center text-[10px] backdrop-blur-sm transition-colors hover:bg-gray-100 hover:text-gray-700"
-                                  >
-                                    {isShowingAll
-                                      ? 'Show less'
-                                      : `+${filteredRivers.length - displayCount} more rivers`}
-                                  </button>
-                                )}
-                              </div>
-                            ) : !layerDataLoading.rivers ? (
-                              <p className="text-muted-foreground py-2 text-center text-xs">
-                                No rivers found in buffer zone
-                              </p>
-                            ) : null
-                          })()}
-                        </div>
-                      </CollapsibleContent>
-                    </Collapsible>
-                  </div>
+                  <CollapsibleLayerSection<EPARiver>
+                    layerKey="rivers"
+                    label="Rivers"
+                    color="#0284c7"
+                    items={layerData.rivers}
+                    isLoading={!!layerDataLoading.rivers}
+                    getId={(r) => r.RiverCode}
+                    getName={(r) => r.RiverName}
+                    getMetadata={(r) =>
+                      [
+                        r.WFD_Status && `WFD: ${r.WFD_Status}`,
+                        r.Length_km && `${r.Length_km.toFixed(1)} km`,
+                      ]
+                        .filter(Boolean)
+                        .join(' \u00b7 ')
+                    }
+                    getCenter={(r) => getLineCenterFromGeometry(r.geometry)}
+                    zoomLevel={13}
+                    itemPrefix="river"
+                    emptyMessage="No rivers found in buffer zone"
+                    isVisible={visibleLayers.includes('rivers')}
+                    isExpanded={expandedLayers.has('rivers')}
+                    onToggleVisibility={() => {
+                      handleLayerToggle('rivers')
+                      setHasUnsavedChanges(true)
+                    }}
+                    onToggleExpand={(open) => {
+                      setExpandedLayers((prev) => {
+                        const next = new Set(prev)
+                        if (open) next.add('rivers')
+                        else next.delete('rivers')
+                        return next
+                      })
+                    }}
+                    deletedItems={deletedItems}
+                    ignoredItems={ignoredItems}
+                    onToggleIgnore={(itemKey) => {
+                      setIgnoredItems((prev) => {
+                        const next = new Set(prev)
+                        if (next.has(itemKey)) next.delete(itemKey)
+                        else next.add(itemKey)
+                        return next
+                      })
+                      setHasUnsavedChanges(true)
+                    }}
+                    onDelete={(itemKey) => {
+                      setDeletedItems((prev) => {
+                        const next = new Set(prev)
+                        next.add(itemKey)
+                        return next
+                      })
+                      setHasUnsavedChanges(true)
+                    }}
+                    onFlyTo={(center, zoom, key) => setFlyToLocation({ center, zoom, key })}
+                    showAll={showAllItems.has('rivers')}
+                    onToggleShowAll={() => {
+                      setShowAllItems((prev) => {
+                        const next = new Set(prev)
+                        if (next.has('rivers')) next.delete('rivers')
+                        else next.add('rivers')
+                        return next
+                      })
+                    }}
+                  />
 
                   {/* EPA Lakes */}
-                  <div className="mb-2 rounded-lg border">
-                    <Collapsible
-                      open={expandedLayers.has('lakes')}
-                      onOpenChange={(open) => {
-                        setExpandedLayers((prev) => {
-                          const next = new Set(prev)
-                          if (open) next.add('lakes')
-                          else next.delete('lakes')
-                          return next
-                        })
-                      }}
-                    >
-                      <CollapsibleTrigger asChild>
-                        <div className="flex w-full cursor-pointer items-center justify-between p-2 hover:bg-gray-50">
-                          <div className="flex items-center gap-2">
-                            <div
-                              role="checkbox"
-                              aria-checked={visibleLayers.includes('lakes')}
-                              tabIndex={0}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleLayerToggle('lakes')
-                                setHasUnsavedChanges(true)
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                  handleLayerToggle('lakes')
-                                  setHasUnsavedChanges(true)
-                                }
-                              }}
-                              className={cn(
-                                'flex h-4 w-4 cursor-pointer items-center justify-center rounded border-2',
-                                visibleLayers.includes('lakes')
-                                  ? 'border-emerald-500 bg-emerald-500'
-                                  : 'border-gray-300'
-                              )}
-                            >
-                              {visibleLayers.includes('lakes') && (
-                                <Check className="h-3 w-3 text-white" />
-                              )}
-                            </div>
-                            <span
-                              className="h-2 w-2 rounded-full"
-                              style={{ backgroundColor: '#0369a1' }}
-                            />
-                            <span className="text-sm font-medium">Lakes</span>
-                            {layerDataLoading.lakes ? (
-                              <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
-                            ) : (
-                              <Badge variant="secondary" className="text-[10px]">
-                                {layerData.lakes.length}
-                              </Badge>
-                            )}
-                          </div>
-                          <ChevronDown
-                            className={cn(
-                              'h-4 w-4 text-gray-400 transition-transform',
-                              expandedLayers.has('lakes') && 'rotate-180'
-                            )}
-                          />
-                        </div>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <div className="border-t bg-gray-50/50 p-2">
-                          {(() => {
-                            const filteredLakes = layerData.lakes.filter(
-                              (lake) => !deletedItems.has(`lake-${lake.LakeCode}`)
-                            )
-                            const displayCount = 5
-                            const isShowingAll = showAllItems.has('lakes')
-                            const lakesToShow = isShowingAll
-                              ? filteredLakes
-                              : filteredLakes.slice(0, displayCount)
-                            return filteredLakes.length > 0 ? (
-                              <div className="max-h-64 space-y-1 overflow-x-hidden overflow-y-auto">
-                                {lakesToShow.map((lake, idx) => {
-                                  const itemKey = `lake-${lake.LakeCode}`
-                                  const isIgnored = ignoredItems.has(itemKey)
-                                  return (
-                                    <div
-                                      key={`${lake.LakeCode}-${idx}`}
-                                      onClick={() => {
-                                        if (lake.geometry) {
-                                          const coords =
-                                            lake.geometry.type === 'Polygon'
-                                              ? lake.geometry.coordinates[0]
-                                              : lake.geometry.type === 'MultiPolygon'
-                                                ? lake.geometry.coordinates[0][0]
-                                                : null
-                                          if (coords && coords.length > 0) {
-                                            const lats = coords.map((c: number[]) => c[1])
-                                            const lngs = coords.map((c: number[]) => c[0])
-                                            const centerLat =
-                                              (Math.min(...lats) + Math.max(...lats)) / 2
-                                            const centerLng =
-                                              (Math.min(...lngs) + Math.max(...lngs)) / 2
-                                            setFlyToLocation({
-                                              center: [centerLat, centerLng],
-                                              zoom: 13,
-                                              key: `${lake.LakeCode}-${Date.now()}`,
-                                            })
-                                          }
-                                        }
-                                      }}
-                                      className={cn(
-                                        'group flex cursor-pointer items-start gap-1.5 rounded p-1.5 text-xs transition-colors',
-                                        isIgnored
-                                          ? 'bg-gray-100 opacity-50'
-                                          : 'bg-white hover:bg-gray-100'
-                                      )}
-                                    >
-                                      <span
-                                        className="mt-1 h-2 w-2 shrink-0 rounded-full"
-                                        style={{ backgroundColor: '#0369a1' }}
-                                      />
-                                      <div
-                                        className={cn(
-                                          'min-w-0 flex-1 overflow-hidden',
-                                          isIgnored && 'line-through'
-                                        )}
-                                      >
-                                        <p className="font-medium" title={lake.LakeName}>
-                                          {lake.LakeName && lake.LakeName.length > 28
-                                            ? lake.LakeName.slice(0, 28) + '…'
-                                            : lake.LakeName}
-                                        </p>
-                                        <p className="text-muted-foreground text-[10px]">
-                                          {lake.WFD_Status && `WFD: ${lake.WFD_Status}`}
-                                          {lake.Area_ha && ` · ${lake.Area_ha.toFixed(0)} ha`}
-                                        </p>
-                                      </div>
-                                      <div className="flex shrink-0 items-center gap-0.5">
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            setIgnoredItems((prev) => {
-                                              const next = new Set(prev)
-                                              if (isIgnored) {
-                                                next.delete(itemKey)
-                                              } else {
-                                                next.add(itemKey)
-                                              }
-                                              return next
-                                            })
-                                            setHasUnsavedChanges(true)
-                                          }}
-                                          className={cn(
-                                            'rounded p-1 transition-colors',
-                                            isIgnored
-                                              ? 'bg-amber-100 text-amber-600 hover:bg-amber-200'
-                                              : 'text-gray-400 hover:bg-gray-200 hover:text-amber-600'
-                                          )}
-                                          title={isIgnored ? 'Show on map' : 'Hide from map'}
-                                        >
-                                          {isIgnored ? (
-                                            <Eye className="h-3 w-3" />
-                                          ) : (
-                                            <EyeOff className="h-3 w-3" />
-                                          )}
-                                        </button>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            setDeletedItems((prev) => {
-                                              const next = new Set(prev)
-                                              next.add(itemKey)
-                                              return next
-                                            })
-                                            setHasUnsavedChanges(true)
-                                          }}
-                                          className="rounded p-1 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600"
-                                          title="Remove from list"
-                                        >
-                                          <X className="h-3 w-3" />
-                                        </button>
-                                      </div>
-                                    </div>
-                                  )
-                                })}
-                                {filteredLakes.length > displayCount && (
-                                  <button
-                                    onClick={() => {
-                                      setShowAllItems((prev) => {
-                                        const next = new Set(prev)
-                                        if (isShowingAll) {
-                                          next.delete('lakes')
-                                        } else {
-                                          next.add('lakes')
-                                        }
-                                        return next
-                                      })
-                                    }}
-                                    className="text-muted-foreground sticky bottom-0 w-full bg-gray-50/90 py-1 text-center text-[10px] backdrop-blur-sm transition-colors hover:bg-gray-100 hover:text-gray-700"
-                                  >
-                                    {isShowingAll
-                                      ? 'Show less'
-                                      : `+${filteredLakes.length - displayCount} more lakes`}
-                                  </button>
-                                )}
-                              </div>
-                            ) : !layerDataLoading.lakes ? (
-                              <p className="text-muted-foreground py-2 text-center text-xs">
-                                No lakes found in buffer zone
-                              </p>
-                            ) : null
-                          })()}
-                        </div>
-                      </CollapsibleContent>
-                    </Collapsible>
-                  </div>
+                  <CollapsibleLayerSection<EPALake>
+                    layerKey="lakes"
+                    label="Lakes"
+                    color="#0369a1"
+                    items={layerData.lakes}
+                    isLoading={!!layerDataLoading.lakes}
+                    getId={(l) => l.LakeCode}
+                    getName={(l) => l.LakeName}
+                    getMetadata={(l) =>
+                      [
+                        l.WFD_Status && `WFD: ${l.WFD_Status}`,
+                        l.Area_ha && `${l.Area_ha.toFixed(0)} ha`,
+                      ]
+                        .filter(Boolean)
+                        .join(' \u00b7 ')
+                    }
+                    getCenter={(l) => getPolygonCenterFromGeometry(l.geometry)}
+                    zoomLevel={13}
+                    itemPrefix="lake"
+                    emptyMessage="No lakes found in buffer zone"
+                    isVisible={visibleLayers.includes('lakes')}
+                    isExpanded={expandedLayers.has('lakes')}
+                    onToggleVisibility={() => {
+                      handleLayerToggle('lakes')
+                      setHasUnsavedChanges(true)
+                    }}
+                    onToggleExpand={(open) => {
+                      setExpandedLayers((prev) => {
+                        const next = new Set(prev)
+                        if (open) next.add('lakes')
+                        else next.delete('lakes')
+                        return next
+                      })
+                    }}
+                    deletedItems={deletedItems}
+                    ignoredItems={ignoredItems}
+                    onToggleIgnore={(itemKey) => {
+                      setIgnoredItems((prev) => {
+                        const next = new Set(prev)
+                        if (next.has(itemKey)) next.delete(itemKey)
+                        else next.add(itemKey)
+                        return next
+                      })
+                      setHasUnsavedChanges(true)
+                    }}
+                    onDelete={(itemKey) => {
+                      setDeletedItems((prev) => {
+                        const next = new Set(prev)
+                        next.add(itemKey)
+                        return next
+                      })
+                      setHasUnsavedChanges(true)
+                    }}
+                    onFlyTo={(center, zoom, key) => setFlyToLocation({ center, zoom, key })}
+                    showAll={showAllItems.has('lakes')}
+                    onToggleShowAll={() => {
+                      setShowAllItems((prev) => {
+                        const next = new Set(prev)
+                        if (next.has('lakes')) next.delete('lakes')
+                        else next.add('lakes')
+                        return next
+                      })
+                    }}
+                  />
 
                   {/* EPA Catchments */}
-                  <div className="mb-2 rounded-lg border">
-                    <Collapsible
-                      open={expandedLayers.has('catchments')}
-                      onOpenChange={(open) => {
-                        setExpandedLayers((prev) => {
-                          const next = new Set(prev)
-                          if (open) next.add('catchments')
-                          else next.delete('catchments')
-                          return next
-                        })
-                      }}
-                    >
-                      <CollapsibleTrigger asChild>
-                        <div className="flex w-full cursor-pointer items-center justify-between p-2 hover:bg-gray-50">
-                          <div className="flex items-center gap-2">
-                            <div
-                              role="checkbox"
-                              aria-checked={visibleLayers.includes('catchments')}
-                              tabIndex={0}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleLayerToggle('catchments')
-                                setHasUnsavedChanges(true)
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                  handleLayerToggle('catchments')
-                                  setHasUnsavedChanges(true)
-                                }
-                              }}
-                              className={cn(
-                                'flex h-4 w-4 cursor-pointer items-center justify-center rounded border-2',
-                                visibleLayers.includes('catchments')
-                                  ? 'border-emerald-500 bg-emerald-500'
-                                  : 'border-gray-300'
-                              )}
-                            >
-                              {visibleLayers.includes('catchments') && (
-                                <Check className="h-3 w-3 text-white" />
-                              )}
-                            </div>
-                            <span
-                              className="h-2 w-2 rounded-full"
-                              style={{ backgroundColor: '#38bdf8' }}
-                            />
-                            <span className="text-sm font-medium">Catchments</span>
-                            {layerDataLoading.catchments ? (
-                              <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
-                            ) : (
-                              <Badge variant="secondary" className="text-[10px]">
-                                {layerData.catchments.length}
-                              </Badge>
-                            )}
-                          </div>
-                          <ChevronDown
-                            className={cn(
-                              'h-4 w-4 text-gray-400 transition-transform',
-                              expandedLayers.has('catchments') && 'rotate-180'
-                            )}
-                          />
-                        </div>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <div className="border-t bg-gray-50/50 p-2">
-                          {(() => {
-                            const filteredCatchments = layerData.catchments.filter(
-                              (catchment) => !deletedItems.has(`catchment-${catchment.CatchmentId}`)
-                            )
-                            const displayCount = 5
-                            const isShowingAll = showAllItems.has('catchments')
-                            const catchmentsToShow = isShowingAll
-                              ? filteredCatchments
-                              : filteredCatchments.slice(0, displayCount)
-                            return filteredCatchments.length > 0 ? (
-                              <div className="max-h-64 space-y-1 overflow-x-hidden overflow-y-auto">
-                                {catchmentsToShow.map((catchment, idx) => {
-                                  const itemKey = `catchment-${catchment.CatchmentId}`
-                                  const isIgnored = ignoredItems.has(itemKey)
-                                  return (
-                                    <div
-                                      key={`${catchment.CatchmentId}-${idx}`}
-                                      onClick={() => {
-                                        if (catchment.geometry) {
-                                          const coords =
-                                            catchment.geometry.type === 'Polygon'
-                                              ? catchment.geometry.coordinates[0]
-                                              : catchment.geometry.type === 'MultiPolygon'
-                                                ? catchment.geometry.coordinates[0][0]
-                                                : null
-                                          if (coords && coords.length > 0) {
-                                            const lats = coords.map((c: number[]) => c[1])
-                                            const lngs = coords.map((c: number[]) => c[0])
-                                            const centerLat =
-                                              (Math.min(...lats) + Math.max(...lats)) / 2
-                                            const centerLng =
-                                              (Math.min(...lngs) + Math.max(...lngs)) / 2
-                                            setFlyToLocation({
-                                              center: [centerLat, centerLng],
-                                              zoom: 11,
-                                              key: `${catchment.CatchmentId}-${Date.now()}`,
-                                            })
-                                          }
-                                        }
-                                      }}
-                                      className={cn(
-                                        'group flex cursor-pointer items-start gap-1.5 rounded p-1.5 text-xs transition-colors',
-                                        isIgnored
-                                          ? 'bg-gray-100 opacity-50'
-                                          : 'bg-white hover:bg-gray-100'
-                                      )}
-                                    >
-                                      <span
-                                        className="mt-1 h-2 w-2 shrink-0 rounded-full"
-                                        style={{ backgroundColor: '#38bdf8' }}
-                                      />
-                                      <div
-                                        className={cn(
-                                          'min-w-0 flex-1 overflow-hidden',
-                                          isIgnored && 'line-through'
-                                        )}
-                                      >
-                                        <p className="font-medium" title={catchment.CatchmentName}>
-                                          {catchment.CatchmentName &&
-                                          catchment.CatchmentName.length > 28
-                                            ? catchment.CatchmentName.slice(0, 28) + '…'
-                                            : catchment.CatchmentName}
-                                        </p>
-                                        <p className="text-muted-foreground text-[10px]">
-                                          {catchment.Area_km2 &&
-                                            `${catchment.Area_km2.toFixed(0)} km²`}
-                                          {catchment.RiverBasinDistrict &&
-                                            ` · ${catchment.RiverBasinDistrict}`}
-                                        </p>
-                                      </div>
-                                      <div className="flex shrink-0 items-center gap-0.5">
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            setIgnoredItems((prev) => {
-                                              const next = new Set(prev)
-                                              if (isIgnored) {
-                                                next.delete(itemKey)
-                                              } else {
-                                                next.add(itemKey)
-                                              }
-                                              return next
-                                            })
-                                            setHasUnsavedChanges(true)
-                                          }}
-                                          className={cn(
-                                            'rounded p-1 transition-colors',
-                                            isIgnored
-                                              ? 'bg-amber-100 text-amber-600 hover:bg-amber-200'
-                                              : 'text-gray-400 hover:bg-gray-200 hover:text-amber-600'
-                                          )}
-                                          title={isIgnored ? 'Show on map' : 'Hide from map'}
-                                        >
-                                          {isIgnored ? (
-                                            <Eye className="h-3 w-3" />
-                                          ) : (
-                                            <EyeOff className="h-3 w-3" />
-                                          )}
-                                        </button>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            setDeletedItems((prev) => {
-                                              const next = new Set(prev)
-                                              next.add(itemKey)
-                                              return next
-                                            })
-                                            setHasUnsavedChanges(true)
-                                          }}
-                                          className="rounded p-1 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600"
-                                          title="Remove from list"
-                                        >
-                                          <X className="h-3 w-3" />
-                                        </button>
-                                      </div>
-                                    </div>
-                                  )
-                                })}
-                                {filteredCatchments.length > displayCount && (
-                                  <button
-                                    onClick={() => {
-                                      setShowAllItems((prev) => {
-                                        const next = new Set(prev)
-                                        if (isShowingAll) {
-                                          next.delete('catchments')
-                                        } else {
-                                          next.add('catchments')
-                                        }
-                                        return next
-                                      })
-                                    }}
-                                    className="text-muted-foreground sticky bottom-0 w-full bg-gray-50/90 py-1 text-center text-[10px] backdrop-blur-sm transition-colors hover:bg-gray-100 hover:text-gray-700"
-                                  >
-                                    {isShowingAll
-                                      ? 'Show less'
-                                      : `+${filteredCatchments.length - displayCount} more catchments`}
-                                  </button>
-                                )}
-                              </div>
-                            ) : !layerDataLoading.catchments ? (
-                              <p className="text-muted-foreground py-2 text-center text-xs">
-                                No catchments found in buffer zone
-                              </p>
-                            ) : null
-                          })()}
-                        </div>
-                      </CollapsibleContent>
-                    </Collapsible>
-                  </div>
+                  <CollapsibleLayerSection<EPACatchment>
+                    layerKey="catchments"
+                    label="Catchments"
+                    color="#38bdf8"
+                    items={layerData.catchments}
+                    isLoading={!!layerDataLoading.catchments}
+                    getId={(c) => c.CatchmentId}
+                    getName={(c) => c.CatchmentName}
+                    getMetadata={(c) =>
+                      [c.Area_km2 && `${c.Area_km2.toFixed(0)} km\u00b2`, c.RiverBasinDistrict]
+                        .filter(Boolean)
+                        .join(' \u00b7 ')
+                    }
+                    getCenter={(c) => getPolygonCenterFromGeometry(c.geometry)}
+                    zoomLevel={11}
+                    itemPrefix="catchment"
+                    emptyMessage="No catchments found in buffer zone"
+                    isVisible={visibleLayers.includes('catchments')}
+                    isExpanded={expandedLayers.has('catchments')}
+                    onToggleVisibility={() => {
+                      handleLayerToggle('catchments')
+                      setHasUnsavedChanges(true)
+                    }}
+                    onToggleExpand={(open) => {
+                      setExpandedLayers((prev) => {
+                        const next = new Set(prev)
+                        if (open) next.add('catchments')
+                        else next.delete('catchments')
+                        return next
+                      })
+                    }}
+                    deletedItems={deletedItems}
+                    ignoredItems={ignoredItems}
+                    onToggleIgnore={(itemKey) => {
+                      setIgnoredItems((prev) => {
+                        const next = new Set(prev)
+                        if (next.has(itemKey)) next.delete(itemKey)
+                        else next.add(itemKey)
+                        return next
+                      })
+                      setHasUnsavedChanges(true)
+                    }}
+                    onDelete={(itemKey) => {
+                      setDeletedItems((prev) => {
+                        const next = new Set(prev)
+                        next.add(itemKey)
+                        return next
+                      })
+                      setHasUnsavedChanges(true)
+                    }}
+                    onFlyTo={(center, zoom, key) => setFlyToLocation({ center, zoom, key })}
+                    showAll={showAllItems.has('catchments')}
+                    onToggleShowAll={() => {
+                      setShowAllItems((prev) => {
+                        const next = new Set(prev)
+                        if (next.has('catchments')) next.delete('catchments')
+                        else next.add('catchments')
+                        return next
+                      })
+                    }}
+                  />
 
                   {/* Geology & Terrain - Coming soon */}
                   <div className="rounded-lg border border-dashed bg-gray-50/50 p-3">

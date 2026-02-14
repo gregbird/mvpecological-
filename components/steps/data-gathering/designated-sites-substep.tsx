@@ -37,7 +37,10 @@ import {
   DeepResearchModal,
   type DeepResearchSite,
 } from '@/components/desk-research/deep-research-modal'
+import { getBoundingBox } from '@/lib/gis/bounding-box'
 import type { Project, DeskResearchFinding, Json } from '@/types/database'
+import { useSessionStorage } from '@/hooks/shared/use-session-storage'
+import { useSubstepSearch } from '@/hooks/shared/use-substep-search'
 import type { FindingSource, FindingType } from '@/components/desk-research/finding-card'
 import { MapCaptureButton } from '@/components/maps/map-capture-button'
 
@@ -90,86 +93,51 @@ export function DesignatedSitesSubStep({
   const cacheKey = `npws-search-${project.id}`
 
   const [isSearching, setIsSearching] = React.useState(false)
-  const [searchResults, setSearchResults] = React.useState<FindingDisplay[]>(() => {
-    // Restore from sessionStorage on mount
-    if (typeof window !== 'undefined') {
-      const cached = sessionStorage.getItem(cacheKey)
-      if (cached) {
-        try {
-          return JSON.parse(cached)
-        } catch {
-          return []
-        }
-      }
-    }
-    return []
-  })
-  const [selectedBuffer, setSelectedBuffer] = React.useState<number>(bufferDistances[0] || 2)
-  const [selectedFinding, setSelectedFinding] = React.useState<FindingDisplay | null>(null)
-  // Track hidden findings (for map visibility toggle)
-  const [hiddenIds, setHiddenIds] = React.useState<Set<string>>(new Set())
+  const [searchResults, setSearchResults] = useSessionStorage<FindingDisplay[]>(cacheKey, [])
+
   // Map container ref for screenshot capture
   const mapContainerRef = React.useRef<HTMLDivElement>(null)
-  // Track which findings are currently saving
-  const [savingIds, setSavingIds] = React.useState<Set<string>>(new Set())
   // Site type filter for map sync (SAC, SPA, NHA, pNHA)
   const [activeSiteTypeFilter, setActiveSiteTypeFilter] = React.useState<string | null>(null)
   // Deep Research modal state
   const [deepResearchSite, setDeepResearchSite] = React.useState<DeepResearchSite | null>(null)
   const [isDeepResearchOpen, setIsDeepResearchOpen] = React.useState(false)
 
-  // Restore location data from savedFindings when cache is missing geometries
-  React.useEffect(() => {
-    if (searchResults.length === 0 || savedFindings.length === 0) return
-    const needsRestore = searchResults.some((r) => !r.location)
-    if (!needsRestore) return
-
-    setSearchResults((prev) =>
-      prev.map((result) => {
-        if (result.location) return result
-        const match = savedFindings.find(
-          (sf) => (sf.raw_data as Record<string, unknown>)?.siteCode === result.metadata?.siteCode
-        )
-        if (match?.location) {
-          return { ...result, location: match.location as GeoJSON.Geometry }
-        }
-        return result
-      })
-    )
-  }, [savedFindings]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Invalidate Leaflet map size when substep becomes visible again (after being hidden)
-  React.useEffect(() => {
-    if (isActive) {
-      const timer = setTimeout(() => {
-        window.dispatchEvent(new Event('resize'))
-      }, 100)
-      return () => clearTimeout(timer)
-    }
-  }, [isActive])
-
-  // Auto-search trigger from parent (Data Gathering step)
-  const autoSearchHandledRef = React.useRef(false)
-  React.useEffect(() => {
-    if (!autoSearchTrigger || autoSearchHandledRef.current) return
-    autoSearchHandledRef.current = true
-
-    // Skip if we already have cached results
-    if (searchResults.length > 0) {
-      onAutoSearchComplete?.('skipped')
-      return
-    }
-
-    // Skip if no boundary
-    if (!projectBoundary) {
-      onAutoSearchComplete?.('skipped')
-      return
-    }
-
-    performSearch()
-      .then(() => onAutoSearchComplete?.('done'))
-      .catch(() => onAutoSearchComplete?.('error'))
-  }, [autoSearchTrigger])
+  // Shared substep search logic (auto-search, visibility toggle, session cache, location restore)
+  const performSearchRef = React.useRef<(() => Promise<void>) | null>(null)
+  const MINIMAL_METADATA_KEYS = React.useMemo(() => ['siteCode', 'siteType'], [])
+  const matchPredicate = React.useCallback(
+    (sf: DeskResearchFinding, result: FindingDisplay) =>
+      (sf.raw_data as Record<string, unknown>)?.siteCode === result.metadata?.siteCode,
+    []
+  )
+  const {
+    selectedFinding,
+    setSelectedFinding,
+    selectedBuffer,
+    setSelectedBuffer,
+    hiddenIds,
+    handleToggleVisibility,
+    savingIds,
+    setSavingIds,
+    showSavedOnMap,
+    setShowSavedOnMap,
+  } = useSubstepSearch(
+    {
+      searchResults,
+      setSearchResults,
+      cacheKey,
+      savedFindings,
+      autoSearchTrigger,
+      onAutoSearchComplete,
+      isActive,
+      projectBoundary,
+      performSearchRef,
+      matchPredicate,
+      minimalMetadataKeys: MINIMAL_METADATA_KEYS,
+    },
+    bufferDistances[0] || 2
+  )
 
   // Handle Deep Research save → update finding's raw_data with AI analysis
   const handleDeepResearchSave = React.useCallback(
@@ -243,70 +211,6 @@ export function DesignatedSitesSubStep({
     setIsDeepResearchOpen(true)
   }, [])
 
-  // Toggle visibility of a finding on the map
-  const handleToggleVisibility = React.useCallback((findingId: string) => {
-    setHiddenIds((prev) => {
-      const newSet = new Set(prev)
-      if (newSet.has(findingId)) {
-        newSet.delete(findingId)
-      } else {
-        newSet.add(findingId)
-      }
-      return newSet
-    })
-  }, [])
-
-  // Save to sessionStorage when results change (debounced to avoid thrashing)
-  const cacheTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
-  React.useEffect(() => {
-    if (searchResults.length === 0) return
-
-    if (cacheTimerRef.current) clearTimeout(cacheTimerRef.current)
-    cacheTimerRef.current = setTimeout(() => {
-      try {
-        // Strip rawData and location to reduce storage size
-        const cacheableResults = searchResults.map(({ rawData, location, ...rest }) => ({
-          ...rest,
-          locationCenter: location
-            ? location.type === 'Point'
-              ? location.coordinates
-              : undefined
-            : undefined,
-        }))
-        sessionStorage.setItem(cacheKey, JSON.stringify(cacheableResults))
-      } catch (e) {
-        console.warn('Failed to cache sites results:', e)
-        try {
-          const keysToRemove: string[] = []
-          for (let i = 0; i < sessionStorage.length; i++) {
-            const key = sessionStorage.key(i)
-            if (
-              key &&
-              (key.startsWith('npws-') || key.startsWith('gbif-') || key.startsWith('epa-'))
-            ) {
-              if (key !== cacheKey) keysToRemove.push(key)
-            }
-          }
-          keysToRemove.forEach((k) => sessionStorage.removeItem(k))
-          const minimalResults = searchResults.map(({ id, title, source, dataType, metadata }) => ({
-            id,
-            title,
-            source,
-            dataType,
-            metadata: { siteCode: metadata?.siteCode, siteType: metadata?.siteType },
-          }))
-          sessionStorage.setItem(cacheKey, JSON.stringify(minimalResults))
-        } catch {
-          // Give up caching
-        }
-      }
-    }, 1000)
-
-    return () => {
-      if (cacheTimerRef.current) clearTimeout(cacheTimerRef.current)
-    }
-  }, [searchResults, cacheKey])
-
   // Calculate distance from finding location to project boundary
   // Returns 0 if the site intersects with or contains the project boundary
   const calculateDistanceFromBoundary = React.useCallback(
@@ -358,53 +262,9 @@ export function DesignatedSitesSubStep({
     [projectBoundary]
   )
 
-  // Get bounding box for search
-  const getBoundingBox = React.useCallback(() => {
-    if (!projectBoundary && !projectCenter) return null
-
-    if (projectBoundary) {
-      const coords = projectBoundary.geometry.coordinates[0]
-      let minLng = Infinity,
-        maxLng = -Infinity,
-        minLat = Infinity,
-        maxLat = -Infinity
-
-      for (const coord of coords) {
-        minLng = Math.min(minLng, coord[0])
-        maxLng = Math.max(maxLng, coord[0])
-        minLat = Math.min(minLat, coord[1])
-        maxLat = Math.max(maxLat, coord[1])
-      }
-
-      // 1 degree latitude ≈ 111km; longitude varies with cos(latitude)
-      const midLat = (minLat + maxLat) / 2
-      const latBuffer = selectedBuffer / 111
-      const lngBuffer = selectedBuffer / (111 * Math.cos((midLat * Math.PI) / 180))
-      return {
-        minLng: minLng - lngBuffer,
-        maxLng: maxLng + lngBuffer,
-        minLat: minLat - latBuffer,
-        maxLat: maxLat + latBuffer,
-      }
-    }
-
-    if (projectCenter) {
-      const latBuffer = selectedBuffer / 111
-      const lngBuffer = selectedBuffer / (111 * Math.cos((projectCenter.lat * Math.PI) / 180))
-      return {
-        minLng: projectCenter.lng - lngBuffer,
-        maxLng: projectCenter.lng + lngBuffer,
-        minLat: projectCenter.lat - latBuffer,
-        maxLat: projectCenter.lat + latBuffer,
-      }
-    }
-
-    return null
-  }, [projectBoundary, projectCenter, selectedBuffer])
-
   // Perform search
   const performSearch = async () => {
-    const bbox = getBoundingBox()
+    const bbox = getBoundingBox(projectBoundary, projectCenter, selectedBuffer)
     if (!bbox) {
       toast({
         variant: 'destructive',
@@ -557,6 +417,9 @@ export function DesignatedSitesSubStep({
       setIsSearching(false)
     }
   }
+
+  // Assign ref so the hook can call performSearch
+  performSearchRef.current = performSearch
 
   // Handle saving a finding
   // Note: finding.isSaved represents the NEW desired state (toggled from current)
@@ -715,9 +578,6 @@ export function DesignatedSitesSubStep({
   const handleStopSummarize = () => {
     summarizeCancelRef.current = true
   }
-
-  // Saved filter for map sync
-  const [showSavedOnMap, setShowSavedOnMap] = React.useState(false)
 
   // No boundary check
   if (!projectBoundary) {

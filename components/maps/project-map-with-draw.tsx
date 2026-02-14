@@ -20,42 +20,17 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import {
+  IRELAND_CENTER,
+  DEFAULT_ZOOM,
+  TILE_LAYERS,
+  FINDING_TYPE_COLORS,
+} from '@/lib/config/map-constants'
+export type { MapStyle } from '@/lib/config/map-constants'
+import type { MapStyle } from '@/lib/config/map-constants'
 import { MeasureControl } from './measure-control'
 import { useNPWSLayers } from './npws-layer-overlay'
 import { useEPALayers } from './epa-layer-overlay'
-
-// Ireland center coordinates
-const IRELAND_CENTER: [number, number] = [53.1424, -7.6921]
-const DEFAULT_ZOOM = 7
-
-export type MapStyle = 'streets' | 'satellite' | 'hybrid' | 'topo'
-
-// Tile layer URLs (all free, no API key required)
-const TILE_LAYERS: Record<MapStyle, { url: string; attribution: string; label: string }> = {
-  streets: {
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    label: 'Streets (OSM)',
-  },
-  satellite: {
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution:
-      'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
-    label: 'Satellite (ESRI)',
-  },
-  hybrid: {
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: 'Tiles &copy; Esri &mdash; Labels &copy; OpenStreetMap contributors',
-    label: 'Hybrid (Satellite + Labels)',
-  },
-  topo: {
-    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-    attribution:
-      'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
-    label: 'Topographic',
-  },
-}
 
 interface BufferColorConfig {
   fill: string
@@ -71,15 +46,6 @@ export interface FindingMarker {
   location: { coordinates: [number, number] } | null // [lng, lat] GeoJSON format
   isProtected?: boolean
   source?: string
-}
-
-// Finding type colors for markers
-const FINDING_MARKER_COLORS: Record<string, string> = {
-  designated_site: '#22c55e', // Green for protected sites
-  species_record: '#3b82f6', // Blue for species
-  water_quality: '#06b6d4', // Cyan for water
-  catchment: '#8b5cf6', // Purple for catchments
-  other: '#6b7280', // Gray for other
 }
 
 interface ProjectMapWithDrawProps {
@@ -620,7 +586,7 @@ function MapComponentWithDraw({
           return null
         }
 
-        const color = FINDING_MARKER_COLORS[finding.dataType] || FINDING_MARKER_COLORS.other
+        const color = FINDING_TYPE_COLORS[finding.dataType] || FINDING_TYPE_COLORS.other
         return (
           <CircleMarker
             key={finding.id}

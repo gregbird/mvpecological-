@@ -26,7 +26,10 @@ import {
   SpeciesResearchModal,
   type SpeciesResearchData,
 } from '@/components/desk-research/species-research-modal'
+import { getBoundingBox } from '@/lib/gis/bounding-box'
 import type { Project, DeskResearchFinding, Json } from '@/types/database'
+import { useSessionStorage } from '@/hooks/shared/use-session-storage'
+import { useSubstepSearch } from '@/hooks/shared/use-substep-search'
 import type { FindingSource, FindingType } from '@/components/desk-research/finding-card'
 import { MapCaptureButton } from '@/components/maps/map-capture-button'
 
@@ -80,30 +83,11 @@ export function SpeciesRecordsSubStep({
 
   const [isSearching, setIsSearching] = React.useState(false)
   const [isEnriching, setIsEnriching] = React.useState(false)
-  const [searchResults, setSearchResults] = React.useState<FindingDisplay[]>(() => {
-    // Restore from sessionStorage on mount
-    if (typeof window !== 'undefined') {
-      const cached = sessionStorage.getItem(cacheKey)
-      if (cached) {
-        try {
-          return JSON.parse(cached)
-        } catch {
-          return []
-        }
-      }
-    }
-    return []
-  })
-  const [selectedBuffer, setSelectedBuffer] = React.useState<number>(bufferDistances[0] || 2)
-  const [selectedFinding, setSelectedFinding] = React.useState<FindingDisplay | null>(null)
+  const [searchResults, setSearchResults] = useSessionStorage<FindingDisplay[]>(cacheKey, [])
   const [enrichmentProgress, setEnrichmentProgress] = React.useState<{
     current: number
     total: number
   } | null>(null)
-  // Track hidden findings (for map visibility toggle)
-  const [hiddenIds, setHiddenIds] = React.useState<Set<string>>(new Set())
-  // Track which findings are currently saving
-  const [savingIds, setSavingIds] = React.useState<Set<string>>(new Set())
   // Source filter: 'all' | 'gbif' | 'nbdc' | 'protected'
   const [sourceFilter, setSourceFilter] = React.useState<'all' | 'gbif' | 'nbdc' | 'protected'>(
     'all'
@@ -120,59 +104,40 @@ export function SpeciesRecordsSubStep({
     setMapReady(false)
   }, [showMap])
 
-  // Restore location data from savedFindings when cache is missing geometries
-  React.useEffect(() => {
-    if (searchResults.length === 0 || savedFindings.length === 0) return
-    const needsRestore = searchResults.some((r) => !r.location)
-    if (!needsRestore) return
-
-    setSearchResults((prev) =>
-      prev.map((result) => {
-        if (result.location) return result
-        const match = savedFindings.find((sf) => {
-          const rawData = sf.raw_data as Record<string, unknown>
-          return rawData?.scientificName === result.metadata?.scientificName
-        })
-        if (match?.location) {
-          return { ...result, location: match.location as GeoJSON.Geometry }
-        }
-        return result
-      })
-    )
-  }, [savedFindings]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Invalidate Leaflet map size when substep becomes visible again (after being hidden)
-  React.useEffect(() => {
-    if (isActive) {
-      const timer = setTimeout(() => {
-        window.dispatchEvent(new Event('resize'))
-      }, 100)
-      return () => clearTimeout(timer)
-    }
-  }, [isActive])
-
-  // Auto-search trigger from parent (Data Gathering step)
-  const autoSearchHandledRef = React.useRef(false)
-  React.useEffect(() => {
-    if (!autoSearchTrigger || autoSearchHandledRef.current) return
-    autoSearchHandledRef.current = true
-
-    // Skip if we already have cached results
-    if (searchResults.length > 0) {
-      onAutoSearchComplete?.('skipped')
-      return
-    }
-
-    // Skip if no boundary
-    if (!projectBoundary) {
-      onAutoSearchComplete?.('skipped')
-      return
-    }
-
-    performSearch()
-      .then(() => onAutoSearchComplete?.('done'))
-      .catch(() => onAutoSearchComplete?.('error'))
-  }, [autoSearchTrigger])
+  // Shared substep search logic (auto-search, visibility toggle, session cache, location restore)
+  const performSearchRef = React.useRef<(() => Promise<void>) | null>(null)
+  const MINIMAL_METADATA_KEYS = React.useMemo(() => ['scientificName', 'recordCount'], [])
+  const matchPredicate = React.useCallback((sf: DeskResearchFinding, result: FindingDisplay) => {
+    const rawData = sf.raw_data as Record<string, unknown>
+    return rawData?.scientificName === result.metadata?.scientificName
+  }, [])
+  const {
+    selectedFinding,
+    setSelectedFinding,
+    selectedBuffer,
+    setSelectedBuffer,
+    hiddenIds,
+    handleToggleVisibility,
+    savingIds,
+    setSavingIds,
+    showSavedOnMap,
+    setShowSavedOnMap,
+  } = useSubstepSearch(
+    {
+      searchResults,
+      setSearchResults,
+      cacheKey,
+      savedFindings,
+      autoSearchTrigger,
+      onAutoSearchComplete,
+      isActive,
+      projectBoundary,
+      performSearchRef,
+      matchPredicate,
+      minimalMetadataKeys: MINIMAL_METADATA_KEYS,
+    },
+    bufferDistances[0] || 2
+  )
 
   // Species Deep Research modal state
   const [speciesResearchOpen, setSpeciesResearchOpen] = React.useState(false)
@@ -181,74 +146,6 @@ export function SpeciesRecordsSubStep({
   const [speciesExistingAnalysis, setSpeciesExistingAnalysis] = React.useState<string | undefined>()
   // AI Summary batch state
   const [isSummarizing, setIsSummarizing] = React.useState(false)
-
-  // Toggle visibility of a finding on the map
-  const handleToggleVisibility = React.useCallback((findingId: string) => {
-    setHiddenIds((prev) => {
-      const newSet = new Set(prev)
-      if (newSet.has(findingId)) {
-        newSet.delete(findingId)
-      } else {
-        newSet.add(findingId)
-      }
-      return newSet
-    })
-  }, [])
-
-  // Save search results to sessionStorage (debounced to avoid thrashing during enrichment)
-  const cacheTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
-  React.useEffect(() => {
-    if (searchResults.length === 0) return
-
-    // Clear previous timer — only write cache after 1s of no changes
-    if (cacheTimerRef.current) clearTimeout(cacheTimerRef.current)
-    cacheTimerRef.current = setTimeout(() => {
-      try {
-        // Strip rawData and location to reduce storage size
-        const cacheableResults = searchResults.map(({ rawData, location, ...rest }) => ({
-          ...rest,
-          locationCenter: location
-            ? location.type === 'Point'
-              ? location.coordinates
-              : undefined
-            : undefined,
-        }))
-        sessionStorage.setItem(cacheKey, JSON.stringify(cacheableResults))
-      } catch (e) {
-        console.warn('Failed to cache species results:', e)
-        try {
-          const keysToRemove: string[] = []
-          for (let i = 0; i < sessionStorage.length; i++) {
-            const key = sessionStorage.key(i)
-            if (
-              key &&
-              (key.startsWith('npws-') || key.startsWith('gbif-') || key.startsWith('epa-'))
-            ) {
-              if (key !== cacheKey) keysToRemove.push(key)
-            }
-          }
-          keysToRemove.forEach((k) => sessionStorage.removeItem(k))
-          const minimalResults = searchResults.map(({ id, title, source, dataType, metadata }) => ({
-            id,
-            title,
-            source,
-            dataType,
-            metadata: {
-              scientificName: metadata?.scientificName,
-              recordCount: metadata?.recordCount,
-            },
-          }))
-          sessionStorage.setItem(cacheKey, JSON.stringify(minimalResults))
-        } catch {
-          // Give up caching
-        }
-      }
-    }, 1000)
-
-    return () => {
-      if (cacheTimerRef.current) clearTimeout(cacheTimerRef.current)
-    }
-  }, [searchResults, cacheKey])
 
   // Filter results based on source filter
   const filteredResults = React.useMemo(() => {
@@ -314,50 +211,6 @@ export function SpeciesRecordsSubStep({
     },
     [projectBoundary]
   )
-
-  // Get bounding box for search
-  const getBoundingBox = React.useCallback(() => {
-    if (!projectBoundary && !projectCenter) return null
-
-    if (projectBoundary) {
-      const coords = projectBoundary.geometry.coordinates[0]
-      let minLng = Infinity,
-        maxLng = -Infinity,
-        minLat = Infinity,
-        maxLat = -Infinity
-
-      for (const coord of coords) {
-        minLng = Math.min(minLng, coord[0])
-        maxLng = Math.max(maxLng, coord[0])
-        minLat = Math.min(minLat, coord[1])
-        maxLat = Math.max(maxLat, coord[1])
-      }
-
-      // 1 degree latitude ≈ 111km; longitude varies with cos(latitude)
-      const midLat = (minLat + maxLat) / 2
-      const latBuffer = selectedBuffer / 111
-      const lngBuffer = selectedBuffer / (111 * Math.cos((midLat * Math.PI) / 180))
-      return {
-        minLng: minLng - lngBuffer,
-        maxLng: maxLng + lngBuffer,
-        minLat: minLat - latBuffer,
-        maxLat: maxLat + latBuffer,
-      }
-    }
-
-    if (projectCenter) {
-      const latBuffer = selectedBuffer / 111
-      const lngBuffer = selectedBuffer / (111 * Math.cos((projectCenter.lat * Math.PI) / 180))
-      return {
-        minLng: projectCenter.lng - lngBuffer,
-        maxLng: projectCenter.lng + lngBuffer,
-        minLat: projectCenter.lat - latBuffer,
-        maxLat: projectCenter.lat + latBuffer,
-      }
-    }
-
-    return null
-  }, [projectBoundary, projectCenter, selectedBuffer])
 
   // Auto-enrich findings with NBDC data (called automatically after search)
   const autoEnrich = async (findings: FindingDisplay[]) => {
@@ -436,7 +289,7 @@ export function SpeciesRecordsSubStep({
 
   // Search GBIF only
   const performSearch = async () => {
-    const bbox = getBoundingBox()
+    const bbox = getBoundingBox(projectBoundary, projectCenter, selectedBuffer)
     if (!bbox) {
       toast({
         variant: 'destructive',
@@ -646,6 +499,9 @@ export function SpeciesRecordsSubStep({
     }
   }
 
+  // Assign ref so the hook can call performSearch
+  performSearchRef.current = performSearch
+
   // Handle saving a finding
   // Note: Check current saved state directly from savedFindings list
   const handleSaveFinding = async (finding: FindingDisplay) => {
@@ -802,9 +658,6 @@ export function SpeciesRecordsSubStep({
   const handleStopSummarize = () => {
     summarizeCancelRef.current = true
   }
-
-  // Saved filter for map sync
-  const [showSavedOnMap, setShowSavedOnMap] = React.useState(false)
 
   // Handle species deep research (enriched with FPO, Article 17, related sites)
   const handleSpeciesDeepResearch = async (finding: FindingDisplay) => {
