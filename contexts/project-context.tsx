@@ -2,7 +2,8 @@
 
 import * as React from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
-import { useProject, useWorkflowSteps, useProjectProgress } from '@/hooks/use-project-data'
+import { useProject } from '@/hooks/queries/use-project-hooks'
+import { useWorkflowSteps, useProjectProgress } from '@/hooks/queries/use-workflow-hooks'
 import type { Project, WorkflowStep } from '@/types/database'
 import { TOTAL_STEPS } from '@/lib/config/workflow'
 

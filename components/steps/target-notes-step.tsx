@@ -30,18 +30,20 @@ import { useToast } from '@/hooks/use-toast'
 import {
   useProjectObservations,
   useObservationStats,
-  useSurveys,
   useCreateObservation,
   useUpdateObservation,
   useDeleteObservation,
-  useCompleteWorkflowStep,
+} from '@/hooks/queries/use-observation-hooks'
+import { useSurveys } from '@/hooks/queries/use-survey-hooks'
+import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
+import {
   useTargetNotes,
   useTargetNotesStats,
   useCreateTargetNote,
   useUpdateTargetNote,
   useDeleteTargetNote,
   useVerifyTargetNote,
-} from '@/hooks/use-project-data'
+} from '@/hooks/queries/use-target-note-hooks'
 import {
   SpeciesObservationForm,
   type SpeciesObservation as ObservationFormType,

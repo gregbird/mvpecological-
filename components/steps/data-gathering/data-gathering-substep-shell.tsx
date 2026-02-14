@@ -1,0 +1,621 @@
+'use client'
+
+import * as React from 'react'
+import { Search, Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import dynamic from 'next/dynamic'
+
+import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { useToast } from '@/hooks/use-toast'
+import {
+  useCreateFinding,
+  useDeleteFinding,
+  useUpdateFinding,
+} from '@/hooks/queries/use-finding-hooks'
+import { FindingsList, type FindingDisplay } from './findings-list'
+import { getBoundingBox } from '@/lib/gis/bounding-box'
+import type { Project, DeskResearchFinding, Json } from '@/types/database'
+import { useSessionStorage } from '@/hooks/shared/use-session-storage'
+import { useSubstepSearch } from '@/hooks/shared/use-substep-search'
+import {
+  type FindingSource,
+  type FindingType,
+  type DeskResearchFinding as MapFinding,
+} from '@/components/desk-research/finding-card'
+import { MapCaptureButton } from '@/components/maps/map-capture-button'
+import type { MapStepName } from '@/lib/map-screenshots/types'
+
+// Dynamic import for map
+const ProjectMap = dynamic(
+  () => import('@/components/maps/project-map').then((mod) => mod.ProjectMap),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="bg-muted/50 flex h-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    ),
+  }
+)
+
+// ── Types ────────────────────────────────────────────────────────────────────
+
+export interface SubstepShellProps {
+  // Common props passed by parent
+  project: Project
+  projectBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
+  projectCenter?: { lat: number; lng: number }
+  bufferDistances: number[]
+  userId: string
+  savedFindings: DeskResearchFinding[]
+  showMap: boolean
+  onToggleMap: () => void
+  isActive?: boolean
+  autoSearchTrigger?: boolean
+  onAutoSearchComplete?: (status: 'done' | 'error' | 'skipped') => void
+
+  // Configuration
+  config: SubstepShellConfig
+
+  // Children: render prop for deep research modal
+  renderDeepResearchModal?: (props: {
+    searchResults: FindingDisplay[]
+    savedFindings: DeskResearchFinding[]
+  }) => React.ReactNode
+
+  // Optional extra content above FindingsList (e.g. enrichment progress)
+  renderExtraControls?: () => React.ReactNode
+}
+
+export interface SubstepShellConfig {
+  // Identity
+  title: string
+  titleIcon?: React.ReactNode
+  description: string
+  searchButtonLabel: string
+  searchButtonColor: string
+  emptyMessage: string
+  cacheKeyPrefix: string // e.g. 'npws', 'gbif', 'epa'
+  stepName: MapStepName // for MapCaptureButton
+
+  // Data source
+  source: string // 'npws' | 'gbif' | 'epa'
+
+  // Search
+  performSearch: (params: {
+    bbox: { minLat: number; maxLat: number; minLng: number; maxLng: number }
+    buffer: number
+    boundary?: GeoJSON.Feature<GeoJSON.Polygon>
+  }) => Promise<FindingDisplay[]>
+
+  // Matching (save/unsave)
+  matchPredicate: (saved: DeskResearchFinding, result: FindingDisplay) => boolean
+  minimalMetadataKeys: string[]
+
+  // Build the DB payload when saving a finding (varies per substep)
+  buildCreatePayload: (
+    finding: FindingDisplay,
+    context: { projectId: string; userId: string }
+  ) => Record<string, unknown>
+
+  // AI summary
+  aiSummaryEndpoint: string
+  buildAiSummaryBody: (finding: FindingDisplay) => Record<string, unknown>
+  /** Optional guard — if returns false, skip AI summary for this finding */
+  canFetchAiSummary?: (finding: FindingDisplay) => boolean
+  /** Optional filter for which findings to batch-summarize */
+  summarizeFilter?: (finding: FindingDisplay) => boolean
+
+  // Filtering (optional, for site-type filter)
+  filterConfig?: {
+    showSiteTypeFilter: boolean
+    siteTypeFilterOrder: string[]
+    siteTypeFilterConfig: Record<string, { active: string; inactive: string }>
+  }
+
+  // Extra FindingsList props
+  findingsListExtraProps?: Record<string, unknown>
+
+  // Post-search hook (e.g. NBDC enrichment)
+  onPostSearch?: (
+    findings: FindingDisplay[],
+    setResults: React.Dispatch<React.SetStateAction<FindingDisplay[]>>
+  ) => Promise<void>
+
+  // Deep research
+  onDeepResearch?: (finding: FindingDisplay, savedFindings: DeskResearchFinding[]) => void
+
+  // Extra search disabled condition
+  isSearchDisabled?: boolean
+
+  // Map findings customization
+  mapFindingsMapper?: (finding: FindingDisplay, savedFindings: DeskResearchFinding[]) => MapFinding
+  mapSelectedMapper?: (finding: FindingDisplay) => MapFinding
+  mapFindingsSavedFilter?: (
+    finding: FindingDisplay,
+    savedFindings: DeskResearchFinding[]
+  ) => boolean
+
+  // Site type filter state callback (for parent-level filter sync)
+  onSiteTypeFilterChange?: (siteType: string | null) => void
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
+
+export function DataGatheringSubstepShell({
+  project,
+  projectBoundary,
+  projectCenter,
+  bufferDistances,
+  userId,
+  savedFindings,
+  showMap,
+  onToggleMap,
+  isActive,
+  autoSearchTrigger,
+  onAutoSearchComplete,
+  config,
+  renderDeepResearchModal,
+  renderExtraControls,
+}: SubstepShellProps) {
+  const { toast } = useToast()
+  const createFinding = useCreateFinding()
+  const deleteFinding = useDeleteFinding()
+  const updateFinding = useUpdateFinding()
+
+  // Cache key for sessionStorage
+  const cacheKey = `${config.cacheKeyPrefix}-search-${project.id}`
+
+  const [isSearching, setIsSearching] = React.useState(false)
+  const [searchResults, setSearchResults] = useSessionStorage<FindingDisplay[]>(cacheKey, [])
+
+  // Map container ref for screenshot capture
+  const mapContainerRef = React.useRef<HTMLDivElement>(null)
+
+  // Site type filter for map sync
+  const [activeSiteTypeFilter, setActiveSiteTypeFilter] = React.useState<string | null>(null)
+
+  // Shared substep search logic
+  const performSearchRef = React.useRef<(() => Promise<void>) | null>(null)
+  const stableMinimalKeys = React.useMemo(
+    () => config.minimalMetadataKeys,
+    [config.minimalMetadataKeys.join(',')]
+  )
+  const stableMatchPredicate = React.useCallback(
+    (sf: DeskResearchFinding, result: FindingDisplay) => config.matchPredicate(sf, result),
+    [config.matchPredicate]
+  )
+  const {
+    selectedFinding,
+    setSelectedFinding,
+    selectedBuffer,
+    setSelectedBuffer,
+    hiddenIds,
+    handleToggleVisibility,
+    savingIds,
+    setSavingIds,
+    showSavedOnMap,
+    setShowSavedOnMap,
+  } = useSubstepSearch(
+    {
+      searchResults,
+      setSearchResults,
+      cacheKey,
+      savedFindings,
+      autoSearchTrigger,
+      onAutoSearchComplete,
+      isActive,
+      projectBoundary,
+      performSearchRef,
+      matchPredicate: stableMatchPredicate,
+      minimalMetadataKeys: stableMinimalKeys,
+    },
+    bufferDistances[0] || 2
+  )
+
+  // ── Perform search ──────────────────────────────────────────────────────
+  const performSearch = async () => {
+    const bbox = getBoundingBox(projectBoundary, projectCenter, selectedBuffer)
+    if (!bbox) {
+      toast({
+        variant: 'destructive',
+        title: 'No boundary',
+        description: 'Please define a project boundary first.',
+      })
+      return
+    }
+
+    setIsSearching(true)
+    setSearchResults([])
+
+    try {
+      const findings = await config.performSearch({
+        bbox: {
+          minLat: bbox.minLat,
+          maxLat: bbox.maxLat,
+          minLng: bbox.minLng,
+          maxLng: bbox.maxLng,
+        },
+        buffer: selectedBuffer,
+        boundary: projectBoundary,
+      })
+
+      setSearchResults(findings)
+
+      // Post-search hook (e.g. NBDC enrichment)
+      if (config.onPostSearch && findings.length > 0) {
+        config.onPostSearch(findings, setSearchResults)
+      }
+    } catch (error) {
+      console.error(`${config.cacheKeyPrefix} search error:`, error)
+      toast({
+        variant: 'destructive',
+        title: 'Search failed',
+        description: `Could not fetch data from ${config.searchButtonLabel.replace('Search ', '')}.`,
+      })
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
+  // Assign ref so the hook can call performSearch
+  performSearchRef.current = performSearch
+
+  // ── Handle save/unsave ──────────────────────────────────────────────────
+  const handleSaveFinding = async (finding: FindingDisplay) => {
+    setSavingIds((prev) => new Set(prev).add(finding.id))
+    try {
+      const isCurrentlySaved = savedFindings.some(
+        (f) => f.title === finding.title || f.id === finding.id
+      )
+
+      if (isCurrentlySaved) {
+        const existingFinding = savedFindings.find(
+          (f) => f.title === finding.title || f.id === finding.id
+        )
+        if (existingFinding) {
+          await deleteFinding.mutateAsync(existingFinding.id)
+        }
+      } else {
+        const payload = config.buildCreatePayload(finding, {
+          projectId: project.id,
+          userId,
+        })
+        await createFinding.mutateAsync(payload as Parameters<typeof createFinding.mutateAsync>[0])
+      }
+    } catch (error) {
+      console.error('Save finding error:', error)
+    } finally {
+      setSavingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(finding.id)
+        return next
+      })
+    }
+  }
+
+  // ── Handle AI summary ───────────────────────────────────────────────────
+  const handleFetchAiSummary = async (finding: FindingDisplay) => {
+    if (config.canFetchAiSummary && !config.canFetchAiSummary(finding)) return
+
+    // Set loading state
+    setSearchResults((prev) =>
+      prev.map((f) =>
+        f.id === finding.id ? { ...f, metadata: { ...f.metadata, aiSummaryLoading: true } } : f
+      )
+    )
+
+    try {
+      const response = await fetch(config.aiSummaryEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config.buildAiSummaryBody(finding)),
+      })
+
+      if (!response.ok) throw new Error('Failed to fetch summary')
+
+      const data = await response.json()
+
+      setSearchResults((prev) =>
+        prev.map((f) =>
+          f.id === finding.id
+            ? {
+                ...f,
+                metadata: {
+                  ...f.metadata,
+                  aiSummary: data.summary,
+                  aiSummaryLoading: false,
+                },
+              }
+            : f
+        )
+      )
+
+      // Persist AI summary to DB if finding is already saved
+      const existingSaved = savedFindings.find(
+        (f) => f.title === finding.title || f.id === finding.id
+      )
+      if (existingSaved) {
+        const existingRawData = (existingSaved.raw_data as Record<string, unknown>) || {}
+        const existingMetadata = (existingRawData.metadata as Record<string, unknown>) || {}
+        updateFinding
+          .mutateAsync({
+            findingId: existingSaved.id,
+            updates: {
+              raw_data: {
+                ...existingRawData,
+                metadata: { ...existingMetadata, aiSummary: data.summary },
+              } as unknown as Json,
+            },
+          })
+          .catch((err) => console.error('Failed to persist AI summary:', err))
+      }
+    } catch (error) {
+      console.error('AI summary error:', error)
+      setSearchResults((prev) =>
+        prev.map((f) =>
+          f.id === finding.id
+            ? {
+                ...f,
+                metadata: {
+                  ...f.metadata,
+                  aiSummary: 'Failed to generate summary. Try again later.',
+                  aiSummaryLoading: false,
+                },
+              }
+            : f
+        )
+      )
+    }
+  }
+
+  // ── Batch summarize ─────────────────────────────────────────────────────
+  const [isSummarizing, setIsSummarizing] = React.useState(false)
+  const summarizeCancelRef = React.useRef(false)
+
+  const handleSummarizeAll = async () => {
+    const filter =
+      config.summarizeFilter ||
+      ((f: FindingDisplay) => !f.metadata?.aiSummary && !f.metadata?.aiSummaryLoading)
+    const candidates = searchResults.filter(filter)
+    if (candidates.length === 0) return
+
+    summarizeCancelRef.current = false
+    setIsSummarizing(true)
+    for (const finding of candidates) {
+      if (summarizeCancelRef.current) break
+      await handleFetchAiSummary(finding)
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    }
+    setIsSummarizing(false)
+  }
+
+  const handleStopSummarize = () => {
+    summarizeCancelRef.current = true
+  }
+
+  // ── Deep research handler ───────────────────────────────────────────────
+  const handleDeepResearch = React.useCallback(
+    (finding: FindingDisplay) => {
+      config.onDeepResearch?.(finding, savedFindings)
+    },
+    [config, savedFindings]
+  )
+
+  // ── No boundary check ──────────────────────────────────────────────────
+  if (!projectBoundary) {
+    return (
+      <div className="flex h-full items-center justify-center p-8">
+        <Alert variant="destructive" className="max-w-md">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            No project boundary defined. Please complete Step 1 (GIS Mapping) first.
+          </AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
+
+  // ── Filter results for map ──────────────────────────────────────────────
+  const filteredResults = React.useMemo(() => {
+    if (!activeSiteTypeFilter) return searchResults
+    return searchResults.filter((f) => f.metadata?.siteType === activeSiteTypeFilter)
+  }, [searchResults, activeSiteTypeFilter])
+
+  // Default map findings mapper
+  const defaultMapFindingsMapper = (f: FindingDisplay): MapFinding => ({
+    id: f.id,
+    source: f.source as FindingSource,
+    dataType: f.dataType as FindingType,
+    title: f.title,
+    content: f.content,
+    location: f.location,
+    isSaved: savedFindings.some((sf) => sf.title === f.title || sf.id === f.id),
+  })
+
+  // Default saved filter
+  const defaultSavedFilter = (f: FindingDisplay) =>
+    savedFindings.some((sf) => sf.title === f.title || sf.id === f.id)
+
+  const mapFindingsMapper = config.mapFindingsMapper
+    ? (f: FindingDisplay) => config.mapFindingsMapper!(f, savedFindings)
+    : defaultMapFindingsMapper
+
+  const savedFilter = config.mapFindingsSavedFilter
+    ? (f: FindingDisplay) => config.mapFindingsSavedFilter!(f, savedFindings)
+    : defaultSavedFilter
+
+  const mapSelectedMapper = config.mapSelectedMapper
+    ? (f: FindingDisplay): MapFinding => config.mapSelectedMapper!(f)
+    : (f: FindingDisplay): MapFinding => ({
+        id: f.id,
+        source: f.source as FindingSource,
+        dataType: f.dataType as FindingType,
+        title: f.title,
+        content: f.content,
+        location: f.location,
+        isSaved: false,
+      })
+
+  // Handle site type filter change
+  const handleSiteTypeFilterChange = React.useCallback(
+    (siteType: string | null) => {
+      setActiveSiteTypeFilter(siteType)
+      config.onSiteTypeFilterChange?.(siteType)
+    },
+    [config]
+  )
+
+  // ── Render ──────────────────────────────────────────────────────────────
+  return (
+    <div className="flex h-full">
+      {/* Results Panel */}
+      <div className="flex w-[40%] shrink-0 flex-col border-r">
+        {/* Search Controls */}
+        <div className="border-b p-4">
+          <h3 className="mb-3 flex items-center gap-2 font-semibold">
+            {config.titleIcon}
+            {config.title}
+          </h3>
+          <p className="text-muted-foreground mb-4 text-sm">{config.description}</p>
+
+          <div className="flex items-center gap-2">
+            <Select
+              value={selectedBuffer.toString()}
+              onValueChange={(v) => setSelectedBuffer(parseFloat(v))}
+            >
+              <SelectTrigger className="w-30">
+                <SelectValue placeholder="Buffer" />
+              </SelectTrigger>
+              <SelectContent>
+                {(bufferDistances.length > 0 ? bufferDistances : [2, 5]).map((d) => (
+                  <SelectItem key={d} value={d.toString()}>
+                    {d} km buffer
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Button
+              variant="outline"
+              onClick={performSearch}
+              disabled={isSearching || config.isSearchDisabled}
+              className={`flex-1 ${config.searchButtonColor}`}
+            >
+              {isSearching ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Searching...
+                </>
+              ) : (
+                <>
+                  <Search className="mr-2 h-4 w-4" />
+                  {config.searchButtonLabel}
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {/* Optional extra controls (e.g. enrichment progress) */}
+        {renderExtraControls?.()}
+
+        {/* Results List */}
+        <div className="flex-1 overflow-hidden">
+          <FindingsList
+            findings={config.filterConfig ? filteredResults : searchResults}
+            savedFindings={savedFindings}
+            isLoading={isSearching}
+            onSave={handleSaveFinding}
+            onViewOnMap={(f) => setSelectedFinding(f)}
+            onDeepResearch={config.onDeepResearch ? handleDeepResearch : undefined}
+            onFetchAiSummary={handleFetchAiSummary}
+            emptyMessage={config.emptyMessage}
+            hiddenIds={hiddenIds}
+            onToggleVisibility={handleToggleVisibility}
+            savingIds={savingIds}
+            selectedFindingId={selectedFinding?.id}
+            onSavedFilterChange={setShowSavedOnMap}
+            onSummarizeAll={isSummarizing ? handleStopSummarize : handleSummarizeAll}
+            isSummarizing={isSummarizing}
+            // Site type filter props
+            {...(config.filterConfig
+              ? {
+                  showSiteTypeFilter: config.filterConfig.showSiteTypeFilter,
+                  siteTypeFilterOrder: config.filterConfig.siteTypeFilterOrder,
+                  siteTypeFilterConfig: config.filterConfig.siteTypeFilterConfig,
+                  onSiteTypeFilterChange: handleSiteTypeFilterChange,
+                }
+              : {})}
+            // Extra props (e.g. species header, enrichment, source filter)
+            {...(config.findingsListExtraProps || {})}
+          />
+        </div>
+      </div>
+
+      {/* Map */}
+      {showMap && (
+        <div className="relative flex-1" ref={mapContainerRef}>
+          <ProjectMap
+            className="h-full"
+            center={projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]}
+            zoom={11}
+            boundary={projectBoundary}
+            bufferDistances={bufferDistances}
+            findings={(config.filterConfig ? filteredResults : searchResults)
+              .filter((f) => !hiddenIds.has(f.id))
+              .filter((f) => !showSavedOnMap || savedFilter(f))
+              .map(mapFindingsMapper)}
+            selectedFinding={selectedFinding ? mapSelectedMapper(selectedFinding) : undefined}
+            onFindingClick={(f) => {
+              const found = searchResults.find((r) => r.id === f.id) || null
+              setSelectedFinding((prev) => (prev?.id === f.id ? null : found))
+              document
+                .getElementById(`finding-${f.id}`)
+                ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            }}
+            onMapClick={() => setSelectedFinding(null)}
+          />
+
+          <Button
+            variant="secondary"
+            size="sm"
+            className="absolute top-4 right-4 z-1000"
+            onClick={onToggleMap}
+            data-map-control="true"
+          >
+            <EyeOff className="mr-1 h-4 w-4" />
+            Hide Map
+          </Button>
+
+          <MapCaptureButton
+            containerRef={mapContainerRef}
+            projectId={project.id}
+            stepName={config.stepName}
+            userId={userId}
+            className="absolute top-14 right-4 z-1000 shadow-md"
+          />
+        </div>
+      )}
+
+      {!showMap && (
+        <div className="flex flex-1 items-center justify-center bg-gray-50">
+          <Button variant="outline" onClick={onToggleMap}>
+            <Eye className="mr-2 h-4 w-4" />
+            Show Map
+          </Button>
+        </div>
+      )}
+
+      {/* Deep Research Modal (render prop) */}
+      {renderDeepResearchModal?.({ searchResults, savedFindings })}
+    </div>
+  )
+}

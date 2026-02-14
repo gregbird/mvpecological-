@@ -2,7 +2,6 @@
 
 import * as React from 'react'
 import {
-  ExternalLink,
   Droplets,
   Fish,
   Leaf,
@@ -25,22 +24,12 @@ import {
   Shield,
 } from 'lucide-react'
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
-import { useWaterBodyResearch } from '@/hooks/use-project-data'
+import { useWaterBodyResearch } from '@/hooks/queries/use-deep-research-hooks'
 import { saveAquaticResearch } from '@/lib/supabase/queries/aquatic-research'
+import { DeepResearchShell, AiAnalysisCard, ResourceLinkCard } from './deep-research-shell'
 
 export interface AquaticDeepResearchSite {
   waterBodyName: string
@@ -299,920 +288,690 @@ export function AquaticDeepResearchModal({
   const WaterBodyIcon = WATER_BODY_ICONS[site.waterBodyType] || Droplets
   const bestMatch = result?.linkedSACs?.[0]
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] max-w-2xl">
-        <DialogHeader>
-          <div className="flex items-start gap-3">
-            <div className="rounded-lg bg-cyan-100 p-2">
-              <WaterBodyIcon className="h-5 w-5 text-cyan-600" />
+  // --- Tab content ---
+
+  const overviewTab = (
+    <>
+      {/* Quick Stats */}
+      <div className="grid grid-cols-3 gap-3">
+        <Card>
+          <CardContent className="pt-4">
+            <div className="text-2xl font-bold text-cyan-600">{site.waterBodyType}</div>
+            <p className="text-muted-foreground text-xs">Type</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="text-2xl font-bold text-blue-600">{site.wfdStatus || '—'}</div>
+            <p className="text-muted-foreground text-xs">WFD Status</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="text-2xl font-bold text-emerald-600">
+              {site.lengthKm
+                ? `${site.lengthKm.toFixed(1)} km`
+                : site.areaHa
+                  ? `${site.areaHa.toFixed(0)} ha`
+                  : '—'}
             </div>
-            <div className="flex-1">
-              <DialogTitle className="text-lg">{site.waterBodyName}</DialogTitle>
-              <DialogDescription asChild>
-                <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <Badge variant="outline" className="text-xs">
-                    {site.waterBodyType}
-                  </Badge>
-                  {site.waterBodyCode && (
-                    <span className="text-muted-foreground text-xs">
-                      Code: {site.waterBodyCode}
-                    </span>
-                  )}
-                  {site.wfdStatus && (
+            <p className="text-muted-foreground text-xs">
+              {site.lengthKm ? 'Length' : site.areaHa ? 'Area' : 'Size'}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Water Body Details */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Water Body Details</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <span className="text-muted-foreground text-xs">Name:</span>
+              <p className="font-medium">{site.waterBodyName}</p>
+            </div>
+            {site.catchmentName && (
+              <div>
+                <span className="text-muted-foreground text-xs">Catchment:</span>
+                <p className="font-medium">{site.catchmentName}</p>
+              </div>
+            )}
+            {site.waterBodyCode && (
+              <div>
+                <span className="text-muted-foreground text-xs">EPA Code:</span>
+                <p className="font-medium">{site.waterBodyCode}</p>
+              </div>
+            )}
+            {site.lengthKm && (
+              <div>
+                <span className="text-muted-foreground text-xs">Length:</span>
+                <p className="font-medium">{site.lengthKm.toFixed(1)} km</p>
+              </div>
+            )}
+            {site.areaHa && (
+              <div>
+                <span className="text-muted-foreground text-xs">Area:</span>
+                <p className="font-medium">{site.areaHa.toFixed(1)} ha</p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Linked SAC Preview */}
+      {bestMatch && (
+        <Card className="border-cyan-200 bg-cyan-50/50">
+          <CardContent className="flex items-start gap-2 pt-4">
+            <Link2 className="h-4 w-4 shrink-0 text-cyan-600" />
+            <div className="text-sm">
+              <p className="font-medium text-cyan-700">{bestMatch.siteName}</p>
+              <p className="text-muted-foreground text-xs">
+                {bestMatch.siteCode} • Match: {bestMatch.matchScore}%
+                {bestMatch.aquaticSpecies.length > 0 &&
+                  ` • ${bestMatch.aquaticSpecies.length} aquatic species`}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {!bestMatch && !isLoading && result && (
+        <Card className="border-amber-200 bg-amber-50/50">
+          <CardContent className="flex items-start gap-2 pt-4">
+            <Info className="h-4 w-4 shrink-0 text-amber-600" />
+            <div className="text-sm">
+              <p className="font-medium text-amber-700">No Linked SAC Found</p>
+              <p className="text-muted-foreground">
+                This water body is not directly linked to a known Natura 2000 SAC. It may still
+                support protected species or connect downstream.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* WFD Note */}
+      <Card className="border-amber-200 bg-amber-50">
+        <CardContent className="pt-4">
+          <div className="flex gap-3">
+            <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
+            <div>
+              <p className="text-sm font-medium text-amber-800">Water Framework Directive</p>
+              <p className="mt-1 text-xs text-amber-700">
+                Under the WFD, developments must not cause deterioration of water body status.
+                Projects near watercourses should include Construction Environmental Management
+                Plans (CEMP) with pollution prevention measures.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </>
+  )
+
+  const wfdTab = (
+    <>
+      {result?.wfdData ? (
+        <>
+          {/* Current Status & Risk */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <Activity className="h-4 w-4 text-blue-500" />
+                WFD Assessment
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-4">
+                <div>
+                  <span className="text-muted-foreground text-xs">Current Status</span>
+                  <div className="flex items-center gap-2">
+                    <Badge className={WFD_STATUS_COLORS[result.wfdData.currentStatus || ''] || ''}>
+                      {result.wfdData.currentStatus || 'Not Assessed'}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground text-xs">Risk Level</span>
+                  <div className="flex items-center gap-2">
                     <Badge
                       variant="outline"
-                      className={`text-xs ${WFD_STATUS_COLORS[site.wfdStatus] || ''}`}
+                      className={
+                        result.wfdData.risk === 'At risk'
+                          ? 'border-red-300 bg-red-50 text-red-700'
+                          : result.wfdData.risk === 'Not at risk'
+                            ? 'border-green-300 bg-green-50 text-green-700'
+                            : ''
+                      }
                     >
-                      WFD: {site.wfdStatus}
+                      {result.wfdData.risk === 'At risk' && (
+                        <AlertCircle className="mr-1 h-3 w-3" />
+                      )}
+                      {result.wfdData.risk || 'Unknown'}
                     </Badge>
-                  )}
-                  {site.distance !== undefined && (
-                    <Badge variant="secondary" className="text-xs">
-                      <MapPin className="mr-1 h-3 w-3" />
-                      {site.distance === 0 ? 'Within boundary' : `${site.distance.toFixed(1)} km`}
-                    </Badge>
-                  )}
+                  </div>
                 </div>
-              </DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
-
-        <ScrollArea className="max-h-[60vh] pr-4">
-          <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-5 text-xs">
-              <TabsTrigger value="overview" className="px-2 text-xs">
-                Overview
-              </TabsTrigger>
-              <TabsTrigger value="wfd" className="px-2 text-xs">
-                <Activity className="mr-1 h-3 w-3" />
-                WFD
-              </TabsTrigger>
-              <TabsTrigger value="ai" className="px-2 text-xs">
-                <Sparkles className="mr-1 h-3 w-3" />
-                AI
-              </TabsTrigger>
-              <TabsTrigger value="sac" className="px-2 text-xs">
-                <Link2 className="mr-1 h-3 w-3" />
-                SAC
-              </TabsTrigger>
-              <TabsTrigger value="resources" className="px-2 text-xs">
-                Links
-              </TabsTrigger>
-            </TabsList>
-
-            {/* Overview Tab */}
-            <TabsContent value="overview" className="mt-4 space-y-4">
-              {/* Quick Stats */}
-              <div className="grid grid-cols-3 gap-3">
-                <Card>
-                  <CardContent className="pt-4">
-                    <div className="text-2xl font-bold text-cyan-600">{site.waterBodyType}</div>
-                    <p className="text-muted-foreground text-xs">Type</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="pt-4">
-                    <div className="text-2xl font-bold text-blue-600">{site.wfdStatus || '—'}</div>
-                    <p className="text-muted-foreground text-xs">WFD Status</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="pt-4">
-                    <div className="text-2xl font-bold text-emerald-600">
-                      {site.lengthKm
-                        ? `${site.lengthKm.toFixed(1)} km`
-                        : site.areaHa
-                          ? `${site.areaHa.toFixed(0)} ha`
-                          : '—'}
-                    </div>
-                    <p className="text-muted-foreground text-xs">
-                      {site.lengthKm ? 'Length' : site.areaHa ? 'Area' : 'Size'}
-                    </p>
-                  </CardContent>
-                </Card>
               </div>
 
-              {/* Water Body Details */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Water Body Details</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <span className="text-muted-foreground text-xs">Name:</span>
-                      <p className="font-medium">{site.waterBodyName}</p>
-                    </div>
-                    {site.catchmentName && (
-                      <div>
-                        <span className="text-muted-foreground text-xs">Catchment:</span>
-                        <p className="font-medium">{site.catchmentName}</p>
-                      </div>
-                    )}
-                    {site.waterBodyCode && (
-                      <div>
-                        <span className="text-muted-foreground text-xs">EPA Code:</span>
-                        <p className="font-medium">{site.waterBodyCode}</p>
-                      </div>
-                    )}
-                    {site.lengthKm && (
-                      <div>
-                        <span className="text-muted-foreground text-xs">Length:</span>
-                        <p className="font-medium">{site.lengthKm.toFixed(1)} km</p>
-                      </div>
-                    )}
-                    {site.areaHa && (
-                      <div>
-                        <span className="text-muted-foreground text-xs">Area:</span>
-                        <p className="font-medium">{site.areaHa.toFixed(1)} ha</p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Linked SAC Preview */}
-              {bestMatch && (
-                <Card className="border-cyan-200 bg-cyan-50/50">
-                  <CardContent className="flex items-start gap-2 pt-4">
-                    <Link2 className="h-4 w-4 shrink-0 text-cyan-600" />
-                    <div className="text-sm">
-                      <p className="font-medium text-cyan-700">{bestMatch.siteName}</p>
-                      <p className="text-muted-foreground text-xs">
-                        {bestMatch.siteCode} • Match: {bestMatch.matchScore}%
-                        {bestMatch.aquaticSpecies.length > 0 &&
-                          ` • ${bestMatch.aquaticSpecies.length} aquatic species`}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
+              {result.wfdData.catchmentName && (
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Catchment: </span>
+                  <span className="font-medium">{result.wfdData.catchmentName}</span>
+                  {result.wfdData.subCatchmentName && (
+                    <span className="text-muted-foreground">
+                      {' '}
+                      / {result.wfdData.subCatchmentName}
+                    </span>
+                  )}
+                </div>
               )}
+            </CardContent>
+          </Card>
 
-              {!bestMatch && !isLoading && result && (
-                <Card className="border-amber-200 bg-amber-50/50">
-                  <CardContent className="flex items-start gap-2 pt-4">
-                    <Info className="h-4 w-4 shrink-0 text-amber-600" />
-                    <div className="text-sm">
-                      <p className="font-medium text-amber-700">No Linked SAC Found</p>
-                      <p className="text-muted-foreground">
-                        This water body is not directly linked to a known Natura 2000 SAC. It may
-                        still support protected species or connect downstream.
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* WFD Note */}
-              <Card className="border-amber-200 bg-amber-50">
-                <CardContent className="pt-4">
-                  <div className="flex gap-3">
-                    <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
-                    <div>
-                      <p className="text-sm font-medium text-amber-800">
-                        Water Framework Directive
-                      </p>
-                      <p className="mt-1 text-xs text-amber-700">
-                        Under the WFD, developments must not cause deterioration of water body
-                        status. Projects near watercourses should include Construction Environmental
-                        Management Plans (CEMP) with pollution prevention measures.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* WFD Data Tab */}
-            <TabsContent value="wfd" className="mt-4 space-y-4">
-              {result?.wfdData ? (
-                <>
-                  {/* Current Status & Risk */}
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="flex items-center gap-2 text-sm">
-                        <Activity className="h-4 w-4 text-blue-500" />
-                        WFD Assessment
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex items-center gap-4">
-                        <div>
-                          <span className="text-muted-foreground text-xs">Current Status</span>
-                          <div className="flex items-center gap-2">
-                            <Badge
-                              className={
-                                WFD_STATUS_COLORS[result.wfdData.currentStatus || ''] || ''
-                              }
-                            >
-                              {result.wfdData.currentStatus || 'Not Assessed'}
-                            </Badge>
-                          </div>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground text-xs">Risk Level</span>
-                          <div className="flex items-center gap-2">
-                            <Badge
-                              variant="outline"
-                              className={
-                                result.wfdData.risk === 'At risk'
-                                  ? 'border-red-300 bg-red-50 text-red-700'
-                                  : result.wfdData.risk === 'Not at risk'
-                                    ? 'border-green-300 bg-green-50 text-green-700'
-                                    : ''
-                              }
-                            >
-                              {result.wfdData.risk === 'At risk' && (
-                                <AlertCircle className="mr-1 h-3 w-3" />
-                              )}
-                              {result.wfdData.risk || 'Unknown'}
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
-
-                      {result.wfdData.catchmentName && (
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">Catchment: </span>
-                          <span className="font-medium">{result.wfdData.catchmentName}</span>
-                          {result.wfdData.subCatchmentName && (
-                            <span className="text-muted-foreground">
-                              {' '}
-                              / {result.wfdData.subCatchmentName}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  {/* Status History */}
-                  {result.wfdData.statusHistory.length > 0 && (
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="flex items-center gap-2 text-sm">
-                          <Clock className="h-4 w-4 text-gray-500" />
-                          Status History
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2">
-                          {result.wfdData.statusHistory.slice(0, 5).map((h, idx) => (
-                            <div
-                              key={idx}
-                              className="flex items-start justify-between rounded border px-3 py-2 text-sm"
-                            >
-                              <div>
-                                <span className="font-medium">{h.period}</span>
-                                {h.details.length > 0 && (
-                                  <p className="text-muted-foreground mt-1 text-xs">
-                                    {h.details.join(' • ')}
-                                  </p>
-                                )}
-                              </div>
-                              <Badge className={WFD_STATUS_COLORS[h.status] || ''}>
-                                {h.status}
-                              </Badge>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  {/* Trends */}
-                  {result.wfdData.trends.length > 0 && (
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="flex items-center gap-2 text-sm">
-                          <TrendingUp className="h-4 w-4 text-amber-500" />
-                          Water Quality Trends
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2">
-                          {result.wfdData.trends.map((t, idx) => {
-                            const isUpward = t.TrendDesc.toLowerCase().includes('upward')
-                            const isDownward = t.TrendDesc.toLowerCase().includes('downward')
-                            const TrendIcon = isUpward
-                              ? TrendingUp
-                              : isDownward
-                                ? TrendingDown
-                                : Minus
-
-                            return (
-                              <div
-                                key={idx}
-                                className="flex items-center justify-between rounded bg-gray-50 px-3 py-2 text-sm"
-                              >
-                                <span className="font-medium">{t.ParameterName}</span>
-                                <div className="flex items-center gap-1">
-                                  <TrendIcon
-                                    className={`h-4 w-4 ${
-                                      isUpward
-                                        ? 'text-red-500'
-                                        : isDownward
-                                          ? 'text-green-500'
-                                          : 'text-gray-500'
-                                    }`}
-                                  />
-                                  <span
-                                    className={
-                                      isUpward
-                                        ? 'text-red-600'
-                                        : isDownward
-                                          ? 'text-green-600'
-                                          : 'text-gray-600'
-                                    }
-                                  >
-                                    {t.TrendDesc}
-                                  </span>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                        <p className="text-muted-foreground mt-2 text-xs">
-                          Note: Upward trends for pollutants indicate degrading conditions.
-                        </p>
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  {/* Failures */}
-                  {result.wfdData.failures.length > 0 && (
-                    <Card className="border-red-200 bg-red-50/30">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="flex items-center gap-2 text-sm text-red-700">
-                          <AlertTriangle className="h-4 w-4" />
-                          Environmental Failures
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-1">
-                          {result.wfdData.failures.map((f, idx) => (
-                            <div
-                              key={idx}
-                              className="flex items-center gap-2 rounded bg-red-100 px-3 py-2 text-sm text-red-700"
-                            >
-                              <AlertCircle className="h-4 w-4 shrink-0" />
-                              {f.Name}
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  {/* Connectivity */}
-                  {result.wfdData.connectivity.length > 0 && (
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="flex items-center gap-2 text-sm">
-                          <ArrowRight className="h-4 w-4 text-cyan-500" />
-                          Hydrological Connectivity
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <h4 className="mb-2 text-sm font-medium text-gray-600">
-                              Upstream (Input)
-                            </h4>
-                            <div className="space-y-1">
-                              {result.wfdData.connectivity
-                                .filter((c) => c.Direction === 'Input')
-                                .map((c, idx) => (
-                                  <div
-                                    key={idx}
-                                    className="rounded bg-blue-50 px-2 py-1 text-sm text-blue-700"
-                                  >
-                                    {c.Name}
-                                  </div>
-                                ))}
-                              {result.wfdData.connectivity.filter((c) => c.Direction === 'Input')
-                                .length === 0 && (
-                                <p className="text-muted-foreground text-sm">None recorded</p>
-                              )}
-                            </div>
-                          </div>
-                          <div>
-                            <h4 className="mb-2 text-sm font-medium text-gray-600">
-                              Downstream (Output)
-                            </h4>
-                            <div className="space-y-1">
-                              {result.wfdData.connectivity
-                                .filter((c) => c.Direction === 'Output')
-                                .map((c, idx) => (
-                                  <div
-                                    key={idx}
-                                    className="rounded bg-green-50 px-2 py-1 text-sm text-green-700"
-                                  >
-                                    {c.Name}
-                                  </div>
-                                ))}
-                              {result.wfdData.connectivity.filter((c) => c.Direction === 'Output')
-                                .length === 0 && (
-                                <p className="text-muted-foreground text-sm">None recorded</p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-                </>
-              ) : isLoading ? (
-                <Card>
-                  <CardContent className="pt-6 text-center">
-                    <Loader2 className="mx-auto mb-3 h-10 w-10 animate-spin text-blue-400" />
-                    <p className="text-sm font-medium">Fetching WFD data from Catchments.ie...</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card className="border-amber-200 bg-amber-50/50">
-                  <CardContent className="flex items-start gap-2 pt-4">
-                    <Info className="h-4 w-4 shrink-0 text-amber-600" />
-                    <div className="text-sm">
-                      <p className="font-medium text-amber-700">No WFD Data Available</p>
-                      <p className="text-muted-foreground">
-                        {result
-                          ? 'Detailed WFD data was not available from Catchments.ie for this water body.'
-                          : 'WFD data will be fetched when research completes.'}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
-
-            {/* AI Analysis Tab */}
-            <TabsContent value="ai" className="mt-4 space-y-4">
-              {result?.summary ? (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center gap-2 text-sm">
-                      <Sparkles className="h-4 w-4 text-purple-600" />
-                      AI Ecological Analysis
-                      {bestMatch && (
-                        <Badge
-                          variant="outline"
-                          className="border-cyan-300 text-[10px] text-cyan-700"
-                        >
-                          SAC linked
-                        </Badge>
-                      )}
-                      {result.wfdData && (
-                        <Badge
-                          variant="outline"
-                          className="border-blue-300 text-[10px] text-blue-700"
-                        >
-                          WFD enriched
-                        </Badge>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="ml-auto h-6 px-2 text-[10px] text-purple-600 hover:text-purple-700"
-                        onClick={() => {
-                          setResult(null)
-                          setIsSaved(false)
-                          fetchResearch()
-                        }}
-                        disabled={isLoading}
-                      >
-                        {isLoading ? (
-                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                        ) : (
-                          <Sparkles className="mr-1 h-3 w-3" />
-                        )}
-                        Regenerate
-                      </Button>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="prose prose-sm max-w-none">
-                      {result.summary.split('\n').map((paragraph, idx) => {
-                        if (paragraph.startsWith('**') && paragraph.endsWith('**')) {
-                          return (
-                            <h4 key={idx} className="mt-3 mb-1 text-sm font-semibold">
-                              {paragraph.replace(/\*\*/g, '')}
-                            </h4>
-                          )
-                        }
-                        if (paragraph.startsWith('**')) {
-                          const parts = paragraph.split('**')
-                          return (
-                            <div key={idx} className="mt-3">
-                              <h4 className="mb-1 text-sm font-semibold">{parts[1]}</h4>
-                              {parts[2] && (
-                                <p className="text-muted-foreground text-xs">{parts[2]}</p>
-                              )}
-                            </div>
-                          )
-                        }
-                        if (paragraph.trim()) {
-                          return (
-                            <p
-                              key={idx}
-                              className="text-muted-foreground mb-2 text-xs leading-relaxed"
-                            >
-                              {paragraph}
-                            </p>
-                          )
-                        }
-                        return <div key={idx} className="h-1" />
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : aiError ? (
-                <Card className="border-red-200 bg-red-50">
-                  <CardContent className="pt-4">
-                    <div className="flex items-center gap-2 text-sm text-red-700">
-                      <AlertTriangle className="h-4 w-4" />
-                      {aiError}
-                    </div>
-                    <Button size="sm" variant="outline" className="mt-2" onClick={fetchResearch}>
-                      Try Again
-                    </Button>
-                  </CardContent>
-                </Card>
-              ) : isLoading ? (
-                <Card>
-                  <CardContent className="pt-6 text-center">
-                    <Loader2 className="mx-auto mb-3 h-10 w-10 animate-spin text-purple-400" />
-                    <p className="text-sm font-medium">Generating Ecological Analysis...</p>
-                    <p className="text-muted-foreground mt-1 text-xs">
-                      Analysing WFD data, SAC connections, and ecological significance.
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card>
-                  <CardContent className="pt-6 text-center">
-                    <Sparkles className="mx-auto mb-3 h-10 w-10 text-purple-300" />
-                    <p className="text-sm font-medium">AI-Powered Aquatic Analysis</p>
-                    <p className="text-muted-foreground mt-1 text-xs">
-                      Generates a detailed ecological report including WFD assessment, SAC
-                      connections, and development implications.
-                    </p>
-                    <Button
-                      className="mt-4 bg-purple-600 hover:bg-purple-700"
-                      size="sm"
-                      onClick={fetchResearch}
-                      disabled={isLoading}
+          {/* Status History */}
+          {result.wfdData.statusHistory.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <Clock className="h-4 w-4 text-gray-500" />
+                  Status History
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {result.wfdData.statusHistory.slice(0, 5).map((h, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-start justify-between rounded border px-3 py-2 text-sm"
                     >
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      Generate AI Analysis
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
+                      <div>
+                        <span className="font-medium">{h.period}</span>
+                        {h.details.length > 0 && (
+                          <p className="text-muted-foreground mt-1 text-xs">
+                            {h.details.join(' • ')}
+                          </p>
+                        )}
+                      </div>
+                      <Badge className={WFD_STATUS_COLORS[h.status] || ''}>{h.status}</Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
-              {/* Data sources info */}
-              <Card className="bg-gray-50">
-                <CardContent className="pt-3 pb-3">
-                  <p className="text-muted-foreground text-[10px] font-medium">Data Sources:</p>
-                  <ul className="text-muted-foreground mt-1 space-y-0.5 text-[10px]">
-                    <li>
-                      {result?.wfdData ? '✓ Catchments.ie WFD data' : '○ Catchments.ie WFD data'}
-                    </li>
-                    <li>{bestMatch ? `✓ Linked SAC: ${bestMatch.siteName}` : '○ SAC matching'}</li>
-                    <li>✓ EPA Water Quality data</li>
-                  </ul>
-                </CardContent>
-              </Card>
-            </TabsContent>
+          {/* Trends */}
+          {result.wfdData.trends.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <TrendingUp className="h-4 w-4 text-amber-500" />
+                  Water Quality Trends
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {result.wfdData.trends.map((t, idx) => {
+                    const isUpward = t.TrendDesc.toLowerCase().includes('upward')
+                    const isDownward = t.TrendDesc.toLowerCase().includes('downward')
+                    const WfdTrendIcon = isUpward ? TrendingUp : isDownward ? TrendingDown : Minus
 
-            {/* Linked SAC Tab */}
-            <TabsContent value="sac" className="mt-4 space-y-4">
-              {bestMatch ? (
-                <>
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm">{bestMatch.siteName}</CardTitle>
-                      <p className="text-muted-foreground text-xs">
-                        Site Code: {bestMatch.siteCode}
-                        {bestMatch.siteArea && ` • Area: ${bestMatch.siteArea.toFixed(0)} ha`}
-                      </p>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {/* Aquatic Species */}
-                      {bestMatch.aquaticSpecies.length > 0 && (
-                        <div>
-                          <h4 className="mb-2 flex items-center gap-1 text-xs font-medium">
-                            <Fish className="h-4 w-4 text-cyan-600" />
-                            Annex II Aquatic Species (Qualifying Interests)
-                          </h4>
-                          <div className="space-y-1">
-                            {bestMatch.aquaticSpecies.map((s) => (
-                              <div
-                                key={s.code}
-                                className="flex items-center justify-between rounded bg-cyan-50 px-2 py-1 text-sm"
-                              >
-                                <span className="font-medium">{s.commonName}</span>
-                                <span className="text-muted-foreground text-xs italic">
-                                  {s.name} [{s.code}]
-                                </span>
-                              </div>
-                            ))}
+                    return (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between rounded bg-gray-50 px-3 py-2 text-sm"
+                      >
+                        <span className="font-medium">{t.ParameterName}</span>
+                        <div className="flex items-center gap-1">
+                          <WfdTrendIcon
+                            className={`h-4 w-4 ${
+                              isUpward
+                                ? 'text-red-500'
+                                : isDownward
+                                  ? 'text-green-500'
+                                  : 'text-gray-500'
+                            }`}
+                          />
+                          <span
+                            className={
+                              isUpward
+                                ? 'text-red-600'
+                                : isDownward
+                                  ? 'text-green-600'
+                                  : 'text-gray-600'
+                            }
+                          >
+                            {t.TrendDesc}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                <p className="text-muted-foreground mt-2 text-xs">
+                  Note: Upward trends for pollutants indicate degrading conditions.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Failures */}
+          {result.wfdData.failures.length > 0 && (
+            <Card className="border-red-200 bg-red-50/30">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm text-red-700">
+                  <AlertTriangle className="h-4 w-4" />
+                  Environmental Failures
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-1">
+                  {result.wfdData.failures.map((f, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-2 rounded bg-red-100 px-3 py-2 text-sm text-red-700"
+                    >
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      {f.Name}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Connectivity */}
+          {result.wfdData.connectivity.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <ArrowRight className="h-4 w-4 text-cyan-500" />
+                  Hydrological Connectivity
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="mb-2 text-sm font-medium text-gray-600">Upstream (Input)</h4>
+                    <div className="space-y-1">
+                      {result.wfdData.connectivity
+                        .filter((c) => c.Direction === 'Input')
+                        .map((c, idx) => (
+                          <div
+                            key={idx}
+                            className="rounded bg-blue-50 px-2 py-1 text-sm text-blue-700"
+                          >
+                            {c.Name}
                           </div>
-                        </div>
-                      )}
-
-                      {/* Aquatic Habitats */}
-                      {bestMatch.aquaticHabitats.length > 0 && (
-                        <div>
-                          <h4 className="mb-2 flex items-center gap-1 text-xs font-medium">
-                            <Leaf className="h-4 w-4 text-green-600" />
-                            Annex I Aquatic Habitats
-                          </h4>
-                          <div className="space-y-1">
-                            {bestMatch.aquaticHabitats.map((h) => (
-                              <div key={h.code} className="rounded bg-green-50 px-2 py-1 text-sm">
-                                <span className="font-medium">[{h.code}]</span>{' '}
-                                <span>{h.name}</span>
-                              </div>
-                            ))}
+                        ))}
+                      {result.wfdData.connectivity.filter((c) => c.Direction === 'Input').length ===
+                        0 && <p className="text-muted-foreground text-sm">None recorded</p>}
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="mb-2 text-sm font-medium text-gray-600">Downstream (Output)</h4>
+                    <div className="space-y-1">
+                      {result.wfdData.connectivity
+                        .filter((c) => c.Direction === 'Output')
+                        .map((c, idx) => (
+                          <div
+                            key={idx}
+                            className="rounded bg-green-50 px-2 py-1 text-sm text-green-700"
+                          >
+                            {c.Name}
                           </div>
-                        </div>
+                        ))}
+                      {result.wfdData.connectivity.filter((c) => c.Direction === 'Output')
+                        .length === 0 && (
+                        <p className="text-muted-foreground text-sm">None recorded</p>
                       )}
-
-                      {/* Other Species */}
-                      {bestMatch.allSpecies.length > bestMatch.aquaticSpecies.length && (
-                        <div>
-                          <h4 className="mb-2 text-xs font-medium text-gray-700">
-                            Other Qualifying Species
-                          </h4>
-                          <div className="flex flex-wrap gap-1">
-                            {bestMatch.allSpecies
-                              .filter(
-                                (s) => !bestMatch.aquaticSpecies.some((as) => as.code === s.code)
-                              )
-                              .map((s) => (
-                                <Badge key={s.code} variant="outline" className="text-xs">
-                                  {s.name}
-                                </Badge>
-                              ))}
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  {/* Other potential matches */}
-                  {result && result.linkedSACs.length > 1 && (
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-xs text-gray-600">
-                          Other Potential SAC Matches
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2">
-                          {result.linkedSACs.slice(1).map((sac) => (
-                            <div
-                              key={sac.siteCode}
-                              className="flex items-center justify-between text-sm"
-                            >
-                              <span>{sac.siteName}</span>
-                              <Badge variant="outline" className="text-xs">
-                                {sac.matchScore}% match
-                              </Badge>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-                </>
-              ) : isLoading ? (
-                <Card>
-                  <CardContent className="pt-6 text-center">
-                    <Loader2 className="mx-auto mb-3 h-10 w-10 animate-spin text-cyan-400" />
-                    <p className="text-sm font-medium">Searching for linked SAC sites...</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card>
-                  <CardContent className="pt-4 text-center">
-                    <Info className="text-muted-foreground mx-auto mb-2 h-8 w-8" />
-                    <p className="text-muted-foreground text-sm">
-                      No linked Natura 2000 SAC sites found.
-                    </p>
-                    <p className="text-muted-foreground mt-1 text-xs">
-                      This water body may still support protected species downstream.
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
-
-            {/* Resources Tab */}
-            <TabsContent value="resources" className="mt-4 space-y-3">
-              <p className="text-muted-foreground text-sm">
-                External resources for this water body:
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      ) : isLoading ? (
+        <Card>
+          <CardContent className="pt-6 text-center">
+            <Loader2 className="mx-auto mb-3 h-10 w-10 animate-spin text-blue-400" />
+            <p className="text-sm font-medium">Fetching WFD data from Catchments.ie...</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border-amber-200 bg-amber-50/50">
+          <CardContent className="flex items-start gap-2 pt-4">
+            <Info className="h-4 w-4 shrink-0 text-amber-600" />
+            <div className="text-sm">
+              <p className="font-medium text-amber-700">No WFD Data Available</p>
+              <p className="text-muted-foreground">
+                {result
+                  ? 'Detailed WFD data was not available from Catchments.ie for this water body.'
+                  : 'WFD data will be fetched when research completes.'}
               </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </>
+  )
 
-              {/* SAC Resources */}
-              {result?.resources.sacUrl && (
-                <a
-                  href={result.resources.sacUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block"
-                >
-                  <Card className="hover:bg-muted/50 cursor-pointer transition-colors">
-                    <CardContent className="pt-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="rounded-lg bg-emerald-100 p-2">
-                            <Shield className="h-4 w-4 text-emerald-600" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">NPWS Site Synopsis</p>
-                            <p className="text-muted-foreground text-xs">
-                              Linked SAC site information
-                            </p>
-                          </div>
-                        </div>
-                        <ExternalLink className="text-muted-foreground h-4 w-4" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </a>
-              )}
-
-              {result?.resources.sscoUrl && (
-                <a
-                  href={result.resources.sscoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block"
-                >
-                  <Card className="hover:bg-muted/50 cursor-pointer border-purple-200 transition-colors">
-                    <CardContent className="pt-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="rounded-lg bg-purple-100 p-2">
-                            <FileText className="h-4 w-4 text-purple-600" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">SSCO Document (PDF)</p>
-                            <p className="text-muted-foreground text-xs">
-                              Site-Specific Conservation Objectives
-                            </p>
-                          </div>
-                        </div>
-                        <ExternalLink className="text-muted-foreground h-4 w-4" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </a>
-              )}
-
-              {result?.resources.waterBodyUrl && (
-                <a
-                  href={result.resources.waterBodyUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block"
-                >
-                  <Card className="hover:bg-muted/50 cursor-pointer transition-colors">
-                    <CardContent className="pt-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="rounded-lg bg-blue-100 p-2">
-                            <Activity className="h-4 w-4 text-blue-600" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">Catchments.ie</p>
-                            <p className="text-muted-foreground text-xs">
-                              Full WFD data for this water body
-                            </p>
-                          </div>
-                        </div>
-                        <ExternalLink className="text-muted-foreground h-4 w-4" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </a>
-              )}
-
-              {/* Default water portals */}
-              <a
-                href="https://gis.epa.ie/EPAMaps/Water"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block"
-              >
-                <Card className="hover:bg-muted/50 cursor-pointer transition-colors">
-                  <CardContent className="pt-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="rounded-lg bg-cyan-100 p-2">
-                          <Waves className="h-4 w-4 text-cyan-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">EPA Water Maps</p>
-                          <p className="text-muted-foreground text-xs">
-                            Interactive water quality maps
-                          </p>
-                        </div>
-                      </div>
-                      <ExternalLink className="text-muted-foreground h-4 w-4" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </a>
-
-              <a
-                href="https://www.catchments.ie"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block"
-              >
-                <Card className="hover:bg-muted/50 cursor-pointer transition-colors">
-                  <CardContent className="pt-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="rounded-lg bg-blue-100 p-2">
-                          <MapPin className="h-4 w-4 text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">Catchments.ie Portal</p>
-                          <p className="text-muted-foreground text-xs">
-                            WFD data dashboards and catchment info
-                          </p>
-                        </div>
-                      </div>
-                      <ExternalLink className="text-muted-foreground h-4 w-4" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </a>
-
-              <a
-                href="https://www.hydronet.ie"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block"
-              >
-                <Card className="hover:bg-muted/50 cursor-pointer transition-colors">
-                  <CardContent className="pt-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="rounded-lg bg-gray-100 p-2">
-                          <Activity className="h-4 w-4 text-gray-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">HydroNet</p>
-                          <p className="text-muted-foreground text-xs">Water levels & flow data</p>
-                        </div>
-                      </div>
-                      <ExternalLink className="text-muted-foreground h-4 w-4" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </a>
-            </TabsContent>
-          </Tabs>
-        </ScrollArea>
-
-        <Separator />
-
-        {/* Footer */}
-        <div className="flex items-center justify-between">
-          <p className="text-muted-foreground text-xs">Data: EPA + Catchments.ie + NPWS</p>
-          <div className="flex gap-2">
-            {result && (
-              <Button
-                variant={isSaved ? 'secondary' : 'default'}
-                size="sm"
-                onClick={handleSaveResearch}
-                disabled={isSaving || isSaved}
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : isSaved ? (
-                  '✓ Saved'
-                ) : (
-                  'Save Research'
-                )}
-              </Button>
+  const aiTab = (
+    <>
+      <AiAnalysisCard
+        summary={result?.summary || ''}
+        isLoading={isLoading}
+        error={aiError}
+        onGenerate={fetchResearch}
+        onRegenerate={() => {
+          setResult(null)
+          setIsSaved(false)
+          fetchResearch()
+        }}
+        headerBadges={
+          <>
+            {bestMatch && (
+              <Badge variant="outline" className="border-cyan-300 text-[10px] text-cyan-700">
+                SAC linked
+              </Badge>
             )}
-            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-              Close
-            </Button>
+            {result?.wfdData && (
+              <Badge variant="outline" className="border-blue-300 text-[10px] text-blue-700">
+                WFD enriched
+              </Badge>
+            )}
+          </>
+        }
+        emptyTitle="AI-Powered Aquatic Analysis"
+        emptyDescription="Generates a detailed ecological report including WFD assessment, SAC connections, and development implications."
+        loadingText="Generating Ecological Analysis..."
+      />
+
+      {/* Data sources info */}
+      <Card className="bg-gray-50">
+        <CardContent className="pt-3 pb-3">
+          <p className="text-muted-foreground text-[10px] font-medium">Data Sources:</p>
+          <ul className="text-muted-foreground mt-1 space-y-0.5 text-[10px]">
+            <li>{result?.wfdData ? '✓ Catchments.ie WFD data' : '○ Catchments.ie WFD data'}</li>
+            <li>{bestMatch ? `✓ Linked SAC: ${bestMatch.siteName}` : '○ SAC matching'}</li>
+            <li>✓ EPA Water Quality data</li>
+          </ul>
+        </CardContent>
+      </Card>
+    </>
+  )
+
+  const sacTab = (
+    <>
+      {bestMatch ? (
+        <>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">{bestMatch.siteName}</CardTitle>
+              <p className="text-muted-foreground text-xs">
+                Site Code: {bestMatch.siteCode}
+                {bestMatch.siteArea && ` • Area: ${bestMatch.siteArea.toFixed(0)} ha`}
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Aquatic Species */}
+              {bestMatch.aquaticSpecies.length > 0 && (
+                <div>
+                  <h4 className="mb-2 flex items-center gap-1 text-xs font-medium">
+                    <Fish className="h-4 w-4 text-cyan-600" />
+                    Annex II Aquatic Species (Qualifying Interests)
+                  </h4>
+                  <div className="space-y-1">
+                    {bestMatch.aquaticSpecies.map((s) => (
+                      <div
+                        key={s.code}
+                        className="flex items-center justify-between rounded bg-cyan-50 px-2 py-1 text-sm"
+                      >
+                        <span className="font-medium">{s.commonName}</span>
+                        <span className="text-muted-foreground text-xs italic">
+                          {s.name} [{s.code}]
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Aquatic Habitats */}
+              {bestMatch.aquaticHabitats.length > 0 && (
+                <div>
+                  <h4 className="mb-2 flex items-center gap-1 text-xs font-medium">
+                    <Leaf className="h-4 w-4 text-green-600" />
+                    Annex I Aquatic Habitats
+                  </h4>
+                  <div className="space-y-1">
+                    {bestMatch.aquaticHabitats.map((h) => (
+                      <div key={h.code} className="rounded bg-green-50 px-2 py-1 text-sm">
+                        <span className="font-medium">[{h.code}]</span> <span>{h.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Other Species */}
+              {bestMatch.allSpecies.length > bestMatch.aquaticSpecies.length && (
+                <div>
+                  <h4 className="mb-2 text-xs font-medium text-gray-700">
+                    Other Qualifying Species
+                  </h4>
+                  <div className="flex flex-wrap gap-1">
+                    {bestMatch.allSpecies
+                      .filter((s) => !bestMatch.aquaticSpecies.some((as) => as.code === s.code))
+                      .map((s) => (
+                        <Badge key={s.code} variant="outline" className="text-xs">
+                          {s.name}
+                        </Badge>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Other potential matches */}
+          {result && result.linkedSACs.length > 1 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs text-gray-600">Other Potential SAC Matches</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {result.linkedSACs.slice(1).map((sac) => (
+                    <div key={sac.siteCode} className="flex items-center justify-between text-sm">
+                      <span>{sac.siteName}</span>
+                      <Badge variant="outline" className="text-xs">
+                        {sac.matchScore}% match
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      ) : isLoading ? (
+        <Card>
+          <CardContent className="pt-6 text-center">
+            <Loader2 className="mx-auto mb-3 h-10 w-10 animate-spin text-cyan-400" />
+            <p className="text-sm font-medium">Searching for linked SAC sites...</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="pt-4 text-center">
+            <Info className="text-muted-foreground mx-auto mb-2 h-8 w-8" />
+            <p className="text-muted-foreground text-sm">No linked Natura 2000 SAC sites found.</p>
+            <p className="text-muted-foreground mt-1 text-xs">
+              This water body may still support protected species downstream.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+    </>
+  )
+
+  const resourcesTab = (
+    <>
+      <p className="text-muted-foreground text-sm">External resources for this water body:</p>
+
+      {result?.resources.sacUrl && (
+        <ResourceLinkCard
+          href={result.resources.sacUrl}
+          icon={
+            <div className="rounded-lg bg-emerald-100 p-2">
+              <Shield className="h-4 w-4 text-emerald-600" />
+            </div>
+          }
+          title="NPWS Site Synopsis"
+          description="Linked SAC site information"
+        />
+      )}
+
+      {result?.resources.sscoUrl && (
+        <ResourceLinkCard
+          href={result.resources.sscoUrl}
+          icon={
+            <div className="rounded-lg bg-purple-100 p-2">
+              <FileText className="h-4 w-4 text-purple-600" />
+            </div>
+          }
+          title="SSCO Document (PDF)"
+          description="Site-Specific Conservation Objectives"
+          borderColor="border-purple-200"
+        />
+      )}
+
+      {result?.resources.waterBodyUrl && (
+        <ResourceLinkCard
+          href={result.resources.waterBodyUrl}
+          icon={
+            <div className="rounded-lg bg-blue-100 p-2">
+              <Activity className="h-4 w-4 text-blue-600" />
+            </div>
+          }
+          title="Catchments.ie"
+          description="Full WFD data for this water body"
+        />
+      )}
+
+      <ResourceLinkCard
+        href="https://gis.epa.ie/EPAMaps/Water"
+        icon={
+          <div className="rounded-lg bg-cyan-100 p-2">
+            <Waves className="h-4 w-4 text-cyan-600" />
           </div>
+        }
+        title="EPA Water Maps"
+        description="Interactive water quality maps"
+      />
+
+      <ResourceLinkCard
+        href="https://www.catchments.ie"
+        icon={
+          <div className="rounded-lg bg-blue-100 p-2">
+            <MapPin className="h-4 w-4 text-blue-600" />
+          </div>
+        }
+        title="Catchments.ie Portal"
+        description="WFD data dashboards and catchment info"
+      />
+
+      <ResourceLinkCard
+        href="https://www.hydronet.ie"
+        icon={
+          <div className="rounded-lg bg-gray-100 p-2">
+            <Activity className="h-4 w-4 text-gray-600" />
+          </div>
+        }
+        title="HydroNet"
+        description="Water levels & flow data"
+      />
+    </>
+  )
+
+  return (
+    <DeepResearchShell
+      open={open}
+      onOpenChange={onOpenChange}
+      headerIcon={
+        <div className="rounded-lg bg-cyan-100 p-2">
+          <WaterBodyIcon className="h-5 w-5 text-cyan-600" />
         </div>
-      </DialogContent>
-    </Dialog>
+      }
+      title={site.waterBodyName}
+      headerBadges={
+        <>
+          <Badge variant="outline" className="text-xs">
+            {site.waterBodyType}
+          </Badge>
+          {site.waterBodyCode && (
+            <span className="text-muted-foreground text-xs">Code: {site.waterBodyCode}</span>
+          )}
+          {site.wfdStatus && (
+            <Badge
+              variant="outline"
+              className={`text-xs ${WFD_STATUS_COLORS[site.wfdStatus] || ''}`}
+            >
+              WFD: {site.wfdStatus}
+            </Badge>
+          )}
+          {site.distance !== undefined && (
+            <Badge variant="secondary" className="text-xs">
+              <MapPin className="mr-1 h-3 w-3" />
+              {site.distance === 0 ? 'Within boundary' : `${site.distance.toFixed(1)} km`}
+            </Badge>
+          )}
+        </>
+      }
+      tabs={[
+        { value: 'overview', label: 'Overview', content: overviewTab },
+        {
+          value: 'wfd',
+          label: (
+            <>
+              <Activity className="mr-1 h-3 w-3" />
+              WFD
+            </>
+          ),
+          content: wfdTab,
+        },
+        {
+          value: 'ai',
+          label: (
+            <>
+              <Sparkles className="mr-1 h-3 w-3" />
+              AI
+            </>
+          ),
+          content: aiTab,
+        },
+        {
+          value: 'sac',
+          label: (
+            <>
+              <Link2 className="mr-1 h-3 w-3" />
+              SAC
+            </>
+          ),
+          content: sacTab,
+        },
+        { value: 'resources', label: 'Links', content: resourcesTab },
+      ]}
+      footerInfo="Data: EPA + Catchments.ie + NPWS"
+      isSaved={isSaved}
+      isSaving={isSaving}
+      canSave={!!result}
+      onSave={handleSaveResearch}
+    />
   )
 }

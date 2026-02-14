@@ -20,12 +20,9 @@ import dynamic from 'next/dynamic'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import {
-  useSavedFindings,
-  useFindingsStats,
-  useCompleteWorkflowStep,
-  useTargetNotes,
-} from '@/hooks/use-project-data'
+import { useSavedFindings, useFindingsStats } from '@/hooks/queries/use-finding-hooks'
+import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
+import { useTargetNotes } from '@/hooks/queries/use-target-note-hooks'
 import { useProjectContext } from '@/contexts/project-context'
 import type { Project, WorkflowStep } from '@/types/database'
 

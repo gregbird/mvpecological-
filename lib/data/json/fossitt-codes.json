@@ -1,0 +1,917 @@
+[
+  {
+    "code": "F",
+    "name": "Freshwater",
+    "level": 1,
+    "color": "#4A90D9"
+  },
+  {
+    "code": "FL",
+    "name": "Lakes and ponds",
+    "level": 2,
+    "parent": "F",
+    "color": "#4A90D9"
+  },
+  {
+    "code": "FL1",
+    "name": "Dystrophic lakes",
+    "level": 3,
+    "parent": "FL",
+    "color": "#3A6B99",
+    "annex1": "3160"
+  },
+  {
+    "code": "FL2",
+    "name": "Oligotrophic lakes",
+    "level": 3,
+    "parent": "FL",
+    "color": "#4A90D9",
+    "annex1": "3110/3130"
+  },
+  {
+    "code": "FL3",
+    "name": "Mesotrophic lakes",
+    "level": 3,
+    "parent": "FL",
+    "color": "#5AA0E9",
+    "annex1": "3130/3140"
+  },
+  {
+    "code": "FL4",
+    "name": "Eutrophic lakes",
+    "level": 3,
+    "parent": "FL",
+    "color": "#6AB0F9",
+    "annex1": "3150"
+  },
+  {
+    "code": "FL5",
+    "name": "Marl lakes",
+    "level": 3,
+    "parent": "FL",
+    "color": "#7AC0FF",
+    "annex1": "3140"
+  },
+  {
+    "code": "FL6",
+    "name": "Turloughs",
+    "level": 3,
+    "parent": "FL",
+    "color": "#8AD0FF",
+    "annex1": "3180"
+  },
+  {
+    "code": "FL7",
+    "name": "Reservoirs",
+    "level": 3,
+    "parent": "FL",
+    "color": "#9AE0FF"
+  },
+  {
+    "code": "FL8",
+    "name": "Other artificial lakes and ponds",
+    "level": 3,
+    "parent": "FL",
+    "color": "#AAF0FF"
+  },
+  {
+    "code": "FW",
+    "name": "Watercourses",
+    "level": 2,
+    "parent": "F",
+    "color": "#3B82F6"
+  },
+  {
+    "code": "FW1",
+    "name": "Eroding/upland rivers",
+    "level": 3,
+    "parent": "FW",
+    "color": "#2563EB",
+    "annex1": "3260"
+  },
+  {
+    "code": "FW2",
+    "name": "Depositing/lowland rivers",
+    "level": 3,
+    "parent": "FW",
+    "color": "#3B82F6",
+    "annex1": "3260"
+  },
+  {
+    "code": "FW3",
+    "name": "Canals",
+    "level": 3,
+    "parent": "FW",
+    "color": "#60A5FA"
+  },
+  {
+    "code": "FW4",
+    "name": "Drainage ditches",
+    "level": 3,
+    "parent": "FW",
+    "color": "#93C5FD"
+  },
+  {
+    "code": "FP",
+    "name": "Freshwater peats and swamps",
+    "level": 2,
+    "parent": "F",
+    "color": "#0EA5E9"
+  },
+  {
+    "code": "FP1",
+    "name": "Calcareous springs",
+    "level": 3,
+    "parent": "FP",
+    "color": "#0284C7",
+    "annex1": "7220"
+  },
+  {
+    "code": "FP2",
+    "name": "Non-calcareous springs",
+    "level": 3,
+    "parent": "FP",
+    "color": "#0EA5E9"
+  },
+  {
+    "code": "FS",
+    "name": "Swamps",
+    "level": 2,
+    "parent": "F",
+    "color": "#06B6D4"
+  },
+  {
+    "code": "FS1",
+    "name": "Reed and large sedge swamps",
+    "level": 3,
+    "parent": "FS",
+    "color": "#0891B2"
+  },
+  {
+    "code": "FS2",
+    "name": "Tall-herb swamps",
+    "level": 3,
+    "parent": "FS",
+    "color": "#06B6D4"
+  },
+  {
+    "code": "G",
+    "name": "Grassland and Marsh",
+    "level": 1,
+    "color": "#22C55E"
+  },
+  {
+    "code": "GA",
+    "name": "Improved agricultural grassland",
+    "level": 2,
+    "parent": "G",
+    "color": "#86EFAC"
+  },
+  {
+    "code": "GA1",
+    "name": "Improved agricultural grassland",
+    "level": 3,
+    "parent": "GA",
+    "color": "#86EFAC"
+  },
+  {
+    "code": "GA2",
+    "name": "Amenity grassland (improved)",
+    "level": 3,
+    "parent": "GA",
+    "color": "#BBF7D0"
+  },
+  {
+    "code": "GS",
+    "name": "Semi-natural grassland",
+    "level": 2,
+    "parent": "G",
+    "color": "#22C55E"
+  },
+  {
+    "code": "GS1",
+    "name": "Dry calcareous and neutral grassland",
+    "level": 3,
+    "parent": "GS",
+    "color": "#16A34A",
+    "annex1": "6210"
+  },
+  {
+    "code": "GS2",
+    "name": "Dry meadows and grassy verges",
+    "level": 3,
+    "parent": "GS",
+    "color": "#22C55E",
+    "annex1": "6510"
+  },
+  {
+    "code": "GS3",
+    "name": "Dry-humid acid grassland",
+    "level": 3,
+    "parent": "GS",
+    "color": "#4ADE80"
+  },
+  {
+    "code": "GS4",
+    "name": "Wet grassland",
+    "level": 3,
+    "parent": "GS",
+    "color": "#86EFAC",
+    "annex1": "6410"
+  },
+  {
+    "code": "GM",
+    "name": "Marsh",
+    "level": 2,
+    "parent": "G",
+    "color": "#15803D"
+  },
+  {
+    "code": "GM1",
+    "name": "Marsh",
+    "level": 3,
+    "parent": "GM",
+    "color": "#15803D"
+  },
+  {
+    "code": "H",
+    "name": "Heath and Dense Bracken",
+    "level": 1,
+    "color": "#A855F7"
+  },
+  {
+    "code": "HH",
+    "name": "Heath",
+    "level": 2,
+    "parent": "H",
+    "color": "#A855F7"
+  },
+  {
+    "code": "HH1",
+    "name": "Dry siliceous heath",
+    "level": 3,
+    "parent": "HH",
+    "color": "#9333EA",
+    "annex1": "4030"
+  },
+  {
+    "code": "HH2",
+    "name": "Dry calcareous heath",
+    "level": 3,
+    "parent": "HH",
+    "color": "#A855F7",
+    "annex1": "4030"
+  },
+  {
+    "code": "HH3",
+    "name": "Wet heath",
+    "level": 3,
+    "parent": "HH",
+    "color": "#C084FC",
+    "annex1": "4010"
+  },
+  {
+    "code": "HH4",
+    "name": "Montane heath",
+    "level": 3,
+    "parent": "HH",
+    "color": "#D8B4FE",
+    "annex1": "4060"
+  },
+  {
+    "code": "HD",
+    "name": "Dense bracken",
+    "level": 2,
+    "parent": "H",
+    "color": "#7C3AED"
+  },
+  {
+    "code": "HD1",
+    "name": "Dense bracken",
+    "level": 3,
+    "parent": "HD",
+    "color": "#7C3AED"
+  },
+  {
+    "code": "P",
+    "name": "Peatlands",
+    "level": 1,
+    "color": "#78350F"
+  },
+  {
+    "code": "PB",
+    "name": "Bogs",
+    "level": 2,
+    "parent": "P",
+    "color": "#78350F"
+  },
+  {
+    "code": "PB1",
+    "name": "Raised bog",
+    "level": 3,
+    "parent": "PB",
+    "color": "#451A03",
+    "annex1": "7110/7120"
+  },
+  {
+    "code": "PB2",
+    "name": "Upland blanket bog",
+    "level": 3,
+    "parent": "PB",
+    "color": "#78350F",
+    "annex1": "7130"
+  },
+  {
+    "code": "PB3",
+    "name": "Lowland blanket bog",
+    "level": 3,
+    "parent": "PB",
+    "color": "#92400E",
+    "annex1": "7130"
+  },
+  {
+    "code": "PB4",
+    "name": "Cutover bog",
+    "level": 3,
+    "parent": "PB",
+    "color": "#B45309"
+  },
+  {
+    "code": "PB5",
+    "name": "Eroding blanket bog",
+    "level": 3,
+    "parent": "PB",
+    "color": "#D97706"
+  },
+  {
+    "code": "PF",
+    "name": "Fens and Flushes",
+    "level": 2,
+    "parent": "P",
+    "color": "#A16207"
+  },
+  {
+    "code": "PF1",
+    "name": "Rich fen and flush",
+    "level": 3,
+    "parent": "PF",
+    "color": "#A16207",
+    "annex1": "7230"
+  },
+  {
+    "code": "PF2",
+    "name": "Poor fen and flush",
+    "level": 3,
+    "parent": "PF",
+    "color": "#CA8A04",
+    "annex1": "7140"
+  },
+  {
+    "code": "PF3",
+    "name": "Transition mire and quaking bog",
+    "level": 3,
+    "parent": "PF",
+    "color": "#EAB308",
+    "annex1": "7140"
+  },
+  {
+    "code": "W",
+    "name": "Woodland and Scrub",
+    "level": 1,
+    "color": "#166534"
+  },
+  {
+    "code": "WN",
+    "name": "Semi-natural woodland",
+    "level": 2,
+    "parent": "W",
+    "color": "#166534"
+  },
+  {
+    "code": "WN1",
+    "name": "Oak-birch-holly woodland",
+    "level": 3,
+    "parent": "WN",
+    "color": "#14532D",
+    "annex1": "91A0"
+  },
+  {
+    "code": "WN2",
+    "name": "Oak-ash-hazel woodland",
+    "level": 3,
+    "parent": "WN",
+    "color": "#166534",
+    "annex1": "91J0"
+  },
+  {
+    "code": "WN3",
+    "name": "Yew woodland",
+    "level": 3,
+    "parent": "WN",
+    "color": "#15803D",
+    "annex1": "91J0"
+  },
+  {
+    "code": "WN4",
+    "name": "Wet pedunculate oak-ash woodland",
+    "level": 3,
+    "parent": "WN",
+    "color": "#16A34A",
+    "annex1": "91E0"
+  },
+  {
+    "code": "WN5",
+    "name": "Riparian woodland",
+    "level": 3,
+    "parent": "WN",
+    "color": "#22C55E",
+    "annex1": "91E0/91F0"
+  },
+  {
+    "code": "WN6",
+    "name": "Wet willow-alder-ash woodland",
+    "level": 3,
+    "parent": "WN",
+    "color": "#4ADE80",
+    "annex1": "91E0"
+  },
+  {
+    "code": "WN7",
+    "name": "Bog woodland",
+    "level": 3,
+    "parent": "WN",
+    "color": "#86EFAC",
+    "annex1": "91D0"
+  },
+  {
+    "code": "WD",
+    "name": "Highly modified/non-native woodland",
+    "level": 2,
+    "parent": "W",
+    "color": "#059669"
+  },
+  {
+    "code": "WD1",
+    "name": "Mixed broadleaved woodland",
+    "level": 3,
+    "parent": "WD",
+    "color": "#047857"
+  },
+  {
+    "code": "WD2",
+    "name": "Mixed broadleaved/conifer woodland",
+    "level": 3,
+    "parent": "WD",
+    "color": "#059669"
+  },
+  {
+    "code": "WD3",
+    "name": "Conifer plantation",
+    "level": 3,
+    "parent": "WD",
+    "color": "#10B981"
+  },
+  {
+    "code": "WD4",
+    "name": "Conifer plantation (native species)",
+    "level": 3,
+    "parent": "WD",
+    "color": "#34D399"
+  },
+  {
+    "code": "WD5",
+    "name": "Scattered trees and parkland",
+    "level": 3,
+    "parent": "WD",
+    "color": "#6EE7B7"
+  },
+  {
+    "code": "WS",
+    "name": "Scrub",
+    "level": 2,
+    "parent": "W",
+    "color": "#065F46"
+  },
+  {
+    "code": "WS1",
+    "name": "Scrub",
+    "level": 3,
+    "parent": "WS",
+    "color": "#065F46"
+  },
+  {
+    "code": "WS2",
+    "name": "Immature woodland",
+    "level": 3,
+    "parent": "WS",
+    "color": "#047857"
+  },
+  {
+    "code": "WL",
+    "name": "Linear Woodland/scrub",
+    "level": 2,
+    "parent": "W",
+    "color": "#064E3B"
+  },
+  {
+    "code": "WL1",
+    "name": "Hedgerows",
+    "level": 3,
+    "parent": "WL",
+    "color": "#064E3B"
+  },
+  {
+    "code": "WL2",
+    "name": "Treelines",
+    "level": 3,
+    "parent": "WL",
+    "color": "#065F46"
+  },
+  {
+    "code": "E",
+    "name": "Exposed Rock and Disturbed Ground",
+    "level": 1,
+    "color": "#71717A"
+  },
+  {
+    "code": "ER",
+    "name": "Exposed rock",
+    "level": 2,
+    "parent": "E",
+    "color": "#71717A"
+  },
+  {
+    "code": "ER1",
+    "name": "Exposed siliceous rock",
+    "level": 3,
+    "parent": "ER",
+    "color": "#52525B"
+  },
+  {
+    "code": "ER2",
+    "name": "Exposed calcareous rock",
+    "level": 3,
+    "parent": "ER",
+    "color": "#71717A",
+    "annex1": "8240"
+  },
+  {
+    "code": "ER3",
+    "name": "Siliceous scree and loose rock",
+    "level": 3,
+    "parent": "ER",
+    "color": "#A1A1AA",
+    "annex1": "8110"
+  },
+  {
+    "code": "ER4",
+    "name": "Calcareous scree and loose rock",
+    "level": 3,
+    "parent": "ER",
+    "color": "#D4D4D8",
+    "annex1": "8120"
+  },
+  {
+    "code": "ED",
+    "name": "Disturbed ground",
+    "level": 2,
+    "parent": "E",
+    "color": "#52525B"
+  },
+  {
+    "code": "ED1",
+    "name": "Exposed sand, gravel or till",
+    "level": 3,
+    "parent": "ED",
+    "color": "#3F3F46"
+  },
+  {
+    "code": "ED2",
+    "name": "Spoil and bare ground",
+    "level": 3,
+    "parent": "ED",
+    "color": "#52525B"
+  },
+  {
+    "code": "ED3",
+    "name": "Recolonising bare ground",
+    "level": 3,
+    "parent": "ED",
+    "color": "#71717A"
+  },
+  {
+    "code": "ED4",
+    "name": "Active quarries and mines",
+    "level": 3,
+    "parent": "ED",
+    "color": "#A1A1AA"
+  },
+  {
+    "code": "ED5",
+    "name": "Refuse and other waste",
+    "level": 3,
+    "parent": "ED",
+    "color": "#D4D4D8"
+  },
+  {
+    "code": "B",
+    "name": "Cultivated and Built Land",
+    "level": 1,
+    "color": "#F59E0B"
+  },
+  {
+    "code": "BC",
+    "name": "Cultivated land",
+    "level": 2,
+    "parent": "B",
+    "color": "#F59E0B"
+  },
+  {
+    "code": "BC1",
+    "name": "Arable crops",
+    "level": 3,
+    "parent": "BC",
+    "color": "#D97706"
+  },
+  {
+    "code": "BC2",
+    "name": "Horticultural land",
+    "level": 3,
+    "parent": "BC",
+    "color": "#F59E0B"
+  },
+  {
+    "code": "BC3",
+    "name": "Tilled land",
+    "level": 3,
+    "parent": "BC",
+    "color": "#FBBF24"
+  },
+  {
+    "code": "BC4",
+    "name": "Flower beds and borders",
+    "level": 3,
+    "parent": "BC",
+    "color": "#FCD34D"
+  },
+  {
+    "code": "BL",
+    "name": "Built land",
+    "level": 2,
+    "parent": "B",
+    "color": "#DC2626"
+  },
+  {
+    "code": "BL1",
+    "name": "Stone walls and other stonework",
+    "level": 3,
+    "parent": "BL",
+    "color": "#B91C1C"
+  },
+  {
+    "code": "BL2",
+    "name": "Earth banks",
+    "level": 3,
+    "parent": "BL",
+    "color": "#DC2626"
+  },
+  {
+    "code": "BL3",
+    "name": "Buildings and artificial surfaces",
+    "level": 3,
+    "parent": "BL",
+    "color": "#EF4444"
+  },
+  {
+    "code": "C",
+    "name": "Coastland",
+    "level": 1,
+    "color": "#0284C7"
+  },
+  {
+    "code": "CS",
+    "name": "Sea cliffs and islets",
+    "level": 2,
+    "parent": "C",
+    "color": "#0284C7"
+  },
+  {
+    "code": "CS1",
+    "name": "Rocky sea cliffs",
+    "level": 3,
+    "parent": "CS",
+    "color": "#0369A1",
+    "annex1": "1230"
+  },
+  {
+    "code": "CS2",
+    "name": "Sea stacks and islets",
+    "level": 3,
+    "parent": "CS",
+    "color": "#0284C7"
+  },
+  {
+    "code": "CS3",
+    "name": "Sedimentary sea cliffs",
+    "level": 3,
+    "parent": "CS",
+    "color": "#0EA5E9"
+  },
+  {
+    "code": "CB",
+    "name": "Shingle and gravel shores",
+    "level": 2,
+    "parent": "C",
+    "color": "#64748B"
+  },
+  {
+    "code": "CB1",
+    "name": "Shingle and gravel shores",
+    "level": 3,
+    "parent": "CB",
+    "color": "#64748B",
+    "annex1": "1220"
+  },
+  {
+    "code": "CB2",
+    "name": "Shingle and gravel banks",
+    "level": 3,
+    "parent": "CB",
+    "color": "#94A3B8"
+  },
+  {
+    "code": "CD",
+    "name": "Dunes",
+    "level": 2,
+    "parent": "C",
+    "color": "#EAB308"
+  },
+  {
+    "code": "CD1",
+    "name": "Embryonic dunes",
+    "level": 3,
+    "parent": "CD",
+    "color": "#CA8A04",
+    "annex1": "2110"
+  },
+  {
+    "code": "CD2",
+    "name": "Marram dunes",
+    "level": 3,
+    "parent": "CD",
+    "color": "#EAB308",
+    "annex1": "2120"
+  },
+  {
+    "code": "CD3",
+    "name": "Fixed dunes",
+    "level": 3,
+    "parent": "CD",
+    "color": "#FACC15",
+    "annex1": "2130"
+  },
+  {
+    "code": "CD4",
+    "name": "Dune scrub",
+    "level": 3,
+    "parent": "CD",
+    "color": "#FDE047",
+    "annex1": "2160/2170"
+  },
+  {
+    "code": "CD5",
+    "name": "Dune slack",
+    "level": 3,
+    "parent": "CD",
+    "color": "#FEF08A",
+    "annex1": "2190"
+  },
+  {
+    "code": "CD6",
+    "name": "Machair",
+    "level": 3,
+    "parent": "CD",
+    "color": "#FEF9C3",
+    "annex1": "21A0"
+  },
+  {
+    "code": "CM",
+    "name": "Salt marshes",
+    "level": 2,
+    "parent": "C",
+    "color": "#84CC16"
+  },
+  {
+    "code": "CM1",
+    "name": "Lower salt marsh",
+    "level": 3,
+    "parent": "CM",
+    "color": "#65A30D",
+    "annex1": "1310/1320"
+  },
+  {
+    "code": "CM2",
+    "name": "Upper salt marsh",
+    "level": 3,
+    "parent": "CM",
+    "color": "#84CC16",
+    "annex1": "1330"
+  },
+  {
+    "code": "CW",
+    "name": "Brackish waters",
+    "level": 2,
+    "parent": "C",
+    "color": "#0891B2"
+  },
+  {
+    "code": "CW1",
+    "name": "Lagoons and saline lakes",
+    "level": 3,
+    "parent": "CW",
+    "color": "#0891B2",
+    "annex1": "1150"
+  },
+  {
+    "code": "CW2",
+    "name": "Tidal rivers",
+    "level": 3,
+    "parent": "CW",
+    "color": "#06B6D4",
+    "annex1": "1130"
+  },
+  {
+    "code": "M",
+    "name": "Marine",
+    "level": 1,
+    "color": "#1D4ED8"
+  },
+  {
+    "code": "MW",
+    "name": "Open marine water",
+    "level": 2,
+    "parent": "M",
+    "color": "#1D4ED8"
+  },
+  {
+    "code": "MW1",
+    "name": "Open marine water",
+    "level": 3,
+    "parent": "MW",
+    "color": "#1D4ED8"
+  },
+  {
+    "code": "MW2",
+    "name": "Sea inlets and bays",
+    "level": 3,
+    "parent": "MW",
+    "color": "#2563EB",
+    "annex1": "1160"
+  },
+  {
+    "code": "MW3",
+    "name": "Estuaries",
+    "level": 3,
+    "parent": "MW",
+    "color": "#3B82F6",
+    "annex1": "1130"
+  },
+  {
+    "code": "MS",
+    "name": "Seabed",
+    "level": 2,
+    "parent": "M",
+    "color": "#1E3A8A"
+  },
+  {
+    "code": "MS1",
+    "name": "Intertidal mud and sand flats",
+    "level": 3,
+    "parent": "MS",
+    "color": "#1E3A8A",
+    "annex1": "1140"
+  },
+  {
+    "code": "MS2",
+    "name": "Shingle and gravel seabed",
+    "level": 3,
+    "parent": "MS",
+    "color": "#1E40AF"
+  },
+  {
+    "code": "MS3",
+    "name": "Rocky seabed",
+    "level": 3,
+    "parent": "MS",
+    "color": "#1D4ED8",
+    "annex1": "1170"
+  },
+  {
+    "code": "MS4",
+    "name": "Subtidal sediments",
+    "level": 3,
+    "parent": "MS",
+    "color": "#2563EB",
+    "annex1": "1110"
+  }
+]

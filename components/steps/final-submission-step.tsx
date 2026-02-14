@@ -32,14 +32,11 @@ import {
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 import { useRole } from '@/contexts/role-context'
-import {
-  useLatestReport,
-  useUpdateReport,
-  useUpdateProject,
-  useHabitatStats,
-  useObservationStats,
-  useCompleteWorkflowStep,
-} from '@/hooks/use-project-data'
+import { useLatestReport, useUpdateReport } from '@/hooks/queries/use-report-hooks'
+import { useUpdateProject } from '@/hooks/queries/use-project-hooks'
+import { useHabitatStats } from '@/hooks/queries/use-habitat-hooks'
+import { useObservationStats } from '@/hooks/queries/use-observation-hooks'
+import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { PEA_REPORT_SECTIONS, type ReportContent } from '@/lib/supabase/queries/reports'
 import type { Project, WorkflowStep, Json } from '@/types/database'
 

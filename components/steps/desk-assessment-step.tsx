@@ -45,10 +45,9 @@ import { useToast } from '@/hooks/use-toast'
 import {
   useSavedFindings,
   useUpdateFinding,
-  useUpdateWorkflowStep,
-  useCompleteWorkflowStep,
   useFindingsStats,
-} from '@/hooks/use-project-data'
+} from '@/hooks/queries/use-finding-hooks'
+import { useUpdateWorkflowStep, useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { useProjectContext } from '@/contexts/project-context'
 import type { Project, WorkflowStep, DeskResearchFinding } from '@/types/database'
 

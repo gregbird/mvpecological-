@@ -25,9 +25,9 @@ import {
   useCreateHabitat,
   useUpdateHabitat,
   useDeleteHabitat,
-  useCompleteWorkflowStep,
-  useSavedFindings,
-} from '@/hooks/use-project-data'
+} from '@/hooks/queries/use-habitat-hooks'
+import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
+import { useSavedFindings } from '@/hooks/queries/use-finding-hooks'
 import {
   HabitatForm,
   type HabitatPolygon as HabitatFormType,

@@ -34,9 +34,9 @@ import {
   useCreateSurvey,
   useUpdateSurvey,
   useDeleteSurvey,
-  useCompleteWorkflowStep,
-  useSavedFindings,
-} from '@/hooks/use-project-data'
+} from '@/hooks/queries/use-survey-hooks'
+import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
+import { useSavedFindings } from '@/hooks/queries/use-finding-hooks'
 import { SurveyCard, type Survey as SurveyCardType } from '@/components/field-surveys/survey-card'
 import { SurveyForm } from '@/components/field-surveys/survey-form'
 import { SmartScopingPanel } from '@/components/field-surveys/smart-scoping-panel'

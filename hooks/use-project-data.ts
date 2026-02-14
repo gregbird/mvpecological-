@@ -1,6 +1,7 @@
 'use client'
 
-// Barrel re-export — all consumers import from '@/hooks/use-project-data'
+// @deprecated — Import directly from '@/hooks/queries/use-*-hooks' instead.
+// This barrel file is kept for backward compatibility and will be removed in a future cleanup.
 // Domain hooks are split into separate files under hooks/queries/
 
 export * from './queries/use-project-hooks'

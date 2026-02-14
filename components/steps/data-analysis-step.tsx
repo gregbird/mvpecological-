@@ -40,15 +40,11 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useToast } from '@/hooks/use-toast'
-import {
-  useHabitatStats,
-  useObservationStats,
-  useFindingsStats,
-  useSurveyStats,
-  useHabitats,
-  useObservations,
-  useCompleteWorkflowStep,
-} from '@/hooks/use-project-data'
+import { useHabitats, useHabitatStats } from '@/hooks/queries/use-habitat-hooks'
+import { useObservations, useObservationStats } from '@/hooks/queries/use-observation-hooks'
+import { useFindingsStats } from '@/hooks/queries/use-finding-hooks'
+import { useSurveyStats } from '@/hooks/queries/use-survey-hooks'
+import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { getHabitatByCode } from '@/lib/data/fossitt-codes'
 import type { Project, WorkflowStep } from '@/types/database'
 

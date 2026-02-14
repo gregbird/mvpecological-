@@ -60,7 +60,7 @@ import { Input } from '@/components/ui/input'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types/database'
 import { useToast } from '@/hooks/use-toast'
-import { useDeleteProject } from '@/hooks/use-project-data'
+import { useDeleteProject } from '@/hooks/queries/use-project-hooks'
 import { useRole } from '@/contexts/role-context'
 import { useProjectContext } from '@/contexts/project-context'
 import {

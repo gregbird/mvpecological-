@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useCreateTargetNote } from '@/hooks/use-project-data'
+import { useCreateTargetNote } from '@/hooks/queries/use-target-note-hooks'
 import type { TargetNoteCategory, TargetNotePriority } from '@/types/database'
 
 interface TargetNoteFormProps {
