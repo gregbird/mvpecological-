@@ -245,27 +245,6 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
   // We pass these via findingsListExtraProps which gets updated via the config
   const [currentSearchResults, setCurrentSearchResults] = React.useState<FindingDisplay[]>([])
 
-  // Filter results based on source filter
-  const filteredResultsFromSource = React.useMemo(() => {
-    if (sourceFilter === 'all') return currentSearchResults
-    return currentSearchResults.filter((finding) => {
-      switch (sourceFilter) {
-        case 'gbif':
-          return finding.source === 'gbif' && !finding.metadata?.nbdcEnriched
-        case 'nbdc':
-          return finding.metadata?.nbdcEnriched === true
-        case 'protected':
-          return (
-            finding.metadata?.isProtected ||
-            finding.metadata?.isThreatened ||
-            finding.source === 'fpo'
-          )
-        default:
-          return true
-      }
-    })
-  }, [currentSearchResults, sourceFilter])
-
   const protectedCount = currentSearchResults.filter((f) => f.metadata?.isProtected).length
   const invasiveCount = currentSearchResults.filter((f) => f.metadata?.isInvasive).length
   const enrichedCount = currentSearchResults.filter((f) => f.metadata?.nbdcEnriched).length
@@ -360,7 +339,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
           try {
             gridRef = wgs84ToGridRef(projectCenter.lat, projectCenter.lng, 2, true)
             console.log('🔍 Irish Grid ref calculated:', gridRef, 'for', projectCenter)
-          } catch (gridError) {
+          } catch {
             console.log('📍 Project is outside Irish Grid - skipping FPO/Article17 search')
           }
 
@@ -577,7 +556,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       // Deep Research
       onDeepResearch: handleSpeciesDeepResearch,
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
     [
       projectBoundary,
       projectCenter,

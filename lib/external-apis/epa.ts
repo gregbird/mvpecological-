@@ -127,7 +127,7 @@ async function queryEPAWFS(
 /**
  * Query EPA ArcGIS REST service for features
  */
-async function queryEPAArcGIS(
+async function _queryEPAArcGIS(
   servicePath: string,
   layerId: number,
   bbox: { minLat: number; maxLat: number; minLng: number; maxLng: number },

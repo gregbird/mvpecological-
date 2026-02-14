@@ -24,7 +24,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Card, CardContent } from '@/components/ui/card'
 import {
   Select,
   SelectContent,
@@ -32,7 +31,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Separator } from '@/components/ui/separator'
 import type { DeskResearchFinding } from '@/types/database'
 
 // Finding type for display
@@ -137,15 +135,6 @@ const SITE_TYPE_COLORS: Record<string, string> = {
   SPA: 'bg-sky-100 text-sky-700', // Blue for SPA (birds)
   NHA: 'bg-amber-100 text-amber-700', // Amber for NHA
   pNHA: 'bg-orange-100 text-orange-700', // Orange for pNHA (proposed)
-}
-
-// Type badge colors
-const TYPE_COLORS: Record<string, string> = {
-  designated_site: 'bg-green-100 text-green-700',
-  species_record: 'bg-orange-100 text-orange-700',
-  water_quality: 'bg-blue-100 text-blue-700',
-  catchment: 'bg-teal-100 text-teal-700',
-  other: 'bg-gray-100 text-gray-700',
 }
 
 // EPA site type configs with icons and colors
@@ -260,7 +249,7 @@ export function FindingsList({
   // Count saved findings
   const savedCount = React.useMemo(() => {
     return sortedFindings.filter((f) => isFindingSaved(f)).length
-  }, [sortedFindings, savedFindings]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sortedFindings, savedFindings])
 
   // Apply site type filter + saved filter
   const filteredFindings = React.useMemo(() => {
@@ -272,7 +261,7 @@ export function FindingsList({
       result = result.filter((f) => isFindingSaved(f))
     }
     return result
-  }, [sortedFindings, activeSiteTypeFilter, showSavedOnly, savedFindings]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sortedFindings, activeSiteTypeFilter, showSavedOnly, savedFindings])
 
   // Paginated findings
   const paginatedFindings = filteredFindings.slice(0, displayLimit)

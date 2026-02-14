@@ -185,11 +185,11 @@ function hasAquaticFeatures(site: NPWSSiteData): boolean {
  */
 export function findMatchingSACs(
   waterBodyName: string,
-  waterBodyType?: 'River' | 'Lake' | 'Catchment'
+  _waterBodyType?: 'River' | 'Lake' | 'Catchment'
 ): AquaticSACMatch[] {
   const matches: AquaticSACMatch[] = []
 
-  for (const [siteCode, site] of Object.entries(sitesData)) {
+  for (const [_siteCode, site] of Object.entries(sitesData)) {
     // Skip non-SAC sites for now (SPAs don't have aquatic QIs)
     if (site.siteType !== 'SAC') continue
 
@@ -285,7 +285,7 @@ export function getAquaticSpecies(
 export function getAllAquaticSACs(): AquaticSACMatch[] {
   const results: AquaticSACMatch[] = []
 
-  for (const [siteCode, site] of Object.entries(sitesData)) {
+  for (const [_siteCode, site] of Object.entries(sitesData)) {
     if (site.siteType !== 'SAC') continue
 
     // Check if name suggests aquatic

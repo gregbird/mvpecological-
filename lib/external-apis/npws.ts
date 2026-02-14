@@ -121,7 +121,7 @@ export async function queryDesignatedSites(params: NPWSQueryParams): Promise<NPW
         response = await fetch(url.toString(), {
           signal: controller.signal,
         })
-      } catch (fetchError) {
+      } catch {
         // Network error, CORS issue, or timeout - silently skip
         console.warn(`NPWS ${siteType}: Network error (API may be unavailable)`)
         continue

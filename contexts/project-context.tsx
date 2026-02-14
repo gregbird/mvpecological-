@@ -163,7 +163,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     [currentStepNumber]
   )
 
-  const isStepLocked = React.useCallback((stepNumber: number) => {
+  const isStepLocked = React.useCallback((_stepNumber: number) => {
     // A step is locked if it's beyond the current accessible step
     // For now, allow navigation to all steps for demo purposes
     return false

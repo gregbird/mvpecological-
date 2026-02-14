@@ -36,7 +36,7 @@ export function ProjectInfoSubStep({
   project,
   bufferDistances,
   savedFindingsCount,
-  onNext,
+  onNext: _onNext,
 }: ProjectInfoSubStepProps) {
   const hasBoundary = !!project.boundary
   const boundary = project.boundary as GeoJSON.Feature<GeoJSON.Polygon> | undefined

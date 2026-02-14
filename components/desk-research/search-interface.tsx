@@ -25,20 +25,8 @@ import { FindingEditModal } from './finding-edit-modal'
 import { ManualFindingForm } from './manual-finding-form'
 import { queryDesignatedSites, getSiteTypeDisplayName } from '@/lib/external-apis/npws'
 import { searchOccurrences } from '@/lib/external-apis/gbif'
-import {
-  searchRecordsByBbox,
-  searchRecordsByGridRef,
-  isProtectedSpecies,
-  getRedListDisplayName,
-  type NBDCRecord,
-} from '@/lib/external-apis/nbdc'
-import {
-  searchAllAquaticFeatures,
-  getWFDStatusDisplayName,
-  type EPARiver,
-  type EPALake,
-  type EPACatchment,
-} from '@/lib/external-apis/epa'
+import { searchRecordsByBbox, type NBDCRecord } from '@/lib/external-apis/nbdc'
+import { searchAllAquaticFeatures, getWFDStatusDisplayName } from '@/lib/external-apis/epa'
 import { wgs84ToGridRef } from '@/lib/utils/grid-reference'
 import { searchFPOByGridRef, type FPORecord } from '@/lib/data/fpo-species'
 import * as turf from '@turf/turf'

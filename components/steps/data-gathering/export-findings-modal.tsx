@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import type { DeskResearchFinding, TargetNote } from '@/types/database'
+import type { DeskResearchFinding } from '@/types/database'
 import type { TargetNoteWithCreator } from '@/lib/supabase/queries/target-notes'
 
 interface ExportFindingsModalProps {

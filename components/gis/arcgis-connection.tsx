@@ -3,7 +3,6 @@
 import * as React from 'react'
 import { Loader2, Link, List, AlertCircle } from 'lucide-react'
 
-import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -77,7 +76,7 @@ export function ArcGISConnection({ onImport, onCancel }: ArcGISConnectionProps) 
       }
 
       onImport(mockBoundary)
-    } catch (err) {
+    } catch {
       setError('Failed to import from ArcGIS. Please check your connection and try again.')
     } finally {
       setIsLoading(false)

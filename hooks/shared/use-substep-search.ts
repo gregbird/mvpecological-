@@ -131,7 +131,7 @@ export function useSubstepSearch(
         return result
       })
     )
-  }, [savedFindings]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [savedFindings])
 
   // --- Debounced sessionStorage write ---
   const cacheTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -142,7 +142,7 @@ export function useSubstepSearch(
     cacheTimerRef.current = setTimeout(() => {
       try {
         // Strip rawData and location to reduce storage size
-        const cacheableResults = searchResults.map(({ rawData, location, ...rest }) => ({
+        const cacheableResults = searchResults.map(({ rawData: _rawData, location, ...rest }) => ({
           ...rest,
           locationCenter: location
             ? location.type === 'Point'

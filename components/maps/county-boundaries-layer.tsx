@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { GeoJSON, Popup, useMap } from 'react-leaflet'
+import { GeoJSON, Popup } from 'react-leaflet'
 import type { Layer, LeafletMouseEvent } from 'leaflet'
 
 import {
@@ -24,10 +24,6 @@ interface CountyProperties {
   englishName: string
 }
 
-interface CountyFeature extends GeoJSON.Feature {
-  properties: CountyProperties
-}
-
 export function CountyBoundariesLayer({
   visible = true,
   onCountyClick,
@@ -37,7 +33,6 @@ export function CountyBoundariesLayer({
   const [geoData, setGeoData] = React.useState<GeoJSON.FeatureCollection | null>(null)
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  const map = useMap()
 
   // Get layer config
   const layerConfig = getBoundaryLayerById('counties')

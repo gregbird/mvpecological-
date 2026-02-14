@@ -1,3 +1,4 @@
+/* eslint-env node */
 /**
  * Inspect any Shapefile ZIP contents
  * Run: node test-data/inspect-shapefile.mjs <path-to-zip>

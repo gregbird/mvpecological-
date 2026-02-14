@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { ArrowLeft, Plus, Map, Filter, Calendar } from 'lucide-react'
+import { ArrowLeft, Plus, Map, Calendar } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -17,12 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ProjectMap } from '@/components/maps/project-map'
-import {
-  SurveyCard,
-  type Survey,
-  type SurveyStatus,
-  type SurveyType,
-} from '@/components/field-surveys/survey-card'
+import { SurveyCard, type Survey, type SurveyStatus } from '@/components/field-surveys/survey-card'
 import { SurveyForm } from '@/components/field-surveys/survey-form'
 import { useToast } from '@/hooks/use-toast'
 

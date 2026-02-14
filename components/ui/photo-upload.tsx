@@ -40,7 +40,7 @@ export function PhotoUpload({
   const { toast } = useToast()
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = React.useState<UploadingPhoto[]>([])
-  const [isCapturing, setIsCapturing] = React.useState(false)
+  const [_isCapturing, setIsCapturing] = React.useState(false)
 
   const supabase = createClient()
 

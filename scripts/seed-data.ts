@@ -4,7 +4,6 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
-import { randomUUID } from 'crypto'
 
 const supabaseUrl = 'https://zekaljruvbjezxlumuup.supabase.co'
 const supabaseKey =

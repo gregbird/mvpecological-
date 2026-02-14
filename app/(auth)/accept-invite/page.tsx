@@ -166,6 +166,7 @@ function AcceptInviteContent() {
       <>
         {/* Mobile Logo */}
         <div className="mb-8 flex items-center justify-center lg:hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/dulra-logo.jpg" alt="Dulra" className="h-10" />
         </div>
 
@@ -205,6 +206,7 @@ function AcceptInviteContent() {
     <>
       {/* Mobile Logo */}
       <div className="mb-8 flex items-center justify-center lg:hidden">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/dulra-logo.jpg" alt="Dulra" className="h-10" />
       </div>
 

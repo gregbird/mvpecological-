@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { Loader2, MapPin, Camera, Search, AlertTriangle } from 'lucide-react'
+import { Loader2, MapPin, AlertTriangle } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -33,9 +33,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { cn } from '@/lib/utils'
 
 export interface SpeciesObservation {
   id: string

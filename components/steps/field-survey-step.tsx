@@ -8,10 +8,7 @@ import {
   AlertCircle,
   Info,
   Calendar,
-  Users,
-  MapPin,
   Bug,
-  Leaf,
   Waves,
   Shield,
   Target,
@@ -271,7 +268,7 @@ export function FieldSurveyStep({
         // Remove highlight after 3 seconds
         setTimeout(() => setHighlightedSurveyId(null), 3000)
       }
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error creating survey',
@@ -304,7 +301,7 @@ export function FieldSurveyStep({
 
       setEditingSurvey(null)
       setShowSurveyForm(false)
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error updating survey',
@@ -322,7 +319,7 @@ export function FieldSurveyStep({
         title: 'Survey deleted',
         description: 'Survey has been removed.',
       })
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error deleting survey',
@@ -343,7 +340,7 @@ export function FieldSurveyStep({
         title: 'Survey approved',
         description: 'Survey has been approved.',
       })
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error approving survey',
@@ -381,7 +378,7 @@ export function FieldSurveyStep({
       })
 
       onComplete?.()
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error completing step',
@@ -612,7 +609,7 @@ export function FieldSurveyStep({
       {/* Smart Scoping Panel */}
       <SmartScopingPanel
         findings={savedFindings}
-        onAddToSurvey={(species) => {
+        onAddToSurvey={(_species) => {
           // Pre-select appropriate survey type when creating survey
           setEditingSurvey(null)
           setShowSurveyForm(true)

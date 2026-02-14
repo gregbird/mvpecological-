@@ -162,15 +162,16 @@ function MapComponentWithDraw({
     GeoJSON,
     FeatureGroup,
     useMap,
-    ZoomControl,
     CircleMarker,
     Popup,
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
   } = require('react-leaflet')
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { EditControl } = require('react-leaflet-draw')
 
   const tileConfig = TILE_LAYERS[currentStyle]
   const featureGroupRef = React.useRef<LeafletFeatureGroup | null>(null)
-  const [drawnFeatures, setDrawnFeatures] = React.useState<GeoJSON.Feature[]>([])
+  const [_drawnFeatures, setDrawnFeatures] = React.useState<GeoJSON.Feature[]>([])
 
   // Refs for tracking internal map movements (to prevent infinite loops)
   const isInternalMoveRef = React.useRef(false)
@@ -280,6 +281,7 @@ function MapComponentWithDraw({
           return
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const L = require('leaflet')
 
         // Create a unique key for this boundary to detect actual changes
@@ -426,7 +428,7 @@ function MapComponentWithDraw({
     }
   }
 
-  const handleDeleted = (e: DrawDeletedEvent) => {
+  const handleDeleted = (_e: DrawDeletedEvent) => {
     isEditingRef.current = false
 
     // Get remaining features from the FeatureGroup

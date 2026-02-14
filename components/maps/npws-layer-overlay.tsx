@@ -49,7 +49,7 @@ export function NPWSLayerOverlay({
   onSitesLoaded,
 }: NPWSLayerOverlayProps) {
   const [sites, setSites] = React.useState<NPWSDesignatedSite[]>([])
-  const [isLoading, setIsLoading] = React.useState(false)
+  const [_isLoading, setIsLoading] = React.useState(false)
   const layersRef = React.useRef<Map<string, L.Layer>>(new Map())
 
   // Get active NPWS site types from visible layers
@@ -125,6 +125,7 @@ export function NPWSLayerOverlay({
   React.useEffect(() => {
     if (!map) return
 
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const L = require('leaflet')
 
     // Clear existing layers
@@ -326,6 +327,7 @@ export function useNPWSLayers(
   React.useEffect(() => {
     if (!map) return
 
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const L = require('leaflet')
     const layers: L.Layer[] = []
 

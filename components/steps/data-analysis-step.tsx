@@ -26,7 +26,7 @@ import {
 } from 'recharts'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
@@ -45,7 +45,7 @@ import { useObservations, useObservationStats } from '@/hooks/queries/use-observ
 import { useFindingsStats } from '@/hooks/queries/use-finding-hooks'
 import { useSurveyStats } from '@/hooks/queries/use-survey-hooks'
 import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
-import { getHabitatByCode } from '@/lib/data/fossitt-codes'
+
 import type { Project, WorkflowStep } from '@/types/database'
 
 interface DataAnalysisStepProps {
@@ -161,7 +161,7 @@ export function DataAnalysisStep({ project, workflowStep, onComplete }: DataAnal
       })
 
       onComplete?.()
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error completing step',

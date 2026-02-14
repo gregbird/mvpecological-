@@ -1,4 +1,4 @@
-import { LucideIcon, MapPin, Map } from 'lucide-react'
+import { LucideIcon, Map } from 'lucide-react'
 
 export interface BoundaryLayer {
   id: string

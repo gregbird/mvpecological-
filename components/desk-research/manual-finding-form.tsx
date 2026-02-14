@@ -59,7 +59,11 @@ const FINDING_TYPES: Array<{ value: FindingType; label: string; description: str
   },
 ]
 
-export function ManualFindingForm({ projectId, onSave, trigger }: ManualFindingFormProps) {
+export function ManualFindingForm({
+  projectId: _projectId,
+  onSave,
+  trigger,
+}: ManualFindingFormProps) {
   const [open, setOpen] = React.useState(false)
   const [title, setTitle] = React.useState('')
   const [dataType, setDataType] = React.useState<FindingType>('other')

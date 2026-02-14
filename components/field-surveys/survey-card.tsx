@@ -5,7 +5,6 @@ import {
   Calendar,
   Clock,
   MapPin,
-  User,
   CloudSun,
   Eye,
   MoreVertical,

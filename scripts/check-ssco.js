@@ -1,10 +1,11 @@
+/* eslint-env node */
 const fs = require('fs')
 const data = JSON.parse(fs.readFileSync('public/data/ssco-sac-habitats.json', 'utf8'))
 
 // Normalize function (same as in ssco-lookup.ts)
 function normalizeHabitatCode(code) {
   if (!code || code.trim() === '') return []
-  let cleaned = code.replace(/^Potential\s+/i, '')
+  const cleaned = code.replace(/^Potential\s+/i, '')
   const parts = cleaned.split(/\s*\/\s*/)
   return parts.map((p) => p.trim()).filter((p) => /^\d{4}$/.test(p))
 }

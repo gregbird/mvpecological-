@@ -171,6 +171,7 @@ export function useEPALayers(
   React.useEffect(() => {
     if (!map) return
 
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const L = require('leaflet')
 
     // Clear existing layers

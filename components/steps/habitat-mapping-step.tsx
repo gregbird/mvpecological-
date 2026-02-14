@@ -15,7 +15,7 @@ import {
 import dynamic from 'next/dynamic'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
@@ -77,7 +77,7 @@ const CONDITION_LABELS: Record<string, { label: string; color: string }> = {
 export function HabitatMappingStep({
   project,
   workflowStep,
-  userId,
+  userId: _userId,
   onComplete,
 }: HabitatMappingStepProps) {
   const { toast } = useToast()
@@ -210,7 +210,7 @@ export function HabitatMappingStep({
 
       setShowHabitatForm(false)
       setDrawnBoundary(null)
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error creating habitat',
@@ -243,7 +243,7 @@ export function HabitatMappingStep({
 
       setEditingHabitat(null)
       setShowHabitatForm(false)
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error updating habitat',
@@ -265,7 +265,7 @@ export function HabitatMappingStep({
       if (selectedHabitat?.id === habitat.id) {
         setSelectedHabitat(null)
       }
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error deleting habitat',
@@ -297,7 +297,7 @@ export function HabitatMappingStep({
       })
 
       onComplete?.()
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error completing step',

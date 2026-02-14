@@ -65,7 +65,7 @@ export function QGISConnection({ onImport, onCancel }: QGISConnectionProps) {
           { name: 'survey_zones', geometryColumn: 'the_geom', srid: 4326 },
         ],
       })
-    } catch (err) {
+    } catch {
       setError('Failed to connect to database. Please check your credentials.')
       setConnectionStatus(null)
     } finally {
@@ -108,7 +108,7 @@ export function QGISConnection({ onImport, onCancel }: QGISConnectionProps) {
       }
 
       onImport(mockBoundary)
-    } catch (err) {
+    } catch {
       setError('Failed to import boundary from database')
     } finally {
       setIsImporting(false)

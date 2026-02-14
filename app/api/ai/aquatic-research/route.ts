@@ -22,7 +22,7 @@ import {
 
 export async function POST(request: NextRequest) {
   try {
-    const { waterBodyName, waterBodyType, waterBodyCode, wfdStatus, catchmentName, catchmentId } =
+    const { waterBodyName, waterBodyType, waterBodyCode, wfdStatus, catchmentName } =
       await request.json()
 
     if (!waterBodyName) {

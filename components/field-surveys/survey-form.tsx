@@ -109,7 +109,7 @@ export function SurveyForm({
   onOpenChange,
   onSubmit,
   initialData,
-  projectId,
+  projectId: _projectId,
 }: SurveyFormProps) {
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [teamMembers, setTeamMembers] = React.useState<Profile[]>([])

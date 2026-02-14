@@ -67,7 +67,6 @@ export async function POST(request: NextRequest) {
     // 3. First word (genus) match for genus-only queries
 
     for (const row of data.aaData || []) {
-      const displayName = row[2] // "Badger (Meles meles)" or "Meles meles"
       const scientificNameInRow = row[7] // "Meles meles" - exact scientific name
 
       // Priority 1: Exact match on scientific name field

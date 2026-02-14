@@ -3,28 +3,12 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import {
-  ArrowLeft,
-  Plus,
-  FileText,
-  Sparkles,
-  Send,
-  Eye,
-  Download,
-  MoreVertical,
-  Pencil,
-  Trash2,
-  CheckCircle,
-  Clock,
-  Loader2,
-  AlertCircle,
-} from 'lucide-react'
+import { ArrowLeft, Plus, Sparkles, Download, Pencil, Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
@@ -33,13 +17,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import {
   Dialog,
   DialogContent,
@@ -56,7 +33,6 @@ import {
 } from '@/components/ui/accordion'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
 import { generateFullReportDraft } from '@/lib/ai/report-generator'
 

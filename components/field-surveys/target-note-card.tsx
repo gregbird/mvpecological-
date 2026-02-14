@@ -8,7 +8,6 @@ import {
   Edit,
   Clock,
   AlertTriangle,
-  Eye,
   DoorOpen,
   Search,
   Leaf,

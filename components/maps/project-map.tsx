@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { Layers, Maximize2, Minimize2 } from 'lucide-react'
 import dynamic from 'next/dynamic'
-import type { Map as LeafletMap, Layer as LeafletLayer } from 'leaflet'
+import type { Map as LeafletMap } from 'leaflet'
 import type L from 'leaflet'
 
 import { Button } from '@/components/ui/button'
@@ -175,15 +175,8 @@ function MapComponent({
   onMapClick?: () => void
   mapRef: React.MutableRefObject<LeafletMap | null>
 }) {
-  const {
-    MapContainer,
-    TileLayer,
-    GeoJSON,
-    CircleMarker,
-    Popup,
-    useMap,
-    ZoomControl,
-  } = require('react-leaflet')
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { MapContainer, TileLayer, GeoJSON, CircleMarker, Popup, useMap } = require('react-leaflet')
 
   const boundaryLayer = layers.find((l) => l.id === 'boundary')
   const habitatLayer = layers.find((l) => l.id === 'habitats')
@@ -310,6 +303,7 @@ function MapComponent({
 
         // Only fit bounds if we haven't done it AND center is at default
         if (isDefaultCenter) {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
           const L = require('leaflet')
           const geoJsonLayer = L.geoJSON(boundary)
           const bounds = geoJsonLayer.getBounds()
@@ -341,6 +335,7 @@ function MapComponent({
         }
         lastZoomedFindingId.current = selectedFinding.id
 
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const L = require('leaflet')
         try {
           const location = selectedFinding.location
@@ -411,31 +406,6 @@ function MapComponent({
       }
     }, [map, townlandsLayer?.visible, loadTownlandsForBbox])
 
-    return null
-  }
-
-  // Helper to get center point from geometry
-  const getGeometryCenter = (geometry: GeoJSON.Geometry): [number, number] | null => {
-    try {
-      if (geometry.type === 'Point') {
-        const [lng, lat] = geometry.coordinates as [number, number]
-        return [lat, lng]
-      } else if (geometry.type === 'Polygon') {
-        const coords = geometry.coordinates[0]
-        const sumLat = coords.reduce((sum, c) => sum + c[1], 0)
-        const sumLng = coords.reduce((sum, c) => sum + c[0], 0)
-        return [sumLat / coords.length, sumLng / coords.length]
-      } else if (geometry.type === 'GeometryCollection') {
-        const firstGeom = geometry.geometries[0]
-        if (firstGeom) return getGeometryCenter(firstGeom)
-      } else if (geometry.type === 'LineString') {
-        const coords = geometry.coordinates
-        const midIndex = Math.floor(coords.length / 2)
-        return [coords[midIndex][1], coords[midIndex][0]]
-      }
-    } catch {
-      return null
-    }
     return null
   }
 
@@ -560,6 +530,7 @@ function MapComponent({
         [...bufferDistances]
           .sort((a, b) => b - a) // Largest first so they render underneath
           .map((distance) => {
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
             const turf = require('@turf/turf')
             try {
               const buffered = turf.buffer(boundary, distance, { units: 'kilometers' })
@@ -690,6 +661,7 @@ function MapComponent({
               }}
               eventHandlers={{
                 click: (e: L.LeafletMouseEvent) => {
+                  // eslint-disable-next-line @typescript-eslint/no-require-imports
                   const L = require('leaflet')
                   L.DomEvent.stopPropagation(e)
                   onTargetNoteClick?.(note)
@@ -759,6 +731,7 @@ function MapComponent({
                 }}
                 eventHandlers={{
                   click: (e: L.LeafletMouseEvent) => {
+                    // eslint-disable-next-line @typescript-eslint/no-require-imports
                     const L = require('leaflet')
                     L.DomEvent.stopPropagation(e)
                     onFindingClick?.(finding)
@@ -775,17 +748,17 @@ function MapComponent({
                         {finding.source.toUpperCase()}
                       </span>
                       {/* Species status badges */}
-                      {Boolean(metadata?.isProtected) && (
+                      {!!metadata?.isProtected && (
                         <span className="rounded bg-red-600 px-1.5 py-0.5 text-xs font-medium text-white">
                           Protected
                         </span>
                       )}
-                      {Boolean(metadata?.isInvasive) && (
+                      {!!metadata?.isInvasive && (
                         <span className="rounded bg-orange-500 px-1.5 py-0.5 text-xs font-medium text-white">
                           Invasive
                         </span>
                       )}
-                      {Boolean(metadata?.isThreatened) && !Boolean(metadata?.isProtected) && (
+                      {!!metadata?.isThreatened && !metadata?.isProtected && (
                         <span className="rounded bg-yellow-500 px-1.5 py-0.5 text-xs font-medium text-white">
                           Threatened
                         </span>
@@ -833,6 +806,7 @@ function MapComponent({
                 }}
                 eventHandlers={{
                   click: (e: L.LeafletMouseEvent) => {
+                    // eslint-disable-next-line @typescript-eslint/no-require-imports
                     const L = require('leaflet')
                     L.DomEvent.stopPropagation(e)
                     onFindingClick?.(finding)
@@ -871,6 +845,7 @@ function MapComponent({
                 }}
                 eventHandlers={{
                   click: (e: L.LeafletMouseEvent) => {
+                    // eslint-disable-next-line @typescript-eslint/no-require-imports
                     const L = require('leaflet')
                     L.DomEvent.stopPropagation(e)
                     onFindingClick?.(finding)
@@ -917,6 +892,7 @@ function MapComponent({
                 }}
                 eventHandlers={{
                   click: (e: L.LeafletMouseEvent) => {
+                    // eslint-disable-next-line @typescript-eslint/no-require-imports
                     const L = require('leaflet')
                     L.DomEvent.stopPropagation(e)
                     onFindingClick?.(finding)
@@ -969,11 +945,9 @@ export function ProjectMap({
   findings,
   selectedFinding,
   visibleFindingTypes,
-  onBoundaryChange,
   onFindingClick,
   onMapClick,
   onMapReady,
-  editable = false,
   showControls = true,
 }: ProjectMapProps) {
   const [mapLoaded, setMapLoaded] = React.useState(false)

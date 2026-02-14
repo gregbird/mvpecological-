@@ -29,7 +29,6 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import {
   useProjectObservations,
-  useObservationStats,
   useCreateObservation,
   useUpdateObservation,
   useDeleteObservation,
@@ -133,7 +132,6 @@ export function TargetNotesStep({
   const { data: observations = [], isLoading: observationsLoading } = useProjectObservations(
     project.id
   )
-  const { data: observationStats } = useObservationStats(project.id)
   const createObservation = useCreateObservation()
   const updateObservation = useUpdateObservation()
   const deleteObservation = useDeleteObservation()
@@ -214,7 +212,7 @@ export function TargetNotesStep({
       })
 
       setShowTargetNoteForm(false)
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error creating target note',
@@ -254,7 +252,7 @@ export function TargetNotesStep({
 
       setEditingTargetNote(null)
       setShowTargetNoteForm(false)
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error updating target note',
@@ -276,7 +274,7 @@ export function TargetNotesStep({
       if (selectedTargetNote?.id === note.id) {
         setSelectedTargetNote(null)
       }
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error deleting target note',
@@ -297,7 +295,7 @@ export function TargetNotesStep({
         title: 'Target note verified',
         description: 'Target note has been marked as verified.',
       })
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error verifying target note',
@@ -359,7 +357,7 @@ export function TargetNotesStep({
       })
 
       setShowObservationForm(false)
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error recording observation',
@@ -406,7 +404,7 @@ export function TargetNotesStep({
 
       setEditingObservation(null)
       setShowObservationForm(false)
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error updating observation',
@@ -428,7 +426,7 @@ export function TargetNotesStep({
       if (selectedObservation?.id === observation.id) {
         setSelectedObservation(null)
       }
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error deleting observation',
@@ -451,7 +449,7 @@ export function TargetNotesStep({
       })
 
       onComplete?.()
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error completing step',

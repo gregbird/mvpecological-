@@ -11,8 +11,6 @@ import {
   ChevronRight,
   Loader2,
   Pencil,
-  Eye,
-  EyeOff,
   Database,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
@@ -71,13 +69,11 @@ export function DataGatheringStep({
   userId,
   onComplete,
 }: DataGatheringStepProps) {
-  const { setMapFullscreen, refetchProject, refetchWorkflowSteps } = useProjectContext()
+  const { setMapFullscreen, refetchWorkflowSteps } = useProjectContext()
 
   // Check if step is completed
   const isStepCompleted =
     workflowStep.status === 'approved' || workflowStep.status === 'needs_review'
-  const hasBoundary = !!project.boundary
-
   // Cache key for wizard step
   const wizardStepCacheKey = `data-gathering-step-${project.id}`
 
@@ -115,7 +111,7 @@ export function DataGatheringStep({
   const [showAutoSearchBanner, setShowAutoSearchBanner] = React.useState(false)
 
   // Data hooks
-  const { data: savedFindings = [], isLoading: isLoadingFindings } = useSavedFindings(project.id)
+  const { data: savedFindings = [] } = useSavedFindings(project.id)
   const { data: findingsStats } = useFindingsStats(project.id)
   const { data: targetNotes = [] } = useTargetNotes(project.id)
   const completeStep = useCompleteWorkflowStep()

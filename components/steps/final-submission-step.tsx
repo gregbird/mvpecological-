@@ -18,18 +18,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 import { useRole } from '@/contexts/role-context'
 import { useLatestReport, useUpdateReport } from '@/hooks/queries/use-report-hooks'
@@ -38,7 +30,7 @@ import { useHabitatStats } from '@/hooks/queries/use-habitat-hooks'
 import { useObservationStats } from '@/hooks/queries/use-observation-hooks'
 import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { PEA_REPORT_SECTIONS, type ReportContent } from '@/lib/supabase/queries/reports'
-import type { Project, WorkflowStep, Json } from '@/types/database'
+import type { Project, WorkflowStep } from '@/types/database'
 
 interface FinalSubmissionStepProps {
   project: Project
@@ -67,7 +59,7 @@ const APPENDIX_OPTIONS = [
 export function FinalSubmissionStep({
   project,
   workflowStep,
-  userId,
+  userId: _userId,
   onComplete,
 }: FinalSubmissionStepProps) {
   const { toast } = useToast()
@@ -183,7 +175,7 @@ Appendices: ${selectedAppendices.map((a) => APPENDIX_OPTIONS.find((o) => o.id ==
       })
 
       onComplete?.()
-    } catch (error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error submitting report',

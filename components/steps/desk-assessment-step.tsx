@@ -40,13 +40,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
-import {
-  useSavedFindings,
-  useUpdateFinding,
-  useFindingsStats,
-} from '@/hooks/queries/use-finding-hooks'
+import { useSavedFindings, useUpdateFinding } from '@/hooks/queries/use-finding-hooks'
 import { useUpdateWorkflowStep, useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { useProjectContext } from '@/contexts/project-context'
 import type { Project, WorkflowStep, DeskResearchFinding } from '@/types/database'
@@ -113,7 +109,6 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
 
   // React Query hooks
   const { data: savedFindings = [], isLoading } = useSavedFindings(project.id)
-  const { data: findingsStats } = useFindingsStats(project.id)
   const updateFinding = useUpdateFinding()
   const updateWorkflowStep = useUpdateWorkflowStep()
   const completeStep = useCompleteWorkflowStep()
@@ -124,7 +119,7 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
     if (meta?.aiInsights && typeof meta.aiInsights === 'string') {
       setAiInsights(meta.aiInsights)
     }
-  }, [workflowStep.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [workflowStep.id])
 
   // Auto-reopen step when saved findings change after completion
   const findingsFingerprint = React.useMemo(
@@ -159,7 +154,7 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
         })
         .catch((err) => console.error('Failed to reopen step:', err))
     }
-  }, [findingsFingerprint]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [findingsFingerprint])
 
   // Parse relevance from notes
   const findingsWithRelevance = React.useMemo(() => {
@@ -234,7 +229,7 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
       })
 
       setSelectedFinding(null)
-    } catch (error) {
+    } catch {
       toast({ variant: 'destructive', title: 'Error saving assessment' })
     }
   }
@@ -384,7 +379,7 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
 
       refetchWorkflowSteps()
       onComplete?.()
-    } catch (error) {
+    } catch {
       toast({ variant: 'destructive', title: 'Error completing step' })
     }
   }

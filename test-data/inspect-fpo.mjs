@@ -1,3 +1,4 @@
+/* eslint-env node */
 /**
  * Inspect FPO Shapefile contents
  * Run: node test-data/inspect-fpo.mjs

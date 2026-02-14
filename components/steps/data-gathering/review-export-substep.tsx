@@ -3,7 +3,6 @@
 import * as React from 'react'
 import {
   Check,
-  Download,
   FileSpreadsheet,
   FileJson,
   Plus,
@@ -25,7 +24,6 @@ import dynamic from 'next/dynamic'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
@@ -36,13 +34,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { useToast } from '@/hooks/use-toast'
 import { TargetNoteForm } from './target-note-form'
 import type { Project, DeskResearchFinding } from '@/types/database'
 import type { TargetNoteWithCreator } from '@/lib/supabase/queries/target-notes'
@@ -138,7 +129,6 @@ export function ReviewExportSubStep({
   isCompleting,
   isComplete,
 }: ReviewExportSubStepProps) {
-  const { toast } = useToast()
   const [showNoteForm, setShowNoteForm] = React.useState(false)
   const [expandedFindingId, setExpandedFindingId] = React.useState<string | null>(null)
 
@@ -174,11 +164,6 @@ export function ReviewExportSubStep({
     if (!rawData) return null
     const metadata = rawData.metadata as Record<string, unknown> | undefined
     return (metadata?.siteType as string) || null
-  }
-
-  // Check if a finding has any AI content
-  const hasAnyAI = (finding: DeskResearchFinding): boolean => {
-    return getAISummary(finding) !== null || getDeepResearch(finding) !== null
   }
 
   // Count findings with AI summaries or deep research

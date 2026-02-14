@@ -1,3 +1,4 @@
+/* eslint-env node */
 /**
  * Script to create test shapefile
  * Run: node test-data/create-shapefile.mjs

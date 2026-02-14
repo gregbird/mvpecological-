@@ -83,6 +83,7 @@ export function MeasureControl({ map, className }: MeasureControlProps) {
   React.useEffect(() => {
     if (!map || !isActive) return
 
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const L = require('leaflet')
 
     // Change cursor
@@ -146,6 +147,7 @@ export function MeasureControl({ map, className }: MeasureControlProps) {
     const handleMouseMove = (e: L.LeafletMouseEvent) => {
       if (points.length === 0) return
 
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const L = require('leaflet')
       const lastPoint = points[points.length - 1]
 

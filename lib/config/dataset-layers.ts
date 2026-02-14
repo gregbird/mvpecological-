@@ -28,8 +28,6 @@ const NPWS_BASE_URL =
 const EPA_BASE_URL = 'https://gis.epa.ie/geoserver'
 
 // DAFM WMS base URL
-const DAFM_BASE_URL = 'https://gis.agriculture.gov.ie/geoserver'
-
 // GSI (Geological Survey Ireland) WMS base URL
 const GSI_BASE_URL = 'https://gis.gsi.ie/server/services'
 

@@ -9,7 +9,7 @@
  */
 
 import shp from 'shpjs'
-import { validateBoundary, detectCRS, EPSG_CODES, type ValidationResult } from './validation'
+import { validateBoundary, detectCRS, type ValidationResult } from './validation'
 
 export interface ShapefileParseResult {
   success: boolean

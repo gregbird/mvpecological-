@@ -349,8 +349,8 @@ export function getRedListDisplayName(status?: string): string {
  * @deprecated Use GBIF searchOccurrences() instead for bbox-based species searches
  */
 export async function searchRecordsByBbox(
-  bbox: { minLat: number; maxLat: number; minLng: number; maxLng: number },
-  params?: Partial<NBDCSearchParams>
+  _bbox: { minLat: number; maxLat: number; minLng: number; maxLng: number },
+  _params?: Partial<NBDCSearchParams>
 ): Promise<NBDCRecord[]> {
   // NBDC's WFS service is no longer available
   // Log a warning and return empty array
@@ -416,7 +416,7 @@ export function recordsToGeoJSON(records: NBDCRecord[]): GeoJSON.FeatureCollecti
 /**
  * Response from NBDC species search (DataTables format)
  */
-interface NBDCSpeciesSearchResponse {
+interface _NBDCSpeciesSearchResponse {
   iTotalRecords: number
   iTotalDisplayRecords: number
   sEcho: number
@@ -437,7 +437,7 @@ interface NBDCSpeciesSearchResponse {
 /**
  * Response from NBDC GetTaxon API
  */
-interface NBDCTaxonResponse {
+interface _NBDCTaxonResponse {
   result: {
     taxonId: number
     taxonName: string

@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { Loader2, Search, Info } from 'lucide-react'
+import { Loader2, Search } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -44,12 +44,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
-import {
-  FOSSITT_HABITATS,
-  getHabitatByCode,
-  searchHabitats,
-  type FossittHabitat,
-} from '@/lib/data/fossitt-codes'
+import { FOSSITT_HABITATS, getHabitatByCode, type FossittHabitat } from '@/lib/data/fossitt-codes'
 
 export interface HabitatPolygon {
   id: string

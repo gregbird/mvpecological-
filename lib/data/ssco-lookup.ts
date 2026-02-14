@@ -124,7 +124,7 @@ export async function findIntersectingSSCO(
           // Intersection calculation failed, skip area
         }
       }
-    } catch (error) {
+    } catch {
       // Skip invalid geometries
       continue
     }
@@ -194,7 +194,7 @@ function normalizeHabitatCode(code: string): string[] {
   if (!code || code.trim() === '') return []
 
   // Remove "Potential " prefix
-  let cleaned = code.replace(/^Potential\s+/i, '')
+  const cleaned = code.replace(/^Potential\s+/i, '')
 
   // Split by " / " for combined codes like "1310 / 1330"
   const parts = cleaned.split(/\s*\/\s*/)
