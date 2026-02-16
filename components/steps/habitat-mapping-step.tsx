@@ -417,8 +417,6 @@ export function HabitatMappingStep({
                   editable={!isComplete}
                   findings={findingMarkers}
                   flyToLocation={flyToLocation ?? undefined}
-                  visibleLayers={['sac', 'spa', 'nha', 'pnha']}
-                  npwsSearchRadius={5}
                 />
               </div>
             </CardContent>

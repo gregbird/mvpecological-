@@ -9,7 +9,10 @@ import {
   type CreateDeepResearchInput,
   type DeepResearchResult,
 } from '@/lib/supabase/queries/deep-research'
-import { getWaterBodyResearch } from '@/lib/supabase/queries/aquatic-research'
+import {
+  getWaterBodyResearch,
+  getProjectAquaticResearch,
+} from '@/lib/supabase/queries/aquatic-research'
 
 export function useProjectDeepResearch(projectId: string) {
   return useQuery({
@@ -46,6 +49,14 @@ export function useDeleteDeepResearch() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['deep-research'] })
     },
+  })
+}
+
+export function useProjectAquaticResearch(projectId: string) {
+  return useQuery({
+    queryKey: ['aquatic-research', projectId],
+    queryFn: () => getProjectAquaticResearch(projectId),
+    enabled: !!projectId,
   })
 }
 

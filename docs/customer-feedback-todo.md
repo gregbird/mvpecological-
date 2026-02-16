@@ -831,15 +831,15 @@ Logo ve sembolü verilen linkteki ile güncelleyin.
 
 **Yapılacaklar:**
 
-- [ ] **6.1.1** Google Drive'dan logo dosyasını indir
+- [x] **6.1.1** Google Drive'dan logo dosyasını indir ✅
   - Link: `https://drive.google.com/file/d/1heM2-RINehnpDOOP4tBc-rGbWm70o7cu/view`
 
-- [ ] **6.1.2** Logo dosyalarını optimize et
+- [x] **6.1.2** Logo dosyalarını optimize et ✅
   - SVG formatına dönüştür (mümkünse)
   - Farklı boyutlar: favicon, header, splash
   - Dark/light mode varyantları
 
-- [ ] **6.1.3** Mevcut logo kullanımlarını güncelle
+- [x] **6.1.3** Mevcut logo kullanımlarını güncelle ✅
   - `public/logo.svg` veya `public/logo.png`
   - `app/layout.tsx` - favicon
   - `components/layout/sidebar.tsx` - sidebar logo
@@ -1312,7 +1312,7 @@ Her tanımlanan site için rapor şunları açıkça listeler: İlişkili habita
 ## Notlar
 
 - [x] ~~Müşteriden Excel dosyalarını al (2.1.1)~~ ✅ Alındı ve entegre edildi
-- [ ] Google Drive'dan logo indir (6.1.1)
+- [x] ~~Google Drive'dan logo indir (6.1.1)~~ ✅
 - [ ] Harici feedback dokümanını incele (7.1.1)
 - [ ] Demo tarihi belirle ve timeline oluştur
 - [ ] ~158 site için eksik habitat verisi çözümü (OpenAI veya müşteriden ek veri)

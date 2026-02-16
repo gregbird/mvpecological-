@@ -20,6 +20,7 @@ import {
   X,
   ExternalLink,
   ChevronDown,
+  FileText,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -36,10 +37,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
 import { useSavedFindings, useUpdateFinding } from '@/hooks/queries/use-finding-hooks'
 import { useUpdateWorkflowStep, useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { useProjectContext } from '@/contexts/project-context'
+import { BaselineReportTab } from '@/components/steps/desk-assessment/baseline-report-tab'
 import type { Project, WorkflowStep, DeskResearchFinding } from '@/types/database'
 
 interface DeskAssessmentStepProps {
@@ -664,153 +667,185 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
             </Button>
           </div>
 
-          {/* Right Panel - AI Insights + Survey Recommendations */}
-          <div
-            className={cn(
-              'min-h-0 min-w-0 flex-1',
-              isEditingInsights ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'
-            )}
-          >
-            <div className={cn('p-6', isEditingInsights && 'flex min-h-0 flex-1 flex-col')}>
-              {aiInsights ? (
-                <div
-                  className={cn('max-w-none', isEditingInsights && 'flex min-h-0 flex-1 flex-col')}
+          {/* Right Panel - Tabs: AI Analysis + Baseline Report */}
+          <Tabs defaultValue="ai-analysis" className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <div className="shrink-0 border-b px-4">
+              <TabsList className="h-auto gap-0 rounded-none border-none bg-transparent p-0">
+                <TabsTrigger
+                  value="ai-analysis"
+                  className="data-[state=active]:border-primary relative rounded-none border-b-2 border-transparent py-3 font-medium shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none"
                 >
-                  <div className="mb-4 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="h-5 w-5 text-purple-500" />
-                      <h3 className="m-0 text-lg font-semibold">AI Analysis</h3>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {isEditingInsights ? (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setAiInsights(editedInsights)
-                              setIsEditingInsights(false)
-                              persistInsights(editedInsights)
-                            }}
-                          >
-                            <Check className="mr-1 h-3 w-3" />
-                            Save
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setIsEditingInsights(false)}
-                          >
-                            <X className="mr-1 h-3 w-3" />
-                            Cancel
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setEditedInsights(aiInsights)
-                              setIsEditingInsights(true)
-                            }}
-                          >
-                            <Pencil className="mr-1 h-3 w-3" />
-                            Edit
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={handleGenerateInsights}>
-                            <RefreshCw className="mr-1 h-3 w-3" />
-                            Regenerate
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  {isEditingInsights ? (
-                    <Textarea
-                      value={editedInsights}
-                      onChange={(e) => setEditedInsights(e.target.value)}
-                      className="h-full min-h-[600px] w-full flex-1 resize-none font-mono text-sm"
-                      placeholder="Edit the AI analysis in markdown..."
-                    />
-                  ) : (
-                    <div className="prose prose-sm max-w-none overflow-x-auto rounded-lg border bg-gray-50 p-4">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{aiInsights}</ReactMarkdown>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex h-full min-h-[400px] flex-col items-center justify-center text-center">
-                  <Brain className="mb-4 h-16 w-16 text-gray-300" />
-                  <h3 className="text-lg font-semibold">AI Insights</h3>
-                  <p className="text-muted-foreground mt-2 max-w-sm text-sm leading-relaxed">
-                    Click <strong>&quot;Generate AI Analysis&quot;</strong> to get intelligent
-                    insights about your findings, risk assessment, and field survey recommendations.
-                  </p>
-                </div>
-              )}
-
-              {/* Survey Recommendations */}
-              {!isEditingInsights && (
-                <div className="mt-8 border-t pt-6">
-                  <h3 className="mb-4 flex items-center gap-2 font-semibold">
-                    <Lightbulb className="h-5 w-5" />
-                    Survey Recommendations
-                  </h3>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm">Recommended Survey Types</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <ul className="text-muted-foreground space-y-1 text-sm">
-                          <li>• Habitat Survey (Fossitt Level 3)</li>
-                          {protectedSpeciesCount > 0 && <li>• Protected Species Survey</li>}
-                          {(findingsByType['designated_site']?.length || 0) > 0 && (
-                            <li>• Connectivity Assessment</li>
-                          )}
-                        </ul>
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="flex items-center gap-2 text-sm">
-                          <Calendar className="h-4 w-4" />
-                          Optimal Survey Timing
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <ul className="text-muted-foreground space-y-1 text-sm">
-                          <li>• Breeding Birds: Mar - Jul</li>
-                          <li>• Bats: May - Sep</li>
-                          <li>• Badger: Year-round</li>
-                          <li>• Otter: Year-round</li>
-                          <li>• Vegetation: May - Sep</li>
-                        </ul>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Complete Button */}
-                  <Button
-                    onClick={handleComplete}
-                    disabled={isComplete || completeStep.isPending}
-                    className="mt-6 w-full"
-                    size="lg"
-                  >
-                    {completeStep.isPending ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Check className="mr-2 h-4 w-4" />
-                    )}
-                    {isComplete ? 'Completed' : 'Complete & Continue to Field Survey'}
-                  </Button>
-                </div>
-              )}
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  AI Analysis
+                </TabsTrigger>
+                <TabsTrigger
+                  value="baseline-report"
+                  className="data-[state=active]:border-primary relative rounded-none border-b-2 border-transparent py-3 font-medium shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  Baseline Report
+                </TabsTrigger>
+              </TabsList>
             </div>
-          </div>
+
+            {/* AI Analysis Tab */}
+            <TabsContent
+              value="ai-analysis"
+              className={cn(
+                'mt-0 min-h-0 flex-1',
+                isEditingInsights ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'
+              )}
+            >
+              <div className={cn('p-6', isEditingInsights && 'flex min-h-0 flex-1 flex-col')}>
+                {aiInsights ? (
+                  <div
+                    className={cn(
+                      'max-w-none',
+                      isEditingInsights && 'flex min-h-0 flex-1 flex-col'
+                    )}
+                  >
+                    <div className="mb-4 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-5 w-5 text-purple-500" />
+                        <h3 className="m-0 text-lg font-semibold">AI Analysis</h3>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {isEditingInsights ? (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setAiInsights(editedInsights)
+                                setIsEditingInsights(false)
+                                persistInsights(editedInsights)
+                              }}
+                            >
+                              <Check className="mr-1 h-3 w-3" />
+                              Save
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setIsEditingInsights(false)}
+                            >
+                              <X className="mr-1 h-3 w-3" />
+                              Cancel
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setEditedInsights(aiInsights)
+                                setIsEditingInsights(true)
+                              }}
+                            >
+                              <Pencil className="mr-1 h-3 w-3" />
+                              Edit
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={handleGenerateInsights}>
+                              <RefreshCw className="mr-1 h-3 w-3" />
+                              Regenerate
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    {isEditingInsights ? (
+                      <Textarea
+                        value={editedInsights}
+                        onChange={(e) => setEditedInsights(e.target.value)}
+                        className="h-full min-h-[600px] w-full flex-1 resize-none font-mono text-sm"
+                        placeholder="Edit the AI analysis in markdown..."
+                      />
+                    ) : (
+                      <div className="prose prose-sm max-w-none overflow-x-auto rounded-lg border bg-gray-50 p-4">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{aiInsights}</ReactMarkdown>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex h-full min-h-[400px] flex-col items-center justify-center text-center">
+                    <Brain className="mb-4 h-16 w-16 text-gray-300" />
+                    <h3 className="text-lg font-semibold">AI Insights</h3>
+                    <p className="text-muted-foreground mt-2 max-w-sm text-sm leading-relaxed">
+                      Click <strong>&quot;Generate AI Analysis&quot;</strong> to get intelligent
+                      insights about your findings, risk assessment, and field survey
+                      recommendations.
+                    </p>
+                  </div>
+                )}
+
+                {/* Survey Recommendations */}
+                {!isEditingInsights && (
+                  <div className="mt-8 border-t pt-6">
+                    <h3 className="mb-4 flex items-center gap-2 font-semibold">
+                      <Lightbulb className="h-5 w-5" />
+                      Survey Recommendations
+                    </h3>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm">Recommended Survey Types</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <ul className="text-muted-foreground space-y-1 text-sm">
+                            <li>• Habitat Survey (Fossitt Level 3)</li>
+                            {protectedSpeciesCount > 0 && <li>• Protected Species Survey</li>}
+                            {(findingsByType['designated_site']?.length || 0) > 0 && (
+                              <li>• Connectivity Assessment</li>
+                            )}
+                          </ul>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="flex items-center gap-2 text-sm">
+                            <Calendar className="h-4 w-4" />
+                            Optimal Survey Timing
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <ul className="text-muted-foreground space-y-1 text-sm">
+                            <li>• Breeding Birds: Mar - Jul</li>
+                            <li>• Bats: May - Sep</li>
+                            <li>• Badger: Year-round</li>
+                            <li>• Otter: Year-round</li>
+                            <li>• Vegetation: May - Sep</li>
+                          </ul>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Complete Button */}
+                    <Button
+                      onClick={handleComplete}
+                      disabled={isComplete || completeStep.isPending}
+                      className="mt-6 w-full"
+                      size="lg"
+                    >
+                      {completeStep.isPending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="mr-2 h-4 w-4" />
+                      )}
+                      {isComplete ? 'Completed' : 'Complete & Continue to Field Survey'}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            {/* Baseline Report Tab */}
+            <TabsContent value="baseline-report" className="mt-0 min-h-0 flex-1 overflow-y-auto">
+              <BaselineReportTab savedFindings={savedFindings} project={project} />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
 

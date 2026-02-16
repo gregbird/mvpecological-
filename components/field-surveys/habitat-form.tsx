@@ -219,7 +219,7 @@ export function HabitatForm({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             {/* Fossitt Code Selection */}
             <FormField
               control={form.control}
@@ -304,9 +304,6 @@ export function HabitatForm({
                       </Command>
                     </PopoverContent>
                   </Popover>
-                  <FormDescription>
-                    Select the appropriate Fossitt habitat code from the classification.
-                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -314,84 +311,124 @@ export function HabitatForm({
 
             {/* Show selected habitat details */}
             {selectedHabitat && (
-              <div className="bg-muted/30 rounded-lg border p-4">
-                <div className="flex items-start gap-3">
+              <div className="bg-muted/30 rounded-lg border p-3">
+                <div className="flex items-center gap-3">
                   <div
-                    className="mt-0.5 h-4 w-4 shrink-0 rounded"
+                    className="h-4 w-4 shrink-0 rounded"
                     style={{ backgroundColor: selectedHabitat.color }}
                   />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono font-medium">{selectedHabitat.code}</span>
-                      <span className="font-medium">{selectedHabitat.name}</span>
-                    </div>
-                    <p className="text-muted-foreground mt-1 text-sm">
-                      Level {selectedHabitat.level} habitat
-                      {selectedHabitat.parent && ` (Parent: ${selectedHabitat.parent})`}
-                    </p>
-                    {selectedHabitat.annex1 && (
-                      <div className="mt-2">
-                        <Badge variant="secondary">
-                          EU Habitats Directive Annex I: {selectedHabitat.annex1}
+                      <span className="font-mono text-sm font-medium">{selectedHabitat.code}</span>
+                      <span className="text-sm font-medium">{selectedHabitat.name}</span>
+                      {selectedHabitat.annex1 && (
+                        <Badge variant="secondary" className="text-xs">
+                          Annex I: {selectedHabitat.annex1}
                         </Badge>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Condition Assessment */}
-            <FormField
-              control={form.control}
-              name="condition"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Habitat Condition *</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select condition" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {CONDITION_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          <div className="flex flex-col">
-                            <span>{option.label}</span>
-                            <span className="text-muted-foreground text-xs">
-                              {option.description}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormDescription>
-                    Assess the ecological condition of the habitat polygon.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Row 1: Condition + Evaluation */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="condition"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Condition *</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select condition" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {CONDITION_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            {/* Area */}
-            <FormField
-              control={form.control}
-              name="areaHectares"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Area (hectares)</FormLabel>
-                  <FormControl>
-                    <Input type="number" step="0.01" placeholder="e.g., 2.5" {...field} />
-                  </FormControl>
-                  <FormDescription>
-                    If drawn on map, area will be calculated automatically.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="evaluation"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ecological Evaluation</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || ''}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select level" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {EVALUATION_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Row 2: Area + EU Annex + Survey Method */}
+            <div className="grid gap-4 sm:grid-cols-3">
+              <FormField
+                control={form.control}
+                name="areaHectares"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Area (ha)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" placeholder="Auto" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="euAnnexCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>EU Annex I Code</FormLabel>
+                    <FormControl>
+                      <Input placeholder={selectedHabitat?.annex1 || 'e.g., 91A0'} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="surveyMethod"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Survey Method</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Smith et al. (2011)" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             {/* Notes */}
             <FormField
@@ -402,8 +439,8 @@ export function HabitatForm({
                   <FormLabel>Notes</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Additional notes about the habitat (species composition, management, threats, etc.)..."
-                      className="min-h-25"
+                      placeholder="Species composition, management notes..."
+                      className="min-h-20"
                       {...field}
                     />
                   </FormControl>
@@ -412,123 +449,50 @@ export function HabitatForm({
               )}
             />
 
-            {/* EU Annex Code */}
-            <FormField
-              control={form.control}
-              name="euAnnexCode"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>EU Annex I Code</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder={
-                        selectedHabitat?.annex1
-                          ? `Suggested: ${selectedHabitat.annex1}`
-                          : 'e.g., 91A0 Old sessile oak woods'
-                      }
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    EU Habitats Directive Annex I habitat code, if applicable.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Evaluation */}
-            <FormField
-              control={form.control}
-              name="evaluation"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Ecological Evaluation</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ''}>
+            {/* Threats + Listed Species side by side */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="threats"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Threats</FormLabel>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select evaluation level" />
-                      </SelectTrigger>
+                      <Textarea
+                        placeholder="Overgrazing, invasive species..."
+                        className="min-h-20"
+                        {...field}
+                      />
                     </FormControl>
-                    <SelectContent>
-                      {EVALUATION_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormDescription>Ecological importance/value of this habitat.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            {/* Survey Method */}
-            <FormField
-              control={form.control}
-              name="surveyMethod"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Survey Method</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., Smith et al. (2011) Level 3" {...field} />
-                  </FormControl>
-                  <FormDescription>
-                    Survey methodology reference used for this habitat.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Threats */}
-            <FormField
-              control={form.control}
-              name="threats"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Threats</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="e.g., Overgrazing, invasive species encroachment, drainage..."
-                      className="min-h-20"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormDescription>Current or potential threats to this habitat.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Listed Species */}
-            <FormField
-              control={form.control}
-              name="listedSpecies"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Listed Species</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="e.g., Lutra lutra (Otter), Rhinolophus hipposideros (Lesser Horseshoe Bat)..."
-                      className="min-h-20"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Protected or notable species associated with this habitat.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormField
+                control={form.control}
+                name="listedSpecies"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Listed Species</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Lutra lutra, Rhinolophus..."
+                        className="min-h-20"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             {/* Photos */}
             <div className="space-y-2">
               <FormLabel className="flex items-center gap-2">
                 <ImageIcon className="h-4 w-4" />
-                Photos (Optional)
+                Photos
               </FormLabel>
               <PhotoUpload
                 projectId={projectId}
@@ -542,7 +506,7 @@ export function HabitatForm({
             </div>
 
             {/* Actions */}
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-3 pt-2">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
