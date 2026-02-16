@@ -126,6 +126,9 @@ export function TargetNotesStep({
     null
   )
   const [activeCategoryTab, setActiveCategoryTab] = React.useState('all')
+  const [mapClickLocation, setMapClickLocation] = React.useState<
+    { lat: number; lng: number } | undefined
+  >(undefined)
 
   // React Query hooks - Observations
   const { data: surveys = [] } = useSurveys(project.id)
@@ -619,6 +622,13 @@ export function TargetNotesStep({
                         const found = targetNotes.find((t) => t.id === note.id)
                         if (found) setSelectedTargetNote(found)
                       }}
+                      onMapClick={(latlng) => {
+                        if (!isComplete && latlng) {
+                          setMapClickLocation(latlng)
+                          setEditingTargetNote(null)
+                          setShowTargetNoteForm(true)
+                        }
+                      }}
                     />
                   </div>
                 </CardContent>
@@ -867,7 +877,10 @@ export function TargetNotesStep({
         open={showTargetNoteForm}
         onOpenChange={(open) => {
           setShowTargetNoteForm(open)
-          if (!open) setEditingTargetNote(null)
+          if (!open) {
+            setEditingTargetNote(null)
+            setMapClickLocation(undefined)
+          }
         }}
         onSubmit={editingTargetNote ? handleEditTargetNote : handleCreateTargetNote}
         initialData={
@@ -888,7 +901,9 @@ export function TargetNotesStep({
                 })(),
                 photos: (editingTargetNote.photos as string[]) || undefined,
               }
-            : undefined
+            : mapClickLocation
+              ? { location: mapClickLocation }
+              : undefined
         }
         isLoading={createTargetNote.isPending || updateTargetNote.isPending}
         projectId={project.id}
@@ -924,6 +939,7 @@ export function TargetNotesStep({
             : undefined
         }
         surveyId={selectedSurveyId || surveys[0]?.id || ''}
+        projectId={project.id}
       />
     </div>
   )

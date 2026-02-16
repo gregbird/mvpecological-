@@ -697,10 +697,8 @@ export function DataAnalysisStep({ project, workflowStep, onComplete }: DataAnal
                     placeholder="Edit the desk assessment insights in markdown..."
                   />
                 ) : (
-                  <div className="prose prose-sm max-w-none dark:prose-invert">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {deskInsights}
-                    </ReactMarkdown>
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{deskInsights}</ReactMarkdown>
                   </div>
                 )}
               </CardContent>

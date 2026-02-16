@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { CalendarIcon, Loader2 } from 'lucide-react'
+import { CalendarIcon, ChevronDown, Loader2 } from 'lucide-react'
 import { format } from 'date-fns'
 
 import { Button } from '@/components/ui/button'
@@ -36,9 +36,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { useRole } from '@/contexts/role-context'
 import { createClient } from '@/lib/supabase/client'
-import type { Survey, SurveyType } from './survey-card'
+import type { Survey, SurveyType, WeatherData } from './survey-card'
 import type { Profile } from '@/types/database'
 
 const surveyFormSchema = z.object({
@@ -55,9 +56,8 @@ const surveyFormSchema = z.object({
     'other',
   ]),
   surveyDate: z.date({ message: 'Survey date is required' }),
-  startTime: z.string().optional(),
-  endTime: z.string().optional(),
   surveyorId: z.string().min(1, 'Surveyor is required'),
+  expectedSurveyCount: z.string().optional(),
   temperature: z.string().optional(),
   windSpeed: z.string().optional(),
   windDirection: z.string().optional(),
@@ -152,9 +152,11 @@ export function SurveyForm({
     defaultValues: {
       surveyType: initialData?.surveyType || 'walkover',
       surveyDate: initialData?.surveyDate ? new Date(initialData.surveyDate) : new Date(),
-      startTime: initialData?.startTime || '',
-      endTime: initialData?.endTime || '',
       surveyorId: initialData?.surveyor?.id || '',
+      expectedSurveyCount:
+        (
+          initialData?.weather as Record<string, unknown> | undefined
+        )?.expectedSurveyCount?.toString() || '',
       temperature: initialData?.weather?.temperature?.toString() || '',
       windSpeed: initialData?.weather?.windSpeed?.toString() || '',
       windDirection: initialData?.weather?.windDirection || '',
@@ -174,8 +176,6 @@ export function SurveyForm({
         id: initialData?.id,
         surveyType: values.surveyType,
         surveyDate: format(values.surveyDate, 'yyyy-MM-dd'),
-        startTime: values.startTime || undefined,
-        endTime: values.endTime || undefined,
         surveyor: surveyor
           ? { id: surveyor.id, name: surveyor.full_name }
           : { id: values.surveyorId, name: 'Unknown' },
@@ -186,7 +186,10 @@ export function SurveyForm({
           cloudCover: values.cloudCover ? parseInt(values.cloudCover) : undefined,
           precipitation: values.precipitation || undefined,
           visibility: values.visibility || undefined,
-        },
+          expectedSurveyCount: values.expectedSurveyCount
+            ? parseInt(values.expectedSurveyCount)
+            : undefined,
+        } as WeatherData,
         notes: values.notes || undefined,
         status: initialData?.status || 'planned',
       })
@@ -277,36 +280,8 @@ export function SurveyForm({
               />
             </div>
 
-            {/* Time and Surveyor */}
-            <div className="grid gap-4 sm:grid-cols-3">
-              <FormField
-                control={form.control}
-                name="startTime"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Start Time</FormLabel>
-                    <FormControl>
-                      <Input type="time" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="endTime"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>End Time</FormLabel>
-                    <FormControl>
-                      <Input type="time" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
+            {/* Surveyor and Expected Survey Count */}
+            <div className="grid gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}
                 name="surveyorId"
@@ -343,137 +318,162 @@ export function SurveyForm({
                   </FormItem>
                 )}
               />
+
+              <FormField
+                control={form.control}
+                name="expectedSurveyCount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Number of Surveys Expected</FormLabel>
+                    <FormControl>
+                      <Input type="number" min="1" placeholder="e.g., 3" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
-            {/* Weather Conditions */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-medium">Weather Conditions</h3>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <FormField
-                  control={form.control}
-                  name="temperature"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Temperature (°C)</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.1" placeholder="e.g., 15" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="windSpeed"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Wind Speed (km/h)</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="1" placeholder="e.g., 10" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="windDirection"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Wind Direction</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+            {/* Weather Conditions - Collapsible */}
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="ghost"
+                  type="button"
+                  className="flex w-full items-center justify-between px-0"
+                >
+                  <span className="text-sm font-medium">Weather Conditions (Optional)</span>
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-4 pt-2">
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <FormField
+                    control={form.control}
+                    name="temperature"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Temperature (°C)</FormLabel>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select direction" />
-                          </SelectTrigger>
+                          <Input type="number" step="0.1" placeholder="e.g., 15" {...field} />
                         </FormControl>
-                        <SelectContent>
-                          {WIND_DIRECTIONS.map((dir) => (
-                            <SelectItem key={dir} value={dir}>
-                              {dir}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={form.control}
-                  name="cloudCover"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Cloud Cover (%)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="10"
-                          placeholder="e.g., 50"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="precipitation"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Precipitation</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormField
+                    control={form.control}
+                    name="windSpeed"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Wind Speed (km/h)</FormLabel>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select" />
-                          </SelectTrigger>
+                          <Input type="number" step="1" placeholder="e.g., 10" {...field} />
                         </FormControl>
-                        <SelectContent>
-                          {PRECIPITATION_OPTIONS.map((opt) => (
-                            <SelectItem key={opt} value={opt}>
-                              {opt}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={form.control}
-                  name="visibility"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Visibility</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormField
+                    control={form.control}
+                    name="windDirection"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Wind Direction</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select direction" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {WIND_DIRECTIONS.map((dir) => (
+                              <SelectItem key={dir} value={dir}>
+                                {dir}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="cloudCover"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cloud Cover (%)</FormLabel>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select" />
-                          </SelectTrigger>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="10"
+                            placeholder="e.g., 50"
+                            {...field}
+                          />
                         </FormControl>
-                        <SelectContent>
-                          {VISIBILITY_OPTIONS.map((opt) => (
-                            <SelectItem key={opt} value={opt}>
-                              {opt}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="precipitation"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Precipitation</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {PRECIPITATION_OPTIONS.map((opt) => (
+                              <SelectItem key={opt} value={opt}>
+                                {opt}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="visibility"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Visibility</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {VISIBILITY_OPTIONS.map((opt) => (
+                              <SelectItem key={opt} value={opt}>
+                                {opt}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
 
             {/* Notes */}
             <FormField

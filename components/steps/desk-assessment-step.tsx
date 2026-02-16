@@ -139,7 +139,6 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
   const [editedInsights, setEditedInsights] = React.useState('')
   const [expandedCard, setExpandedCard] = React.useState<string | null>(null)
 
-
   // React Query hooks
   const { data: savedFindings = [], isLoading } = useSavedFindings(project.id)
   const updateFinding = useUpdateFinding()
@@ -470,9 +469,7 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
                     type="button"
                     className="flex w-full items-center gap-3"
                     onClick={() =>
-                      setExpandedCard(
-                        expandedCard === 'designated_site' ? null : 'designated_site'
-                      )
+                      setExpandedCard(expandedCard === 'designated_site' ? null : 'designated_site')
                     }
                   >
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100">
@@ -527,9 +524,7 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
                     type="button"
                     className="flex w-full items-center gap-3"
                     onClick={() =>
-                      setExpandedCard(
-                        expandedCard === 'species_record' ? null : 'species_record'
-                      )
+                      setExpandedCard(expandedCard === 'species_record' ? null : 'species_record')
                     }
                   >
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-purple-100">
@@ -584,9 +579,7 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
                     type="button"
                     className="flex w-full items-center gap-3"
                     onClick={() =>
-                      setExpandedCard(
-                        expandedCard === 'water_quality' ? null : 'water_quality'
-                      )
+                      setExpandedCard(expandedCard === 'water_quality' ? null : 'water_quality')
                     }
                   >
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100">
@@ -681,10 +674,7 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
             <div className={cn('p-6', isEditingInsights && 'flex min-h-0 flex-1 flex-col')}>
               {aiInsights ? (
                 <div
-                  className={cn(
-                    'max-w-none',
-                    isEditingInsights && 'flex min-h-0 flex-1 flex-col'
-                  )}
+                  className={cn('max-w-none', isEditingInsights && 'flex min-h-0 flex-1 flex-col')}
                 >
                   <div className="mb-4 flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -755,8 +745,7 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
                   <h3 className="text-lg font-semibold">AI Insights</h3>
                   <p className="text-muted-foreground mt-2 max-w-sm text-sm leading-relaxed">
                     Click <strong>&quot;Generate AI Analysis&quot;</strong> to get intelligent
-                    insights about your findings, risk assessment, and field survey
-                    recommendations.
+                    insights about your findings, risk assessment, and field survey recommendations.
                   </p>
                 </div>
               )}

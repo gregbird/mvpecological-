@@ -396,13 +396,18 @@ export type Database = {
           boundary: unknown
           condition: string | null
           created_at: string
+          eu_annex_code: string | null
+          evaluation: string | null
           fossitt_code: string
           fossitt_name: string
           id: string
+          listed_species: string | null
           notes: string | null
           photos: string[] | null
           project_id: string
           survey_id: string | null
+          survey_method: string | null
+          threats: string | null
           updated_at: string
         }
         Insert: {
@@ -410,13 +415,18 @@ export type Database = {
           boundary?: unknown
           condition?: string | null
           created_at?: string
+          eu_annex_code?: string | null
+          evaluation?: string | null
           fossitt_code: string
           fossitt_name: string
           id?: string
+          listed_species?: string | null
           notes?: string | null
           photos?: string[] | null
           project_id: string
           survey_id?: string | null
+          survey_method?: string | null
+          threats?: string | null
           updated_at?: string
         }
         Update: {
@@ -424,13 +434,18 @@ export type Database = {
           boundary?: unknown
           condition?: string | null
           created_at?: string
+          eu_annex_code?: string | null
+          evaluation?: string | null
           fossitt_code?: string
           fossitt_name?: string
           id?: string
+          listed_species?: string | null
           notes?: string | null
           photos?: string[] | null
           project_id?: string
           survey_id?: string | null
+          survey_method?: string | null
+          threats?: string | null
           updated_at?: string
         }
         Relationships: [

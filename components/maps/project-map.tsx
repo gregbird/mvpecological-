@@ -72,7 +72,7 @@ interface ProjectMapProps {
   visibleFindingTypes?: string[]
   onBoundaryChange?: (boundary: GeoJSON.Feature<GeoJSON.Polygon>) => void
   onFindingClick?: (finding: DeskResearchFinding) => void
-  onMapClick?: () => void // Called when clicking on the map (not on a finding)
+  onMapClick?: (latlng?: { lat: number; lng: number }) => void // Called when clicking on the map (not on a finding)
   onMapReady?: () => void
   editable?: boolean
   showControls?: boolean
@@ -172,7 +172,7 @@ function MapComponent({
   layers: MapLayer[]
   onMapReady?: () => void
   onFindingClick?: (finding: DeskResearchFinding) => void
-  onMapClick?: () => void
+  onMapClick?: (latlng?: { lat: number; lng: number }) => void
   mapRef: React.MutableRefObject<LeafletMap | null>
 }) {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -250,16 +250,16 @@ function MapComponent({
   }: {
     boundary?: GeoJSON.Feature<GeoJSON.Polygon>
     selectedFinding?: DeskResearchFinding | null
-    onMapClick?: () => void
+    onMapClick?: (latlng?: { lat: number; lng: number }) => void
   }) {
     const map = useMap()
 
-    // Handle map click to clear selection
+    // Handle map click to clear selection and pass coordinates
     React.useEffect(() => {
       if (!map || !onMapClick) return
 
-      const handleClick = () => {
-        onMapClick()
+      const handleClick = (e: L.LeafletMouseEvent) => {
+        onMapClick({ lat: e.latlng.lat, lng: e.latlng.lng })
       }
 
       map.on('click', handleClick)

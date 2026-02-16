@@ -138,11 +138,12 @@ export function SurveyCard({
                 <Calendar className="h-3.5 w-3.5" />
                 <span>{formatDate(survey.surveyDate)}</span>
               </div>
-              {survey.startTime && survey.endTime && (
+              {!!(survey.weather as Record<string, unknown> | undefined)?.expectedSurveyCount && (
                 <div className="flex items-center gap-1">
                   <Clock className="h-3.5 w-3.5" />
                   <span>
-                    {survey.startTime} - {survey.endTime}
+                    {String((survey.weather as Record<string, unknown>).expectedSurveyCount)}{' '}
+                    survey(s) expected
                   </span>
                 </div>
               )}
@@ -208,23 +209,22 @@ export function SurveyCard({
             <span className="text-sm">{survey.surveyor.name}</span>
           </div>
 
-          {/* Weather */}
-          {survey.weather && (
-            <div className="text-muted-foreground flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-1">
-                <CloudSun className="h-3.5 w-3.5" />
-                {survey.weather.temperature !== undefined && (
-                  <span>{survey.weather.temperature}°C</span>
-                )}
-                {survey.weather.windSpeed !== undefined && (
-                  <span className="ml-2">Wind: {survey.weather.windSpeed} km/h</span>
-                )}
-                {survey.weather.cloudCover !== undefined && (
-                  <span className="ml-2">Cloud: {survey.weather.cloudCover}%</span>
-                )}
+          {/* Weather - only show if data present */}
+          {survey.weather &&
+            (survey.weather.temperature !== undefined ||
+              survey.weather.windSpeed !== undefined) && (
+              <div className="text-muted-foreground flex items-center gap-4 text-sm">
+                <div className="flex items-center gap-1">
+                  <CloudSun className="h-3.5 w-3.5" />
+                  {survey.weather.temperature !== undefined && (
+                    <span>{survey.weather.temperature}°C</span>
+                  )}
+                  {survey.weather.windSpeed !== undefined && (
+                    <span className="ml-2">Wind: {survey.weather.windSpeed} km/h</span>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* Counts */}
           <div className="flex items-center gap-4 text-sm">

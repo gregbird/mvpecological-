@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { Loader2, MapPin, AlertTriangle } from 'lucide-react'
+import { Loader2, MapPin, AlertTriangle, ImageIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -34,6 +34,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { PhotoUpload } from '@/components/ui/photo-upload'
 
 export interface SpeciesObservation {
   id: string
@@ -130,6 +131,7 @@ interface SpeciesObservationFormProps {
   onSubmit: (data: Partial<SpeciesObservation>) => Promise<void>
   initialData?: Partial<SpeciesObservation>
   surveyId: string
+  projectId?: string
 }
 
 const TAXON_GROUPS: { value: TaxonGroup; label: string }[] = [
@@ -196,9 +198,11 @@ export function SpeciesObservationForm({
   onSubmit,
   initialData,
   surveyId,
+  projectId,
 }: SpeciesObservationFormProps) {
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [isGettingLocation, setIsGettingLocation] = React.useState(false)
+  const [photos, setPhotos] = React.useState<string[]>(initialData?.photos || [])
   const [isProtectedSpecies, setIsProtectedSpecies] = React.useState(
     initialData?.isProtected || false
   )
@@ -285,10 +289,12 @@ export function SpeciesObservationForm({
         designation: values.designation || undefined,
         confidenceLevel: values.confidenceLevel,
         needsVerification: values.needsVerification,
+        photos: photos.length > 0 ? photos : undefined,
       })
 
       onOpenChange(false)
       form.reset()
+      setPhotos([])
     } catch (error) {
       console.error('Error submitting observation:', error)
     } finally {
@@ -632,6 +638,25 @@ export function SpeciesObservationForm({
                 />
               )}
             </div>
+
+            {/* Photos */}
+            {projectId && (
+              <div className="space-y-2">
+                <h3 className="flex items-center gap-2 text-sm font-medium">
+                  <ImageIcon className="h-4 w-4" />
+                  Photos (Optional)
+                </h3>
+                <PhotoUpload
+                  projectId={projectId}
+                  entityType="observation"
+                  entityId={initialData?.id}
+                  photos={photos}
+                  onPhotosChange={setPhotos}
+                  maxPhotos={10}
+                  disabled={isSubmitting}
+                />
+              </div>
+            )}
 
             {/* Actions */}
             <div className="flex justify-end gap-3">

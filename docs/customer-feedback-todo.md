@@ -1945,18 +1945,18 @@ AI raporları uygulama içinde düzenlenebilir ve tamamlanabilir olmalı. Rapor 
 
 ### 🆕 Yeni Eklenen Görevler (11 Şubat 2026)
 
-| #    | Görev                                               | Öncelik   | Efor   | Bağımlılık |
-| ---- | --------------------------------------------------- | --------- | ------ | ---------- |
-| 17.1 | ~~AI Insights düzenlenebilirlik~~ ✅                 | 🔴 Yüksek | Orta   | -          |
+| #    | Görev                                                      | Öncelik   | Efor   | Bağımlılık |
+| ---- | ---------------------------------------------------------- | --------- | ------ | ---------- |
+| 17.1 | ~~AI Insights düzenlenebilirlik~~ ✅                       | 🔴 Yüksek | Orta   | -          |
 | 17.2 | ~~Desk Assessment UI değişiklikleri (tab kaldır/taşı)~~ ✅ | 🔴 Yüksek | Düşük  | -          |
-| 17.3 | ~~Veri kaynaklarına direkt linkler~~ ✅              | 🟡 Orta   | Düşük  | -          |
-| 18.1 | Survey Targets kutusu + Smart Scoping kaldır        | 🔴 Yüksek | Orta   | -          |
-| 18.2 | Survey oluşturma güncellemeleri                     | 🔴 Yüksek | Orta   | -          |
-| 19.1 | Habitat Mapping düzen + butonlar                    | 🟡 Orta   | Düşük  | -          |
-| 20.1 | Target Notes GPS otomatik kayıt                     | 🔴 Yüksek | Orta   | -          |
-| 20.2 | Species observations NBDC ön doldurma               | 🔴 Yüksek | Orta   | -          |
-| 21.1 | Reporting tüm aşamalar tab yapısı                   | 🔴 Yüksek | Yüksek | 17.1       |
-| 22.1 | In-app rapor düzenleme ve tamamlama                 | 🔴 Yüksek | Yüksek | 21.1       |
+| 17.3 | ~~Veri kaynaklarına direkt linkler~~ ✅                    | 🟡 Orta   | Düşük  | -          |
+| 18.1 | Survey Targets kutusu + Smart Scoping kaldır               | 🔴 Yüksek | Orta   | -          |
+| 18.2 | Survey oluşturma güncellemeleri                            | 🔴 Yüksek | Orta   | -          |
+| 19.1 | Habitat Mapping düzen + butonlar                           | 🟡 Orta   | Düşük  | -          |
+| 20.1 | Target Notes GPS otomatik kayıt                            | 🔴 Yüksek | Orta   | -          |
+| 20.2 | Species observations NBDC ön doldurma                      | 🔴 Yüksek | Orta   | -          |
+| 21.1 | Reporting tüm aşamalar tab yapısı                          | 🔴 Yüksek | Yüksek | 17.1       |
+| 22.1 | In-app rapor düzenleme ve tamamlama                        | 🔴 Yüksek | Yüksek | 21.1       |
 
 ### Güncellenmiş Önerilen Geliştirme Sırası
 

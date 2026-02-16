@@ -80,14 +80,8 @@ export function SurveyTargetsBox({ findings, isLoading }: SurveyTargetsBoxProps)
                 <CardTitle className="text-lg">Survey Targets (Habitats)</CardTitle>
               </div>
               <div className="flex items-center gap-2">
-                {sites.length > 0 && (
-                  <Badge variant="secondary">{sites.length} sites</Badge>
-                )}
-                {isOpen ? (
-                  <ChevronUp className="h-4 w-4" />
-                ) : (
-                  <ChevronDown className="h-4 w-4" />
-                )}
+                {sites.length > 0 && <Badge variant="secondary">{sites.length} sites</Badge>}
+                {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </div>
             </div>
             <CardDescription>

@@ -201,6 +201,12 @@ export function HabitatMappingStep({
         area_hectares: areaHectares,
         condition: data.condition!,
         notes: data.notes || null,
+        eu_annex_code: data.euAnnexCode || null,
+        evaluation: data.evaluation || null,
+        threats: data.threats || null,
+        survey_method: data.surveyMethod || null,
+        listed_species: data.listedSpecies || null,
+        photos: data.photos || null,
       })
 
       toast({
@@ -233,6 +239,12 @@ export function HabitatMappingStep({
           fossitt_name: fossittInfo?.name || data.fossittCode!,
           condition: data.condition!,
           notes: data.notes || null,
+          eu_annex_code: data.euAnnexCode || null,
+          evaluation: data.evaluation || null,
+          threats: data.threats || null,
+          survey_method: data.surveyMethod || null,
+          listed_species: data.listedSpecies || null,
+          photos: data.photos || null,
         },
       })
 
@@ -405,6 +417,8 @@ export function HabitatMappingStep({
                   editable={!isComplete}
                   findings={findingMarkers}
                   flyToLocation={flyToLocation ?? undefined}
+                  visibleLayers={['sac', 'spa', 'nha', 'pnha']}
+                  npwsSearchRadius={5}
                 />
               </div>
             </CardContent>
@@ -563,6 +577,12 @@ export function HabitatMappingStep({
                 condition: editingHabitat.condition as HabitatFormType['condition'],
                 notes: editingHabitat.notes || undefined,
                 areaHectares: editingHabitat.area_hectares || undefined,
+                euAnnexCode: editingHabitat.eu_annex_code || undefined,
+                evaluation: editingHabitat.evaluation as HabitatFormType['evaluation'],
+                threats: editingHabitat.threats || undefined,
+                surveyMethod: editingHabitat.survey_method || undefined,
+                listedSpecies: editingHabitat.listed_species || undefined,
+                photos: (editingHabitat.photos as string[]) || undefined,
               }
             : drawnBoundary
               ? {
