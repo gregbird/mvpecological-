@@ -10,6 +10,10 @@ import {
   BarChart3,
   PieChart,
   Table,
+  Sparkles,
+  Brain,
+  Pencil,
+  X,
 } from 'lucide-react'
 import {
   BarChart,
@@ -39,12 +43,20 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+
+import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import { useHabitats, useHabitatStats } from '@/hooks/queries/use-habitat-hooks'
 import { useObservations, useObservationStats } from '@/hooks/queries/use-observation-hooks'
 import { useFindingsStats } from '@/hooks/queries/use-finding-hooks'
 import { useSurveyStats } from '@/hooks/queries/use-survey-hooks'
-import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
+import {
+  useCompleteWorkflowStep,
+  useWorkflowStep,
+  useUpdateWorkflowStep,
+} from '@/hooks/queries/use-workflow-hooks'
 
 import type { Project, WorkflowStep } from '@/types/database'
 
@@ -84,6 +96,49 @@ export function DataAnalysisStep({ project, workflowStep, onComplete }: DataAnal
   const { data: habitats = [] } = useHabitats(project.id)
   const { data: observations = [] } = useObservations(project.id)
   const completeStep = useCompleteWorkflowStep()
+  const updateStep = useUpdateWorkflowStep()
+  const { data: deskAssessmentStep } = useWorkflowStep(project.id, 3)
+
+  const [isEditingInsights, setIsEditingInsights] = React.useState(false)
+  const [editedInsights, setEditedInsights] = React.useState('')
+
+  const deskInsights = React.useMemo(() => {
+    const meta = deskAssessmentStep?.metadata as Record<string, unknown> | null
+    if (meta?.aiInsights && typeof meta.aiInsights === 'string') {
+      return meta.aiInsights
+    }
+    return null
+  }, [deskAssessmentStep?.metadata])
+
+  const handleSaveInsights = React.useCallback(() => {
+    if (!deskAssessmentStep) return
+    const existingMeta = (deskAssessmentStep.metadata as Record<string, unknown>) || {}
+    updateStep
+      .mutateAsync({
+        stepId: deskAssessmentStep.id,
+        updates: {
+          metadata: {
+            ...existingMeta,
+            aiInsights: editedInsights,
+            aiInsightsUpdatedAt: new Date().toISOString(),
+          },
+        },
+      })
+      .then(() => {
+        setIsEditingInsights(false)
+        toast({
+          title: 'Insights saved',
+          description: 'Desk assessment insights have been updated.',
+        })
+      })
+      .catch(() => {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to save insights.',
+        })
+      })
+  }, [deskAssessmentStep, editedInsights, updateStep, toast])
 
   const isLoading = loadingHabitats || loadingObservations || loadingFindings || loadingSurveys
 
@@ -284,6 +339,10 @@ export function DataAnalysisStep({ project, workflowStep, onComplete }: DataAnal
           <TabsTrigger value="tables">
             <Table className="mr-2 h-4 w-4" />
             Data Tables
+          </TabsTrigger>
+          <TabsTrigger value="desk-assessments">
+            <Sparkles className="mr-2 h-4 w-4" />
+            Desk Assessments
           </TabsTrigger>
         </TabsList>
 
@@ -576,6 +635,86 @@ export function DataAnalysisStep({ project, workflowStep, onComplete }: DataAnal
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* Desk Assessments Tab */}
+        <TabsContent value="desk-assessments" className="space-y-4">
+          {deskInsights ? (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-purple-500" />
+                    AI-Generated Desk Assessment
+                  </CardTitle>
+                  <div className="flex items-center gap-1">
+                    {isEditingInsights ? (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleSaveInsights}
+                          disabled={updateStep.isPending}
+                        >
+                          {updateStep.isPending ? (
+                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                          ) : (
+                            <Check className="mr-1 h-3 w-3" />
+                          )}
+                          Save
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setIsEditingInsights(false)}
+                        >
+                          <X className="mr-1 h-3 w-3" />
+                          Cancel
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setEditedInsights(deskInsights)
+                          setIsEditingInsights(true)
+                        }}
+                      >
+                        <Pencil className="mr-1 h-3 w-3" />
+                        Edit
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {isEditingInsights ? (
+                  <Textarea
+                    value={editedInsights}
+                    onChange={(e) => setEditedInsights(e.target.value)}
+                    className="min-h-[500px] w-full resize-none font-mono text-sm"
+                    placeholder="Edit the desk assessment insights in markdown..."
+                  />
+                ) : (
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {deskInsights}
+                    </ReactMarkdown>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                <Brain className="mb-4 h-12 w-12 text-gray-300" />
+                <p className="text-muted-foreground text-sm">
+                  No desk assessment insights available. Generate AI Analysis in Step 3 first.
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
 

@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { ArrowLeft, Plus, Sparkles, Download, Pencil, Loader2 } from 'lucide-react'
+import { ArrowLeft, Plus, Sparkles, Download, Pencil, Loader2, FileText } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'

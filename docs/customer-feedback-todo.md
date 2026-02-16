@@ -1595,16 +1595,20 @@ AI üretimi Insights ekolojist tarafından düzenlenebilir olmalı. Kaydedildikt
 
 **Yapılacaklar:**
 
-- [ ] **17.1.1** AI Insights içeriğini düzenlenebilir hale getir
+- [x] ~~**17.1.1** AI Insights içeriğini düzenlenebilir hale getir~~
+
+  ✅ **TAMAMLANDI:**
+  - Edit/Save/Cancel toggle butonları mevcut (Pencil, Check, X ikonları)
+  - Textarea ile markdown düzenleme
   - Dosya: `components/steps/desk-assessment-step.tsx`
-  - Mevcut read-only AI çıktısını editable textarea/rich-text editor'e dönüştür
-  - "Edit" / "Save" toggle butonu ekle
 
-- [ ] **17.1.2** Düzenlenen insights'ı veritabanına kaydet
-  - Mevcut `reports` veya yeni `desk_assessments` tablosuna persist et
-  - Versiyon takibi (orijinal AI çıktısı + düzenlenmiş hali)
+- [x] ~~**17.1.2** Düzenlenen insights'ı veritabanına kaydet~~
 
-- [ ] **17.1.3** Reporting Data Analysis (Step 7) sayfasına "Desk Assessments" tab'ı ekle
+  ✅ **TAMAMLANDI:**
+  - `persistInsights()` fonksiyonu ile workflow_steps metadata'sına kaydediliyor
+  - Sayfa yenilendiğinde persist edilen insights geri yükleniyor
+
+- [x] **17.1.3** Reporting Data Analysis (Step 7) sayfasına "Desk Assessments" tab'ı ekle
   - Dosya: `components/steps/data-analysis-step.tsx`
   - Yeni tab: kaydedilmiş desk assessment insights'ları göster
   - Düzenleme imkanı burada da olmalı
@@ -1623,15 +1627,15 @@ Desk Assessment görünümünden "Assessment" ve "Field Plan" tab'ları kaldır�
 
 **Yapılacaklar:**
 
-- [ ] **17.2.1** "Assessment" ve "Field Plan" tab'larını kaldır
+- [x] **17.2.1** "Assessment" ve "Field Plan" tab'larını kaldır
   - Dosya: `components/steps/desk-assessment-step.tsx`
   - Bu tab'lardaki gerekli içerikleri başka yerlere taşı veya tamamen kaldır
 
-- [ ] **17.2.2** "Survey Recommendations" bölümünü AI Insights tab'ına taşı
+- [x] **17.2.2** "Survey Recommendations" bölümünü AI Insights tab'ına taşı
   - Dosya: `components/steps/desk-assessment-step.tsx`
   - Survey recommendations AI Insights tab'ının alt bölümü olacak
 
-- [ ] **17.2.3** "Complete & Continue to Field Survey" yeşil butonunu AI Insights tab'ına taşı
+- [x] **17.2.3** "Complete & Continue to Field Survey" yeşil butonunu AI Insights tab'ına taşı
   - Mevcut konumundan kaldır ve AI Insights tab'ının sonuna yerleştir
 
 ---
@@ -1647,9 +1651,17 @@ Desk Assessment'ta tüm veri kaynaklarına direkt linklerle kolayca erişilebilm
 
 **Yapılacaklar:**
 
-- [ ] **17.3.1** Desk Assessment görünümünde her veri kaynağına direkt link ekle
+- [x] ~~**17.3.1** Desk Assessment görünümünde her veri kaynağına direkt link ekle~~
+
+  ✅ **TAMAMLANDI (16 Şubat 2026):**
+  - Sol paneldeki Data Summary stat kartları expandable/collapsible yapıldı
+  - Her karta tıklayınca altında finding listesi açılıyor
+  - Her finding'in yanında kaynak sitesine direkt link var (ExternalLink ikonu ile)
+  - Designated Sites → NPWS site-specific URL'ler (siteCode bazlı)
+  - Species Records → GBIF species/NBDC URL'leri (scientificName bazlı)
+  - Aquatic Features → EPA Water Maps linkleri
+  - `getFindingSourceUrl()` helper fonksiyonu ile raw_data'dan URL reconstruct ediliyor
   - Dosya: `components/steps/desk-assessment-step.tsx`
-  - NPWS, GBIF, NBDC, EPA kaynak linkleri her bulgu kartında görünür olmalı
 
 ---
 
@@ -1673,11 +1685,11 @@ Müşteri Smart Scoping'i kaldırmamızı istiyor. Bölüm 14'teki Smart Scoping
 
 **Yapılacaklar:**
 
-- [ ] **18.1.1** Mevcut Smart Scoping bölümünü Field Survey sayfasından kaldır
+- [x] **18.1.1** Mevcut Smart Scoping bölümünü Field Survey sayfasından kaldır
   - Dosya: `components/steps/field-survey-step.tsx`
   - İlgili bileşenler: `components/field-surveys/smart-scoping-panel.tsx` (varsa kaldır)
 
-- [ ] **18.1.2** Yeni "Survey Targets (Habitats)" kutusu oluştur
+- [x] **18.1.2** Yeni "Survey Targets (Habitats)" kutusu oluştur
   - Dosya: `components/field-surveys/survey-targets-box.tsx`
   - Desk Research'ten gelen habitat bulgularını listele
   - Smart Scoping arka plan stili ile eşleşen tasarım
@@ -1935,9 +1947,9 @@ AI raporları uygulama içinde düzenlenebilir ve tamamlanabilir olmalı. Rapor 
 
 | #    | Görev                                               | Öncelik   | Efor   | Bağımlılık |
 | ---- | --------------------------------------------------- | --------- | ------ | ---------- |
-| 17.1 | AI Insights düzenlenebilirlik                       | 🔴 Yüksek | Orta   | -          |
-| 17.2 | Desk Assessment UI değişiklikleri (tab kaldır/taşı) | 🔴 Yüksek | Düşük  | -          |
-| 17.3 | Veri kaynaklarına direkt linkler                    | 🟡 Orta   | Düşük  | -          |
+| 17.1 | ~~AI Insights düzenlenebilirlik~~ ✅                 | 🔴 Yüksek | Orta   | -          |
+| 17.2 | ~~Desk Assessment UI değişiklikleri (tab kaldır/taşı)~~ ✅ | 🔴 Yüksek | Düşük  | -          |
+| 17.3 | ~~Veri kaynaklarına direkt linkler~~ ✅              | 🟡 Orta   | Düşük  | -          |
 | 18.1 | Survey Targets kutusu + Smart Scoping kaldır        | 🔴 Yüksek | Orta   | -          |
 | 18.2 | Survey oluşturma güncellemeleri                     | 🔴 Yüksek | Orta   | -          |
 | 19.1 | Habitat Mapping düzen + butonlar                    | 🟡 Orta   | Düşük  | -          |
@@ -1958,9 +1970,9 @@ AI raporları uygulama içinde düzenlenebilir ve tamamlanabilir olmalı. Rapor 
 
 **Sprint 2 - Desk Assessment Yenileme (2-3 gün):**
 
-- 17.2 Tab kaldırma ve taşıma (Assessment, Field Plan kaldır; Survey Rec → AI Insights)
-- 17.1 AI Insights düzenlenebilirlik + Desk Assessments tab
-- 17.3 Veri kaynaklarına direkt linkler
+- ~~17.2 Tab kaldırma ve taşıma (Assessment, Field Plan kaldır; Survey Rec → AI Insights)~~ ✅
+- ~~17.1 AI Insights düzenlenebilirlik~~ ✅
+- ~~17.3 Veri kaynaklarına direkt linkler~~ ✅
 
 **Sprint 3 - Findings ve Etkileşim (3-4 gün):**
 

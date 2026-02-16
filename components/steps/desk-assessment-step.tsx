@@ -7,13 +7,8 @@ import {
   Loader2,
   Check,
   AlertCircle,
-  Star,
-  MessageSquare,
   Sparkles,
-  ClipboardList,
-  Target,
   Brain,
-  ChevronRight,
   MapPin,
   Bug,
   Droplets,
@@ -23,15 +18,15 @@ import {
   RefreshCw,
   Pencil,
   X,
+  ExternalLink,
+  ChevronDown,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Dialog,
   DialogContent,
@@ -90,12 +85,51 @@ interface FindingWithRelevance extends DeskResearchFinding {
   parsedNotes: string
 }
 
+function getFindingSourceUrl(finding: FindingWithRelevance): string | null {
+  const raw = finding.raw_data as Record<string, unknown> | null
+  const metadata = raw?.metadata as Record<string, unknown> | null
+  const siteCode = (raw?.siteCode || metadata?.siteCode) as string | undefined
+  const siteType = (metadata?.siteType || metadata?.designation) as string | undefined
+
+  switch (finding.source) {
+    case 'npws': {
+      if (!siteCode) return 'https://www.npws.ie/protected-sites'
+      const typePathMap: Record<string, string> = {
+        SAC: 'protected-sites/sac',
+        SPA: 'protected-sites/spa',
+        NHA: 'protected-sites/nha',
+        pNHA: 'protected-sites/nha',
+      }
+      const path = typePathMap[siteType || ''] || 'protected-sites'
+      return `https://www.npws.ie/${path}/${siteCode}`
+    }
+    case 'gbif': {
+      const gbifUrl = metadata?.gbifUrl as string | undefined
+      if (gbifUrl) return gbifUrl
+      const scientificName = (raw?.scientificName || metadata?.scientificName) as string | undefined
+      if (scientificName)
+        return `https://www.gbif.org/occurrence/search?scientificName=${encodeURIComponent(scientificName)}`
+      return 'https://www.gbif.org'
+    }
+    case 'nbdc': {
+      const nbdcUrl = metadata?.nbdcUrl as string | undefined
+      if (nbdcUrl) return nbdcUrl
+      const gbifUrl2 = metadata?.gbifUrl as string | undefined
+      if (gbifUrl2) return gbifUrl2
+      return 'https://maps.biodiversityireland.ie'
+    }
+    case 'epa':
+      return 'https://gis.epa.ie/EPAMaps/Water'
+    default:
+      return null
+  }
+}
+
 export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAssessmentStepProps) {
   const { toast } = useToast()
   const { refetchWorkflowSteps } = useProjectContext()
 
   // State
-  const [activeTab, setActiveTab] = React.useState('insights')
   const [selectedFinding, setSelectedFinding] = React.useState<FindingWithRelevance | null>(null)
   const [notes, setNotes] = React.useState('')
   const [relevance, setRelevance] = React.useState<Relevance>('medium')
@@ -103,9 +137,8 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
   const [aiInsights, setAiInsights] = React.useState<string | null>(null)
   const [isEditingInsights, setIsEditingInsights] = React.useState(false)
   const [editedInsights, setEditedInsights] = React.useState('')
-  // Assessment tab filters
-  const [relevanceFilter, setRelevanceFilter] = React.useState<'all' | Relevance>('all')
-  const [typeFilter, setTypeFilter] = React.useState<string | null>(null)
+  const [expandedCard, setExpandedCard] = React.useState<string | null>(null)
+
 
   // React Query hooks
   const { data: savedFindings = [], isLoading } = useSavedFindings(project.id)
@@ -188,26 +221,14 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
     return groups
   }, [findingsWithRelevance])
 
-  // Filtered findings for assessment tab
-  const filteredAssessmentFindings = React.useMemo(() => {
-    return findingsWithRelevance.filter((f) => {
-      if (relevanceFilter !== 'all' && f.relevance !== relevanceFilter) return false
-      if (typeFilter && f.data_type !== typeFilter) return false
-      return true
-    })
-  }, [findingsWithRelevance, relevanceFilter, typeFilter])
-
   // Stats
-  const assessedCount = findingsWithRelevance.filter(
-    (f) => f.parsedNotes || f.relevance !== 'medium'
-  ).length
   const highRelevanceCount = findingsWithRelevance.filter((f) => f.relevance === 'high').length
   const protectedSpeciesCount = findingsWithRelevance.filter(
     (f) => f.data_type === 'species_record' && (f.raw_data as any)?.isProtected
   ).length
 
   // Handle assessment
-  const handleAssessFinding = (finding: FindingWithRelevance) => {
+  const _handleAssessFinding = (finding: FindingWithRelevance) => {
     setSelectedFinding(finding)
     setNotes(finding.parsedNotes)
     setRelevance(finding.relevance)
@@ -429,493 +450,380 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
         </div>
       </div>
 
-      {/* Main Content with Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col">
-        <div className="border-b px-6">
-          <TabsList className="h-12">
-            <TabsTrigger value="insights" className="gap-2">
-              <Brain className="h-4 w-4" />
-              AI Insights
-            </TabsTrigger>
-            <TabsTrigger value="assessment" className="gap-2">
-              <ClipboardList className="h-4 w-4" />
-              Assessment
-              {assessedCount > 0 && (
-                <Badge variant="secondary" className="ml-1">
-                  {assessedCount}/{savedFindings.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="field-plan" className="gap-2">
-              <Target className="h-4 w-4" />
-              Field Plan
-            </TabsTrigger>
-          </TabsList>
-        </div>
+      {/* Main Content */}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div className="flex h-full min-h-0 w-full">
+          {/* Left Panel - Stats (hidden during edit mode) */}
+          <div
+            className={cn(
+              'w-75 shrink-0 overflow-y-auto border-r p-4',
+              isEditingInsights && 'hidden'
+            )}
+          >
+            <h3 className="mb-4 font-semibold">Data Summary</h3>
 
-        {/* AI Insights Tab */}
-        <TabsContent value="insights" className="mt-0 flex min-h-0 flex-1 overflow-hidden">
-          <div className="flex h-full min-h-0 w-full">
-            {/* Left Panel - Stats (hidden during edit mode) */}
-            <div
-              className={cn(
-                'w-75 shrink-0 overflow-y-auto border-r p-4',
-                isEditingInsights && 'hidden'
-              )}
-            >
-              <h3 className="mb-4 font-semibold">Data Summary</h3>
-
-              <div className="space-y-3">
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
-                        <MapPin className="h-5 w-5 text-emerald-600" />
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold">
-                          {findingsByType['designated_site']?.length || 0}
-                        </div>
-                        <div className="text-muted-foreground text-xs">Designated Sites</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100">
-                        <Bug className="h-5 w-5 text-purple-600" />
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold">
-                          {findingsByType['species_record']?.length || 0}
-                        </div>
-                        <div className="text-muted-foreground text-xs">Species Records</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
-                        <Droplets className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold">
-                          {findingsByType['water_quality']?.length || 0}
-                        </div>
-                        <div className="text-muted-foreground text-xs">Aquatic Features</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {protectedSpeciesCount > 0 && (
-                  <Card className="border-amber-200 bg-amber-50">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-3">
-                        <AlertTriangle className="h-5 w-5 text-amber-600" />
-                        <div>
-                          <div className="font-semibold text-amber-800">
-                            {protectedSpeciesCount} Protected Species
-                          </div>
-                          <div className="text-xs text-amber-700">Requires attention</div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-
-              <Button
-                onClick={handleGenerateInsights}
-                disabled={isGeneratingInsights}
-                className="mt-6 w-full"
-              >
-                {isGeneratingInsights ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Analyzing...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Generate AI Analysis
-                  </>
-                )}
-              </Button>
-            </div>
-
-            {/* Right Panel - AI Insights */}
-            <div
-              className={cn(
-                'min-h-0 min-w-0 flex-1',
-                isEditingInsights ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'
-              )}
-            >
-              <div className={cn('p-6', isEditingInsights && 'flex min-h-0 flex-1 flex-col')}>
-                {aiInsights ? (
-                  <div
-                    className={cn(
-                      'max-w-none',
-                      isEditingInsights && 'flex min-h-0 flex-1 flex-col'
-                    )}
+            <div className="space-y-3">
+              {/* Designated Sites */}
+              <Card>
+                <CardContent className="p-4">
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-3"
+                    onClick={() =>
+                      setExpandedCard(
+                        expandedCard === 'designated_site' ? null : 'designated_site'
+                      )
+                    }
                   >
-                    <div className="mb-4 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="h-5 w-5 text-purple-500" />
-                        <h3 className="m-0 text-lg font-semibold">AI Analysis</h3>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {isEditingInsights ? (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setAiInsights(editedInsights)
-                                setIsEditingInsights(false)
-                                persistInsights(editedInsights)
-                              }}
-                            >
-                              <Check className="mr-1 h-3 w-3" />
-                              Save
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setIsEditingInsights(false)}
-                            >
-                              <X className="mr-1 h-3 w-3" />
-                              Cancel
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setEditedInsights(aiInsights)
-                                setIsEditingInsights(true)
-                              }}
-                            >
-                              <Pencil className="mr-1 h-3 w-3" />
-                              Edit
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={handleGenerateInsights}>
-                              <RefreshCw className="mr-1 h-3 w-3" />
-                              Regenerate
-                            </Button>
-                          </>
-                        )}
-                      </div>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100">
+                      <MapPin className="h-5 w-5 text-emerald-600" />
                     </div>
-                    {isEditingInsights ? (
-                      <Textarea
-                        value={editedInsights}
-                        onChange={(e) => setEditedInsights(e.target.value)}
-                        className="h-full min-h-[600px] w-full flex-1 resize-none font-mono text-sm"
-                        placeholder="Edit the AI analysis in markdown..."
-                      />
-                    ) : (
-                      <div className="prose prose-sm max-w-none overflow-x-auto rounded-lg border bg-gray-50 p-4">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{aiInsights}</ReactMarkdown>
+                    <div className="text-left">
+                      <div className="text-2xl font-bold">
+                        {findingsByType['designated_site']?.length || 0}
                       </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex h-full min-h-[400px] flex-col items-center justify-center text-center">
-                    <Brain className="mb-4 h-16 w-16 text-gray-300" />
-                    <h3 className="text-lg font-semibold">AI Insights</h3>
-                    <p className="text-muted-foreground mt-2 max-w-sm text-sm leading-relaxed">
-                      Click <strong>&quot;Generate AI Analysis&quot;</strong> to get intelligent
-                      insights about your findings, risk assessment, and field survey
-                      recommendations.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </TabsContent>
-
-        {/* Assessment Tab */}
-        <TabsContent value="assessment" className="mt-0 flex-1 overflow-hidden">
-          <div className="flex h-full">
-            {/* Filters */}
-            <div className="w-60 shrink-0 border-r p-4">
-              <h3 className="mb-4 font-semibold">Filter by Relevance</h3>
-              <div className="space-y-1">
-                {(['all', 'high', 'medium', 'low', 'none'] as const).map((filter) => {
-                  // Count respects the current type filter
-                  const base = typeFilter
-                    ? findingsWithRelevance.filter((f) => f.data_type === typeFilter)
-                    : findingsWithRelevance
-                  const count =
-                    filter === 'all'
-                      ? base.length
-                      : base.filter((f) => f.relevance === filter).length
-                  const isActive = relevanceFilter === filter
-                  return (
-                    <button
-                      key={filter}
-                      onClick={() => setRelevanceFilter(filter)}
+                      <div className="text-muted-foreground text-xs">Designated Sites</div>
+                    </div>
+                    <ChevronDown
                       className={cn(
-                        'flex w-full items-center justify-between rounded-md px-3 py-2 text-sm transition-colors',
-                        isActive ? 'bg-gray-200 font-medium' : 'hover:bg-gray-100'
+                        'ml-auto h-4 w-4 shrink-0 transition-transform',
+                        expandedCard === 'designated_site' && 'rotate-180'
                       )}
-                    >
-                      <div className="flex items-center gap-2">
-                        {filter !== 'all' && (
-                          <div
-                            className={cn('h-2.5 w-2.5 rounded-full', {
-                              'bg-red-500': filter === 'high',
-                              'bg-amber-500': filter === 'medium',
-                              'bg-green-500': filter === 'low',
-                              'bg-gray-400': filter === 'none',
-                            })}
-                          />
-                        )}
-                        <span className="capitalize">
-                          {filter === 'all' ? 'All Findings' : filter}
-                        </span>
-                      </div>
-                      <Badge variant="secondary">{count}</Badge>
-                    </button>
-                  )
-                })}
-              </div>
-
-              <div className="mt-6 border-t pt-4">
-                <h3 className="mb-4 font-semibold">Filter by Type</h3>
-                <div className="space-y-1">
-                  {Object.entries(findingsByType).map(([type, findings]) => {
-                    const isActive = typeFilter === type
-                    // Count filtered by current relevance filter
-                    const count =
-                      relevanceFilter === 'all'
-                        ? findings.length
-                        : findings.filter((f) => f.relevance === relevanceFilter).length
-                    return (
-                      <button
-                        key={type}
-                        onClick={() => setTypeFilter(isActive ? null : type)}
-                        className={cn(
-                          'flex w-full items-center justify-between rounded-md px-3 py-2 text-sm transition-colors',
-                          isActive ? 'bg-gray-200 font-medium' : 'hover:bg-gray-100'
-                        )}
-                      >
-                        <span className="capitalize">{type.replaceAll('_', ' ')}</span>
-                        <Badge variant="outline">{count}</Badge>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Findings List */}
-            <div className="flex-1 overflow-hidden">
-              <ScrollArea className="h-full">
-                <div className="space-y-2 p-4">
-                  {filteredAssessmentFindings.map((finding) => (
-                    <div
-                      key={finding.id}
-                      className={cn(
-                        'cursor-pointer rounded-lg border p-3 transition-colors hover:bg-gray-50',
-                        RELEVANCE_CONFIG[finding.relevance].bgColor
-                      )}
-                      onClick={() => handleAssessFinding(finding)}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <Badge variant="outline" className="text-[10px]">
-                              {finding.source.toUpperCase()}
-                            </Badge>
-                            <Badge
-                              className={cn(
-                                'text-[10px]',
-                                RELEVANCE_CONFIG[finding.relevance].bgColor,
-                                RELEVANCE_CONFIG[finding.relevance].color
+                    />
+                  </button>
+                  {expandedCard === 'designated_site' &&
+                    findingsByType['designated_site']?.length > 0 && (
+                      <ul className="mt-3 space-y-1 border-t pt-2">
+                        {findingsByType['designated_site'].map((f) => {
+                          const url = getFindingSourceUrl(f)
+                          return (
+                            <li key={f.id} className="flex items-start gap-1.5 text-xs">
+                              <span className="text-muted-foreground mt-0.5">•</span>
+                              {url ? (
+                                <a
+                                  href={url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-emerald-700 hover:underline"
+                                >
+                                  <span className="line-clamp-1">{f.title}</span>
+                                  <ExternalLink className="h-3 w-3 shrink-0" />
+                                </a>
+                              ) : (
+                                <span className="line-clamp-1">{f.title}</span>
                               )}
-                            >
-                              {RELEVANCE_CONFIG[finding.relevance].label}
-                            </Badge>
-                          </div>
-                          <h4 className="mt-1.5 font-medium">{finding.title}</h4>
-                          {finding.content && (
-                            <p className="text-muted-foreground mt-1 line-clamp-1 text-sm">
-                              {finding.content}
-                            </p>
-                          )}
-                          {finding.parsedNotes && (
-                            <p className="mt-1 flex items-center gap-1 text-xs text-blue-600">
-                              <MessageSquare className="h-3 w-3" />
-                              {finding.parsedNotes.slice(0, 50)}
-                              {finding.parsedNotes.length > 50 && '...'}
-                            </p>
-                          )}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    )}
+                </CardContent>
+              </Card>
+
+              {/* Species Records */}
+              <Card>
+                <CardContent className="p-4">
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-3"
+                    onClick={() =>
+                      setExpandedCard(
+                        expandedCard === 'species_record' ? null : 'species_record'
+                      )
+                    }
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-purple-100">
+                      <Bug className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <div className="text-left">
+                      <div className="text-2xl font-bold">
+                        {findingsByType['species_record']?.length || 0}
+                      </div>
+                      <div className="text-muted-foreground text-xs">Species Records</div>
+                    </div>
+                    <ChevronDown
+                      className={cn(
+                        'ml-auto h-4 w-4 shrink-0 transition-transform',
+                        expandedCard === 'species_record' && 'rotate-180'
+                      )}
+                    />
+                  </button>
+                  {expandedCard === 'species_record' &&
+                    findingsByType['species_record']?.length > 0 && (
+                      <ul className="mt-3 space-y-1 border-t pt-2">
+                        {findingsByType['species_record'].map((f) => {
+                          const url = getFindingSourceUrl(f)
+                          return (
+                            <li key={f.id} className="flex items-start gap-1.5 text-xs">
+                              <span className="text-muted-foreground mt-0.5">•</span>
+                              {url ? (
+                                <a
+                                  href={url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-purple-700 hover:underline"
+                                >
+                                  <span className="line-clamp-1">{f.title}</span>
+                                  <ExternalLink className="h-3 w-3 shrink-0" />
+                                </a>
+                              ) : (
+                                <span className="line-clamp-1">{f.title}</span>
+                              )}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    )}
+                </CardContent>
+              </Card>
+
+              {/* Aquatic Features */}
+              <Card>
+                <CardContent className="p-4">
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-3"
+                    onClick={() =>
+                      setExpandedCard(
+                        expandedCard === 'water_quality' ? null : 'water_quality'
+                      )
+                    }
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100">
+                      <Droplets className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div className="text-left">
+                      <div className="text-2xl font-bold">
+                        {findingsByType['water_quality']?.length || 0}
+                      </div>
+                      <div className="text-muted-foreground text-xs">Aquatic Features</div>
+                    </div>
+                    <ChevronDown
+                      className={cn(
+                        'ml-auto h-4 w-4 shrink-0 transition-transform',
+                        expandedCard === 'water_quality' && 'rotate-180'
+                      )}
+                    />
+                  </button>
+                  {expandedCard === 'water_quality' &&
+                    findingsByType['water_quality']?.length > 0 && (
+                      <ul className="mt-3 space-y-1 border-t pt-2">
+                        {findingsByType['water_quality'].map((f) => {
+                          const url = getFindingSourceUrl(f)
+                          return (
+                            <li key={f.id} className="flex items-start gap-1.5 text-xs">
+                              <span className="text-muted-foreground mt-0.5">•</span>
+                              {url ? (
+                                <a
+                                  href={url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-blue-700 hover:underline"
+                                >
+                                  <span className="line-clamp-1">{f.title}</span>
+                                  <ExternalLink className="h-3 w-3 shrink-0" />
+                                </a>
+                              ) : (
+                                <span className="line-clamp-1">{f.title}</span>
+                              )}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    )}
+                </CardContent>
+              </Card>
+
+              {/* Protected Species */}
+              {protectedSpeciesCount > 0 && (
+                <Card className="border-amber-200 bg-amber-50">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <AlertTriangle className="h-5 w-5 text-amber-600" />
+                      <div>
+                        <div className="font-semibold text-amber-800">
+                          {protectedSpeciesCount} Protected Species
                         </div>
-                        <Button variant="ghost" size="sm">
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
+                        <div className="text-xs text-amber-700">Requires attention</div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            </div>
-          </div>
-        </TabsContent>
-
-        {/* Field Plan Tab */}
-        <TabsContent value="field-plan" className="mt-0 flex-1 overflow-hidden">
-          <div className="flex h-full">
-            {/* Target Species */}
-            <div className="flex-1 border-r p-6">
-              <h3 className="mb-4 flex items-center gap-2 font-semibold">
-                <Target className="h-5 w-5" />
-                Target Species for Field Survey
-              </h3>
-              <p className="text-muted-foreground mb-4 text-sm">
-                Based on high relevance findings, these species should be prioritized during field
-                surveys.
-              </p>
-
-              {findingsWithRelevance.filter(
-                (f) => f.relevance === 'high' && f.data_type === 'species_record'
-              ).length === 0 ? (
-                <div className="rounded-lg border border-dashed p-6 text-center">
-                  <Target className="mx-auto h-10 w-10 text-gray-300" />
-                  <p className="text-muted-foreground mt-2 text-sm">
-                    No high-priority species identified yet.
-                    <br />
-                    Mark species as "High" relevance in the Assessment tab.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {findingsWithRelevance
-                    .filter((f) => f.relevance === 'high' && f.data_type === 'species_record')
-                    .map((finding) => (
-                      <div
-                        key={finding.id}
-                        className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-3"
-                      >
-                        <Star className="h-5 w-5 text-red-500" />
-                        <div>
-                          <div className="font-medium">{finding.title}</div>
-                          {finding.parsedNotes && (
-                            <p className="text-muted-foreground text-sm">{finding.parsedNotes}</p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              )}
-
-              <h3 className="mt-8 mb-4 flex items-center gap-2 font-semibold">
-                <MapPin className="h-5 w-5" />
-                Key Sites to Survey
-              </h3>
-
-              {findingsWithRelevance.filter(
-                (f) => f.relevance === 'high' && f.data_type === 'designated_site'
-              ).length === 0 ? (
-                <div className="rounded-lg border border-dashed p-6 text-center">
-                  <MapPin className="mx-auto h-10 w-10 text-gray-300" />
-                  <p className="text-muted-foreground mt-2 text-sm">
-                    No high-priority sites identified yet.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {findingsWithRelevance
-                    .filter((f) => f.relevance === 'high' && f.data_type === 'designated_site')
-                    .map((finding) => (
-                      <div
-                        key={finding.id}
-                        className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-3"
-                      >
-                        <MapPin className="h-5 w-5 text-red-500" />
-                        <div>
-                          <div className="font-medium">{finding.title}</div>
-                          {finding.content && (
-                            <p className="text-muted-foreground text-sm">{finding.content}</p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                </div>
+                  </CardContent>
+                </Card>
               )}
             </div>
 
-            {/* Survey Recommendations */}
-            <div className="w-87.5 shrink-0 p-6">
-              <h3 className="mb-4 flex items-center gap-2 font-semibold">
-                <Lightbulb className="h-5 w-5" />
-                Survey Recommendations
-              </h3>
-
-              <div className="space-y-3">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Recommended Survey Types</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="text-muted-foreground space-y-1 text-sm">
-                      <li>• Habitat Survey (Fossitt Level 3)</li>
-                      {protectedSpeciesCount > 0 && <li>• Protected Species Survey</li>}
-                      {(findingsByType['designated_site']?.length || 0) > 0 && (
-                        <li>• Connectivity Assessment</li>
-                      )}
-                    </ul>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center gap-2 text-sm">
-                      <Calendar className="h-4 w-4" />
-                      Optimal Survey Timing
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="text-muted-foreground space-y-1 text-sm">
-                      <li>• Breeding Birds: Mar - Jul</li>
-                      <li>• Bats: May - Sep</li>
-                      <li>• Badger: Year-round</li>
-                      <li>• Otter: Year-round</li>
-                      <li>• Vegetation: May - Sep</li>
-                    </ul>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Complete Button */}
-              <Button
-                onClick={handleComplete}
-                disabled={isComplete || completeStep.isPending}
-                className="mt-6 w-full"
-                size="lg"
-              >
-                {completeStep.isPending ? (
+            <Button
+              onClick={handleGenerateInsights}
+              disabled={isGeneratingInsights}
+              className="mt-6 w-full"
+            >
+              {isGeneratingInsights ? (
+                <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Check className="mr-2 h-4 w-4" />
-                )}
-                {isComplete ? 'Completed' : 'Complete & Continue to Field Survey'}
-              </Button>
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Generate AI Analysis
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Right Panel - AI Insights + Survey Recommendations */}
+          <div
+            className={cn(
+              'min-h-0 min-w-0 flex-1',
+              isEditingInsights ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'
+            )}
+          >
+            <div className={cn('p-6', isEditingInsights && 'flex min-h-0 flex-1 flex-col')}>
+              {aiInsights ? (
+                <div
+                  className={cn(
+                    'max-w-none',
+                    isEditingInsights && 'flex min-h-0 flex-1 flex-col'
+                  )}
+                >
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-purple-500" />
+                      <h3 className="m-0 text-lg font-semibold">AI Analysis</h3>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {isEditingInsights ? (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setAiInsights(editedInsights)
+                              setIsEditingInsights(false)
+                              persistInsights(editedInsights)
+                            }}
+                          >
+                            <Check className="mr-1 h-3 w-3" />
+                            Save
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setIsEditingInsights(false)}
+                          >
+                            <X className="mr-1 h-3 w-3" />
+                            Cancel
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setEditedInsights(aiInsights)
+                              setIsEditingInsights(true)
+                            }}
+                          >
+                            <Pencil className="mr-1 h-3 w-3" />
+                            Edit
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={handleGenerateInsights}>
+                            <RefreshCw className="mr-1 h-3 w-3" />
+                            Regenerate
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  {isEditingInsights ? (
+                    <Textarea
+                      value={editedInsights}
+                      onChange={(e) => setEditedInsights(e.target.value)}
+                      className="h-full min-h-[600px] w-full flex-1 resize-none font-mono text-sm"
+                      placeholder="Edit the AI analysis in markdown..."
+                    />
+                  ) : (
+                    <div className="prose prose-sm max-w-none overflow-x-auto rounded-lg border bg-gray-50 p-4">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{aiInsights}</ReactMarkdown>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex h-full min-h-[400px] flex-col items-center justify-center text-center">
+                  <Brain className="mb-4 h-16 w-16 text-gray-300" />
+                  <h3 className="text-lg font-semibold">AI Insights</h3>
+                  <p className="text-muted-foreground mt-2 max-w-sm text-sm leading-relaxed">
+                    Click <strong>&quot;Generate AI Analysis&quot;</strong> to get intelligent
+                    insights about your findings, risk assessment, and field survey
+                    recommendations.
+                  </p>
+                </div>
+              )}
+
+              {/* Survey Recommendations */}
+              {!isEditingInsights && (
+                <div className="mt-8 border-t pt-6">
+                  <h3 className="mb-4 flex items-center gap-2 font-semibold">
+                    <Lightbulb className="h-5 w-5" />
+                    Survey Recommendations
+                  </h3>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Recommended Survey Types</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ul className="text-muted-foreground space-y-1 text-sm">
+                          <li>• Habitat Survey (Fossitt Level 3)</li>
+                          {protectedSpeciesCount > 0 && <li>• Protected Species Survey</li>}
+                          {(findingsByType['designated_site']?.length || 0) > 0 && (
+                            <li>• Connectivity Assessment</li>
+                          )}
+                        </ul>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="flex items-center gap-2 text-sm">
+                          <Calendar className="h-4 w-4" />
+                          Optimal Survey Timing
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ul className="text-muted-foreground space-y-1 text-sm">
+                          <li>• Breeding Birds: Mar - Jul</li>
+                          <li>• Bats: May - Sep</li>
+                          <li>• Badger: Year-round</li>
+                          <li>• Otter: Year-round</li>
+                          <li>• Vegetation: May - Sep</li>
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Complete Button */}
+                  <Button
+                    onClick={handleComplete}
+                    disabled={isComplete || completeStep.isPending}
+                    className="mt-6 w-full"
+                    size="lg"
+                  >
+                    {completeStep.isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Check className="mr-2 h-4 w-4" />
+                    )}
+                    {isComplete ? 'Completed' : 'Complete & Continue to Field Survey'}
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
-        </TabsContent>
-      </Tabs>
+        </div>
+      </div>
 
       {/* Assessment Dialog */}
       <Dialog
