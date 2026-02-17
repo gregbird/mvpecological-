@@ -209,11 +209,17 @@ export function HabitatMappingStep({
         eu_annex_code: data.euAnnexCode || null,
         evaluation: data.evaluation || null,
         threats: data.threats
-          ? data.threats.split(',').map((s: string) => s.trim()).filter(Boolean)
+          ? data.threats
+              .split(',')
+              .map((s: string) => s.trim())
+              .filter(Boolean)
           : null,
         survey_method: data.surveyMethod || null,
         listed_species: data.listedSpecies
-          ? data.listedSpecies.split(',').map((s: string) => s.trim()).filter(Boolean)
+          ? data.listedSpecies
+              .split(',')
+              .map((s: string) => s.trim())
+              .filter(Boolean)
           : null,
         photos: data.photos || null,
       })
@@ -251,11 +257,17 @@ export function HabitatMappingStep({
           eu_annex_code: data.euAnnexCode || null,
           evaluation: data.evaluation || null,
           threats: data.threats
-            ? data.threats.split(',').map((s: string) => s.trim()).filter(Boolean)
+            ? data.threats
+                .split(',')
+                .map((s: string) => s.trim())
+                .filter(Boolean)
             : null,
           survey_method: data.surveyMethod || null,
           listed_species: data.listedSpecies
-            ? data.listedSpecies.split(',').map((s: string) => s.trim()).filter(Boolean)
+            ? data.listedSpecies
+                .split(',')
+                .map((s: string) => s.trim())
+                .filter(Boolean)
             : null,
           photos: data.photos || null,
         },
@@ -563,9 +575,7 @@ export function HabitatMappingStep({
           <CardContent className="flex min-h-0 flex-1 flex-col p-3">
             <div className="min-h-80 flex-1 overflow-hidden rounded-lg border">
               <ProjectMapWithDraw
-                center={
-                  projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]
-                }
+                center={projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]}
                 zoom={projectCenter ? 14 : 7}
                 boundary={projectBoundary}
                 onBoundaryChange={handleBoundaryChange}
@@ -618,14 +628,16 @@ export function HabitatMappingStep({
       />
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deletingHabitat} onOpenChange={(open) => !open && setDeletingHabitat(null)}>
+      <AlertDialog
+        open={!!deletingHabitat}
+        onOpenChange={(open) => !open && setDeletingHabitat(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Habitat</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete{' '}
-              <strong>{deletingHabitat?.fossitt_name}</strong> ({deletingHabitat?.fossitt_code})?
-              This action cannot be undone.
+              Are you sure you want to delete <strong>{deletingHabitat?.fossitt_name}</strong> (
+              {deletingHabitat?.fossitt_code})? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

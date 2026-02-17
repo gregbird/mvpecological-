@@ -248,25 +248,7 @@ export function DeepResearchModal({
   }, [open, site?.siteCode, aiSummary, aiLoading, existingResearch?.ai_analysis, handleAiAnalysis])
 
   if (!site) {
-    return (
-      <DeepResearchShell
-        open={false}
-        onOpenChange={onOpenChange}
-        headerIcon={
-          <div className="rounded-lg bg-emerald-100 p-2">
-            <Sparkles className="h-5 w-5 text-emerald-600" />
-          </div>
-        }
-        title=""
-        headerBadges={null}
-        tabs={[{ value: 'overview', label: 'Overview', content: null }]}
-        footerInfo=""
-        isSaved={false}
-        isSaving={false}
-        canSave={false}
-        onSave={() => {}}
-      />
-    )
+    return null
   }
 
   // Get Excel-derived site data (habitats, species, SSCO URL)

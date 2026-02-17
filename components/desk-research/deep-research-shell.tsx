@@ -246,9 +246,8 @@ export function DeepResearchShell({
             {headerIcon}
             <div className="flex-1">
               <DialogTitle className="text-lg">{title}</DialogTitle>
-              <DialogDescription asChild>
-                <div className="mt-1 flex flex-wrap items-center gap-2">{headerBadges}</div>
-              </DialogDescription>
+              <DialogDescription className="sr-only">{title}</DialogDescription>
+              <div className="mt-1 flex flex-wrap items-center gap-2">{headerBadges}</div>
             </div>
           </div>
         </DialogHeader>

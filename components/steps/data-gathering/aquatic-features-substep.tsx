@@ -252,19 +252,16 @@ export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
   )
 
   return (
-    <DataGatheringSubstepShell
-      {...props}
-      config={config}
-      renderDeepResearchModal={() => (
-        <AquaticDeepResearchModal
-          open={isDeepResearchOpen}
-          onOpenChange={setIsDeepResearchOpen}
-          site={deepResearchSite}
-          projectId={project.id}
-          userId={userId}
-          existingAnalysis={aquaticExistingAnalysis}
-        />
-      )}
-    />
+    <>
+      <DataGatheringSubstepShell {...props} config={config} />
+      <AquaticDeepResearchModal
+        open={isDeepResearchOpen}
+        onOpenChange={setIsDeepResearchOpen}
+        site={deepResearchSite}
+        projectId={project.id}
+        userId={userId}
+        existingAnalysis={aquaticExistingAnalysis}
+      />
+    </>
   )
 }

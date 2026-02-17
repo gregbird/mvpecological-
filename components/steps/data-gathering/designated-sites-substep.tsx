@@ -319,19 +319,16 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
   )
 
   return (
-    <DataGatheringSubstepShell
-      {...props}
-      config={config}
-      renderDeepResearchModal={({ searchResults: _sr }) => (
-        <DeepResearchModal
-          open={isDeepResearchOpen}
-          onOpenChange={setIsDeepResearchOpen}
-          site={deepResearchSite}
-          projectId={project.id}
-          userId={userId}
-          onSaveAnalysis={handleDeepResearchSave}
-        />
-      )}
-    />
+    <>
+      <DataGatheringSubstepShell {...props} config={config} />
+      <DeepResearchModal
+        open={isDeepResearchOpen}
+        onOpenChange={setIsDeepResearchOpen}
+        site={deepResearchSite}
+        projectId={project.id}
+        userId={userId}
+        onSaveAnalysis={handleDeepResearchSave}
+      />
+    </>
   )
 }

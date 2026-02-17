@@ -571,18 +571,15 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
   )
 
   return (
-    <DataGatheringSubstepShell
-      {...props}
-      config={config}
-      renderDeepResearchModal={() => (
-        <SpeciesResearchModal
-          open={speciesResearchOpen}
-          onOpenChange={setSpeciesResearchOpen}
-          species={selectedSpeciesResearch}
-          existingAnalysis={speciesExistingAnalysis}
-          onSaveAnalysis={handleSaveDeepResearchAnalysis}
-        />
-      )}
-    />
+    <>
+      <DataGatheringSubstepShell {...props} config={config} />
+      <SpeciesResearchModal
+        open={speciesResearchOpen}
+        onOpenChange={setSpeciesResearchOpen}
+        species={selectedSpeciesResearch}
+        existingAnalysis={speciesExistingAnalysis}
+        onSaveAnalysis={handleSaveDeepResearchAnalysis}
+      />
+    </>
   )
 }

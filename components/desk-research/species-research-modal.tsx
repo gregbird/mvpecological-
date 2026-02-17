@@ -180,11 +180,7 @@ export function SpeciesResearchModal({
   }, [open, species?.scientificName, aiSummary, aiLoading, existingAnalysis, fetchAiAnalysis])
 
   if (!species) {
-    return (
-      <Dialog open={false} onOpenChange={onOpenChange}>
-        <DialogContent className="max-h-[85vh] max-w-2xl" />
-      </Dialog>
-    )
+    return null
   }
 
   const hasRelatedSites = species.relatedSites && species.relatedSites.length > 0
@@ -203,43 +199,42 @@ export function SpeciesResearchModal({
               <DialogTitle className="text-lg">
                 {species.commonName || species.scientificName}
               </DialogTitle>
-              <DialogDescription asChild>
-                <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <span className="text-muted-foreground text-xs italic">
-                    {species.scientificName}
-                  </span>
-                  {species.taxonGroup && (
-                    <Badge variant="outline" className="text-xs">
-                      {species.taxonGroup}
-                    </Badge>
-                  )}
-                  {species.distance != null && (
-                    <Badge variant="secondary" className="text-xs">
-                      <MapPin className="mr-1 h-3 w-3" />
-                      {species.distance === 0
-                        ? 'Within site'
-                        : `${Number(species.distance).toFixed(1)} km`}
-                    </Badge>
-                  )}
-                  {species.isProtected && (
-                    <Badge variant="destructive" className="gap-1 text-xs">
-                      <Shield className="h-3 w-3" />
-                      Protected
-                    </Badge>
-                  )}
-                  {species.isInvasive && (
-                    <Badge className="gap-1 bg-orange-500 text-xs hover:bg-orange-600">
-                      <Bug className="h-3 w-3" />
-                      Invasive
-                    </Badge>
-                  )}
-                  {species.isThreatened && (
-                    <Badge variant="destructive" className="text-xs">
-                      Threatened
-                    </Badge>
-                  )}
-                </div>
-              </DialogDescription>
+              <DialogDescription className="sr-only">{species.scientificName}</DialogDescription>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <span className="text-muted-foreground text-xs italic">
+                  {species.scientificName}
+                </span>
+                {species.taxonGroup && (
+                  <Badge variant="outline" className="text-xs">
+                    {species.taxonGroup}
+                  </Badge>
+                )}
+                {species.distance != null && (
+                  <Badge variant="secondary" className="text-xs">
+                    <MapPin className="mr-1 h-3 w-3" />
+                    {species.distance === 0
+                      ? 'Within site'
+                      : `${Number(species.distance).toFixed(1)} km`}
+                  </Badge>
+                )}
+                {species.isProtected && (
+                  <Badge variant="destructive" className="gap-1 text-xs">
+                    <Shield className="h-3 w-3" />
+                    Protected
+                  </Badge>
+                )}
+                {species.isInvasive && (
+                  <Badge className="gap-1 bg-orange-500 text-xs hover:bg-orange-600">
+                    <Bug className="h-3 w-3" />
+                    Invasive
+                  </Badge>
+                )}
+                {species.isThreatened && (
+                  <Badge variant="destructive" className="text-xs">
+                    Threatened
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
         </DialogHeader>

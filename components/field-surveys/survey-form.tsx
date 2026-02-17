@@ -84,7 +84,6 @@ const SURVEY_TYPES: { value: SurveyType; label: string }[] = [
   { value: 'other', label: 'Other Survey' },
 ]
 
-
 export function SurveyForm({
   open,
   onOpenChange,
@@ -138,7 +137,8 @@ export function SurveyForm({
         initialData?.expectedSurveyCount?.toString() ||
         (
           initialData?.weather as Record<string, unknown> | undefined
-        )?.expectedSurveyCount?.toString() || '',
+        )?.expectedSurveyCount?.toString() ||
+        '',
       notes: initialData?.notes || '',
     },
   })
@@ -228,7 +228,7 @@ export function SurveyForm({
                         <FormControl>
                           <Button
                             variant="outline"
-                                                       className={cn(
+                            className={cn(
                               'pl-3 text-left font-normal',
                               !field.value && 'text-muted-foreground'
                             )}
@@ -318,7 +318,7 @@ export function SurveyForm({
                     <Textarea
                       placeholder="Any additional notes about the survey..."
                       className="min-h-25"
-                                           {...field}
+                      {...field}
                     />
                   </FormControl>
                   <FormDescription>

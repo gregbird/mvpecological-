@@ -130,7 +130,6 @@ export function SurveyCard({
               )}
             </div>
           </div>
-
         </div>
       </CardHeader>
 
@@ -183,12 +182,7 @@ export function SurveyCard({
       <CardFooter className="pt-0">
         <div className="flex w-full items-center gap-2">
           {onView && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1"
-              onClick={() => onView(survey)}
-            >
+            <Button variant="outline" size="sm" className="flex-1" onClick={() => onView(survey)}>
               <Eye className="mr-1.5 h-3.5 w-3.5" />
               View
             </Button>

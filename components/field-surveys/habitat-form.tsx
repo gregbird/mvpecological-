@@ -178,7 +178,7 @@ export function HabitatForm({
       )
       setPhotos(initialData?.photos || [])
     }
-  }, [open, initialData])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, initialData]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSelectHabitat = (habitat: FossittHabitat) => {
     setSelectedHabitat(habitat)

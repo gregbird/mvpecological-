@@ -209,7 +209,9 @@ export function FieldSurveyStep({
         endTime: s.end_time || undefined,
         status: s.status as SurveyCardType['status'],
         weather: s.weather as SurveyCardType['weather'],
-        expectedSurveyCount: (s.weather as Record<string, unknown> | null)?.expectedSurveyCount as number | undefined,
+        expectedSurveyCount: (s.weather as Record<string, unknown> | null)?.expectedSurveyCount as
+          | number
+          | undefined,
         notes: s.notes || undefined,
         surveyor: {
           id: s.surveyor?.id || userId,

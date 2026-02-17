@@ -5,12 +5,7 @@ import { format } from 'date-fns'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Separator } from '@/components/ui/separator'
 import type { Survey, SurveyStatus } from './survey-card'
 
@@ -43,13 +38,21 @@ const STATUS_STYLES: Record<
   approved: { label: 'Approved', variant: 'default' },
 }
 
-function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string | undefined | null }) {
+function InfoRow({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ElementType
+  label: string
+  value: string | undefined | null
+}) {
   if (!value) return null
   return (
     <div className="flex items-start gap-3 py-2">
       <Icon className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />
       <div>
-        <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">{label}</p>
+        <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">{label}</p>
         <p className="text-sm">{value}</p>
       </div>
     </div>
@@ -84,17 +87,9 @@ export function SurveyViewDialog({ open, onOpenChange, survey }: SurveyViewDialo
             value={SURVEY_TYPE_LABELS[survey.surveyType] || survey.surveyType}
           />
 
-          <InfoRow
-            icon={Calendar}
-            label="Survey Date"
-            value={formatDate(survey.surveyDate)}
-          />
+          <InfoRow icon={Calendar} label="Survey Date" value={formatDate(survey.surveyDate)} />
 
-          <InfoRow
-            icon={User}
-            label="Surveyor"
-            value={survey.surveyor.name}
-          />
+          <InfoRow icon={User} label="Surveyor" value={survey.surveyor.name} />
 
           <InfoRow
             icon={Hash}
@@ -102,28 +97,18 @@ export function SurveyViewDialog({ open, onOpenChange, survey }: SurveyViewDialo
             value={survey.expectedSurveyCount ? String(survey.expectedSurveyCount) : undefined}
           />
 
-          {survey.startTime && (
-            <InfoRow
-              icon={Clock}
-              label="Start Time"
-              value={survey.startTime}
-            />
-          )}
+          {survey.startTime && <InfoRow icon={Clock} label="Start Time" value={survey.startTime} />}
 
-          {survey.endTime && (
-            <InfoRow
-              icon={Clock}
-              label="End Time"
-              value={survey.endTime}
-            />
-          )}
+          {survey.endTime && <InfoRow icon={Clock} label="End Time" value={survey.endTime} />}
         </div>
 
         {survey.notes && (
           <>
             <Separator />
             <div>
-              <p className="text-muted-foreground mb-1 text-xs font-medium uppercase tracking-wide">Notes</p>
+              <p className="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">
+                Notes
+              </p>
               <p className="text-sm whitespace-pre-wrap">{survey.notes}</p>
             </div>
           </>
