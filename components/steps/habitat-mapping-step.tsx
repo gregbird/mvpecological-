@@ -11,12 +11,23 @@ import {
   TreePine,
   Fish,
   Shield,
+  Plus,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -83,6 +94,7 @@ export function HabitatMappingStep({
   const { toast } = useToast()
   const [showHabitatForm, setShowHabitatForm] = React.useState(false)
   const [editingHabitat, setEditingHabitat] = React.useState<HabitatPolygon | null>(null)
+  const [deletingHabitat, setDeletingHabitat] = React.useState<HabitatPolygon | null>(null)
   const [drawnBoundary, setDrawnBoundary] = React.useState<GeoJSON.Feature<GeoJSON.Polygon> | null>(
     null
   )
@@ -180,32 +192,29 @@ export function HabitatMappingStep({
 
   // Handle creating a habitat
   const handleCreateHabitat = async (data: Partial<HabitatFormType>) => {
-    if (!drawnBoundary) {
-      toast({
-        variant: 'destructive',
-        title: 'No boundary drawn',
-        description: 'Please draw a polygon on the map first.',
-      })
-      return
-    }
-
     const fossittInfo = getHabitatByCode(data.fossittCode!)
-    const areaHectares = calculateAreaHectares(drawnBoundary.geometry)
+    const areaHectares = drawnBoundary
+      ? calculateAreaHectares(drawnBoundary.geometry)
+      : data.areaHectares || 0
 
     try {
       await createHabitat.mutateAsync({
         project_id: project.id,
         fossitt_code: data.fossittCode!,
         fossitt_name: fossittInfo?.name || data.fossittCode!,
-        boundary: drawnBoundary.geometry as unknown as Json,
+        boundary: drawnBoundary ? (drawnBoundary.geometry as unknown as Json) : null,
         area_hectares: areaHectares,
         condition: data.condition!,
         notes: data.notes || null,
         eu_annex_code: data.euAnnexCode || null,
         evaluation: data.evaluation || null,
-        threats: data.threats || null,
+        threats: data.threats
+          ? data.threats.split(',').map((s: string) => s.trim()).filter(Boolean)
+          : null,
         survey_method: data.surveyMethod || null,
-        listed_species: data.listedSpecies || null,
+        listed_species: data.listedSpecies
+          ? data.listedSpecies.split(',').map((s: string) => s.trim()).filter(Boolean)
+          : null,
         photos: data.photos || null,
       })
 
@@ -241,9 +250,13 @@ export function HabitatMappingStep({
           notes: data.notes || null,
           eu_annex_code: data.euAnnexCode || null,
           evaluation: data.evaluation || null,
-          threats: data.threats || null,
+          threats: data.threats
+            ? data.threats.split(',').map((s: string) => s.trim()).filter(Boolean)
+            : null,
           survey_method: data.surveyMethod || null,
-          listed_species: data.listedSpecies || null,
+          listed_species: data.listedSpecies
+            ? data.listedSpecies.split(',').map((s: string) => s.trim()).filter(Boolean)
+            : null,
           photos: data.photos || null,
         },
       })
@@ -264,17 +277,18 @@ export function HabitatMappingStep({
     }
   }
 
-  // Handle deleting a habitat
-  const handleDeleteHabitat = async (habitat: HabitatPolygon) => {
+  // Handle confirming habitat deletion
+  const handleConfirmDelete = async () => {
+    if (!deletingHabitat) return
     try {
-      await deleteHabitat.mutateAsync(habitat.id)
+      await deleteHabitat.mutateAsync(deletingHabitat.id)
 
       toast({
         title: 'Habitat deleted',
         description: 'Habitat polygon has been removed.',
       })
 
-      if (selectedHabitat?.id === habitat.id) {
+      if (selectedHabitat?.id === deletingHabitat.id) {
         setSelectedHabitat(null)
       }
     } catch {
@@ -283,6 +297,8 @@ export function HabitatMappingStep({
         title: 'Error deleting habitat',
         description: 'Failed to delete the habitat polygon.',
       })
+    } finally {
+      setDeletingHabitat(null)
     }
   }
 
@@ -400,160 +416,166 @@ export function HabitatMappingStep({
         </Alert>
       )}
 
-      {/* Main Content - Full Height Split View */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-3">
-        {/* Map Section */}
-        <div className="flex min-h-0 flex-col lg:col-span-2">
-          <Card className="flex min-h-0 flex-1 flex-col">
-            <CardContent className="flex min-h-0 flex-1 flex-col p-3">
-              <div className="min-h-0 flex-1 overflow-hidden rounded-lg border">
-                <ProjectMapWithDraw
-                  center={
-                    projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]
-                  }
-                  zoom={projectCenter ? 14 : 7}
-                  boundary={projectBoundary}
-                  onBoundaryChange={handleBoundaryChange}
-                  editable={!isComplete}
-                  findings={findingMarkers}
-                  flyToLocation={flyToLocation ?? undefined}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right Panel - Tabbed Interface */}
-        <div className="flex min-h-0 flex-col">
-          <Card className="flex min-h-0 flex-1 flex-col">
-            <Tabs defaultValue="findings" className="flex min-h-0 flex-1 flex-col">
-              <TabsList className="mx-3 mt-3 grid w-auto grid-cols-2">
-                <TabsTrigger value="findings" className="text-xs">
-                  Desk Research ({savedFindings.length})
-                </TabsTrigger>
+      {/* Main Content - Vertical Layout: Panel on top, Map on bottom */}
+      <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
+        {/* Top Panel - Tabbed Interface with Add Habitat button */}
+        <Card>
+          <Tabs defaultValue="habitats" className="flex flex-col">
+            <div className="flex items-center justify-between px-3 pt-3">
+              <TabsList className="grid w-auto grid-cols-2">
                 <TabsTrigger value="habitats" className="text-xs">
                   Habitats ({habitats.length})
                 </TabsTrigger>
+                <TabsTrigger value="findings" className="text-xs">
+                  Desk Research ({savedFindings.length})
+                </TabsTrigger>
               </TabsList>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setEditingHabitat(null)
+                  setDrawnBoundary(null)
+                  setShowHabitatForm(true)
+                }}
+              >
+                <Plus className="mr-1.5 h-4 w-4" />
+                Add Habitat
+              </Button>
+            </div>
 
-              {/* Desk Research Findings Tab */}
-              <TabsContent value="findings" className="mt-0 min-h-0 flex-1">
-                <CardContent className="h-full p-3">
-                  {findingsLoading ? (
-                    <div className="flex h-full items-center justify-center">
-                      <Loader2 className="h-6 w-6 animate-spin" />
+            {/* Mapped Habitats Tab */}
+            <TabsContent value="habitats" className="mt-0">
+              <CardContent className="h-64 p-3">
+                {habitats.length === 0 ? (
+                  <div className="text-muted-foreground flex h-full items-center justify-center text-center text-sm">
+                    No habitats mapped yet. Click &quot;Add Habitat&quot; or draw a polygon on the
+                    map below.
+                  </div>
+                ) : (
+                  <ScrollArea className="h-full">
+                    <div className="space-y-2 pr-3">
+                      {habitats.map((habitat) => (
+                        <HabitatListItem
+                          key={habitat.id}
+                          habitat={habitat}
+                          isSelected={selectedHabitat?.id === habitat.id}
+                          onSelect={() => setSelectedHabitat(habitat)}
+                          onEdit={() => {
+                            setEditingHabitat(habitat)
+                            setShowHabitatForm(true)
+                          }}
+                          onDelete={() => setDeletingHabitat(habitat)}
+                          disabled={false}
+                        />
+                      ))}
                     </div>
-                  ) : savedFindings.length === 0 ? (
-                    <div className="text-muted-foreground flex h-full items-center justify-center text-center text-sm">
-                      No saved findings from Data Gathering.
-                      <br />
-                      Complete Step 2 first.
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </TabsContent>
+
+            {/* Desk Research Findings Tab */}
+            <TabsContent value="findings" className="mt-0">
+              <CardContent className="h-64 p-3">
+                {findingsLoading ? (
+                  <div className="flex h-full items-center justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : savedFindings.length === 0 ? (
+                  <div className="text-muted-foreground flex h-full items-center justify-center text-center text-sm">
+                    No saved findings from Data Gathering. Complete Step 2 first.
+                  </div>
+                ) : (
+                  <ScrollArea className="h-full">
+                    <div className="space-y-4 pr-3">
+                      {/* Designated Sites */}
+                      {findingsByType.designated_site.length > 0 && (
+                        <div>
+                          <div className="mb-2 flex items-center gap-2">
+                            <Shield className="text-primary h-4 w-4" />
+                            <span className="text-sm font-medium">
+                              Designated Sites ({findingsByType.designated_site.length})
+                            </span>
+                          </div>
+                          <div className="space-y-1.5">
+                            {findingsByType.designated_site.map((finding) => (
+                              <FindingItem
+                                key={finding.id}
+                                finding={finding}
+                                onClick={() => handleFindingClick(finding)}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Species Records */}
+                      {findingsByType.species_record.length > 0 && (
+                        <div>
+                          <div className="mb-2 flex items-center gap-2">
+                            <TreePine className="text-primary h-4 w-4" />
+                            <span className="text-sm font-medium">
+                              Species Records ({findingsByType.species_record.length})
+                            </span>
+                          </div>
+                          <div className="space-y-1.5">
+                            {findingsByType.species_record.map((finding) => (
+                              <FindingItem
+                                key={finding.id}
+                                finding={finding}
+                                onClick={() => handleFindingClick(finding)}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Aquatic Features */}
+                      {findingsByType.aquatic.length > 0 && (
+                        <div>
+                          <div className="mb-2 flex items-center gap-2">
+                            <Fish className="text-primary h-4 w-4" />
+                            <span className="text-sm font-medium">
+                              Aquatic Features ({findingsByType.aquatic.length})
+                            </span>
+                          </div>
+                          <div className="space-y-1.5">
+                            {findingsByType.aquatic.map((finding) => (
+                              <FindingItem
+                                key={finding.id}
+                                finding={finding}
+                                onClick={() => handleFindingClick(finding)}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <ScrollArea className="h-full">
-                      <div className="space-y-4 pr-3">
-                        {/* Designated Sites */}
-                        {findingsByType.designated_site.length > 0 && (
-                          <div>
-                            <div className="mb-2 flex items-center gap-2">
-                              <Shield className="text-primary h-4 w-4" />
-                              <span className="text-sm font-medium">
-                                Designated Sites ({findingsByType.designated_site.length})
-                              </span>
-                            </div>
-                            <div className="space-y-1.5">
-                              {findingsByType.designated_site.map((finding) => (
-                                <FindingItem
-                                  key={finding.id}
-                                  finding={finding}
-                                  onClick={() => handleFindingClick(finding)}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        )}
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </TabsContent>
+          </Tabs>
+        </Card>
 
-                        {/* Species Records */}
-                        {findingsByType.species_record.length > 0 && (
-                          <div>
-                            <div className="mb-2 flex items-center gap-2">
-                              <TreePine className="text-primary h-4 w-4" />
-                              <span className="text-sm font-medium">
-                                Species Records ({findingsByType.species_record.length})
-                              </span>
-                            </div>
-                            <div className="space-y-1.5">
-                              {findingsByType.species_record.map((finding) => (
-                                <FindingItem
-                                  key={finding.id}
-                                  finding={finding}
-                                  onClick={() => handleFindingClick(finding)}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Aquatic Features */}
-                        {findingsByType.aquatic.length > 0 && (
-                          <div>
-                            <div className="mb-2 flex items-center gap-2">
-                              <Fish className="text-primary h-4 w-4" />
-                              <span className="text-sm font-medium">
-                                Aquatic Features ({findingsByType.aquatic.length})
-                              </span>
-                            </div>
-                            <div className="space-y-1.5">
-                              {findingsByType.aquatic.map((finding) => (
-                                <FindingItem
-                                  key={finding.id}
-                                  finding={finding}
-                                  onClick={() => handleFindingClick(finding)}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </ScrollArea>
-                  )}
-                </CardContent>
-              </TabsContent>
-
-              {/* Mapped Habitats Tab */}
-              <TabsContent value="habitats" className="mt-0 min-h-0 flex-1">
-                <CardContent className="h-full p-3">
-                  {habitats.length === 0 ? (
-                    <div className="text-muted-foreground flex h-full items-center justify-center text-center text-sm">
-                      No habitats mapped yet.
-                      <br />
-                      Draw a polygon on the map to add a habitat.
-                    </div>
-                  ) : (
-                    <ScrollArea className="h-full">
-                      <div className="space-y-2 pr-3">
-                        {habitats.map((habitat) => (
-                          <HabitatListItem
-                            key={habitat.id}
-                            habitat={habitat}
-                            isSelected={selectedHabitat?.id === habitat.id}
-                            onSelect={() => setSelectedHabitat(habitat)}
-                            onEdit={() => {
-                              setEditingHabitat(habitat)
-                              setShowHabitatForm(true)
-                            }}
-                            onDelete={() => handleDeleteHabitat(habitat)}
-                            disabled={isComplete}
-                          />
-                        ))}
-                      </div>
-                    </ScrollArea>
-                  )}
-                </CardContent>
-              </TabsContent>
-            </Tabs>
-          </Card>
-        </div>
+        {/* Bottom - Map Section */}
+        <Card className="flex min-h-0 flex-1 flex-col">
+          <CardContent className="flex min-h-0 flex-1 flex-col p-3">
+            <div className="min-h-80 flex-1 overflow-hidden rounded-lg border">
+              <ProjectMapWithDraw
+                center={
+                  projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]
+                }
+                zoom={projectCenter ? 14 : 7}
+                boundary={projectBoundary}
+                onBoundaryChange={handleBoundaryChange}
+                editable={!isComplete}
+                findings={findingMarkers}
+                flyToLocation={flyToLocation ?? undefined}
+              />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Habitat Form Dialog */}
@@ -577,9 +599,13 @@ export function HabitatMappingStep({
                 areaHectares: editingHabitat.area_hectares || undefined,
                 euAnnexCode: editingHabitat.eu_annex_code || undefined,
                 evaluation: editingHabitat.evaluation as HabitatFormType['evaluation'],
-                threats: editingHabitat.threats || undefined,
+                threats: Array.isArray(editingHabitat.threats)
+                  ? editingHabitat.threats.join(', ')
+                  : editingHabitat.threats || undefined,
                 surveyMethod: editingHabitat.survey_method || undefined,
-                listedSpecies: editingHabitat.listed_species || undefined,
+                listedSpecies: Array.isArray(editingHabitat.listed_species)
+                  ? editingHabitat.listed_species.join(', ')
+                  : editingHabitat.listed_species || undefined,
                 photos: (editingHabitat.photos as string[]) || undefined,
               }
             : drawnBoundary
@@ -590,6 +616,29 @@ export function HabitatMappingStep({
         }
         projectId={project.id}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingHabitat} onOpenChange={(open) => !open && setDeletingHabitat(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Habitat</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete{' '}
+              <strong>{deletingHabitat?.fossitt_name}</strong> ({deletingHabitat?.fossitt_code})?
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
@@ -620,43 +669,50 @@ function HabitatListItem({
       }`}
       onClick={onSelect}
     >
-      <div className="flex items-start justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <Badge
-              variant="outline"
-              className="font-mono"
-              style={{ borderColor: fossittInfo?.color, color: fossittInfo?.color }}
-            >
-              {habitat.fossitt_code}
-            </Badge>
-            <div
-              className={`h-2.5 w-2.5 rounded-full ${conditionInfo?.color || 'bg-gray-400'}`}
-              title={conditionInfo?.label}
-            />
-          </div>
-          <h4 className="mt-1 truncate text-sm font-medium">{habitat.fossitt_name}</h4>
-          <p className="text-muted-foreground text-xs">{habitat.area_hectares?.toFixed(2)} ha</p>
-        </div>
-        {!disabled && (
-          <div className="flex gap-1">
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit}>
-              <Pencil className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-destructive h-7 w-7"
-              onClick={(e) => {
-                e.stopPropagation()
-                onDelete()
-              }}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        )}
+      <div className="flex items-center gap-2">
+        <Badge
+          variant="outline"
+          className="font-mono"
+          style={{ borderColor: fossittInfo?.color, color: fossittInfo?.color }}
+        >
+          {habitat.fossitt_code}
+        </Badge>
+        <div
+          className={`h-2.5 w-2.5 rounded-full ${conditionInfo?.color || 'bg-gray-400'}`}
+          title={conditionInfo?.label}
+        />
+        <span className="text-muted-foreground text-xs">{conditionInfo?.label}</span>
       </div>
+      <h4 className="mt-1 truncate text-sm font-medium">{habitat.fossitt_name}</h4>
+      <p className="text-muted-foreground text-xs">{habitat.area_hectares?.toFixed(2)} ha</p>
+      {!disabled && (
+        <div className="mt-2 flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 flex-1 border-blue-200 text-xs text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-950"
+            onClick={(e) => {
+              e.stopPropagation()
+              onEdit()
+            }}
+          >
+            <Pencil className="mr-1 h-3 w-3" />
+            Edit
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 flex-1 border-red-200 text-xs text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950"
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete()
+            }}
+          >
+            <Trash2 className="mr-1 h-3 w-3" />
+            Delete
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

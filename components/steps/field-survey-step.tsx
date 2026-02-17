@@ -36,6 +36,7 @@ import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { useSavedFindings } from '@/hooks/queries/use-finding-hooks'
 import { SurveyCard, type Survey as SurveyCardType } from '@/components/field-surveys/survey-card'
 import { SurveyForm } from '@/components/field-surveys/survey-form'
+import { SurveyViewDialog } from '@/components/field-surveys/survey-view-dialog'
 import { SurveyTargetsBox } from '@/components/field-surveys/survey-targets-box'
 import type { Project, WorkflowStep, Json } from '@/types/database'
 
@@ -68,6 +69,7 @@ export function FieldSurveyStep({
   const { toast } = useToast()
   const [showSurveyForm, setShowSurveyForm] = React.useState(false)
   const [editingSurvey, setEditingSurvey] = React.useState<SurveyCardType | null>(null)
+  const [viewingSurvey, setViewingSurvey] = React.useState<SurveyCardType | null>(null)
   const [activeTab, setActiveTab] = React.useState('all')
   const [showFindings, setShowFindings] = React.useState(true)
   const [highlightedSurveyId, setHighlightedSurveyId] = React.useState<string | null>(null)
@@ -207,6 +209,7 @@ export function FieldSurveyStep({
         endTime: s.end_time || undefined,
         status: s.status as SurveyCardType['status'],
         weather: s.weather as SurveyCardType['weather'],
+        expectedSurveyCount: (s.weather as Record<string, unknown> | null)?.expectedSurveyCount as number | undefined,
         notes: s.notes || undefined,
         surveyor: {
           id: s.surveyor?.id || userId,
@@ -344,8 +347,13 @@ export function FieldSurveyStep({
     }
   }
 
-  // Handle viewing/editing a survey
+  // Handle viewing a survey (read-only)
   const handleViewSurvey = (survey: SurveyCardType) => {
+    setViewingSurvey(survey)
+  }
+
+  // Handle opening edit form
+  const handleOpenEditForm = (survey: SurveyCardType) => {
     setEditingSurvey(survey)
     setShowSurveyForm(true)
   }
@@ -674,7 +682,6 @@ export function FieldSurveyStep({
             setEditingSurvey(null)
             setShowSurveyForm(true)
           }}
-          disabled={isComplete}
         >
           <Plus className="mr-2 h-4 w-4" />
           Schedule Survey
@@ -723,7 +730,7 @@ export function FieldSurveyStep({
                         key={survey.id}
                         survey={survey}
                         onView={handleViewSurvey}
-                        onEdit={handleViewSurvey}
+                        onEdit={handleOpenEditForm}
                         onDelete={handleDeleteSurvey}
                         onApprove={handleApproveSurvey}
                         isHighlighted={survey.id === highlightedSurveyId}
@@ -747,7 +754,7 @@ export function FieldSurveyStep({
                             key={survey.id}
                             survey={survey}
                             onView={handleViewSurvey}
-                            onEdit={handleViewSurvey}
+                            onEdit={handleOpenEditForm}
                             onDelete={handleDeleteSurvey}
                             onApprove={handleApproveSurvey}
                             isHighlighted={survey.id === highlightedSurveyId}
@@ -836,6 +843,17 @@ export function FieldSurveyStep({
         }
         projectId={project.id}
       />
+
+      {/* Survey View Dialog */}
+      {viewingSurvey && (
+        <SurveyViewDialog
+          open={!!viewingSurvey}
+          onOpenChange={(open) => {
+            if (!open) setViewingSurvey(null)
+          }}
+          survey={viewingSurvey}
+        />
+      )}
     </div>
   )
 }

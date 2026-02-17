@@ -1711,23 +1711,24 @@ Survey oluşturma formunu basitleştir: Weather conditions, start/end time kald�
 
 **Yapılacaklar:**
 
-- [ ] **18.2.1** Survey formundan gereksiz alanları kaldır
+- [x] **18.2.1** Survey formundan gereksiz alanları kaldır
   - Dosya: `components/field-surveys/survey-form.tsx` (veya ilgili form bileşeni)
   - Kaldır: "Weather conditions" bölümü
   - Kaldır: "Start time" / "End time" alanları
 
-- [ ] **18.2.2** "Number of surveys expected" alanı ekle
+- [x] **18.2.2** "Number of surveys expected" alanı ekle
   - Survey oluşturma formuna sayısal input ekle
   - Label: "Number of surveys expected"
 
-- [ ] **18.2.3** Survey tipi bazlı template navigasyonu
+- [ ] **18.2.3** Survey tipi bazlı template navigasyonu ❌ YAPILMADI - Müşteriden Relevé template Google Sheets linki bekleniyor
   - "Create survey" tıklandığında seçilen survey tipine göre template sayfasına yönlendir
   - Relevé Survey template referansı: Google Sheets link
   - Her survey tipi için template yapısı
 
-- [ ] **18.2.4** Survey oluşturulduktan sonra 3 aksiyon butonu
-  - Survey kartı/satırında 3 butonlu düzenleme menüsü
-  - Butonlar: Edit, View, Delete (veya müşteriden detay alınacak)
+- [x] **18.2.4** Survey oluşturulduktan sonra 3 aksiyon butonu
+  - Survey kartı/satırında 3 butonlu düzenleme menüsü (View, Edit, Delete)
+  - View: ayrı read-only detay dialogu, Edit: düzenleme formu, Delete: silme
+  - Butonlar farklı renklerde kart altında görünür
 
 ---
 
@@ -1748,17 +1749,17 @@ Habitat Mapping sayfasının birincil işlevi, proje sınırı içindeki habitat
 
 **Yapılacaklar:**
 
-- [ ] **19.1.1** Habitat Mapping sayfa düzenini yeniden organize et
+- [x] **19.1.1** Habitat Mapping sayfa düzenini yeniden organize et
   - Dosya: `components/steps/habitat-mapping-step.tsx`
   - Haritayı sayfanın alt kısmına taşı
   - Üst kısım: Habitat listesi, ekleme/düzenleme araçları
 
-- [ ] **19.1.2** "Add Habitat" butonu ekle
+- [x] **19.1.2** "Add Habitat" butonu ekle
   - Belirgin "Add Habitat" butonu (sayfanın üst kısmında)
   - Tıklandığında habitat ekleme formu/modalı açılır
   - FOSSITT kodu seçimi, alan çizimi workflow'u
 
-- [ ] **19.1.3** Habitat düzenleme butonları ekle
+- [x] **19.1.3** Habitat düzenleme butonları ekle
   - Her habitat kartında edit butonu
   - Mevcut habitat verilerini düzenleme imkanı
 

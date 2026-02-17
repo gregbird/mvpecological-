@@ -1,28 +1,11 @@
 'use client'
 
 import * as React from 'react'
-import {
-  Calendar,
-  Clock,
-  MapPin,
-  CloudSun,
-  Eye,
-  MoreVertical,
-  Pencil,
-  Trash2,
-  CheckCircle,
-} from 'lucide-react'
+import { Calendar, Clock, MapPin, Eye, Pencil, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 
@@ -56,6 +39,7 @@ export interface Survey {
   endTime?: string
   status: SurveyStatus
   weather?: WeatherData
+  expectedSurveyCount?: number
   notes?: string
   surveyor: {
     id: string
@@ -138,57 +122,15 @@ export function SurveyCard({
                 <Calendar className="h-3.5 w-3.5" />
                 <span>{formatDate(survey.surveyDate)}</span>
               </div>
-              {!!(survey.weather as Record<string, unknown> | undefined)?.expectedSurveyCount && (
+              {!!survey.expectedSurveyCount && (
                 <div className="flex items-center gap-1">
                   <Clock className="h-3.5 w-3.5" />
-                  <span>
-                    {String((survey.weather as Record<string, unknown>).expectedSurveyCount)}{' '}
-                    survey(s) expected
-                  </span>
+                  <span>{survey.expectedSurveyCount} survey(s) expected</span>
                 </div>
               )}
             </div>
           </div>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {onView && (
-                <DropdownMenuItem onClick={() => onView(survey)}>
-                  <Eye className="mr-2 h-4 w-4" />
-                  View Details
-                </DropdownMenuItem>
-              )}
-              {onEdit && survey.status !== 'approved' && (
-                <DropdownMenuItem onClick={() => onEdit(survey)}>
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Edit
-                </DropdownMenuItem>
-              )}
-              {onApprove && survey.status === 'completed' && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => onApprove(survey)}>
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    Approve
-                  </DropdownMenuItem>
-                </>
-              )}
-              {onDelete && survey.status !== 'approved' && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => onDelete(survey)} className="text-destructive">
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </CardHeader>
 
@@ -208,23 +150,6 @@ export function SurveyCard({
             </Avatar>
             <span className="text-sm">{survey.surveyor.name}</span>
           </div>
-
-          {/* Weather - only show if data present */}
-          {survey.weather &&
-            (survey.weather.temperature !== undefined ||
-              survey.weather.windSpeed !== undefined) && (
-              <div className="text-muted-foreground flex items-center gap-4 text-sm">
-                <div className="flex items-center gap-1">
-                  <CloudSun className="h-3.5 w-3.5" />
-                  {survey.weather.temperature !== undefined && (
-                    <span>{survey.weather.temperature}°C</span>
-                  )}
-                  {survey.weather.windSpeed !== undefined && (
-                    <span className="ml-2">Wind: {survey.weather.windSpeed} km/h</span>
-                  )}
-                </div>
-              </div>
-            )}
 
           {/* Counts */}
           <div className="flex items-center gap-4 text-sm">
@@ -254,6 +179,44 @@ export function SurveyCard({
           )}
         </div>
       </CardContent>
+
+      <CardFooter className="pt-0">
+        <div className="flex w-full items-center gap-2">
+          {onView && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={() => onView(survey)}
+            >
+              <Eye className="mr-1.5 h-3.5 w-3.5" />
+              View
+            </Button>
+          )}
+          {onEdit && survey.status !== 'approved' && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-950"
+              onClick={() => onEdit(survey)}
+            >
+              <Pencil className="mr-1.5 h-3.5 w-3.5" />
+              Edit
+            </Button>
+          )}
+          {onDelete && survey.status !== 'approved' && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950"
+              onClick={() => onDelete(survey)}
+            >
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+              Delete
+            </Button>
+          )}
+        </div>
+      </CardFooter>
     </Card>
   )
 }

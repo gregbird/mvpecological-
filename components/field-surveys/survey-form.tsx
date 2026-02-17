@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { CalendarIcon, ChevronDown, Loader2 } from 'lucide-react'
+import { CalendarIcon, Loader2 } from 'lucide-react'
 import { format } from 'date-fns'
 
 import { Button } from '@/components/ui/button'
@@ -36,7 +36,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+
 import { useRole } from '@/contexts/role-context'
 import { createClient } from '@/lib/supabase/client'
 import type { Survey, SurveyType, WeatherData } from './survey-card'
@@ -58,12 +58,6 @@ const surveyFormSchema = z.object({
   surveyDate: z.date({ message: 'Survey date is required' }),
   surveyorId: z.string().min(1, 'Surveyor is required'),
   expectedSurveyCount: z.string().optional(),
-  temperature: z.string().optional(),
-  windSpeed: z.string().optional(),
-  windDirection: z.string().optional(),
-  cloudCover: z.string().optional(),
-  precipitation: z.string().optional(),
-  visibility: z.string().optional(),
   notes: z.string().optional(),
 })
 
@@ -90,19 +84,6 @@ const SURVEY_TYPES: { value: SurveyType; label: string }[] = [
   { value: 'other', label: 'Other Survey' },
 ]
 
-const WIND_DIRECTIONS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW', 'Calm', 'Variable']
-
-const PRECIPITATION_OPTIONS = [
-  'None',
-  'Light Rain',
-  'Moderate Rain',
-  'Heavy Rain',
-  'Drizzle',
-  'Showers',
-  'Snow',
-]
-
-const VISIBILITY_OPTIONS = ['Excellent', 'Good', 'Moderate', 'Poor', 'Very Poor']
 
 export function SurveyForm({
   open,
@@ -154,15 +135,10 @@ export function SurveyForm({
       surveyDate: initialData?.surveyDate ? new Date(initialData.surveyDate) : new Date(),
       surveyorId: initialData?.surveyor?.id || '',
       expectedSurveyCount:
+        initialData?.expectedSurveyCount?.toString() ||
         (
           initialData?.weather as Record<string, unknown> | undefined
         )?.expectedSurveyCount?.toString() || '',
-      temperature: initialData?.weather?.temperature?.toString() || '',
-      windSpeed: initialData?.weather?.windSpeed?.toString() || '',
-      windDirection: initialData?.weather?.windDirection || '',
-      cloudCover: initialData?.weather?.cloudCover?.toString() || '',
-      precipitation: initialData?.weather?.precipitation || '',
-      visibility: initialData?.weather?.visibility || '',
       notes: initialData?.notes || '',
     },
   })
@@ -179,13 +155,10 @@ export function SurveyForm({
         surveyor: surveyor
           ? { id: surveyor.id, name: surveyor.full_name }
           : { id: values.surveyorId, name: 'Unknown' },
+        expectedSurveyCount: values.expectedSurveyCount
+          ? parseInt(values.expectedSurveyCount)
+          : undefined,
         weather: {
-          temperature: values.temperature ? parseFloat(values.temperature) : undefined,
-          windSpeed: values.windSpeed ? parseFloat(values.windSpeed) : undefined,
-          windDirection: values.windDirection || undefined,
-          cloudCover: values.cloudCover ? parseInt(values.cloudCover) : undefined,
-          precipitation: values.precipitation || undefined,
-          visibility: values.visibility || undefined,
           expectedSurveyCount: values.expectedSurveyCount
             ? parseInt(values.expectedSurveyCount)
             : undefined,
@@ -255,7 +228,7 @@ export function SurveyForm({
                         <FormControl>
                           <Button
                             variant="outline"
-                            className={cn(
+                                                       className={cn(
                               'pl-3 text-left font-normal',
                               !field.value && 'text-muted-foreground'
                             )}
@@ -334,147 +307,6 @@ export function SurveyForm({
               />
             </div>
 
-            {/* Weather Conditions - Collapsible */}
-            <Collapsible>
-              <CollapsibleTrigger asChild>
-                <Button
-                  variant="ghost"
-                  type="button"
-                  className="flex w-full items-center justify-between px-0"
-                >
-                  <span className="text-sm font-medium">Weather Conditions (Optional)</span>
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-4 pt-2">
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <FormField
-                    control={form.control}
-                    name="temperature"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Temperature (°C)</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.1" placeholder="e.g., 15" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="windSpeed"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Wind Speed (km/h)</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="1" placeholder="e.g., 10" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="windDirection"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Wind Direction</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select direction" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {WIND_DIRECTIONS.map((dir) => (
-                              <SelectItem key={dir} value={dir}>
-                                {dir}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="cloudCover"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Cloud Cover (%)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="10"
-                            placeholder="e.g., 50"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="precipitation"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Precipitation</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {PRECIPITATION_OPTIONS.map((opt) => (
-                              <SelectItem key={opt} value={opt}>
-                                {opt}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="visibility"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Visibility</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {VISIBILITY_OPTIONS.map((opt) => (
-                              <SelectItem key={opt} value={opt}>
-                                {opt}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-
             {/* Notes */}
             <FormField
               control={form.control}
@@ -486,7 +318,7 @@ export function SurveyForm({
                     <Textarea
                       placeholder="Any additional notes about the survey..."
                       className="min-h-25"
-                      {...field}
+                                           {...field}
                     />
                   </FormControl>
                   <FormDescription>

@@ -159,6 +159,27 @@ export function HabitatForm({
     },
   })
 
+  // Reset form when dialog opens with new initialData
+  React.useEffect(() => {
+    if (open) {
+      form.reset({
+        fossittCode: initialData?.fossittCode || '',
+        condition: initialData?.condition || 'good',
+        areaHectares: initialData?.areaHectares?.toString() || '',
+        notes: initialData?.notes || '',
+        euAnnexCode: initialData?.euAnnexCode || '',
+        evaluation: initialData?.evaluation,
+        threats: initialData?.threats || '',
+        surveyMethod: initialData?.surveyMethod || '',
+        listedSpecies: initialData?.listedSpecies || '',
+      })
+      setSelectedHabitat(
+        initialData?.fossittCode ? getHabitatByCode(initialData.fossittCode) || null : null
+      )
+      setPhotos(initialData?.photos || [])
+    }
+  }, [open, initialData])  // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleSelectHabitat = (habitat: FossittHabitat) => {
     setSelectedHabitat(habitat)
     form.setValue('fossittCode', habitat.code)
