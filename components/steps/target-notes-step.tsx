@@ -556,7 +556,6 @@ export function TargetNotesStep({
                   setEditingTargetNote(null)
                   setShowTargetNoteForm(true)
                 }}
-                disabled={isComplete}
                 size="sm"
               >
                 <Plus className="mr-2 h-4 w-4" />
@@ -568,7 +567,7 @@ export function TargetNotesStep({
                   setEditingObservation(null)
                   setShowObservationForm(true)
                 }}
-                disabled={isComplete || surveys.length === 0}
+                disabled={surveys.length === 0}
                 size="sm"
               >
                 <Plus className="mr-2 h-4 w-4" />
@@ -623,7 +622,7 @@ export function TargetNotesStep({
                         if (found) setSelectedTargetNote(found)
                       }}
                       onMapClick={(latlng) => {
-                        if (!isComplete && latlng) {
+                        if (latlng) {
                           setMapClickLocation(latlng)
                           setEditingTargetNote(null)
                           setShowTargetNoteForm(true)
@@ -681,7 +680,6 @@ export function TargetNotesStep({
                               }}
                               onDelete={() => handleDeleteTargetNote(note)}
                               onVerify={() => handleVerifyTargetNote(note)}
-                              disabled={isComplete}
                               compact
                             />
                           ))}
@@ -708,7 +706,6 @@ export function TargetNotesStep({
                               }}
                               onDelete={() => handleDeleteTargetNote(note)}
                               onVerify={() => handleVerifyTargetNote(note)}
-                              disabled={isComplete}
                               compact
                             />
                           ))}
@@ -833,7 +830,6 @@ export function TargetNotesStep({
                                 setShowObservationForm(true)
                               }}
                               onDelete={() => handleDeleteObservation(obs)}
-                              disabled={isComplete}
                             />
                           ))}
                         </div>
@@ -858,7 +854,6 @@ export function TargetNotesStep({
                                 setShowObservationForm(true)
                               }}
                               onDelete={() => handleDeleteObservation(obs)}
-                              disabled={isComplete}
                             />
                           ))}
                         </div>
@@ -952,14 +947,12 @@ function ObservationListItem({
   onSelect,
   onEdit,
   onDelete,
-  disabled,
 }: {
   observation: SpeciesObservation
   isSelected: boolean
   onSelect: () => void
   onEdit: () => void
   onDelete: () => void
-  disabled: boolean
 }) {
   const confidenceColor = CONFIDENCE_COLORS[observation.confidence_level] || 'bg-gray-400'
 
@@ -1000,24 +993,22 @@ function ObservationListItem({
             {observation.evidence_type && <span>• {observation.evidence_type}</span>}
           </div>
         </div>
-        {!disabled && (
-          <div className="flex gap-1">
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit}>
-              <Eye className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-destructive h-7 w-7"
-              onClick={(e) => {
-                e.stopPropagation()
-                onDelete()
-              }}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        )}
+        <div className="flex gap-1">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit}>
+            <Eye className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-destructive h-7 w-7"
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete()
+            }}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
     </div>
   )
