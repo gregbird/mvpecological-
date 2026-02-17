@@ -82,185 +82,53 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
     }
   }, [existingReport])
 
-  // Generate placeholder AI content (mock - in production would call OpenAI)
+  // Generate AI content for a report section via server-side API
   const generateSectionContent = async (sectionId: string) => {
-    setGeneratingSection(sectionId)
-
     const section = PEA_REPORT_SECTIONS.find((s) => s.id === sectionId)
     if (!section) return
 
-    // Simulate AI generation delay
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    setGeneratingSection(sectionId)
 
-    // Generate mock content based on section type and project data
-    let generatedContent = ''
+    try {
+      const response = await fetch('/api/ai/report-section', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: project.id,
+          sectionId,
+          reportType,
+          ecologistOpinion: ecologistOpinion || undefined,
+        }),
+      })
 
-    switch (sectionId) {
-      case 'introduction':
-        generatedContent = `This Preliminary Ecological Appraisal (PEA) report has been prepared for the project site at ${project.name || 'the proposed development site'}. The site is located at grid reference ${project.grid_reference || 'N/A'}.
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to generate section')
+      }
 
-The purpose of this report is to identify ecological constraints and opportunities associated with the proposed development, and to provide recommendations for further surveys and mitigation measures where required.
+      const data = await response.json()
 
-This assessment follows the guidelines set out by CIEEM (Chartered Institute of Ecology and Environmental Management) and relevant Irish legislation including the Wildlife Act 1976-2018 and European Communities (Birds and Natural Habitats) Regulations 2011.`
-        break
-
-      case 'methodology':
-        generatedContent = `The ecological assessment comprised both desk study and field survey components.
-
-**Desk Study**
-A desk study was undertaken to gather existing ecological records for the site and surrounding area. The following sources were consulted:
-- National Parks and Wildlife Service (NPWS) designated site data
-- GBIF species occurrence records
-${findingsStats?.total ? `- ${findingsStats.total} desk research findings from ${findingsStats.bySource.length} sources` : ''}
-
-**Field Survey**
-Field surveys were conducted to assess the habitats present within the site boundary and to record any notable species. Survey methods included:
-- Habitat mapping using Fossitt (2000) classification
-- Species observations and target notes
-${habitatStats?.total ? `- ${habitatStats.total} habitat polygons mapped covering ${habitatStats.totalArea?.toFixed(2)} hectares` : ''}
-${observationStats?.total ? `- ${observationStats.total} species observations recorded` : ''}`
-        break
-
-      case 'results_sites':
-        generatedContent = `**Designated Sites**
-
-A review of designated sites within the zone of influence of the proposed development was undertaken.
-${
-  findingsStats?.byType.find((t) => t.type === 'designated_site')?.count
-    ? `${findingsStats.byType.find((t) => t.type === 'designated_site')?.count} designated sites were identified in the desk study.`
-    : 'No designated sites were identified within the immediate zone of influence.'
-}
-
-The potential for significant effects on European sites (SACs/SPAs) has been considered in the context of this assessment.`
-        break
-
-      case 'results_habitats':
-        generatedContent = habitatStats?.total
-          ? `**Habitats**
-
-A total of ${habitatStats.total} habitat types were recorded within the study area, covering approximately ${habitatStats.totalArea?.toFixed(2)} hectares.
-
-The habitats recorded include:
-${
-  habitatStats.byFossittCode
-    ?.slice(0, 5)
-    .map((h) => `- ${h.code}: ${h.name} (${h.area.toFixed(2)} ha)`)
-    .join('\n') || ''
-}
-
-${habitatStats.byCondition?.length ? `Habitat condition assessment:\n${habitatStats.byCondition.map((c) => `- ${c.condition}: ${c.count} polygons`).join('\n')}` : ''}`
-          : `**Habitats**
-
-Habitat survey data is pending. Complete the Habitat Mapping step to generate content for this section.`
-        break
-
-      case 'results_fauna':
-        generatedContent = observationStats?.total
-          ? `**Fauna**
-
-A total of ${observationStats.total} fauna observations were recorded during field surveys.
-${observationStats.protected ? `Of these, ${observationStats.protected} observations relate to protected species.` : ''}
-
-Species recorded by taxon group:
-${
-  observationStats.byTaxonGroup
-    ?.filter((t) => !['Plants', 'Fungi'].includes(t.group))
-    .map((t) => `- ${t.group}: ${t.count} records`)
-    .join('\n') || ''
-}`
-          : `**Fauna**
-
-Fauna observation data is pending. Complete the Target Notes step to generate content for this section.`
-        break
-
-      case 'results_flora':
-        generatedContent = `**Flora**
-
-${
-  observationStats?.byTaxonGroup?.find((t) => t.group === 'Plants')
-    ? `A total of ${observationStats.byTaxonGroup.find((t) => t.group === 'Plants')?.count} plant species were recorded during field surveys.`
-    : 'Plant species records are detailed in the habitat descriptions above and species lists in the appendices.'
-}`
-        break
-
-      case 'results_invasive':
-        generatedContent = `**Invasive Species**
-
-The site was surveyed for the presence of invasive species listed on the Third Schedule of the European Communities (Birds and Natural Habitats) Regulations 2011.
-
-[Note: Add specific invasive species observations from field surveys if present]`
-        break
-
-      case 'evaluation':
-        generatedContent = `**Ecological Evaluation**
-
-The ecological value of the site has been assessed using standard criteria including:
-- Naturalness
-- Rarity
-- Size/extent
-- Diversity
-- Fragility
-- Typicalness
-- Recorded history
-- Position in ecological unit
-- Potential value
-
-${ecologistOpinion ? `**Ecologist's Opinion:**\n${ecologistOpinion}` : '[Add ecologist opinion for this section]'}`
-        break
-
-      case 'discussion':
-        generatedContent = `**Discussion**
-
-This section discusses the ecological constraints and opportunities identified through the assessment.
-
-Key findings:
-${habitatStats?.total ? `- ${habitatStats.total} habitat types mapped` : ''}
-${observationStats?.protected ? `- ${observationStats.protected} protected species observations` : ''}
-
-${ecologistOpinion ? `The professional ecologist has noted: "${ecologistOpinion}"` : ''}`
-        break
-
-      case 'recommendations':
-        generatedContent = `**Recommendations**
-
-Based on the findings of this assessment, the following recommendations are made:
-
-1. **Further Surveys**: [Specify any additional surveys required]
-2. **Mitigation Measures**: [Outline proposed mitigation]
-3. **Enhancement Opportunities**: [Describe potential ecological enhancements]
-4. **Monitoring**: [Recommend monitoring requirements]`
-        break
-
-      case 'appendices':
-        generatedContent = `**Appendices**
-
-The following appendices are included with this report:
-
-- Appendix A: Site Location Map
-- Appendix B: Habitat Map
-- Appendix C: Species List
-- Appendix D: Photographs
-- Appendix E: Survey Datasheets`
-        break
-
-      default:
-        generatedContent = `Content for ${section.title} section.`
-    }
-
-    setSections((prev) =>
-      prev.map((s) =>
-        s.id === sectionId
-          ? { ...s, content: generatedContent, aiGenerated: true, isEdited: false }
-          : s
+      setSections((prev) =>
+        prev.map((s) =>
+          s.id === sectionId
+            ? { ...s, content: data.content, aiGenerated: true, isEdited: false }
+            : s
+        )
       )
-    )
 
-    setGeneratingSection(null)
-
-    toast({
-      title: 'Section generated',
-      description: `AI draft for "${section.title}" has been generated.`,
-    })
+      toast({
+        title: 'Section generated',
+        description: `AI draft for "${section.title}" has been generated.`,
+      })
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Generation failed',
+        description: error instanceof Error ? error.message : 'Failed to generate section content.',
+      })
+    } finally {
+      setGeneratingSection(null)
+    }
   }
 
   // Generate all sections
@@ -286,7 +154,7 @@ The following appendices are included with this report:
       metadata: {
         generatedAt: new Date().toISOString(),
         editedAt: new Date().toISOString(),
-        aiModel: 'mock-ai',
+        aiModel: 'gpt-4o',
       },
     }
 

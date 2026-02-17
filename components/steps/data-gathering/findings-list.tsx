@@ -273,6 +273,34 @@ export function FindingsList({
     setDisplayLimit(RESULTS_PER_PAGE)
   }, [findings, activeSiteTypeFilter, showSavedOnly])
 
+  // When selectedFindingId changes (e.g. map marker click), ensure it's visible and scroll to it
+  React.useEffect(() => {
+    if (!selectedFindingId) return
+
+    // Expand pagination if the finding is beyond the current display limit
+    const idx = filteredFindings.findIndex((f) => f.id === selectedFindingId)
+    if (idx >= 0 && idx >= displayLimit) {
+      setDisplayLimit(idx + RESULTS_PER_PAGE)
+    }
+
+    // Scroll into view after a short delay to allow DOM to update
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`finding-${selectedFindingId}`)
+      if (!el) return
+      // Find the Radix ScrollArea viewport (nearest scrollable ancestor)
+      const viewport = el.closest('[data-radix-scroll-area-viewport]')
+      if (viewport) {
+        const elRect = el.getBoundingClientRect()
+        const vpRect = viewport.getBoundingClientRect()
+        const offset = elRect.top - vpRect.top - vpRect.height / 2 + elRect.height / 2
+        viewport.scrollBy({ top: offset, behavior: 'smooth' })
+      } else {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }, 50)
+    return () => clearTimeout(timer)
+  }, [selectedFindingId, filteredFindings, displayLimit])
+
   if (isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">

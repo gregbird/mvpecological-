@@ -869,17 +869,17 @@ Logo ve sembolü verilen linkteki ile güncelleyin.
 
 **Yapılacaklar:**
 
-- [ ] **6.2.1** Dashboard sayfasını yeniden tasarla
+- [x] **6.2.1** Dashboard sayfasını yeniden tasarla ✅
   - Dosya: `app/(dashboard)/dashboard/page.tsx`
   - Grid layout: 2x2 veya responsive
 
-- [ ] **6.2.2** Proje Haritası widget'ı
+- [x] **6.2.2** Proje Haritası widget'ı ✅
   - Dosya: `components/dashboard/projects-map-widget.tsx`
   - Tüm projeleri haritada göster
   - Cluster markers for dense areas
   - Tıklanabilir markers → proje detayı
 
-- [ ] **6.2.3** Proje Durumu özet kartları
+- [x] **6.2.3** Proje Durumu özet kartları ✅
   - Dosya: `components/dashboard/status-summary-cards.tsx`
 
   ```
@@ -889,19 +889,19 @@ Logo ve sembolü verilen linkteki ile güncelleyin.
   └──────────┘ └──────────┘ └──────────┘ └──────────┘
   ```
 
-- [ ] **6.2.4** Workflow Status widget'ı
+- [x] **6.2.4** Workflow Status widget'ı ✅
   - Dosya: `components/dashboard/workflow-status-widget.tsx`
   - Her adım için kaç proje o aşamada
   - Darboğaz göstergesi (5+ proje aynı adımda bekliyor)
   - Stacked bar chart veya funnel
 
-- [ ] **6.2.5** Timeline Health widget'ı
+- [x] **6.2.5** Timeline Health widget'ı ✅
   - Dosya: `components/dashboard/timeline-health-widget.tsx`
   - Gantt chart mini görünümü
   - Deadline yaklaşan projeler listesi
   - Ortalama gecikme süresi metriği
 
-- [ ] **6.2.6** Quick Actions bölümü
+- [x] **6.2.6** Quick Actions bölümü ✅
   - "Yeni Proje Oluştur" butonu
   - "Bekleyen Onaylar" linki
   - "Son Aktiviteler" feed

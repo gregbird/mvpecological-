@@ -20,6 +20,7 @@ export interface ReportContent {
     generatedAt?: string
     editedAt?: string
     aiModel?: string
+    sectionMetadata?: Record<string, { generatedAt: string; tokensUsed: number; model: string }>
   }
 }
 

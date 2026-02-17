@@ -65,8 +65,8 @@ export async function createHabitat(habitat: InsertHabitat): Promise<HabitatPoly
     .single()
 
   if (error) {
-    console.error('Error creating habitat:', error)
-    return null
+    console.error('Error creating habitat:', error.message, error.code, error.details, error.hint)
+    throw error
   }
 
   return data as unknown as HabitatPolygon

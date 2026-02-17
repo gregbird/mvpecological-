@@ -106,38 +106,57 @@ export function FinalSubmissionStep({
   const handleExport = async () => {
     setIsExporting(true)
 
-    // Simulate export process
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+    try {
+      const { generatePeaPdf, generatePeaHtml } = await import('@/lib/export/pdf-generator')
 
-    // In production, this would call a PDF generation service
-    const filename = `${project.site_code || project.id}_${report?.report_type || 'report'}_v${report?.version || 1}.${exportFormat}`
+      const exportOptions = {
+        title: coverPageTitle,
+        preparedFor,
+        siteCode: project.site_code || project.id,
+        version: report?.version || 1,
+        date: new Date().toLocaleDateString('en-IE'),
+        sections: reportContent?.sections || [],
+        appendices: selectedAppendices,
+      }
 
-    // Create mock download
-    const content = `
-PRELIMINARY ECOLOGICAL APPRAISAL
-${coverPageTitle}
+      const baseFilename = `${project.site_code || project.id}_${report?.report_type || 'report'}_v${report?.version || 1}`
 
-Prepared for: ${preparedFor || 'Client'}
-Date: ${new Date().toLocaleDateString()}
-Version: ${report?.version || 1}
+      if (exportFormat === 'pdf') {
+        const doc = generatePeaPdf(exportOptions)
+        doc.save(`${baseFilename}.pdf`)
+      } else if (exportFormat === 'html') {
+        const html = generatePeaHtml(exportOptions)
+        const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+        const link = document.createElement('a')
+        link.href = URL.createObjectURL(blob)
+        link.download = `${baseFilename}.html`
+        link.click()
+        URL.revokeObjectURL(link.href)
+      } else if (exportFormat === 'docx') {
+        const html = generatePeaHtml(exportOptions)
+        const blob = new Blob([html], {
+          type: 'application/vnd.ms-word;charset=utf-8',
+        })
+        const link = document.createElement('a')
+        link.href = URL.createObjectURL(blob)
+        link.download = `${baseFilename}.doc`
+        link.click()
+        URL.revokeObjectURL(link.href)
+      }
 
-${reportContent?.sections?.map((s) => `\n\n${s.title}\n${s.content}`).join('') || ''}
-
-Appendices: ${selectedAppendices.map((a) => APPENDIX_OPTIONS.find((o) => o.id === a)?.label).join(', ')}
-    `
-
-    const blob = new Blob([content], { type: 'text/plain' })
-    const link = document.createElement('a')
-    link.href = URL.createObjectURL(blob)
-    link.download = filename.replace(`.${exportFormat}`, '.txt') // Mock as .txt for demo
-    link.click()
-
-    setIsExporting(false)
-
-    toast({
-      title: 'Report exported',
-      description: `Report has been exported as ${filename}`,
-    })
+      toast({
+        title: 'Report exported',
+        description: `Report has been exported as ${baseFilename}.${exportFormat === 'docx' ? 'doc' : exportFormat}`,
+      })
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Export failed',
+        description: error instanceof Error ? error.message : 'Failed to export report.',
+      })
+    } finally {
+      setIsExporting(false)
+    }
   }
 
   // Handle final submission

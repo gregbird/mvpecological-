@@ -66,12 +66,12 @@ export interface HabitatPolygon {
   createdAt: string
 }
 
-export type HabitatEvaluation = 'low_local' | 'high_local' | 'county' | 'national' | 'international'
+export type HabitatEvaluation = 'local' | 'high_local' | 'county' | 'national' | 'international'
 
 export type HabitatCondition = 'excellent' | 'good' | 'moderate' | 'poor' | 'bad'
 
 const EVALUATION_OPTIONS: { value: HabitatEvaluation; label: string }[] = [
-  { value: 'low_local', label: 'Low Local' },
+  { value: 'local', label: 'Local' },
   { value: 'high_local', label: 'High Local' },
   { value: 'county', label: 'County' },
   { value: 'national', label: 'National' },
@@ -84,7 +84,7 @@ const habitatFormSchema = z.object({
   areaHectares: z.string().optional(),
   notes: z.string().optional(),
   euAnnexCode: z.string().optional(),
-  evaluation: z.enum(['low_local', 'high_local', 'county', 'national', 'international']).optional(),
+  evaluation: z.enum(['local', 'high_local', 'county', 'national', 'international']).optional(),
   threats: z.string().optional(),
   surveyMethod: z.string().optional(),
   listedSpecies: z.string().optional(),

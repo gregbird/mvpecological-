@@ -8,6 +8,7 @@ import {
 } from '@/hooks/queries/use-deep-research-hooks'
 import { DesignatedSitesMatrix } from './designated-sites-matrix'
 import { SpeciesRecordsSection } from './species-records-section'
+import { HabitatInventorySection } from './habitat-inventory-section'
 import { AquaticEnvironmentSection } from './aquatic-environment-section'
 import { ConstraintsSummarySection } from './constraints-summary-section'
 import type { DeskResearchFinding } from '@/types/database'
@@ -46,15 +47,21 @@ export function BaselineReportTab({ savedFindings, project }: BaselineReportTabP
         <SpeciesRecordsSection findings={savedFindings} />
       </section>
 
-      {/* Section 3: Aquatic Environment */}
+      {/* Section 3: Preliminary Habitat Inventory */}
       <section>
-        <h3 className="mb-4 text-lg font-semibold">3. Aquatic Environment</h3>
+        <h3 className="mb-4 text-lg font-semibold">3. Preliminary Habitat Inventory</h3>
+        <HabitatInventorySection project={project} />
+      </section>
+
+      {/* Section 4: Aquatic Environment */}
+      <section>
+        <h3 className="mb-4 text-lg font-semibold">4. Aquatic Environment</h3>
         <AquaticEnvironmentSection findings={savedFindings} aquaticResearch={aquaticResearch} />
       </section>
 
-      {/* Section 4: Constraints Summary */}
+      {/* Section 5: Constraints Summary */}
       <section>
-        <h3 className="mb-4 text-lg font-semibold">4. Constraints Summary</h3>
+        <h3 className="mb-4 text-lg font-semibold">5. Constraints Summary</h3>
         <ConstraintsSummarySection findings={savedFindings} />
       </section>
     </div>

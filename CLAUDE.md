@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Dulra** is an end-to-end project management platform for ecological consultancies in Ireland. It manages ecological projects through desk research, field surveys, and reporting phases with a 10-step workflow system. The platform integrates with Irish/EU biodiversity databases (NPWS, GBIF, NBDC, EPA) and uses AI for report generation.
+**Dulra** is an end-to-end project management platform for ecological consultancies in Ireland. It manages ecological projects through desk research, field surveys, and reporting phases with a 10-step workflow system. The platform integrates with Irish/EU biodiversity databases (NPWS, GBIF, NBDC, EPA, Catchments.ie) and uses AI for report generation.
 
 ### Target Users
 
@@ -35,6 +35,38 @@ npm run format:check     # Check formatting
 npm run type-check       # TypeScript type checking
 ```
 
+## Development Rules
+
+These rules MUST be followed when writing or modifying code:
+
+### Code Quality
+
+- **No `any` types** — use `unknown`, proper interfaces, or Supabase generated types from `types/database.ts`
+- **No `as unknown as undefined`** or double type casts — fix the underlying type issue instead
+- **No `console.log` in production code** — remove debug logs before committing. Use `console.error` only for actual errors
+- **Run `npm run lint` after every change** — zero warnings is the target (currently 24 warnings to clean up)
+- **Run `npm run build` before marking a feature complete** — catches type errors that lint misses
+
+### Component Patterns
+
+- **Forms: always use React Hook Form + Zod** — `useForm({ resolver: zodResolver(schema) })` with `<Form>/<FormField>/<FormMessage>` from shadcn/ui. Never use raw `useState` for form state
+- **Step components: use `flex h-full flex-col` as root container** — ensures consistent layout within the dashboard panel
+- **Keep files under 400 lines** — extract sub-components into the step's subdirectory (e.g., `steps/desk-assessment/`)
+- **Shared constants belong in `lib/config/`** — don't hardcode Ireland center coords, survey types, buffer colors, etc. in component files
+- **Sub-components go in step subdirectories** — not inline at the bottom of large files
+
+### Data Layer
+
+- **Error handling: throw on failure** — don't silently return `null`. Let React Query catch errors via `mutateAsync`
+- **React Query invalidation: always include entity ID** — `['findings', projectId]` not just `['findings']`
+- **Use Supabase generated types** — import from `types/database.ts`, don't create parallel type definitions
+
+### Git & Workflow
+
+- **Conventional commits** — `feat:`, `fix:`, `refactor:`, `chore:`, `style:`, `docs:`
+- **English commit messages**
+- **Don't commit without being asked**
+
 ## Architecture
 
 ### Tech Stack
@@ -44,46 +76,76 @@ npm run type-check       # TypeScript type checking
 - Supabase (Auth & PostgreSQL with PostGIS)
 - Tailwind CSS 4+ with shadcn/ui components
 - React Hook Form + Zod for validation
-- Leaflet for mapping (switched from Mapbox)
+- Leaflet for mapping (OSM/Esri tile layers)
 - TanStack React Query for server state
-- OpenAI GPT-4 for report generation
+- Turf.js (`@turf/turf`) for geospatial calculations
+- OpenAI GPT-4o-mini for AI analysis
+- jsPDF for PDF generation
+- html-to-image for map screenshot capture
 
 ### Directory Structure
 
 ```
 app/
-├── (auth)/                    # Auth routes (login, register)
+├── (auth)/                    # Auth routes (login, register, accept-invite)
 │   └── layout.tsx             # Split view with dev role selector
 ├── (dashboard)/               # Protected routes
 │   ├── layout.tsx             # Sidebar + Header layout
 │   ├── page.tsx               # Dashboard home
+│   ├── audit/                 # Audit log page
+│   ├── team/                  # Team management page
 │   └── projects/
 │       ├── page.tsx           # Projects list
 │       ├── new/               # Create project
 │       └── [id]/              # Project detail pages
 └── api/                       # API routes
-    └── nbdc/                  # NBDC proxy endpoints
+    ├── ai/                    # AI endpoints (desk-insights, species-research, etc.)
+    ├── boundaries/            # Boundary data endpoints
+    ├── nbdc/                  # NBDC proxy (search, taxon)
+    └── npws/                  # NPWS scrape, townlands lookup
 
 components/
 ├── ui/                        # shadcn/ui primitives
 ├── layout/                    # Header, Sidebar, ThemeToggle
+├── auth/                      # Auth modal
+├── dashboard/                 # Project cards, stats, status filter
+├── project/                   # Project workflow sidebar
+├── providers/                 # React Query provider
 ├── maps/                      # Leaflet components
 │   ├── project-map.tsx        # Display map with findings
 │   ├── project-map-with-draw.tsx  # Interactive map with drawing
 │   ├── measure-control.tsx    # Distance measurement tool
-│   └── npws-layer-overlay.tsx # NPWS designated sites overlay
+│   ├── npws-layer-overlay.tsx # NPWS designated sites overlay
+│   ├── map-capture-button.tsx # Screenshot capture button
+│   └── screenshot-gallery.tsx # Screenshot gallery viewer
 ├── gis/                       # GIS integration
-│   ├── buffer-zone-panel.tsx  # Buffer zone controls
-│   └── dataset-layers-panel.tsx # Layer toggle panel
+│   ├── dataset-layers-panel.tsx # Layer toggle panel
+│   ├── arcgis-connection.tsx  # ArcGIS connection
+│   ├── qgis-connection.tsx    # QGIS connection
+│   └── layer-info-modal.tsx   # Layer metadata display
 ├── steps/                     # Workflow step components
 │   ├── gis-mapping-step.tsx
+│   ├── gis-mapping/           # GIS step sub-components
+│   │   ├── layers-sidebar.tsx
+│   │   └── preview-panel.tsx
 │   ├── data-gathering-step.tsx
 │   ├── data-gathering/        # Data gathering substeps
 │   │   ├── designated-sites-substep.tsx
 │   │   ├── species-records-substep.tsx
 │   │   ├── aquatic-features-substep.tsx
-│   │   └── review-export-substep.tsx
+│   │   ├── review-export-substep.tsx
+│   │   ├── data-gathering-substep-shell.tsx
+│   │   ├── export-findings-modal.tsx
+│   │   ├── findings-list.tsx
+│   │   ├── project-info-substep.tsx
+│   │   └── target-note-form.tsx
 │   ├── desk-assessment-step.tsx
+│   ├── desk-assessment/       # Desk assessment sub-components
+│   │   ├── aquatic-environment-section.tsx
+│   │   ├── baseline-report-tab.tsx
+│   │   ├── constraints-summary-section.tsx
+│   │   ├── designated-sites-matrix.tsx
+│   │   └── species-records-section.tsx
 │   ├── field-survey-step.tsx
 │   ├── habitat-mapping-step.tsx
 │   ├── target-notes-step.tsx
@@ -98,41 +160,89 @@ lib/
 ├── supabase/
 │   ├── client.ts              # Browser client
 │   ├── server.ts              # Server client with cookies
-│   └── queries/               # Database queries (1700+ lines)
+│   ├── admin.ts               # Service-role admin client
+│   └── queries/               # Database queries
 │       ├── projects.ts
 │       ├── findings.ts
 │       ├── surveys.ts
 │       ├── habitats.ts
 │       ├── observations.ts
 │       ├── target-notes.ts
-│       └── reports.ts
+│       ├── reports.ts
+│       ├── workflow.ts
+│       ├── deep-research.ts
+│       └── aquatic-research.ts
 ├── external-apis/
 │   ├── npws.ts                # NPWS ArcGIS REST API
 │   ├── gbif.ts                # GBIF species occurrences
 │   ├── nbdc.ts                # NBDC species enrichment
-│   └── epa.ts                 # EPA water quality data
+│   ├── epa.ts                 # EPA water quality data
+│   └── catchments.ts          # Catchments.ie WFD API
 ├── gis/
 │   ├── validation.ts          # Ireland bounds, CRS detection
 │   ├── shapefile-parser.ts    # .shp/.zip parsing
 │   ├── buffer.ts              # Buffer zone utilities
+│   ├── distance.ts            # Turf.js distance calculations
+│   ├── bounding-box.ts        # Bounding box for API searches
 │   └── reverse-geocode.ts     # Townland/County lookup
 ├── ai/
 │   └── report-generator.ts    # OpenAI report generation
+├── pdf/
+│   └── field-checklist-generator.ts  # jsPDF field checklists
+├── map-screenshots/
+│   ├── storage.ts             # Supabase Storage integration
+│   └── types.ts               # Screenshot types & step labels
 ├── config/
 │   ├── workflow.ts            # Workflow step definitions
-│   └── dataset-layers.ts      # NPWS, EPA layer configs
-└── data/
-    └── fossitt-codes.ts       # Irish habitat classification
+│   ├── dataset-layers.ts      # NPWS, EPA layer configs
+│   ├── map-constants.ts       # Tile layers, Ireland center
+│   ├── boundary-layers.ts     # County boundary layers
+│   └── layer-metadata.ts      # Dataset source metadata
+├── data/
+│   ├── fossitt-codes.ts       # Irish habitat classification
+│   ├── npws-site-lookup.ts    # Offline NPWS SAC/SPA lookup
+│   ├── npws-sites-data.json   # NPWS site data (from Excel)
+│   ├── article12-birds.ts     # Birds Directive Article 12 data
+│   ├── article17-habitats.ts  # Habitats Directive Article 17 data
+│   ├── article17-species.ts   # Species Article 17 data
+│   ├── fpo-species.ts         # Flora Protection Order 2022
+│   ├── ssco-lookup.ts         # Site-specific Conservation Objectives
+│   ├── aquatic-sac-lookup.ts  # EPA rivers/lakes to SAC matching
+│   └── habitat-species-mapping.ts  # FOSSITT to expected species
+└── utils/
+    └── grid-reference.ts      # ITM/Irish Grid coordinate conversion
 
 hooks/
-└── use-project-data.ts        # React Query hooks (794 lines)
+├── queries/                   # React Query hooks (domain-split)
+│   ├── use-project-hooks.ts
+│   ├── use-finding-hooks.ts
+│   ├── use-survey-hooks.ts
+│   ├── use-habitat-hooks.ts
+│   ├── use-observation-hooks.ts
+│   ├── use-target-note-hooks.ts
+│   ├── use-workflow-hooks.ts
+│   ├── use-report-hooks.ts
+│   └── use-deep-research-hooks.ts
+├── gis/                       # GIS-specific hooks
+│   ├── use-boundary-management.ts
+│   ├── use-buffer-configuration.ts
+│   ├── use-gis-wizard.ts      # 4-step internal wizard
+│   ├── use-layer-data.ts
+│   └── use-map-view-persistence.ts
+├── maps/
+│   └── use-administrative-boundaries.ts
+├── shared/
+│   ├── use-session-storage.ts
+│   └── use-substep-search.ts
+├── use-map-screenshot.ts      # html-to-image capture
+└── use-toast.ts
 
 contexts/
 ├── project-context.tsx        # Project state management
 └── role-context.tsx           # User role context
 
 types/
-└── database.ts                # Supabase generated types
+└── database.ts                # Supabase generated types (source of truth)
 ```
 
 ## 10-Step Workflow
@@ -171,6 +281,7 @@ Projects use a standardized workflow in 3 phases:
 - **Endpoint:** `https://services-eu1.arcgis.com/HyjXgkV6KGMSF3jt/ArcGIS/rest/services/NPWSDesignatedAreas/FeatureServer`
 - **Layers:** SPA (0), pNHA (1), NHA (2), SAC (3)
 - **File:** `lib/external-apis/npws.ts`
+- **Offline data:** `lib/data/npws-site-lookup.ts` + `npws-sites-data.json`
 
 ### GBIF (Global Biodiversity Information Facility)
 
@@ -191,47 +302,93 @@ Projects use a standardized workflow in 3 phases:
 - **Features:** Rivers, lakes, catchments, WFD status
 - **File:** `lib/external-apis/epa.ts`
 
+### Catchments.ie (WFD API)
+
+- **Endpoint:** `https://wfdapi.edenireland.ie/api/`
+- **Features:** Catchment details, water body status history, trends
+- **File:** `lib/external-apis/catchments.ts`
+
+## Supabase Edge Functions
+
+| Function                 | JWT | Description                               |
+| ------------------------ | --- | ----------------------------------------- |
+| `generate-desk-insights` | No  | OpenAI analysis of desk research findings |
+
 ## Database Schema (Supabase + PostGIS)
 
-### Key Tables
+### All Tables
 
-| Table                    | Purpose              | Key Fields                                        |
-| ------------------------ | -------------------- | ------------------------------------------------- |
-| `projects`               | Main project entity  | boundary (geometry), center_point, grid_reference |
-| `workflow_steps`         | Progress tracking    | step_number, status, started_at, completed_at     |
-| `desk_research_findings` | API search results   | source, data_type, location, is_protected         |
-| `surveys`                | Field survey records | survey_date, weather_conditions, effort_hours     |
-| `species_observations`   | Species records      | scientific_name, count, evidence_type             |
-| `habitat_polygons`       | Habitat mapping      | fossitt_code, boundary, condition                 |
-| `target_notes`           | Field notes          | category, title, priority, is_verified            |
-| `reports`                | Generated reports    | content (JSONB), version, status                  |
+| Table                      | RLS    | Rows | Purpose                                    |
+| -------------------------- | ------ | ---- | ------------------------------------------ |
+| `organizations`            | Yes    | 0    | Multi-tenant organization                  |
+| `profiles`                 | Yes    | 0    | User profiles (linked to auth.users)       |
+| `clients`                  | Yes    | 0    | Client companies                           |
+| `projects`                 | Yes    | 5    | Main project entity with PostGIS geometry  |
+| `project_members`          | Yes    | 5    | Project team membership                    |
+| `workflow_steps`           | Yes    | 752  | 10-step progress tracking per project      |
+| `desk_research_findings`   | Yes    | 194  | API search results & manual findings       |
+| `deep_research_results`    | Yes    | 13   | AI deep research on designated sites       |
+| `aquatic_research_results` | Yes    | 8    | AI aquatic environment research            |
+| `surveys`                  | Yes    | 3    | Field survey records                       |
+| `species_observations`     | Yes    | 0    | Species records per survey                 |
+| `habitat_polygons`         | Yes    | 4    | Habitat mapping with FOSSITT codes         |
+| `target_notes`             | Yes    | 2    | Field target notes (8 categories)          |
+| `photos`                   | Yes    | 0    | Survey/observation photos                  |
+| `reports`                  | Yes    | 1    | Generated reports (JSONB content)          |
+| `map_screenshots`          | Yes    | 2    | Captured map images per step               |
+| `audit_log`                | Yes    | 2215 | Automatic audit trail (trigger-based)      |
+| `invites`                  | Yes    | 0    | Team invitation tokens                     |
+| `spatial_ref_sys`          | **No** | 0    | PostGIS system table (RLS needs attention) |
 
-### Enums
+### Enums (actual DB values)
 
 ```typescript
-type ProjectPhase = 'desk_research' | 'field_research' | 'reporting'
-type WorkflowStatus = 'pending' | 'in_progress' | 'needs_review' | 'approved' | 'blocked'
-type DataSource = 'npws' | 'gbif' | 'nbdc' | 'epa' | 'catchments' | 'manual'
-type FindingType = 'designated_site' | 'species_record' | 'water_quality' | 'catchment' | 'other'
-type TargetNoteCategory =
-  | 'access_point'
-  | 'check_feature'
-  | 'habitat'
-  | 'fauna'
-  | 'flora'
-  | 'management'
-  | 'damage'
-  | 'ownership'
+type user_role = 'admin' | 'assessor' | 'client'
+type project_member_role = 'lead' | 'surveyor' | 'analyst' | 'reviewer' | 'viewer'
+type project_status = 'draft' | 'active' | 'completed' | 'archived'
+type project_phase = 'desk_research' | 'field_research' | 'reporting'
+type health_status = 'on_track' | 'at_risk' | 'overdue'
+type workflow_status = 'pending' | 'in_progress' | 'needs_review' | 'approved' | 'blocked'
+type data_source = 'npws' | 'gbif' | 'nbdc' | 'epa' | 'catchments' | 'manual'
+type finding_data_type =
+  | 'designated_site'
+  | 'species_record'
+  | 'water_quality'
+  | 'catchment'
+  | 'other'
+type survey_status = 'planned' | 'in_progress' | 'completed' | 'approved'
+type report_status = 'draft' | 'internal_review' | 'client_review' | 'approved' | 'final'
+type confidence_level = 'high' | 'medium' | 'low'
+type sync_status = 'synced' | 'pending' | 'conflict'
+type audit_action = 'INSERT' | 'UPDATE' | 'DELETE'
 ```
 
-### User Roles
+### Key Column Names (actual DB, not aliases)
 
-- `admin` - Full system access
-- `senior_ecologist` - Project management, report approval
-- `ecologist` - Standard project work
-- `field_ecologist` - Field data collection
-- `gis_specialist` - Spatial data management
-- `client` - Read-only project access
+- `surveys.weather` (JSONB, not `weather_conditions`)
+- `surveys.start_time` / `end_time` (not `effort_hours`)
+- `species_observations.species_name_scientific` (not `scientific_name`)
+- `species_observations.species_name_common` (not `common_name`)
+- `desk_research_findings.is_protected`, `relevance_level`, `red_list_status`, `distance_from_boundary_km`
+
+### Supabase Security Advisories (known issues)
+
+- **7 functions missing `search_path`**: `get_project_with_geojson`, `update_updated_at`, `add_project_creator_as_lead`, `audit_log_trigger`, `create_default_workflow_steps`, `get_user_organization_id`, `update_project_boundary` — should set `search_path = ''`
+- **`spatial_ref_sys` has no RLS** — PostGIS system table exposed publicly
+- **PostGIS extension is in `public` schema** — should be in a separate schema
+- **Leaked password protection disabled** — enable in Supabase Auth settings
+- **Multiple permissive RLS policies** on most tables — consider consolidating SELECT policies
+- **RLS policies re-evaluate `current_setting()`** on every row — performance concern at scale
+
+### Database Functions (via migrations)
+
+- `update_project_boundary()` — updates boundary + reverse geocodes location
+- `get_project_with_geojson()` — returns project with GeoJSON geometry
+- `create_default_workflow_steps()` — trigger: creates 10 steps on project insert
+- `add_project_creator_as_lead()` — trigger: adds creator as lead member
+- `audit_log_trigger()` — trigger: logs all INSERT/UPDATE/DELETE to audit_log
+- `update_updated_at()` — trigger: auto-updates `updated_at` timestamps
+- `get_user_organization_id()` — helper for RLS policies
 
 ## Key Patterns
 
@@ -239,13 +396,18 @@ type TargetNoteCategory =
 
 ```tsx
 const schema = z.object({ ... })
-const { register, handleSubmit } = useForm({ resolver: zodResolver(schema) })
+const form = useForm({ resolver: zodResolver(schema) })
+// Use shadcn Form components:
+<Form {...form}>
+  <FormField control={form.control} name="fieldName" render={...} />
+</Form>
 ```
 
 ### React Query Hooks
 
 ```tsx
-// Example from hooks/use-project-data.ts
+// Hooks are split by domain in hooks/queries/
+// Example from hooks/queries/use-finding-hooks.ts
 export function useProjectFindings(projectId: string) {
   return useQuery({
     queryKey: ['findings', projectId],
@@ -265,6 +427,37 @@ Use `@/` for all imports: `import { Button } from '@/components/ui/button'`
 - **Health:** on_track (green), at_risk (amber), overdue (red)
 - **Workflow:** pending (gray), in_progress (blue), needs_review (amber), approved (green)
 
+## Known Issues to Fix
+
+- [ ] `habitat-mapping-step.tsx:481` — `disabled={false}` hardcoded, should respect step completion
+- [ ] Ireland center `[53.1424, -7.6921]` duplicated in 4+ files — move to `lib/config/map-constants.ts`
+- [ ] `SURVEY_TYPE_LABELS` defined in both `field-survey-step.tsx` and `survey-form.tsx`
+- [ ] `findingsByType` grouping logic duplicated in 3 step components
+- [ ] Two separate `TargetNoteForm` components exist (field-surveys vs data-gathering)
+- [ ] `field-survey-step.tsx:408` uses `space-y-6` root instead of `flex h-full flex-col`
+- [ ] Debug `console.log` with emoji in `designated-sites-substep.tsx` and `species-records-substep.tsx`
+
+## Environment Variables
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+OPENAI_API_KEY=                # Server-side AI (edge functions, API routes)
+NEXT_PUBLIC_OPENAI_API_KEY=    # Client-side AI (reports page)
+```
+
+## Development Notes
+
+- Auth layout has dev mode role switcher (yellow button, bottom-right)
+- Site codes format: XXX-YYYY-NNN (auto-generated)
+- GIS Mapping step has internal 4-step wizard: source > boundary > buffers > layers
+- Wizard state persisted to sessionStorage
+- NPWS API has 10-second timeout configured
+- NBDC species search uses POST with form data (not JSON)
+- Map tiles: OSM Streets, Esri Satellite, Hybrid, Topo (free providers, no API key needed)
+- 32 migrations applied (initial_schema through add_habitat_polygon_fields)
+
 ## FOSSITT Habitat Classification
 
 Irish habitat classification system used throughout the platform:
@@ -273,43 +466,13 @@ Irish habitat classification system used throughout the platform:
 - **Level 2:** Sub-categories (e.g., Semi-natural woodland)
 - **Level 3:** Specific habitats (e.g., WN1 Oak-birch-holly woodland)
 
-Example codes:
-
-- `GA1` - Improved agricultural grassland
-- `WS1` - Scrub
-- `WL1` - Hedgerows
-- `WL2` - Treelines
-- `FW2` - Depositing/lowland rivers
-- `PB4` - Cutover bog
-
-## Environment Variables
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-OPENAI_API_KEY=            # For AI report generation
-```
-
-## Development Notes
-
-- Auth layout has dev mode role switcher (yellow button, bottom-right)
-- Site codes format: XXX-YYYY-NNN (auto-generated)
-- Wizard state persisted to sessionStorage
-- NPWS API has 10-second timeout configured
-- NBDC species search uses POST with form data (not JSON)
+Example codes: `GA1` (Improved grassland), `WS1` (Scrub), `WL1` (Hedgerows), `WL2` (Treelines), `FW2` (Depositing rivers), `PB4` (Cutover bog)
 
 ## PEA Report Structure (CIEEM Standard)
 
-The platform generates Preliminary Ecological Appraisal reports following this structure:
-
 1. **Introduction** - Project background, site location, scope
 2. **Methodology** - Desk study sources, field survey dates, constraints
-3. **Results**
-   - 3.1 Designated Sites (SAC, SPA, NHA table + map)
-   - 3.2 Habitats (FOSSITT classification)
-   - 3.3 Flora & Invasive Species
-   - 3.4 Fauna (mammals, birds, bats, etc.)
+3. **Results** - Designated Sites, Habitats, Flora & Invasive Species, Fauna
 4. **Ecological Constraints** - Constraints table with recommendations
 5. **Discussion & Conclusions** - Further survey recommendations
 6. **Appendices** - Habitat map, photos, species lists
@@ -327,14 +490,3 @@ The platform generates Preliminary Ecological Appraisal reports following this s
 | Grid Ref | Irish Grid Reference (e.g., O 318 259)               |
 | DAFOR    | Dominant, Abundant, Frequent, Occasional, Rare       |
 | BoCCI    | Birds of Conservation Concern in Ireland             |
-
-## Protected Species (Ireland)
-
-Species protected under Wildlife Acts 1976-2021:
-
-- All bat species (9 resident species)
-- Badger (Meles meles) - setts protected
-- Otter (Lutra lutra) - holts and couches protected
-- Pine Marten, Red Squirrel
-- Kingfisher (Alcedo atthis) - Annex I Birds Directive
-- Whooper Swan (Cygnus cygnus) - Annex I Birds Directive

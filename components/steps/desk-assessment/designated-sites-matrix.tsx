@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { MapPin, Shield, FileWarning } from 'lucide-react'
+import { ChevronDown, ChevronUp, MapPin, Shield, FileWarning } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -85,8 +85,8 @@ function parseSiteRows(
         name: f.title,
         code: siteCode,
         type: siteType,
-        areaHa: (raw?.AREA_HA as number) ?? null,
-        distanceKm: f.distance_from_boundary_km,
+        areaHa: (raw?.AREA_HA as number) ?? (ssco?.intersectionArea as number) ?? null,
+        distanceKm: f.distance_from_boundary_km ?? (metadata?.distance as number) ?? null,
         qualifyingInterests: qualifyingInterests.filter(Boolean),
         isStatutory,
       }
@@ -152,6 +152,48 @@ function ZoneOfInfluenceCards({ sites }: { sites: SiteRow[] }) {
   )
 }
 
+const MAX_VISIBLE_QI = 3
+
+function CollapsibleQI({ items }: { items: string[] }) {
+  const [expanded, setExpanded] = React.useState(false)
+
+  if (items.length === 0) {
+    return <span className="text-muted-foreground text-xs italic">Not available</span>
+  }
+
+  const visible = expanded ? items : items.slice(0, MAX_VISIBLE_QI)
+  const remaining = items.length - MAX_VISIBLE_QI
+
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {visible.map((qi, i) => (
+        <Badge key={i} variant="outline" className="text-xs font-normal">
+          {qi}
+        </Badge>
+      ))}
+      {remaining > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          className="text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-medium transition-colors hover:bg-gray-100"
+        >
+          {expanded ? (
+            <>
+              Show less
+              <ChevronUp className="h-3 w-3" />
+            </>
+          ) : (
+            <>
+              +{remaining} more
+              <ChevronDown className="h-3 w-3" />
+            </>
+          )}
+        </button>
+      )}
+    </div>
+  )
+}
+
 function SitesTable({
   sites,
   title,
@@ -206,17 +248,7 @@ function SitesTable({
                     {site.distanceKm != null ? site.distanceKm.toFixed(1) : '—'}
                   </TableCell>
                   <TableCell>
-                    {site.qualifyingInterests.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {site.qualifyingInterests.map((qi, i) => (
-                          <Badge key={i} variant="outline" className="text-xs font-normal">
-                            {qi}
-                          </Badge>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground text-xs italic">Not available</span>
-                    )}
+                    <CollapsibleQI items={site.qualifyingInterests} />
                   </TableCell>
                 </TableRow>
               ))}

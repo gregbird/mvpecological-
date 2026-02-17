@@ -1,4 +1,6 @@
 /**
+ * @deprecated Use /api/ai/report-section route instead. This file is kept for reference only.
+ *
  * AI Report Generation Utilities
  * Uses OpenAI GPT-4 for generating ecological report sections
  */

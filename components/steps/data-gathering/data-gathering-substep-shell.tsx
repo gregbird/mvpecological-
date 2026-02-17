@@ -577,9 +577,6 @@ export function DataGatheringSubstepShell({
             onFindingClick={(f) => {
               const found = searchResults.find((r) => r.id === f.id) || null
               setSelectedFinding((prev) => (prev?.id === f.id ? null : found))
-              document
-                .getElementById(`finding-${f.id}`)
-                ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
             }}
             onMapClick={() => setSelectedFinding(null)}
           />

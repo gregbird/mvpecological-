@@ -60,6 +60,14 @@ export interface EPAWaterQuality {
   geometry?: GeoJSON.Geometry
 }
 
+export interface CorineLandCover {
+  OBJECTID: number
+  CODE_18: string
+  LABEL_18: string
+  Area_ha: number
+  geometry?: GeoJSON.Geometry
+}
+
 export interface EPASearchParams {
   bbox?: {
     minLat: number
@@ -297,6 +305,35 @@ export async function searchWaterQuality(params: EPASearchParams): Promise<EPAWa
     })
   } catch (error) {
     console.error('Error searching water quality:', error)
+    return []
+  }
+}
+
+/**
+ * Search for CORINE Land Cover 2018 polygons within a bounding box.
+ * Used for preliminary habitat inventory in desk assessment.
+ */
+export async function searchCorineLandCover(params: EPASearchParams): Promise<CorineLandCover[]> {
+  if (!params.bbox) return []
+
+  try {
+    const data = await queryEPAWFS('EPA:CORINE_Landcover2018', params.bbox, params.limit || 200)
+
+    return data.features.map(
+      (feature): CorineLandCover => ({
+        OBJECTID: feature.properties?.OBJECTID || feature.properties?.objectid || 0,
+        CODE_18: feature.properties?.CODE_18 || feature.properties?.code_18 || '',
+        LABEL_18: feature.properties?.LABEL_18 || feature.properties?.label_18 || '',
+        Area_ha:
+          feature.properties?.Area_Ha ||
+          feature.properties?.AREA_HA ||
+          feature.properties?.area_ha ||
+          0,
+        geometry: feature.geometry,
+      })
+    )
+  } catch (error) {
+    console.error('Error searching CORINE Land Cover:', error)
     return []
   }
 }
