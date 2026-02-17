@@ -1780,16 +1780,16 @@ Ekolojistler haritada bir ilgi alanına tıklayarak GPS koordinatlarını otomat
 
 **Yapılacaklar:**
 
-- [ ] **20.1.1** Haritada tıklama → otomatik GPS kayıt mekanizması
+- [x] **20.1.1** Haritada tıklama → otomatik GPS kayıt mekanizması
   - Dosya: `components/steps/target-notes-step.tsx`
   - Haritada tıklanan noktanın koordinatlarını otomatik yakala
   - Target notes listesine yeni satır olarak ekle
   - Not giriş alanı (popup veya yan panel)
 
-- [ ] **20.1.2** GPS koordinat listesi bileşeni
+- [x] **20.1.2** GPS koordinat listesi bileşeni
   - Kaydedilen noktaların listesi (koordinat + not + zaman)
-  - Düzenleme ve silme imkanı
-  - Field survey kaydına bağlama
+  - Düzenleme ve silme imkanı (compact kartta edit/delete butonları + delete confirmation dialog)
+  - [x] Field survey kaydına bağlama (target_notes tablosuna survey_id eklendi)
 
 ---
 
@@ -1805,17 +1805,17 @@ Species observations, data gathering aşamasında toplanan harita alanlarından 
 
 **Yapılacaklar:**
 
-- [ ] **20.2.1** Data Gathering → Field Survey veri aktarımı
+- [x] **20.2.1** Data Gathering → Field Survey veri aktarımı
   - Data Gathering'de kaydedilen NBDC species verilerini Field Survey'e aktar
-  - Species observations listesini otomatik ön doldur
+  - Species observations listesini otomatik ön doldur ("Import from Data Gathering" butonu)
 
-- [ ] **20.2.2** Ön doldurulmuş species listesini göster
-  - Dosya: `components/steps/target-notes-step.tsx` veya `field-survey-step.tsx`
-  - NBDC kaynaklı türleri "Desk Research'ten" etiketi ile göster
-  - Ekolojist saha gözlemleriyle güncelleyebilmeli
+- [x] **20.2.2** Ön doldurulmuş species listesini göster
+  - Dosya: `components/steps/target-notes-step.tsx`
+  - Data Gathering kaynaklı türleri "Data Gathering" badge'i ile göster
+  - Ekolojist saha gözlemleriyle güncelleyebilir (edit butonu)
 
-- [ ] **20.2.3** Notes'ları field survey kaydına kaydet
-  - Target notes ve species observations → surveys tablosuna bağla
+- [x] **20.2.3** Notes'ları field survey kaydına kaydet
+  - Target notes → survey_id eklendi, species observations zaten bağlıydı
   - Ekolojistlerin rapor yazarken erişebilmesi için
 
 ---

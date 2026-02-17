@@ -7,10 +7,11 @@ import {
   Check,
   AlertCircle,
   Trash2,
-  Eye,
+  SquarePen,
   Shield,
   Target,
   ClipboardList,
+  Download,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
@@ -18,6 +19,16 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select,
@@ -34,6 +45,7 @@ import {
   useDeleteObservation,
 } from '@/hooks/queries/use-observation-hooks'
 import { useSurveys } from '@/hooks/queries/use-survey-hooks'
+import { useSavedFindings } from '@/hooks/queries/use-finding-hooks'
 import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import {
   useTargetNotes,
@@ -80,13 +92,13 @@ interface TargetNotesStepProps {
 }
 
 const TAXON_LABELS: Record<string, string> = {
-  mammals: 'Mammals',
-  birds: 'Birds',
-  reptiles: 'Reptiles',
-  amphibians: 'Amphibians',
+  mammal: 'Mammals',
+  bird: 'Birds',
+  reptile: 'Reptiles',
+  amphibian: 'Amphibians',
   fish: 'Fish',
-  invertebrates: 'Invertebrates',
-  plants: 'Plants',
+  invertebrate: 'Invertebrates',
+  plant: 'Plants',
   fungi: 'Fungi',
   other: 'Other',
 }
@@ -129,15 +141,23 @@ export function TargetNotesStep({
   const [mapClickLocation, setMapClickLocation] = React.useState<
     { lat: number; lng: number } | undefined
   >(undefined)
+  const [deletingTargetNote, setDeletingTargetNote] = React.useState<TargetNoteWithCreator | null>(
+    null
+  )
+  const [deletingObservation, setDeletingObservation] = React.useState<SpeciesObservation | null>(
+    null
+  )
 
   // React Query hooks - Observations
   const { data: surveys = [] } = useSurveys(project.id)
   const { data: observations = [], isLoading: observationsLoading } = useProjectObservations(
     project.id
   )
+  const { data: savedFindings = [] } = useSavedFindings(project.id)
   const createObservation = useCreateObservation()
   const updateObservation = useUpdateObservation()
   const deleteObservation = useDeleteObservation()
+  const [isImporting, setIsImporting] = React.useState(false)
 
   // React Query hooks - Target Notes
   const { data: targetNotes = [], isLoading: targetNotesLoading } = useTargetNotes(project.id)
@@ -167,6 +187,25 @@ export function TargetNotesStep({
     }
     return groups
   }, [filteredObservations])
+
+  // Species findings from desk research (for import)
+  const speciesFindings = React.useMemo(() => {
+    return savedFindings.filter((f) => f.data_type === 'species_record')
+  }, [savedFindings])
+
+  // Check which species have already been imported (by scientific name)
+  const alreadyImportedNames = React.useMemo(() => {
+    return new Set(observations.map((o) => o.species_name_scientific.toLowerCase()))
+  }, [observations])
+
+  const importableSpecies = React.useMemo(() => {
+    return speciesFindings.filter((f) => {
+      const raw = f.raw_data as Record<string, unknown> | null
+      const metadata = raw?.metadata as Record<string, unknown> | undefined
+      const scientificName = (metadata?.scientificName as string) || f.title
+      return !alreadyImportedNames.has(scientificName.toLowerCase())
+    })
+  }, [speciesFindings, alreadyImportedNames])
 
   // Group target notes by category
   const targetNotesByCategory = React.useMemo(() => {
@@ -207,6 +246,7 @@ export function TargetNotesStep({
         priority: data.priority,
         location: locationData as unknown as undefined,
         photos: data.photos || null,
+        survey_id: selectedSurveyId || surveys[0]?.id || null,
       })
 
       toast({
@@ -304,6 +344,88 @@ export function TargetNotesStep({
         title: 'Error verifying target note',
         description: 'Failed to verify the target note.',
       })
+    }
+  }
+
+  // Handle importing species from desk research
+  const handleImportSpecies = async () => {
+    const surveyId = selectedSurveyId || surveys[0]?.id
+
+    if (!surveyId) {
+      toast({
+        variant: 'destructive',
+        title: 'No surveys available',
+        description: 'Please create a survey first in Field Survey Planning.',
+      })
+      return
+    }
+
+    if (importableSpecies.length === 0) {
+      toast({
+        title: 'Nothing to import',
+        description: 'All data gathering species have already been imported.',
+      })
+      return
+    }
+
+    setIsImporting(true)
+
+    try {
+      let imported = 0
+      for (const finding of importableSpecies) {
+        const raw = finding.raw_data as Record<string, unknown> | null
+        const metadata = raw?.metadata as Record<string, unknown> | undefined
+        const sampleRecord = (raw?.sampleRecords as Record<string, unknown>[])?.[0]
+
+        const scientificName = (metadata?.scientificName as string) || finding.title
+        const commonName = (metadata?.commonName as string) || null
+
+        // Map GBIF class to taxon group
+        const gbifClass = (sampleRecord?.class as string) || ''
+        const kingdom = (sampleRecord?.kingdom as string) || ''
+        let taxonGroup = 'other'
+        if (gbifClass === 'Aves') taxonGroup = 'bird'
+        else if (gbifClass === 'Mammalia') taxonGroup = 'mammal'
+        else if (gbifClass === 'Reptilia') taxonGroup = 'reptile'
+        else if (gbifClass === 'Amphibia') taxonGroup = 'amphibian'
+        else if (gbifClass === 'Actinopterygii' || gbifClass === 'Chondrichthyes')
+          taxonGroup = 'fish'
+        else if (gbifClass === 'Insecta' || gbifClass === 'Arachnida' || gbifClass === 'Malacostraca')
+          taxonGroup = 'invertebrate'
+        else if (gbifClass === 'Magnoliopsida' || gbifClass === 'Liliopsida' || kingdom === 'Plantae')
+          taxonGroup = 'plant'
+        else if (gbifClass === 'Pezizomycetes' || kingdom === 'Fungi') taxonGroup = 'fungi'
+
+        const isProtected =
+          finding.is_protected || !!(metadata?.isProtected as boolean | undefined)
+        const designation = (metadata?.designations as string) || null
+
+        await createObservation.mutateAsync({
+          survey_id: surveyId,
+          species_name_scientific: scientificName,
+          species_name_common: commonName,
+          taxon_group: taxonGroup,
+          is_protected: isProtected,
+          designation: designation,
+          confidence_level: 'low',
+          needs_verification: true,
+          behavior_notes: `Imported from data gathering (${finding.source.toUpperCase()})`,
+        })
+        imported++
+      }
+
+      toast({
+        title: 'Species imported',
+        description: `${imported} species imported from data gathering. Please verify in the field.`,
+      })
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Import failed',
+        description: 'Failed to import some species from data gathering.',
+      })
+    } finally {
+      setIsImporting(false)
     }
   }
 
@@ -562,17 +684,34 @@ export function TargetNotesStep({
                 Add Note
               </Button>
             ) : (
-              <Button
-                onClick={() => {
-                  setEditingObservation(null)
-                  setShowObservationForm(true)
-                }}
-                disabled={surveys.length === 0}
-                size="sm"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Observation
-              </Button>
+              <div className="flex items-center gap-2">
+                {importableSpecies.length > 0 && (
+                  <Button
+                    onClick={handleImportSpecies}
+                    disabled={surveys.length === 0 || isImporting}
+                    size="sm"
+                    variant="outline"
+                  >
+                    {isImporting ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="mr-2 h-4 w-4" />
+                    )}
+                    Import from Data Gathering ({importableSpecies.length})
+                  </Button>
+                )}
+                <Button
+                  onClick={() => {
+                    setEditingObservation(null)
+                    setShowObservationForm(true)
+                  }}
+                  disabled={surveys.length === 0}
+                  size="sm"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Observation
+                </Button>
+              </div>
             )}
           </div>
 
@@ -678,7 +817,7 @@ export function TargetNotesStep({
                                 setEditingTargetNote(note)
                                 setShowTargetNoteForm(true)
                               }}
-                              onDelete={() => handleDeleteTargetNote(note)}
+                              onDelete={() => setDeletingTargetNote(note)}
                               onVerify={() => handleVerifyTargetNote(note)}
                               compact
                             />
@@ -704,7 +843,7 @@ export function TargetNotesStep({
                                 setEditingTargetNote(note)
                                 setShowTargetNoteForm(true)
                               }}
-                              onDelete={() => handleDeleteTargetNote(note)}
+                              onDelete={() => setDeletingTargetNote(note)}
                               onVerify={() => handleVerifyTargetNote(note)}
                               compact
                             />
@@ -829,7 +968,7 @@ export function TargetNotesStep({
                                 setEditingObservation(obs)
                                 setShowObservationForm(true)
                               }}
-                              onDelete={() => handleDeleteObservation(obs)}
+                              onDelete={() => setDeletingObservation(obs)}
                             />
                           ))}
                         </div>
@@ -853,7 +992,7 @@ export function TargetNotesStep({
                                 setEditingObservation(obs)
                                 setShowObservationForm(true)
                               }}
-                              onDelete={() => handleDeleteObservation(obs)}
+                              onDelete={() => setDeletingObservation(obs)}
                             />
                           ))}
                         </div>
@@ -936,6 +1075,68 @@ export function TargetNotesStep({
         surveyId={selectedSurveyId || surveys[0]?.id || ''}
         projectId={project.id}
       />
+
+      {/* Delete Target Note Confirmation */}
+      <AlertDialog
+        open={!!deletingTargetNote}
+        onOpenChange={(open) => {
+          if (!open) setDeletingTargetNote(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Target Note</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete &quot;{deletingTargetNote?.title}&quot;? This action
+              cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deletingTargetNote) {
+                  handleDeleteTargetNote(deletingTargetNote)
+                  setDeletingTargetNote(null)
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete observation confirmation dialog */}
+      <AlertDialog
+        open={!!deletingObservation}
+        onOpenChange={(open) => !open && setDeletingObservation(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Observation</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete &quot;{deletingObservation?.species_name_scientific}&quot;? This action
+              cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deletingObservation) {
+                  handleDeleteObservation(deletingObservation)
+                  setDeletingObservation(null)
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
@@ -975,6 +1176,12 @@ function ObservationListItem({
                 Protected
               </Badge>
             )}
+            {observation.behavior_notes?.includes('Imported from data gathering') && (
+              <Badge variant="secondary" className="text-xs text-blue-600">
+                <Download className="mr-1 h-3 w-3" />
+                Data Gathering
+              </Badge>
+            )}
             <div
               className={`h-2.5 w-2.5 rounded-full ${confidenceColor}`}
               title={`Confidence: ${observation.confidence_level}`}
@@ -994,8 +1201,8 @@ function ObservationListItem({
           </div>
         </div>
         <div className="flex gap-1">
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit}>
-            <Eye className="h-3.5 w-3.5" />
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); onEdit() }}>
+            <SquarePen className="h-3.5 w-3.5" />
           </Button>
           <Button
             variant="ghost"

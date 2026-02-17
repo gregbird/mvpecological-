@@ -157,6 +157,32 @@ export function TargetNoteCard({
         </div>
         {note.is_verified && <Check className="h-4 w-4 shrink-0 text-green-600" />}
         {note.priority === 'high' && <AlertTriangle className="h-4 w-4 shrink-0 text-red-600" />}
+        {onEdit && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 shrink-0"
+            onClick={(e) => {
+              e.stopPropagation()
+              onEdit()
+            }}
+          >
+            <Edit className="h-3.5 w-3.5" />
+          </Button>
+        )}
+        {onDelete && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-destructive h-6 w-6 shrink-0"
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete()
+            }}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
       </div>
     )
   }

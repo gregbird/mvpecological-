@@ -1072,6 +1072,7 @@ export type Database = {
           photos: string[] | null
           priority: string | null
           project_id: string
+          survey_id: string | null
           title: string
           updated_at: string | null
           verified_at: string | null
@@ -1089,6 +1090,7 @@ export type Database = {
           photos?: string[] | null
           priority?: string | null
           project_id: string
+          survey_id?: string | null
           title: string
           updated_at?: string | null
           verified_at?: string | null
@@ -1106,6 +1108,7 @@ export type Database = {
           photos?: string[] | null
           priority?: string | null
           project_id?: string
+          survey_id?: string | null
           title?: string
           updated_at?: string | null
           verified_at?: string | null
@@ -1131,6 +1134,13 @@ export type Database = {
             columns: ['project_id']
             isOneToOne: false
             referencedRelation: 'projects'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'target_notes_survey_id_fkey'
+            columns: ['survey_id']
+            isOneToOne: false
+            referencedRelation: 'surveys'
             referencedColumns: ['id']
           },
           {

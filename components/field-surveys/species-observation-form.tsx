@@ -58,13 +58,13 @@ export interface SpeciesObservation {
 }
 
 export type TaxonGroup =
-  | 'mammals'
-  | 'birds'
-  | 'reptiles'
-  | 'amphibians'
+  | 'mammal'
+  | 'bird'
+  | 'reptile'
+  | 'amphibian'
   | 'fish'
-  | 'invertebrates'
-  | 'plants'
+  | 'invertebrate'
+  | 'plant'
   | 'fungi'
   | 'other'
 
@@ -82,19 +82,19 @@ export type EvidenceType =
   | 'camera_trap'
   | 'other'
 
-export type ConfidenceLevel = 'certain' | 'probable' | 'possible'
+export type ConfidenceLevel = 'high' | 'medium' | 'low'
 
 const observationFormSchema = z.object({
   speciesNameScientific: z.string().min(1, 'Scientific name is required'),
   speciesNameCommon: z.string().optional(),
   taxonGroup: z.enum([
-    'mammals',
-    'birds',
-    'reptiles',
-    'amphibians',
+    'mammal',
+    'bird',
+    'reptile',
+    'amphibian',
     'fish',
-    'invertebrates',
-    'plants',
+    'invertebrate',
+    'plant',
     'fungi',
     'other',
   ]),
@@ -118,7 +118,7 @@ const observationFormSchema = z.object({
   gpsAccuracy: z.string().optional(),
   isProtected: z.boolean(),
   designation: z.string().optional(),
-  confidenceLevel: z.enum(['certain', 'probable', 'possible']),
+  confidenceLevel: z.enum(['high', 'medium', 'low']),
   needsVerification: z.boolean(),
   notes: z.string().optional(),
 })
@@ -135,13 +135,13 @@ interface SpeciesObservationFormProps {
 }
 
 const TAXON_GROUPS: { value: TaxonGroup; label: string }[] = [
-  { value: 'mammals', label: 'Mammals' },
-  { value: 'birds', label: 'Birds' },
-  { value: 'reptiles', label: 'Reptiles' },
-  { value: 'amphibians', label: 'Amphibians' },
+  { value: 'mammal', label: 'Mammals' },
+  { value: 'bird', label: 'Birds' },
+  { value: 'reptile', label: 'Reptiles' },
+  { value: 'amphibian', label: 'Amphibians' },
   { value: 'fish', label: 'Fish' },
-  { value: 'invertebrates', label: 'Invertebrates' },
-  { value: 'plants', label: 'Plants' },
+  { value: 'invertebrate', label: 'Invertebrates' },
+  { value: 'plant', label: 'Plants' },
   { value: 'fungi', label: 'Fungi' },
   { value: 'other', label: 'Other' },
 ]
@@ -168,9 +168,9 @@ const DAFOR_LABELS: { value: DaforAbundance; label: string; description: string 
 ]
 
 const CONFIDENCE_LEVELS: { value: ConfidenceLevel; label: string }[] = [
-  { value: 'certain', label: 'Certain' },
-  { value: 'probable', label: 'Probable' },
-  { value: 'possible', label: 'Possible' },
+  { value: 'high', label: 'High' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'low', label: 'Low' },
 ]
 
 // Common protected species in Ireland
@@ -212,7 +212,7 @@ export function SpeciesObservationForm({
     defaultValues: {
       speciesNameScientific: initialData?.speciesNameScientific || '',
       speciesNameCommon: initialData?.speciesNameCommon || '',
-      taxonGroup: initialData?.taxonGroup || 'mammals',
+      taxonGroup: initialData?.taxonGroup || 'mammal',
       count: initialData?.count?.toString() || '',
       abundanceDafor: initialData?.abundanceDafor,
       evidenceType: initialData?.evidenceType || 'visual',
@@ -222,11 +222,36 @@ export function SpeciesObservationForm({
       gpsAccuracy: initialData?.gpsAccuracy?.toString() || '',
       isProtected: initialData?.isProtected || false,
       designation: initialData?.designation || '',
-      confidenceLevel: initialData?.confidenceLevel || 'certain',
+      confidenceLevel: initialData?.confidenceLevel || 'high',
       needsVerification: initialData?.needsVerification || false,
       notes: '',
     },
   })
+
+  // Reset form when dialog opens with new data
+  React.useEffect(() => {
+    if (open) {
+      form.reset({
+        speciesNameScientific: initialData?.speciesNameScientific || '',
+        speciesNameCommon: initialData?.speciesNameCommon || '',
+        taxonGroup: initialData?.taxonGroup || 'mammal',
+        count: initialData?.count?.toString() || '',
+        abundanceDafor: initialData?.abundanceDafor,
+        evidenceType: initialData?.evidenceType || 'visual',
+        behaviorNotes: initialData?.behaviorNotes || '',
+        latitude: initialData?.location?.lat?.toString() || '',
+        longitude: initialData?.location?.lng?.toString() || '',
+        gpsAccuracy: initialData?.gpsAccuracy?.toString() || '',
+        isProtected: initialData?.isProtected || false,
+        designation: initialData?.designation || '',
+        confidenceLevel: initialData?.confidenceLevel || 'high',
+        needsVerification: initialData?.needsVerification || false,
+        notes: '',
+      })
+      setPhotos(initialData?.photos || [])
+      setIsProtectedSpecies(initialData?.isProtected || false)
+    }
+  }, [open, initialData, form])
 
   // Check if species is protected when scientific name changes
   const scientificName = form.watch('speciesNameScientific')
@@ -366,7 +391,7 @@ export function SpeciesObservationForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Taxon Group *</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select group" />
@@ -391,7 +416,7 @@ export function SpeciesObservationForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Confidence Level *</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select confidence" />
@@ -422,7 +447,7 @@ export function SpeciesObservationForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Evidence Type *</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select evidence" />
@@ -461,7 +486,7 @@ export function SpeciesObservationForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>DAFOR Abundance</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select abundance" />
