@@ -102,8 +102,6 @@ async function queryEPAWFS(
   )
   url.searchParams.set('count', limit.toString())
 
-  console.log(`[EPA WFS] Fetching ${typeName} with URL:`, url.toString())
-
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 15000)
 
@@ -119,7 +117,6 @@ async function queryEPAWFS(
     }
 
     const data = await response.json()
-    console.log(`[EPA WFS] ${typeName} returned ${data.features?.length || 0} features`)
     return data
   } catch (error) {
     clearTimeout(timeoutId)
@@ -317,13 +314,13 @@ export async function searchCorineLandCover(params: EPASearchParams): Promise<Co
   if (!params.bbox) return []
 
   try {
-    const data = await queryEPAWFS('EPA:CORINE_Landcover2018', params.bbox, params.limit || 200)
+    const data = await queryEPAWFS('EPA:LAND_CLC18', params.bbox, params.limit || 200)
 
     return data.features.map(
       (feature): CorineLandCover => ({
         OBJECTID: feature.properties?.OBJECTID || feature.properties?.objectid || 0,
-        CODE_18: feature.properties?.CODE_18 || feature.properties?.code_18 || '',
-        LABEL_18: feature.properties?.LABEL_18 || feature.properties?.label_18 || '',
+        CODE_18: feature.properties?.CODE_18 || '',
+        LABEL_18: feature.properties?.Level3Description || feature.properties?.LABEL_18 || '',
         Area_ha:
           feature.properties?.Area_Ha ||
           feature.properties?.AREA_HA ||

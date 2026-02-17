@@ -161,6 +161,50 @@ export type Database = {
           },
         ]
       }
+      baseline_report_cache: {
+        Row: {
+          boundary_hash: string
+          computed_at: string
+          created_at: string
+          feature_collection: Json | null
+          habitats: Json
+          id: string
+          project_id: string
+          total_area_ha: number
+          updated_at: string
+        }
+        Insert: {
+          boundary_hash: string
+          computed_at?: string
+          created_at?: string
+          feature_collection?: Json | null
+          habitats?: Json
+          id?: string
+          project_id: string
+          total_area_ha?: number
+          updated_at?: string
+        }
+        Update: {
+          boundary_hash?: string
+          computed_at?: string
+          created_at?: string
+          feature_collection?: Json | null
+          habitats?: Json
+          id?: string
+          project_id?: string
+          total_area_ha?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'baseline_report_cache_project_id_fkey'
+            columns: ['project_id']
+            isOneToOne: true
+            referencedRelation: 'projects'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       clients: {
         Row: {
           address: string | null
@@ -401,13 +445,13 @@ export type Database = {
           fossitt_code: string
           fossitt_name: string
           id: string
-          listed_species: string | null
+          listed_species: string[] | null
           notes: string | null
           photos: string[] | null
           project_id: string
           survey_id: string | null
           survey_method: string | null
-          threats: string | null
+          threats: string[] | null
           updated_at: string
         }
         Insert: {
@@ -420,13 +464,13 @@ export type Database = {
           fossitt_code: string
           fossitt_name: string
           id?: string
-          listed_species?: string | null
+          listed_species?: string[] | null
           notes?: string | null
           photos?: string[] | null
           project_id: string
           survey_id?: string | null
           survey_method?: string | null
-          threats?: string | null
+          threats?: string[] | null
           updated_at?: string
         }
         Update: {
@@ -439,13 +483,13 @@ export type Database = {
           fossitt_code?: string
           fossitt_name?: string
           id?: string
-          listed_species?: string | null
+          listed_species?: string[] | null
           notes?: string | null
           photos?: string[] | null
           project_id?: string
           survey_id?: string | null
           survey_method?: string | null
-          threats?: string | null
+          threats?: string[] | null
           updated_at?: string
         }
         Relationships: [
@@ -1543,6 +1587,12 @@ export type TargetNoteCategory =
   | 'damage'
   | 'ownership'
 export type TargetNotePriority = 'high' | 'normal' | 'low'
+
+export type BaselineReportCache = Database['public']['Tables']['baseline_report_cache']['Row']
+export type BaselineReportCacheInsert =
+  Database['public']['Tables']['baseline_report_cache']['Insert']
+export type BaselineReportCacheUpdate =
+  Database['public']['Tables']['baseline_report_cache']['Update']
 
 // Generic helper types for Insert and Update operations
 export type InsertTables<T extends keyof Database['public']['Tables']> =

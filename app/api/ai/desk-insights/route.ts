@@ -12,6 +12,9 @@ import { createClient } from '@/lib/supabase/server'
  * Output: { insights, metadata }
  */
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type RawData = Record<string, any>
+
 interface FindingData {
   id: string
   title: string
@@ -211,7 +214,9 @@ function countHighRelevance(findings: FindingData[]): number {
 
 function countProtectedSpecies(findings: FindingData[]): number {
   return findings.filter(
-    (f) => f.data_type === 'species_record' && (f.is_protected || (f.raw_data as any)?.isProtected)
+    (f) =>
+      f.data_type === 'species_record' &&
+      (f.is_protected || (f.raw_data as Record<string, unknown> as RawData)?.isProtected)
   ).length
 }
 
@@ -242,7 +247,7 @@ function buildContext(input: ContextInput): string {
 
   for (const site of designatedSites) {
     const assessment = parseAssessment(site.notes)
-    const rawData = site.raw_data as any
+    const rawData = site.raw_data as Record<string, unknown> as RawData
 
     const siteMetadataObj = rawData?.metadata as Record<string, unknown> | undefined
     const siteType =
@@ -337,17 +342,17 @@ function buildContext(input: ContextInput): string {
 
   // Group by protection status
   const protectedSpecies = speciesRecords.filter(
-    (s) => s.is_protected || (s.raw_data as any)?.isProtected
+    (s) => s.is_protected || (s.raw_data as Record<string, unknown> as RawData)?.isProtected
   )
   const otherSpecies = speciesRecords.filter(
-    (s) => !s.is_protected && !(s.raw_data as any)?.isProtected
+    (s) => !s.is_protected && !(s.raw_data as Record<string, unknown> as RawData)?.isProtected
   )
 
   if (protectedSpecies.length > 0) {
     parts.push('### Protected Species (Wildlife Acts / Habitats Directive)')
     for (const species of protectedSpecies) {
       const assessment = parseAssessment(species.notes)
-      const rawData = species.raw_data as any
+      const rawData = species.raw_data as Record<string, unknown> as RawData
 
       const speciesMeta = rawData?.metadata as Record<string, unknown> | undefined
       const nbdc = rawData?.nbdcData as Record<string, unknown> | undefined
@@ -407,7 +412,7 @@ function buildContext(input: ContextInput): string {
     parts.push('### Other Species Records')
     for (const species of otherSpecies.slice(0, 10)) {
       const assessment = parseAssessment(species.notes)
-      const rawData = species.raw_data as any
+      const rawData = species.raw_data as Record<string, unknown> as RawData
       const otherMeta = rawData?.metadata as Record<string, unknown> | undefined
       const otherNbdc = rawData?.nbdcData as Record<string, unknown> | undefined
       const dist = species.distance_from_boundary_km ?? otherMeta?.distance ?? null
@@ -436,7 +441,7 @@ function buildContext(input: ContextInput): string {
 
   for (const feature of aquaticFeatures) {
     const assessment = parseAssessment(feature.notes)
-    const rawData = feature.raw_data as any
+    const rawData = feature.raw_data as Record<string, unknown> as RawData
 
     const aquaticMetadata = rawData?.metadata as Record<string, unknown> | undefined
     const waterBodyType =

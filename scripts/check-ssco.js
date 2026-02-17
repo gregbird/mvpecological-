@@ -42,7 +42,7 @@ if (siteHabitats['000627']) {
 
 // Örnek: çok habitatlı site
 console.log('\nÇok habitatlı site örneği:')
-const multiHabitat = Object.entries(siteHabitats).find(([k, v]) => v.size > 5)
+const multiHabitat = Object.entries(siteHabitats).find(([_k, v]) => v.size > 5)
 if (multiHabitat) {
   console.log(`${multiHabitat[0]}: ${[...multiHabitat[1]].join(', ')}`)
 }

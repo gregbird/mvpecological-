@@ -87,7 +87,7 @@ export function SurveyCard({
   onView,
   onEdit,
   onDelete,
-  onApprove,
+  onApprove: _onApprove,
   isHighlighted,
 }: SurveyCardProps) {
   const statusStyle = STATUS_STYLES[survey.status]

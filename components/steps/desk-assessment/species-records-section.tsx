@@ -14,9 +14,10 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import type { DeskResearchFinding } from '@/types/database'
-
+import { toMapFindings, BaselineMap } from './baseline-map-utils'
 interface SpeciesRecordsSectionProps {
   findings: DeskResearchFinding[]
+  boundary?: GeoJSON.Feature<GeoJSON.Polygon>
 }
 
 interface SpeciesRow {
@@ -115,8 +116,10 @@ const RED_LIST_COLORS: Record<string, string> = {
   'Least Concern': 'bg-green-100 text-green-800 border-green-200',
 }
 
-export function SpeciesRecordsSection({ findings }: SpeciesRecordsSectionProps) {
+export function SpeciesRecordsSection({ findings, boundary }: SpeciesRecordsSectionProps) {
   const species = React.useMemo(() => parseSpeciesRows(findings), [findings])
+  const mapFindings = React.useMemo(() => toMapFindings(findings, 'species_record'), [findings])
+  const hasLocationData = mapFindings.length > 0
 
   if (species.length === 0) {
     return (
@@ -208,6 +211,33 @@ export function SpeciesRecordsSection({ findings }: SpeciesRecordsSectionProps) 
           </div>
         </CardContent>
       </Card>
+
+      {hasLocationData && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Biological Records Map</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="h-[300px]">
+              <BaselineMap findings={mapFindings} boundary={boundary} showControls={false} />
+            </div>
+            <div className="flex flex-wrap gap-4 border-t px-4 py-3">
+              <div className="flex items-center gap-1.5">
+                <span className="inline-block h-3 w-3 rounded-full bg-red-600" />
+                <span className="text-muted-foreground text-xs">Protected</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="inline-block h-3 w-3 rounded-full bg-orange-500" />
+                <span className="text-muted-foreground text-xs">Invasive</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="inline-block h-3 w-3 rounded-full bg-blue-500" />
+                <span className="text-muted-foreground text-xs">Other</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

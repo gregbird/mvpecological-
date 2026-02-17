@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2, Check, Info, Sparkles, Edit, Save } from 'lucide-react'
+import { Loader2, Check, Info, Sparkles, Edit, Save, RefreshCw } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -131,12 +131,13 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
     }
   }
 
-  // Generate all sections
-  const generateAllSections = async () => {
+  // Generate all sections (regenerates ones that already have content too)
+  const generateAllSections = async (onlyEmpty = false) => {
     for (const section of PEA_REPORT_SECTIONS) {
-      if (!sections.find((s) => s.id === section.id)?.content) {
-        await generateSectionContent(section.id)
+      if (onlyEmpty && sections.find((s) => s.id === section.id)?.content) {
+        continue
       }
+      await generateSectionContent(section.id)
     }
   }
 
@@ -181,7 +182,7 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
         title: 'Report saved',
         description: 'Your draft report has been saved.',
       })
-    } catch (_error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error saving report',
@@ -207,7 +208,7 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
       })
 
       onComplete?.()
-    } catch (_error) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Error completing step',
@@ -336,7 +337,21 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
           <Save className="mr-2 h-4 w-4" />
           Save Draft
         </Button>
-        <Button onClick={generateAllSections} disabled={!!generatingSection}>
+        {hasContent && (
+          <Button
+            variant="outline"
+            onClick={() => generateAllSections(false)}
+            disabled={!!generatingSection}
+          >
+            {generatingSection ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="mr-2 h-4 w-4" />
+            )}
+            Regenerate All
+          </Button>
+        )}
+        <Button onClick={() => generateAllSections(true)} disabled={!!generatingSection}>
           {generatingSection ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
@@ -362,7 +377,7 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
               return (
                 <AccordionItem key={templateSection.id} value={templateSection.id}>
                   <AccordionTrigger className="hover:no-underline">
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-1 items-center gap-3">
                       <span className="text-muted-foreground text-sm">{index + 1}.</span>
                       <span>{templateSection.title}</span>
                       {section?.content && (
@@ -372,6 +387,24 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
                         >
                           {section.isEdited ? 'Edited' : 'AI Generated'}
                         </Badge>
+                      )}
+                      {section?.content && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="mr-2 ml-auto h-7 px-2"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            generateSectionContent(templateSection.id)
+                          }}
+                          disabled={isGenerating}
+                        >
+                          {isGenerating ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
                       )}
                     </div>
                   </AccordionTrigger>

@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button'
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -178,7 +177,7 @@ export function HabitatForm({
       )
       setPhotos(initialData?.photos || [])
     }
-  }, [open, initialData]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, initialData])
 
   const handleSelectHabitat = (habitat: FossittHabitat) => {
     setSelectedHabitat(habitat)

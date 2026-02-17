@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Droplets, Waves, Map } from 'lucide-react'
+import { Droplets, Waves, Map, GitBranch, ArrowRight } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,10 +16,12 @@ import {
 import { getWFDStatusColor, getWFDStatusDisplayName } from '@/lib/external-apis/epa'
 import type { DeskResearchFinding } from '@/types/database'
 import type { AquaticResearchResult } from '@/lib/supabase/queries/aquatic-research'
+import { BaselineMap } from './baseline-map-utils'
 
 interface AquaticEnvironmentSectionProps {
   findings: DeskResearchFinding[]
   aquaticResearch: AquaticResearchResult[]
+  boundary?: GeoJSON.Feature<GeoJSON.Polygon>
 }
 
 interface WaterBodyRow {
@@ -156,14 +158,114 @@ function WFDStatusBadge({ status }: { status: string | null }) {
   )
 }
 
+function ConnectivityCard({ aquaticResearch }: { aquaticResearch: AquaticResearchResult[] }) {
+  const connectivityData = React.useMemo(() => {
+    return aquaticResearch
+      .filter((ar) => ar.connectivity && ar.connectivity.length > 0)
+      .map((ar) => ({
+        name: ar.water_body_name,
+        code: ar.water_body_code,
+        type: ar.water_body_type,
+        inputs: ar.connectivity.filter((c) => c.Direction === 'Input'),
+        outputs: ar.connectivity.filter((c) => c.Direction === 'Output'),
+      }))
+  }, [aquaticResearch])
+
+  if (connectivityData.length === 0) return null
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <GitBranch className="h-5 w-5 text-teal-600" />
+          Connectivity Analysis
+          <Badge variant="secondary" className="ml-auto">
+            {connectivityData.length}
+          </Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {connectivityData.map((wb) => (
+          <div key={wb.code} className="rounded-lg border p-3">
+            <div className="mb-2 font-medium">{wb.name}</div>
+            <div className="flex flex-wrap items-center gap-2">
+              {wb.inputs.length > 0 && (
+                <>
+                  <div className="flex flex-wrap gap-1">
+                    {wb.inputs.map((inp) => (
+                      <Badge
+                        key={inp.Code}
+                        variant="outline"
+                        className="border-blue-200 bg-blue-50 text-blue-800"
+                      >
+                        {inp.Name}
+                      </Badge>
+                    ))}
+                  </div>
+                  <ArrowRight className="text-muted-foreground h-4 w-4 shrink-0" />
+                </>
+              )}
+              <Badge className="bg-teal-100 text-teal-800">{wb.name}</Badge>
+              {wb.outputs.length > 0 && (
+                <>
+                  <ArrowRight className="text-muted-foreground h-4 w-4 shrink-0" />
+                  <div className="flex flex-wrap gap-1">
+                    {wb.outputs.map((out) => (
+                      <Badge
+                        key={out.Code}
+                        variant="outline"
+                        className="border-cyan-200 bg-cyan-50 text-cyan-800"
+                      >
+                        {out.Name}
+                      </Badge>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  )
+}
+
 export function AquaticEnvironmentSection({
   findings,
   aquaticResearch,
+  boundary,
 }: AquaticEnvironmentSectionProps) {
   const waterBodies = React.useMemo(
     () => parseWaterBodyRows(findings, aquaticResearch),
     [findings, aquaticResearch]
   )
+
+  // Build GeoJSON for water bodies that have location data
+  const aquaticFeatureCollection = React.useMemo<GeoJSON.FeatureCollection | null>(() => {
+    const aquaticFindings = findings.filter(
+      (f) => (f.data_type === 'water_quality' || f.data_type === 'catchment') && f.location != null
+    )
+    if (aquaticFindings.length === 0) return null
+
+    const features: GeoJSON.Feature[] = aquaticFindings.map((f) => {
+      const raw = f.raw_data as Record<string, unknown> | null
+      const metadata = raw?.metadata as Record<string, unknown> | null
+      const siteType = (metadata?.siteType as string) || ''
+      const isLake = siteType.toLowerCase().includes('lake')
+
+      return {
+        type: 'Feature',
+        geometry: f.location as GeoJSON.Geometry,
+        properties: {
+          fossitt_name: f.title,
+          fossitt_code: isLake ? 'Lake' : 'River',
+          color: isLake ? '#06b6d4' : '#3b82f6',
+        },
+      }
+    })
+
+    return { type: 'FeatureCollection', features }
+  }, [findings])
 
   if (waterBodies.length === 0) {
     return (
@@ -234,6 +336,35 @@ export function AquaticEnvironmentSection({
           </div>
         </CardContent>
       </Card>
+
+      {aquaticFeatureCollection && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Hydrology Map</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="h-[300px]">
+              <BaselineMap
+                habitatPolygons={aquaticFeatureCollection}
+                boundary={boundary}
+                showControls={false}
+              />
+            </div>
+            <div className="flex flex-wrap gap-4 border-t px-4 py-3">
+              <div className="flex items-center gap-1.5">
+                <span className="inline-block h-3 w-3 rounded-full bg-blue-500" />
+                <span className="text-muted-foreground text-xs">River</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="inline-block h-3 w-3 rounded-full bg-cyan-500" />
+                <span className="text-muted-foreground text-xs">Lake</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <ConnectivityCard aquaticResearch={aquaticResearch} />
     </div>
   )
 }

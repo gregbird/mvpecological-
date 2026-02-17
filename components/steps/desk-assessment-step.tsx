@@ -226,7 +226,7 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
   // Stats
   const highRelevanceCount = findingsWithRelevance.filter((f) => f.relevance === 'high').length
   const protectedSpeciesCount = findingsWithRelevance.filter(
-    (f) => f.data_type === 'species_record' && (f.raw_data as any)?.isProtected
+    (f) => f.data_type === 'species_record' && (f.raw_data as Record<string, unknown>)?.isProtected
   ).length
 
   // Handle assessment
