@@ -87,6 +87,8 @@ export interface SubstepShellConfig {
 
   // Data source
   source: string // 'npws' | 'gbif' | 'epa'
+  /** Source values to match when restoring saved findings from DB (defaults to [source]) */
+  sourceFilter?: string[]
 
   // Search
   performSearch: (params: {
@@ -216,6 +218,7 @@ export function DataGatheringSubstepShell({
       performSearchRef,
       matchPredicate: stableMatchPredicate,
       minimalMetadataKeys: stableMinimalKeys,
+      sourceFilter: config.sourceFilter ?? [config.source],
     },
     bufferDistances[0] || 2
   )

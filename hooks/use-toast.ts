@@ -138,24 +138,11 @@ type Toast = Omit<ToasterToast, 'id'>
 function toast({ ...props }: Toast) {
   const id = genId()
 
-  const update = (props: ToasterToast) =>
-    dispatch({
-      type: 'UPDATE_TOAST',
-      toast: { ...props, id },
-    })
-  const dismiss = () => dispatch({ type: 'DISMISS_TOAST', toastId: id })
+  const update = (_props: ToasterToast) => {}
+  const dismiss = () => {}
 
-  dispatch({
-    type: 'ADD_TOAST',
-    toast: {
-      ...props,
-      id,
-      open: true,
-      onOpenChange: (open) => {
-        if (!open) dismiss()
-      },
-    },
-  })
+  // Toast notifications disabled — all calls are silently ignored
+  void props
 
   return {
     id: id,

@@ -259,6 +259,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       cacheKeyPrefix: 'gbif',
       stepName: 'species_records',
       source: 'gbif',
+      sourceFilter: ['gbif', 'nbdc'],
       isSearchDisabled: isEnriching,
 
       // Search

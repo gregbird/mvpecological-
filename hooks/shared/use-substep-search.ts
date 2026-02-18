@@ -26,6 +26,8 @@ export interface UseSubstepSearchConfig {
   matchPredicate: (saved: DeskResearchFinding, result: FindingDisplay) => boolean
   /** Keys to keep in minimal sessionStorage fallback (e.g., ['siteCode', 'siteType']) */
   minimalMetadataKeys: string[]
+  /** Source values to filter savedFindings for this substep (e.g., ['npws'] or ['gbif', 'nbdc']) */
+  sourceFilter?: string[]
 }
 
 export interface UseSubstepSearchReturn {
@@ -57,6 +59,7 @@ export function useSubstepSearch(
     performSearchRef,
     matchPredicate,
     minimalMetadataKeys,
+    sourceFilter,
   } = config
 
   const [selectedFinding, setSelectedFinding] = React.useState<FindingDisplay | null>(null)
@@ -91,6 +94,44 @@ export function useSubstepSearch(
       .then(() => onAutoSearchCompleteRef.current?.('done'))
       .catch(() => onAutoSearchCompleteRef.current?.('error'))
   }, [autoSearchTrigger, projectBoundary])
+
+  // --- Restore saved findings from DB when sessionStorage cache is empty ---
+  const restoredRef = React.useRef(false)
+  React.useEffect(() => {
+    if (restoredRef.current) return
+    if (searchResults.length > 0) return
+    if (savedFindings.length === 0) return
+    if (!sourceFilter || sourceFilter.length === 0) return
+
+    // Only restore if sessionStorage cache is truly empty
+    const cached = typeof window !== 'undefined' ? sessionStorage.getItem(cacheKey) : null
+    if (cached) return
+
+    restoredRef.current = true
+
+    const relevant = savedFindings.filter((f) => sourceFilter.includes(f.source))
+    if (relevant.length === 0) return
+
+    const restored: FindingDisplay[] = relevant.map((f) => ({
+      id: f.id,
+      source: f.source,
+      dataType: f.data_type,
+      title: f.title,
+      content: f.content || undefined,
+      location: f.location as GeoJSON.Geometry | undefined,
+      isSaved: true,
+      metadata: {
+        siteCode: (f.raw_data as Record<string, unknown>)?.siteCode as string | undefined,
+        siteType: (f.raw_data as Record<string, unknown>)?.siteType as string | undefined,
+        scientificName: (f.raw_data as Record<string, unknown>)?.scientificName as string | undefined,
+        commonName: (f.raw_data as Record<string, unknown>)?.commonName as string | undefined,
+        distance: f.distance_from_boundary_km ?? undefined,
+        isProtected: f.is_protected ?? undefined,
+      },
+    }))
+
+    setSearchResults(restored)
+  }, [searchResults.length, savedFindings, sourceFilter, cacheKey, setSearchResults])
 
   // --- Toggle finding visibility on map ---
   const handleToggleVisibility = React.useCallback((findingId: string) => {

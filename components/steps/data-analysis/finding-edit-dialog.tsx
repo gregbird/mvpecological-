@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -54,6 +54,24 @@ const SOURCES = [
   { value: 'manual', label: 'Manual' },
 ] as const
 
+const SOURCE_TYPE_MAP: Record<string, string[]> = {
+  npws: ['designated_site', 'other'],
+  gbif: ['species_record', 'other'],
+  nbdc: ['species_record', 'other'],
+  epa: ['water_quality', 'catchment', 'other'],
+  catchments: ['catchment', 'other'],
+  manual: ['designated_site', 'species_record', 'water_quality', 'catchment', 'other'],
+}
+
+const SOURCE_DEFAULT_TYPE: Record<string, string> = {
+  npws: 'designated_site',
+  gbif: 'species_record',
+  nbdc: 'species_record',
+  epa: 'water_quality',
+  catchments: 'catchment',
+  manual: 'other',
+}
+
 const schema = z.object({
   title: z.string().min(1, 'Title is required'),
   source: z.enum(['npws', 'gbif', 'nbdc', 'epa', 'catchments', 'manual']),
@@ -78,6 +96,13 @@ export function FindingEditDialog({ finding, onOpenChange }: FindingEditDialogPr
     defaultValues: { title: '', source: 'manual', data_type: 'other', relevance_level: null, notes: null },
   })
 
+  const watchedSource = form.watch('source')
+
+  const availableTypes = useMemo(
+    () => DATA_TYPES.filter((t) => (SOURCE_TYPE_MAP[watchedSource] ?? []).includes(t.value)),
+    [watchedSource]
+  )
+
   useEffect(() => {
     if (finding) {
       form.reset({
@@ -89,6 +114,15 @@ export function FindingEditDialog({ finding, onOpenChange }: FindingEditDialogPr
       })
     }
   }, [finding, form])
+
+  // When source changes, auto-set type to the default for that source if current type is not valid
+  useEffect(() => {
+    const allowed = SOURCE_TYPE_MAP[watchedSource] ?? []
+    const currentType = form.getValues('data_type')
+    if (!allowed.includes(currentType)) {
+      form.setValue('data_type', SOURCE_DEFAULT_TYPE[watchedSource] as FormValues['data_type'])
+    }
+  }, [watchedSource, form])
 
   const onSubmit = async (values: FormValues) => {
     if (!finding) return
@@ -188,7 +222,7 @@ export function FindingEditDialog({ finding, onOpenChange }: FindingEditDialogPr
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {DATA_TYPES.map((t) => (
+                      {availableTypes.map((t) => (
                         <SelectItem key={t.value} value={t.value}>
                           {t.label}
                         </SelectItem>
