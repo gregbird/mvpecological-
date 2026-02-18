@@ -247,7 +247,8 @@ export async function POST(request: NextRequest) {
         .select(
           'fossitt_code, fossitt_name, area_hectares, condition, notes, threats, eu_annex_code, evaluation, listed_species'
         )
-        .eq('project_id', projectId),
+        .eq('project_id', projectId)
+        .eq('include_in_report', true),
       supabase
         .from('species_observations')
         .select(
@@ -258,14 +259,16 @@ export async function POST(request: NextRequest) {
           (await supabase.from('surveys').select('id').eq('project_id', projectId)).data?.map(
             (s) => s.id
           ) || []
-        ),
+        )
+        .eq('include_in_report', true),
       supabase
         .from('desk_research_findings')
         .select(
           'title, source, data_type, raw_data, distance_from_boundary_km, is_protected, notes'
         )
         .eq('project_id', projectId)
-        .eq('is_saved', true),
+        .eq('is_saved', true)
+        .eq('include_in_report', true),
       supabase
         .from('surveys')
         .select('survey_date, survey_type, weather, status, notes, start_time, end_time')
@@ -273,7 +276,8 @@ export async function POST(request: NextRequest) {
       supabase
         .from('target_notes')
         .select('category, title, description, priority, is_verified')
-        .eq('project_id', projectId),
+        .eq('project_id', projectId)
+        .eq('include_in_report', true),
       supabase
         .from('deep_research_results')
         .select(

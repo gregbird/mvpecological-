@@ -4,21 +4,19 @@ import type { Database, HabitatPolygon } from '@/types/database'
 type InsertHabitat = Database['public']['Tables']['habitat_polygons']['Insert']
 type UpdateHabitat = Database['public']['Tables']['habitat_polygons']['Update']
 
-// Get all habitat polygons for a project
+// Get all habitat polygons for a project (with boundary as GeoJSON)
 export async function getProjectHabitats(projectId: string): Promise<HabitatPolygon[]> {
   const supabase = createClient()
-  const { data, error } = await supabase
-    .from('habitat_polygons')
-    .select('*')
-    .eq('project_id', projectId)
-    .order('created_at', { ascending: false })
+  const { data, error } = await supabase.rpc('get_habitats_with_geojson', {
+    p_project_id: projectId,
+  })
 
   if (error) {
     console.error('Error fetching habitats:', error)
     return []
   }
 
-  return (data ?? []) as HabitatPolygon[]
+  return (data ?? []) as unknown as HabitatPolygon[]
 }
 
 // Get habitats for a specific survey
@@ -87,7 +85,7 @@ export async function updateHabitat(
 
   if (error) {
     console.error('Error updating habitat:', error)
-    return null
+    throw new Error(error.message || 'Failed to update habitat')
   }
 
   return data as unknown as HabitatPolygon

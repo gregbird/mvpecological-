@@ -323,6 +323,7 @@ export type Database = {
           data_type: Database['public']['Enums']['finding_data_type']
           distance_from_boundary_km: number | null
           id: string
+          include_in_report: boolean
           is_protected: boolean | null
           is_saved: boolean
           location: unknown
@@ -342,6 +343,7 @@ export type Database = {
           data_type: Database['public']['Enums']['finding_data_type']
           distance_from_boundary_km?: number | null
           id?: string
+          include_in_report?: boolean
           is_protected?: boolean | null
           is_saved?: boolean
           location?: unknown
@@ -361,6 +363,7 @@ export type Database = {
           data_type?: Database['public']['Enums']['finding_data_type']
           distance_from_boundary_km?: number | null
           id?: string
+          include_in_report?: boolean
           is_protected?: boolean | null
           is_saved?: boolean
           location?: unknown
@@ -445,6 +448,7 @@ export type Database = {
           fossitt_code: string
           fossitt_name: string
           id: string
+          include_in_report: boolean
           listed_species: string[] | null
           notes: string | null
           photos: string[] | null
@@ -464,6 +468,7 @@ export type Database = {
           fossitt_code: string
           fossitt_name: string
           id?: string
+          include_in_report?: boolean
           listed_species?: string[] | null
           notes?: string | null
           photos?: string[] | null
@@ -483,6 +488,7 @@ export type Database = {
           fossitt_code?: string
           fossitt_name?: string
           id?: string
+          include_in_report?: boolean
           listed_species?: string[] | null
           notes?: string | null
           photos?: string[] | null
@@ -920,6 +926,7 @@ export type Database = {
           evidence_type: string | null
           gps_accuracy: number | null
           id: string
+          include_in_report: boolean
           is_protected: boolean
           local_id: string | null
           location: unknown
@@ -942,6 +949,7 @@ export type Database = {
           evidence_type?: string | null
           gps_accuracy?: number | null
           id?: string
+          include_in_report?: boolean
           is_protected?: boolean
           local_id?: string | null
           location?: unknown
@@ -964,6 +972,7 @@ export type Database = {
           evidence_type?: string | null
           gps_accuracy?: number | null
           id?: string
+          include_in_report?: boolean
           is_protected?: boolean
           local_id?: string | null
           location?: unknown
@@ -1067,6 +1076,7 @@ export type Database = {
           description: string | null
           finding_id: string | null
           id: string
+          include_in_report: boolean
           is_verified: boolean | null
           location: unknown
           photos: string[] | null
@@ -1085,6 +1095,7 @@ export type Database = {
           description?: string | null
           finding_id?: string | null
           id?: string
+          include_in_report?: boolean
           is_verified?: boolean | null
           location?: unknown
           photos?: string[] | null
@@ -1103,6 +1114,7 @@ export type Database = {
           description?: string | null
           finding_id?: string | null
           id?: string
+          include_in_report?: boolean
           is_verified?: boolean | null
           location?: unknown
           photos?: string[] | null
@@ -1274,6 +1286,29 @@ export type Database = {
       }
     }
     Functions: {
+      get_habitats_with_geojson: {
+        Args: { p_project_id: string }
+        Returns: {
+          area_hectares: number
+          boundary: Json
+          condition: string
+          created_at: string
+          eu_annex_code: string
+          evaluation: string
+          fossitt_code: string
+          fossitt_name: string
+          id: string
+          include_in_report: boolean
+          listed_species: string[]
+          notes: string
+          photos: string[]
+          project_id: string
+          survey_id: string
+          survey_method: string
+          threats: string[]
+          updated_at: string
+        }[]
+      }
       get_invite_by_token: {
         Args: { invite_token: string }
         Returns: {

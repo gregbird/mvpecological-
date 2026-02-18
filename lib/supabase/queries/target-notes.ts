@@ -95,7 +95,7 @@ export async function createTargetNote(note: InsertTargetNote): Promise<TargetNo
 
   if (error) {
     console.error('Error creating target note:', error)
-    return null
+    throw new Error(error.message || 'Failed to create target note')
   }
 
   return data as unknown as TargetNote
@@ -116,7 +116,7 @@ export async function updateTargetNote(
 
   if (error) {
     console.error('Error updating target note:', error)
-    return null
+    throw new Error(error.message || 'Failed to update target note')
   }
 
   return data as unknown as TargetNote

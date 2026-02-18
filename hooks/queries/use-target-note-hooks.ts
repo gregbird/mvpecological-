@@ -41,11 +41,9 @@ export function useCreateTargetNote() {
 
   return useMutation({
     mutationFn: (note: InsertTables<'target_notes'>) => createTargetNote(note),
-    onSuccess: (data) => {
-      if (data) {
-        queryClient.invalidateQueries({ queryKey: ['target-notes'] })
-        queryClient.invalidateQueries({ queryKey: ['target-notes-stats'] })
-      }
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['target-notes'] })
+      queryClient.invalidateQueries({ queryKey: ['target-notes-stats'] })
     },
   })
 }
@@ -56,12 +54,10 @@ export function useUpdateTargetNote() {
   return useMutation({
     mutationFn: ({ noteId, updates }: { noteId: string; updates: UpdateTables<'target_notes'> }) =>
       updateTargetNote(noteId, updates),
-    onSuccess: (data, variables) => {
-      if (data) {
-        queryClient.invalidateQueries({ queryKey: ['target-note', variables.noteId] })
-        queryClient.invalidateQueries({ queryKey: ['target-notes'] })
-        queryClient.invalidateQueries({ queryKey: ['target-notes-stats'] })
-      }
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['target-note', variables.noteId] })
+      queryClient.invalidateQueries({ queryKey: ['target-notes'] })
+      queryClient.invalidateQueries({ queryKey: ['target-notes-stats'] })
     },
   })
 }
