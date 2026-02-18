@@ -1837,11 +1837,11 @@ Reporting/Data Analysis sayfası ekolojistlere her proje aşamasından tüm veri
 
 **Yapılacaklar:**
 
-- [ ] **21.1.1** Data Analysis sayfasını (Step 7) yeniden tasarla
+- [x] **21.1.1** Data Analysis sayfasını (Step 7) yeniden tasarla
   - Dosya: `components/steps/data-analysis-step.tsx`
   - Tab yapısı: Her proje aşaması için ayrı tab
 
-- [ ] **21.1.2** Aşama tab'ları oluştur
+- [x] **21.1.2** Aşama tab'ları oluştur
   - Tab 1: **GIS Mapping** - Site boundary, buffer zone bilgileri
   - Tab 2: **Data Gathering** - NPWS, GBIF, NBDC, EPA bulguları
   - Tab 3: **Desk Assessment** - AI insights, kaydedilmiş değerlendirmeler (17.1.3 ile bağlantılı)
@@ -1849,12 +1849,12 @@ Reporting/Data Analysis sayfası ekolojistlere her proje aşamasından tüm veri
   - Tab 5: **Habitat Mapping** - Habitat haritası ve verileri
   - Tab 6: **Target Notes** - Saha notları ve species observations
 
-- [ ] **21.1.3** Her tab'da düzenleme ve veri ekleme imkanı
+- [x] **21.1.3** Her tab'da düzenleme ve veri ekleme imkanı
   - Tab içindeki verileri inline edit edebilme
   - Yeni veri/not ekleyebilme
   - Rapor'a dahil etme/çıkarma toggle'ı
 
-- [ ] **21.1.4** Her dataset için harita görünümü
+- [x] **21.1.4** Her dataset için harita görünümü
   - Habitat mapping haritası → Habitat tab'ında
   - Target notes haritası → Target Notes tab'ında
   - Designated sites haritası → Data Gathering tab'ında
