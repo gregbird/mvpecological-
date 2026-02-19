@@ -1868,11 +1868,12 @@ AI raporları uygulama içinde düzenlenebilir ve tamamlanabilir olmalı. Rapor 
   - Önceki versiyona geri dönme
   - Değişiklik geçmişi (diff view)
 
-- [ ] **22.1.4** Rapor tamamlama ve export
-  - "Finalize Report" butonu
-  - PDF export
-  - Word document export
-  - Onay workflow'u (Quality Review step ile entegre)
+- [x] **22.1.4** Rapor tamamlama ve export
+  - [x] "Finalize Report" butonu ✅
+  - [x] PDF export ✅
+  - [x] Word document export ✅ Gerçek DOCX (`lib/export/docx-generator.ts`, docx paketi)
+  - [x] Onay workflow'u ✅ Quality Review reject → Step 8 navigasyon + revision banner
+  - [x] Print Preview ✅ Raporu PDF olarak yeni sekmede açar (dashboard SS değil)
 
 ---
 

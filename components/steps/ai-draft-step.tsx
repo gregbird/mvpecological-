@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2, Check, Info, Sparkles, Save, RefreshCw, Copy } from 'lucide-react'
+import { Loader2, Check, Info, Sparkles, Save, RefreshCw, Copy, AlertTriangle } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -385,6 +385,26 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
               : 'Pending'}
         </Badge>
       </div>
+
+      {/* Revision requested banner */}
+      {existingReport?.status === 'internal_review' && (
+        <Alert className="border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30">
+          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <AlertTitle className="text-amber-800 dark:text-amber-300">
+            Revisions Requested
+          </AlertTitle>
+          <AlertDescription className="text-amber-700 dark:text-amber-400">
+            This report was sent back for revisions by the reviewer. Please update the relevant
+            sections and resubmit for quality review.
+            {(existingReport.content as unknown as { reviewComments?: string })?.reviewComments && (
+              <p className="mt-2 font-medium">
+                Reviewer comment:{' '}
+                {(existingReport.content as unknown as { reviewComments: string }).reviewComments}
+              </p>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Instructions */}
       <Alert>

@@ -23,11 +23,12 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
 import { useRole } from '@/contexts/role-context'
+import { useProjectContext } from '@/contexts/project-context'
 import { useLatestReport, useUpdateReport } from '@/hooks/queries/use-report-hooks'
 import { useHabitatStats } from '@/hooks/queries/use-habitat-hooks'
 import { useObservationStats } from '@/hooks/queries/use-observation-hooks'
 import { useFindingsStats } from '@/hooks/queries/use-finding-hooks'
-import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
+import { useCompleteWorkflowStep, useUpdateWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { PEA_REPORT_SECTIONS, type ReportContent } from '@/lib/supabase/queries/reports'
 import type { Project, WorkflowStep, Json } from '@/types/database'
 
@@ -90,6 +91,7 @@ export function QualityReviewStep({
 }: QualityReviewStepProps) {
   const { toast } = useToast()
   const { permissions } = useRole()
+  const { navigateToStep, workflowSteps } = useProjectContext()
   const [checkedItems, setCheckedItems] = React.useState<Record<string, boolean>>({})
   const [reviewComments, setReviewComments] = React.useState('')
   const [reviewDecision, setReviewDecision] = React.useState<'approved' | 'rejected' | null>(null)
@@ -101,6 +103,7 @@ export function QualityReviewStep({
   const { data: findingsStats } = useFindingsStats(project.id)
   const updateReport = useUpdateReport()
   const completeStep = useCompleteWorkflowStep()
+  const updateWorkflowStep = useUpdateWorkflowStep()
 
   // Get report content
   const reportContent = report?.content as unknown as ReportContent | undefined
@@ -193,12 +196,24 @@ export function QualityReviewStep({
         },
       })
 
+      // Reset Step 8 back to in_progress so the Complete button becomes active again
+      const aiDraftStep = workflowSteps.find((s) => s.step_number === 8)
+      if (aiDraftStep) {
+        await updateWorkflowStep.mutateAsync({
+          stepId: aiDraftStep.id,
+          updates: { status: 'in_progress' },
+        })
+      }
+
       setReviewDecision('rejected')
 
       toast({
         title: 'Revision requested',
-        description: 'The report has been sent back for revisions.',
+        description: 'Returning to AI Draft step for revisions.',
       })
+
+      // Navigate back to Step 8 so the author sees the revision banner
+      setTimeout(() => navigateToStep(8), 1200)
     } catch {
       toast({
         variant: 'destructive',

@@ -102,12 +102,43 @@ export function FinalSubmissionStep({
     )
   }
 
+  // Handle print — generates PDF and opens in new tab for browser print dialog
+  const handlePrint = async () => {
+    setIsExporting(true)
+    try {
+      const { generatePeaPdf } = await import('@/lib/export/pdf-generator')
+      const exportOptions = {
+        title: coverPageTitle,
+        preparedFor,
+        siteCode: project.site_code || project.id,
+        version: report?.version || 1,
+        date: new Date().toLocaleDateString('en-IE'),
+        sections: reportContent?.sections || [],
+        appendices: selectedAppendices,
+      }
+      const doc = generatePeaPdf(exportOptions)
+      const url = URL.createObjectURL(doc.output('blob'))
+      const win = window.open(url, '_blank')
+      if (win) win.focus()
+      setTimeout(() => URL.revokeObjectURL(url), 60000)
+    } catch {
+      toast({
+        title: 'Print failed',
+        description: 'Could not generate print preview.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   // Handle export
   const handleExport = async () => {
     setIsExporting(true)
 
     try {
       const { generatePeaPdf, generatePeaHtml } = await import('@/lib/export/pdf-generator')
+      const { generatePeaDocx } = await import('@/lib/export/docx-generator')
 
       const exportOptions = {
         title: coverPageTitle,
@@ -138,20 +169,17 @@ export function FinalSubmissionStep({
         link.click()
         URL.revokeObjectURL(link.href)
       } else if (exportFormat === 'docx') {
-        const html = generatePeaHtml(exportOptions)
-        const blob = new Blob([html], {
-          type: 'application/vnd.ms-word;charset=utf-8',
-        })
+        const blob = await generatePeaDocx(exportOptions)
         const link = document.createElement('a')
         link.href = URL.createObjectURL(blob)
-        link.download = `${baseFilename}.doc`
+        link.download = `${baseFilename}.docx`
         link.click()
         URL.revokeObjectURL(link.href)
       }
 
       toast({
         title: 'Report exported',
-        description: `Report has been exported as ${baseFilename}.${exportFormat === 'docx' ? 'doc' : exportFormat}`,
+        description: `Report has been exported as ${baseFilename}.${exportFormat}`,
       })
     } catch (error) {
       toast({
@@ -440,7 +468,7 @@ export function FinalSubmissionStep({
               )}
               Export Report
             </Button>
-            <Button variant="outline" onClick={() => window.print()}>
+            <Button variant="outline" onClick={handlePrint} disabled={isExporting}>
               <Printer className="mr-2 h-4 w-4" />
               Print Preview
             </Button>
