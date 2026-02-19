@@ -106,6 +106,8 @@ const SOURCE_COLORS: Record<string, string> = {
   gbif: 'bg-sky-100 text-sky-800 border-sky-200',
   npws: 'bg-emerald-100 text-emerald-800 border-emerald-200',
   manual: 'bg-gray-100 text-gray-700 border-gray-200',
+  epa: 'bg-blue-100 text-blue-800 border-blue-200',
+  catchments: 'bg-teal-100 text-teal-800 border-teal-200',
 }
 
 const RED_LIST_COLORS: Record<string, string> = {
@@ -184,12 +186,19 @@ export function SpeciesRecordsSection({ findings, boundary }: SpeciesRecordsSect
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {s.isProtected ? (
-                        <Badge className="border-emerald-200 bg-emerald-100 text-emerald-800">
-                          Protected
-                        </Badge>
-                      ) : s.isInvasive ? (
-                        <Badge className="border-red-200 bg-red-100 text-red-800">Invasive</Badge>
+                      {s.isProtected || s.isInvasive ? (
+                        <div className="flex flex-wrap gap-1">
+                          {s.isProtected && (
+                            <Badge className="border-emerald-200 bg-emerald-100 text-emerald-800">
+                              Protected
+                            </Badge>
+                          )}
+                          {s.isInvasive && (
+                            <Badge className="border-red-200 bg-red-100 text-red-800">
+                              Invasive
+                            </Badge>
+                          )}
+                        </div>
                       ) : (
                         <span className="text-muted-foreground text-xs">—</span>
                       )}
@@ -212,32 +221,43 @@ export function SpeciesRecordsSection({ findings, boundary }: SpeciesRecordsSect
         </CardContent>
       </Card>
 
-      {hasLocationData && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Biological Records Map</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="h-[300px]">
-              <BaselineMap findings={mapFindings} boundary={boundary} showControls={false} />
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Biological Records Map</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {hasLocationData ? (
+            <>
+              <div className="h-[300px]">
+                <BaselineMap findings={mapFindings} boundary={boundary} showControls={false} />
+              </div>
+              <div className="flex flex-wrap gap-4 border-t px-4 py-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-block h-3 w-3 rounded-full bg-red-600" />
+                  <span className="text-muted-foreground text-xs">Protected</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-block h-3 w-3 rounded-full bg-orange-500" />
+                  <span className="text-muted-foreground text-xs">Invasive</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-block h-3 w-3 rounded-full bg-blue-500" />
+                  <span className="text-muted-foreground text-xs">Other</span>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="text-muted-foreground flex flex-col items-center gap-2 py-8 text-center text-sm">
+              <Bug className="h-8 w-8 text-gray-300" />
+              <p>No location data available for species records.</p>
+              <p className="text-xs">
+                Records from NBDC/GBIF include grid references — manually added records may lack
+                coordinates.
+              </p>
             </div>
-            <div className="flex flex-wrap gap-4 border-t px-4 py-3">
-              <div className="flex items-center gap-1.5">
-                <span className="inline-block h-3 w-3 rounded-full bg-red-600" />
-                <span className="text-muted-foreground text-xs">Protected</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="inline-block h-3 w-3 rounded-full bg-orange-500" />
-                <span className="text-muted-foreground text-xs">Invasive</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="inline-block h-3 w-3 rounded-full bg-blue-500" />
-                <span className="text-muted-foreground text-xs">Other</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

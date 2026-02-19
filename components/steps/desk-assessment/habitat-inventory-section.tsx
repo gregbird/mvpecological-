@@ -25,6 +25,7 @@ import { BaselineMap } from './baseline-map-utils'
 
 interface HabitatInventorySectionProps {
   project: Project
+  onHabitatData?: (habitats: HabitatRow[]) => void
 }
 
 interface HabitatRow {
@@ -185,7 +186,7 @@ function SummaryCards({ habitats, totalArea }: { habitats: HabitatRow[]; totalAr
   )
 }
 
-export function HabitatInventorySection({ project }: HabitatInventorySectionProps) {
+export function HabitatInventorySection({ project, onHabitatData }: HabitatInventorySectionProps) {
   const projectBoundary = project.boundary as GeoJSON.Feature<GeoJSON.Polygon> | undefined
   const projectCenter = project.center_point
     ? {
@@ -270,6 +271,15 @@ export function HabitatInventorySection({ project }: HabitatInventorySectionProp
   const totalArea = React.useMemo(() => habitats.reduce((sum, h) => sum + h.areaHa, 0), [habitats])
 
   const isLoading = isCacheLoading || (!cacheHit && (isCorineLoading || isProcessing))
+
+  // Notify parent of resolved habitat data (used for export)
+  const onHabitatDataRef = React.useRef(onHabitatData)
+  onHabitatDataRef.current = onHabitatData
+  React.useEffect(() => {
+    if (!isLoading && habitats.length > 0) {
+      onHabitatDataRef.current?.(habitats)
+    }
+  }, [habitats, isLoading])
 
   if (isLoading) {
     return (

@@ -166,8 +166,8 @@ function ConnectivityCard({ aquaticResearch }: { aquaticResearch: AquaticResearc
         name: ar.water_body_name,
         code: ar.water_body_code,
         type: ar.water_body_type,
-        inputs: ar.connectivity.filter((c) => c.Direction === 'Input'),
-        outputs: ar.connectivity.filter((c) => c.Direction === 'Output'),
+        inputs: ar.connectivity.filter((c) => c.Direction?.toLowerCase() === 'input'),
+        outputs: ar.connectivity.filter((c) => c.Direction?.toLowerCase() === 'output'),
       }))
   }, [aquaticResearch])
 

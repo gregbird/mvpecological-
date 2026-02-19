@@ -123,7 +123,12 @@ export function FinalSubmissionStep({
 
       if (exportFormat === 'pdf') {
         const doc = generatePeaPdf(exportOptions)
-        doc.save(`${baseFilename}.pdf`)
+        const blob = doc.output('blob')
+        const link = document.createElement('a')
+        link.href = URL.createObjectURL(blob)
+        link.download = `${baseFilename}.pdf`
+        link.click()
+        URL.revokeObjectURL(link.href)
       } else if (exportFormat === 'html') {
         const html = generatePeaHtml(exportOptions)
         const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
@@ -435,7 +440,7 @@ export function FinalSubmissionStep({
               )}
               Export Report
             </Button>
-            <Button variant="outline">
+            <Button variant="outline" onClick={() => window.print()}>
               <Printer className="mr-2 h-4 w-4" />
               Print Preview
             </Button>

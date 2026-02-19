@@ -101,8 +101,8 @@ const CORINE_TO_FOSSITT: Record<string, CorineMapping> = {
     corineLabel: 'Coniferous forest',
   },
   '313': {
-    fossittCode: 'WD',
-    fossittName: 'Conifer plantation',
+    fossittCode: 'WN',
+    fossittName: 'Semi-natural woodland',
     corineLabel: 'Mixed forest',
   },
   '321': {
@@ -148,7 +148,7 @@ const CORINE_TO_FOSSITT: Record<string, CorineMapping> = {
   },
 
   // 5. Water bodies
-  '511': { fossittCode: 'FL', fossittName: 'Lakes and ponds', corineLabel: 'Water courses' },
+  '511': { fossittCode: 'FW', fossittName: 'Flowing waters', corineLabel: 'Water courses' },
   '512': { fossittCode: 'FL', fossittName: 'Lakes and ponds', corineLabel: 'Water bodies' },
   '521': {
     fossittCode: 'CW',

@@ -35,6 +35,34 @@ npm run format:check     # Check formatting
 npm run type-check       # TypeScript type checking
 ```
 
+## Data Flow Conventions
+
+- **Always use existing data — never re-fetch** — Before making any API call, check whether the data already exists in a prior workflow step, React Query cache, or Supabase table. For example: if Step 2 (Data Gathering) already saved NPWS findings, Step 3 onwards must read from `desk_research_findings`, not re-query the NPWS API.
+- **Step data flows forward, never sideways** — Each step consumes outputs from earlier steps. Never trigger a fresh external API call for data that a previous step already gathered and persisted.
+
+## Refactoring Guidelines
+
+- **Think domain-first, not file-size-first** — Before proposing a refactor, understand the ecological consulting workflow and how users interact with the system. Don't give generic "split large files" advice. Consider which domain boundary the code belongs to (desk research vs field survey vs reporting) and restructure along those lines.
+- **Adapt UI patterns, don't copy them** — When a component should visually match another (e.g., Species Records matching Designated Sites style), adapt the pattern for the specific component's unique data shape and context. Do NOT copy it verbatim. If unsure about the level of similarity expected, ask before writing code.
+
+## GIS & Mapping
+
+- **Always clip geometries to project boundary** — Before calculating any areas (CORINE, habitat polygons, etc.), use `turf.intersect` to clip to the project boundary. Never report raw polygon areas — they will include ocean and land outside the study area.
+- **Use async processing for heavy turf.js operations** — `turf.intersect` on large polygon sets (200+ CORINE polygons) must be processed asynchronously or in chunks to avoid UI freezing. Cache results in React state or Supabase after first computation.
+- **Verify GeoServer/ArcGIS layer names before coding** — Always check the actual API/layer name against the live service before hardcoding it. Wrong layer names cause silent 400 errors.
+- **Always provide null/fallback handling for distance and area fields** — Zone of Influence distances, buffer areas, and GIS-derived values are commonly null. Display gracefully (e.g., "—" or "N/A"), never show zeros or blank cells.
+
+## Known Issues & Gotchas
+
+- **React 19 + Radix UI `removeChild` DOM errors** — If you see a `removeChild` / `insertBefore` DOM error, check for Radix UI Dialog (or Popover/Tooltip) using `asChild` combined with conditional rendering of the child. This is a known React 19 reconciler issue. Fix by ensuring the `asChild` child is always mounted (use CSS `hidden` instead of conditional `&&`), not by changing render props.
+- **NBDC species search uses POST with form data** — Not JSON. Don't convert to `application/json`.
+- **NPWS API has a 10-second timeout** — Handle timeout errors explicitly; don't rely on default fetch behaviour.
+
+## UI Development
+
+- **Adapt component styles contextually** — When matching a reference component's visual style, preserve the target component's own data structure, grouping logic, and unique fields. State explicitly in your plan which differences you will preserve before making changes.
+- **Step root container must be `flex h-full flex-col`** — All step-level components must use this as their root className for consistent dashboard panel layout.
+
 ## Development Rules
 
 These rules MUST be followed when writing or modifying code:

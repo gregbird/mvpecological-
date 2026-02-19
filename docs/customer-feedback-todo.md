@@ -734,7 +734,7 @@ Eksik kritik bir gereksinim var: bireysel arama sonuçlarını kaydetme yeteneğ
 
 ---
 
-### 5.4 Baseline Conditions Report Çıktısı
+### 5.4 Baseline Conditions Report Çıktısı ✅
 
 **Müşteri İsteği (Orijinal):**
 
@@ -755,66 +755,47 @@ Desk Research çıktısı Baseline Conditions Report olarak organize edilmeli. B
 
 **Yapılacaklar:**
 
-- [ ] **5.4.1** Baseline Conditions Report veri yapısı
-  - Dosya: `types/baseline-report.ts`
+- [x] **5.4.1** Baseline Conditions Report veri yapısı
+  - Dosya: `components/steps/desk-assessment/baseline-report-tab.tsx`
+  - 5 bölümlü tab yapısı: Designated Sites, Species Records, Habitat Inventory, Aquatic Environment, Constraints Summary
 
-  ```typescript
-  interface BaselineConditionsReport {
-    projectId: string
-    generatedAt: Date
-
-    designatedSitesMatrix: {
-      statutory: DesignatedSite[] // Natura 2000, NHA
-      nonStatutory: DesignatedSite[] // pNHA, Local Wildlife Sites
-      zoneOfInfluence: string // "2km - 15km"
-    }
-
-    biologicalRecordsMap: {
-      protectedSpecies: SpeciesRecord[]
-      dateRange: { start: Date; end: Date } // Son 10 yıl
-      layerConfig: MapLayerConfig
-    }
-
-    habitatInventory: {
-      preliminaryHabitats: HabitatPolygon[]
-      dataSource: string // "Aerial photography + historical land-use"
-      confidenceLevel: 'preliminary' | 'verified'
-    }
-
-    hydrologyConnectivity: {
-      watercourses: Watercourse[]
-      greenCorridors: Corridor[]
-      connectivityAssessment: string
-    }
-  }
-  ```
-
-- [ ] **5.4.2** Designated Sites Matrix bileşeni
-  - Dosya: `components/reports/designated-sites-matrix.tsx`
+- [x] **5.4.2** Designated Sites Matrix bileşeni
+  - Dosya: `components/steps/desk-assessment/designated-sites-matrix.tsx`
   - Tablo formatı: Site Adı, Kodu, Tipi, Mesafe, Durum
-  - Yasal / Yasal Olmayan gruplandırma
+  - Deep research entegrasyonu, Zone of Influence gösterimi
 
-- [ ] **5.4.3** Biological Records Map bileşeni
-  - Dosya: `components/reports/biological-records-map.tsx`
-  - Çok katmanlı GIS haritası
-  - Son 10 yıl filtresi
-  - Sadece korunan türler
+- [x] **5.4.3** Biological Records Map bileşeni
+  - Dosya: `components/steps/desk-assessment/species-records-section.tsx`
+  - Species Records tablosu + harita (BaselineMap)
+  - Protected/Invasive badge'leri, Red List status, kaynak renklendirmesi
+  - Lokasyon verisi yoksa açıklayıcı mesaj gösteriliyor
 
-- [ ] **5.4.4** Habitat Inventory bileşeni
-  - Dosya: `components/reports/habitat-inventory.tsx`
-  - Ön habitat haritası görünümü
-  - FOSSITT kodları ile renklendirme
+- [x] **5.4.4** Habitat Inventory bileşeni
+  - Dosya: `components/steps/desk-assessment/habitat-inventory-section.tsx`
+  - CORINE 2018 → FOSSITT mapping (EPA GeoServer)
+  - Proje sınırına turf.js ile kırpma, async chunk işleme
+  - Supabase cache katmanı (boundary hash ile)
+  - Harita görünümü + legend
 
-- [ ] **5.4.5** Hydrology & Connectivity bileşeni
-  - Dosya: `components/reports/hydrology-connectivity.tsx`
-  - Su yolları görselleştirme
-  - Yeşil koridor analizi
-  - Bağlantı değerlendirmesi metni
+- [x] **5.4.5** Hydrology & Connectivity bileşeni
+  - Dosya: `components/steps/desk-assessment/aquatic-environment-section.tsx`
+  - Su kalitesi tablosu, WFD status, catchment bilgisi
+  - Connectivity analizi (Input/Output su yolları)
+  - Aquatic research AI özeti
 
-- [ ] **5.4.6** Baseline Report export fonksiyonu
-  - PDF export
-  - Word document export
-  - GeoJSON export (harita verileri)
+- [x] **5.4.6** Baseline Report export fonksiyonu
+  - Dosya: `lib/export/baseline-report-exporter.ts`
+  - HTML export (tarayıcıdan print-to-PDF)
+  - 5 bölümlü tam rapor: Designated Sites, Species, Habitat, Aquatic, Constraints
+
+**Düzeltmeler (19 Şubat 2026):**
+- CORINE mapping hatası düzeltildi: Mixed forest `WD→WN`, Water courses `FL→FW`
+- Export'ta habitat bölümü boştu — callback prop ile düzeltildi
+- Export constraints mantığı UI ile eşitlendi
+- Species tablosunda Protected+Invasive her ikisi gösteriliyor
+- SOURCE_COLORS'a `epa` ve `catchments` renkleri eklendi
+- Connectivity `Direction` case-insensitive yapıldı
+- `RecommendedSurveys` sadece ≤2km designated sites için tetikleniyor
 
 ---
 
@@ -919,14 +900,14 @@ Demo için platformun yaşam döngülerinde rastgele, farklı aşamalarda konuml
 
 **Yapılacaklar:**
 
-- [ ] **6.3.1** Seed data script oluştur
+- [x] **6.3.1** Seed data script oluştur
   - Dosya: `scripts/seed-demo-projects.ts`
   - 65 proje oluştur
   - Rastgele workflow aşamaları
   - Rastgele durumlar (on_track, at_risk, delayed)
   - İrlanda genelinde dağıtılmış konumlar
 
-- [ ] **6.3.2** Proje adları için İrlanda lokasyonları kullan
+- [x] **6.3.2** Proje adları için İrlanda lokasyonları kullan
 
   ```typescript
   const locations = [
@@ -938,18 +919,18 @@ Demo için platformun yaşam döngülerinde rastgele, farklı aşamalarda konuml
   ]
   ```
 
-- [ ] **6.3.3** Gerçekçi tarihler oluştur
+- [x] **6.3.3** Gerçekçi tarihler oluştur
   - Başlangıç: Son 6 ay içinde
   - Deadline: Gelecek 3 ay içinde
   - Bazıları geçmiş deadline (delayed için)
 
-- [ ] **6.3.4** Workflow adımları dağılımı
+- [x] **6.3.4** Workflow adımları dağılımı
   - Step 1-3 (Desk Research): 20 proje
   - Step 4-6 (Field Research): 25 proje
   - Step 7-10 (Reporting): 15 proje
   - Completed: 5 proje
 
-- [ ] **6.3.5** Demo verilerini kolayca sıfırlama scripti
+- [x] **6.3.5** Demo verilerini kolayca sıfırlama scripti
   ```bash
   npm run seed:demo      # Demo verileri oluştur
   npm run seed:reset     # Demo verilerini sil
@@ -1294,7 +1275,7 @@ Her tanımlanan site için rapor şunları açıkça listeler: İlişkili habita
 | 5.4 | Baseline Report | 🟡 Orta | Yüksek | 3.1, 4.1 |
 | 6.1 | Logo güncelleme | 🟢 Düşük | Düşük | - |
 | 6.2 | Admin Dashboard | 🔴 Yüksek | Yüksek | - |
-| 6.3 | 65 demo proje | 🔴 Yüksek | Orta | 6.2 |
+| 6.3 | ~~65 demo proje~~ ✅ | 🔴 Yüksek | Orta | 6.2 |
 | 6.4 | Proje detay görünümü | 🟡 Orta | Orta | - |
 | 7.1 | Gelişmiş arama | 🟡 Orta | Orta | - |
 | 7.2 | Audit Trail | 🟡 Orta | Orta | - |
@@ -1927,6 +1908,7 @@ AI raporları uygulama içinde düzenlenebilir ve tamamlanabilir olmalı. Rapor 
 | 0.1 | Satellite layer bug fix               | ✅ Tamamlandı | 11 Şub 2026  |
 | 0.3 | Veri katmanı yan panel                | ✅ Tamamlandı | Zaten mevcut |
 | 0.8 | Deep Research modal cache (reopening) | ✅ Tamamlandı | 12 Şub 2026  |
+| 6.3 | 65 demo proje seed scripti            | ✅ Tamamlandı | 19 Şub 2026  |
 
 ### ❌ İptal Edilen Görevler
 
@@ -2010,7 +1992,7 @@ AI raporları uygulama içinde düzenlenebilir ve tamamlanabilir olmalı. Rapor 
 **Sprint 8 - Admin Dashboard (3-4 gün):**
 
 - 6.2 Admin Dashboard
-- 6.3 65 demo proje
+- ~~6.3 65 demo proje~~ ✅
 - 6.4 Proje detay görünümü
 
 **Sprint 9 - Ek Özellikler (3-4 gün):**

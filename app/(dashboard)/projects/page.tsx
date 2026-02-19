@@ -134,9 +134,10 @@ export default function ProjectsPage() {
 
           return {
             ...project,
-            currentStep: currentStepData?.step_number || 1,
+            currentStep: Math.min(currentStepData?.step_number || 1, 10),
             currentStepName: currentStepData?.name || 'GIS Mapping',
-            progress: totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0,
+            progress:
+              totalSteps > 0 ? Math.min(Math.round((completedSteps / totalSteps) * 100), 100) : 0,
             isMember: memberProjectIds.includes(project.id),
           }
         })

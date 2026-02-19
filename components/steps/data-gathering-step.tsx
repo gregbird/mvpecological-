@@ -9,9 +9,11 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Loader2,
   Pencil,
   Database,
+  Layers,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
@@ -21,6 +23,7 @@ import { Badge } from '@/components/ui/badge'
 import { useSavedFindings, useFindingsStats } from '@/hooks/queries/use-finding-hooks'
 import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { useTargetNotes } from '@/hooks/queries/use-target-note-hooks'
+import { useHabitats } from '@/hooks/queries/use-habitat-hooks'
 import { useProjectContext } from '@/contexts/project-context'
 import type { Project, WorkflowStep } from '@/types/database'
 
@@ -114,7 +117,11 @@ export function DataGatheringStep({
   const { data: savedFindings = [] } = useSavedFindings(project.id)
   const { data: findingsStats } = useFindingsStats(project.id)
   const { data: targetNotes = [] } = useTargetNotes(project.id)
+  const { data: habitats = [] } = useHabitats(project.id)
   const completeStep = useCompleteWorkflowStep()
+
+  // Expanded state for Findings by Type rows
+  const [expandedType, setExpandedType] = React.useState<string | null>(null)
 
   // Project boundary and center
   const projectBoundary = project.boundary as GeoJSON.Feature<GeoJSON.Polygon> | undefined
@@ -325,38 +332,196 @@ export function DataGatheringStep({
             </div>
 
             {/* By Type */}
-            <div className="rounded-lg border p-4">
-              <h4 className="mb-3 font-medium">Findings by Type</h4>
-              <div className="space-y-2">
-                {findingsStats?.byType.map((item) => (
-                  <div key={item.type} className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground capitalize">
-                      {item.type.replace('_', ' ')}
-                    </span>
-                    <Badge variant="secondary">{item.count}</Badge>
-                  </div>
-                )) || (
-                  <>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Designated Sites</span>
-                      <Badge variant="secondary">
-                        {savedFindings.filter((f) => f.data_type === 'designated_site').length}
-                      </Badge>
+            <div className="rounded-lg border">
+              <h4 className="border-b px-4 py-3 font-medium">Findings by Type</h4>
+              <div className="divide-y">
+                {/* Habitats row */}
+                {habitats.length > 0 &&
+                  (() => {
+                    const isOpen = expandedType === 'habitats'
+                    const uniqueCodes = Array.from(
+                      new Set(habitats.map((h) => h.fossitt_code).filter(Boolean))
+                    )
+                    return (
+                      <div>
+                        <button
+                          className="hover:bg-muted/50 flex w-full items-center justify-between px-4 py-2.5 text-sm transition-colors"
+                          onClick={() => setExpandedType(isOpen ? null : 'habitats')}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Layers className="h-3.5 w-3.5 text-emerald-600" />
+                            <span className="text-muted-foreground">Habitats</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary">{uniqueCodes.length}</Badge>
+                            <ChevronDown
+                              className={cn(
+                                'text-muted-foreground h-3.5 w-3.5 transition-transform',
+                                isOpen && 'rotate-180'
+                              )}
+                            />
+                          </div>
+                        </button>
+                        {isOpen && (
+                          <div className="bg-muted/30 space-y-1 border-t px-4 py-2">
+                            {uniqueCodes.map((code) => {
+                              const h = habitats.find((x) => x.fossitt_code === code)
+                              return (
+                                <div
+                                  key={code}
+                                  className="flex items-center justify-between py-0.5 text-xs"
+                                >
+                                  <span className="text-muted-foreground truncate">
+                                    {h?.fossitt_name || code}
+                                  </span>
+                                  <Badge variant="outline" className="ml-2 shrink-0 text-xs">
+                                    {code}
+                                  </Badge>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
+
+                {/* Designated Sites row */}
+                {(() => {
+                  const items = savedFindings.filter((f) => f.data_type === 'designated_site')
+                  const isOpen = expandedType === 'designated_site'
+                  return (
+                    <div>
+                      <button
+                        className="hover:bg-muted/50 flex w-full items-center justify-between px-4 py-2.5 text-sm transition-colors"
+                        onClick={() => setExpandedType(isOpen ? null : 'designated_site')}
+                      >
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-3.5 w-3.5 text-blue-600" />
+                          <span className="text-muted-foreground">Designated Sites</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary">{items.length}</Badge>
+                          <ChevronDown
+                            className={cn(
+                              'text-muted-foreground h-3.5 w-3.5 transition-transform',
+                              isOpen && 'rotate-180'
+                            )}
+                          />
+                        </div>
+                      </button>
+                      {isOpen && items.length > 0 && (
+                        <div className="bg-muted/30 space-y-1 border-t px-4 py-2">
+                          {items.map((f) => (
+                            <div
+                              key={f.id}
+                              className="flex items-center justify-between py-0.5 text-xs"
+                            >
+                              <span className="text-muted-foreground truncate">{f.title}</span>
+                              {f.source && (
+                                <Badge variant="outline" className="ml-2 shrink-0 text-xs">
+                                  {f.source.toUpperCase()}
+                                </Badge>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Species Records</span>
-                      <Badge variant="secondary">
-                        {savedFindings.filter((f) => f.data_type === 'species_record').length}
-                      </Badge>
+                  )
+                })()}
+
+                {/* Species Records row */}
+                {(() => {
+                  const items = savedFindings.filter((f) => f.data_type === 'species_record')
+                  const isOpen = expandedType === 'species_record'
+                  return (
+                    <div>
+                      <button
+                        className="hover:bg-muted/50 flex w-full items-center justify-between px-4 py-2.5 text-sm transition-colors"
+                        onClick={() => setExpandedType(isOpen ? null : 'species_record')}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Bug className="h-3.5 w-3.5 text-amber-600" />
+                          <span className="text-muted-foreground">Species Records</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary">{items.length}</Badge>
+                          <ChevronDown
+                            className={cn(
+                              'text-muted-foreground h-3.5 w-3.5 transition-transform',
+                              isOpen && 'rotate-180'
+                            )}
+                          />
+                        </div>
+                      </button>
+                      {isOpen && items.length > 0 && (
+                        <div className="bg-muted/30 space-y-1 border-t px-4 py-2">
+                          {items.map((f) => (
+                            <div
+                              key={f.id}
+                              className="flex items-center justify-between py-0.5 text-xs"
+                            >
+                              <span className="text-muted-foreground truncate">{f.title}</span>
+                              {f.source && (
+                                <Badge variant="outline" className="ml-2 shrink-0 text-xs">
+                                  {f.source.toUpperCase()}
+                                </Badge>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Water Quality</span>
-                      <Badge variant="secondary">
-                        {savedFindings.filter((f) => f.data_type === 'water_quality').length}
-                      </Badge>
+                  )
+                })()}
+
+                {/* Aquatic row */}
+                {(() => {
+                  const items = savedFindings.filter(
+                    (f) => f.data_type === 'water_quality' || f.data_type === 'catchment'
+                  )
+                  const isOpen = expandedType === 'aquatic'
+                  return (
+                    <div>
+                      <button
+                        className="hover:bg-muted/50 flex w-full items-center justify-between px-4 py-2.5 text-sm transition-colors"
+                        onClick={() => setExpandedType(isOpen ? null : 'aquatic')}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Droplets className="h-3.5 w-3.5 text-cyan-600" />
+                          <span className="text-muted-foreground">Aquatic</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary">{items.length}</Badge>
+                          <ChevronDown
+                            className={cn(
+                              'text-muted-foreground h-3.5 w-3.5 transition-transform',
+                              isOpen && 'rotate-180'
+                            )}
+                          />
+                        </div>
+                      </button>
+                      {isOpen && items.length > 0 && (
+                        <div className="bg-muted/30 space-y-1 border-t px-4 py-2">
+                          {items.map((f) => (
+                            <div
+                              key={f.id}
+                              className="flex items-center justify-between py-0.5 text-xs"
+                            >
+                              <span className="text-muted-foreground truncate">{f.title}</span>
+                              {f.source && (
+                                <Badge variant="outline" className="ml-2 shrink-0 text-xs">
+                                  {f.source.toUpperCase()}
+                                </Badge>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  </>
-                )}
+                  )
+                })()}
               </div>
             </div>
 

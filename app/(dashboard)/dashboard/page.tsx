@@ -11,9 +11,11 @@ import {
   Loader2,
   ChevronRight,
   FolderKanban,
+  Search,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { useRole } from '@/contexts/role-context'
 import { createClient } from '@/lib/supabase/client'
 import type { Project, WorkflowStep } from '@/types/database'
@@ -117,8 +119,8 @@ function DonutChart({
         )}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-3xl font-bold text-gray-900">{centerValue}</span>
-        <span className="text-sm text-gray-500">{centerLabel}</span>
+        <span className="text-foreground text-3xl font-bold">{centerValue}</span>
+        <span className="text-muted-foreground text-sm">{centerLabel}</span>
       </div>
     </div>
   )
@@ -139,7 +141,18 @@ export default function DashboardPage() {
     reporting: 0,
   })
   const [allProjects, setAllProjects] = React.useState<ProjectWithTimeline[]>([])
+  const [searchQuery, setSearchQuery] = React.useState('')
   const [showAllProjects, setShowAllProjects] = React.useState(false)
+
+  const filteredProjects = React.useMemo(() => {
+    if (!searchQuery) return allProjects
+    const query = searchQuery.toLowerCase()
+    return allProjects.filter(
+      (project) =>
+        project.name.toLowerCase().includes(query) ||
+        project.site_code?.toLowerCase().includes(query)
+    )
+  }, [allProjects, searchQuery])
   const [isLoading, setIsLoading] = React.useState(true)
   const [selectedProject, setSelectedProject] = React.useState<ProjectWithTimeline | null>(null)
   const [workflowStepsMap, setWorkflowStepsMap] = React.useState<Record<string, WorkflowStep[]>>({})
@@ -316,9 +329,10 @@ export default function DashboardPage() {
 
           return {
             ...project,
-            currentStep: currentStepData?.step_number || 1,
+            currentStep: Math.min(currentStepData?.step_number || 1, 10),
             currentStepName: currentStepData?.name || 'GIS Mapping',
-            progress: totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0,
+            progress:
+              totalSteps > 0 ? Math.min(Math.round((completedSteps / totalSteps) * 100), 100) : 0,
             timelineProgress,
             healthStatus,
             daysInfo,
@@ -409,14 +423,14 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 lg:p-8">
+    <div className="bg-background min-h-screen p-6 lg:p-8">
       {/* Page Header */}
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-foreground text-2xl font-bold">
             {isAdmin ? 'Dashboard' : 'My Dashboard'}
           </h1>
-          <p className="mt-1 text-gray-500">Welcome back, {user?.full_name || 'User'}</p>
+          <p className="text-muted-foreground mt-1">Welcome back, {user?.full_name || 'User'}</p>
         </div>
         {permissions.canCreateProject && (
           <Button asChild className="bg-blue-600 hover:bg-blue-700">
@@ -433,11 +447,11 @@ export default function DashboardPage() {
         {statsCards.map((stat) => {
           const Icon = stat.icon
           return (
-            <Card key={stat.label} className={`border-l-4 border-gray-100 ${stat.border}`}>
+            <Card key={stat.label} className={`border-border border-l-4 ${stat.border}`}>
               <CardContent className="px-5 py-5">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-500">{stat.label}</p>
+                    <p className="text-muted-foreground text-sm">{stat.label}</p>
                     <p className={`mt-1.5 text-3xl font-bold ${stat.valueColor}`}>{stat.value}</p>
                   </div>
                   <div className={`rounded-full p-3 ${stat.iconBg}`}>
@@ -471,7 +485,7 @@ export default function DashboardPage() {
                       className="h-3.5 w-3.5 rounded-sm"
                       style={{ backgroundColor: item.color }}
                     />
-                    <span className="text-sm text-gray-600">{item.label}</span>
+                    <span className="text-muted-foreground text-sm">{item.label}</span>
                   </div>
                   <span className="text-sm font-semibold">{item.value}</span>
                 </div>
@@ -495,7 +509,7 @@ export default function DashboardPage() {
                       className="h-3.5 w-3.5 rounded-sm"
                       style={{ backgroundColor: item.color }}
                     />
-                    <span className="text-sm text-gray-600">{item.label}</span>
+                    <span className="text-muted-foreground text-sm">{item.label}</span>
                   </div>
                   <span className="text-sm font-semibold">{item.value}</span>
                 </div>
@@ -523,7 +537,7 @@ export default function DashboardPage() {
                       className="h-3.5 w-3.5 rounded-full"
                       style={{ backgroundColor: item.color }}
                     />
-                    <span className="text-sm text-gray-600">{item.label}</span>
+                    <span className="text-muted-foreground text-sm">{item.label}</span>
                   </div>
                   <span className="text-sm font-semibold">{item.value}</span>
                 </div>
@@ -536,7 +550,7 @@ export default function DashboardPage() {
       {/* All Projects Timeline Status */}
       <div className="mb-6">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">All Projects Timeline Status</h2>
+          <h2 className="text-foreground text-xl font-semibold">All Projects Timeline Status</h2>
           <Button variant="ghost" size="sm" asChild>
             <Link href="/projects">
               View all
@@ -545,17 +559,32 @@ export default function DashboardPage() {
           </Button>
         </div>
 
-        {allProjects.length === 0 ? (
+        {/* Search bar */}
+        {allProjects.length > 0 && (
+          <div className="relative mb-4">
+            <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+            <Input
+              placeholder="Search projects..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        )}
+
+        {filteredProjects.length === 0 ? (
           <Card>
             <CardContent className="py-8">
               <div className="text-center">
-                <FolderKanban className="mx-auto mb-3 h-12 w-12 text-gray-300" />
-                <p className="text-gray-500">
-                  {isAdmin
-                    ? 'No projects yet. Create your first project to get started.'
-                    : 'No projects assigned to you yet.'}
+                <FolderKanban className="text-muted-foreground/40 mx-auto mb-3 h-12 w-12" />
+                <p className="text-muted-foreground">
+                  {searchQuery
+                    ? 'No projects match your search.'
+                    : isAdmin
+                      ? 'No projects yet. Create your first project to get started.'
+                      : 'No projects assigned to you yet.'}
                 </p>
-                {permissions.canCreateProject && (
+                {!searchQuery && permissions.canCreateProject && (
                   <Button asChild className="mt-4 bg-emerald-600 hover:bg-emerald-700">
                     <Link href="/projects/new">
                       <Plus className="mr-2 h-4 w-4" />
@@ -569,102 +598,108 @@ export default function DashboardPage() {
         ) : (
           <>
             <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-              {(showAllProjects ? allProjects : allProjects.slice(0, 12)).map((project) => {
-                const healthColors = {
-                  on_track: {
-                    dot: 'bg-green-500',
-                    text: 'text-green-600',
-                    bar: 'bg-green-500',
-                  },
-                  at_risk: {
-                    dot: 'bg-amber-500',
-                    text: 'text-amber-600',
-                    bar: 'bg-amber-500',
-                  },
-                  overdue: {
-                    dot: 'bg-red-500',
-                    text: 'text-red-600',
-                    bar: 'bg-red-500',
-                  },
-                }
-                const colors = healthColors[project.healthStatus]
-                const statusLabel =
-                  project.status === 'completed'
-                    ? 'Completed'
-                    : project.status === 'draft'
-                      ? 'Draft'
-                      : 'Active'
+              {(showAllProjects ? filteredProjects : filteredProjects.slice(0, 12)).map(
+                (project) => {
+                  const healthColors = {
+                    on_track: {
+                      dot: 'bg-green-500',
+                      text: 'text-green-600',
+                      bar: 'bg-green-500',
+                    },
+                    at_risk: {
+                      dot: 'bg-amber-500',
+                      text: 'text-amber-600',
+                      bar: 'bg-amber-500',
+                    },
+                    overdue: {
+                      dot: 'bg-red-500',
+                      text: 'text-red-600',
+                      bar: 'bg-red-500',
+                    },
+                  }
+                  const colors = healthColors[project.healthStatus]
+                  const statusLabel =
+                    project.status === 'completed'
+                      ? 'Completed'
+                      : project.status === 'draft'
+                        ? 'Draft'
+                        : 'Active'
 
-                const formatDate = (dateStr: string | null) => {
-                  if (!dateStr) return null
-                  return new Date(dateStr).toLocaleDateString('en-IE', {
-                    day: 'numeric',
-                    month: 'short',
-                  })
-                }
+                  const formatDate = (dateStr: string | null) => {
+                    if (!dateStr) return null
+                    return new Date(dateStr).toLocaleDateString('en-IE', {
+                      day: 'numeric',
+                      month: 'short',
+                    })
+                  }
 
-                const startLabel = formatDate(project.expected_start_date ?? project.created_at)
-                const endLabel = formatDate(project.expected_end_date)
+                  const startLabel = formatDate(project.expected_start_date ?? project.created_at)
+                  const endLabel = formatDate(project.expected_end_date)
 
-                return (
-                  <div
-                    key={project.id}
-                    onClick={() => {
-                      if (isAdmin) {
-                        setSelectedProject(project)
-                      } else {
-                        router.push(`/projects/${project.id}?step=${project.currentStep}`)
-                      }
-                    }}
-                    className="block cursor-pointer"
-                  >
-                    <Card className="h-full transition-colors hover:border-blue-300 hover:shadow-md">
-                      <CardContent className="p-5">
-                        {/* Row 1: Status dot + Project name */}
-                        <div className="mb-1 flex items-center gap-2.5">
-                          <div className={`h-3.5 w-3.5 flex-shrink-0 rounded-full ${colors.dot}`} />
-                          <h3 className="line-clamp-1 leading-tight font-semibold text-gray-900">
-                            {project.name}
-                          </h3>
-                        </div>
-
-                        {/* Row 2: Site code */}
-                        <p className="mb-3 pl-6 font-mono text-xs text-gray-400">
-                          {project.site_code || project.id.slice(0, 8)}
-                        </p>
-
-                        {/* Row 3: Status + days info */}
-                        <div className="mb-2 flex items-center justify-between">
-                          <span className="text-sm text-gray-600">{statusLabel}</span>
-                          <span className={`text-sm font-semibold ${colors.text}`}>
-                            {project.daysInfo}
-                          </span>
-                        </div>
-
-                        {/* Row 4: Progress bar */}
-                        <div className="mb-2">
-                          <div className="h-2 w-full rounded-full bg-gray-100">
+                  return (
+                    <div
+                      key={project.id}
+                      onClick={() => {
+                        if (isAdmin) {
+                          setSelectedProject(project)
+                        } else {
+                          router.push(`/projects/${project.id}?step=${project.currentStep}`)
+                        }
+                      }}
+                      className="block cursor-pointer"
+                    >
+                      <Card className="h-full transition-colors hover:border-blue-300 hover:shadow-md dark:hover:border-blue-700">
+                        <CardContent className="p-5">
+                          {/* Row 1: Status dot + Project name */}
+                          <div className="mb-1 flex items-center gap-2.5">
                             <div
-                              className={`h-2 rounded-full transition-all ${colors.bar}`}
-                              style={{ width: `${project.timelineProgress}%` }}
+                              className={`h-3.5 w-3.5 flex-shrink-0 rounded-full ${colors.dot}`}
                             />
+                            <h3 className="text-foreground line-clamp-1 leading-tight font-semibold">
+                              {project.name}
+                            </h3>
                           </div>
-                        </div>
 
-                        {/* Row 5: Start - End dates */}
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-400">{startLabel || '—'}</span>
-                          <span className="text-xs text-gray-400">{endLabel || '—'}</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                )
-              })}
+                          {/* Row 2: Site code */}
+                          <p className="text-muted-foreground mb-3 pl-6 font-mono text-xs">
+                            {project.site_code || project.id.slice(0, 8)}
+                          </p>
+
+                          {/* Row 3: Status + days info */}
+                          <div className="mb-2 flex items-center justify-between">
+                            <span className="text-muted-foreground text-sm">{statusLabel}</span>
+                            <span className={`text-sm font-semibold ${colors.text}`}>
+                              {project.daysInfo}
+                            </span>
+                          </div>
+
+                          {/* Row 4: Progress bar */}
+                          <div className="mb-2">
+                            <div className="bg-muted h-2 w-full rounded-full">
+                              <div
+                                className={`h-2 rounded-full transition-all ${colors.bar}`}
+                                style={{ width: `${project.timelineProgress}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Row 5: Start - End dates */}
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground text-xs">
+                              {startLabel || '—'}
+                            </span>
+                            <span className="text-muted-foreground text-xs">{endLabel || '—'}</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )
+                }
+              )}
             </div>
 
             {/* Show more / Show less toggle */}
-            {allProjects.length > 12 && (
+            {filteredProjects.length > 12 && (
               <div className="mt-5 text-center">
                 <Button
                   variant="outline"
@@ -711,7 +746,9 @@ export default function DashboardPage() {
                   <Link href={`/projects/${project.id}?step=${project.currentStep}`}>
                     <div className="text-left">
                       <p className="font-medium">{project.name}</p>
-                      <p className="text-sm text-gray-500">Continue: {project.currentStepName}</p>
+                      <p className="text-muted-foreground text-sm">
+                        Continue: {project.currentStepName}
+                      </p>
                     </div>
                     <ChevronRight className="ml-auto h-4 w-4" />
                   </Link>

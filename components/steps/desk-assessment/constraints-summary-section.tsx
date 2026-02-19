@@ -177,8 +177,21 @@ function SummaryCards({ findings }: { findings: DeskResearchFinding[] }) {
 function RecommendedSurveys({ findings }: { findings: DeskResearchFinding[] }) {
   const recommendations: { title: string; reason: string }[] = []
 
-  const hasDesignatedSites = findings.some((f) => f.data_type === 'designated_site')
-  const hasProtectedSpecies = findings.some((f) => f.is_protected)
+  const hasDesignatedSites = findings.some((f) => {
+    if (f.data_type !== 'designated_site') return false
+    const raw = f.raw_data as Record<string, unknown> | null
+    const metadata = raw?.metadata as Record<string, unknown> | null
+    const distance = f.distance_from_boundary_km ?? (metadata?.distance as number) ?? null
+    return distance == null || distance === 0 || distance <= 2
+  })
+  const hasProtectedSpecies = findings.some((f) => {
+    if (f.data_type !== 'species_record') return false
+    const metadata = (f.raw_data as Record<string, unknown> | null)?.metadata as Record<
+      string,
+      unknown
+    > | null
+    return f.is_protected || metadata?.isProtected === true
+  })
   const hasAquatic = findings.some(
     (f) => f.data_type === 'water_quality' || f.data_type === 'catchment'
   )

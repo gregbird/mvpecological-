@@ -19,6 +19,13 @@ import {
 } from '@/lib/export/baseline-report-exporter'
 import type { DeskResearchFinding, Project } from '@/types/database'
 
+interface HabitatRow {
+  fossittCode: string
+  fossittName: string
+  areaHa: number
+  percentage: number
+}
+
 interface BaselineReportTabProps {
   savedFindings: DeskResearchFinding[]
   project: Project
@@ -31,6 +38,9 @@ export function BaselineReportTab({ savedFindings, project }: BaselineReportTabP
   )
 
   const boundary = project.boundary as GeoJSON.Feature<GeoJSON.Polygon> | undefined
+
+  // Lifted habitat state from HabitatInventorySection for use in export
+  const [habitatRows, setHabitatRows] = React.useState<HabitatRow[]>([])
 
   const handleExport = React.useCallback(() => {
     const designatedSites = savedFindings
@@ -55,7 +65,7 @@ export function BaselineReportTab({ savedFindings, project }: BaselineReportTabP
           name: f.title,
           taxon: (metadata?.taxonGroup as string) || 'Unknown',
           source: f.source,
-          protected: f.is_protected || false,
+          protected: f.is_protected || (metadata?.isProtected as boolean) || false,
           records: (metadata?.recordCount as number) || 1,
         }
       })
@@ -68,6 +78,7 @@ export function BaselineReportTab({ savedFindings, project }: BaselineReportTabP
         const siteType = (metadata?.siteType as string) || ''
         let type = 'River'
         if (siteType.toLowerCase().includes('lake')) type = 'Lake'
+        else if (siteType.toLowerCase().includes('transitional')) type = 'Transitional'
         else if (f.data_type === 'catchment') type = 'Catchment'
         return {
           name: f.title,
@@ -77,14 +88,61 @@ export function BaselineReportTab({ savedFindings, project }: BaselineReportTabP
         }
       })
 
-    const constraints = savedFindings
-      .filter((f) => f.is_protected || f.relevance_level === 'high')
-      .map((f) => ({
-        finding: f.title,
-        type: f.data_type.replace('_', ' '),
-        source: f.source,
-        constraint: f.is_protected ? 'Protected — further survey required' : 'High relevance',
-      }))
+    // Use same logic as extractConstraints() in constraints-summary-section
+    const constraints: BaselineExportData['constraints'] = []
+    for (const f of savedFindings) {
+      const raw = f.raw_data as Record<string, unknown> | null
+      const metadata = raw?.metadata as Record<string, unknown> | null
+
+      if (f.data_type === 'designated_site') {
+        const distance = f.distance_from_boundary_km ?? (metadata?.distance as number) ?? null
+        if (distance != null && distance <= 2) {
+          constraints.push({
+            finding: f.title,
+            type: 'Designated Site',
+            source: f.source,
+            constraint: `Within ${distance.toFixed(1)} km of site boundary`,
+          })
+        } else if (distance == null || distance === 0) {
+          constraints.push({
+            finding: f.title,
+            type: 'Designated Site',
+            source: f.source,
+            constraint: 'Overlaps or adjacent to site boundary',
+          })
+        }
+      }
+
+      if (f.data_type === 'species_record' && (f.is_protected || metadata?.isProtected)) {
+        constraints.push({
+          finding: f.title,
+          type: 'Species Record',
+          source: f.source,
+          constraint: 'Protected species — Wildlife Acts / Habitats Directive',
+        })
+      }
+
+      if (f.data_type === 'species_record' && metadata?.isInvasive) {
+        constraints.push({
+          finding: f.title,
+          type: 'Species Record',
+          source: f.source,
+          constraint: 'Invasive species — management measures required',
+        })
+      }
+
+      if (f.data_type === 'water_quality') {
+        const wfdStatus = (raw?.WFD_Status as string) || ''
+        if (['Poor', 'Bad', 'Moderate'].includes(wfdStatus)) {
+          constraints.push({
+            finding: f.title,
+            type: 'Water Quality',
+            source: f.source,
+            constraint: `WFD Status: ${wfdStatus} — water quality constraint`,
+          })
+        }
+      }
+    }
 
     const data: BaselineExportData = {
       projectName: project.name,
@@ -96,7 +154,12 @@ export function BaselineReportTab({ savedFindings, project }: BaselineReportTabP
       }),
       designatedSites,
       speciesRecords,
-      habitatTypes: [], // Populated from CORINE at render time; not available here
+      habitatTypes: habitatRows.map((h) => ({
+        fossittCode: h.fossittCode,
+        name: h.fossittName,
+        areaHa: h.areaHa,
+        percentage: h.percentage,
+      })),
       waterBodies,
       constraints,
     }
@@ -109,7 +172,7 @@ export function BaselineReportTab({ savedFindings, project }: BaselineReportTabP
     a.download = `${(project.site_code || project.name).replace(/\s+/g, '_')}_baseline_report.html`
     a.click()
     URL.revokeObjectURL(url)
-  }, [savedFindings, project])
+  }, [savedFindings, project, habitatRows])
 
   if (isLoadingDeep || isLoadingAquatic) {
     return (
@@ -143,7 +206,7 @@ export function BaselineReportTab({ savedFindings, project }: BaselineReportTabP
       {/* Section 3: Preliminary Habitat Inventory */}
       <section>
         <h3 className="mb-4 text-lg font-semibold">3. Preliminary Habitat Inventory</h3>
-        <HabitatInventorySection project={project} />
+        <HabitatInventorySection project={project} onHabitatData={setHabitatRows} />
       </section>
 
       {/* Section 4: Aquatic Environment */}
