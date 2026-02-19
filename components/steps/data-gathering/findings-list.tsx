@@ -19,6 +19,8 @@ import {
   Check,
   Save,
   AlertCircle,
+  MessageSquare,
+  X,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -44,6 +46,7 @@ export interface FindingDisplay {
   isSaved: boolean
   sourceUrl?: string
   rawData?: Record<string, unknown>
+  notes?: string
   metadata?: {
     siteCode?: string
     siteType?: string
@@ -105,6 +108,8 @@ interface FindingsListProps {
   siteTypeFilterOrder?: string[]
   // Callback when site type filter changes (for syncing map display)
   onSiteTypeFilterChange?: (siteType: string | null) => void
+  // Note callback for saved findings
+  onUpdateNote?: (findingId: string, notes: string) => void
   // AI Summary button in header
   onSummarizeAll?: () => void
   onStopSummarize?: () => void
@@ -186,6 +191,7 @@ export function FindingsList({
   enrichmentStatus,
   sourceFilter,
   onSourceFilterChange,
+  onUpdateNote,
 }: FindingsListProps) {
   const [sortBy, setSortBy] = React.useState<'distance' | 'title' | 'type'>('type')
   const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>('asc')
@@ -193,6 +199,10 @@ export function FindingsList({
   const RESULTS_PER_PAGE = 20
   const [activeSiteTypeFilter, setActiveSiteTypeFilter] = React.useState<string | null>(null)
   const [showSavedOnly, setShowSavedOnly] = React.useState(false)
+  // Note state: openNoteId = which finding has note textarea open; noteDrafts = current textarea value
+  const [openNoteId, setOpenNoteId] = React.useState<string | null>(null)
+  const [noteDrafts, setNoteDrafts] = React.useState<Record<string, string>>({})
+  const [savingNoteIds, setSavingNoteIds] = React.useState<Set<string>>(new Set())
 
   // Check if finding is already saved
   const isFindingSaved = (finding: FindingDisplay) => {
@@ -839,7 +849,83 @@ export function FindingsList({
                       </a>
                     )
                   )}
+                  {/* Note toggle — only for saved findings when onUpdateNote provided */}
+                  {saved && onUpdateNote && (
+                    <button
+                      className={`flex items-center gap-1 ${finding.notes ? 'text-amber-600 hover:text-amber-700' : 'text-gray-400 hover:text-gray-600'}`}
+                      onClick={() => {
+                        if (openNoteId === finding.id) {
+                          setOpenNoteId(null)
+                        } else {
+                          setNoteDrafts((prev) => ({
+                            ...prev,
+                            [finding.id]: finding.notes ?? '',
+                          }))
+                          setOpenNoteId(finding.id)
+                        }
+                      }}
+                      title={finding.notes ? 'Edit note' : 'Add note'}
+                    >
+                      <MessageSquare className="h-3 w-3" />
+                      {finding.notes ? 'Note' : 'Add note'}
+                    </button>
+                  )}
                 </div>
+
+                {/* Inline note display (when not editing) */}
+                {finding.notes && openNoteId !== finding.id && (
+                  <div className="mt-1.5 flex items-start gap-1.5 rounded border border-amber-200 bg-amber-50 px-2 py-1.5">
+                    <MessageSquare className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" />
+                    <p className="text-[11px] leading-relaxed text-amber-800">{finding.notes}</p>
+                  </div>
+                )}
+
+                {/* Inline note editor (when open) */}
+                {openNoteId === finding.id && onUpdateNote && (
+                  <div className="mt-1.5 space-y-1.5">
+                    <textarea
+                      autoFocus
+                      className="w-full rounded border border-amber-300 bg-amber-50 p-2 text-[11px] leading-relaxed text-amber-900 placeholder:text-amber-400 focus:border-amber-400 focus:ring-1 focus:ring-amber-300 focus:outline-none"
+                      rows={3}
+                      placeholder="Add a note about this finding..."
+                      value={noteDrafts[finding.id] ?? ''}
+                      onChange={(e) =>
+                        setNoteDrafts((prev) => ({ ...prev, [finding.id]: e.target.value }))
+                      }
+                    />
+                    <div className="flex items-center gap-2">
+                      <button
+                        disabled={savingNoteIds.has(finding.id)}
+                        className="flex h-6 items-center gap-1 rounded bg-amber-500 px-2 text-[11px] font-medium text-white hover:bg-amber-600 disabled:opacity-50"
+                        onClick={async () => {
+                          const draft = noteDrafts[finding.id] ?? ''
+                          setSavingNoteIds((prev) => new Set(prev).add(finding.id))
+                          await onUpdateNote(finding.id, draft)
+                          setSavingNoteIds((prev) => {
+                            const next = new Set(prev)
+                            next.delete(finding.id)
+                            return next
+                          })
+                          setOpenNoteId(null)
+                        }}
+                      >
+                        {savingNoteIds.has(finding.id) ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Check className="h-3 w-3" />
+                        )}
+                        Save
+                      </button>
+                      <button
+                        className="flex h-6 items-center gap-1 rounded px-2 text-[11px] text-gray-500 hover:text-gray-700"
+                        onClick={() => setOpenNoteId(null)}
+                      >
+                        <X className="h-3 w-3" />
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )
           })}

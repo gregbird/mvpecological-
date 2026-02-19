@@ -412,6 +412,18 @@ export function DataGatheringSubstepShell({
     [config, savedFindings]
   )
 
+  // ── Note update handler ─────────────────────────────────────────────────
+  const handleUpdateNote = React.useCallback(
+    async (findingId: string, notes: string) => {
+      try {
+        await updateFinding.mutateAsync({ findingId, updates: { notes: notes || null } })
+      } catch (error) {
+        console.error('Failed to update note:', error)
+      }
+    },
+    [updateFinding]
+  )
+
   // ── No boundary check ──────────────────────────────────────────────────
   if (!projectBoundary) {
     return (
@@ -540,6 +552,7 @@ export function DataGatheringSubstepShell({
             onViewOnMap={(f) => setSelectedFinding(f)}
             onDeepResearch={config.onDeepResearch ? handleDeepResearch : undefined}
             onFetchAiSummary={handleFetchAiSummary}
+            onUpdateNote={handleUpdateNote}
             emptyMessage={config.emptyMessage}
             hiddenIds={hiddenIds}
             onToggleVisibility={handleToggleVisibility}

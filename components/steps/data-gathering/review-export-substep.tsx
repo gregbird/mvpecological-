@@ -19,6 +19,8 @@ import {
   ChevronUp,
   BookOpen,
   Ruler,
+  MessageSquare,
+  X,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
@@ -35,6 +37,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { TargetNoteForm } from './target-note-form'
+import { useUpdateFinding } from '@/hooks/queries/use-finding-hooks'
 import type { Project, DeskResearchFinding } from '@/types/database'
 import type { TargetNoteWithCreator } from '@/lib/supabase/queries/target-notes'
 import { ScreenshotGallery } from '@/components/maps/screenshot-gallery'
@@ -131,6 +134,10 @@ export function ReviewExportSubStep({
 }: ReviewExportSubStepProps) {
   const [showNoteForm, setShowNoteForm] = React.useState(false)
   const [expandedFindingId, setExpandedFindingId] = React.useState<string | null>(null)
+  const [editingNoteId, setEditingNoteId] = React.useState<string | null>(null)
+  const [noteDrafts, setNoteDrafts] = React.useState<Record<string, string>>({})
+  const [savingNoteIds, setSavingNoteIds] = React.useState<Set<string>>(new Set())
+  const updateFinding = useUpdateFinding()
 
   // Helper to get AI summary from raw_data (inline summary only)
   const getAISummary = (finding: DeskResearchFinding): string | null => {
@@ -201,6 +208,7 @@ export function ReviewExportSubStep({
       'Protected',
       'Red List Status',
       'Content',
+      'Notes',
       'AI Summary',
       'Deep Research',
     ]
@@ -217,6 +225,7 @@ export function ReviewExportSubStep({
         f.is_protected ? 'Yes' : 'No',
         f.red_list_status || '',
         f.content || '',
+        f.notes || '',
         aiSummary ? aiSummary.replace(/"/g, '""').replace(/\n/g, ' ') : '',
         deepResearch ? deepResearch.replace(/"/g, '""').replace(/\n/g, ' ') : '',
       ]
@@ -296,6 +305,7 @@ export function ReviewExportSubStep({
           distance_km: f.distance_from_boundary_km,
           isProtected: f.is_protected,
           redListStatus: f.red_list_status,
+          notes: f.notes || undefined,
           aiSummary: aiSummary || undefined,
           deepResearch: deepResearch || undefined,
           rawData: f.raw_data,
@@ -554,6 +564,97 @@ export function ReviewExportSubStep({
                                 </p>
                               </div>
                             )}
+                            {/* Note section */}
+                            <div
+                              className="border-b bg-amber-50 p-3"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="mb-1.5 flex items-center justify-between">
+                                <div className="flex items-center gap-1 text-[10px] font-medium text-amber-700">
+                                  <MessageSquare className="h-3 w-3" />
+                                  Note on: {finding.title}
+                                </div>
+                                {editingNoteId !== finding.id && (
+                                  <button
+                                    className="text-[10px] text-amber-600 hover:underline"
+                                    onClick={() => {
+                                      setNoteDrafts((prev) => ({
+                                        ...prev,
+                                        [finding.id]: finding.notes || '',
+                                      }))
+                                      setEditingNoteId(finding.id)
+                                    }}
+                                  >
+                                    {finding.notes ? 'Edit' : 'Add note'}
+                                  </button>
+                                )}
+                              </div>
+                              {editingNoteId === finding.id ? (
+                                <div className="space-y-1.5">
+                                  <textarea
+                                    autoFocus
+                                    className="w-full rounded border border-amber-300 bg-white p-2 text-[11px] leading-relaxed text-amber-900 placeholder:text-amber-400 focus:border-amber-400 focus:ring-1 focus:ring-amber-300 focus:outline-none"
+                                    rows={3}
+                                    placeholder="Add a note about this finding..."
+                                    value={noteDrafts[finding.id] ?? ''}
+                                    onChange={(e) =>
+                                      setNoteDrafts((prev) => ({
+                                        ...prev,
+                                        [finding.id]: e.target.value,
+                                      }))
+                                    }
+                                  />
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      disabled={savingNoteIds.has(finding.id)}
+                                      className="flex h-6 items-center gap-1 rounded bg-amber-500 px-2 text-[11px] font-medium text-white hover:bg-amber-600 disabled:opacity-50"
+                                      onClick={async () => {
+                                        const draft = noteDrafts[finding.id] ?? ''
+                                        setSavingNoteIds((prev) => new Set(prev).add(finding.id))
+                                        try {
+                                          await updateFinding.mutateAsync({
+                                            findingId: finding.id,
+                                            updates: { notes: draft || null },
+                                          })
+                                        } catch {
+                                          // error handled by react-query
+                                        } finally {
+                                          setSavingNoteIds((prev) => {
+                                            const next = new Set(prev)
+                                            next.delete(finding.id)
+                                            return next
+                                          })
+                                          setEditingNoteId(null)
+                                        }
+                                      }}
+                                    >
+                                      {savingNoteIds.has(finding.id) ? (
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                      ) : (
+                                        <Check className="h-3 w-3" />
+                                      )}
+                                      Save
+                                    </button>
+                                    <button
+                                      className="flex h-6 items-center gap-1 rounded px-2 text-[11px] text-gray-500 hover:text-gray-700"
+                                      onClick={() => setEditingNoteId(null)}
+                                    >
+                                      <X className="h-3 w-3" />
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : finding.notes ? (
+                                <p className="text-xs leading-relaxed text-amber-800">
+                                  {finding.notes}
+                                </p>
+                              ) : (
+                                <p className="text-[11px] text-amber-400 italic">
+                                  No note yet. Click &ldquo;Add note&rdquo; to annotate this
+                                  finding.
+                                </p>
+                              )}
+                            </div>
                             {/* AI Summary section */}
                             {aiSummary && (
                               <div className="bg-purple-50 p-3">

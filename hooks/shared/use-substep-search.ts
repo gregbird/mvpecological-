@@ -120,6 +120,7 @@ export function useSubstepSearch(
       content: f.content || undefined,
       location: f.location as GeoJSON.Geometry | undefined,
       isSaved: true,
+      notes: f.notes ?? undefined,
       metadata: {
         siteCode: (f.raw_data as Record<string, unknown>)?.siteCode as string | undefined,
         siteType: (f.raw_data as Record<string, unknown>)?.siteType as string | undefined,
@@ -172,6 +173,21 @@ export function useSubstepSearch(
           return { ...result, location: match.location as GeoJSON.Geometry }
         }
         return result
+      })
+    )
+  }, [savedFindings])
+
+  // --- Sync notes from savedFindings into searchResults when notes change ---
+  React.useEffect(() => {
+    if (searchResults.length === 0 || savedFindings.length === 0) return
+
+    setSearchResults((prev) =>
+      prev.map((result) => {
+        const match = savedFindings.find((sf) => sf.id === result.id || matchPredicate(sf, result))
+        if (!match) return result
+        const newNotes = match.notes ?? undefined
+        if (newNotes === result.notes) return result
+        return { ...result, notes: newNotes }
       })
     )
   }, [savedFindings])

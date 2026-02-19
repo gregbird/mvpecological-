@@ -986,33 +986,25 @@ Sistem, yöneticilerin geçmiş, arşivlenmiş veya tamamlanmış projeler hakk�
 
 **Yapılacaklar:**
 
-- [ ] **7.1.1** Harici feedback dokümanını incele
-  - Link: Google Docs (müşteriden alınacak)
-  - Gereksinimleri çıkar
+- [x] **7.1.1** Harici feedback dokümanını incele
+  - ✅ **TAMAMLANDI (19 Şubat 2026):** Google Docs linki feedback metninde bulundu ve incelendi. User Story: Librarian-Style Project Indexing & Summarization (Paddy/Senior Ecologist).
 
-- [ ] **7.1.2** Gelişmiş arama UI'ı
-  - Dosya: `components/search/advanced-search.tsx`
-  - Filtreler:
-    - Proje tipi (PEA, EcIA, AA, NIS)
-    - Tarih aralığı
-    - Durum (completed, archived)
-    - Lokasyon (county)
-    - Ekip üyesi
-    - Müşteri
+- [x] **7.1.2** Gelişmiş arama UI'ı
+  - ✅ **TAMAMLANDI (19 Şubat 2026):** `app/(dashboard)/projects/page.tsx` güncellendi.
+  - Survey tipi filtresi (PEA, EcIA, AA, NIS, Bat Survey...)
+  - Durum filtresi (Active, Draft, Completed, Archived)
+  - County filtresi (DB'den dinamik)
+  - Sıralama: Son güncelleme, Oluşturma tarihi, İsim A-Z, Bitiş tarihi
+  - Sonuç sayacı ve "Clear" butonu
 
-- [ ] **7.1.3** Full-text search implementasyonu
-  - Supabase full-text search kullan
-  - Veya Algolia/Meilisearch entegrasyonu
+- [x] **7.1.3** Full-text search implementasyonu
+  - ✅ **TAMAMLANDI (19 Şubat 2026):** Client-side full-text search. Ad, client, site kodu, county, survey type alanlarında arama yapılıyor.
 
-- [ ] **7.1.4** Arama sonuçları sayfası
-  - Dosya: `app/(dashboard)/search/page.tsx`
-  - Sayfalama
-  - Sıralama seçenekleri
-  - Sonuç önizleme kartları
+- [x] **7.1.4** Arama sonuçları sayfası
+  - ✅ **TAMAMLANDI (19 Şubat 2026):** Ayrı sayfa yerine mevcut `/projects` sayfasına entegre edildi. Filtrelenmiş sonuçlar anlık güncelleniyor.
 
-- [ ] **7.1.5** "Son Aramalar" özelliği
-  - Kullanıcı bazlı arama geçmişi
-  - Hızlı erişim için kayıtlı aramalar
+- [x] **7.1.5** "Son Aramalar" özelliği
+  - ✅ **TAMAMLANDI (19 Şubat 2026) — AC2 olarak:** Her proje kartında AI 3-satır özet butonu eklendi (`/api/ai/project-summary`). Desk research bulguları (designated sites, species, kaynaklar) kullanılarak GPT-4o-mini ile özet üretiliyor. Cache'leniyor, tekrar çekilmiyor.
 
 ---
 
@@ -1027,56 +1019,48 @@ Tüm önemli sistem aktivitelerini, kullanıcı eylemlerini ve veri değişiklik
 
 **Yapılacaklar:**
 
-- [ ] **7.2.1** Mevcut audit_log tablosunu incele
+- [x] **7.2.1** Mevcut audit_log tablosunu incele
   - Yapı mevcut mu?
   - Hangi aksiyonlar loglanıyor?
 
-- [ ] **7.2.2** Audit log trigger'ları ekle/güncelle
+  ✅ **TAMAMLANDI (19 Şubat 2026):**
+  - `audit_log` tablosu zaten mevcut ve çalışıyor (2215 kayıt)
+  - INSERT/UPDATE/DELETE trigger tüm tablolarda aktif
+  - Dosya: `lib/supabase/queries/audit.ts`
 
-  ```sql
-  -- Örnek trigger
-  CREATE OR REPLACE FUNCTION audit_trigger()
-  RETURNS TRIGGER AS $$
-  BEGIN
-    INSERT INTO audit_log (
-      table_name,
-      record_id,
-      action,
-      user_id,
-      old_data,
-      new_data,
-      created_at,
-      ip_address
-    ) VALUES (
-      TG_TABLE_NAME,
-      COALESCE(NEW.id, OLD.id),
-      TG_OP,
-      auth.uid(),
-      row_to_json(OLD),
-      row_to_json(NEW),
-      NOW(),
-      current_setting('request.headers')::json->>'x-forwarded-for'
-    );
-    RETURN NEW;
-  END;
-  $$ LANGUAGE plpgsql;
-  ```
+- [x] **7.2.2** Audit log trigger'ları ekle/güncelle
 
-- [ ] **7.2.3** Audit Trail UI sayfası
-  - Dosya: `app/(dashboard)/admin/audit/page.tsx`
-  - Zaman çizelgesi görünümü
-  - Filtreleme: Kullanıcı, tarih, aksiyon tipi, tablo
+  ✅ **TAMAMLANDI (zaten mevcut):**
+  - `audit_log_trigger()` fonksiyonu tüm önemli tablolara uygulanmış durumda
+  - Trigger INSERT/UPDATE/DELETE için `old_data`/`new_data` JSONB olarak saklıyor
 
-- [ ] **7.2.4** Audit log detay modal
-  - Old vs New karşılaştırma (diff view)
-  - Kullanıcı bilgisi
-  - IP adresi ve tarayıcı bilgisi
+- [x] **7.2.3** Audit Trail UI sayfası
 
-- [ ] **7.2.5** Export fonksiyonu
-  - CSV export
-  - PDF rapor
+  ✅ **TAMAMLANDI (19 Şubat 2026):**
+  - Dosya: `app/(dashboard)/audit/page.tsx`
+  - Gerçek DB verisiyle bağlantı kuruldu (mock data kaldırıldı)
+  - Filtreleme: Action (INSERT/UPDATE/DELETE), Table, User
+  - Sayfalama: 50 kayıt/sayfa, toplam kayıt sayısı gösterimi
+  - Hooks: `hooks/queries/use-audit-hooks.ts`
+  - Queries: `lib/supabase/queries/audit.ts`
 
-- [ ] **7.2.6** Retention policy
+- [x] **7.2.4** Audit log detay modal
+
+  ✅ **TAMAMLANDI (19 Şubat 2026):**
+  - `AuditDetailModal` bileşeni eklendi
+  - UPDATE: Before/After diff view — küçük değerler 3-sütun grid, büyük değerler tam genişlik + 2-sütun
+  - INSERT/DELETE: tüm alanlar listeleniyor
+  - Büyük değerler için `line-clamp-3` + "Show more/Show less" toggle
+  - IP adresi gösterilmiyor (gizlilik)
+
+- [x] **7.2.5** Export fonksiyonu
+
+  ✅ **TAMAMLANDI (19 Şubat 2026):**
+  - CSV export: Date, Time, User, Email, Action, Table, Record ID, Details
+  - "Export CSV" butonu header'da mevcut
+  - IP adresi CSV'ye dahil edilmiyor
+
+- [ ] **7.2.6** Retention policy _(atlandı — müşteri isteğiyle)_
   - Log saklama süresi belirleme
   - Otomatik arşivleme
 
@@ -1133,17 +1117,27 @@ UI yarı-ekran harita / yarı-ekran özet paneli düzeni kullanmalı. Özet pane
 
 **Yapılacaklar:**
 
-- [ ] **9.1.1** Findings Summary sayfası/görünümü oluştur
+- [x] **9.1.1** Findings Summary sayfası/görünümü oluştur
   - Half-map / half-panel layout
   - Satellite varsayılan katman
 
-- [ ] **9.1.2** Bulgu gruplandırma paneli
+  ✅ **TAMAMLANDI (19 Şubat 2026):**
+  - Data Gathering preview mode zaten half-screen harita + sağ özet paneli içeriyordu
+  - Satellite varsayılan katman zaten aktif
+
+- [x] **9.1.2** Bulgu gruplandırma paneli
   - Gruplar ve sayılar:
     - **Habitat/s** (farklı habitat tipi sayısı)
     - **Species** (korunan tür kaydı sayısı)
     - **Designated Sites** (benzersiz koruma alanı sayısı)
     - **Aquatic** (nehir, su kütlesi sınıflandırması sayısı)
   - Her gruba tıklanınca detay listesi açılır
+
+  ✅ **TAMAMLANDI (19 Şubat 2026):**
+  - "Findings by Type" paneli tıklanabilir satırlara dönüştürüldü
+  - 4 grup: Habitats (FOSSITT kodları), Designated Sites, Species Records, Aquatic
+  - Her gruba tıklayınca isim + kaynak badge ile detay listesi açılır/kapanır
+  - Dosya: `components/steps/data-gathering-step.tsx`
 
 ---
 
@@ -1158,13 +1152,11 @@ Her bulgu kendi kutu/kartı içinde gösterilmeli. Kartın üzerindeki ok ikonun
 
 **Yapılacaklar:**
 
-- [ ] **9.2.1** Bulgu kart bileşenini güncelle
-  - Ok ikonu → AI 3-satır özet göster/gizle
-  - AI özet: koruma durumu, ana tehditler, AOI'ye ilgililik
+- [x] **9.2.1** Bulgu kart bileşenini güncelle
+      ✅ **TAMAMLANDI:** `findings-list.tsx:630` — Sparkles ikonu → AI özet göster, loading state, her bulgu tipinde mevcut
 
-- [ ] **9.2.2** AI 3-satır özet endpoint'i
-  - Mevcut `/api/ai/site-summary` endpoint'ini genişlet
-  - Tüm bulgu tipleri için (site, species, habitat, aquatic) özet üret
+- [x] **9.2.2** AI 3-satır özet endpoint'i
+      ✅ **TAMAMLANDI:** `/api/ai/site-summary`, `/api/ai/species-summary`, `/api/ai/aquatic-summary` — tüm tipler için ayrı endpointler mevcut
 
 ---
 
@@ -1179,18 +1171,19 @@ Her bulgu için kullanıcı şu seçeneklere sahip olmalı: Target note kaydetme
 
 **Yapılacaklar:**
 
-- [ ] **9.3.1** Target note kaydetme butonu ekle
-  - Her bulgu kartında "Save Target Note" butonu
-  - Target notes tablosuna kayıt (mevcut `target_notes` tablosu kullanılabilir)
-  - Not içeriği: Kişisel açıklama veya planlama talimatı
+- [x] **9.3.1** Bulgu notu ekleme/düzenleme özelliği
+  - Her kayıtlı bulgu kartında inline not butonu (MessageSquare ikonu)
+  - Notu açıp kapatan toggle, textarea ile düzenleme, DB'ye kayıt (`desk_research_findings.notes`)
+  - Review & Export substepinde not görünümü ve düzenleme (amber styling)
+  - CSV/JSON exportunda notlar dahil
+  - AI desk insights zaten `notes` kolonunu kullanıyor
 
-- [ ] **9.3.2** Paylaşma butonu ekle
+- [ ] **9.3.2** Paylaşma butonu ekle (müşteri isteği belirsiz, ertelenmiş)
   - Clipboard'a link kopyalama
   - Veya email ile paylaşma
 
-- [ ] **9.3.3** Ham veri indirme butonu ekle
-  - JSON/CSV formatında export
-  - GeoJSON formatında konum verisi
+- [x] **9.3.3** Ham veri indirme butonu ekle
+  - JSON ve CSV formatında export (Review & Export substepinde mevcut)
 
 ---
 
@@ -1263,7 +1256,7 @@ Her tanımlanan site için rapor şunları açıkça listeler: İlişkili habita
 ### 🔧 Devam Eden / Yapılacak Görevler
 
 | # | Görev | Öncelik | Efor | Bağımlılık |
-| 0.2 | Otomatik veri katmanı açılması | 🔴 Yüksek | Düşük | - |
+| 0.2 | Otomatik veri katmanı açılması | ✅ Yapıldı | Düşük | - |
 | 0.4 | Core DB search otomasyonu | ✅ Yapıldı | Orta | 0.2 |
 | 0.5 | Harita-bulgu senkronizasyonu | ✅ Tamamlandı | 11 Şub 2026 | - |
 | 0.6 | "Move to Next Stage" butonu | ✅ Zaten mevcut | - | - |
@@ -1272,18 +1265,18 @@ Her tanımlanan site için rapor şunları açıkça listeler: İlişkili habita
 | 4.1 | Deep Research (Species) iyileştir | ✅ Yapıldı | Yüksek | - |
 | 5.1 | View on Map düzeltmesi | 🟡 Orta | Düşük | - |
 | 5.2 | Gelişmiş popup | 🟡 Orta | Orta | - |
-| 5.3 | Sonuç kaydetme | 🔴 Yüksek | Düşük | - |
+| 5.3 | Sonuç kaydetme | ✅ Yapıldı | Düşük | - |
 | 5.4 | Baseline Report | ✅ Yapıldı | Yüksek | 3.1, 4.1 |
 | 6.1 | Logo güncelleme | 🟢 Düşük | Düşük | - |
 | 6.2 | Admin Dashboard | 🔴 Yüksek | Yüksek | - |
 | 6.3 | ~~65 demo proje~~ ✅ | 🔴 Yüksek | Orta | 6.2 |
 | 6.4 | Proje detay görünümü | 🟡 Orta | Orta | - |
 | 7.1 | Gelişmiş arama | 🟡 Orta | Orta | - |
-| 7.2 | Audit Trail | 🟡 Orta | Orta | - |
+| 7.2 | ~~Audit Trail~~ ✅ | 🟡 Orta | Orta | - |
 | 8.1 | Proje oluşturma | 🟢 Düşük | Düşük | - |
-| 9.1 | Findings Summary layout | 🔴 Yüksek | Orta | - |
-| 9.2 | AI 3-satır özet kartları | 🔴 Yüksek | Orta | 9.1 |
-| 9.3 | Bulgu aksiyonları (note/share/dl) | 🟡 Orta | Orta | 9.1 |
+| 9.1 | Findings Summary layout | ✅ Yapıldı | Orta | - |
+| 9.2 | AI 3-satır özet kartları | ✅ Yapıldı | Orta | 9.1 |
+| 9.3 | Bulgu aksiyonları (note/share/dl) | ✅ Yapıldı | Orta | 9.1 |
 | 10.1 | Deep Research panel layout | 🔴 Yüksek | Orta | - |
 | 10.2 | Designated sites deep dive | 🔴 Yüksek | Orta | 10.1, 2.1 |
 
@@ -1899,17 +1892,19 @@ AI raporları uygulama içinde düzenlenebilir ve tamamlanabilir olmalı. Rapor 
 
 ### ✅ Tamamlanan Görevler
 
-| #   | Görev                                 | Durum         | Tamamlanma   |
-| --- | ------------------------------------- | ------------- | ------------ |
-| 1.1 | Çoklu harita katmanları               | ✅ Tamamlandı | 4 Şub 2026   |
-| 1.2 | Buffer zone açıklamaları              | ✅ Tamamlandı | 4 Şub 2026   |
-| 1.3 | Katman metadata                       | ✅ Tamamlandı | 4 Şub 2026   |
-| 2.1 | NPWS veri entegrasyonu                | ✅ Tamamlandı | 6 Şub 2026   |
-| 2.2 | Deep Research (Sites)                 | ✅ Tamamlandı | 5-6 Şub 2026 |
-| 0.1 | Satellite layer bug fix               | ✅ Tamamlandı | 11 Şub 2026  |
-| 0.3 | Veri katmanı yan panel                | ✅ Tamamlandı | Zaten mevcut |
-| 0.8 | Deep Research modal cache (reopening) | ✅ Tamamlandı | 12 Şub 2026  |
-| 6.3 | 65 demo proje seed scripti            | ✅ Tamamlandı | 19 Şub 2026  |
+| #   | Görev                                  | Durum         | Tamamlanma   |
+| --- | -------------------------------------- | ------------- | ------------ |
+| 1.1 | Çoklu harita katmanları                | ✅ Tamamlandı | 4 Şub 2026   |
+| 1.2 | Buffer zone açıklamaları               | ✅ Tamamlandı | 4 Şub 2026   |
+| 1.3 | Katman metadata                        | ✅ Tamamlandı | 4 Şub 2026   |
+| 2.1 | NPWS veri entegrasyonu                 | ✅ Tamamlandı | 6 Şub 2026   |
+| 2.2 | Deep Research (Sites)                  | ✅ Tamamlandı | 5-6 Şub 2026 |
+| 0.1 | Satellite layer bug fix                | ✅ Tamamlandı | 11 Şub 2026  |
+| 0.3 | Veri katmanı yan panel                 | ✅ Tamamlandı | Zaten mevcut |
+| 0.8 | Deep Research modal cache (reopening)  | ✅ Tamamlandı | 12 Şub 2026  |
+| 6.3 | 65 demo proje seed scripti             | ✅ Tamamlandı | 19 Şub 2026  |
+| 9.1 | Findings Summary layout + gruplandırma | ✅ Tamamlandı | 19 Şub 2026  |
+| 7.2 | Audit Trail (UI + modal + CSV export)  | ✅ Tamamlandı | 19 Şub 2026  |
 
 ### ❌ İptal Edilen Görevler
 
@@ -1961,7 +1956,7 @@ AI raporları uygulama içinde düzenlenebilir ve tamamlanabilir olmalı. Rapor 
 **Sprint 3 - Findings ve Etkileşim (3-4 gün):**
 
 - 0.5 Harita-bulgu senkronizasyonu
-- 9.1 Findings Summary layout
+- ~~9.1 Findings Summary layout~~ ✅
 - 9.2 AI 3-satır özet kartları
 - 3.1 Bulgu yönetimi (dismiss/toplu)
 
@@ -2002,8 +1997,8 @@ AI raporları uygulama içinde düzenlenebilir ve tamamlanabilir olmalı. Rapor 
 - 12.1 Automated Web Search
 - 13.1 Ecological Summary Auto-Generation
 - 7.1 Gelişmiş arama
-- 7.2 Audit Trail
-- 9.3 Bulgu aksiyonları
+- ~~7.2 Audit Trail~~ ✅
+- 9.3.2 Bulgu paylaşma (belirsiz gereksinim)
 
 ### Greg'e Sorulacak Sorular
 
@@ -2019,4 +2014,4 @@ AI raporları uygulama içinde düzenlenebilir ve tamamlanabilir olmalı. Rapor 
 
 ---
 
-_Son güncelleme: 11 Şubat 2026_
+_Son güncelleme: 19 Şubat 2026_

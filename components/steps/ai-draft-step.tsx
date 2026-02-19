@@ -228,11 +228,15 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
 
     try {
       if (existingReport) {
+        const preservedStatus =
+          existingReport.status === 'approved' || existingReport.status === 'final'
+            ? existingReport.status
+            : 'draft'
         await updateReport.mutateAsync({
           reportId: existingReport.id,
           updates: {
             content: reportContent as unknown as Json,
-            status: 'draft',
+            status: preservedStatus,
           },
         })
       } else {
