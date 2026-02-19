@@ -167,7 +167,12 @@ export function DataGatheringTab({ projectId, userId, project }: DataGatheringTa
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">Saved Findings ({findings.length})</CardTitle>
-              <Button variant="outline" size="sm" onClick={handleAddManualFinding} disabled={createFinding.isPending}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleAddManualFinding}
+                disabled={createFinding.isPending}
+              >
                 <Plus className="mr-2 h-4 w-4" />
                 Add Manual Finding
               </Button>
@@ -188,10 +193,7 @@ export function DataGatheringTab({ projectId, userId, project }: DataGatheringTa
                 </TableHeader>
                 <TableBody>
                   {findings.map((f) => (
-                    <TableRow
-                      key={f.id}
-                      className={cn(!f.include_in_report && 'opacity-50')}
-                    >
+                    <TableRow key={f.id} className={cn(!f.include_in_report && 'opacity-50')}>
                       <TableCell className="max-w-60 truncate font-medium">{f.title}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">
@@ -236,7 +238,12 @@ export function DataGatheringTab({ projectId, userId, project }: DataGatheringTa
       {findings.length === 0 && sourceStats.length > 0 && (
         <Card>
           <CardContent className="py-8 text-center">
-            <Button variant="outline" size="sm" onClick={handleAddManualFinding} disabled={createFinding.isPending}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAddManualFinding}
+              disabled={createFinding.isPending}
+            >
               <Plus className="mr-2 h-4 w-4" />
               Add Manual Finding
             </Button>

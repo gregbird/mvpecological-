@@ -41,7 +41,9 @@ export function GisSummaryTab({ project }: GisSummaryTabProps) {
               <dd className="text-sm font-medium">{location || 'Not set'}</dd>
             </div>
             <div>
-              <dt className="text-muted-foreground text-xs font-medium uppercase">Grid Reference</dt>
+              <dt className="text-muted-foreground text-xs font-medium uppercase">
+                Grid Reference
+              </dt>
               <dd className="font-mono text-sm font-medium">
                 {project.grid_reference || 'Not set'}
               </dd>

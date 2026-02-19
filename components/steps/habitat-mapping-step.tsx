@@ -12,6 +12,7 @@ import {
   Fish,
   Shield,
   Plus,
+  Pentagon,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
@@ -55,7 +56,7 @@ import type {
   Json,
 } from '@/types/database'
 
-import type { FindingMarker } from '@/components/maps/project-map-with-draw'
+import type { FindingMarker, HabitatPolygonOverlay } from '@/components/maps/project-map-with-draw'
 
 // Dynamic import for map with draw controls
 const ProjectMapWithDraw = dynamic(
@@ -170,6 +171,32 @@ export function HabitatMappingStep({
       }
     }
   }, [])
+
+  // Convert saved habitats to map overlay format
+  const habitatPolygonOverlays: HabitatPolygonOverlay[] = React.useMemo(() => {
+    return habitats
+      .filter((h) => h.boundary != null)
+      .map((h) => {
+        const fossittInfo = getHabitatByCode(h.fossitt_code)
+        return {
+          id: h.id,
+          geometry: h.boundary as GeoJSON.Geometry,
+          fossittCode: h.fossitt_code,
+          fossittName: h.fossitt_name,
+          condition: h.condition,
+          color: fossittInfo?.color,
+        }
+      })
+  }, [habitats])
+
+  // Handle clicking a habitat polygon on the map
+  const handleHabitatMapClick = React.useCallback(
+    (id: string) => {
+      const habitat = habitats.find((h) => h.id === id) ?? null
+      setSelectedHabitat(habitat)
+    },
+    [habitats]
+  )
 
   // Project boundary
   const projectBoundary = project.boundary as GeoJSON.Feature<GeoJSON.Polygon> | undefined
@@ -573,15 +600,28 @@ export function HabitatMappingStep({
         {/* Bottom - Map Section */}
         <Card className="flex min-h-0 flex-1 flex-col">
           <CardContent className="flex min-h-0 flex-1 flex-col p-3">
+            {/* Drawing instructions banner */}
+            <div className="bg-muted/60 mb-2 flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+              <Pentagon className="h-4 w-4 shrink-0 text-emerald-600" />
+              <span className="text-muted-foreground">
+                Use the <strong className="text-foreground">polygon</strong> or{' '}
+                <strong className="text-foreground">rectangle</strong> tool on the map (top-right
+                icons) to draw a habitat boundary. The form will open automatically.
+              </span>
+            </div>
             <div className="min-h-80 flex-1 overflow-hidden rounded-lg border">
               <ProjectMapWithDraw
                 center={projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]}
                 zoom={projectCenter ? 14 : 7}
                 boundary={projectBoundary}
                 onBoundaryChange={handleBoundaryChange}
-                editable={!isComplete}
+                editable
                 findings={findingMarkers}
                 flyToLocation={flyToLocation ?? undefined}
+                habitatPolygons={habitatPolygonOverlays}
+                selectedHabitatId={selectedHabitat?.id}
+                onHabitatClick={handleHabitatMapClick}
+                allowMultipleDrawings
               />
             </div>
           </CardContent>

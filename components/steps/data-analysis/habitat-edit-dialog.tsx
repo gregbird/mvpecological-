@@ -102,7 +102,12 @@ export function HabitatEditDialog({ habitat, onOpenChange }: HabitatEditDialogPr
           survey_method: values.survey_method,
           eu_annex_code: values.eu_annex_code,
           evaluation: values.evaluation,
-          threats: values.threats ? values.threats.split(',').map((t) => t.trim()).filter(Boolean) : null,
+          threats: values.threats
+            ? values.threats
+                .split(',')
+                .map((t) => t.trim())
+                .filter(Boolean)
+            : null,
           notes: values.notes,
         },
       })
@@ -115,7 +120,7 @@ export function HabitatEditDialog({ habitat, onOpenChange }: HabitatEditDialogPr
 
   return (
     <Dialog open={!!habitat} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Habitat</DialogTitle>
         </DialogHeader>
@@ -149,7 +154,9 @@ export function HabitatEditDialog({ habitat, onOpenChange }: HabitatEditDialogPr
                         ref={field.ref}
                         onBlur={field.onBlur}
                         value={field.value ?? ''}
-                        onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                        onChange={(e) =>
+                          field.onChange(e.target.value ? Number(e.target.value) : null)
+                        }
                         placeholder="0.00"
                       />
                     </FormControl>

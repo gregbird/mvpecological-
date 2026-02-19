@@ -230,9 +230,7 @@ export function HabitatTab({ projectId, siteCode, project }: HabitatTabProps) {
                     outerRadius={100}
                     paddingAngle={2}
                     dataKey="value"
-                    label={({ name, percent }) =>
-                      `${name} ${((percent || 0) * 100).toFixed(0)}%`
-                    }
+                    label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                   >
                     {conditionChartData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
@@ -270,10 +268,7 @@ export function HabitatTab({ projectId, siteCode, project }: HabitatTabProps) {
             <TableBody>
               {habitats.length > 0 ? (
                 habitats.map((h) => (
-                  <TableRow
-                    key={h.id}
-                    className={cn(!h.include_in_report && 'opacity-50')}
-                  >
+                  <TableRow key={h.id} className={cn(!h.include_in_report && 'opacity-50')}>
                     <TableCell className="font-mono">{h.fossitt_code}</TableCell>
                     <TableCell className="max-w-50 truncate">{h.fossitt_name}</TableCell>
                     <TableCell className="text-right">

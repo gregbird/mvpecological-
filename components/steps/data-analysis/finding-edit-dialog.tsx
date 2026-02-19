@@ -93,7 +93,13 @@ export function FindingEditDialog({ finding, onOpenChange }: FindingEditDialogPr
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { title: '', source: 'manual', data_type: 'other', relevance_level: null, notes: null },
+    defaultValues: {
+      title: '',
+      source: 'manual',
+      data_type: 'other',
+      relevance_level: null,
+      notes: null,
+    },
   })
 
   const watchedSource = form.watch('source')

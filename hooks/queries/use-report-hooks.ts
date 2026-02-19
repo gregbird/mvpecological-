@@ -8,7 +8,10 @@ import {
   createReport,
   updateReport,
   deleteReport,
+  createReportVersion,
+  getReportByVersion,
 } from '@/lib/supabase/queries'
+import type { ReportContent } from '@/lib/supabase/queries/reports'
 import type { InsertTables, UpdateTables } from '@/types/database'
 
 export function useReports(projectId: string) {
@@ -74,5 +77,37 @@ export function useDeleteReport() {
       queryClient.invalidateQueries({ queryKey: ['reports'] })
       queryClient.invalidateQueries({ queryKey: ['latest-report'] })
     },
+  })
+}
+
+export function useCreateReportVersion() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      projectId,
+      content,
+      reportType,
+      generatedBy,
+      sourceVersion,
+    }: {
+      projectId: string
+      content: ReportContent
+      reportType: string
+      generatedBy: string
+      sourceVersion?: number
+    }) => createReportVersion(projectId, content, reportType, generatedBy, sourceVersion),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['reports', variables.projectId] })
+      queryClient.invalidateQueries({ queryKey: ['latest-report', variables.projectId] })
+    },
+  })
+}
+
+export function useReportByVersion(projectId: string, version: number | null) {
+  return useQuery({
+    queryKey: ['report-version', projectId, version],
+    queryFn: () => getReportByVersion(projectId, version!),
+    enabled: !!projectId && version !== null,
   })
 }

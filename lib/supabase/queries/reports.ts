@@ -20,6 +20,7 @@ export interface ReportContent {
     generatedAt?: string
     editedAt?: string
     aiModel?: string
+    sourceVersion?: number
     sectionMetadata?: Record<string, { generatedAt: string; tokensUsed: number; model: string }>
   }
 }
@@ -151,6 +152,53 @@ export async function updateReportStatus(
   return updateReport(reportId, updates)
 }
 
+// Create a new report version (inserts a new row with incremented version)
+export async function createReportVersion(
+  projectId: string,
+  content: ReportContent,
+  reportType: string,
+  generatedBy: string,
+  sourceVersion?: number
+): Promise<Report | null> {
+  const contentWithMeta: ReportContent = {
+    ...content,
+    metadata: {
+      ...content.metadata,
+      editedAt: new Date().toISOString(),
+      ...(sourceVersion !== undefined && { sourceVersion }),
+    },
+  }
+  return createReport({
+    project_id: projectId,
+    report_type: reportType,
+    status: 'draft',
+    content: contentWithMeta as unknown as Json,
+    generated_by: generatedBy,
+  })
+}
+
+// Get a specific report version for a project
+export async function getReportByVersion(
+  projectId: string,
+  version: number
+): Promise<Report | null> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('reports')
+    .select('*')
+    .eq('project_id', projectId)
+    .eq('version', version)
+    .single()
+
+  if (error) {
+    if (error.code === 'PGRST116') return null
+    console.error('Error fetching report by version:', error)
+    return null
+  }
+
+  return data as Report
+}
+
 // Delete report
 export async function deleteReport(reportId: string): Promise<boolean> {
   const supabase = createClient()
@@ -178,33 +226,36 @@ export const REPORT_TYPES = [
   { id: 'other', name: 'Other Technical Report' },
 ]
 
-// Report sections template (PEA example from PRD)
+// Report sections template — CIEEM standard PEA structure (6 sections)
 export const PEA_REPORT_SECTIONS = [
   {
     id: 'introduction',
-    title: 'I. Introduction',
-    aiPrompt: 'project description and site location',
+    title: '1. Introduction',
+    aiPrompt: 'project background and site location',
   },
   {
     id: 'methodology',
-    title: 'II. Methodology',
+    title: '2. Methodology',
     aiPrompt: 'desk study sources and field survey methods',
   },
   {
-    id: 'results_sites',
-    title: 'III. Results - Designated Sites',
-    aiPrompt: 'designated sites analysis',
+    id: 'results',
+    title: '3. Results',
+    aiPrompt: 'designated sites, habitats, flora, fauna, invasive species',
   },
-  { id: 'results_habitats', title: 'III. Results - Habitats', aiPrompt: 'habitat descriptions' },
-  { id: 'results_fauna', title: 'III. Results - Fauna', aiPrompt: 'fauna observations' },
-  { id: 'results_flora', title: 'III. Results - Flora', aiPrompt: 'flora observations' },
   {
-    id: 'results_invasive',
-    title: 'III. Results - Invasive Species',
-    aiPrompt: 'invasive species',
+    id: 'constraints',
+    title: '4. Ecological Constraints',
+    aiPrompt: 'constraints table and recommendations',
   },
-  { id: 'evaluation', title: 'IV. Evaluation', aiPrompt: 'ecological significance' },
-  { id: 'discussion', title: 'V. Discussion', aiPrompt: 'discussion of findings' },
-  { id: 'recommendations', title: 'VI. Recommendations', aiPrompt: 'further surveys and actions' },
-  { id: 'appendices', title: 'VII. Appendices', aiPrompt: 'habitat map and species lists' },
+  {
+    id: 'discussion',
+    title: '5. Discussion & Conclusions',
+    aiPrompt: 'synthesis and further survey recommendations',
+  },
+  {
+    id: 'appendices',
+    title: '6. Appendices',
+    aiPrompt: 'habitat map, photos, species lists',
+  },
 ]

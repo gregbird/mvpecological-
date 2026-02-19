@@ -59,15 +59,17 @@ export function TargetNotesTab({ projectId, project }: TargetNotesTabProps) {
 
   const targetNoteMarkers = React.useMemo(
     () =>
-      targetNotes.filter((n) => n.include_in_report).map((n) => ({
-        id: n.id,
-        category: n.category,
-        title: n.title,
-        description: n.description,
-        priority: n.priority,
-        isVerified: n.is_verified,
-        location: n.location as { coordinates: [number, number] } | null,
-      })),
+      targetNotes
+        .filter((n) => n.include_in_report)
+        .map((n) => ({
+          id: n.id,
+          category: n.category,
+          title: n.title,
+          description: n.description,
+          priority: n.priority,
+          isVerified: n.is_verified,
+          location: n.location as { coordinates: [number, number] } | null,
+        })),
     [targetNotes]
   )
 
@@ -138,10 +140,7 @@ export function TargetNotesTab({ projectId, project }: TargetNotesTabProps) {
               {targetNotes.map((note) => (
                 <div
                   key={note.id}
-                  className={cn(
-                    'rounded-lg border p-3',
-                    !note.include_in_report && 'opacity-50'
-                  )}
+                  className={cn('rounded-lg border p-3', !note.include_in_report && 'opacity-50')}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-2">

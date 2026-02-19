@@ -390,14 +390,21 @@ export function TargetNotesStep({
         else if (gbifClass === 'Amphibia') taxonGroup = 'amphibian'
         else if (gbifClass === 'Actinopterygii' || gbifClass === 'Chondrichthyes')
           taxonGroup = 'fish'
-        else if (gbifClass === 'Insecta' || gbifClass === 'Arachnida' || gbifClass === 'Malacostraca')
+        else if (
+          gbifClass === 'Insecta' ||
+          gbifClass === 'Arachnida' ||
+          gbifClass === 'Malacostraca'
+        )
           taxonGroup = 'invertebrate'
-        else if (gbifClass === 'Magnoliopsida' || gbifClass === 'Liliopsida' || kingdom === 'Plantae')
+        else if (
+          gbifClass === 'Magnoliopsida' ||
+          gbifClass === 'Liliopsida' ||
+          kingdom === 'Plantae'
+        )
           taxonGroup = 'plant'
         else if (gbifClass === 'Pezizomycetes' || kingdom === 'Fungi') taxonGroup = 'fungi'
 
-        const isProtected =
-          finding.is_protected || !!(metadata?.isProtected as boolean | undefined)
+        const isProtected = finding.is_protected || !!(metadata?.isProtected as boolean | undefined)
         const designation = (metadata?.designations as string) || null
 
         await createObservation.mutateAsync({
@@ -1117,8 +1124,8 @@ export function TargetNotesStep({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Observation</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{deletingObservation?.species_name_scientific}&quot;? This action
-              cannot be undone.
+              Are you sure you want to delete &quot;{deletingObservation?.species_name_scientific}
+              &quot;? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1201,7 +1208,15 @@ function ObservationListItem({
           </div>
         </div>
         <div className="flex gap-1">
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); onEdit() }}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={(e) => {
+              e.stopPropagation()
+              onEdit()
+            }}
+          >
             <SquarePen className="h-3.5 w-3.5" />
           </Button>
           <Button

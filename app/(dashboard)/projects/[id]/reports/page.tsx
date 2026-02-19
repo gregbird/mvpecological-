@@ -3,13 +3,13 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { ArrowLeft, Plus, Sparkles, Download, Pencil, Loader2, FileText } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -34,6 +34,14 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useToast } from '@/hooks/use-toast'
+
+const SectionEditor = dynamic(
+  () =>
+    import('@/components/steps/ai-draft/section-editor').then((mod) => ({
+      default: mod.SectionEditor,
+    })),
+  { ssr: false, loading: () => <div className="bg-muted/30 h-48 animate-pulse rounded-md" /> }
+)
 import { generateFullReportDraft } from '@/lib/ai/report-generator'
 
 type ReportStatus = 'draft' | 'internal_review' | 'client_review' | 'approved' | 'final'
@@ -434,40 +442,33 @@ export default function ReportsPage() {
                           </div>
                         </AccordionTrigger>
                         <AccordionContent>
-                          {editingSection === section.id ? (
-                            <div className="space-y-3">
-                              <Textarea
-                                value={editedContent}
-                                onChange={(e) => setEditedContent(e.target.value)}
-                                className="min-h-75 font-mono text-sm"
-                              />
-                              <div className="flex justify-end gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setEditingSection(null)
-                                    setEditedContent('')
-                                  }}
-                                >
-                                  Cancel
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleSaveSection(selectedReport.id, section.id)}
-                                >
-                                  Save Changes
-                                </Button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="space-y-3">
-                              <div className="prose prose-sm dark:prose-invert max-w-none">
-                                {section.content.split('\n\n').map((paragraph, i) => (
-                                  <p key={i}>{paragraph}</p>
-                                ))}
-                              </div>
-                              <div className="flex justify-end">
+                          <div className="space-y-3 pt-2">
+                            <SectionEditor
+                              content={section.content}
+                              editable={editingSection === section.id}
+                              onContentChange={(md) => setEditedContent(md)}
+                            />
+                            <div className="flex justify-end gap-2">
+                              {editingSection === section.id ? (
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setEditingSection(null)
+                                      setEditedContent('')
+                                    }}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleSaveSection(selectedReport.id, section.id)}
+                                  >
+                                    Save Changes
+                                  </Button>
+                                </>
+                              ) : (
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -479,9 +480,9 @@ export default function ReportsPage() {
                                   <Pencil className="mr-2 h-3 w-3" />
                                   Edit Section
                                 </Button>
-                              </div>
+                              )}
                             </div>
-                          )}
+                          </div>
                         </AccordionContent>
                       </AccordionItem>
                     ))}

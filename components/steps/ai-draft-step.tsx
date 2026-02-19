@@ -1,42 +1,39 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2, Check, Info, Sparkles, Edit, Save, RefreshCw } from 'lucide-react'
+import { Loader2, Check, Info, Sparkles, Save, RefreshCw, Copy } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion'
+import { Accordion } from '@/components/ui/accordion'
 import { useToast } from '@/hooks/use-toast'
-import { useLatestReport, useCreateReport, useUpdateReport } from '@/hooks/queries/use-report-hooks'
+import {
+  useLatestReport,
+  useCreateReport,
+  useUpdateReport,
+  useCreateReportVersion,
+  useReports,
+} from '@/hooks/queries/use-report-hooks'
 import { useHabitatStats } from '@/hooks/queries/use-habitat-hooks'
 import { useObservationStats } from '@/hooks/queries/use-observation-hooks'
 import { useFindingsStats } from '@/hooks/queries/use-finding-hooks'
 import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import {
-  REPORT_TYPES,
   PEA_REPORT_SECTIONS,
   type ReportContent,
   type ReportSection,
 } from '@/lib/supabase/queries/reports'
-import type { Project, WorkflowStep, Json } from '@/types/database'
+import { ReportConfigPanel } from '@/components/steps/ai-draft/report-config-panel'
+import { DataSummaryPanel } from '@/components/steps/ai-draft/data-summary-panel'
+import { SectionAccordionItem } from '@/components/steps/ai-draft/section-accordion-item'
+import { VersionHistoryPanel } from '@/components/steps/ai-draft/version-history-panel'
+import { VersionCompareDialog } from '@/components/steps/ai-draft/version-compare-dialog'
+import { VersionViewDialog } from '@/components/steps/ai-draft/version-view-dialog'
+import { RestoreVersionDialog } from '@/components/steps/ai-draft/restore-version-dialog'
+import type { Project, Report, WorkflowStep, Json } from '@/types/database'
 
 interface AIDraftStepProps {
   project: Project
@@ -53,24 +50,98 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
   const [editingSection, setEditingSection] = React.useState<string | null>(null)
   const [sections, setSections] = React.useState<ReportSection[]>([])
 
-  // React Query hooks
+  const [compareReport, setCompareReport] = React.useState<Report | null>(null)
+  const [viewReport, setViewReport] = React.useState<Report | null>(null)
+  const [restoreReport, setRestoreReport] = React.useState<Report | null>(null)
+
   const { data: existingReport, isLoading: loadingReport } = useLatestReport(project.id)
+  const { data: allReports } = useReports(project.id)
   const { data: habitatStats } = useHabitatStats(project.id)
   const { data: observationStats } = useObservationStats(project.id)
   const { data: findingsStats } = useFindingsStats(project.id)
   const createReport = useCreateReport()
   const updateReport = useUpdateReport()
+  const createVersion = useCreateReportVersion()
   const completeStep = useCompleteWorkflowStep()
 
-  // Initialize sections from existing report or template
   React.useEffect(() => {
     if (existingReport?.content) {
       const content = existingReport.content as unknown as ReportContent
       if (content.sections) {
-        setSections(content.sections)
+        // Migrate old 11-section reports to new 6-section structure
+        const oldIds = content.sections.map((s) => s.id)
+        const isLegacy = oldIds.includes('results_sites') || oldIds.includes('evaluation')
+
+        if (isLegacy) {
+          const findOld = (id: string) => content.sections.find((s) => s.id === id)
+          const mergeContent = (...ids: string[]) =>
+            ids
+              .map((id) => findOld(id)?.content)
+              .filter(Boolean)
+              .join('\n\n')
+
+          const migrated: ReportSection[] = PEA_REPORT_SECTIONS.map((tmpl) => {
+            switch (tmpl.id) {
+              case 'introduction':
+              case 'methodology':
+              case 'appendices': {
+                const old = findOld(tmpl.id)
+                return {
+                  id: tmpl.id,
+                  title: tmpl.title,
+                  content: old?.content || '',
+                  isEdited: old?.isEdited || false,
+                  aiGenerated: old?.aiGenerated || false,
+                }
+              }
+              case 'results':
+                return {
+                  id: 'results',
+                  title: tmpl.title,
+                  content: mergeContent(
+                    'results_sites',
+                    'results_habitats',
+                    'results_flora',
+                    'results_invasive',
+                    'results_fauna'
+                  ),
+                  isEdited: true,
+                  aiGenerated: true,
+                }
+              case 'constraints': {
+                const old = findOld('evaluation')
+                return {
+                  id: 'constraints',
+                  title: tmpl.title,
+                  content: old?.content || '',
+                  isEdited: old?.isEdited || false,
+                  aiGenerated: old?.aiGenerated || false,
+                }
+              }
+              case 'discussion':
+                return {
+                  id: 'discussion',
+                  title: tmpl.title,
+                  content: mergeContent('discussion', 'recommendations'),
+                  isEdited: true,
+                  aiGenerated: true,
+                }
+              default:
+                return {
+                  id: tmpl.id,
+                  title: tmpl.title,
+                  content: '',
+                  isEdited: false,
+                  aiGenerated: false,
+                }
+            }
+          })
+          setSections(migrated)
+        } else {
+          setSections(content.sections)
+        }
       }
     } else {
-      // Initialize with empty sections from template
       const initialSections: ReportSection[] = PEA_REPORT_SECTIONS.map((s) => ({
         id: s.id,
         title: s.title,
@@ -82,7 +153,6 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
     }
   }, [existingReport])
 
-  // Generate AI content for a report section via server-side API
   const generateSectionContent = async (sectionId: string) => {
     const section = PEA_REPORT_SECTIONS.find((s) => s.id === sectionId)
     if (!section) return
@@ -131,7 +201,6 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
     }
   }
 
-  // Generate all sections (regenerates ones that already have content too)
   const generateAllSections = async (onlyEmpty = false) => {
     for (const section of PEA_REPORT_SECTIONS) {
       if (onlyEmpty && sections.find((s) => s.id === section.id)?.content) {
@@ -141,14 +210,12 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
     }
   }
 
-  // Update section content
   const updateSectionContent = (sectionId: string, content: string) => {
     setSections((prev) =>
       prev.map((s) => (s.id === sectionId ? { ...s, content, isEdited: true } : s))
     )
   }
 
-  // Save report
   const handleSaveReport = async () => {
     const reportContent: ReportContent = {
       sections,
@@ -191,9 +258,7 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
     }
   }
 
-  // Complete workflow step
   const handleComplete = async () => {
-    // Save report first
     await handleSaveReport()
 
     try {
@@ -216,6 +281,71 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
       })
     }
   }
+
+  const handleSaveAsNewVersion = async () => {
+    const reportContent: ReportContent = {
+      sections,
+      metadata: {
+        generatedAt: existingReport
+          ? ((existingReport.content as unknown as ReportContent)?.metadata?.generatedAt ??
+            new Date().toISOString())
+          : new Date().toISOString(),
+        editedAt: new Date().toISOString(),
+        aiModel: 'gpt-4o',
+      },
+    }
+
+    try {
+      await createVersion.mutateAsync({
+        projectId: project.id,
+        content: reportContent,
+        reportType: reportType,
+        generatedBy: userId,
+      })
+
+      toast({
+        title: 'New version saved',
+        description: `Version ${(allReports?.length ?? 0) + 1} has been created.`,
+      })
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Error saving version',
+        description: 'Failed to create a new report version.',
+      })
+    }
+  }
+
+  const handleRestoreVersion = async () => {
+    if (!restoreReport) return
+
+    const oldContent = restoreReport.content as unknown as ReportContent | null
+    if (!oldContent?.sections) return
+
+    try {
+      await createVersion.mutateAsync({
+        projectId: project.id,
+        content: oldContent,
+        reportType: restoreReport.report_type,
+        generatedBy: userId,
+        sourceVersion: restoreReport.version,
+      })
+
+      setRestoreReport(null)
+      toast({
+        title: 'Version restored',
+        description: `Content from Version ${restoreReport.version} has been saved as a new version.`,
+      })
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Error restoring version',
+        description: 'Failed to restore the report version.',
+      })
+    }
+  }
+
+  const nextVersion = (allReports?.length ?? 0) + 1
 
   const isComplete = workflowStep.status === 'approved'
   const hasContent = sections.some((s) => s.content)
@@ -265,78 +395,52 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
 
       {/* Configuration */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Report Configuration</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Report Type</Label>
-              <Select value={reportType} onValueChange={setReportType} disabled={!!existingReport}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {REPORT_TYPES.map((type) => (
-                    <SelectItem key={type.id} value={type.id}>
-                      {type.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Ecologist's Opinion</Label>
-              <Textarea
-                placeholder="Enter your professional assessment and key points to include in the report..."
-                value={ecologistOpinion}
-                onChange={(e) => setEcologistOpinion(e.target.value)}
-                rows={4}
-              />
-              <p className="text-muted-foreground text-xs">
-                Your professional opinion will be incorporated into the Evaluation and Discussion
-                sections.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Data Summary</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <span>Habitats Mapped</span>
-                <Badge variant="outline">{habitatStats?.total || 0}</Badge>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span>Species Observed</span>
-                <Badge variant="outline">{observationStats?.total || 0}</Badge>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span>Protected Species</span>
-                <Badge variant={observationStats?.protected ? 'destructive' : 'outline'}>
-                  {observationStats?.protected || 0}
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span>Desk Findings</span>
-                <Badge variant="outline">{findingsStats?.total || 0}</Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <ReportConfigPanel
+          reportType={reportType}
+          onReportTypeChange={setReportType}
+          ecologistOpinion={ecologistOpinion}
+          onEcologistOpinionChange={setEcologistOpinion}
+          disabled={!!existingReport}
+        />
+        <DataSummaryPanel
+          habitatTotal={habitatStats?.total || 0}
+          observationTotal={observationStats?.total || 0}
+          protectedCount={observationStats?.protected || 0}
+          findingsTotal={findingsStats?.total || 0}
+        />
       </div>
 
+      {/* Version History */}
+      {(allReports?.length ?? 0) > 0 && (
+        <VersionHistoryPanel
+          projectId={project.id}
+          currentReportId={existingReport?.id ?? null}
+          onViewVersion={(report) => setViewReport(report)}
+          onCompareVersion={(report) => setCompareReport(report)}
+          onRestoreVersion={(report) => setRestoreReport(report)}
+        />
+      )}
+
       {/* Generate All Button */}
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-wrap justify-end gap-2">
         <Button variant="outline" onClick={handleSaveReport} disabled={!hasContent}>
           <Save className="mr-2 h-4 w-4" />
           Save Draft
         </Button>
+        {hasContent && (
+          <Button
+            variant="outline"
+            onClick={handleSaveAsNewVersion}
+            disabled={createVersion.isPending}
+          >
+            {createVersion.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Copy className="mr-2 h-4 w-4" />
+            )}
+            Save as New Version
+          </Button>
+        )}
         {hasContent && (
           <Button
             variant="outline"
@@ -369,111 +473,24 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
         </CardHeader>
         <CardContent>
           <Accordion type="single" collapsible className="w-full">
-            {PEA_REPORT_SECTIONS.map((templateSection, index) => {
-              const section = sections.find((s) => s.id === templateSection.id)
-              const isGenerating = generatingSection === templateSection.id
-              const isEditing = editingSection === templateSection.id
-
-              return (
-                <AccordionItem key={templateSection.id} value={templateSection.id}>
-                  <AccordionTrigger className="hover:no-underline">
-                    <div className="flex flex-1 items-center gap-3">
-                      <span className="text-muted-foreground text-sm">{index + 1}.</span>
-                      <span>{templateSection.title}</span>
-                      {section?.content && (
-                        <Badge
-                          variant={section.isEdited ? 'secondary' : 'outline'}
-                          className="ml-2"
-                        >
-                          {section.isEdited ? 'Edited' : 'AI Generated'}
-                        </Badge>
-                      )}
-                      {section?.content && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="mr-2 ml-auto h-7 px-2"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            generateSectionContent(templateSection.id)
-                          }}
-                          disabled={isGenerating}
-                        >
-                          {isGenerating ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <RefreshCw className="h-3.5 w-3.5" />
-                          )}
-                        </Button>
-                      )}
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-4 pt-2">
-                      {/* Actions */}
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => generateSectionContent(templateSection.id)}
-                          disabled={isGenerating}
-                        >
-                          {isGenerating ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          ) : (
-                            <Sparkles className="mr-2 h-4 w-4" />
-                          )}
-                          {section?.content ? 'Regenerate' : 'Generate'}
-                        </Button>
-                        {section?.content && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setEditingSection(isEditing ? null : templateSection.id)}
-                          >
-                            <Edit className="mr-2 h-4 w-4" />
-                            {isEditing ? 'Done Editing' : 'Edit'}
-                          </Button>
-                        )}
-                      </div>
-
-                      {/* Content */}
-                      {isGenerating ? (
-                        <div className="bg-muted/50 flex h-32 items-center justify-center rounded-lg">
-                          <div className="flex items-center gap-2">
-                            <Loader2 className="h-5 w-5 animate-spin" />
-                            <span className="text-muted-foreground text-sm">
-                              Generating content...
-                            </span>
-                          </div>
-                        </div>
-                      ) : section?.content ? (
-                        isEditing ? (
-                          <Textarea
-                            value={section.content}
-                            onChange={(e) =>
-                              updateSectionContent(templateSection.id, e.target.value)
-                            }
-                            rows={12}
-                            className="font-mono text-sm"
-                          />
-                        ) : (
-                          <ScrollArea className="bg-muted/30 h-64 rounded-lg p-4">
-                            <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
-                              {section.content}
-                            </div>
-                          </ScrollArea>
-                        )
-                      ) : (
-                        <div className="bg-muted/30 text-muted-foreground rounded-lg p-4 text-center text-sm">
-                          Click "Generate" to create AI-assisted content for this section.
-                        </div>
-                      )}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              )
-            })}
+            {PEA_REPORT_SECTIONS.map((templateSection, index) => (
+              <SectionAccordionItem
+                key={templateSection.id}
+                templateId={templateSection.id}
+                templateTitle={templateSection.title}
+                index={index}
+                section={sections.find((s) => s.id === templateSection.id)}
+                isGenerating={generatingSection === templateSection.id}
+                isEditing={editingSection === templateSection.id}
+                onGenerate={() => generateSectionContent(templateSection.id)}
+                onToggleEdit={() =>
+                  setEditingSection(
+                    editingSection === templateSection.id ? null : templateSection.id
+                  )
+                }
+                onContentChange={(content) => updateSectionContent(templateSection.id, content)}
+              />
+            ))}
           </Accordion>
         </CardContent>
       </Card>
@@ -510,6 +527,29 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
           </Button>
         </CardContent>
       </Card>
+
+      {/* Version Dialogs */}
+      <VersionViewDialog
+        open={!!viewReport}
+        onOpenChange={(open) => !open && setViewReport(null)}
+        report={viewReport}
+      />
+
+      <VersionCompareDialog
+        open={!!compareReport}
+        onOpenChange={(open) => !open && setCompareReport(null)}
+        currentReport={existingReport ?? null}
+        compareReport={compareReport}
+      />
+
+      <RestoreVersionDialog
+        open={!!restoreReport}
+        onOpenChange={(open) => !open && setRestoreReport(null)}
+        report={restoreReport}
+        nextVersion={nextVersion}
+        isPending={createVersion.isPending}
+        onConfirm={handleRestoreVersion}
+      />
     </div>
   )
 }

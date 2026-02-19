@@ -45,6 +45,16 @@ export interface FindingMarker {
   source?: string
 }
 
+/** Saved habitat polygon for display on map */
+export interface HabitatPolygonOverlay {
+  id: string
+  geometry: GeoJSON.Geometry
+  fossittCode: string
+  fossittName: string
+  condition: string | null
+  color?: string
+}
+
 interface ProjectMapWithDrawProps {
   className?: string
   center?: [number, number]
@@ -75,6 +85,14 @@ interface ProjectMapWithDrawProps {
   findings?: FindingMarker[]
   /** Callback when a finding marker is clicked */
   onFindingClick?: (finding: FindingMarker) => void
+  /** Saved habitat polygons to display on the map */
+  habitatPolygons?: HabitatPolygonOverlay[]
+  /** Currently selected habitat polygon ID (highlighted on map) */
+  selectedHabitatId?: string
+  /** Callback when a habitat polygon is clicked on the map */
+  onHabitatClick?: (id: string) => void
+  /** Allow multiple drawn polygons (for habitat mapping). Default false (single boundary) */
+  allowMultipleDrawings?: boolean
 }
 
 // Define event types for leaflet-draw
@@ -131,6 +149,10 @@ function MapComponentWithDraw({
   flyToLocation,
   findings = [],
   onFindingClick,
+  habitatPolygons = [],
+  selectedHabitatId,
+  onHabitatClick,
+  allowMultipleDrawings = false,
 }: {
   center: [number, number]
   zoom: number
@@ -155,6 +177,10 @@ function MapComponentWithDraw({
   flyToLocation?: { center: [number, number]; zoom: number; key: string }
   findings?: FindingMarker[]
   onFindingClick?: (finding: FindingMarker) => void
+  habitatPolygons?: HabitatPolygonOverlay[]
+  selectedHabitatId?: string
+  onHabitatClick?: (id: string) => void
+  allowMultipleDrawings?: boolean
 }) {
   const {
     MapContainer,
@@ -369,10 +395,17 @@ function MapComponentWithDraw({
       return
     }
 
-    // Clear previous drawings - only allow one boundary at a time
-    if (featureGroupRef.current) {
-      featureGroupRef.current.clearLayers()
-      featureGroupRef.current.addLayer(layer)
+    if (allowMultipleDrawings) {
+      // Habitat mapping mode: keep existing drawings, just add new layer
+      if (featureGroupRef.current) {
+        featureGroupRef.current.addLayer(layer)
+      }
+    } else {
+      // Single boundary mode (Step 1): clear previous drawings
+      if (featureGroupRef.current) {
+        featureGroupRef.current.clearLayers()
+        featureGroupRef.current.addLayer(layer)
+      }
     }
 
     const newFeatures = [geoJSON]
@@ -620,6 +653,33 @@ function MapComponentWithDraw({
         )
       })}
 
+      {/* Saved habitat polygons */}
+      {habitatPolygons.map((hp) => {
+        const isSelected = hp.id === selectedHabitatId
+        const fillColor = hp.color || '#22c55e'
+        return (
+          <GeoJSON
+            key={`habitat-${hp.id}`}
+            data={{ type: 'Feature', geometry: hp.geometry, properties: {} } as GeoJSON.Feature}
+            style={() => ({
+              color: isSelected ? '#facc15' : fillColor,
+              weight: isSelected ? 4 : 2,
+              fillColor: fillColor,
+              fillOpacity: isSelected ? 0.35 : 0.2,
+            })}
+            onEachFeature={(_feature: GeoJSON.Feature, layer: L.Layer) => {
+              ;(layer as L.GeoJSON).bindPopup(`
+                <div style="min-width: 160px;">
+                  <strong>${hp.fossittCode}</strong> — ${hp.fossittName}
+                  ${hp.condition ? `<br/><span style="color: #666;">Condition: ${hp.condition}</span>` : ''}
+                </div>
+              `)
+              layer.on('click', () => onHabitatClick?.(hp.id))
+            }}
+          />
+        )
+      })}
+
       {editable ? (
         <FeatureGroup
           ref={(ref: LeafletFeatureGroup | null) => {
@@ -712,6 +772,10 @@ export function ProjectMapWithDraw({
   flyToLocation,
   findings = [],
   onFindingClick,
+  habitatPolygons = [],
+  selectedHabitatId,
+  onHabitatClick,
+  allowMultipleDrawings = false,
 }: ProjectMapWithDrawProps) {
   const [mapLoaded, setMapLoaded] = React.useState(false)
   // Use controlled style if provided, otherwise use local state
@@ -847,6 +911,10 @@ export function ProjectMapWithDraw({
           flyToLocation={flyToLocation}
           findings={findings}
           onFindingClick={onFindingClick}
+          habitatPolygons={habitatPolygons}
+          selectedHabitatId={selectedHabitatId}
+          onHabitatClick={onHabitatClick}
+          allowMultipleDrawings={allowMultipleDrawings}
         />
       </div>
 

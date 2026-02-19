@@ -123,7 +123,9 @@ export function useSubstepSearch(
       metadata: {
         siteCode: (f.raw_data as Record<string, unknown>)?.siteCode as string | undefined,
         siteType: (f.raw_data as Record<string, unknown>)?.siteType as string | undefined,
-        scientificName: (f.raw_data as Record<string, unknown>)?.scientificName as string | undefined,
+        scientificName: (f.raw_data as Record<string, unknown>)?.scientificName as
+          | string
+          | undefined,
         commonName: (f.raw_data as Record<string, unknown>)?.commonName as string | undefined,
         distance: f.distance_from_boundary_km ?? undefined,
         isProtected: f.is_protected ?? undefined,

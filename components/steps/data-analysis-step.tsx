@@ -54,7 +54,12 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]['id']
 
-export function DataAnalysisStep({ project, workflowStep, userId, onComplete }: DataAnalysisStepProps) {
+export function DataAnalysisStep({
+  project,
+  workflowStep,
+  userId,
+  onComplete,
+}: DataAnalysisStepProps) {
   const { toast } = useToast()
   const [activeTab, setActiveTab] = React.useState<TabId>('gis')
 
@@ -114,7 +119,11 @@ export function DataAnalysisStep({ project, workflowStep, userId, onComplete }: 
           </div>
           <Badge
             variant={
-              isComplete ? 'default' : workflowStep.status === 'in_progress' ? 'secondary' : 'outline'
+              isComplete
+                ? 'default'
+                : workflowStep.status === 'in_progress'
+                  ? 'secondary'
+                  : 'outline'
             }
           >
             {isComplete
@@ -131,8 +140,8 @@ export function DataAnalysisStep({ project, workflowStep, userId, onComplete }: 
         <Info className="h-4 w-4" />
         <AlertTitle>Data Analysis</AlertTitle>
         <AlertDescription>
-          Review the summary statistics and visualizations of your field data. Export data as CSV for
-          further analysis if needed. This analysis will inform the AI-generated report draft.
+          Review the summary statistics and visualizations of your field data. Export data as CSV
+          for further analysis if needed. This analysis will inform the AI-generated report draft.
         </AlertDescription>
       </Alert>
 
@@ -141,7 +150,8 @@ export function DataAnalysisStep({ project, workflowStep, userId, onComplete }: 
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>No Data Available</AlertTitle>
           <AlertDescription>
-            Complete the previous steps (Habitat Mapping and Target Notes) to have data for analysis.
+            Complete the previous steps (Habitat Mapping and Target Notes) to have data for
+            analysis.
           </AlertDescription>
         </Alert>
       )}
@@ -229,7 +239,9 @@ export function DataAnalysisStep({ project, workflowStep, userId, onComplete }: 
         {activeTab === 'habitats' && (
           <HabitatTab projectId={project.id} siteCode={project.site_code} project={project} />
         )}
-        {activeTab === 'target-notes' && <TargetNotesTab projectId={project.id} project={project} />}
+        {activeTab === 'target-notes' && (
+          <TargetNotesTab projectId={project.id} project={project} />
+        )}
       </div>
 
       {/* Progress Panel */}

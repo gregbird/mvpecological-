@@ -118,7 +118,7 @@ interface AquaticResearchData {
   ai_analysis: string | null
 }
 
-// Section-specific prompt instructions
+// Section-specific prompt instructions (CIEEM standard 6-section PEA)
 const SECTION_PROMPTS: Record<string, string> = {
   introduction: `Write the Introduction section (~300-400 words). Include:
 1. Project background and purpose of the PEA
@@ -134,64 +134,57 @@ const SECTION_PROMPTS: Record<string, string> = {
 4. **Limitations** — any constraints on the assessment (seasonal, access, weather)
 Reference standard survey guidelines (CIEEM, NRA, Bat Conservation Ireland) where appropriate.`,
 
-  results_sites: `Write the Designated Sites results section (~300-500 words). Include:
-1. Summary table of all designated sites (SACs, SPAs, NHAs, pNHAs) with distances
-2. For each site within 2km, describe qualifying interests and conservation status
-3. Assess potential connectivity between the project site and designated areas
-4. Reference deep research data for conservation summaries and threats where available
-5. Note any sites requiring AA Screening consideration`,
+  results: `Write the Results section (~1500-2000 words). This is the main findings section combining all ecological data. Structure it with the following sub-headings:
 
-  results_habitats: `Write the Habitats results section (~400-600 words). Include:
-1. Summary of all habitat types recorded using Fossitt codes
-2. Description of each habitat: area, condition, notable features
-3. Identify any habitats corresponding to EU Habitats Directive Annex I types
-4. Note habitat connectivity and ecological corridors
-5. Reference any threats identified during surveys
-6. Include any relevant evaluation notes`,
+### 3.1 Designated Sites
+- Summary table of all designated sites (SACs, SPAs, NHAs, pNHAs) with distances from site boundary
+- For each site within 2km, describe qualifying interests and conservation status
+- Assess potential connectivity between the project site and designated areas
+- Reference deep research data for conservation summaries and threats where available
+- Note any sites requiring AA Screening consideration
 
-  results_fauna: `Write the Fauna results section (~400-600 words). Include:
-1. Summary of all fauna observations by taxon group
-2. Highlight protected species with specific legislation references
-3. Include abundance (DAFOR), evidence type, and confidence level where available
-4. Reference behavioural notes where relevant
-5. Assess ecological importance of species assemblages
-6. Cross-reference with desk study species records`,
+### 3.2 Habitats
+- Summary of all habitat types recorded using Fossitt (2000) codes
+- Description of each habitat: area, condition, notable features
+- Identify any habitats corresponding to EU Habitats Directive Annex I types
+- Note habitat connectivity and ecological corridors
+- Reference any threats identified during surveys
 
-  results_flora: `Write the Flora results section (~200-400 words). Include:
-1. Plant species recorded during field surveys
-2. Notable or indicator species
-3. Reference DAFOR abundance scores where available
-4. Link flora to habitat descriptions
-5. Note any Flora Protection Order species if present`,
+### 3.3 Flora & Invasive Species
+- Plant species recorded during field surveys with DAFOR abundance scores
+- Notable or indicator species, link flora to habitat descriptions
+- Any Flora Protection Order species if present
+- Invasive species observed or recorded in desk study — reference Third Schedule of European Communities (Birds and Natural Habitats) Regulations 2011
+- If no invasive species found, state this clearly but note habitats with potential for colonisation
 
-  results_invasive: `Write the Invasive Species results section (~200-300 words). Include:
-1. Any invasive species observed during field surveys or recorded in desk study
-2. Reference the Third Schedule of European Communities (Birds and Natural Habitats) Regulations 2011
-3. If no invasive species found, state this clearly but note habitats with potential for colonisation
-4. Recommend biosecurity measures where appropriate`,
+### 3.4 Fauna
+- Summary of all fauna observations by taxon group
+- Highlight protected species with specific legislation references (Wildlife Acts, Habitats Directive Annex II/IV)
+- Include abundance (DAFOR), evidence type, and confidence level where available
+- Reference behavioural notes where relevant
+- Assess ecological importance of species assemblages
+- Cross-reference with desk study species records
 
-  evaluation: `Write the Ecological Evaluation section (~400-500 words). Include:
-1. Assess ecological value using standard criteria: naturalness, rarity, size/extent, diversity, fragility, typicalness, recorded history, position in ecological unit, potential value
-2. Apply geographic frame of reference for each receptor (local, county, national, international)
-3. Incorporate the ecologist's professional opinion where provided
-4. Summarise key ecological receptors and their sensitivity
-5. Reference the Zone of Influence concept`,
+Use markdown sub-headings (###) for each sub-section. Be thorough and evidence-based.`,
 
-  discussion: `Write the Discussion section (~400-500 words). Include:
-1. Synthesis of key ecological findings from desk study and field surveys
-2. Discuss potential impacts on identified ecological receptors
-3. Consider cumulative and in-combination effects
-4. Reference the precautionary principle where uncertainty exists
-5. Incorporate the ecologist's professional opinion where provided
-6. Identify any triggers for Appropriate Assessment Screening`,
+  constraints: `Write the Ecological Constraints section (~500-600 words). Include:
+1. **Constraints Table** — create a markdown table with columns: Ecological Receptor | Importance (Local/County/National/International) | Potential Impact | Recommended Action
+2. Assess ecological value using standard criteria: naturalness, rarity, size/extent, diversity, fragility, typicalness
+3. Apply geographic frame of reference for each receptor
+4. Follow the mitigation hierarchy (avoid, minimise, remediate, compensate) for recommended actions
+5. Reference the Zone of Influence concept
+6. Incorporate the ecologist's professional opinion where provided
+7. Include timing constraints and seasonal restrictions for works`,
 
-  recommendations: `Write the Recommendations section (~300-400 words). Include:
-1. **Further Surveys** — specify what surveys are needed, target species/habitats, optimal timing
-2. **Mitigation Measures** — follow the mitigation hierarchy (avoid, minimise, remediate, compensate)
-3. **Enhancement Opportunities** — biodiversity net gain measures
-4. **Monitoring** — ongoing monitoring requirements
-5. **Timing Constraints** — seasonal restrictions for works
-Be specific and actionable.`,
+  discussion: `Write the Discussion & Conclusions section (~500-700 words). Include:
+1. **Synthesis** — key ecological findings from desk study and field surveys
+2. **Potential Impacts** — discuss potential impacts on identified ecological receptors
+3. **Cumulative Effects** — consider cumulative and in-combination effects
+4. **Precautionary Principle** — reference where uncertainty exists
+5. **AA Screening** — identify any triggers for Appropriate Assessment Screening
+6. **Further Surveys** — specify what surveys are needed, target species/habitats, optimal timing
+7. **Enhancement Opportunities** — biodiversity net gain measures and monitoring requirements
+Incorporate the ecologist's professional opinion where provided. Be specific and actionable.`,
 
   appendices: `Write the Appendices section (~100-200 words). List the appendices that should accompany this report:
 - Appendix A: Site Location Map
@@ -200,6 +193,11 @@ Be specific and actionable.`,
 - Appendix D: Site Photographs
 - Appendix E: Survey Datasheets
 Add brief descriptions of what each appendix contains based on the available data.`,
+}
+
+// Results section is much longer — use higher token limit
+const SECTION_MAX_TOKENS: Record<string, number> = {
+  results: 4000,
 }
 
 export async function POST(request: NextRequest) {
@@ -346,6 +344,8 @@ ${context}
 
 Write the section content now. Use markdown formatting (bold, bullet points, tables where appropriate). Do not include the section title as a heading — it will be added separately.`
 
+    const maxTokens = SECTION_MAX_TOKENS[sectionId] ?? 2000
+
     const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -359,7 +359,7 @@ Write the section content now. Use markdown formatting (bold, bullet points, tab
           { role: 'user', content: userPrompt },
         ],
         temperature: 0.3,
-        max_tokens: 2000,
+        max_tokens: maxTokens,
       }),
     })
 

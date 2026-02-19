@@ -1877,18 +1877,18 @@ AI raporları uygulama içinde düzenlenebilir ve tamamlanabilir olmalı. Rapor 
 
 **Yapılacaklar:**
 
-- [ ] **22.1.1** In-app rapor editörü oluştur
+- [x] **22.1.1** In-app rapor editörü oluştur
   - Dosya: `components/steps/ai-draft-step.tsx` (güncelle)
   - Rich text editor entegrasyonu (TipTap, Slate, veya benzer)
   - Bölüm bazlı düzenleme (section collapse/expand)
   - Markdown veya WYSIWYG modu
 
-- [ ] **22.1.2** Müşteri rapor yapısını uygula
+- [x] **22.1.2** Müşteri rapor yapısını uygula
   - Müşterinin Upwork chat'te paylaştığı rapor yapısı baz alınacak
   - PEA report template'i: Introduction, Methodology, Results, Constraints, Discussion, Appendices
   - Her bölüm ayrı düzenlenebilir blok
 
-- [ ] **22.1.3** Rapor versiyon yönetimi
+- [x] **22.1.3** Rapor versiyon yönetimi
   - AI draft → düzenlenmiş versiyonlar takibi
   - Önceki versiyona geri dönme
   - Değişiklik geçmişi (diff view)
