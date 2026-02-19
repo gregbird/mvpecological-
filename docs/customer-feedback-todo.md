@@ -789,6 +789,7 @@ Desk Research çıktısı Baseline Conditions Report olarak organize edilmeli. B
   - 5 bölümlü tam rapor: Designated Sites, Species, Habitat, Aquatic, Constraints
 
 **Düzeltmeler (19 Şubat 2026):**
+
 - CORINE mapping hatası düzeltildi: Mixed forest `WD→WN`, Water courses `FL→FW`
 - Export'ta habitat bölümü boştu — callback prop ile düzeltildi
 - Export constraints mantığı UI ile eşitlendi
@@ -1272,7 +1273,7 @@ Her tanımlanan site için rapor şunları açıkça listeler: İlişkili habita
 | 5.1 | View on Map düzeltmesi | 🟡 Orta | Düşük | - |
 | 5.2 | Gelişmiş popup | 🟡 Orta | Orta | - |
 | 5.3 | Sonuç kaydetme | 🔴 Yüksek | Düşük | - |
-| 5.4 | Baseline Report | 🟡 Orta | Yüksek | 3.1, 4.1 |
+| 5.4 | Baseline Report | ✅ Yapıldı | Yüksek | 3.1, 4.1 |
 | 6.1 | Logo güncelleme | 🟢 Düşük | Düşük | - |
 | 6.2 | Admin Dashboard | 🔴 Yüksek | Yüksek | - |
 | 6.3 | ~~65 demo proje~~ ✅ | 🔴 Yüksek | Orta | 6.2 |
