@@ -21,6 +21,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { Project, WorkflowStep } from '@/types/database'
 import { useRouter } from 'next/navigation'
 import { ProjectDetailModal } from '@/components/dashboard/project-detail-modal'
+import { QuickCreateProjectModal } from '@/components/dashboard/quick-create-project-modal'
 
 interface DashboardStats {
   totalProjects: number
@@ -156,6 +157,8 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = React.useState(true)
   const [selectedProject, setSelectedProject] = React.useState<ProjectWithTimeline | null>(null)
   const [workflowStepsMap, setWorkflowStepsMap] = React.useState<Record<string, WorkflowStep[]>>({})
+  const [projectLeadMap, setProjectLeadMap] = React.useState<Record<string, string>>({})
+  const [quickCreateOpen, setQuickCreateOpen] = React.useState(false)
   const router = useRouter()
 
   const isAdmin = user?.role === 'admin'
@@ -279,6 +282,24 @@ export default function DashboardPage() {
           grouped[step.project_id].push(step)
         }
         setWorkflowStepsMap(grouped)
+
+        // Fetch project leads from project_members
+        if (projectIds.length > 0) {
+          const { data: members } = await supabase
+            .from('project_members')
+            .select('project_id, user_id, profiles(full_name)')
+            .in('project_id', projectIds)
+            .eq('role', 'lead')
+
+          const leadMap: Record<string, string> = {}
+          for (const m of members || []) {
+            const profile = m.profiles as { full_name: string | null } | null
+            if (profile?.full_name) {
+              leadMap[m.project_id] = profile.full_name
+            }
+          }
+          setProjectLeadMap(leadMap)
+        }
 
         // Calculate progress and timeline for all projects
         const projectsWithTimeline: ProjectWithTimeline[] = projectList.map((project) => {
@@ -433,11 +454,12 @@ export default function DashboardPage() {
           <p className="text-muted-foreground mt-1">Welcome back, {user?.full_name || 'User'}</p>
         </div>
         {permissions.canCreateProject && (
-          <Button asChild className="bg-blue-600 hover:bg-blue-700">
-            <Link href="/projects/new">
-              <Plus className="mr-2 h-4 w-4" />
-              New Project
-            </Link>
+          <Button
+            className="bg-blue-600 hover:bg-blue-700"
+            onClick={() => setQuickCreateOpen(true)}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Quick Create Project
           </Button>
         )}
       </div>
@@ -719,11 +741,21 @@ export default function DashboardPage() {
         <ProjectDetailModal
           project={selectedProject}
           workflowSteps={selectedProject ? workflowStepsMap[selectedProject.id] || [] : []}
-          teamName={user?.full_name || undefined}
+          leadName={selectedProject ? projectLeadMap[selectedProject.id] : undefined}
           open={!!selectedProject}
           onOpenChange={(open) => {
             if (!open) setSelectedProject(null)
           }}
+        />
+      )}
+
+      {/* Quick Create Project Modal */}
+      {user?.organization_id && (
+        <QuickCreateProjectModal
+          open={quickCreateOpen}
+          onOpenChange={setQuickCreateOpen}
+          organizationId={user.organization_id}
+          userId={user.id}
         />
       )}
 

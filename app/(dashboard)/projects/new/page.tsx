@@ -45,6 +45,7 @@ const mockClients = [
 ]
 
 const surveyTypes = [
+  { value: 'pea', label: 'Preliminary Ecological Appraisal (PEA)' },
   { value: 'ecia', label: 'Ecological Impact Assessment (EcIA)' },
   { value: 'aa', label: 'Appropriate Assessment (AA)' },
   { value: 'nis', label: 'Natura Impact Statement (NIS)' },

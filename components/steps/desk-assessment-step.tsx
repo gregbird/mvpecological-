@@ -43,6 +43,7 @@ import { useSavedFindings, useUpdateFinding } from '@/hooks/queries/use-finding-
 import { useUpdateWorkflowStep, useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { useProjectContext } from '@/contexts/project-context'
 import { BaselineReportTab } from '@/components/steps/desk-assessment/baseline-report-tab'
+import { DeepResearchTab } from '@/components/steps/desk-assessment/deep-research-tab'
 import type { Project, WorkflowStep, DeskResearchFinding } from '@/types/database'
 
 interface DeskAssessmentStepProps {
@@ -685,6 +686,13 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
                   <FileText className="mr-2 h-4 w-4" />
                   Baseline Report
                 </TabsTrigger>
+                <TabsTrigger
+                  value="deep-research"
+                  className="data-[state=active]:border-primary relative rounded-none border-b-2 border-transparent py-3 font-medium shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                >
+                  <MapPin className="mr-2 h-4 w-4" />
+                  Deep Research
+                </TabsTrigger>
               </TabsList>
             </div>
 
@@ -844,6 +852,11 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
             {/* Baseline Report Tab */}
             <TabsContent value="baseline-report" className="mt-0 min-h-0 flex-1 overflow-y-auto">
               <BaselineReportTab savedFindings={savedFindings} project={project} />
+            </TabsContent>
+
+            {/* Deep Research Tab */}
+            <TabsContent value="deep-research" className="mt-0 min-h-0 flex-1 overflow-hidden">
+              <DeepResearchTab projectId={project.id} project={project} findings={savedFindings} />
             </TabsContent>
           </Tabs>
         </div>

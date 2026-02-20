@@ -950,26 +950,23 @@ Sunucu ana dashboard'dan bir projeye tıklamalı. Bu, tamamlanmış ve bekleyen 
 
 **Yapılacaklar:**
 
-- [ ] **6.4.1** Proje detay sayfasını güncelle
-  - Dosya: `app/(dashboard)/projects/[id]/page.tsx`
-  - Hero section: Proje adı, durum, ilerleme yüzdesi
+- [x] **6.4.1** Proje detay sayfasını güncelle
+  - ✅ **TAMAMLANDI (20 Şubat 2026):** Dashboard'dan projeye tıklanınca `ProjectDetailModal` açılıyor. Proje adı, durum, faz bazlı ilerleme yüzdesi gösteriliyor.
 
-- [ ] **6.4.2** Completion Status bileşeni
-  - Dosya: `components/project/completion-status.tsx`
+- [x] **6.4.2** Completion Status bileşeni
+  - ✅ **TAMAMLANDI (20 Şubat 2026):** `components/dashboard/project-detail-modal.tsx` güncellendi.
   - Tamamlanan adımlar listesi ✅
-  - Her adım için tamamlanma tarihi
-  - Sorumlu kişi
+  - Her adım için tamamlanma tarihi (`completed_at`)
+  - Sorumlu kişi (proje lead'i `project_members` tablosundan çekilip header'da gösteriliyor)
 
-- [ ] **6.4.3** Pending Status bileşeni
-  - Dosya: `components/project/pending-status.tsx`
+- [x] **6.4.3** Pending Status bileşeni
+  - ✅ **TAMAMLANDI (20 Şubat 2026):** `components/dashboard/project-detail-modal.tsx` güncellendi.
   - Bekleyen adımlar listesi ⏳
-  - Tahmini tamamlanma
-  - Blocker varsa göster
+  - ❌ ~~Tahmini tamamlanma~~ — Test verisi yetersiz, `workflow_steps.due_date` hiçbir step'te dolu değil. Step bazlı tahmini tamamlanma hesaplanamaz.
+  - Blocker varsa göster (önceki step tamamlanmamışsa "Blocked by: [step adı]" kırmızı uyarı)
 
-- [ ] **6.4.4** Progress visualization
-  - Circular progress indicator
-  - Veya horizontal stepped progress bar
-  - Fazlar arası geçiş göstergesi
+- [x] **6.4.4** Progress visualization
+  - ✅ **TAMAMLANDI (20 Şubat 2026):** Faz kartlarında horizontal progress bar ve yüzde gösterimi mevcut.
 
 ---
 
@@ -1079,26 +1076,22 @@ Yeni proje başlatma süreci mevcut kullanıcı arayüzü bileşenini kullanmal�
 
 **Yapılacaklar:**
 
-- [ ] **8.1.1** Mevcut proje oluşturma akışını incele
-  - Dosya: `app/(dashboard)/projects/new/page.tsx`
-  - Proje tipi seçimi mevcut mu?
+- [x] **8.1.1** Mevcut proje oluşturma akışını incele
+  - ✅ **TAMAMLANDI (20 Şubat 2026):** Proje oluşturma sayfası mevcut ve çalışıyor. Survey type dropdown zaten var.
 
-- [ ] **8.1.2** Proje tipi seçici ekle/güncelle
-  - Dropdown veya radio button grup
-  - Seçenekler:
-    - PEA (Preliminary Ecological Appraisal)
-    - EcIA (Ecological Impact Assessment)
-    - AA Screening (Appropriate Assessment)
-    - NIS (Natura Impact Statement)
+- [x] **8.1.2** Proje tipi seçici ekle/güncelle
+  - ✅ **TAMAMLANDI (20 Şubat 2026):** PEA seçeneği listeye eklendi (ilk sırada). `app/(dashboard)/projects/new/page.tsx` güncellendi.
+  - Seçenekler: PEA, EcIA, AA, NIS, AA Screening, Bat Survey, Bird Survey, Habitat Survey, Other
 
 - [ ] **8.1.3** Proje tipine göre workflow konfigürasyonu
   - Her tip için farklı adım seti?
   - Veya aynı 10 adım, farklı gereksinimler?
 
-- [ ] **8.1.4** Quick-create modal
-  - Dashboard'dan hızlı proje oluşturma
+- [x] **8.1.4** Quick-create modal
+  - ✅ **TAMAMLANDI (20 Şubat 2026):** `components/dashboard/quick-create-project-modal.tsx` oluşturuldu.
+  - Dashboard'dan "New Project" butonu artık modal açıyor
   - Minimum bilgi: Ad, tip, lokasyon
-  - Detaylar sonra doldurulabilir
+  - React Hook Form + Zod validation, proje oluşturunca otomatik yönlendirme
 
 ---
 
@@ -1202,10 +1195,10 @@ Bu aşama da yarı-harita / yarı-deep research panel ekran yapılandırmasını
 
 **Yapılacaklar:**
 
-- [ ] **10.1.1** Deep Research panel görünümü oluştur
+- [x] ~~**10.1.1** Deep Research panel görünümü oluştur~~ ✅
   - Half-map / half-research panel layout
   - Satellite varsayılan katman
-  - Buffer zone içindeki tüm koruma alanlarını listele
+  - Deep research yapılan koruma alanları haritada + sağ panelde listeleniyor
 
 ---
 
@@ -1220,18 +1213,20 @@ Her tanımlanan site için rapor şunları açıkça listeler: İlişkili habita
 
 **Yapılacaklar:**
 
-- [ ] **10.2.1** Site detay kartı bileşeni (Deep Research paneli için)
-  - İlişkili habitatlar + türler listesi (mevcut Excel verisinden)
-  - Koruma durumu/koşulu gösterimi
-  - "Save" butonu
+- [x] ~~**10.2.1** Site detay kartı bileşeni (Deep Research paneli için)~~ ✅
+  - İlişkili habitatlar + türler listesi (npws-sites-data.json'dan Annex II Species / Bird SCIs)
+  - Koruma durumu/koşulu gösterimi (conservation summary badges)
+  - Save zaten Step 2'deki deep research modal'ında yapılıyor
 
-- [ ] **10.2.2** AI Özetleri entegrasyonu
-  - QI'ler için AI 2-satır özeti (mevcut deep-research API genişletilir)
-  - Site Synopsis için AI 2-satır özeti
-  - Conservation Objectives gösterimi
+- [x] ~~**10.2.2** AI Özetleri entegrasyonu~~ ✅
+  - AI analysis'in ilk 2 cümlesi collapsed kartta özet olarak gösteriliyor
+  - Conservation Objectives PDF linki (NPWS SSCO)
+  - Statutory Instrument linki
 
-- [ ] **10.2.3** Batch araştırma butonu
-  - Buffer zone içindeki tüm SAC/SPA/NHA/pNHA için toplu deep research başlat
+- [x] ~~**10.2.3** Batch araştırma butonu~~ ✅
+  - "Research All X Sites" / "Research X More" butonu eklendi
+  - Araştırılmamış tüm designated site'lar için sırayla API çağrısı + Article 17 zenginleştirme + DB kayıt
+  - İlerleme göstergesi (current/total + site adı)
 
 ---
 

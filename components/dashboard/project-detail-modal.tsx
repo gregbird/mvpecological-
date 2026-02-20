@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { CornerDownRight, BookOpen, Compass, BarChart3 } from 'lucide-react'
+import { BookOpen, Compass, BarChart3, AlertTriangle, Calendar } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import {
@@ -11,7 +11,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import { Button } from '@/components/ui/button'
-import { WORKFLOW_PHASES, ALL_WORKFLOW_STEPS } from '@/lib/config/workflow'
+import { WORKFLOW_PHASES } from '@/lib/config/workflow'
 import type { Project, WorkflowStep } from '@/types/database'
 
 // Icons matching Bolt.new reference design
@@ -24,7 +24,7 @@ const PHASE_ICONS: Record<string, LucideIcon> = {
 interface ProjectDetailModalProps {
   project: Project | null
   workflowSteps: WorkflowStep[]
-  teamName?: string
+  leadName?: string
   open: boolean
   onOpenChange: (open: boolean) => void
 }
@@ -100,23 +100,36 @@ function getStatusColor(status: string) {
   }
 }
 
+function formatStepDate(dateStr: string | null | undefined): string | null {
+  if (!dateStr) return null
+  return new Date(dateStr).toLocaleDateString('en-IE', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
 export function ProjectDetailModal({
   project,
   workflowSteps,
-  teamName,
+  leadName,
   open,
   onOpenChange,
 }: ProjectDetailModalProps) {
   if (!project) return null
 
+  // Config step numarasına göre DB step'ini bul
   const phaseData = WORKFLOW_PHASES.map((phase) => {
-    const dbPhaseId = phase.id.replace('-', '_')
-    const dbSteps = workflowSteps.filter((ws) => ws.phase === dbPhaseId)
-    const completed = dbSteps.filter((s) => s.status === 'approved').length
-    const total = phase.steps.length
-    const percentage = total > 0 ? Math.round((completed / total) * 100) : 0
+    const mappedSteps = phase.steps.map((configStep) => ({
+      configStep,
+      dbStep: workflowSteps.find((ws) => ws.step_number === configStep.number) ?? null,
+    }))
 
-    return { ...phase, dbSteps, completed, total, percentage }
+    const total = phase.steps.length
+    const completed = mappedSteps.filter((m) => m.dbStep?.status === 'approved').length
+    const percentage = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0
+
+    return { ...phase, mappedSteps, completed, total, percentage }
   })
 
   return (
@@ -131,10 +144,10 @@ export function ProjectDetailModal({
             Site Code: {project.site_code || 'N/A'}
             <span className="mx-3 text-gray-300">|</span>
             Project ID: {project.id}
-            {teamName && (
+            {leadName && (
               <>
                 <span className="mx-3 text-gray-300">|</span>
-                Team: {teamName}
+                Lead: {leadName}
               </>
             )}
           </DialogDescription>
@@ -191,36 +204,59 @@ export function ProjectDetailModal({
                   </AccordionTrigger>
                   <AccordionContent className="pb-4">
                     <div className="space-y-3">
-                      {phase.steps.map((step) => {
-                        const dbStep = phase.dbSteps.find((s) => s.step_number === step.number)
+                      {phase.mappedSteps.map(({ configStep, dbStep }, index) => {
                         const status = dbStep?.status || 'pending'
-                        const prevStep = ALL_WORKFLOW_STEPS.find(
-                          (s) => s.number === step.number - 1
-                        )
+                        const completedDate = formatStepDate(dbStep?.completed_at)
+                        const startedDate = formatStepDate(dbStep?.started_at)
+
+                        // Blocker: önceki config step tamamlanmamışsa
+                        let blockerStepName: string | null = null
+                        if ((status === 'pending' || status === 'blocked') && index > 0) {
+                          const prevMapped = phase.mappedSteps[index - 1]
+                          if (prevMapped.dbStep && prevMapped.dbStep.status !== 'approved') {
+                            blockerStepName = prevMapped.configStep.label
+                          }
+                        }
 
                         return (
                           <div
-                            key={step.number}
+                            key={configStep.number}
                             className="flex items-start gap-4 rounded-lg border border-gray-200 px-5 py-4"
                           >
                             <div className="mt-1">
                               <StatusIcon status={status} />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="font-semibold text-gray-900">{step.label}</p>
-                              <p className="mt-0.5 text-sm text-gray-500">{step.description}</p>
-                              {prevStep && (
-                                <p className="mt-1.5 flex items-center gap-1 text-xs text-gray-400">
-                                  <CornerDownRight className="h-3 w-3" />
-                                  Depends on: {prevStep.label}
+                              <p className="font-semibold text-gray-900">{configStep.label}</p>
+                              <p className="mt-0.5 text-sm text-gray-500">
+                                {configStep.description}
+                              </p>
+                              {blockerStepName && (
+                                <p className="mt-1.5 flex items-center gap-1 text-xs text-red-500">
+                                  <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                                  Blocked by: {blockerStepName}
                                 </p>
                               )}
                             </div>
-                            <span
-                              className={`mt-1 text-sm font-medium whitespace-nowrap ${getStatusColor(status)}`}
-                            >
-                              {getStatusLabel(status)}
-                            </span>
+                            <div className="mt-1 flex flex-col items-end gap-1">
+                              <span
+                                className={`text-sm font-medium whitespace-nowrap ${getStatusColor(status)}`}
+                              >
+                                {getStatusLabel(status)}
+                              </span>
+                              {status === 'approved' && completedDate && (
+                                <span className="flex items-center gap-1 text-xs text-gray-400">
+                                  <Calendar className="h-3 w-3" />
+                                  {completedDate}
+                                </span>
+                              )}
+                              {status === 'in_progress' && startedDate && (
+                                <span className="flex items-center gap-1 text-xs text-gray-400">
+                                  <Calendar className="h-3 w-3" />
+                                  Started {startedDate}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         )
                       })}
