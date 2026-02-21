@@ -15,6 +15,7 @@ import {
   ExternalLink,
   ChevronDown,
   FileText,
+  BarChart3,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -39,6 +40,7 @@ import { useProjectContext } from '@/contexts/project-context'
 import { BaselineReportTab } from '@/components/steps/desk-assessment/baseline-report-tab'
 import { DeepResearchTab } from '@/components/steps/desk-assessment/deep-research-tab'
 import { EcologicalSummaryPanel } from '@/components/desk-research/ecological-summary-panel'
+import { getFindingSourceUrl } from '@/lib/utils/finding-source-url'
 import type { Project, WorkflowStep, DeskResearchFinding } from '@/types/database'
 
 interface DeskAssessmentStepProps {
@@ -84,46 +86,6 @@ interface FindingWithRelevance extends DeskResearchFinding {
   parsedNotes: string
 }
 
-function getFindingSourceUrl(finding: FindingWithRelevance): string | null {
-  const raw = finding.raw_data as Record<string, unknown> | null
-  const metadata = raw?.metadata as Record<string, unknown> | null
-  const siteCode = (raw?.siteCode || metadata?.siteCode) as string | undefined
-  const siteType = (metadata?.siteType || metadata?.designation) as string | undefined
-
-  switch (finding.source) {
-    case 'npws': {
-      if (!siteCode) return 'https://www.npws.ie/protected-sites'
-      const typePathMap: Record<string, string> = {
-        SAC: 'protected-sites/sac',
-        SPA: 'protected-sites/spa',
-        NHA: 'protected-sites/nha',
-        pNHA: 'protected-sites/nha',
-      }
-      const path = typePathMap[siteType || ''] || 'protected-sites'
-      return `https://www.npws.ie/${path}/${siteCode}`
-    }
-    case 'gbif': {
-      const gbifUrl = metadata?.gbifUrl as string | undefined
-      if (gbifUrl) return gbifUrl
-      const scientificName = (raw?.scientificName || metadata?.scientificName) as string | undefined
-      if (scientificName)
-        return `https://www.gbif.org/occurrence/search?scientificName=${encodeURIComponent(scientificName)}`
-      return 'https://www.gbif.org'
-    }
-    case 'nbdc': {
-      const nbdcUrl = metadata?.nbdcUrl as string | undefined
-      if (nbdcUrl) return nbdcUrl
-      const gbifUrl2 = metadata?.gbifUrl as string | undefined
-      if (gbifUrl2) return gbifUrl2
-      return 'https://maps.biodiversityireland.ie'
-    }
-    case 'epa':
-      return 'https://gis.epa.ie/EPAMaps/Water'
-    default:
-      return null
-  }
-}
-
 export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAssessmentStepProps) {
   const { toast } = useToast()
   const { refetchWorkflowSteps } = useProjectContext()
@@ -133,7 +95,10 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
   const [notes, setNotes] = React.useState('')
   const [relevance, setRelevance] = React.useState<Relevance>('medium')
   const [isGeneratingInsights, setIsGeneratingInsights] = React.useState(false)
-  const [aiInsights, setAiInsights] = React.useState<string | null>(null)
+  const [aiInsights, setAiInsights] = React.useState<string | null>(() => {
+    const meta = workflowStep.metadata as Record<string, unknown> | null
+    return (meta?.aiInsights as string) || null
+  })
   const [expandedCard, setExpandedCard] = React.useState<string | null>(null)
 
   // React Query hooks
@@ -142,13 +107,13 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
   const updateWorkflowStep = useUpdateWorkflowStep()
   const completeStep = useCompleteWorkflowStep()
 
-  // Load persisted AI insights from workflow step metadata on mount
+  // Sync AI insights when workflow step metadata changes (e.g. navigating back)
   React.useEffect(() => {
     const meta = workflowStep.metadata as Record<string, unknown> | null
     if (meta?.aiInsights && typeof meta.aiInsights === 'string') {
       setAiInsights(meta.aiInsights)
     }
-  }, [workflowStep.id])
+  }, [workflowStep.metadata])
 
   // Auto-reopen step when saved findings change after completion
   const findingsFingerprint = React.useMemo(
@@ -460,333 +425,318 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <div className="flex h-full min-h-0 w-full">
-          {/* Left Panel - Stats */}
-          <div className="w-75 shrink-0 overflow-y-auto border-r p-4">
-            <h3 className="mb-4 font-semibold">Data Summary</h3>
-
-            <div className="space-y-3">
-              {/* Designated Sites */}
-              <Card>
-                <CardContent className="p-4">
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-3"
-                    onClick={() =>
-                      setExpandedCard(expandedCard === 'designated_site' ? null : 'designated_site')
-                    }
-                  >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100">
-                      <MapPin className="h-5 w-5 text-emerald-600" />
-                    </div>
-                    <div className="text-left">
-                      <div className="text-2xl font-bold">
-                        {findingsByType['designated_site']?.length || 0}
-                      </div>
-                      <div className="text-muted-foreground text-xs">Designated Sites</div>
-                    </div>
-                    <ChevronDown
-                      className={cn(
-                        'ml-auto h-4 w-4 shrink-0 transition-transform',
-                        expandedCard === 'designated_site' && 'rotate-180'
-                      )}
-                    />
-                  </button>
-                  {expandedCard === 'designated_site' &&
-                    findingsByType['designated_site']?.length > 0 && (
-                      <ul className="mt-3 space-y-1 border-t pt-2">
-                        {findingsByType['designated_site'].map((f) => {
-                          const url = getFindingSourceUrl(f)
-                          return (
-                            <li key={f.id} className="flex items-start gap-1.5 text-xs">
-                              <span className="text-muted-foreground mt-0.5">•</span>
-                              {url ? (
-                                <a
-                                  href={url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-emerald-700 hover:underline"
-                                >
-                                  <span className="line-clamp-1">{f.title}</span>
-                                  <ExternalLink className="h-3 w-3 shrink-0" />
-                                </a>
-                              ) : (
-                                <span className="line-clamp-1">{f.title}</span>
-                              )}
-                            </li>
-                          )
-                        })}
-                      </ul>
-                    )}
-                </CardContent>
-              </Card>
-
-              {/* Species Records */}
-              <Card>
-                <CardContent className="p-4">
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-3"
-                    onClick={() =>
-                      setExpandedCard(expandedCard === 'species_record' ? null : 'species_record')
-                    }
-                  >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-purple-100">
-                      <Bug className="h-5 w-5 text-purple-600" />
-                    </div>
-                    <div className="text-left">
-                      <div className="text-2xl font-bold">
-                        {findingsByType['species_record']?.length || 0}
-                      </div>
-                      <div className="text-muted-foreground text-xs">Species Records</div>
-                    </div>
-                    <ChevronDown
-                      className={cn(
-                        'ml-auto h-4 w-4 shrink-0 transition-transform',
-                        expandedCard === 'species_record' && 'rotate-180'
-                      )}
-                    />
-                  </button>
-                  {expandedCard === 'species_record' &&
-                    findingsByType['species_record']?.length > 0 && (
-                      <ul className="mt-3 space-y-1 border-t pt-2">
-                        {findingsByType['species_record'].map((f) => {
-                          const url = getFindingSourceUrl(f)
-                          return (
-                            <li key={f.id} className="flex items-start gap-1.5 text-xs">
-                              <span className="text-muted-foreground mt-0.5">•</span>
-                              {url ? (
-                                <a
-                                  href={url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-purple-700 hover:underline"
-                                >
-                                  <span className="line-clamp-1">{f.title}</span>
-                                  <ExternalLink className="h-3 w-3 shrink-0" />
-                                </a>
-                              ) : (
-                                <span className="line-clamp-1">{f.title}</span>
-                              )}
-                            </li>
-                          )
-                        })}
-                      </ul>
-                    )}
-                </CardContent>
-              </Card>
-
-              {/* Aquatic Features */}
-              <Card>
-                <CardContent className="p-4">
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-3"
-                    onClick={() =>
-                      setExpandedCard(expandedCard === 'water_quality' ? null : 'water_quality')
-                    }
-                  >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100">
-                      <Droplets className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div className="text-left">
-                      <div className="text-2xl font-bold">
-                        {findingsByType['water_quality']?.length || 0}
-                      </div>
-                      <div className="text-muted-foreground text-xs">Aquatic Features</div>
-                    </div>
-                    <ChevronDown
-                      className={cn(
-                        'ml-auto h-4 w-4 shrink-0 transition-transform',
-                        expandedCard === 'water_quality' && 'rotate-180'
-                      )}
-                    />
-                  </button>
-                  {expandedCard === 'water_quality' &&
-                    findingsByType['water_quality']?.length > 0 && (
-                      <ul className="mt-3 space-y-1 border-t pt-2">
-                        {findingsByType['water_quality'].map((f) => {
-                          const url = getFindingSourceUrl(f)
-                          return (
-                            <li key={f.id} className="flex items-start gap-1.5 text-xs">
-                              <span className="text-muted-foreground mt-0.5">•</span>
-                              {url ? (
-                                <a
-                                  href={url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-blue-700 hover:underline"
-                                >
-                                  <span className="line-clamp-1">{f.title}</span>
-                                  <ExternalLink className="h-3 w-3 shrink-0" />
-                                </a>
-                              ) : (
-                                <span className="line-clamp-1">{f.title}</span>
-                              )}
-                            </li>
-                          )
-                        })}
-                      </ul>
-                    )}
-                </CardContent>
-              </Card>
-
-              {/* Protected Species */}
-              {protectedSpeciesCount > 0 && (
-                <Card className="border-amber-200 bg-amber-50">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <AlertTriangle className="h-5 w-5 text-amber-600" />
-                      <div>
-                        <div className="font-semibold text-amber-800">
-                          {protectedSpeciesCount} Protected Species
-                        </div>
-                        <div className="text-xs text-amber-700">Requires attention</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-
-            <Button
-              onClick={handleGenerateInsights}
-              disabled={isGeneratingInsights}
-              className="mt-6 w-full"
+      {/* Main Content — Tabs */}
+      <Tabs defaultValue="ai-analysis" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="shrink-0 border-b px-4">
+          <TabsList className="h-auto gap-0 rounded-none border-none bg-transparent p-0">
+            <TabsTrigger
+              value="ai-analysis"
+              className="data-[state=active]:border-primary relative rounded-none border-b-2 border-transparent py-3 font-medium shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none"
             >
-              {isGeneratingInsights ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Generate AI Analysis
-                </>
-              )}
-            </Button>
-          </div>
-
-          {/* Right Panel - Tabs: AI Analysis + Baseline Report */}
-          <Tabs defaultValue="ai-analysis" className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <div className="shrink-0 border-b px-4">
-              <TabsList className="h-auto gap-0 rounded-none border-none bg-transparent p-0">
-                <TabsTrigger
-                  value="ai-analysis"
-                  className="data-[state=active]:border-primary relative rounded-none border-b-2 border-transparent py-3 font-medium shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-                >
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  AI Analysis
-                </TabsTrigger>
-                <TabsTrigger
-                  value="baseline-report"
-                  className="data-[state=active]:border-primary relative rounded-none border-b-2 border-transparent py-3 font-medium shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-                >
-                  <FileText className="mr-2 h-4 w-4" />
-                  Baseline Report
-                </TabsTrigger>
-                <TabsTrigger
-                  value="deep-research"
-                  className="data-[state=active]:border-primary relative rounded-none border-b-2 border-transparent py-3 font-medium shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-                >
-                  <MapPin className="mr-2 h-4 w-4" />
-                  Deep Research
-                </TabsTrigger>
-              </TabsList>
-            </div>
-
-            {/* AI Analysis Tab */}
-            <TabsContent value="ai-analysis" className="mt-0 min-h-0 flex-1 overflow-y-auto">
-              <div className="p-6">
-                <EcologicalSummaryPanel
-                  insights={aiInsights}
-                  isGenerating={isGeneratingInsights}
-                  findingsCount={savedFindings.length}
-                  projectName={project.name}
-                  onRegenerate={handleGenerateInsights}
-                  onInsightsChange={(updated) => {
-                    setAiInsights(updated)
-                    persistInsights(updated)
-                  }}
-                />
-
-                {/* Survey Recommendations */}
-                {!isGeneratingInsights && (
-                  <div className="mt-8 border-t pt-6">
-                    <h3 className="mb-4 flex items-center gap-2 font-semibold">
-                      <Lightbulb className="h-5 w-5" />
-                      Survey Recommendations
-                    </h3>
-
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-sm">Recommended Survey Types</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <ul className="text-muted-foreground space-y-1 text-sm">
-                            <li>• Habitat Survey (Fossitt Level 3)</li>
-                            {protectedSpeciesCount > 0 && <li>• Protected Species Survey</li>}
-                            {(findingsByType['designated_site']?.length || 0) > 0 && (
-                              <li>• Connectivity Assessment</li>
-                            )}
-                          </ul>
-                        </CardContent>
-                      </Card>
-
-                      <Card>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="flex items-center gap-2 text-sm">
-                            <Calendar className="h-4 w-4" />
-                            Optimal Survey Timing
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <ul className="text-muted-foreground space-y-1 text-sm">
-                            <li>• Breeding Birds: Mar - Jul</li>
-                            <li>• Bats: May - Sep</li>
-                            <li>• Badger: Year-round</li>
-                            <li>• Otter: Year-round</li>
-                            <li>• Vegetation: May - Sep</li>
-                          </ul>
-                        </CardContent>
-                      </Card>
-                    </div>
-
-                    {/* Complete Button */}
-                    <Button
-                      onClick={handleComplete}
-                      disabled={isComplete || completeStep.isPending}
-                      className="mt-6 w-full"
-                      size="lg"
-                    >
-                      {completeStep.isPending ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <Check className="mr-2 h-4 w-4" />
-                      )}
-                      {isComplete ? 'Completed' : 'Complete & Continue to Field Survey'}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-
-            {/* Baseline Report Tab */}
-            <TabsContent value="baseline-report" className="mt-0 min-h-0 flex-1 overflow-y-auto">
-              <BaselineReportTab savedFindings={savedFindings} project={project} />
-            </TabsContent>
-
-            {/* Deep Research Tab */}
-            <TabsContent value="deep-research" className="mt-0 min-h-0 flex-1 overflow-hidden">
-              <DeepResearchTab projectId={project.id} project={project} findings={savedFindings} />
-            </TabsContent>
-          </Tabs>
+              <Sparkles className="mr-2 h-4 w-4" />
+              AI Analysis
+            </TabsTrigger>
+            <TabsTrigger
+              value="baseline-report"
+              className="data-[state=active]:border-primary relative rounded-none border-b-2 border-transparent py-3 font-medium shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              Baseline Report
+            </TabsTrigger>
+            <TabsTrigger
+              value="deep-research"
+              className="data-[state=active]:border-primary relative rounded-none border-b-2 border-transparent py-3 font-medium shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+            >
+              <MapPin className="mr-2 h-4 w-4" />
+              Deep Research
+            </TabsTrigger>
+          </TabsList>
         </div>
-      </div>
+
+        {/* AI Analysis Tab */}
+        <TabsContent value="ai-analysis" className="mt-0 min-h-0 flex-1 overflow-y-auto">
+          <div className="p-6">
+            <EcologicalSummaryPanel
+              insights={aiInsights}
+              isGenerating={isGeneratingInsights}
+              findingsCount={savedFindings.length}
+              projectName={project.name}
+              onRegenerate={handleGenerateInsights}
+              onInsightsChange={(updated) => {
+                setAiInsights(updated)
+                persistInsights(updated)
+              }}
+            />
+
+            {/* Survey Recommendations */}
+            {!isGeneratingInsights && (
+              <div className="mt-8 border-t pt-6">
+                <h3 className="mb-4 flex items-center gap-2 font-semibold">
+                  <Lightbulb className="h-5 w-5" />
+                  Survey Recommendations
+                </h3>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Recommended Survey Types</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ul className="text-muted-foreground space-y-1 text-sm">
+                        <li>• Habitat Survey (Fossitt Level 3)</li>
+                        {protectedSpeciesCount > 0 && <li>• Protected Species Survey</li>}
+                        {(findingsByType['designated_site']?.length || 0) > 0 && (
+                          <li>• Connectivity Assessment</li>
+                        )}
+                      </ul>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="flex items-center gap-2 text-sm">
+                        <Calendar className="h-4 w-4" />
+                        Optimal Survey Timing
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ul className="text-muted-foreground space-y-1 text-sm">
+                        <li>• Breeding Birds: Mar - Jul</li>
+                        <li>• Bats: May - Sep</li>
+                        <li>• Badger: Year-round</li>
+                        <li>• Otter: Year-round</li>
+                        <li>• Vegetation: May - Sep</li>
+                      </ul>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Data Summary */}
+                <div className="mt-8 border-t pt-6">
+                  <h3 className="mb-4 flex items-center gap-2 font-semibold">
+                    <BarChart3 className="h-5 w-5" />
+                    Data Summary
+                  </h3>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {/* Designated Sites */}
+                    <Card>
+                      <CardContent className="p-4">
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-3"
+                          onClick={() =>
+                            setExpandedCard(
+                              expandedCard === 'designated_site' ? null : 'designated_site'
+                            )
+                          }
+                        >
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100">
+                            <MapPin className="h-5 w-5 text-emerald-600" />
+                          </div>
+                          <div className="text-left">
+                            <div className="text-2xl font-bold">
+                              {findingsByType['designated_site']?.length || 0}
+                            </div>
+                            <div className="text-muted-foreground text-xs">Designated Sites</div>
+                          </div>
+                          <ChevronDown
+                            className={cn(
+                              'ml-auto h-4 w-4 shrink-0 transition-transform',
+                              expandedCard === 'designated_site' && 'rotate-180'
+                            )}
+                          />
+                        </button>
+                        {expandedCard === 'designated_site' &&
+                          findingsByType['designated_site']?.length > 0 && (
+                            <ul className="mt-3 space-y-1 border-t pt-2">
+                              {findingsByType['designated_site'].map((f) => {
+                                const url = getFindingSourceUrl(f)
+                                return (
+                                  <li key={f.id} className="flex items-start gap-1.5 text-xs">
+                                    <span className="text-muted-foreground mt-0.5">•</span>
+                                    {url ? (
+                                      <a
+                                        href={url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-emerald-700 hover:underline"
+                                      >
+                                        <span className="line-clamp-1">{f.title}</span>
+                                        <ExternalLink className="h-3 w-3 shrink-0" />
+                                      </a>
+                                    ) : (
+                                      <span className="line-clamp-1">{f.title}</span>
+                                    )}
+                                  </li>
+                                )
+                              })}
+                            </ul>
+                          )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Species Records */}
+                    <Card>
+                      <CardContent className="p-4">
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-3"
+                          onClick={() =>
+                            setExpandedCard(
+                              expandedCard === 'species_record' ? null : 'species_record'
+                            )
+                          }
+                        >
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-purple-100">
+                            <Bug className="h-5 w-5 text-purple-600" />
+                          </div>
+                          <div className="text-left">
+                            <div className="text-2xl font-bold">
+                              {findingsByType['species_record']?.length || 0}
+                            </div>
+                            <div className="text-muted-foreground text-xs">Species Records</div>
+                          </div>
+                          <ChevronDown
+                            className={cn(
+                              'ml-auto h-4 w-4 shrink-0 transition-transform',
+                              expandedCard === 'species_record' && 'rotate-180'
+                            )}
+                          />
+                        </button>
+                        {expandedCard === 'species_record' &&
+                          findingsByType['species_record']?.length > 0 && (
+                            <ul className="mt-3 space-y-1 border-t pt-2">
+                              {findingsByType['species_record'].map((f) => {
+                                const url = getFindingSourceUrl(f)
+                                return (
+                                  <li key={f.id} className="flex items-start gap-1.5 text-xs">
+                                    <span className="text-muted-foreground mt-0.5">•</span>
+                                    {url ? (
+                                      <a
+                                        href={url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-purple-700 hover:underline"
+                                      >
+                                        <span className="line-clamp-1">{f.title}</span>
+                                        <ExternalLink className="h-3 w-3 shrink-0" />
+                                      </a>
+                                    ) : (
+                                      <span className="line-clamp-1">{f.title}</span>
+                                    )}
+                                  </li>
+                                )
+                              })}
+                            </ul>
+                          )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Aquatic Features */}
+                    <Card>
+                      <CardContent className="p-4">
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-3"
+                          onClick={() =>
+                            setExpandedCard(
+                              expandedCard === 'water_quality' ? null : 'water_quality'
+                            )
+                          }
+                        >
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100">
+                            <Droplets className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <div className="text-left">
+                            <div className="text-2xl font-bold">
+                              {findingsByType['water_quality']?.length || 0}
+                            </div>
+                            <div className="text-muted-foreground text-xs">Aquatic Features</div>
+                          </div>
+                          <ChevronDown
+                            className={cn(
+                              'ml-auto h-4 w-4 shrink-0 transition-transform',
+                              expandedCard === 'water_quality' && 'rotate-180'
+                            )}
+                          />
+                        </button>
+                        {expandedCard === 'water_quality' &&
+                          findingsByType['water_quality']?.length > 0 && (
+                            <ul className="mt-3 space-y-1 border-t pt-2">
+                              {findingsByType['water_quality'].map((f) => {
+                                const url = getFindingSourceUrl(f)
+                                return (
+                                  <li key={f.id} className="flex items-start gap-1.5 text-xs">
+                                    <span className="text-muted-foreground mt-0.5">•</span>
+                                    {url ? (
+                                      <a
+                                        href={url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-blue-700 hover:underline"
+                                      >
+                                        <span className="line-clamp-1">{f.title}</span>
+                                        <ExternalLink className="h-3 w-3 shrink-0" />
+                                      </a>
+                                    ) : (
+                                      <span className="line-clamp-1">{f.title}</span>
+                                    )}
+                                  </li>
+                                )
+                              })}
+                            </ul>
+                          )}
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Protected Species Warning */}
+                  {protectedSpeciesCount > 0 && (
+                    <Card className="mt-4 border-amber-200 bg-amber-50">
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-3">
+                          <AlertTriangle className="h-5 w-5 text-amber-600" />
+                          <div>
+                            <div className="font-semibold text-amber-800">
+                              {protectedSpeciesCount} Protected Species
+                            </div>
+                            <div className="text-xs text-amber-700">Requires attention</div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+
+                {/* Complete Button */}
+                <Button
+                  onClick={handleComplete}
+                  disabled={isComplete || completeStep.isPending}
+                  className="mt-6 w-full"
+                  size="lg"
+                >
+                  {completeStep.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check className="mr-2 h-4 w-4" />
+                  )}
+                  {isComplete ? 'Completed' : 'Complete & Continue to Field Survey'}
+                </Button>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* Baseline Report Tab */}
+        <TabsContent value="baseline-report" className="mt-0 min-h-0 flex-1 overflow-y-auto">
+          <BaselineReportTab savedFindings={savedFindings} project={project} />
+        </TabsContent>
+
+        {/* Deep Research Tab */}
+        <TabsContent value="deep-research" className="mt-0 min-h-0 flex-1 overflow-hidden">
+          <DeepResearchTab projectId={project.id} project={project} findings={savedFindings} />
+        </TabsContent>
+      </Tabs>
 
       {/* Assessment Dialog */}
       <Dialog

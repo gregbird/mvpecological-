@@ -16,10 +16,12 @@ export type MapStepName =
   | 'designated_sites'
   | 'species_records'
   | 'aquatic_features'
+  | 'data_analysis'
 
 export const STEP_LABELS: Record<MapStepName, string> = {
   gis_mapping: 'GIS Mapping',
   designated_sites: 'Designated Sites',
   species_records: 'Species Records',
   aquatic_features: 'Aquatic Features',
+  data_analysis: 'Data Analysis',
 }

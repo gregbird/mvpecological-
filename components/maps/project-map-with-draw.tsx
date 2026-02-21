@@ -93,6 +93,8 @@ interface ProjectMapWithDrawProps {
   onHabitatClick?: (id: string) => void
   /** Allow multiple drawn polygons (for habitat mapping). Default false (single boundary) */
   allowMultipleDrawings?: boolean
+  /** Pre-fetched NPWS sites from useLayerData — avoids duplicate fetch */
+  npwsSites?: import('@/lib/external-apis/npws').NPWSDesignatedSite[]
 }
 
 // Define event types for leaflet-draw
@@ -153,6 +155,7 @@ function MapComponentWithDraw({
   selectedHabitatId,
   onHabitatClick,
   allowMultipleDrawings = false,
+  onMapReady,
 }: {
   center: [number, number]
   zoom: number
@@ -181,6 +184,7 @@ function MapComponentWithDraw({
   selectedHabitatId?: string
   onHabitatClick?: (id: string) => void
   allowMultipleDrawings?: boolean
+  onMapReady?: (map: LeafletMap) => void
 }) {
   const {
     MapContainer,
@@ -227,8 +231,9 @@ function MapComponentWithDraw({
     React.useEffect(() => {
       if (map) {
         mapRef.current = map
+        onMapReady?.(map)
       }
-    }, [map])
+    }, [map, onMapReady])
 
     React.useEffect(() => {
       if (!map || !onViewChange) return
@@ -776,6 +781,7 @@ export function ProjectMapWithDraw({
   selectedHabitatId,
   onHabitatClick,
   allowMultipleDrawings = false,
+  npwsSites: externalNpwsSites,
 }: ProjectMapWithDrawProps) {
   const [mapLoaded, setMapLoaded] = React.useState(false)
   // Use controlled style if provided, otherwise use local state
@@ -785,6 +791,7 @@ export function ProjectMapWithDraw({
   const [isFullscreen, setIsFullscreen] = React.useState(false)
   const containerRef = React.useRef<HTMLDivElement>(null)
   const mapRef = React.useRef<LeafletMap | null>(null)
+  const [mapInstance, setMapInstance] = React.useState<LeafletMap | null>(null)
 
   // Auto-hide drawing hint after 5 seconds
   const [showDrawingHint, setShowDrawingHint] = React.useState(true)
@@ -808,12 +815,13 @@ export function ProjectMapWithDraw({
 
   // NPWS layer overlay
   const { sites: npwsSitesRaw, isLoading: npwsLoading } = useNPWSLayers(
-    mapRef.current,
+    mapInstance,
     boundary ?? null,
     visibleLayers,
     npwsSearchRadius,
     ignoredItems,
-    deletedItems
+    deletedItems,
+    externalNpwsSites
   )
 
   // Filter out ignored and deleted sites
@@ -826,7 +834,7 @@ export function ProjectMapWithDraw({
 
   // EPA layer overlay (rivers, lakes, catchments) - fetched within buffer zone
   const { counts: epaCounts, isLoading: epaLoading } = useEPALayers(
-    mapRef.current,
+    mapInstance,
     boundary ?? null,
     visibleLayers,
     npwsSearchRadius,
@@ -915,6 +923,7 @@ export function ProjectMapWithDraw({
           selectedHabitatId={selectedHabitatId}
           onHabitatClick={onHabitatClick}
           allowMultipleDrawings={allowMultipleDrawings}
+          onMapReady={setMapInstance}
         />
       </div>
 

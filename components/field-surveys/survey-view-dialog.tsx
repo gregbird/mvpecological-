@@ -1,18 +1,23 @@
 'use client'
 
-import { Calendar, Clock, User, FileText, Hash } from 'lucide-react'
+import { Calendar, Clock, User, FileText, Hash, Loader2 } from 'lucide-react'
 import { format } from 'date-fns'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Separator } from '@/components/ui/separator'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { ReleveSurveyForm } from './releve-survey-form'
+import { useReleveSurveyBySurveyId } from '@/hooks/queries/use-releve-hooks'
 import type { Survey, SurveyStatus } from './survey-card'
 
 interface SurveyViewDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   survey: Survey
+  projectId?: string
+  projectName?: string
 }
 
 const SURVEY_TYPE_LABELS: Record<string, string> = {
@@ -59,8 +64,20 @@ function InfoRow({
   )
 }
 
-export function SurveyViewDialog({ open, onOpenChange, survey }: SurveyViewDialogProps) {
+export function SurveyViewDialog({
+  open,
+  onOpenChange,
+  survey,
+  projectId,
+  projectName,
+}: SurveyViewDialogProps) {
   const statusStyle = STATUS_STYLES[survey.status]
+  const isReleve = survey.surveyType === 'releve_survey'
+
+  // Load existing relevé data if this is a relevé survey
+  const { data: releveData, isLoading: releveLoading } = useReleveSurveyBySurveyId(
+    isReleve && open ? survey.id : null
+  )
 
   const formatDate = (dateString: string) => {
     try {
@@ -70,6 +87,40 @@ export function SurveyViewDialog({ open, onOpenChange, survey }: SurveyViewDialo
     }
   }
 
+  // Relevé Survey: show full template form
+  if (isReleve && projectId) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-h-[90vh] max-w-4xl p-0">
+          <DialogHeader className="border-b px-6 py-4">
+            <div className="flex items-center gap-2">
+              <DialogTitle className="text-lg">Relevé Survey Template</DialogTitle>
+              <Badge variant={statusStyle.variant}>{statusStyle.label}</Badge>
+            </div>
+          </DialogHeader>
+          <ScrollArea className="max-h-[calc(90vh-80px)] px-6 py-4">
+            {releveLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
+                <span className="text-muted-foreground ml-2 text-sm">Loading template...</span>
+              </div>
+            ) : (
+              <ReleveSurveyForm
+                projectId={projectId}
+                projectName={projectName ?? ''}
+                surveyId={survey.id}
+                existingData={releveData}
+                onSaved={() => onOpenChange(false)}
+                onClose={() => onOpenChange(false)}
+              />
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
+  // Default: generic survey view
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">

@@ -806,6 +806,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                 ignoredItems={layers.ignoredItems}
                 deletedItems={layers.deletedItems}
                 npwsSiteCount={npwsSiteCount}
+                npwsSites={layers.layerData.npwsSites}
                 flyToLocation={mapView.flyToLocation}
               />
 

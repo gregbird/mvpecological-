@@ -222,7 +222,9 @@ export function useNPWSLayers(
   visibleLayers: string[],
   searchRadius = 5,
   ignoredItems: Set<string> = new Set(),
-  deletedItems: Set<string> = new Set()
+  deletedItems: Set<string> = new Set(),
+  /** Pre-fetched sites from useLayerData — skip internal fetch when provided */
+  externalSites?: NPWSDesignatedSite[]
 ) {
   const [sites, setSites] = React.useState<NPWSDesignatedSite[]>([])
   const [isLoading, setIsLoading] = React.useState(false)
@@ -230,6 +232,13 @@ export function useNPWSLayers(
   // Track previous values to prevent unnecessary re-fetches
   const prevBoundaryRef = React.useRef<string | null>(null)
   const prevSiteTypesRef = React.useRef<string>('')
+
+  // Sync external sites when provided
+  React.useEffect(() => {
+    if (externalSites && externalSites.length > 0) {
+      setSites(externalSites)
+    }
+  }, [externalSites])
 
   // Get active NPWS site types from visible layers
   const activeSiteTypes = React.useMemo(() => {
@@ -276,8 +285,11 @@ export function useNPWSLayers(
     [searchRadius]
   )
 
-  // Fetch NPWS sites
+  // Fetch NPWS sites (skipped when externalSites provided)
   React.useEffect(() => {
+    // Skip internal fetch when using external data
+    if (externalSites && externalSites.length > 0) return
+
     // Create stable keys for comparison
     const boundaryKey = boundary?.geometry?.coordinates?.[0]
       ? JSON.stringify(boundary.geometry.coordinates[0].slice(0, 3)) // First 3 coords for stability
@@ -321,7 +333,7 @@ export function useNPWSLayers(
     }
 
     fetchSites()
-  }, [boundary, activeSiteTypes, getBoundingBox])
+  }, [boundary, activeSiteTypes, getBoundingBox, externalSites])
 
   // Render effect
   React.useEffect(() => {

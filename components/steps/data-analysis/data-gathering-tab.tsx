@@ -192,42 +192,71 @@ export function DataGatheringTab({ projectId, userId, project }: DataGatheringTa
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {findings.map((f) => (
-                    <TableRow key={f.id} className={cn(!f.include_in_report && 'opacity-50')}>
-                      <TableCell className="max-w-60 truncate font-medium">{f.title}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs">
-                          {f.data_type.replace('_', ' ')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="text-xs uppercase">
-                          {f.source}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-sm">
-                        {f.distance_from_boundary_km != null
-                          ? f.distance_from_boundary_km.toFixed(2)
-                          : '\u2014'}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Switch
-                          checked={f.include_in_report}
-                          onCheckedChange={() => handleToggleInclude(f)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => setEditingFinding(f)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {findings.map((f) => {
+                    const raw = f.raw_data as Record<string, unknown> | null
+                    const scientificName =
+                      f.data_type === 'species_record'
+                        ? (raw?.scientificName as string) ||
+                          (raw?.species_name_scientific as string) ||
+                          null
+                        : null
+                    const commonName =
+                      f.data_type === 'species_record'
+                        ? (raw?.vernacularName as string) ||
+                          (raw?.commonName as string) ||
+                          (raw?.species_name_common as string) ||
+                          null
+                        : null
+                    return (
+                      <TableRow key={f.id} className={cn(!f.include_in_report && 'opacity-50')}>
+                        <TableCell className="max-w-60">
+                          {scientificName ? (
+                            <div>
+                              <span className="truncate font-medium italic">{scientificName}</span>
+                              {commonName && (
+                                <span className="text-muted-foreground ml-1 text-xs">
+                                  ({commonName})
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="truncate font-medium">{f.title}</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">
+                            {f.data_type.replace('_', ' ')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="text-xs uppercase">
+                            {f.source}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm">
+                          {f.distance_from_boundary_km != null
+                            ? f.distance_from_boundary_km.toFixed(2)
+                            : '\u2014'}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Switch
+                            checked={f.include_in_report}
+                            onCheckedChange={() => handleToggleInclude(f)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => setEditingFinding(f)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
                 </TableBody>
               </UITable>
             </div>

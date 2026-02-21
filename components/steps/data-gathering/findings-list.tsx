@@ -217,6 +217,12 @@ export function FindingsList({
     })
   }
 
+  // Get the database UUID for a display finding (display IDs are not UUIDs)
+  const getSavedFindingDbId = (finding: FindingDisplay): string | null => {
+    const saved = savedFindings.find((f) => f.id === finding.id || f.title === finding.title)
+    return saved?.id ?? null
+  }
+
   // Sort findings - protected species always first
   const sortedFindings = React.useMemo(() => {
     const sorted = [...findings]
@@ -898,9 +904,11 @@ export function FindingsList({
                         disabled={savingNoteIds.has(finding.id)}
                         className="flex h-6 items-center gap-1 rounded bg-amber-500 px-2 text-[11px] font-medium text-white hover:bg-amber-600 disabled:opacity-50"
                         onClick={async () => {
+                          const dbId = getSavedFindingDbId(finding)
+                          if (!dbId) return
                           const draft = noteDrafts[finding.id] ?? ''
                           setSavingNoteIds((prev) => new Set(prev).add(finding.id))
-                          await onUpdateNote(finding.id, draft)
+                          await onUpdateNote(dbId, draft)
                           setSavingNoteIds((prev) => {
                             const next = new Set(prev)
                             next.delete(finding.id)

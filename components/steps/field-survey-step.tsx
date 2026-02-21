@@ -38,7 +38,6 @@ import { useSavedFindings } from '@/hooks/queries/use-finding-hooks'
 import { SurveyCard, type Survey as SurveyCardType } from '@/components/field-surveys/survey-card'
 import { SurveyForm } from '@/components/field-surveys/survey-form'
 import { SurveyViewDialog } from '@/components/field-surveys/survey-view-dialog'
-import { SurveyTargetsBox } from '@/components/field-surveys/survey-targets-box'
 import { PhotoGallery } from '@/components/field-surveys/photo-gallery'
 import type { Project, WorkflowStep, Json } from '@/types/database'
 
@@ -635,9 +634,6 @@ export function FieldSurveyStep({
             </Card>
           </Collapsible>
 
-          {/* Survey Targets (Habitats) */}
-          <SurveyTargetsBox findings={savedFindings} isLoading={findingsLoading} />
-
           {/* Instructions */}
           <Alert>
             <Info className="h-4 w-4" />
@@ -883,6 +879,8 @@ export function FieldSurveyStep({
                 if (!open) setViewingSurvey(null)
               }}
               survey={viewingSurvey}
+              projectId={project.id}
+              projectName={project.name}
             />
           )}
         </TabsContent>

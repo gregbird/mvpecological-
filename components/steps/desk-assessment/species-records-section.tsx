@@ -1,9 +1,10 @@
 'use client'
 
 import * as React from 'react'
-import { Bug, Shield, AlertTriangle } from 'lucide-react'
+import { Bug, Shield, AlertTriangle, ExternalLink, X } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -13,11 +14,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import type { DeskResearchFinding } from '@/types/database'
+import { getFindingSourceUrl } from '@/lib/utils/finding-source-url'
 import { toMapFindings, BaselineMap } from './baseline-map-utils'
+import type { DeskResearchFinding } from '@/types/database'
+
 interface SpeciesRecordsSectionProps {
   findings: DeskResearchFinding[]
   boundary?: GeoJSON.Feature<GeoJSON.Polygon>
+  onRemoveFinding?: (findingId: string) => void
 }
 
 interface SpeciesRow {
@@ -31,6 +35,7 @@ interface SpeciesRow {
   redListStatus: string | null
   recordCount: number
   designation: string | null
+  sourceUrl: string | null
 }
 
 function parseSpeciesRows(findings: DeskResearchFinding[]): SpeciesRow[] {
@@ -51,6 +56,7 @@ function parseSpeciesRows(findings: DeskResearchFinding[]): SpeciesRow[] {
         redListStatus: f.red_list_status || (metadata?.redListStatus as string) || null,
         recordCount: (metadata?.recordCount as number) || 1,
         designation: (metadata?.designation as string) || null,
+        sourceUrl: getFindingSourceUrl(f),
       }
     })
 }
@@ -118,7 +124,11 @@ const RED_LIST_COLORS: Record<string, string> = {
   'Least Concern': 'bg-green-100 text-green-800 border-green-200',
 }
 
-export function SpeciesRecordsSection({ findings, boundary }: SpeciesRecordsSectionProps) {
+export function SpeciesRecordsSection({
+  findings,
+  boundary,
+  onRemoveFinding,
+}: SpeciesRecordsSectionProps) {
   const species = React.useMemo(() => parseSpeciesRows(findings), [findings])
   const mapFindings = React.useMemo(() => toMapFindings(findings, 'species_record'), [findings])
   const hasLocationData = mapFindings.length > 0
@@ -143,121 +153,132 @@ export function SpeciesRecordsSection({ findings, boundary }: SpeciesRecordsSect
     <div className="space-y-6">
       <SummaryCards species={species} />
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Bug className="h-5 w-5 text-blue-600" />
-            Species Records
-            <Badge variant="secondary" className="ml-auto">
-              {species.length}
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[200px]">Species Name</TableHead>
-                  <TableHead className="w-[120px]">Taxon Group</TableHead>
-                  <TableHead className="w-[80px]">Source</TableHead>
-                  <TableHead className="w-[90px]">Protected</TableHead>
-                  <TableHead className="w-[140px]">Red List Status</TableHead>
-                  <TableHead className="w-[80px] text-right">Records</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {species.map((s) => (
-                  <TableRow key={s.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{s.name}</div>
-                        {s.scientificName !== s.name && (
-                          <div className="text-muted-foreground text-xs italic">
-                            {s.scientificName}
+      {/* Table + Map side by side */}
+      <div className="grid auto-rows-fr grid-cols-1 gap-4 xl:grid-cols-2">
+        <Card className="flex max-h-[420px] flex-col">
+          <CardHeader className="shrink-0 pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Bug className="h-5 w-5 text-blue-600" />
+              Species Records
+              <Badge variant="secondary" className="ml-auto">
+                {species.length}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="min-h-0 flex-1 overflow-y-auto p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[200px]">Species Name</TableHead>
+                    <TableHead className="w-[120px]">Taxon Group</TableHead>
+                    <TableHead className="w-[80px]">Source</TableHead>
+                    <TableHead className="w-[90px]">Protected</TableHead>
+                    <TableHead className="w-[140px]">Red List Status</TableHead>
+                    <TableHead className="w-[80px] text-right">Records</TableHead>
+                    {onRemoveFinding && <TableHead className="w-[50px]" />}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {species.map((s) => (
+                    <TableRow key={s.id}>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">
+                            {s.sourceUrl ? (
+                              <a
+                                href={s.sourceUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-blue-700 hover:underline"
+                              >
+                                {s.name}
+                                <ExternalLink className="h-3 w-3 shrink-0" />
+                              </a>
+                            ) : (
+                              s.name
+                            )}
                           </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm">{s.taxonGroup}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={SOURCE_COLORS[s.source] || ''}>
-                        {s.source.toUpperCase()}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {s.isProtected || s.isInvasive ? (
-                        <div className="flex flex-wrap gap-1">
-                          {s.isProtected && (
-                            <Badge className="border-emerald-200 bg-emerald-100 text-emerald-800">
-                              Protected
-                            </Badge>
-                          )}
-                          {s.isInvasive && (
-                            <Badge className="border-red-200 bg-red-100 text-red-800">
-                              Invasive
-                            </Badge>
+                          {s.scientificName !== s.name && (
+                            <div className="text-muted-foreground text-xs italic">
+                              {s.scientificName}
+                            </div>
                           )}
                         </div>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {s.redListStatus ? (
-                        <Badge variant="outline" className={RED_LIST_COLORS[s.redListStatus] || ''}>
-                          {s.redListStatus}
+                      </TableCell>
+                      <TableCell className="text-sm">{s.taxonGroup}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={SOURCE_COLORS[s.source] || ''}>
+                          {s.source.toUpperCase()}
                         </Badge>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
+                      </TableCell>
+                      <TableCell>
+                        {s.isProtected || s.isInvasive ? (
+                          <div className="flex flex-wrap gap-1">
+                            {s.isProtected && (
+                              <Badge className="border-emerald-200 bg-emerald-100 text-emerald-800">
+                                Protected
+                              </Badge>
+                            )}
+                            {s.isInvasive && (
+                              <Badge className="border-red-200 bg-red-100 text-red-800">
+                                Invasive
+                              </Badge>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {s.redListStatus ? (
+                          <Badge
+                            variant="outline"
+                            className={RED_LIST_COLORS[s.redListStatus] || ''}
+                          >
+                            {s.redListStatus}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">{s.recordCount}</TableCell>
+                      {onRemoveFinding && (
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-gray-400 hover:text-red-600"
+                            onClick={() => onRemoveFinding(s.id)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
                       )}
-                    </TableCell>
-                    <TableCell className="text-right">{s.recordCount}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Biological Records Map</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {hasLocationData ? (
-            <>
-              <div className="h-[300px]">
+        {/* Map beside table */}
+        <Card className="flex max-h-[420px] flex-col overflow-hidden [&_.leaflet-control-attribution]:hidden">
+          <CardContent className="flex min-h-0 flex-1 p-0">
+            {hasLocationData ? (
+              <div className="h-full min-h-[250px] w-full">
                 <BaselineMap findings={mapFindings} boundary={boundary} showControls={false} />
               </div>
-              <div className="flex flex-wrap gap-4 border-t px-4 py-3">
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-block h-3 w-3 rounded-full bg-red-600" />
-                  <span className="text-muted-foreground text-xs">Protected</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-block h-3 w-3 rounded-full bg-orange-500" />
-                  <span className="text-muted-foreground text-xs">Invasive</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-block h-3 w-3 rounded-full bg-blue-500" />
-                  <span className="text-muted-foreground text-xs">Other</span>
-                </div>
+            ) : (
+              <div className="text-muted-foreground flex w-full flex-col items-center justify-center gap-2 py-8 text-center text-sm">
+                <Bug className="h-8 w-8 text-gray-300" />
+                <p>No location data available for species records.</p>
               </div>
-            </>
-          ) : (
-            <div className="text-muted-foreground flex flex-col items-center gap-2 py-8 text-center text-sm">
-              <Bug className="h-8 w-8 text-gray-300" />
-              <p>No location data available for species records.</p>
-              <p className="text-xs">
-                Records from NBDC/GBIF include grid references — manually added records may lack
-                coordinates.
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

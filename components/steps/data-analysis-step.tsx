@@ -12,6 +12,8 @@ import {
   ClipboardList,
   TreePine,
   StickyNote,
+  MapPinned,
+  Camera,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -33,6 +35,8 @@ import { DeskAssessmentTab } from '@/components/steps/data-analysis/desk-assessm
 import { FieldSurveyTab } from '@/components/steps/data-analysis/field-survey-tab'
 import { HabitatTab } from '@/components/steps/data-analysis/habitat-tab'
 import { TargetNotesTab } from '@/components/steps/data-analysis/target-notes-tab'
+import { MapsTab } from '@/components/steps/data-analysis/maps-tab'
+import { PhotographsTab } from '@/components/steps/data-analysis/photographs-tab'
 
 import type { Project, WorkflowStep } from '@/types/database'
 
@@ -50,6 +54,8 @@ const TABS = [
   { id: 'field-survey', label: 'Field Survey', icon: ClipboardList },
   { id: 'habitats', label: 'Habitats', icon: TreePine },
   { id: 'target-notes', label: 'Target Notes', icon: StickyNote },
+  { id: 'maps', label: 'Maps', icon: MapPinned },
+  { id: 'photographs', label: 'Photographs', icon: Camera },
 ] as const
 
 type TabId = (typeof TABS)[number]['id']
@@ -242,6 +248,10 @@ export function DataAnalysisStep({
         {activeTab === 'target-notes' && (
           <TargetNotesTab projectId={project.id} project={project} />
         )}
+        {activeTab === 'maps' && (
+          <MapsTab projectId={project.id} userId={userId || ''} project={project} />
+        )}
+        {activeTab === 'photographs' && <PhotographsTab projectId={project.id} />}
       </div>
 
       {/* Progress Panel */}

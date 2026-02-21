@@ -1,9 +1,13 @@
 'use client'
 
 import * as React from 'react'
-import { Download, Loader2 } from 'lucide-react'
+import { Download, Loader2, Undo2, EyeOff, ChevronDown } from 'lucide-react'
 
+import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useToast } from '@/hooks/use-toast'
+import { useFindings, useToggleFindingSaved } from '@/hooks/queries/use-finding-hooks'
 import {
   useProjectDeepResearch,
   useProjectAquaticResearch,
@@ -32,15 +36,48 @@ interface BaselineReportTabProps {
 }
 
 export function BaselineReportTab({ savedFindings, project }: BaselineReportTabProps) {
+  const { toast } = useToast()
   const { data: deepResearch = [], isLoading: isLoadingDeep } = useProjectDeepResearch(project.id)
   const { data: aquaticResearch = [], isLoading: isLoadingAquatic } = useProjectAquaticResearch(
     project.id
   )
+  const { data: allFindings = [] } = useFindings(project.id)
+  const toggleSaved = useToggleFindingSaved()
 
   const boundary = project.boundary as GeoJSON.Feature<GeoJSON.Polygon> | undefined
 
   // Lifted habitat state from HabitatInventorySection for use in export
   const [habitatRows, setHabitatRows] = React.useState<HabitatRow[]>([])
+  const [showExcluded, setShowExcluded] = React.useState(false)
+
+  const excludedFindings = React.useMemo(
+    () => allFindings.filter((f) => !f.is_saved),
+    [allFindings]
+  )
+
+  const handleRemoveFinding = React.useCallback(
+    async (findingId: string) => {
+      try {
+        await toggleSaved.mutateAsync({ findingId, isSaved: false })
+        toast({ title: 'Finding excluded' })
+      } catch {
+        toast({ variant: 'destructive', title: 'Failed to exclude finding' })
+      }
+    },
+    [toggleSaved, toast]
+  )
+
+  const handleRestoreFinding = React.useCallback(
+    async (findingId: string) => {
+      try {
+        await toggleSaved.mutateAsync({ findingId, isSaved: true })
+        toast({ title: 'Finding restored' })
+      } catch {
+        toast({ variant: 'destructive', title: 'Failed to restore finding' })
+      }
+    },
+    [toggleSaved, toast]
+  )
 
   const handleExport = React.useCallback(() => {
     const designatedSites = savedFindings
@@ -184,23 +221,83 @@ export function BaselineReportTab({ savedFindings, project }: BaselineReportTabP
 
   return (
     <div className="space-y-8 p-6">
-      <div className="flex items-center justify-end">
-        <Button variant="outline" size="sm" onClick={handleExport}>
-          <Download className="mr-2 h-4 w-4" />
-          Export HTML
-        </Button>
-      </div>
+      {/* Excluded Findings Panel */}
+      {showExcluded && excludedFindings.length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <h4 className="mb-3 text-sm font-semibold text-amber-800">
+            Excluded Findings — click Restore to add back
+          </h4>
+          <div className="space-y-2">
+            {excludedFindings.map((f) => (
+              <div
+                key={f.id}
+                className="flex items-center justify-between rounded-md border bg-white px-3 py-2"
+              >
+                <div className="mr-3 min-w-0 flex-1">
+                  <span className="text-sm font-medium">{f.title}</span>
+                  <Badge variant="outline" className="ml-2 text-xs">
+                    {f.source.toUpperCase()}
+                  </Badge>
+                  <Badge variant="outline" className="ml-1 text-xs">
+                    {f.data_type.replace('_', ' ')}
+                  </Badge>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="shrink-0 text-emerald-700 hover:text-emerald-800"
+                  onClick={() => handleRestoreFinding(f.id)}
+                >
+                  <Undo2 className="mr-1 h-4 w-4" />
+                  Restore
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Section 1: Designated Sites Matrix */}
       <section>
-        <h3 className="mb-4 text-lg font-semibold">1. Designated Sites</h3>
-        <DesignatedSitesMatrix findings={savedFindings} deepResearch={deepResearch} />
+        <div className="mb-4 flex items-center gap-2">
+          <h3 className="text-lg font-semibold">1. Designated Sites</h3>
+          <div className="ml-auto flex items-center gap-2">
+            {excludedFindings.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowExcluded(!showExcluded)}
+                className="text-amber-700"
+              >
+                <EyeOff className="mr-2 h-4 w-4" />
+                Excluded ({excludedFindings.length})
+                <ChevronDown
+                  className={cn('ml-1 h-3 w-3 transition-transform', showExcluded && 'rotate-180')}
+                />
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={handleExport}>
+              <Download className="mr-2 h-4 w-4" />
+              Export HTML
+            </Button>
+          </div>
+        </div>
+        <DesignatedSitesMatrix
+          findings={savedFindings}
+          deepResearch={deepResearch}
+          boundary={boundary}
+          onRemoveFinding={handleRemoveFinding}
+        />
       </section>
 
       {/* Section 2: Species Records */}
       <section>
         <h3 className="mb-4 text-lg font-semibold">2. Species Records</h3>
-        <SpeciesRecordsSection findings={savedFindings} boundary={boundary} />
+        <SpeciesRecordsSection
+          findings={savedFindings}
+          boundary={boundary}
+          onRemoveFinding={handleRemoveFinding}
+        />
       </section>
 
       {/* Section 3: Preliminary Habitat Inventory */}
@@ -216,6 +313,7 @@ export function BaselineReportTab({ savedFindings, project }: BaselineReportTabP
           findings={savedFindings}
           aquaticResearch={aquaticResearch}
           boundary={boundary}
+          onRemoveFinding={handleRemoveFinding}
         />
       </section>
 

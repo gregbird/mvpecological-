@@ -1998,4 +1998,122 @@ AI raporları uygulama içinde düzenlenebilir ve tamamlanabilir olmalı. Rapor 
 
 ---
 
-_Son güncelleme: 19 Şubat 2026_
+## 23. Field Survey Planning & Preparation - Güncellemeler (YENİ - 21 Şubat 2026)
+
+> **Kaynak:** Greg Birdthistle feedback - "Field Survey Planning and Preparation" (21 Şubat 2026)
+> **Not:** Greg "This isn't on the updated version" diyerek bu özelliklerin eksik olduğunu belirtti.
+
+### 23.1 Survey Targets Kutusunu Kaldır
+
+**Müşteri İsteği (Orijinal):**
+
+> Can you remove the Survey targets for (Habitats). And the Survey targets from desk research should only display those within the site boundary. Remove any targets displayed outside this boundary.
+
+**Müşteri İsteği (Türkçe):**
+Survey Targets (Habitats) kutusunu kaldır. Desk research'ten gelen survey targets sadece site boundary içindekileri göstersin. Boundary dışındakileri kaldır.
+
+**Yapılacaklar:**
+
+- [ ] **23.1.1** `survey-targets-box.tsx` bileşenini `field-survey-step.tsx`'ten kaldır
+  - Dosya: `components/steps/field-survey-step.tsx`
+  - `SurveyTargetsBox` import ve render'ını kaldır
+- [ ] **23.1.2** `survey-targets-box.tsx` dosyasını sil veya arşivle
+
+---
+
+### 23.2 Editable Survey Templates (Relevé Survey Bazlı)
+
+**Müşteri İsteği (Orijinal):**
+
+> Survey Templates: The application should include editable field survey templates that the ecologist can modify in advance.
+> When a user selects a survey type (e.g., Relevé Survey), the template should appear in the 'View' button area.
+> We want to show the user that they can edit the template and then have the option to email the final survey document.
+
+**Müşteri İsteği (Türkçe):**
+Uygulama, ekolojistin önceden düzenleyebileceği field survey template'leri içermeli. Survey tipi seçildiğinde (ör. Relevé Survey) template "View" buton alanında görünmeli. Kullanıcı template'i düzenleyip son haliyle email gönderebilmeli.
+
+**Referans:** Bolt prototipi (`dulraecological.bolt.host`) — `ReleveSurvey.tsx` (1619 satır), 8 bölümlü form.
+
+**Yapılacaklar:**
+
+- [ ] **23.2.1** Relevé Survey form bileşeni oluştur
+  - Dosya: `components/field-surveys/releve-survey-form.tsx`
+  - Bolt prototipindeki 8 bölüm:
+    1. Basic Info (Project, Site, Date, Relevé Code, Area, Recorder)
+    2. GPS Location (auto-geolocation)
+    3. Site Characteristics (FOSSITT, Soil Type/Stability, Aspect, Slope)
+    4. Vegetation Heights (Max: Trees/Shrubs/Bryophytes/Graminea/Forbs + Median)
+    5. Cover Percentages (10 field: Total Veg, Graminea, Forbs, Mosses, Trees, Shrubs, Litter, Bare Soil, Bare Rock, Open Water)
+    6. Species Records (dinamik liste — Latin name dropdown, English auto-fill, DOMIN Scale 1-10, Cover %, Notes)
+    7. Additional Observations (Other Species, Fauna, Comment)
+    8. Custom Fields (kullanıcı eklediği serbest field'lar)
+  - React Hook Form + Zod validation
+  - Edit mode (form alanları düzenlenebilir) + View mode (read-only)
+
+- [ ] **23.2.2** Supabase migration — `releve_surveys` + `releve_species` tabloları
+  - Bolt prototipindeki tablo yapısını baz al
+  - `releve_surveys`: tüm 8 bölüm field'ları + custom_fields JSONB
+  - `releve_species`: species_name_latin, species_name_english, species_cover_domin, species_cover_pct, notes
+  - RLS policies + indexes
+
+- [ ] **23.2.3** Common Irish Flora veritabanı
+  - Dosya: `lib/data/common-irish-flora.ts`
+  - ~20 yaygın İrlanda bitkisi (Latin + English name)
+  - DOMIN Scale tanımları (1-10)
+  - Species Records dropdown'unda kullanılacak
+
+- [ ] **23.2.4** Survey View butonunu template'e bağla
+  - Dosya: `components/field-surveys/survey-view-dialog.tsx` güncelle
+  - Survey tipi `releve_survey` ise → `ReleveSurveyForm` göster (edit mode)
+  - Diğer tipler için mevcut read-only view kalsın
+  - Form'dan kaydet → `releve_surveys` tablosuna
+
+- [ ] **23.2.5** Survey template kaydetme/yükleme sistemi
+  - Dosya: `lib/config/survey-templates.ts` — varsayılan template yapıları
+  - Supabase migration: `releve_survey_templates` tablosu (name, description, custom_fields, enabled_fields, share_code)
+  - Template load/save UI (opsiyonel — MVP sonrası)
+
+---
+
+### 23.3 Email ile Survey Gönderme (Basit — mailto)
+
+**Müşteri İsteği (Orijinal):**
+
+> We want to show the user that they can edit the template and then have the option to email the final survey document.
+
+**Müşteri İsteği (Türkçe):**
+Kullanıcı template'i düzenledikten sonra son survey dokümanını email ile gönderebilmeli.
+
+**Yaklaşım:** Bolt prototipindeki gibi `mailto:` native link. Backend SMTP yok.
+
+**Yapılacaklar:**
+
+- [ ] **23.3.1** "Email Survey" butonu ekle
+  - Dosya: `components/field-surveys/releve-survey-form.tsx` (veya survey-view-dialog.tsx)
+  - Buton: Mail ikonu + "Email Survey"
+  - Tıklayınca: `mailto:{surveyor_email}?subject=Relevé Survey - {project_name}&body={survey_summary}`
+  - Body: Proje adı, site, tarih, survey tipi, link (varsa)
+
+- [ ] **23.3.2** PDF export butonu ekle
+  - Mevcut `field-checklist-generator.ts` genişlet veya yeni generator
+  - Relevé Survey form verilerini PDF'e çevir
+  - "Download PDF" + "Email with PDF link" seçenekleri
+
+---
+
+### Güncellenmiş Öncelik (23. Bölüm)
+
+| #      | Görev                             | Öncelik   | Efor             | Bağımlılık     |
+| ------ | --------------------------------- | --------- | ---------------- | -------------- |
+| 23.1   | Survey Targets kaldır             | 🔴 Yüksek | Düşük (15dk)     | -              |
+| 23.2.1 | Relevé Survey form bileşeni       | 🔴 Yüksek | Yüksek (1-2 gün) | -              |
+| 23.2.2 | Supabase migration                | 🔴 Yüksek | Orta             | -              |
+| 23.2.3 | Common Irish Flora data           | 🟡 Orta   | Düşük            | -              |
+| 23.2.4 | View butonu → template bağlantısı | 🔴 Yüksek | Orta             | 23.2.1         |
+| 23.2.5 | Template save/load sistemi        | 🟢 Düşük  | Orta             | 23.2.1, 23.2.2 |
+| 23.3.1 | Email butonu (mailto)             | 🟡 Orta   | Düşük            | 23.2.1         |
+| 23.3.2 | PDF export                        | 🟡 Orta   | Orta             | 23.2.1         |
+
+---
+
+_Son güncelleme: 21 Şubat 2026_

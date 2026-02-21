@@ -1,9 +1,10 @@
 'use client'
 
 import * as React from 'react'
-import { Droplets, Waves, Map, GitBranch, ArrowRight } from 'lucide-react'
+import { Droplets, Waves, Map, GitBranch, ArrowRight, ExternalLink, X } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -14,14 +15,16 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { getWFDStatusColor, getWFDStatusDisplayName } from '@/lib/external-apis/epa'
+import { getFindingSourceUrl } from '@/lib/utils/finding-source-url'
+import { BaselineMap } from './baseline-map-utils'
 import type { DeskResearchFinding } from '@/types/database'
 import type { AquaticResearchResult } from '@/lib/supabase/queries/aquatic-research'
-import { BaselineMap } from './baseline-map-utils'
 
 interface AquaticEnvironmentSectionProps {
   findings: DeskResearchFinding[]
   aquaticResearch: AquaticResearchResult[]
   boundary?: GeoJSON.Feature<GeoJSON.Polygon>
+  onRemoveFinding?: (findingId: string) => void
 }
 
 interface WaterBodyRow {
@@ -31,15 +34,15 @@ interface WaterBodyRow {
   wfdStatus: string | null
   catchment: string | null
   distance: number | null
-  detail: string | null // Length_km or Area_ha
+  detail: string | null
   source: string
+  sourceUrl: string | null
 }
 
 function parseWaterBodyRows(
   findings: DeskResearchFinding[],
   aquaticResearch: AquaticResearchResult[]
 ): WaterBodyRow[] {
-  // Build map from aquatic research for enrichment
   const researchMap: Record<string, AquaticResearchResult> = {}
   for (const ar of aquaticResearch) {
     researchMap[ar.water_body_code] = ar
@@ -53,29 +56,24 @@ function parseWaterBodyRows(
     const raw = f.raw_data as Record<string, unknown> | null
     const metadata = raw?.metadata as Record<string, unknown> | null
 
-    // Determine water body type
     const siteType = (metadata?.siteType as string) || ''
     let type: 'River' | 'Lake' | 'Catchment' = 'River'
     if (siteType.toLowerCase().includes('lake')) type = 'Lake'
     else if (siteType.toLowerCase().includes('catchment') || f.data_type === 'catchment')
       type = 'Catchment'
 
-    // Get name
     const name =
       (raw?.RiverName as string) ||
       (raw?.LakeName as string) ||
       (raw?.CatchmentName as string) ||
       f.title
 
-    // WFD Status: prioritize aquatic research, then raw_data
     const waterBodyCode = (raw?.RiverCode as string) || (raw?.LakeCode as string) || ''
     const research = researchMap[waterBodyCode]
     const wfdStatus = research?.current_status || (raw?.WFD_Status as string) || null
 
-    // Catchment name
     const catchment = research?.catchment_name || (raw?.CatchmentName as string) || null
 
-    // Detail: Length for rivers, Area for lakes
     let detail: string | null = null
     const lengthKm = raw?.Length_km as number | undefined
     const areaHa = raw?.Area_ha as number | undefined
@@ -91,6 +89,7 @@ function parseWaterBodyRows(
       distance: f.distance_from_boundary_km,
       detail,
       source: f.source,
+      sourceUrl: getFindingSourceUrl(f),
     }
   })
 }
@@ -234,13 +233,13 @@ export function AquaticEnvironmentSection({
   findings,
   aquaticResearch,
   boundary,
+  onRemoveFinding,
 }: AquaticEnvironmentSectionProps) {
   const waterBodies = React.useMemo(
     () => parseWaterBodyRows(findings, aquaticResearch),
     [findings, aquaticResearch]
   )
 
-  // Build GeoJSON for water bodies that have location data
   const aquaticFeatureCollection = React.useMemo<GeoJSON.FeatureCollection | null>(() => {
     const aquaticFindings = findings.filter(
       (f) => (f.data_type === 'water_quality' || f.data_type === 'catchment') && f.location != null
@@ -287,82 +286,107 @@ export function AquaticEnvironmentSection({
     <div className="space-y-6">
       <SummaryCards waterBodies={waterBodies} />
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Droplets className="h-5 w-5 text-blue-600" />
-            Water Bodies
-            <Badge variant="secondary" className="ml-auto">
-              {waterBodies.length}
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[200px]">Name</TableHead>
-                  <TableHead className="w-[90px]">Type</TableHead>
-                  <TableHead className="w-[120px]">WFD Status</TableHead>
-                  <TableHead className="w-[150px]">Catchment</TableHead>
-                  <TableHead className="w-[100px] text-right">Distance (km)</TableHead>
-                  <TableHead className="w-[100px] text-right">Size</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {waterBodies.map((wb) => (
-                  <TableRow key={wb.id}>
-                    <TableCell className="font-medium">{wb.name}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={TYPE_COLORS[wb.type] || ''}>
-                        {wb.type}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <WFDStatusBadge status={wb.wfdStatus} />
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {wb.catchment || <span className="text-muted-foreground text-xs">—</span>}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {wb.distance != null ? wb.distance.toFixed(1) : '—'}
-                    </TableCell>
-                    <TableCell className="text-right text-sm">{wb.detail || '—'}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {aquaticFeatureCollection && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Hydrology Map</CardTitle>
+      {/* Table + Map side by side */}
+      <div className="grid auto-rows-fr grid-cols-1 gap-4 xl:grid-cols-2">
+        <Card className="flex max-h-[420px] flex-col">
+          <CardHeader className="shrink-0 pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Droplets className="h-5 w-5 text-blue-600" />
+              Water Bodies
+              <Badge variant="secondary" className="ml-auto">
+                {waterBodies.length}
+              </Badge>
+            </CardTitle>
           </CardHeader>
-          <CardContent className="p-0">
-            <div className="h-[300px]">
-              <BaselineMap
-                habitatPolygons={aquaticFeatureCollection}
-                boundary={boundary}
-                showControls={false}
-              />
-            </div>
-            <div className="flex flex-wrap gap-4 border-t px-4 py-3">
-              <div className="flex items-center gap-1.5">
-                <span className="inline-block h-3 w-3 rounded-full bg-blue-500" />
-                <span className="text-muted-foreground text-xs">River</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="inline-block h-3 w-3 rounded-full bg-cyan-500" />
-                <span className="text-muted-foreground text-xs">Lake</span>
-              </div>
+          <CardContent className="min-h-0 flex-1 overflow-y-auto p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[200px]">Name</TableHead>
+                    <TableHead className="w-[90px]">Type</TableHead>
+                    <TableHead className="w-[120px]">WFD Status</TableHead>
+                    <TableHead className="w-[150px]">Catchment</TableHead>
+                    <TableHead className="w-[100px] text-right">Distance (km)</TableHead>
+                    <TableHead className="w-[100px] text-right">Size</TableHead>
+                    {onRemoveFinding && <TableHead className="w-[50px]" />}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {waterBodies.map((wb) => (
+                    <TableRow key={wb.id}>
+                      <TableCell className="font-medium">
+                        {wb.sourceUrl ? (
+                          <a
+                            href={wb.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-blue-700 hover:underline"
+                          >
+                            {wb.name}
+                            <ExternalLink className="h-3 w-3 shrink-0" />
+                          </a>
+                        ) : (
+                          wb.name
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={TYPE_COLORS[wb.type] || ''}>
+                          {wb.type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <WFDStatusBadge status={wb.wfdStatus} />
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {wb.catchment || <span className="text-muted-foreground text-xs">—</span>}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {wb.distance != null ? wb.distance.toFixed(1) : '—'}
+                      </TableCell>
+                      <TableCell className="text-right text-sm">{wb.detail || '—'}</TableCell>
+                      {onRemoveFinding && (
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-gray-400 hover:text-red-600"
+                            onClick={() => onRemoveFinding(wb.id)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           </CardContent>
         </Card>
-      )}
+
+        {/* Map beside table */}
+        {aquaticFeatureCollection ? (
+          <Card className="flex max-h-[420px] flex-col overflow-hidden [&_.leaflet-control-attribution]:hidden">
+            <CardContent className="flex min-h-0 flex-1 p-0">
+              <div className="h-full min-h-[250px] w-full">
+                <BaselineMap
+                  habitatPolygons={aquaticFeatureCollection}
+                  boundary={boundary}
+                  showControls={false}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="flex flex-col">
+            <CardContent className="text-muted-foreground flex flex-1 flex-col items-center justify-center gap-2 py-8 text-center text-sm">
+              <Droplets className="h-8 w-8 text-gray-300" />
+              <p>No location data available for water bodies.</p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       <ConnectivityCard aquaticResearch={aquaticResearch} />
     </div>

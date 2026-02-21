@@ -1,9 +1,10 @@
 'use client'
 
 import * as React from 'react'
-import { ChevronDown, ChevronUp, MapPin, Shield, FileWarning } from 'lucide-react'
+import { ChevronDown, ChevronUp, MapPin, Shield, FileWarning, ExternalLink, X } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -13,12 +14,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { getFindingSourceUrl } from '@/lib/utils/finding-source-url'
+import { toMapFindings, BaselineMap } from './baseline-map-utils'
 import type { DeskResearchFinding } from '@/types/database'
 import type { DeepResearchResult } from '@/lib/supabase/queries/deep-research'
 
 interface DesignatedSitesMatrixProps {
   findings: DeskResearchFinding[]
   deepResearch: DeepResearchResult[]
+  boundary?: GeoJSON.Feature<GeoJSON.Polygon>
+  onRemoveFinding?: (findingId: string) => void
 }
 
 interface SiteRow {
@@ -30,6 +35,7 @@ interface SiteRow {
   distanceKm: number | null
   qualifyingInterests: string[]
   isStatutory: boolean
+  sourceUrl: string | null
 }
 
 const SITE_TYPE_COLORS: Record<string, string> = {
@@ -89,6 +95,7 @@ function parseSiteRows(
         distanceKm: f.distance_from_boundary_km ?? (metadata?.distance as number) ?? null,
         qualifyingInterests: qualifyingInterests.filter(Boolean),
         isStatutory,
+        sourceUrl: getFindingSourceUrl(f),
       }
     })
     .sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999))
@@ -125,7 +132,6 @@ function ZoneOfInfluenceCards({ sites }: { sites: SiteRow[] }) {
     },
   ]
 
-  // Mesafesi bilinmeyen siteler varsa ek kart göster
   if (unknownDistance.length > 0) {
     zones.push({
       label: 'Distance N/A',
@@ -152,8 +158,6 @@ function ZoneOfInfluenceCards({ sites }: { sites: SiteRow[] }) {
   )
 }
 
-const MAX_VISIBLE_QI = 3
-
 function CollapsibleQI({ items }: { items: string[] }) {
   const [expanded, setExpanded] = React.useState(false)
 
@@ -161,34 +165,33 @@ function CollapsibleQI({ items }: { items: string[] }) {
     return <span className="text-muted-foreground text-xs italic">Not available</span>
   }
 
-  const visible = expanded ? items : items.slice(0, MAX_VISIBLE_QI)
-  const remaining = items.length - MAX_VISIBLE_QI
-
   return (
-    <div className="flex flex-wrap items-center gap-1">
-      {visible.map((qi, i) => (
-        <Badge key={i} variant="outline" className="text-xs font-normal">
-          {qi}
-        </Badge>
-      ))}
-      {remaining > 0 && (
-        <button
-          type="button"
-          onClick={() => setExpanded(!expanded)}
-          className="text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-medium transition-colors hover:bg-gray-100"
-        >
-          {expanded ? (
-            <>
-              Show less
-              <ChevronUp className="h-3 w-3" />
-            </>
-          ) : (
-            <>
-              +{remaining} more
-              <ChevronDown className="h-3 w-3" />
-            </>
-          )}
-        </button>
+    <div>
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-medium transition-colors hover:bg-gray-100"
+      >
+        {expanded ? (
+          <>
+            Hide
+            <ChevronUp className="h-3 w-3" />
+          </>
+        ) : (
+          <>
+            View ({items.length})
+            <ChevronDown className="h-3 w-3" />
+          </>
+        )}
+      </button>
+      {expanded && (
+        <div className="mt-1 flex flex-wrap gap-1">
+          {items.map((qi, i) => (
+            <Badge key={i} variant="outline" className="text-xs font-normal">
+              {qi}
+            </Badge>
+          ))}
+        </div>
       )}
     </div>
   )
@@ -198,16 +201,18 @@ function SitesTable({
   sites,
   title,
   icon,
+  onRemoveFinding,
 }: {
   sites: SiteRow[]
   title: string
   icon: React.ReactNode
+  onRemoveFinding?: (findingId: string) => void
 }) {
   if (sites.length === 0) return null
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
+    <Card className="flex max-h-[420px] flex-col">
+      <CardHeader className="shrink-0 pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           {icon}
           {title}
@@ -216,7 +221,7 @@ function SitesTable({
           </Badge>
         </CardTitle>
       </CardHeader>
-      <CardContent className="p-0">
+      <CardContent className="min-h-0 flex-1 overflow-y-auto p-0">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -227,12 +232,27 @@ function SitesTable({
                 <TableHead className="w-[90px] text-right">Area (ha)</TableHead>
                 <TableHead className="w-[90px] text-right">Distance (km)</TableHead>
                 <TableHead>Qualifying Interests</TableHead>
+                {onRemoveFinding && <TableHead className="w-[50px]" />}
               </TableRow>
             </TableHeader>
             <TableBody>
               {sites.map((site) => (
                 <TableRow key={site.id}>
-                  <TableCell className="font-medium">{site.name}</TableCell>
+                  <TableCell className="font-medium">
+                    {site.sourceUrl ? (
+                      <a
+                        href={site.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-emerald-700 hover:underline"
+                      >
+                        {site.name}
+                        <ExternalLink className="h-3 w-3 shrink-0" />
+                      </a>
+                    ) : (
+                      site.name
+                    )}
+                  </TableCell>
                   <TableCell className="text-muted-foreground text-sm">{site.code}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className={SITE_TYPE_COLORS[site.type] || ''}>
@@ -250,6 +270,18 @@ function SitesTable({
                   <TableCell>
                     <CollapsibleQI items={site.qualifyingInterests} />
                   </TableCell>
+                  {onRemoveFinding && (
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-gray-400 hover:text-red-600"
+                        onClick={() => onRemoveFinding(site.id)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
@@ -260,8 +292,15 @@ function SitesTable({
   )
 }
 
-export function DesignatedSitesMatrix({ findings, deepResearch }: DesignatedSitesMatrixProps) {
+export function DesignatedSitesMatrix({
+  findings,
+  deepResearch,
+  boundary,
+  onRemoveFinding,
+}: DesignatedSitesMatrixProps) {
   const sites = React.useMemo(() => parseSiteRows(findings, deepResearch), [findings, deepResearch])
+  const mapFindings = React.useMemo(() => toMapFindings(findings, 'designated_site'), [findings])
+  const hasLocationData = mapFindings.length > 0
 
   const statutory = sites.filter((s) => s.isStatutory)
   const nonStatutory = sites.filter((s) => !s.isStatutory)
@@ -282,6 +321,16 @@ export function DesignatedSitesMatrix({ findings, deepResearch }: DesignatedSite
     )
   }
 
+  const mapCard = hasLocationData ? (
+    <Card className="flex max-h-[420px] flex-col overflow-hidden [&_.leaflet-control-attribution]:hidden">
+      <CardContent className="flex min-h-0 flex-1 p-0">
+        <div className="h-full min-h-[250px] w-full">
+          <BaselineMap findings={mapFindings} boundary={boundary} showControls={false} />
+        </div>
+      </CardContent>
+    </Card>
+  ) : null
+
   return (
     <div className="space-y-6">
       {/* Zone of Influence Summary */}
@@ -292,19 +341,31 @@ export function DesignatedSitesMatrix({ findings, deepResearch }: DesignatedSite
         <ZoneOfInfluenceCards sites={sites} />
       </div>
 
-      {/* Statutory Sites */}
-      <SitesTable
-        sites={statutory}
-        title="Statutory Designated Sites"
-        icon={<Shield className="h-5 w-5 text-emerald-600" />}
-      />
+      {/* Statutory Sites — table + map side by side */}
+      {statutory.length > 0 && (
+        <div className="grid auto-rows-fr grid-cols-1 gap-4 xl:grid-cols-2">
+          <SitesTable
+            sites={statutory}
+            title="Statutory Designated Sites"
+            icon={<Shield className="h-5 w-5 text-emerald-600" />}
+            onRemoveFinding={onRemoveFinding}
+          />
+          {mapCard}
+        </div>
+      )}
 
-      {/* Non-Statutory Sites */}
-      <SitesTable
-        sites={nonStatutory}
-        title="Non-Statutory Designated Sites"
-        icon={<FileWarning className="h-5 w-5 text-gray-500" />}
-      />
+      {/* Non-Statutory Sites — table + map side by side */}
+      {nonStatutory.length > 0 && (
+        <div className="grid auto-rows-fr grid-cols-1 gap-4 xl:grid-cols-2">
+          <SitesTable
+            sites={nonStatutory}
+            title="Non-Statutory Designated Sites"
+            icon={<FileWarning className="h-5 w-5 text-gray-500" />}
+            onRemoveFinding={onRemoveFinding}
+          />
+          {mapCard}
+        </div>
+      )}
     </div>
   )
 }

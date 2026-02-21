@@ -13,6 +13,8 @@ import {
   Shield,
   Plus,
   Pentagon,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
@@ -106,6 +108,23 @@ export function HabitatMappingStep({
     key: string
   } | null>(null)
 
+  // Visibility toggles for finding groups on the map
+  const [visibleFindingGroups, setVisibleFindingGroups] = React.useState<Set<string>>(
+    () => new Set(['designated_site', 'species_record', 'aquatic'])
+  )
+
+  const toggleFindingGroup = React.useCallback((group: string) => {
+    setVisibleFindingGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(group)) {
+        next.delete(group)
+      } else {
+        next.add(group)
+      }
+      return next
+    })
+  }, [])
+
   // React Query hooks
   const { data: habitats = [], isLoading } = useHabitats(project.id)
   const { data: habitatStats } = useHabitatStats(project.id)
@@ -138,10 +157,16 @@ export function HabitatMappingStep({
     return groups
   }, [savedFindings])
 
-  // Convert findings to map markers
+  // Convert findings to map markers (filtered by visibility toggles)
   const findingMarkers: FindingMarker[] = React.useMemo(() => {
     return savedFindings
-      .filter((f) => f.location)
+      .filter((f) => {
+        if (!f.location) return false
+        // Check visibility toggle
+        const group =
+          f.data_type === 'water_quality' || f.data_type === 'catchment' ? 'aquatic' : f.data_type
+        return visibleFindingGroups.has(group)
+      })
       .map((f) => ({
         id: f.id,
         title: f.title,
@@ -150,7 +175,13 @@ export function HabitatMappingStep({
         isProtected: f.is_protected ?? undefined,
         source: f.source,
       }))
-  }, [savedFindings])
+  }, [savedFindings, visibleFindingGroups])
+
+  // NPWS layers to show on map when designated sites are visible
+  const npwsVisibleLayers = React.useMemo(() => {
+    if (!visibleFindingGroups.has('designated_site')) return []
+    return ['sac', 'spa', 'nha', 'pnha']
+  }, [visibleFindingGroups])
 
   // Handle clicking a finding - fly to its location on the map
   const handleFindingClick = React.useCallback((finding: DeskResearchFinding) => {
@@ -455,12 +486,12 @@ export function HabitatMappingStep({
         </Alert>
       )}
 
-      {/* Main Content - Vertical Layout: Panel on top, Map on bottom */}
-      <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
-        {/* Top Panel - Tabbed Interface with Add Habitat button */}
-        <Card>
-          <Tabs defaultValue="habitats" className="flex flex-col">
-            <div className="flex items-center justify-between px-3 pt-3">
+      {/* Main Content - Side-by-side Layout: Panel left, Map right */}
+      <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 md:flex-row">
+        {/* Left Panel - Tabbed Interface with Add Habitat button */}
+        <Card className="flex shrink-0 flex-col md:w-[38%]">
+          <Tabs defaultValue="habitats" className="flex flex-1 flex-col">
+            <div className="flex flex-wrap items-center gap-2 px-3 pt-3">
               <TabsList className="grid w-auto grid-cols-2">
                 <TabsTrigger value="habitats" className="text-xs">
                   Habitats ({habitats.length})
@@ -471,6 +502,7 @@ export function HabitatMappingStep({
               </TabsList>
               <Button
                 size="sm"
+                className="ml-auto"
                 onClick={() => {
                   setEditingHabitat(null)
                   setDrawnBoundary(null)
@@ -483,8 +515,8 @@ export function HabitatMappingStep({
             </div>
 
             {/* Mapped Habitats Tab */}
-            <TabsContent value="habitats" className="mt-0">
-              <CardContent className="h-64 p-3">
+            <TabsContent value="habitats" className="mt-0 flex-1">
+              <CardContent className="h-64 p-3 md:h-full">
                 {habitats.length === 0 ? (
                   <div className="text-muted-foreground flex h-full items-center justify-center text-center text-sm">
                     No habitats mapped yet. Click &quot;Add Habitat&quot; or draw a polygon on the
@@ -514,8 +546,8 @@ export function HabitatMappingStep({
             </TabsContent>
 
             {/* Desk Research Findings Tab */}
-            <TabsContent value="findings" className="mt-0">
-              <CardContent className="h-64 p-3">
+            <TabsContent value="findings" className="mt-0 flex-1">
+              <CardContent className="h-64 p-3 md:h-full">
                 {findingsLoading ? (
                   <div className="flex h-full items-center justify-center">
                     <Loader2 className="h-6 w-6 animate-spin" />
@@ -532,9 +564,25 @@ export function HabitatMappingStep({
                         <div>
                           <div className="mb-2 flex items-center gap-2">
                             <Shield className="text-primary h-4 w-4" />
-                            <span className="text-sm font-medium">
+                            <span className="flex-1 text-sm font-medium">
                               Designated Sites ({findingsByType.designated_site.length})
                             </span>
+                            <button
+                              type="button"
+                              className="text-muted-foreground hover:text-foreground rounded p-0.5"
+                              onClick={() => toggleFindingGroup('designated_site')}
+                              title={
+                                visibleFindingGroups.has('designated_site')
+                                  ? 'Hide on map'
+                                  : 'Show on map'
+                              }
+                            >
+                              {visibleFindingGroups.has('designated_site') ? (
+                                <Eye className="h-3.5 w-3.5" />
+                              ) : (
+                                <EyeOff className="h-3.5 w-3.5" />
+                              )}
+                            </button>
                           </div>
                           <div className="space-y-1.5">
                             {findingsByType.designated_site.map((finding) => (
@@ -553,9 +601,25 @@ export function HabitatMappingStep({
                         <div>
                           <div className="mb-2 flex items-center gap-2">
                             <TreePine className="text-primary h-4 w-4" />
-                            <span className="text-sm font-medium">
+                            <span className="flex-1 text-sm font-medium">
                               Species Records ({findingsByType.species_record.length})
                             </span>
+                            <button
+                              type="button"
+                              className="text-muted-foreground hover:text-foreground rounded p-0.5"
+                              onClick={() => toggleFindingGroup('species_record')}
+                              title={
+                                visibleFindingGroups.has('species_record')
+                                  ? 'Hide on map'
+                                  : 'Show on map'
+                              }
+                            >
+                              {visibleFindingGroups.has('species_record') ? (
+                                <Eye className="h-3.5 w-3.5" />
+                              ) : (
+                                <EyeOff className="h-3.5 w-3.5" />
+                              )}
+                            </button>
                           </div>
                           <div className="space-y-1.5">
                             {findingsByType.species_record.map((finding) => (
@@ -574,9 +638,23 @@ export function HabitatMappingStep({
                         <div>
                           <div className="mb-2 flex items-center gap-2">
                             <Fish className="text-primary h-4 w-4" />
-                            <span className="text-sm font-medium">
+                            <span className="flex-1 text-sm font-medium">
                               Aquatic Features ({findingsByType.aquatic.length})
                             </span>
+                            <button
+                              type="button"
+                              className="text-muted-foreground hover:text-foreground rounded p-0.5"
+                              onClick={() => toggleFindingGroup('aquatic')}
+                              title={
+                                visibleFindingGroups.has('aquatic') ? 'Hide on map' : 'Show on map'
+                              }
+                            >
+                              {visibleFindingGroups.has('aquatic') ? (
+                                <Eye className="h-3.5 w-3.5" />
+                              ) : (
+                                <EyeOff className="h-3.5 w-3.5" />
+                              )}
+                            </button>
                           </div>
                           <div className="space-y-1.5">
                             {findingsByType.aquatic.map((finding) => (
@@ -597,8 +675,8 @@ export function HabitatMappingStep({
           </Tabs>
         </Card>
 
-        {/* Bottom - Map Section */}
-        <Card className="flex min-h-0 flex-1 flex-col">
+        {/* Right - Map Section */}
+        <Card className="flex min-h-80 flex-1 flex-col md:min-h-0">
           <CardContent className="flex min-h-0 flex-1 flex-col p-3">
             {/* Drawing instructions banner */}
             <div className="bg-muted/60 mb-2 flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
@@ -609,7 +687,7 @@ export function HabitatMappingStep({
                 icons) to draw a habitat boundary. The form will open automatically.
               </span>
             </div>
-            <div className="min-h-80 flex-1 overflow-hidden rounded-lg border">
+            <div className="min-h-64 flex-1 overflow-hidden rounded-lg border">
               <ProjectMapWithDraw
                 center={projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]}
                 zoom={projectCenter ? 14 : 7}
@@ -622,6 +700,7 @@ export function HabitatMappingStep({
                 selectedHabitatId={selectedHabitat?.id}
                 onHabitatClick={handleHabitatMapClick}
                 allowMultipleDrawings
+                visibleLayers={npwsVisibleLayers}
               />
             </div>
           </CardContent>

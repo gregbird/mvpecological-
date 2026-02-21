@@ -91,8 +91,8 @@ export async function updateFinding(
     .single()
 
   if (error) {
-    console.error('Error updating finding:', error)
-    return null
+    console.error('Error updating finding:', error.message, error.code, error.details, error.hint)
+    throw new Error(error.message || 'Failed to update finding')
   }
 
   return data as unknown as DeskResearchFinding
