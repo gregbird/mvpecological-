@@ -5,6 +5,7 @@ import {
   Packer,
   Paragraph,
   TextRun,
+  ImageRun,
   HeadingLevel,
   AlignmentType,
   BorderStyle,
@@ -17,6 +18,7 @@ import {
   UnderlineType,
 } from 'docx'
 import type { PeaExportOptions } from './pdf-generator'
+import { fetchImageAsBuffer } from './image-utils'
 
 // ============================================================
 // Markdown → docx block types
@@ -41,8 +43,13 @@ interface MdTable {
   headers: string[]
   rows: string[][]
 }
+interface MdImage {
+  type: 'image'
+  src: string
+  alt: string
+}
 
-type MdBlock = MdHeading | MdParagraph | MdBullet | MdTable
+type MdBlock = MdHeading | MdParagraph | MdBullet | MdTable | MdImage
 
 interface RunSpec {
   text: string
@@ -94,6 +101,14 @@ function parseMarkdown(md: string): MdBlock[] {
     const line = lines[i]
 
     if (!line.trim()) {
+      i++
+      continue
+    }
+
+    // Image: ![alt](src)
+    const imageMatch = line.trim().match(/^!\[([^\]]*)\]\(([^)]+)\)$/)
+    if (imageMatch) {
+      blocks.push({ type: 'image', alt: imageMatch[1] || 'Photo', src: imageMatch[2] })
       i++
       continue
     }
@@ -161,7 +176,8 @@ function parseMarkdown(md: string): MdBlock[] {
       !lines[i].trim().startsWith('#') &&
       !lines[i].trim().startsWith('|') &&
       !/^\s*[-*]\s+/.test(lines[i]) &&
-      !/^\s*\d+\.\s+/.test(lines[i])
+      !/^\s*\d+\.\s+/.test(lines[i]) &&
+      !/^!\[/.test(lines[i].trim())
     ) {
       paraLines.push(lines[i].trim())
       i++
@@ -193,7 +209,7 @@ function runsToTextRuns(runs: RunSpec[], overrideColor?: string): TextRun[] {
   )
 }
 
-function blockToParagraphs(block: MdBlock): Paragraph[] | Table[] {
+async function blockToParagraphs(block: MdBlock): Promise<(Paragraph | Table)[]> {
   switch (block.type) {
     case 'heading': {
       const level =
@@ -279,7 +295,42 @@ function blockToParagraphs(block: MdBlock): Paragraph[] | Table[] {
           },
         }),
         new Paragraph({ text: '', spacing: { after: 120 } }),
-      ] as unknown as Paragraph[]
+      ] as unknown as (Paragraph | Table)[]
+    }
+
+    case 'image': {
+      const imgData = await fetchImageAsBuffer(block.src)
+      if (!imgData) return []
+
+      const maxW = 600 // ~6 inches in points (docx uses EMU but ImageRun takes pixels)
+      const maxH = 400
+      const scale = Math.min(maxW / imgData.width, maxH / imgData.height, 1)
+      const drawW = Math.round(imgData.width * scale)
+      const drawH = Math.round(imgData.height * scale)
+
+      const result: Paragraph[] = [
+        new Paragraph({
+          children: [
+            new ImageRun({
+              data: imgData.buffer,
+              transformation: { width: drawW, height: drawH },
+              type: 'jpg',
+            }),
+          ],
+          spacing: { before: 120, after: 60 },
+        }),
+      ]
+
+      if (block.alt && block.alt !== 'Photo') {
+        result.push(
+          new Paragraph({
+            children: [new TextRun({ text: block.alt, italics: true, size: 18, color: '666666' })],
+            spacing: { after: 120 },
+          })
+        )
+      }
+
+      return result
     }
 
     default:
@@ -412,7 +463,7 @@ export async function generatePeaDocx(options: PeaExportOptions): Promise<Blob> 
   children.push(new Paragraph({ children: [new PageBreak()] }))
 
   // ===== REPORT SECTIONS =====
-  contentSections.forEach((section) => {
+  for (const section of contentSections) {
     // Section heading with underline style
     children.push(
       new Paragraph({
@@ -431,12 +482,12 @@ export async function generatePeaDocx(options: PeaExportOptions): Promise<Blob> 
 
     const blocks = parseMarkdown(section.content)
     for (const block of blocks) {
-      const converted = blockToParagraphs(block)
+      const converted = await blockToParagraphs(block)
       for (const item of converted) {
-        children.push(item as Paragraph)
+        children.push(item)
       }
     }
-  })
+  }
 
   // ===== APPENDICES =====
   if (options.appendices.length > 0) {

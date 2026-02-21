@@ -22,6 +22,7 @@ interface SectionAccordionItemProps {
   onGenerate: () => void
   onToggleEdit: () => void
   onContentChange: (content: string) => void
+  projectId?: string
 }
 
 export function SectionAccordionItem({
@@ -34,6 +35,7 @@ export function SectionAccordionItem({
   onGenerate,
   onToggleEdit,
   onContentChange,
+  projectId,
 }: SectionAccordionItemProps) {
   return (
     <AccordionItem value={templateId}>
@@ -104,6 +106,7 @@ export function SectionAccordionItem({
               content={section.content}
               editable={isEditing}
               onContentChange={onContentChange}
+              projectId={projectId}
             />
           ) : (
             <div className="bg-muted/30 text-muted-foreground rounded-lg p-4 text-center text-sm">

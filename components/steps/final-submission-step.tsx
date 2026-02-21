@@ -102,31 +102,52 @@ export function FinalSubmissionStep({
     )
   }
 
+  /**
+   * Yield control to the browser so React can repaint (spinner, overlay, etc.)
+   * before a CPU-heavy synchronous task runs.
+   */
+  const yieldToBrowser = () => new Promise<void>((r) => setTimeout(r, 50))
+
+  const abortRef = React.useRef(false)
+
+  const handleCancelExport = () => {
+    abortRef.current = true
+    setIsExporting(false)
+    toast({ title: 'Export cancelled' })
+  }
+
+  const buildExportOptions = () => ({
+    title: coverPageTitle,
+    preparedFor,
+    siteCode: project.site_code || project.id,
+    version: report?.version || 1,
+    date: new Date().toLocaleDateString('en-IE'),
+    sections: reportContent?.sections || [],
+    appendices: selectedAppendices,
+  })
+
   // Handle print — generates PDF and opens in new tab for browser print dialog
   const handlePrint = async () => {
+    abortRef.current = false
     setIsExporting(true)
+    await yieldToBrowser()
+
     try {
       const { generatePeaPdf } = await import('@/lib/export/pdf-generator')
-      const exportOptions = {
-        title: coverPageTitle,
-        preparedFor,
-        siteCode: project.site_code || project.id,
-        version: report?.version || 1,
-        date: new Date().toLocaleDateString('en-IE'),
-        sections: reportContent?.sections || [],
-        appendices: selectedAppendices,
-      }
-      const doc = generatePeaPdf(exportOptions)
+      const doc = await generatePeaPdf(buildExportOptions())
+      if (abortRef.current) return
       const url = URL.createObjectURL(doc.output('blob'))
       const win = window.open(url, '_blank')
       if (win) win.focus()
       setTimeout(() => URL.revokeObjectURL(url), 60000)
     } catch {
-      toast({
-        title: 'Print failed',
-        description: 'Could not generate print preview.',
-        variant: 'destructive',
-      })
+      if (!abortRef.current) {
+        toast({
+          title: 'Print failed',
+          description: 'Could not generate print preview.',
+          variant: 'destructive',
+        })
+      }
     } finally {
       setIsExporting(false)
     }
@@ -134,26 +155,18 @@ export function FinalSubmissionStep({
 
   // Handle export
   const handleExport = async () => {
+    abortRef.current = false
     setIsExporting(true)
+    await yieldToBrowser()
 
     try {
-      const { generatePeaPdf, generatePeaHtml } = await import('@/lib/export/pdf-generator')
-      const { generatePeaDocx } = await import('@/lib/export/docx-generator')
-
-      const exportOptions = {
-        title: coverPageTitle,
-        preparedFor,
-        siteCode: project.site_code || project.id,
-        version: report?.version || 1,
-        date: new Date().toLocaleDateString('en-IE'),
-        sections: reportContent?.sections || [],
-        appendices: selectedAppendices,
-      }
-
+      const exportOptions = buildExportOptions()
       const baseFilename = `${project.site_code || project.id}_${report?.report_type || 'report'}_v${report?.version || 1}`
 
       if (exportFormat === 'pdf') {
-        const doc = generatePeaPdf(exportOptions)
+        const { generatePeaPdf } = await import('@/lib/export/pdf-generator')
+        const doc = await generatePeaPdf(exportOptions)
+        if (abortRef.current) return
         const blob = doc.output('blob')
         const link = document.createElement('a')
         link.href = URL.createObjectURL(blob)
@@ -161,7 +174,9 @@ export function FinalSubmissionStep({
         link.click()
         URL.revokeObjectURL(link.href)
       } else if (exportFormat === 'html') {
+        const { generatePeaHtml } = await import('@/lib/export/pdf-generator')
         const html = generatePeaHtml(exportOptions)
+        if (abortRef.current) return
         const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
         const link = document.createElement('a')
         link.href = URL.createObjectURL(blob)
@@ -169,7 +184,9 @@ export function FinalSubmissionStep({
         link.click()
         URL.revokeObjectURL(link.href)
       } else if (exportFormat === 'docx') {
+        const { generatePeaDocx } = await import('@/lib/export/docx-generator')
         const blob = await generatePeaDocx(exportOptions)
+        if (abortRef.current) return
         const link = document.createElement('a')
         link.href = URL.createObjectURL(blob)
         link.download = `${baseFilename}.docx`
@@ -182,11 +199,13 @@ export function FinalSubmissionStep({
         description: `Report has been exported as ${baseFilename}.${exportFormat}`,
       })
     } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Export failed',
-        description: error instanceof Error ? error.message : 'Failed to export report.',
-      })
+      if (!abortRef.current) {
+        toast({
+          variant: 'destructive',
+          title: 'Export failed',
+          description: error instanceof Error ? error.message : 'Failed to export report.',
+        })
+      }
     } finally {
       setIsExporting(false)
     }
@@ -278,6 +297,22 @@ export function FinalSubmissionStep({
 
   return (
     <div className="space-y-6">
+      {/* Export overlay — prevents interaction + shows cancel */}
+      {isExporting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="flex flex-col items-center gap-4 rounded-xl bg-white p-8 shadow-xl dark:bg-gray-900">
+            <Loader2 className="h-10 w-10 animate-spin text-green-600" />
+            <p className="text-lg font-medium">Generating {exportFormat.toUpperCase()} report...</p>
+            <p className="text-muted-foreground text-sm">
+              This may take a few seconds for large reports.
+            </p>
+            <Button variant="outline" size="sm" onClick={handleCancelExport}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

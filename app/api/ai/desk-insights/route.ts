@@ -542,75 +542,53 @@ function buildContext(input: ContextInput): string {
 }
 
 function buildPrompt(context: string): string {
-  return `You are writing a desk study assessment for a PEA report in Ireland. Analyze the following data and produce a structured ecological summary.
+  return `You are writing a desk study ecological summary for a PEA report in Ireland. Analyze the following data and produce a structured summary in exactly 4 categories.
 
 ${context}
 
 ---
 
-Write the report using exactly this structure:
+Write the summary using EXACTLY this structure with these 4 markdown headings. Each category should contain bullet points summarizing the key findings, followed by a 1-2 sentence assessment paragraph.
 
-## 1. Designated Sites
+## Designated Areas
 
-| Site Name | Code | Type | Distance (km) | Key Qualifying Interests |
-|-----------|------|------|---------------|--------------------------|
-[Table of ALL designated sites from the data]
+- **[Site Name]** ([Site Code]) — [Type: SAC/SPA/NHA/pNHA] — [Distance] km from site. [Key qualifying interests or conservation features if known]
+- [Continue for ALL designated sites from the data]
 
-For each site within 2km, add a brief paragraph on connectivity and potential impact pathways. Reference deep research data and AI summaries where available.
+[1-2 sentence assessment: summarize proximity risks, AA Screening implications, and connectivity concerns]
 
-## 2. Species
+## Habitats
 
-Group by taxon. For each species include: common name, scientific name, records, distance, conservation status, and relevance to the project.
+- **[Habitat type or land cover]** — [Description of habitat context, condition if known, relevance to project]
+- [Identify likely habitat types based on designated site qualifying interests and species records]
+- [Note any Annex I habitats that may be present based on the data]
 
-**Protected / Annex Species:**
-[Priority species requiring targeted surveys — reference Wildlife Acts, Habitats Directive Annex II/IV/V]
+[1-2 sentence assessment: summarize habitat sensitivity and survey needs]
 
-**Other Notable Species:**
-[Non-protected but ecologically relevant species]
+## Species
 
-Include individual AI summaries and deep research findings where available to enrich species accounts.
+- **[Common Name]** (*[Scientific Name]*) — [Conservation status: e.g., Annex II/IV, Wildlife Acts, Red List]. [Distance] km. [Number of records if available]
+- [Group protected/notable species first, then other records]
+- [Include birds, mammals, amphibians, invertebrates, and flora separately if data exists]
 
-## 3. Aquatic Environment
+[1-2 sentence assessment: summarize protected species concerns and targeted survey requirements]
 
-For each water body:
-- Name, type, EPA code, distance
-- Current WFD status and risk level
-- Status trends (improving/declining/stable)
-- Key pressures and failures
-- Connectivity to designated sites (linked SACs)
-- Relevant aquatic species
+## Aquatic Features
 
-## 4. Ecological Constraints
+- **[Water Body Name]** ([EPA Code]) — [Type: River/Lake/Transitional]. WFD Status: [Status]. [Distance] km. [Risk level if known]
+- [Include status trends, linked SACs, and key pressures where available]
 
-Ranked bullet list of constraints with:
-- The specific finding(s) driving each constraint
-- Regulatory implications (AA Screening, derogation licences, etc.)
-- Implications for project design
-
-## 5. Recommended Field Surveys
-
-### Essential (evidence-based)
-[Surveys required by the data — specify target species/habitats and justification]
-
-### Advisable (precautionary)
-[Surveys recommended based on habitat suitability]
-
-### Survey Timing
-
-| Survey | Optimal Months | Notes |
-|--------|---------------|-------|
-[Timing table for all recommended surveys]
-
-## 6. Data Gaps
-
-[Specific information gaps that field work or further desk study should address]
+[1-2 sentence assessment: summarize water quality concerns and hydrological connectivity to designated sites]
 
 ---
 
 RULES:
+- Use EXACTLY the 4 heading names above: "Designated Areas", "Habitats", "Species", "Aquatic Features"
+- Each heading must start with "## " (h2 markdown)
 - Base ALL conclusions on provided data only — do not invent species, sites, or habitats
-- Reference site codes, distances, and specific data throughout
+- Reference site codes, distances, and conservation status throughout
 - Use ecologist assessment notes and AI summaries to inform analysis
-- Be concise but thorough — this text will be edited by the ecologist before inclusion in the report
-- Use markdown tables, bold, and bullet points for clarity`
+- Each bullet should be concise (1-2 lines max)
+- Bold the primary name/title in each bullet
+- If no data exists for a category, write "No [category] data available from desk study" as a single bullet`
 }

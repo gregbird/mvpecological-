@@ -3,10 +3,14 @@
 import * as React from 'react'
 import { Camera, Upload, X, Loader2, ImageIcon, AlertCircle } from 'lucide-react'
 
+import { useQueryClient } from '@tanstack/react-query'
+
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
+import { readExifMetadata } from '@/lib/photo-upload/exif'
+import type { PhotoInsert } from '@/types/database'
 
 interface PhotoUploadProps {
   projectId: string
@@ -17,6 +21,10 @@ interface PhotoUploadProps {
   maxPhotos?: number
   disabled?: boolean
   className?: string
+  /** Current user ID — when provided, photo records are saved to the photos table */
+  userId?: string
+  /** Default tags applied to uploaded photos */
+  defaultTags?: string[]
 }
 
 interface UploadingPhoto {
@@ -36,13 +44,28 @@ export function PhotoUpload({
   maxPhotos = 10,
   disabled = false,
   className,
+  userId,
+  defaultTags,
 }: PhotoUploadProps) {
   const { toast } = useToast()
+  const queryClient = useQueryClient()
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = React.useState<UploadingPhoto[]>([])
   const [_isCapturing, setIsCapturing] = React.useState(false)
+  const [authUserId, setAuthUserId] = React.useState<string | null>(null)
 
   const supabase = createClient()
+
+  // Auto-detect auth user for DB record creation
+  React.useEffect(() => {
+    if (userId) {
+      setAuthUserId(userId)
+      return
+    }
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) setAuthUserId(data.user.id)
+    })
+  }, [userId, supabase.auth])
 
   const canAddMore = photos.length + uploading.length < maxPhotos
 
@@ -53,7 +76,7 @@ export function PhotoUpload({
     return `${projectId}/${entityType}/${entityId || 'draft'}/${timestamp}-${sanitizedName}`
   }
 
-  // Upload a single photo
+  // Upload a single photo and optionally create a DB record with EXIF data
   const uploadPhoto = async (file: File): Promise<string | null> => {
     const path = generatePath(file.name)
 
@@ -69,6 +92,45 @@ export function PhotoUpload({
 
     // Get public URL
     const { data: urlData } = supabase.storage.from('project-photos').getPublicUrl(data.path)
+
+    // Fire-and-forget: read EXIF and create DB record
+    if (authUserId) {
+      readExifMetadata(file)
+        .then((exif) => {
+          const locationValue =
+            exif.latitude != null && exif.longitude != null
+              ? `POINT(${exif.longitude} ${exif.latitude})`
+              : undefined
+
+          const record: PhotoInsert = {
+            storage_path: data.path,
+            project_id: projectId,
+            created_by: authUserId,
+            taken_at: exif.takenAt ?? undefined,
+            location: locationValue,
+            tags: defaultTags ?? [],
+            caption: file.name,
+            observation_id:
+              entityType === 'observation' && entityId && entityId !== 'draft' ? entityId : null,
+            survey_id:
+              entityType === 'survey' && entityId && entityId !== 'draft' ? entityId : null,
+            habitat_polygon_id:
+              entityType === 'habitat' && entityId && entityId !== 'draft' ? entityId : null,
+            target_note_id:
+              entityType === 'target-note' && entityId && entityId !== 'draft' ? entityId : null,
+          }
+
+          return supabase
+            .from('photos')
+            .insert(record)
+            .then(() => {
+              queryClient.invalidateQueries({ queryKey: ['photos', projectId] })
+            })
+        })
+        .catch(() => {
+          // Non-critical — photo is already uploaded to storage
+        })
+    }
 
     return urlData.publicUrl
   }
@@ -318,54 +380,54 @@ export function PhotoUpload({
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
           {/* Existing Photos */}
           {photos.map((url, index) => (
-            <div
-              key={url}
-              className="group bg-muted relative aspect-square overflow-hidden rounded-lg border"
-            >
-              <img src={url} alt={`Photo ${index + 1}`} className="h-full w-full object-cover" />
-              {!disabled && (
-                <button
-                  type="button"
-                  className="absolute top-1 right-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/80"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleRemovePhoto(url)
-                  }}
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              )}
+            <div key={url} className="group space-y-1">
+              <div className="bg-muted relative aspect-square overflow-hidden rounded-lg border">
+                <img src={url} alt={`Photo ${index + 1}`} className="h-full w-full object-cover" />
+                {!disabled && (
+                  <button
+                    type="button"
+                    className="absolute top-1 right-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/80"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleRemovePhoto(url)
+                    }}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+              <p className="text-muted-foreground truncate text-[10px]">Photo {index + 1}</p>
             </div>
           ))}
 
           {/* Uploading Photos */}
           {uploading.map((upload) => (
-            <div
-              key={upload.id}
-              className="bg-muted relative aspect-square overflow-hidden rounded-lg border"
-            >
-              <img
-                src={upload.preview}
-                alt="Uploading"
-                className="h-full w-full object-cover opacity-50"
-              />
-              {upload.error ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40">
-                  <AlertCircle className="h-6 w-6 text-red-500" />
-                  <span className="mt-1 text-xs text-white">Failed</span>
-                  <button
-                    type="button"
-                    className="absolute top-1 right-1 rounded-full bg-black/60 p-1 text-white hover:bg-black/80"
-                    onClick={() => handleCancelUpload(upload.id)}
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                  <Loader2 className="h-6 w-6 animate-spin text-white" />
-                </div>
-              )}
+            <div key={upload.id} className="space-y-1">
+              <div className="bg-muted relative aspect-square overflow-hidden rounded-lg border">
+                <img
+                  src={upload.preview}
+                  alt="Uploading"
+                  className="h-full w-full object-cover opacity-50"
+                />
+                {upload.error ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40">
+                    <AlertCircle className="h-6 w-6 text-red-500" />
+                    <span className="mt-1 text-xs text-white">Failed</span>
+                    <button
+                      type="button"
+                      className="absolute top-1 right-1 rounded-full bg-black/60 p-1 text-white hover:bg-black/80"
+                      onClick={() => handleCancelUpload(upload.id)}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                    <Loader2 className="h-6 w-6 animate-spin text-white" />
+                  </div>
+                )}
+              </div>
+              <p className="text-muted-foreground truncate text-[10px]">{upload.file.name}</p>
             </div>
           ))}
         </div>

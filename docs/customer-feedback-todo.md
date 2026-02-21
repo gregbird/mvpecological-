@@ -1412,17 +1412,17 @@ Bu özellik **kısmen mevcut**. Step 3 (Desk Assessment) → "Generate AI Insigh
 
 **Yapılacaklar:**
 
-- [ ] **13.1.1** Mevcut AI Insights çıktısını Greg'in formatına uyarla
+- [x] **13.1.1** Mevcut AI Insights çıktısını Greg'in formatına uyarla ✅
   - 4 zorunlu kategori: Habitats, Species, Aquatic, Designated Areas
   - Bullet points formatı
 
-- [ ] **13.1.2** Otomatik tetikleme ekle
+- [x] **13.1.2** Otomatik tetikleme ekle ✅
   - Data Gathering (Step 2) tamamlandığında otomatik özet üret
   - Veya Step 3'e geçişte otomatik çalıştır
 
-- [ ] **13.1.3** Ecological Summary panel bileşeni
+- [x] **13.1.3** Ecological Summary panel bileşeni ✅
   - Dosya: `components/desk-research/ecological-summary-panel.tsx`
-  - 4 kategori collapsible sections
+  - 4 kategori tek liste (bullet points)
   - Export seçeneği (PDF/Word)
 
 ---
@@ -1474,42 +1474,30 @@ Bu özellik **şu an yok**. Field survey'e geçildiğinde ecologist kendi karar�
 
 **Yapılacaklar:**
 
-- [ ] **15.1.1** Supabase Storage bucket oluştur
-  - `project-photos` bucket
+- [x] **15.1.1** Supabase Storage bucket oluştur ✅
+  - `project-photos` bucket (public)
   - RLS policies: proje üyeleri erişebilir
 
-- [ ] **15.1.2** Photo upload bileşeni
-  - Dosya: `components/field-surveys/photo-capture.tsx`
+- [x] **15.1.2** Photo upload bileşeni ✅
+  - Dosya: `components/ui/photo-upload.tsx`
   - Kameradan çekim veya galeri seçimi
-  - Otomatik EXIF geotag okuma
-  - Manuel konum düzeltme seçeneği
+  - Otomatik EXIF geotag okuma (`exifr` kütüphanesi)
+  - `photos` tablosuna otomatik kayıt (fire-and-forget)
 
-- [ ] **15.1.3** Photo metadata tablosu
+- [x] **15.1.3** Photo metadata tablosu ✅
+  - Mevcut `photos` tablosu genişletildi (migration: `extend_photos_table_and_rls`)
+  - Eklenen kolonlar: `project_id`, `tags`, `notes`, `created_by`, `habitat_polygon_id`, `target_note_id`
+  - 4 RLS policy + 2 index eklendi
 
-  ```sql
-  CREATE TABLE project_photos (
-    id UUID PRIMARY KEY,
-    project_id UUID REFERENCES projects(id),
-    survey_id UUID REFERENCES surveys(id),
-    file_path TEXT NOT NULL,
-    latitude DECIMAL,
-    longitude DECIMAL,
-    taken_at TIMESTAMPTZ,
-    tags TEXT[], -- ['habitat', 'species', 'damage']
-    notes TEXT,
-    created_by UUID REFERENCES profiles(id),
-    created_at TIMESTAMPTZ DEFAULT NOW()
-  );
-  ```
-
-- [ ] **15.1.4** Lightweight gallery bileşeni
+- [x] **15.1.4** Lightweight gallery bileşeni ✅
   - Dosya: `components/field-surveys/photo-gallery.tsx`
   - Grid view (hızlı yükleme, lazy loading)
-  - Tag filtreleme
-  - Haritada görüntüleme (geotag'e göre)
-  - Rapor yazarken drag & drop
+  - Tag filtreleme (COMMON_TAGS ile)
+  - Haritada görüntüleme (Leaflet, `photo-map-view.tsx`)
+  - Lightbox ile büyük görüntü + metadata + tag düzenleme
+  - Step 4 (Field Survey) → Photos tab'ında entegre
 
-- [ ] **15.1.5** Relevé Survey entegrasyonu
+- [ ] **15.1.5** Relevé Survey entegrasyonu _(ayrı görev olarak planlanacak)_
   - Mevcut prototip: `https://dulraecological.bolt.host/admin/projects/:projectId/releve-survey`
   - Fotoğrafları survey kaydına bağlama
 
@@ -1910,13 +1898,13 @@ AI raporları uygulama içinde düzenlenebilir ve tamamlanabilir olmalı. Rapor 
 
 ### 🆕 Yeni Eklenen Görevler (8 Şubat 2026)
 
-| #    | Görev                    | Öncelik     | Efor   | Belirsizlik |
-| ---- | ------------------------ | ----------- | ------ | ----------- |
-| 11.1 | Caspio Bird Database     | ❓ Belirsiz | Orta   | 🔴 Yüksek   |
-| 12.1 | Automated Web Search     | ❓ Belirsiz | Yüksek | 🔴 Yüksek   |
-| 13.1 | Ecological Summary       | 🟡 Orta     | Düşük  | 🟢 Düşük    |
-| 15.1 | Photo & Asset Management | 🟡 Orta     | Yüksek | 🟢 Düşük    |
-| 16.1 | Relevé Survey            | ❓ Belirsiz | Orta   | 🟡 Orta     |
+| #    | Görev                    | Öncelik                      | Efor   | Belirsizlik |
+| ---- | ------------------------ | ---------------------------- | ------ | ----------- |
+| 11.1 | Caspio Bird Database     | ❓ Belirsiz                  | Orta   | 🔴 Yüksek   |
+| 12.1 | Automated Web Search     | ❓ Belirsiz                  | Yüksek | 🔴 Yüksek   |
+| 13.1 | Ecological Summary       | 🟡 Orta                      | Düşük  | 🟢 Düşük    |
+| 15.1 | Photo & Asset Management | ✅ Tamamlandı (15.1.5 hariç) | Yüksek | 🟢 Düşük    |
+| 16.1 | Relevé Survey            | ❓ Belirsiz                  | Orta   | 🟡 Orta     |
 
 ### 🆕 Yeni Eklenen Görevler (11 Şubat 2026)
 

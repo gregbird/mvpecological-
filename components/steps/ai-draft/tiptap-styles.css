@@ -90,6 +90,22 @@
   font-weight: 600;
 }
 
+/* Images */
+.tiptap-editor .ProseMirror img {
+  max-width: 100%;
+  max-height: 500px;
+  height: auto;
+  object-fit: contain;
+  border-radius: 0.375rem;
+  margin: 0.5rem 0;
+  cursor: default;
+}
+
+.tiptap-editor .ProseMirror img.ProseMirror-selectednode {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 /* Read-only mode */
 .tiptap-editor.readonly .ProseMirror {
   min-height: auto;

@@ -513,6 +513,7 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
                   )
                 }
                 onContentChange={(content) => updateSectionContent(templateSection.id, content)}
+                projectId={project.id}
               />
             ))}
           </Accordion>

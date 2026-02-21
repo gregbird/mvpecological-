@@ -2,6 +2,7 @@
 
 import { jsPDF } from 'jspdf'
 import type { ReportSection } from '@/lib/supabase/queries/reports'
+import { fetchImageAsBase64 } from './image-utils'
 
 export interface PeaExportOptions {
   title: string
@@ -45,8 +46,13 @@ interface MdTable {
   headers: string[]
   rows: string[][]
 }
+interface MdImage {
+  type: 'image'
+  src: string
+  alt: string
+}
 
-type MdBlock = MdParagraph | MdHeading | MdBullet | MdTable
+type MdBlock = MdParagraph | MdHeading | MdBullet | MdTable | MdImage
 
 interface TextSegment {
   text: string
@@ -132,6 +138,14 @@ function parseMarkdown(md: string): MdBlock[] {
       continue
     }
 
+    // Image: ![alt](src)
+    const imageMatch = line.trim().match(/^!\[([^\]]*)\]\(([^)]+)\)$/)
+    if (imageMatch) {
+      blocks.push({ type: 'image', alt: imageMatch[1] || 'Photo', src: imageMatch[2] })
+      i++
+      continue
+    }
+
     // Table detection: line starts with | and next line is separator
     if (
       line.trim().startsWith('|') &&
@@ -200,7 +214,8 @@ function parseMarkdown(md: string): MdBlock[] {
       !lines[i].trim().startsWith('#') &&
       !lines[i].trim().startsWith('|') &&
       !/^\s*[-*]\s+/.test(lines[i]) &&
-      !/^\s*\d+\.\s+/.test(lines[i])
+      !/^\s*\d+\.\s+/.test(lines[i]) &&
+      !/^!\[/.test(lines[i].trim())
     ) {
       paraLines.push(lines[i].trim())
       i++
@@ -336,7 +351,7 @@ function segmentsToWords(segments: TextSegment[]): StyledWord[] {
 // PDF Generator
 // ============================================================
 
-export function generatePeaPdf(options: PeaExportOptions): jsPDF {
+export async function generatePeaPdf(options: PeaExportOptions): Promise<jsPDF> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
 
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -349,24 +364,48 @@ export function generatePeaPdf(options: PeaExportOptions): jsPDF {
 
   let currentPage = 1
 
-  // Helper: set font and return width measurement
+  // Font state cache — avoids redundant setFont/setFontSize calls
+  let _curStyle = ''
+  let _curSize = 0
   const setFont = (bold: boolean, italic: boolean, size: number = 10) => {
     const style = bold && italic ? 'bolditalic' : bold ? 'bold' : italic ? 'italic' : 'normal'
-    doc.setFontSize(size)
-    doc.setFont('helvetica', style)
+    if (style !== _curStyle || size !== _curSize) {
+      doc.setFontSize(size)
+      doc.setFont('helvetica', style)
+      _curStyle = style
+      _curSize = size
+    }
+  }
+
+  // Text width cache — keyed by "style|size|text"
+  const _widthCache = new Map<string, number>()
+  const cachedTextWidth = (
+    text: string,
+    bold: boolean,
+    italic: boolean,
+    size: number = 10
+  ): number => {
+    const style = bold && italic ? 'bolditalic' : bold ? 'bold' : italic ? 'italic' : 'normal'
+    const key = `${style}|${size}|${text}`
+    const cached = _widthCache.get(key)
+    if (cached !== undefined) return cached
+    setFont(bold, italic, size)
+    const w = doc.getTextWidth(text)
+    _widthCache.set(key, w)
+    return w
   }
 
   const getWordWidth = (word: StyledWord): number => {
-    setFont(word.bold, word.italic)
-    return doc.getTextWidth(word.text)
+    return cachedTextWidth(word.text, word.bold, word.italic)
   }
 
   const getSpaceWidth = (): number => {
-    setFont(false, false)
-    return doc.getTextWidth(' ')
+    return cachedTextWidth(' ', false, false)
   }
 
   const addFooter = () => {
+    _curStyle = ''
+    _curSize = 0
     doc.setFontSize(8)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(128, 128, 128)
@@ -574,7 +613,7 @@ export function generatePeaPdf(options: PeaExportOptions): jsPDF {
   const contentSections = options.sections.filter((s) => s.content)
 
   // Sections start on page 3 (cover=1, TOC=2, first section=3)
-  let sectionStartPage = 3
+  const sectionStartPage = 3
 
   for (let i = 0; i < contentSections.length; i++) {
     const section = contentSections[i]
@@ -655,10 +694,15 @@ export function generatePeaPdf(options: PeaExportOptions): jsPDF {
   // Footer on TOC page
   addFooter()
 
+  // Yield to browser between sections so the UI stays responsive
+  const yieldToBrowser = () => new Promise<void>((r) => setTimeout(r, 0))
+
   // ===== REPORT SECTIONS (continuous flow) =====
   let y = newPage()
 
   for (const section of contentSections) {
+    // Let the browser breathe between sections
+    await yieldToBrowser()
     // Ensure at least 35mm space for a new section heading
     y = ensureSpace(y, 35)
 
@@ -668,6 +712,8 @@ export function generatePeaPdf(options: PeaExportOptions): jsPDF {
     }
 
     // Section title with green underline
+    _curStyle = ''
+    _curSize = 0
     doc.setFontSize(14)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(44, 82, 52)
@@ -718,6 +764,41 @@ export function generatePeaPdf(options: PeaExportOptions): jsPDF {
           y = renderTable(doc, block, y, margin, contentWidth, ensureSpace, newPage)
           y += paraSpacing
           break
+
+        case 'image': {
+          const imgData = await fetchImageAsBase64(block.src)
+          if (imgData) {
+            // Convert pixel dimensions to mm (assume 96 DPI: 1px ≈ 0.2646mm)
+            const pxToMm = 0.2646
+            const imgWmm = imgData.width * pxToMm
+            const imgHmm = imgData.height * pxToMm
+
+            // Scale to fit within content width and max 80mm height
+            const maxW = contentWidth
+            const maxH = 80
+            const scale = Math.min(maxW / imgWmm, maxH / imgHmm, 1)
+            const drawW = imgWmm * scale
+            const drawH = imgHmm * scale
+
+            y = ensureSpace(y, drawH + 12)
+            doc.addImage(
+              `data:image/jpeg;base64,${imgData.base64}`,
+              'JPEG',
+              margin,
+              y,
+              drawW,
+              drawH
+            )
+            y += drawH + 2
+
+            // Caption below image
+            if (block.alt && block.alt !== 'Photo') {
+              y = writePlainText(block.alt, margin, y, { fontSize: 9, italic: true })
+            }
+            y += paraSpacing
+          }
+          break
+        }
       }
     }
 
@@ -877,15 +958,21 @@ function calculateColumnWidths(
   return maxWidths.map((w) => Math.max((w / sum) * totalWidth, minWidth))
 }
 
-/** Truncate text to fit within a given width */
+/** Truncate text to fit within a given width (binary search instead of char-by-char) */
 function truncateText(doc: jsPDF, text: string, maxWidth: number): string {
   if (doc.getTextWidth(text) <= maxWidth) return text
 
-  let truncated = text
-  while (truncated.length > 0 && doc.getTextWidth(truncated + '...') > maxWidth) {
-    truncated = truncated.slice(0, -1)
+  let lo = 0
+  let hi = text.length
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1
+    if (doc.getTextWidth(text.slice(0, mid) + '...') <= maxWidth) {
+      lo = mid
+    } else {
+      hi = mid - 1
+    }
   }
-  return truncated + '...'
+  return text.slice(0, lo) + '...'
 }
 
 // ============================================================
@@ -1038,6 +1125,12 @@ function markdownToHtml(md: string): string {
         .join('')
       return `<table><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table>`
     }
+  )
+
+  // Images
+  html = html.replace(
+    /!\[([^\]]*)\]\(([^)]+)\)/g,
+    '<figure><img src="$2" alt="$1" style="max-width:100%;height:auto;" /><figcaption><em>$1</em></figcaption></figure>'
   )
 
   html = html.replace(/^- (.+)$/gm, '<li>$1</li>')

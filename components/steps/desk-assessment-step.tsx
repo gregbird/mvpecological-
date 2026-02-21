@@ -1,23 +1,17 @@
 'use client'
 
 import * as React from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 import {
   Loader2,
   Check,
   AlertCircle,
   Sparkles,
-  Brain,
   MapPin,
   Bug,
   Droplets,
   Calendar,
   AlertTriangle,
   Lightbulb,
-  RefreshCw,
-  Pencil,
-  X,
   ExternalLink,
   ChevronDown,
   FileText,
@@ -44,6 +38,7 @@ import { useUpdateWorkflowStep, useCompleteWorkflowStep } from '@/hooks/queries/
 import { useProjectContext } from '@/contexts/project-context'
 import { BaselineReportTab } from '@/components/steps/desk-assessment/baseline-report-tab'
 import { DeepResearchTab } from '@/components/steps/desk-assessment/deep-research-tab'
+import { EcologicalSummaryPanel } from '@/components/desk-research/ecological-summary-panel'
 import type { Project, WorkflowStep, DeskResearchFinding } from '@/types/database'
 
 interface DeskAssessmentStepProps {
@@ -139,8 +134,6 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
   const [relevance, setRelevance] = React.useState<Relevance>('medium')
   const [isGeneratingInsights, setIsGeneratingInsights] = React.useState(false)
   const [aiInsights, setAiInsights] = React.useState<string | null>(null)
-  const [isEditingInsights, setIsEditingInsights] = React.useState(false)
-  const [editedInsights, setEditedInsights] = React.useState('')
   const [expandedCard, setExpandedCard] = React.useState<string | null>(null)
 
   // React Query hooks
@@ -191,6 +184,20 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
         .catch((err) => console.error('Failed to reopen step:', err))
     }
   }, [findingsFingerprint])
+
+  // Auto-trigger AI generation when Step 3 mounts with no insights
+  const autoTriggeredRef = React.useRef(false)
+  React.useEffect(() => {
+    if (
+      !aiInsights &&
+      savedFindings.length > 0 &&
+      !isGeneratingInsights &&
+      !autoTriggeredRef.current
+    ) {
+      autoTriggeredRef.current = true
+      handleGenerateInsights()
+    }
+  }, [aiInsights, savedFindings.length, isGeneratingInsights])
 
   // Parse relevance from notes
   const findingsWithRelevance = React.useMemo(() => {
@@ -456,13 +463,8 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
       {/* Main Content */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <div className="flex h-full min-h-0 w-full">
-          {/* Left Panel - Stats (hidden during edit mode) */}
-          <div
-            className={cn(
-              'w-75 shrink-0 overflow-y-auto border-r p-4',
-              isEditingInsights && 'hidden'
-            )}
-          >
+          {/* Left Panel - Stats */}
+          <div className="w-75 shrink-0 overflow-y-auto border-r p-4">
             <h3 className="mb-4 font-semibold">Data Summary</h3>
 
             <div className="space-y-3">
@@ -697,98 +699,22 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
             </div>
 
             {/* AI Analysis Tab */}
-            <TabsContent
-              value="ai-analysis"
-              className={cn(
-                'mt-0 min-h-0 flex-1',
-                isEditingInsights ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'
-              )}
-            >
-              <div className={cn('p-6', isEditingInsights && 'flex min-h-0 flex-1 flex-col')}>
-                {aiInsights ? (
-                  <div
-                    className={cn(
-                      'max-w-none',
-                      isEditingInsights && 'flex min-h-0 flex-1 flex-col'
-                    )}
-                  >
-                    <div className="mb-4 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="h-5 w-5 text-purple-500" />
-                        <h3 className="m-0 text-lg font-semibold">AI Analysis</h3>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {isEditingInsights ? (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setAiInsights(editedInsights)
-                                setIsEditingInsights(false)
-                                persistInsights(editedInsights)
-                              }}
-                            >
-                              <Check className="mr-1 h-3 w-3" />
-                              Save
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setIsEditingInsights(false)}
-                            >
-                              <X className="mr-1 h-3 w-3" />
-                              Cancel
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setEditedInsights(aiInsights)
-                                setIsEditingInsights(true)
-                              }}
-                            >
-                              <Pencil className="mr-1 h-3 w-3" />
-                              Edit
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={handleGenerateInsights}>
-                              <RefreshCw className="mr-1 h-3 w-3" />
-                              Regenerate
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    {isEditingInsights ? (
-                      <Textarea
-                        value={editedInsights}
-                        onChange={(e) => setEditedInsights(e.target.value)}
-                        className="h-full min-h-[600px] w-full flex-1 resize-none font-mono text-sm"
-                        placeholder="Edit the AI analysis in markdown..."
-                      />
-                    ) : (
-                      <div className="prose prose-sm max-w-none overflow-x-auto rounded-lg border bg-gray-50 p-4">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{aiInsights}</ReactMarkdown>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex h-full min-h-[400px] flex-col items-center justify-center text-center">
-                    <Brain className="mb-4 h-16 w-16 text-gray-300" />
-                    <h3 className="text-lg font-semibold">AI Insights</h3>
-                    <p className="text-muted-foreground mt-2 max-w-sm text-sm leading-relaxed">
-                      Click <strong>&quot;Generate AI Analysis&quot;</strong> to get intelligent
-                      insights about your findings, risk assessment, and field survey
-                      recommendations.
-                    </p>
-                  </div>
-                )}
+            <TabsContent value="ai-analysis" className="mt-0 min-h-0 flex-1 overflow-y-auto">
+              <div className="p-6">
+                <EcologicalSummaryPanel
+                  insights={aiInsights}
+                  isGenerating={isGeneratingInsights}
+                  findingsCount={savedFindings.length}
+                  projectName={project.name}
+                  onRegenerate={handleGenerateInsights}
+                  onInsightsChange={(updated) => {
+                    setAiInsights(updated)
+                    persistInsights(updated)
+                  }}
+                />
 
                 {/* Survey Recommendations */}
-                {!isEditingInsights && (
+                {!isGeneratingInsights && (
                   <div className="mt-8 border-t pt-6">
                     <h3 className="mb-4 flex items-center gap-2 font-semibold">
                       <Lightbulb className="h-5 w-5" />

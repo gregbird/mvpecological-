@@ -597,34 +597,66 @@ export type Database = {
         Row: {
           caption: string | null
           created_at: string
+          created_by: string | null
+          habitat_polygon_id: string | null
           id: string
           location: unknown
+          notes: string | null
           observation_id: string | null
+          project_id: string | null
           storage_path: string
           survey_id: string | null
+          tags: string[] | null
           taken_at: string | null
+          target_note_id: string | null
         }
         Insert: {
           caption?: string | null
           created_at?: string
+          created_by?: string | null
+          habitat_polygon_id?: string | null
           id?: string
           location?: unknown
+          notes?: string | null
           observation_id?: string | null
+          project_id?: string | null
           storage_path: string
           survey_id?: string | null
+          tags?: string[] | null
           taken_at?: string | null
+          target_note_id?: string | null
         }
         Update: {
           caption?: string | null
           created_at?: string
+          created_by?: string | null
+          habitat_polygon_id?: string | null
           id?: string
           location?: unknown
+          notes?: string | null
           observation_id?: string | null
+          project_id?: string | null
           storage_path?: string
           survey_id?: string | null
+          tags?: string[] | null
           taken_at?: string | null
+          target_note_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: 'photos_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'photos_habitat_polygon_id_fkey'
+            columns: ['habitat_polygon_id']
+            isOneToOne: false
+            referencedRelation: 'habitat_polygons'
+            referencedColumns: ['id']
+          },
           {
             foreignKeyName: 'photos_observation_id_fkey'
             columns: ['observation_id']
@@ -633,10 +665,24 @@ export type Database = {
             referencedColumns: ['id']
           },
           {
+            foreignKeyName: 'photos_project_id_fkey'
+            columns: ['project_id']
+            isOneToOne: false
+            referencedRelation: 'projects'
+            referencedColumns: ['id']
+          },
+          {
             foreignKeyName: 'photos_survey_id_fkey'
             columns: ['survey_id']
             isOneToOne: false
             referencedRelation: 'surveys'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'photos_target_note_id_fkey'
+            columns: ['target_note_id']
+            isOneToOne: false
+            referencedRelation: 'target_notes'
             referencedColumns: ['id']
           },
         ]
@@ -1632,6 +1678,10 @@ export type TargetNoteCategory =
   | 'damage'
   | 'ownership'
 export type TargetNotePriority = 'high' | 'normal' | 'low'
+
+export type Photo = Database['public']['Tables']['photos']['Row']
+export type PhotoInsert = Database['public']['Tables']['photos']['Insert']
+export type PhotoUpdate = Database['public']['Tables']['photos']['Update']
 
 export type BaselineReportCache = Database['public']['Tables']['baseline_report_cache']['Row']
 export type BaselineReportCacheInsert =

@@ -15,15 +15,17 @@ import {
   Undo2,
   Redo2,
   Trash2,
+  ImageIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 
 interface EditorToolbarProps {
   editor: Editor
+  onInsertPhoto?: () => void
 }
 
-export function EditorToolbar({ editor }: EditorToolbarProps) {
+export function EditorToolbar({ editor, onInsertPhoto }: EditorToolbarProps) {
   return (
     <div className="bg-muted/30 flex flex-wrap items-center gap-0.5 border-b px-2 py-1">
       {/* Text formatting */}
@@ -114,6 +116,16 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
             title="Delete Table"
           >
             <Trash2 className="h-4 w-4" />
+          </ToolbarButton>
+        </>
+      )}
+
+      {/* Insert Photo */}
+      {onInsertPhoto && (
+        <>
+          <Separator orientation="vertical" className="mx-1 h-6" />
+          <ToolbarButton onClick={onInsertPhoto} active={false} title="Insert Photo">
+            <ImageIcon className="h-4 w-4" />
           </ToolbarButton>
         </>
       )}

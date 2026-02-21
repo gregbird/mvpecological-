@@ -14,6 +14,7 @@ import {
   Target,
   ChevronDown,
   ChevronUp,
+  ImageIcon,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -38,6 +39,7 @@ import { SurveyCard, type Survey as SurveyCardType } from '@/components/field-su
 import { SurveyForm } from '@/components/field-surveys/survey-form'
 import { SurveyViewDialog } from '@/components/field-surveys/survey-view-dialog'
 import { SurveyTargetsBox } from '@/components/field-surveys/survey-targets-box'
+import { PhotoGallery } from '@/components/field-surveys/photo-gallery'
 import type { Project, WorkflowStep, Json } from '@/types/database'
 
 interface FieldSurveyStepProps {
@@ -71,6 +73,7 @@ export function FieldSurveyStep({
   const [editingSurvey, setEditingSurvey] = React.useState<SurveyCardType | null>(null)
   const [viewingSurvey, setViewingSurvey] = React.useState<SurveyCardType | null>(null)
   const [activeTab, setActiveTab] = React.useState('all')
+  const [topTab, setTopTab] = React.useState<'surveys' | 'photos'>('surveys')
   const [showFindings, setShowFindings] = React.useState(true)
   const [highlightedSurveyId, setHighlightedSurveyId] = React.useState<string | null>(null)
   const surveyListRef = React.useRef<HTMLDivElement>(null)
@@ -427,331 +430,333 @@ export function FieldSurveyStep({
         </Badge>
       </div>
 
-      {/* Desk Research Findings Summary */}
-      <Collapsible open={showFindings} onOpenChange={setShowFindings}>
-        <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20">
-          <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Target className="h-5 w-5 text-blue-600" />
-                  <CardTitle className="text-lg">Survey Targets from Desk Research</CardTitle>
-                </div>
-                <div className="flex items-center gap-2">
-                  {savedFindings.length > 0 && (
-                    <Badge variant="secondary">{savedFindings.length} findings</Badge>
-                  )}
-                  {showFindings ? (
-                    <ChevronUp className="h-4 w-4" />
+      {/* Top-Level Tabs: Surveys vs Photos */}
+      <Tabs value={topTab} onValueChange={(v) => setTopTab(v as 'surveys' | 'photos')}>
+        <TabsList>
+          <TabsTrigger value="surveys">
+            <Calendar className="mr-1.5 h-4 w-4" />
+            Surveys
+          </TabsTrigger>
+          <TabsTrigger value="photos">
+            <ImageIcon className="mr-1.5 h-4 w-4" />
+            Photos
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="photos" className="mt-4">
+          <PhotoGallery projectId={project.id} />
+        </TabsContent>
+
+        <TabsContent value="surveys" className="mt-4 space-y-6">
+          {/* Desk Research Findings Summary */}
+          <Collapsible open={showFindings} onOpenChange={setShowFindings}>
+            <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20">
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Target className="h-5 w-5 text-blue-600" />
+                      <CardTitle className="text-lg">Survey Targets from Desk Research</CardTitle>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {savedFindings.length > 0 && (
+                        <Badge variant="secondary">{savedFindings.length} findings</Badge>
+                      )}
+                      {showFindings ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </div>
+                  </div>
+                  <CardDescription>
+                    Based on desk research, the following ecological features require field
+                    verification
+                  </CardDescription>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="space-y-4">
+                  {findingsLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    </div>
+                  ) : savedFindings.length === 0 ? (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        No saved findings from desk research. Complete the Data Gathering step first
+                        to get survey recommendations.
+                      </AlertDescription>
+                    </Alert>
                   ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                </div>
-              </div>
-              <CardDescription>
-                Based on desk research, the following ecological features require field verification
-              </CardDescription>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent className="space-y-4">
-              {findingsLoading ? (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                </div>
-              ) : savedFindings.length === 0 ? (
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    No saved findings from desk research. Complete the Data Gathering step first to
-                    get survey recommendations.
-                  </AlertDescription>
-                </Alert>
-              ) : (
-                <div className="grid gap-4 md:grid-cols-3">
-                  {/* Designated Sites */}
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <Shield className="h-4 w-4 text-green-600" />
-                      <span>Designated Sites</span>
-                      <Badge variant="outline" className="ml-auto">
-                        {surveyRecommendations.designatedSites.length}
-                      </Badge>
-                    </div>
-                    <ScrollArea className="h-32 rounded border p-2">
-                      {surveyRecommendations.designatedSites.length === 0 ? (
-                        <p className="text-muted-foreground text-xs">No sites found</p>
-                      ) : (
-                        <ul className="space-y-1">
-                          {surveyRecommendations.designatedSites.slice(0, 5).map((site) => {
-                            const raw = getRawData(site)
-                            return (
-                              <li key={site.id} className="text-xs">
-                                <span className="font-medium">{raw.siteName || site.title}</span>
-                                {raw.siteCode && (
-                                  <span className="text-muted-foreground ml-1">
-                                    ({raw.siteCode})
-                                  </span>
-                                )}
-                              </li>
-                            )
-                          })}
-                          {surveyRecommendations.designatedSites.length > 5 && (
-                            <li className="text-muted-foreground text-xs">
-                              +{surveyRecommendations.designatedSites.length - 5} more
-                            </li>
+                    <div className="grid gap-4 md:grid-cols-3">
+                      {/* Designated Sites */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                          <Shield className="h-4 w-4 text-green-600" />
+                          <span>Designated Sites</span>
+                          <Badge variant="outline" className="ml-auto">
+                            {surveyRecommendations.designatedSites.length}
+                          </Badge>
+                        </div>
+                        <ScrollArea className="h-32 rounded border p-2">
+                          {surveyRecommendations.designatedSites.length === 0 ? (
+                            <p className="text-muted-foreground text-xs">No sites found</p>
+                          ) : (
+                            <ul className="space-y-1">
+                              {surveyRecommendations.designatedSites.slice(0, 5).map((site) => {
+                                const raw = getRawData(site)
+                                return (
+                                  <li key={site.id} className="text-xs">
+                                    <span className="font-medium">
+                                      {raw.siteName || site.title}
+                                    </span>
+                                    {raw.siteCode && (
+                                      <span className="text-muted-foreground ml-1">
+                                        ({raw.siteCode})
+                                      </span>
+                                    )}
+                                  </li>
+                                )
+                              })}
+                              {surveyRecommendations.designatedSites.length > 5 && (
+                                <li className="text-muted-foreground text-xs">
+                                  +{surveyRecommendations.designatedSites.length - 5} more
+                                </li>
+                              )}
+                            </ul>
                           )}
-                        </ul>
-                      )}
-                    </ScrollArea>
-                  </div>
-
-                  {/* Protected Species */}
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <Bug className="h-4 w-4 text-amber-600" />
-                      <span>Protected Species</span>
-                      <Badge variant="outline" className="ml-auto">
-                        {surveyRecommendations.protectedSpecies.length}
-                      </Badge>
-                    </div>
-                    <ScrollArea className="h-32 rounded border p-2">
-                      {surveyRecommendations.protectedSpecies.length === 0 ? (
-                        <p className="text-muted-foreground text-xs">No protected species</p>
-                      ) : (
-                        <ul className="space-y-1">
-                          {surveyRecommendations.protectedSpecies.slice(0, 5).map((species) => {
-                            const raw = getRawData(species)
-                            return (
-                              <li key={species.id} className="text-xs">
-                                <span className="font-medium italic">
-                                  {raw.scientificName || raw.commonName || species.title}
-                                </span>
-                                {raw.taxonGroup && (
-                                  <Badge variant="secondary" className="ml-1 text-[10px]">
-                                    {raw.taxonGroup}
-                                  </Badge>
-                                )}
-                              </li>
-                            )
-                          })}
-                          {surveyRecommendations.protectedSpecies.length > 5 && (
-                            <li className="text-muted-foreground text-xs">
-                              +{surveyRecommendations.protectedSpecies.length - 5} more
-                            </li>
-                          )}
-                        </ul>
-                      )}
-                    </ScrollArea>
-                  </div>
-
-                  {/* Aquatic Features */}
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <Waves className="h-4 w-4 text-blue-600" />
-                      <span>Aquatic Features</span>
-                      <Badge variant="outline" className="ml-auto">
-                        {surveyRecommendations.aquaticFeatures.length}
-                      </Badge>
-                    </div>
-                    <ScrollArea className="h-32 rounded border p-2">
-                      {surveyRecommendations.aquaticFeatures.length === 0 ? (
-                        <p className="text-muted-foreground text-xs">No water features</p>
-                      ) : (
-                        <ul className="space-y-1">
-                          {surveyRecommendations.aquaticFeatures.slice(0, 5).map((feature) => {
-                            const raw = getRawData(feature)
-                            return (
-                              <li key={feature.id} className="text-xs">
-                                <span className="font-medium">
-                                  {feature.title || raw.siteName || 'Aquatic Feature'}
-                                </span>
-                              </li>
-                            )
-                          })}
-                          {surveyRecommendations.aquaticFeatures.length > 5 && (
-                            <li className="text-muted-foreground text-xs">
-                              +{surveyRecommendations.aquaticFeatures.length - 5} more
-                            </li>
-                          )}
-                        </ul>
-                      )}
-                    </ScrollArea>
-                  </div>
-                </div>
-              )}
-
-              {/* Recommended Surveys */}
-              {surveyRecommendations.recommendedSurveys.length > 0 && (
-                <div className="border-t pt-4">
-                  <h4 className="mb-3 text-sm font-medium">Recommended Surveys</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {surveyRecommendations.recommendedSurveys.map((rec) => (
-                      <Badge
-                        key={rec.type}
-                        variant={rec.priority === 'high' ? 'destructive' : 'secondary'}
-                        className="cursor-pointer"
-                        onClick={() => {
-                          setEditingSurvey(null)
-                          setShowSurveyForm(true)
-                        }}
-                      >
-                        {rec.priority === 'high' && '⚠️ '}
-                        {SURVEY_TYPE_LABELS[rec.type] || rec.type}
-                      </Badge>
-                    ))}
-                  </div>
-                  <p className="text-muted-foreground mt-2 text-xs">
-                    Click on a badge to create a survey of that type
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
-
-      {/* Survey Targets (Habitats) */}
-      <SurveyTargetsBox findings={savedFindings} isLoading={findingsLoading} />
-
-      {/* Instructions */}
-      <Alert>
-        <Info className="h-4 w-4" />
-        <AlertTitle>Survey Planning</AlertTitle>
-        <AlertDescription>
-          Based on the desk assessment findings above, plan the required field surveys. Schedule
-          surveys for different ecological aspects such as habitat mapping, bat surveys, bird
-          surveys, etc. Each survey will capture species observations and habitat data.
-        </AlertDescription>
-      </Alert>
-
-      {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-5">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Surveys</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{surveyStats?.total || surveysAsCards.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Planned</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {surveyStats?.planned || surveysByStatus.planned.length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-600">
-              {surveyStats?.in_progress || surveysByStatus.in_progress.length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Completed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {surveyStats?.completed || surveysByStatus.completed.length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Approved</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">
-              {surveyStats?.approved || surveysByStatus.approved.length}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Action Button */}
-      <div className="flex justify-end">
-        <Button
-          onClick={() => {
-            setEditingSurvey(null)
-            setShowSurveyForm(true)
-          }}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Schedule Survey
-        </Button>
-      </div>
-
-      {/* Survey List */}
-      {surveysAsCards.length === 0 ? (
-        <Alert>
-          <Calendar className="h-4 w-4" />
-          <AlertTitle>No Surveys Scheduled</AlertTitle>
-          <AlertDescription>
-            Click "Schedule Survey" to plan your first field survey. Based on the desk assessment,
-            you may need habitat mapping, species-specific surveys, or general walkover surveys.
-          </AlertDescription>
-        </Alert>
-      ) : (
-        <Card ref={surveyListRef}>
-          <CardHeader>
-            <CardTitle>Survey Schedule</CardTitle>
-            <CardDescription>Manage and track all field surveys for this project</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList>
-                <TabsTrigger value="all">All ({surveysAsCards.length})</TabsTrigger>
-                <TabsTrigger value="planned">
-                  Planned ({surveysByStatus.planned.length})
-                </TabsTrigger>
-                <TabsTrigger value="in_progress">
-                  In Progress ({surveysByStatus.in_progress.length})
-                </TabsTrigger>
-                <TabsTrigger value="completed">
-                  Completed ({surveysByStatus.completed.length})
-                </TabsTrigger>
-                <TabsTrigger value="approved">
-                  Approved ({surveysByStatus.approved.length})
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="all" className="mt-4">
-                <ScrollArea className="h-100">
-                  <div className="grid gap-4 pr-4 md:grid-cols-2">
-                    {surveysAsCards.map((survey) => (
-                      <SurveyCard
-                        key={survey.id}
-                        survey={survey}
-                        onView={handleViewSurvey}
-                        onEdit={handleOpenEditForm}
-                        onDelete={handleDeleteSurvey}
-                        onApprove={handleApproveSurvey}
-                        isHighlighted={survey.id === highlightedSurveyId}
-                      />
-                    ))}
-                  </div>
-                </ScrollArea>
-              </TabsContent>
-
-              {Object.entries(surveysByStatus).map(([status, statusSurveys]) => (
-                <TabsContent key={status} value={status} className="mt-4">
-                  <ScrollArea className="h-100">
-                    {statusSurveys.length === 0 ? (
-                      <div className="text-muted-foreground py-8 text-center text-sm">
-                        No {status.replace('_', ' ')} surveys
+                        </ScrollArea>
                       </div>
-                    ) : (
+
+                      {/* Protected Species */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                          <Bug className="h-4 w-4 text-amber-600" />
+                          <span>Protected Species</span>
+                          <Badge variant="outline" className="ml-auto">
+                            {surveyRecommendations.protectedSpecies.length}
+                          </Badge>
+                        </div>
+                        <ScrollArea className="h-32 rounded border p-2">
+                          {surveyRecommendations.protectedSpecies.length === 0 ? (
+                            <p className="text-muted-foreground text-xs">No protected species</p>
+                          ) : (
+                            <ul className="space-y-1">
+                              {surveyRecommendations.protectedSpecies.slice(0, 5).map((species) => {
+                                const raw = getRawData(species)
+                                return (
+                                  <li key={species.id} className="text-xs">
+                                    <span className="font-medium italic">
+                                      {raw.scientificName || raw.commonName || species.title}
+                                    </span>
+                                    {raw.taxonGroup && (
+                                      <Badge variant="secondary" className="ml-1 text-[10px]">
+                                        {raw.taxonGroup}
+                                      </Badge>
+                                    )}
+                                  </li>
+                                )
+                              })}
+                              {surveyRecommendations.protectedSpecies.length > 5 && (
+                                <li className="text-muted-foreground text-xs">
+                                  +{surveyRecommendations.protectedSpecies.length - 5} more
+                                </li>
+                              )}
+                            </ul>
+                          )}
+                        </ScrollArea>
+                      </div>
+
+                      {/* Aquatic Features */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                          <Waves className="h-4 w-4 text-blue-600" />
+                          <span>Aquatic Features</span>
+                          <Badge variant="outline" className="ml-auto">
+                            {surveyRecommendations.aquaticFeatures.length}
+                          </Badge>
+                        </div>
+                        <ScrollArea className="h-32 rounded border p-2">
+                          {surveyRecommendations.aquaticFeatures.length === 0 ? (
+                            <p className="text-muted-foreground text-xs">No water features</p>
+                          ) : (
+                            <ul className="space-y-1">
+                              {surveyRecommendations.aquaticFeatures.slice(0, 5).map((feature) => {
+                                const raw = getRawData(feature)
+                                return (
+                                  <li key={feature.id} className="text-xs">
+                                    <span className="font-medium">
+                                      {feature.title || raw.siteName || 'Aquatic Feature'}
+                                    </span>
+                                  </li>
+                                )
+                              })}
+                              {surveyRecommendations.aquaticFeatures.length > 5 && (
+                                <li className="text-muted-foreground text-xs">
+                                  +{surveyRecommendations.aquaticFeatures.length - 5} more
+                                </li>
+                              )}
+                            </ul>
+                          )}
+                        </ScrollArea>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Recommended Surveys */}
+                  {surveyRecommendations.recommendedSurveys.length > 0 && (
+                    <div className="border-t pt-4">
+                      <h4 className="mb-3 text-sm font-medium">Recommended Surveys</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {surveyRecommendations.recommendedSurveys.map((rec) => (
+                          <Badge
+                            key={rec.type}
+                            variant={rec.priority === 'high' ? 'destructive' : 'secondary'}
+                            className="cursor-pointer"
+                            onClick={() => {
+                              setEditingSurvey(null)
+                              setShowSurveyForm(true)
+                            }}
+                          >
+                            {rec.priority === 'high' && '⚠️ '}
+                            {SURVEY_TYPE_LABELS[rec.type] || rec.type}
+                          </Badge>
+                        ))}
+                      </div>
+                      <p className="text-muted-foreground mt-2 text-xs">
+                        Click on a badge to create a survey of that type
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+
+          {/* Survey Targets (Habitats) */}
+          <SurveyTargetsBox findings={savedFindings} isLoading={findingsLoading} />
+
+          {/* Instructions */}
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertTitle>Survey Planning</AlertTitle>
+            <AlertDescription>
+              Based on the desk assessment findings above, plan the required field surveys. Schedule
+              surveys for different ecological aspects such as habitat mapping, bat surveys, bird
+              surveys, etc. Each survey will capture species observations and habitat data.
+            </AlertDescription>
+          </Alert>
+
+          {/* Stats */}
+          <div className="grid gap-4 sm:grid-cols-5">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Total Surveys</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {surveyStats?.total || surveysAsCards.length}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Planned</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600">
+                  {surveyStats?.planned || surveysByStatus.planned.length}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">In Progress</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-amber-600">
+                  {surveyStats?.in_progress || surveysByStatus.in_progress.length}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Completed</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">
+                  {surveyStats?.completed || surveysByStatus.completed.length}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Approved</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-purple-600">
+                  {surveyStats?.approved || surveysByStatus.approved.length}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Action Button */}
+          <div className="flex justify-end">
+            <Button
+              onClick={() => {
+                setEditingSurvey(null)
+                setShowSurveyForm(true)
+              }}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Schedule Survey
+            </Button>
+          </div>
+
+          {/* Survey List */}
+          {surveysAsCards.length === 0 ? (
+            <Alert>
+              <Calendar className="h-4 w-4" />
+              <AlertTitle>No Surveys Scheduled</AlertTitle>
+              <AlertDescription>
+                Click "Schedule Survey" to plan your first field survey. Based on the desk
+                assessment, you may need habitat mapping, species-specific surveys, or general
+                walkover surveys.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <Card ref={surveyListRef}>
+              <CardHeader>
+                <CardTitle>Survey Schedule</CardTitle>
+                <CardDescription>
+                  Manage and track all field surveys for this project
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
+                  <TabsList>
+                    <TabsTrigger value="all">All ({surveysAsCards.length})</TabsTrigger>
+                    <TabsTrigger value="planned">
+                      Planned ({surveysByStatus.planned.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="in_progress">
+                      In Progress ({surveysByStatus.in_progress.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="completed">
+                      Completed ({surveysByStatus.completed.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="approved">
+                      Approved ({surveysByStatus.approved.length})
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="all" className="mt-4">
+                    <ScrollArea className="h-100">
                       <div className="grid gap-4 pr-4 md:grid-cols-2">
-                        {statusSurveys.map((survey) => (
+                        {surveysAsCards.map((survey) => (
                           <SurveyCard
                             key={survey.id}
                             survey={survey}
@@ -763,99 +768,125 @@ export function FieldSurveyStep({
                           />
                         ))}
                       </div>
-                    )}
-                  </ScrollArea>
-                </TabsContent>
-              ))}
-            </Tabs>
-          </CardContent>
-        </Card>
-      )}
+                    </ScrollArea>
+                  </TabsContent>
 
-      {/* Progress Panel */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Step Progress</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span>Surveys scheduled</span>
-              {surveysAsCards.length > 0 ? (
-                <span className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-600" />
-                  <span className="text-muted-foreground">{surveysAsCards.length} surveys</span>
-                </span>
-              ) : (
-                <AlertCircle className="text-muted-foreground h-4 w-4" />
-              )}
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span>Planned surveys</span>
-              {hasPlannedSurveys ? (
-                <span className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-600" />
-                  <span className="text-muted-foreground">
-                    {surveyStats?.planned || surveysByStatus.planned.length} planned
-                  </span>
-                </span>
-              ) : (
-                <AlertCircle className="text-muted-foreground h-4 w-4" />
-              )}
-            </div>
-          </div>
+                  {Object.entries(surveysByStatus).map(([status, statusSurveys]) => (
+                    <TabsContent key={status} value={status} className="mt-4">
+                      <ScrollArea className="h-100">
+                        {statusSurveys.length === 0 ? (
+                          <div className="text-muted-foreground py-8 text-center text-sm">
+                            No {status.replace('_', ' ')} surveys
+                          </div>
+                        ) : (
+                          <div className="grid gap-4 pr-4 md:grid-cols-2">
+                            {statusSurveys.map((survey) => (
+                              <SurveyCard
+                                key={survey.id}
+                                survey={survey}
+                                onView={handleViewSurvey}
+                                onEdit={handleOpenEditForm}
+                                onDelete={handleDeleteSurvey}
+                                onApprove={handleApproveSurvey}
+                                isHighlighted={survey.id === highlightedSurveyId}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </ScrollArea>
+                    </TabsContent>
+                  ))}
+                </Tabs>
+              </CardContent>
+            </Card>
+          )}
 
-          <Progress value={isComplete ? 100 : surveysAsCards.length > 0 ? 75 : 25} />
+          {/* Progress Panel */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Step Progress</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span>Surveys scheduled</span>
+                  {surveysAsCards.length > 0 ? (
+                    <span className="flex items-center gap-2">
+                      <Check className="h-4 w-4 text-green-600" />
+                      <span className="text-muted-foreground">{surveysAsCards.length} surveys</span>
+                    </span>
+                  ) : (
+                    <AlertCircle className="text-muted-foreground h-4 w-4" />
+                  )}
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Planned surveys</span>
+                  {hasPlannedSurveys ? (
+                    <span className="flex items-center gap-2">
+                      <Check className="h-4 w-4 text-green-600" />
+                      <span className="text-muted-foreground">
+                        {surveyStats?.planned || surveysByStatus.planned.length} planned
+                      </span>
+                    </span>
+                  ) : (
+                    <AlertCircle className="text-muted-foreground h-4 w-4" />
+                  )}
+                </div>
+              </div>
 
-          <Button
-            onClick={handleComplete}
-            disabled={!canComplete || completeStep.isPending}
-            className="w-full"
-          >
-            {completeStep.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Check className="mr-2 h-4 w-4" />
-            )}
-            {isComplete ? 'Completed' : 'Complete Step & Continue'}
-          </Button>
-        </CardContent>
-      </Card>
+              <Progress value={isComplete ? 100 : surveysAsCards.length > 0 ? 75 : 25} />
 
-      {/* Survey Form Dialog */}
-      <SurveyForm
-        open={showSurveyForm}
-        onOpenChange={(open) => {
-          setShowSurveyForm(open)
-          if (!open) setEditingSurvey(null)
-        }}
-        onSubmit={editingSurvey ? handleEditSurvey : handleCreateSurvey}
-        initialData={
-          editingSurvey
-            ? {
-                surveyType: editingSurvey.surveyType,
-                surveyDate: editingSurvey.surveyDate,
-                startTime: editingSurvey.startTime,
-                endTime: editingSurvey.endTime,
-                surveyor: editingSurvey.surveyor,
-                weather: editingSurvey.weather,
-                notes: editingSurvey.notes,
-              }
-            : undefined
-        }
-        projectId={project.id}
-      />
+              <Button
+                onClick={handleComplete}
+                disabled={!canComplete || completeStep.isPending}
+                className="w-full"
+              >
+                {completeStep.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="mr-2 h-4 w-4" />
+                )}
+                {isComplete ? 'Completed' : 'Complete Step & Continue'}
+              </Button>
+            </CardContent>
+          </Card>
 
-      {/* Survey View Dialog */}
-      {viewingSurvey && (
-        <SurveyViewDialog
-          open={!!viewingSurvey}
-          onOpenChange={(open) => {
-            if (!open) setViewingSurvey(null)
-          }}
-          survey={viewingSurvey}
-        />
-      )}
+          {/* Survey Form Dialog */}
+          <SurveyForm
+            open={showSurveyForm}
+            onOpenChange={(open) => {
+              setShowSurveyForm(open)
+              if (!open) setEditingSurvey(null)
+            }}
+            onSubmit={editingSurvey ? handleEditSurvey : handleCreateSurvey}
+            initialData={
+              editingSurvey
+                ? {
+                    surveyType: editingSurvey.surveyType,
+                    surveyDate: editingSurvey.surveyDate,
+                    startTime: editingSurvey.startTime,
+                    endTime: editingSurvey.endTime,
+                    surveyor: editingSurvey.surveyor,
+                    weather: editingSurvey.weather,
+                    notes: editingSurvey.notes,
+                  }
+                : undefined
+            }
+            projectId={project.id}
+          />
+
+          {/* Survey View Dialog */}
+          {viewingSurvey && (
+            <SurveyViewDialog
+              open={!!viewingSurvey}
+              onOpenChange={(open) => {
+                if (!open) setViewingSurvey(null)
+              }}
+              survey={viewingSurvey}
+            />
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
