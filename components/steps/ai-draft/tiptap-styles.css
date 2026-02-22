@@ -113,6 +113,23 @@
   cursor: default;
 }
 
+/* Document mode — borderless inline editor */
+.tiptap-editor.document-mode {
+  border: none;
+  border-radius: 0;
+}
+
+.tiptap-editor.document-mode .ProseMirror {
+  min-height: 80px;
+  padding: 0.5rem 0;
+}
+
+.tiptap-editor.document-mode:focus-within {
+  ring: none;
+  outline: none;
+  box-shadow: none;
+}
+
 /* Horizontal rule */
 .tiptap-editor .ProseMirror hr {
   border: none;

@@ -127,7 +127,7 @@ app/
 │       ├── new/               # Create project
 │       └── [id]/              # Project detail pages
 └── api/                       # API routes
-    ├── ai/                    # AI endpoints (desk-insights, species-research, etc.)
+    ├── ai/                    # AI endpoints (desk-insights, species-research, legend, etc.)
     ├── boundaries/            # Boundary data endpoints
     ├── nbdc/                  # NBDC proxy (search, taxon)
     └── npws/                  # NPWS scrape, townlands lookup
@@ -178,11 +178,27 @@ components/
 │   ├── habitat-mapping-step.tsx
 │   ├── target-notes-step.tsx
 │   ├── data-analysis-step.tsx
+│   ├── data-analysis/           # Data analysis sub-components
+│   │   ├── gis-summary-tab.tsx
+│   │   ├── data-gathering-tab.tsx
+│   │   ├── desk-assessment-tab.tsx
+│   │   ├── field-survey-tab.tsx
+│   │   ├── habitat-tab.tsx
+│   │   ├── target-notes-tab.tsx
+│   │   ├── maps-tab.tsx         # Interactive map review with layers & screenshots
+│   │   └── photographs-tab.tsx  # Field survey photo gallery
 │   ├── ai-draft-step.tsx
 │   ├── quality-review-step.tsx
 │   └── final-submission-step.tsx
 ├── desk-research/             # Search, source selector, findings
 └── field-surveys/             # Survey forms, observations
+    ├── releve-survey-form.tsx # Relevé Survey orchestrator form
+    ├── survey-view-dialog.tsx # View dialog (Relevé → full form, others → read-only)
+    └── releve-survey/         # Relevé form sub-components (13 files)
+        ├── types.ts           # Zod schema, CustomFieldDefinition, helpers
+        ├── custom-fields-section.tsx  # Dynamic custom field builder
+        ├── template-save-modal.tsx    # Save custom fields as template
+        └── template-load-dropdown.tsx # Load template into form
 
 lib/
 ├── supabase/
@@ -199,7 +215,8 @@ lib/
 │       ├── reports.ts
 │       ├── workflow.ts
 │       ├── deep-research.ts
-│       └── aquatic-research.ts
+│       ├── aquatic-research.ts
+│       └── releve-surveys.ts  # Relevé CRUD + template queries
 ├── external-apis/
 │   ├── npws.ts                # NPWS ArcGIS REST API
 │   ├── gbif.ts                # GBIF species occurrences
@@ -236,7 +253,8 @@ lib/
 │   ├── fpo-species.ts         # Flora Protection Order 2022
 │   ├── ssco-lookup.ts         # Site-specific Conservation Objectives
 │   ├── aquatic-sac-lookup.ts  # EPA rivers/lakes to SAC matching
-│   └── habitat-species-mapping.ts  # FOSSITT to expected species
+│   ├── habitat-species-mapping.ts  # FOSSITT to expected species
+│   └── common-irish-flora.ts # 23 common species + DOMIN scale
 └── utils/
     └── grid-reference.ts      # ITM/Irish Grid coordinate conversion
 
@@ -250,7 +268,8 @@ hooks/
 │   ├── use-target-note-hooks.ts
 │   ├── use-workflow-hooks.ts
 │   ├── use-report-hooks.ts
-│   └── use-deep-research-hooks.ts
+│   ├── use-deep-research-hooks.ts
+│   └── use-releve-hooks.ts    # Relevé survey + template hooks
 ├── gis/                       # GIS-specific hooks
 │   ├── use-boundary-management.ts
 │   ├── use-buffer-configuration.ts
@@ -295,12 +314,12 @@ Projects use a standardized workflow in 3 phases:
 
 ### Phase 3: Reporting (Steps 7-10)
 
-| Step | Name             | Component                   | Description             |
-| ---- | ---------------- | --------------------------- | ----------------------- |
-| 7    | Data Analysis    | `data-analysis-step.tsx`    | Statistics, synthesis   |
-| 8    | AI Draft         | `ai-draft-step.tsx`         | PEA report generation   |
-| 9    | Quality Review   | `quality-review-step.tsx`   | Senior review, approval |
-| 10   | Final Submission | `final-submission-step.tsx` | Report finalization     |
+| Step | Name             | Component                   | Description                         |
+| ---- | ---------------- | --------------------------- | ----------------------------------- |
+| 7    | Data Analysis    | `data-analysis-step.tsx`    | Statistics, synthesis, maps, photos |
+| 8    | AI Draft         | `ai-draft-step.tsx`         | PEA report generation               |
+| 9    | Quality Review   | `quality-review-step.tsx`   | Senior review, approval             |
+| 10   | Final Submission | `final-submission-step.tsx` | Report finalization                 |
 
 ## External API Integrations
 
@@ -358,6 +377,9 @@ Projects use a standardized workflow in 3 phases:
 | `deep_research_results`    | Yes    | 13   | AI deep research on designated sites       |
 | `aquatic_research_results` | Yes    | 8    | AI aquatic environment research            |
 | `surveys`                  | Yes    | 3    | Field survey records                       |
+| `releve_surveys`           | Yes    | 0    | Relevé vegetation survey data (40+ fields) |
+| `releve_species`           | Yes    | 0    | Species records per relevé (DOMIN scale)   |
+| `releve_survey_templates`  | Yes    | 0    | Reusable custom field templates            |
 | `species_observations`     | Yes    | 0    | Species records per survey                 |
 | `habitat_polygons`         | Yes    | 4    | Habitat mapping with FOSSITT codes         |
 | `target_notes`             | Yes    | 2    | Field target notes (8 categories)          |
@@ -457,9 +479,9 @@ Use `@/` for all imports: `import { Button } from '@/components/ui/button'`
 
 ## Known Issues to Fix
 
-- [ ] `habitat-mapping-step.tsx:481` — `disabled={false}` hardcoded, should respect step completion
+- [ ] `habitat-mapping-step.tsx:539` — `disabled={false}` hardcoded, should respect step completion
 - [ ] Ireland center `[53.1424, -7.6921]` duplicated in 4+ files — move to `lib/config/map-constants.ts`
-- [ ] `SURVEY_TYPE_LABELS` defined in both `field-survey-step.tsx` and `survey-form.tsx`
+- [ ] `SURVEY_TYPE_LABELS` defined in `field-survey-step.tsx`, `survey-form.tsx`, and `survey-view-dialog.tsx`
 - [ ] `findingsByType` grouping logic duplicated in 3 step components
 - [ ] Two separate `TargetNoteForm` components exist (field-surveys vs data-gathering)
 - [ ] `field-survey-step.tsx:408` uses `space-y-6` root instead of `flex h-full flex-col`
@@ -484,7 +506,7 @@ NEXT_PUBLIC_OPENAI_API_KEY=    # Client-side AI (reports page)
 - NPWS API has 10-second timeout configured
 - NBDC species search uses POST with form data (not JSON)
 - Map tiles: OSM Streets, Esri Satellite, Hybrid, Topo (free providers, no API key needed)
-- 32 migrations applied (initial_schema through add_habitat_polygon_fields)
+- 40 migrations applied (initial_schema through create_releve_survey_templates)
 
 ## FOSSITT Habitat Classification
 
