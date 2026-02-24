@@ -2,8 +2,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   getSurveyTemplates,
   upsertSurveyTemplate,
+  deleteSurveyTemplate,
   getReportTemplates,
   upsertReportTemplate,
+  deleteReportTemplate,
 } from '@/lib/supabase/queries/templates'
 import type { Database } from '@/types/database'
 
@@ -42,6 +44,26 @@ export function useUpsertReportTemplate(organizationId: string | undefined) {
     mutationFn: (template: ReportTemplateInsert) => upsertReportTemplate(template),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['report-templates', organizationId] })
+    },
+  })
+}
+
+export function useDeleteReportTemplate(organizationId: string | undefined) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (templateId: string) => deleteReportTemplate(templateId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['report-templates', organizationId] })
+    },
+  })
+}
+
+export function useDeleteSurveyTemplate(organizationId: string | undefined) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (templateId: string) => deleteSurveyTemplate(templateId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['survey-templates', organizationId] })
     },
   })
 }

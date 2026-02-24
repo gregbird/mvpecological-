@@ -1,23 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { PEA_REPORT_SECTIONS } from '@/lib/supabase/queries/reports'
+import { getReportSectionsForType } from '@/lib/supabase/queries/reports'
+import { jsonToSections } from '@/lib/supabase/queries/templates'
+import { REPORT_TYPES } from '@/lib/config/template-types'
 
 /**
  * AI Report Section Generator API
- * Generates individual PEA report sections using OpenAI GPT-4o
+ * Generates individual report sections using OpenAI GPT-4o
  * with real project data from Supabase.
+ * Supports all report types (PEA, EcIA, AA Screening, NIS, Bat, Bird, Habitat, etc.)
  *
  * POST /api/ai/report-section
- * Body: { projectId, sectionId, reportType, ecologistOpinion? }
+ * Body: { projectId, sectionId, reportType, organizationId?, ecologistOpinion? }
  * Response: { sectionId, content, metadata: { model, tokensUsed, dataSources } }
  */
 
-const SYSTEM_PROMPT = `You are a senior Irish ecological consultant writing sections for a Preliminary Ecological Appraisal (PEA) report under CIEEM guidelines.
+// Report type display names for system prompts
+const REPORT_TYPE_LABELS: Record<string, string> = Object.fromEntries(
+  REPORT_TYPES.map((r) => [r.id, r.name])
+)
+
+function buildSystemPrompt(reportType: string): string {
+  const reportName = REPORT_TYPE_LABELS[reportType] || 'ecological report'
+
+  return `You are a senior Irish ecological consultant writing sections for a ${reportName} under CIEEM guidelines.
 
 Expertise: Irish designated sites (SAC, SPA, NHA, pNHA), EU Habitats & Birds Directives, Water Framework Directive, Wildlife Acts 1976-2021, AA Screening, FOSSITT habitat classification, Irish Red Lists.
 
 Rules:
-- Write professionally for direct inclusion in PEA reports
+- Write professionally for direct inclusion in ${reportName} reports
 - Base ALL conclusions strictly on the provided data — never speculate or invent species/sites/counts
 - Use Irish English spelling (colour, behaviour, metre)
 - Reference Fossitt (2000) habitat classification where applicable
@@ -32,6 +43,7 @@ Do NOT:
 - Include personal opinions without scientific basis
 - Use informal language or colloquialisms
 - Repeat information verbatim from the data — synthesise and interpret`
+}
 
 interface ProjectData {
   name: string
@@ -118,8 +130,9 @@ interface AquaticResearchData {
   ai_analysis: string | null
 }
 
-// Section-specific prompt instructions (CIEEM standard 6-section PEA)
-const SECTION_PROMPTS: Record<string, string> = {
+// PEA-specific detailed section prompts (used when reportType is 'pea')
+// For other report types, prompts are generated from DEFAULT_SECTIONS_BY_TYPE aiPrompt field
+const PEA_SECTION_PROMPTS: Record<string, string> = {
   introduction: `Write the Introduction section (~300-400 words). Include:
 1. Project background and purpose of the PEA
 2. Site location using the provided grid reference, county, and townland
@@ -202,13 +215,21 @@ const SECTION_MAX_TOKENS: Record<string, number> = {
 
 export async function POST(request: NextRequest) {
   try {
-    const { projectId, sectionId, reportType: _reportType, ecologistOpinion } = await request.json()
+    const {
+      projectId,
+      sectionId,
+      reportType = 'pea',
+      organizationId,
+      ecologistOpinion,
+    } = await request.json()
 
     if (!projectId || !sectionId) {
       return NextResponse.json({ error: 'projectId and sectionId are required' }, { status: 400 })
     }
 
-    const sectionDef = PEA_REPORT_SECTIONS.find((s) => s.id === sectionId)
+    // Get section definitions for this report type
+    const reportSections = getReportSectionsForType(reportType)
+    const sectionDef = reportSections.find((s) => s.id === sectionId)
     if (!sectionDef) {
       return NextResponse.json({ error: `Unknown section: ${sectionId}` }, { status: 400 })
     }
@@ -326,11 +347,42 @@ export async function POST(request: NextRequest) {
     })
 
     // Build section-specific prompt
-    const sectionPrompt = SECTION_PROMPTS[sectionId] || `Write the ${sectionDef.title} section.`
+    // For PEA, use detailed SECTION_PROMPTS; for other types, use aiPrompt from section definitions
+    let sectionPrompt: string
+    if (reportType === 'pea' && PEA_SECTION_PROMPTS[sectionId]) {
+      sectionPrompt = PEA_SECTION_PROMPTS[sectionId]
+    } else {
+      sectionPrompt = `Write the ${sectionDef.title} section. Focus on: ${sectionDef.aiPrompt}.`
+    }
 
-    const userPrompt = `You are writing the **${sectionDef.title}** section of a PEA report.
+    // If org has a custom template, use its section content as additional guidance
+    let customTemplateGuidance = ''
+    if (organizationId) {
+      try {
+        const { data: orgTemplate } = await supabase
+          .from('report_templates')
+          .select('use_custom, sections')
+          .eq('organization_id', organizationId)
+          .eq('report_type', reportType)
+          .single()
 
-${sectionPrompt}
+        if (orgTemplate?.use_custom && orgTemplate.sections) {
+          const customSections = jsonToSections(orgTemplate.sections)
+          const customSection = customSections.find((s) => s.id === sectionId)
+          if (customSection?.template) {
+            customTemplateGuidance = `\n\n**Organization Template Guidance for this section:**\n${customSection.template}\n\nUse this as structural guidance for the section content.`
+          }
+        }
+      } catch {
+        // Continue without custom template
+      }
+    }
+
+    const reportName = REPORT_TYPE_LABELS[reportType] || 'ecological report'
+
+    const userPrompt = `You are writing the **${sectionDef.title}** section of a ${reportName}.
+
+${sectionPrompt}${customTemplateGuidance}
 
 ${ecologistOpinion ? `\n**Ecologist's Professional Opinion:**\n${ecologistOpinion}\n\nIncorporate this professional opinion into the section where relevant.` : ''}
 
@@ -355,7 +407,7 @@ Write the section content now. Use markdown formatting (bold, bullet points, tab
       body: JSON.stringify({
         model: 'gpt-4o',
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: buildSystemPrompt(reportType) },
           { role: 'user', content: userPrompt },
         ],
         temperature: 0.3,

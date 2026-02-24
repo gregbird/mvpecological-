@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/client'
+import { DEFAULT_SECTIONS_BY_TYPE } from '@/lib/config/template-types'
 import type { Database, Report, Json } from '@/types/database'
 
 type InsertReport = Database['public']['Tables']['reports']['Insert']
@@ -225,6 +226,22 @@ export const REPORT_TYPES = [
   { id: 'protected_species', name: 'Protected Species Report' },
   { id: 'other', name: 'Other Technical Report' },
 ]
+
+// Get report section definitions for a given report type
+// Falls back to PEA sections for unknown types
+export function getReportSectionsForType(
+  reportType: string
+): Array<{ id: string; title: string; aiPrompt: string }> {
+  const sections = DEFAULT_SECTIONS_BY_TYPE[reportType]
+  if (sections) {
+    return sections.map((s) => ({
+      id: s.id,
+      title: s.title,
+      aiPrompt: s.aiPrompt,
+    }))
+  }
+  return PEA_REPORT_SECTIONS
+}
 
 // Report sections template — CIEEM standard PEA structure (6 sections)
 export const PEA_REPORT_SECTIONS = [

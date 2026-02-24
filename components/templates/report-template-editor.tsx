@@ -17,7 +17,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
-import { REPORT_TYPES, PEA_DEFAULT_SECTIONS } from '@/lib/config/template-types'
+import {
+  REPORT_TYPES,
+  PEA_DEFAULT_SECTIONS,
+  DEFAULT_SECTIONS_BY_TYPE,
+} from '@/lib/config/template-types'
 import { useUpsertReportTemplate } from '@/hooks/queries/use-template-management-hooks'
 import { jsonToSections, sectionsToJson } from '@/lib/supabase/queries/templates'
 import type { TemplateSectionData } from '@/lib/supabase/queries/templates'
@@ -44,16 +48,18 @@ export function ReportTemplateEditor({
   const upsertMutation = useUpsertReportTemplate(organizationId)
   const reportType = REPORT_TYPES.find((r) => r.id === reportTypeId)
 
-  // Initialize sections from existing template or defaults
+  // Initialize sections from existing template or defaults (type-specific)
   const getDefaultSections = (): TemplateSectionData[] => {
-    return PEA_DEFAULT_SECTIONS.map((s) => ({
+    const typeSections = DEFAULT_SECTIONS_BY_TYPE[reportTypeId] ?? PEA_DEFAULT_SECTIONS
+    return typeSections.map((s) => ({
       id: s.id,
       title: s.title,
       template: s.defaultTemplate,
     }))
   }
 
-  const [name, setName] = React.useState(existingTemplate?.name ?? reportType?.name ?? '')
+  const templateDisplayName = existingTemplate?.name ?? reportType?.name ?? 'Custom Template'
+  const [name, setName] = React.useState(templateDisplayName)
   const [description, setDescription] = React.useState(
     existingTemplate?.description ?? reportType?.description ?? ''
   )
@@ -95,7 +101,7 @@ export function ReportTemplateEditor({
         <DialogHeader>
           <DialogTitle>Edit Report Template</DialogTitle>
           <DialogDescription>
-            Customize the {reportType?.name} template for your organization
+            Customize the {templateDisplayName} template for your organization
           </DialogDescription>
         </DialogHeader>
 

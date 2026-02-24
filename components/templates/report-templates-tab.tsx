@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2, Pencil, FileText } from 'lucide-react'
+import { Loader2, Pencil, FileText, Plus, Trash2 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -10,11 +10,16 @@ import { REPORT_TYPES } from '@/lib/config/template-types'
 import {
   useReportTemplates,
   useUpsertReportTemplate,
+  useDeleteReportTemplate,
 } from '@/hooks/queries/use-template-management-hooks'
 import { ReportTemplateEditor } from '@/components/templates/report-template-editor'
+import { NewReportTemplateDialog } from '@/components/templates/new-report-template-dialog'
 import type { Database } from '@/types/database'
 
 type ReportTemplate = Database['public']['Tables']['report_templates']['Row']
+
+// Predefined report type IDs that cannot be deleted
+const PREDEFINED_IDS = new Set(REPORT_TYPES.map((r) => r.id))
 
 interface ReportTemplatesTabProps {
   organizationId: string
@@ -24,13 +29,20 @@ export function ReportTemplatesTab({ organizationId }: ReportTemplatesTabProps) 
   const { toast } = useToast()
   const { data: templates, isLoading } = useReportTemplates(organizationId)
   const upsertMutation = useUpsertReportTemplate(organizationId)
+  const deleteMutation = useDeleteReportTemplate(organizationId)
   const [editingReportType, setEditingReportType] = React.useState<string | null>(null)
+  const [showNewDialog, setShowNewDialog] = React.useState(false)
 
   // Map saved templates by report_type for quick lookup
   const templateMap = React.useMemo(() => {
     const map = new Map<string, ReportTemplate>()
     templates?.forEach((t) => map.set(t.report_type, t))
     return map
+  }, [templates])
+
+  // Custom templates from DB that are not predefined
+  const customTemplates = React.useMemo(() => {
+    return (templates ?? []).filter((t) => !PREDEFINED_IDS.has(t.report_type))
   }, [templates])
 
   const handleToggleCustom = async (reportTypeId: string, currentlyCustom: boolean) => {
@@ -56,6 +68,15 @@ export function ReportTemplatesTab({ organizationId }: ReportTemplatesTabProps) 
     }
   }
 
+  const handleDeleteCustom = async (template: ReportTemplate) => {
+    try {
+      await deleteMutation.mutateAsync(template.id)
+      toast({ title: 'Template deleted', description: `${template.name} has been removed` })
+    } catch {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete template' })
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -67,6 +88,7 @@ export function ReportTemplatesTab({ organizationId }: ReportTemplatesTabProps) 
   return (
     <>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {/* Predefined report types */}
         {REPORT_TYPES.map((reportType) => {
           const saved = templateMap.get(reportType.id)
           const useCustom = saved?.use_custom ?? false
@@ -77,7 +99,7 @@ export function ReportTemplatesTab({ organizationId }: ReportTemplatesTabProps) 
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2">
                     <FileText className="h-5 w-5 text-blue-600" />
-                    <CardTitle className="text-base">{reportType.name}</CardTitle>
+                    <CardTitle className="text-base">{saved?.name ?? reportType.name}</CardTitle>
                   </div>
                 </div>
                 <CardDescription className="text-sm">
@@ -108,6 +130,60 @@ export function ReportTemplatesTab({ organizationId }: ReportTemplatesTabProps) 
             </Card>
           )
         })}
+
+        {/* Custom templates from DB */}
+        {customTemplates.map((template) => (
+          <Card key={template.id} className="border-emerald-200">
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-emerald-600" />
+                  <CardTitle className="text-base">{template.name}</CardTitle>
+                </div>
+              </div>
+              <CardDescription className="text-sm">
+                {template.description ?? 'Custom template'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <Badge variant="default" className="bg-emerald-600">
+                  Custom
+                </Badge>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingReportType(template.report_type)}
+                  >
+                    <Pencil className="mr-1 h-3.5 w-3.5" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-600 hover:text-red-700"
+                    onClick={() => handleDeleteCustom(template)}
+                    disabled={deleteMutation.isPending}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+
+        {/* Create New Template card */}
+        <Card
+          className="flex cursor-pointer items-center justify-center border-dashed border-gray-300 transition-colors hover:border-emerald-400 hover:bg-emerald-50/50"
+          onClick={() => setShowNewDialog(true)}
+        >
+          <CardContent className="flex flex-col items-center gap-2 py-8">
+            <Plus className="h-8 w-8 text-gray-400" />
+            <p className="text-sm font-medium text-gray-500">Create New Template</p>
+          </CardContent>
+        </Card>
       </div>
 
       {editingReportType && (
@@ -121,6 +197,12 @@ export function ReportTemplatesTab({ organizationId }: ReportTemplatesTabProps) 
           }}
         />
       )}
+
+      <NewReportTemplateDialog
+        organizationId={organizationId}
+        open={showNewDialog}
+        onOpenChange={setShowNewDialog}
+      />
     </>
   )
 }

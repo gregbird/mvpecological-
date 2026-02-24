@@ -18,10 +18,13 @@ import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { useTemplateData } from '@/hooks/queries/use-template-data'
 import {
   PEA_REPORT_SECTIONS,
+  getReportSectionsForType,
   type ReportContent,
   type ReportSection,
 } from '@/lib/supabase/queries/reports'
 import { renderPeaTemplate } from '@/lib/templates/template-renderer'
+import { getReportTemplateByType } from '@/lib/supabase/queries/templates'
+import { jsonToSections } from '@/lib/supabase/queries/templates'
 import { DulraAgentTab } from '@/components/steps/ai-draft/dulra-agent-tab'
 import { AIDraftTab } from '@/components/steps/ai-draft/ai-draft-tab'
 import { VersionCompareDialog } from '@/components/steps/ai-draft/version-compare-dialog'
@@ -38,10 +41,13 @@ interface AIDraftStepProps {
 
 export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDraftStepProps) {
   const { toast } = useToast()
-  const [reportType] = React.useState('pea')
+  const reportType = project.survey_type || 'pea'
   const [activeTab, setActiveTab] = React.useState('agent')
   const [generatingSection, setGeneratingSection] = React.useState<string | null>(null)
   const [sections, setSections] = React.useState<ReportSection[]>([])
+
+  // Dynamic report section definitions based on report type
+  const reportSectionDefs = React.useMemo(() => getReportSectionsForType(reportType), [reportType])
 
   const [compareReport, setCompareReport] = React.useState<Report | null>(null)
   const [viewReport, setViewReport] = React.useState<Report | null>(null)
@@ -55,12 +61,12 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
   const createVersion = useCreateReportVersion()
   const completeStep = useCompleteWorkflowStep()
 
-  // Initialize sections from existing report or template
+  // Initialize sections from existing report, org template, or defaults
   React.useEffect(() => {
     if (existingReport?.content) {
       const content = existingReport.content as unknown as ReportContent
       if (content.sections) {
-        // Migrate old 11-section reports to new 6-section structure
+        // Migrate old 11-section PEA reports to new 6-section structure
         const oldIds = content.sections.map((s) => s.id)
         const isLegacy = oldIds.includes('results_sites') || oldIds.includes('evaluation')
 
@@ -135,22 +141,52 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
           setSections(content.sections)
         }
       }
-    } else if (templateData) {
+    } else if (templateData && reportType === 'pea') {
+      // PEA has a dedicated template renderer with placeholder substitution
       setSections(renderPeaTemplate(templateData))
     } else {
-      const initialSections: ReportSection[] = PEA_REPORT_SECTIONS.map((s) => ({
-        id: s.id,
-        title: s.title,
-        content: '',
-        isEdited: false,
-        aiGenerated: false,
-      }))
-      setSections(initialSections)
+      // For all report types: try org custom template, then fall back to defaults
+      const initSections = async () => {
+        // Check if org has a custom template for this report type
+        if (project.organization_id) {
+          try {
+            const orgTemplate = await getReportTemplateByType(project.organization_id, reportType)
+            if (orgTemplate?.use_custom && orgTemplate.sections) {
+              const customSections = jsonToSections(orgTemplate.sections)
+              if (customSections.length > 0) {
+                setSections(
+                  customSections.map((s) => ({
+                    id: s.id,
+                    title: s.title,
+                    content: s.template || '',
+                    isEdited: false,
+                    aiGenerated: false,
+                  }))
+                )
+                return
+              }
+            }
+          } catch {
+            // Fall through to defaults
+          }
+        }
+
+        // Use type-specific default sections
+        const initialSections: ReportSection[] = reportSectionDefs.map((s) => ({
+          id: s.id,
+          title: s.title,
+          content: '',
+          isEdited: false,
+          aiGenerated: false,
+        }))
+        setSections(initialSections)
+      }
+      initSections()
     }
-  }, [existingReport, templateData])
+  }, [existingReport, templateData, reportType, reportSectionDefs, project.organization_id])
 
   const generateSectionContent = async (sectionId: string) => {
-    const section = PEA_REPORT_SECTIONS.find((s) => s.id === sectionId)
+    const section = reportSectionDefs.find((s) => s.id === sectionId)
     if (!section) return
 
     setGeneratingSection(sectionId)
@@ -165,6 +201,7 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
           projectId: project.id,
           sectionId,
           reportType,
+          organizationId: project.organization_id || undefined,
           ecologistOpinion: sectionOpinion || undefined,
         }),
       })
@@ -200,7 +237,7 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
   }
 
   const generateAllSections = async (onlyEmpty = false) => {
-    for (const section of PEA_REPORT_SECTIONS) {
+    for (const section of reportSectionDefs) {
       if (onlyEmpty && sections.find((s) => s.id === section.id)?.content) {
         continue
       }

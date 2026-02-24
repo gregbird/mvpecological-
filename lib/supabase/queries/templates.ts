@@ -81,6 +81,18 @@ export async function upsertReportTemplate(
   return data
 }
 
+export async function deleteReportTemplate(templateId: string): Promise<void> {
+  const supabase = createClient()
+  const { error } = await supabase.from('report_templates').delete().eq('id', templateId)
+  if (error) throw error
+}
+
+export async function deleteSurveyTemplate(templateId: string): Promise<void> {
+  const supabase = createClient()
+  const { error } = await supabase.from('survey_templates').delete().eq('id', templateId)
+  if (error) throw error
+}
+
 // Helper to convert ReportSectionDefinition[] to Json for storage
 export interface TemplateSectionData {
   id: string
