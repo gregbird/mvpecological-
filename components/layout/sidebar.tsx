@@ -33,6 +33,12 @@ import { createClient } from '@/lib/supabase/client'
 // Admin-only menu items
 const adminMenuItems = [
   {
+    label: 'Surveys & Reports',
+    href: '/templates',
+    icon: FileText,
+    permission: 'canManageTemplates' as keyof RolePermissions,
+  },
+  {
     label: 'Team Members',
     href: '/team',
     icon: Users,

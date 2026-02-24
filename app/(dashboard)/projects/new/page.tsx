@@ -44,17 +44,9 @@ const mockClients = [
   { id: 'c5', name: 'Kerry County Council' },
 ]
 
-const surveyTypes = [
-  { value: 'pea', label: 'Preliminary Ecological Appraisal (PEA)' },
-  { value: 'ecia', label: 'Ecological Impact Assessment (EcIA)' },
-  { value: 'aa', label: 'Appropriate Assessment (AA)' },
-  { value: 'nis', label: 'Natura Impact Statement (NIS)' },
-  { value: 'screening', label: 'AA Screening' },
-  { value: 'bat_survey', label: 'Bat Survey' },
-  { value: 'bird_survey', label: 'Bird Survey' },
-  { value: 'habitat_survey', label: 'Habitat Survey' },
-  { value: 'other', label: 'Other' },
-]
+import { SURVEY_TYPES as SURVEY_TYPE_DEFS } from '@/lib/config/template-types'
+
+const surveyTypes = SURVEY_TYPE_DEFS.map((s) => ({ value: s.id, label: s.label }))
 
 export default function NewProjectPage() {
   const router = useRouter()

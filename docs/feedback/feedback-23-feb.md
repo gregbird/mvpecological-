@@ -5,46 +5,43 @@
 
 ---
 
-## 1. Timesheets Sayfasını Kaldır
+## 1. Timesheets Sayfasını Kaldır ✅
 
 **Orijinal:** "Please remove the timesheets page."
 
+**Greg'e yorum:** Removed. The timesheets page was never fully implemented — only the sidebar link existed. Link removed from both sidebar and layout.
+
 **Yapılacaklar:**
 
-- [ ] **1.1** Sol menüden "Timesheets" linkini kaldır
-  - Dosya: `components/layout/sidebar.tsx`
-- [ ] **1.2** Timesheets sayfasını kaldır veya gizle
-  - Dosya: `app/(dashboard)/timesheets/`
+- [x] **1.1** Sol menüden "Timesheets" linkini kaldır ✅ (24 Şubat 2026)
+  - Dosya: `components/layout/sidebar.tsx`, `app/(dashboard)/layout.tsx`
+- [x] **1.2** Timesheets sayfası zaten mevcut değildi — sadece link kaldırıldı ✅
 
 ---
 
-## 2. Surveys and Reports Sayfası (Template Yönetimi)
+## 2. Surveys and Reports Sayfası (Template Yönetimi) ✅
 
 **Orijinal:** "Create a new page for Surveys and Reports. On this new page, the management of the ecologist firm needs the ability to: View and Edit Templates, Manage Templates within the Platform."
 
-**Detay:**
-
-- Survey ve rapor template'lerini görüntüle ve düzenle
-- Şirketin mevcut template'leriyle eşleştir
-- Seçenekler:
-  - Dulra'nın standart template'lerini kullan
-  - Template'i modifiye et veya kendi template'ini yükle
+**Greg'e yorum:** Done. New "Surveys & Reports" page added under Admin sidebar at /templates. Two tabs: Survey Templates (card grid with active/inactive toggle per type) and Report Templates (with "Dulra Standard" / "Custom" toggle and section editor). DB tables created for org-level template storage. DOCX/PDF upload deferred to post-MVP.
 
 **Yapılacaklar:**
 
-- [ ] **2.1** Sol menüye "Surveys & Reports" sayfası ekle
-  - Dosya: `app/(dashboard)/surveys-reports/page.tsx`
-  - Dosya: `components/layout/sidebar.tsx` — yeni link ekle
-- [ ] **2.2** Survey Templates listesi
-  - Mevcut survey tipleri (Relevé, Walkover, Mammal, Bird, Bat, vb.) için template kartları
-  - Her template için: View, Edit, Download, Upload
-- [ ] **2.3** Report Templates listesi
-  - PEA, EcIA, AA Screening, NIS template'leri
-  - Dulra standart + kullanıcı custom template yükleme
-- [ ] **2.4** Template editor
-  - Mevcut template'i düzenleyebilme
-  - Custom template upload (DOCX/PDF)
-  - "Use Dulra Standard" / "Use My Template" toggle
+- [x] **2.1** Sol menüye "Surveys & Reports" sayfası ekle ✅ (24 Şubat 2026)
+  - Dosya: `app/(dashboard)/templates/page.tsx`
+  - Dosya: `components/layout/sidebar.tsx` — yeni link eklendi
+- [x] **2.2** Survey Templates listesi ✅ (24 Şubat 2026)
+  - Tüm survey tipleri için template kartları (card grid)
+  - Her template için: Edit, Active/Inactive toggle
+- [x] **2.3** Report Templates listesi ✅ (24 Şubat 2026)
+  - PEA, EcIA, AA Screening, NIS + diğer template'ler
+  - Dulra Standard / Custom badge + toggle
+- [x] **2.4** Template editor ✅ (24 Şubat 2026)
+  - Survey: name, description, active toggle
+  - Report: tabbed section editor (per CIEEM section), {{placeholder}} support
+  - "Use Dulra Standard" / "Use Custom Template" toggle
+  - "Reset to Dulra Standard" button
+- [ ] **2.5** (Post-MVP) Custom template upload (DOCX/PDF)
 
 ---
 
@@ -69,18 +66,18 @@
 
 ---
 
-## 4. Survey Type'lara "Biodiversity Net Gain" Ekle
+## 4. Survey Type'lara "Biodiversity Net Gain" Ekle ✅
 
 **Orijinal:** "On the list of type of 'Surveys' can you add 'Biodiversity Net Gain'"
 
+**Greg'e yorum:** Done. "Biodiversity Net Gain" added to the centralized survey types config. It now appears in project creation (both new project page and quick create modal) and in the Surveys & Reports template management page.
+
 **Yapılacaklar:**
 
-- [ ] **4.1** Survey type listesine "Biodiversity Net Gain" ekle
-  - Dosya: `app/(dashboard)/projects/new/page.tsx` — `surveyTypes` array
-  - Dosya: `components/dashboard/quick-create-project-modal.tsx` — `SURVEY_TYPES` array
-  - Dosya: `components/steps/field-survey-step.tsx` — `SURVEY_TYPE_LABELS`
-  - Dosya: `components/field-surveys/survey-form.tsx` — survey type dropdown
-  - Dosya: `components/field-surveys/survey-view-dialog.tsx` — `SURVEY_TYPE_LABELS`
+- [x] **4.1** Survey type listesine "Biodiversity Net Gain" ekle ✅ (24 Şubat 2026)
+  - Dosya: `lib/config/template-types.ts` — merkezi SURVEY_TYPES array (yeni)
+  - Dosya: `app/(dashboard)/projects/new/page.tsx` — artık merkezi config'den okuyor
+  - Dosya: `components/dashboard/quick-create-project-modal.tsx` — artık merkezi config'den okuyor
 
 ---
 

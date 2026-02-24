@@ -1104,6 +1104,56 @@ export type Database = {
           },
         ]
       }
+      report_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          organization_id: string
+          report_type: string
+          sections: Json | null
+          updated_at: string
+          use_custom: boolean
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          organization_id: string
+          report_type: string
+          sections?: Json | null
+          updated_at?: string
+          use_custom?: boolean
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          organization_id?: string
+          report_type?: string
+          sections?: Json | null
+          updated_at?: string
+          use_custom?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'report_templates_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       reports: {
         Row: {
           content: Json | null
@@ -1272,6 +1322,53 @@ export type Database = {
             columns: ['verified_by']
             isOneToOne: false
             referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      survey_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          default_fields: Json | null
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          organization_id: string
+          survey_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          default_fields?: Json | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          organization_id: string
+          survey_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          default_fields?: Json | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          organization_id?: string
+          survey_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'survey_templates_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
             referencedColumns: ['id']
           },
         ]

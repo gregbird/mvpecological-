@@ -28,17 +28,9 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
 
-const SURVEY_TYPES = [
-  { value: 'pea', label: 'Preliminary Ecological Appraisal (PEA)' },
-  { value: 'ecia', label: 'Ecological Impact Assessment (EcIA)' },
-  { value: 'aa', label: 'Appropriate Assessment (AA)' },
-  { value: 'nis', label: 'Natura Impact Statement (NIS)' },
-  { value: 'screening', label: 'AA Screening' },
-  { value: 'bat_survey', label: 'Bat Survey' },
-  { value: 'bird_survey', label: 'Bird Survey' },
-  { value: 'habitat_survey', label: 'Habitat Survey' },
-  { value: 'other', label: 'Other' },
-]
+import { SURVEY_TYPES as SURVEY_TYPE_DEFS } from '@/lib/config/template-types'
+
+const SURVEY_TYPES = SURVEY_TYPE_DEFS.map((s) => ({ value: s.id, label: s.label }))
 
 const quickCreateSchema = z.object({
   name: z.string().min(3, 'Project name must be at least 3 characters'),

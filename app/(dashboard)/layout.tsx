@@ -16,6 +16,7 @@ import {
   X,
   Loader2,
   LayoutDashboard,
+  FileText,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -28,6 +29,12 @@ import { createClient } from '@/lib/supabase/client'
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, permission: null },
   { label: 'Projects', href: '/projects', icon: FolderKanban, permission: null },
+  {
+    label: 'Surveys & Reports',
+    href: '/templates',
+    icon: FileText,
+    permission: 'canManageTemplates' as keyof RolePermissions,
+  },
   {
     label: 'Team Members',
     href: '/team',
