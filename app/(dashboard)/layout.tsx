@@ -6,7 +6,6 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   FolderKanban,
   Users,
-  Clock,
   History,
   LogOut,
   Settings,
@@ -34,12 +33,6 @@ const navItems = [
     href: '/team',
     icon: Users,
     permission: 'canManageTeam' as keyof RolePermissions,
-  },
-  {
-    label: 'Timesheets',
-    href: '/timesheets',
-    icon: Clock,
-    permission: 'canViewTimesheets' as keyof RolePermissions,
   },
   {
     label: 'Audit Trail',

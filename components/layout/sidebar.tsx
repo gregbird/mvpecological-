@@ -16,7 +16,6 @@ import {
   LogOut,
   BarChart3,
   Users,
-  Clock,
   History,
   Compass,
   FlaskConical,
@@ -38,12 +37,6 @@ const adminMenuItems = [
     href: '/team',
     icon: Users,
     permission: 'canManageTeam' as keyof RolePermissions,
-  },
-  {
-    label: 'Timesheets',
-    href: '/timesheets',
-    icon: Clock,
-    permission: 'canViewTimesheets' as keyof RolePermissions,
   },
   {
     label: 'Audit Trail',
