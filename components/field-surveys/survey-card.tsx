@@ -29,6 +29,8 @@ export interface WeatherData {
   cloudCover?: number
   precipitation?: string
   visibility?: string
+  expectedSurveyCount?: number
+  templateFields?: Record<string, string | number | boolean | string[] | null>
 }
 
 export interface Survey {

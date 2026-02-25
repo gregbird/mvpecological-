@@ -7,7 +7,11 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { useToast } from '@/hooks/use-toast'
-import { SURVEY_TYPES } from '@/lib/config/template-types'
+import {
+  FIELD_SURVEY_TYPES,
+  parseTemplateFields,
+  countTemplateFields,
+} from '@/lib/config/survey-field-definitions'
 import {
   useSurveyTemplates,
   useUpsertSurveyTemplate,
@@ -36,7 +40,7 @@ export function SurveyTemplatesTab({ organizationId }: SurveyTemplatesTabProps) 
 
   const handleToggleActive = async (surveyTypeId: string, currentlyActive: boolean) => {
     const existing = templateMap.get(surveyTypeId)
-    const surveyType = SURVEY_TYPES.find((s) => s.id === surveyTypeId)
+    const surveyType = FIELD_SURVEY_TYPES.find((s) => s.id === surveyTypeId)
     if (!surveyType) return
 
     try {
@@ -68,10 +72,15 @@ export function SurveyTemplatesTab({ organizationId }: SurveyTemplatesTabProps) 
   return (
     <>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {SURVEY_TYPES.map((surveyType) => {
+        {FIELD_SURVEY_TYPES.map((surveyType) => {
           const saved = templateMap.get(surveyType.id)
           const isActive = saved ? saved.is_active : true
-          const hasCustomization = !!saved
+          const parsedFields = saved?.default_fields
+            ? parseTemplateFields(saved.default_fields)
+            : null
+          const hasCustomization = !!parsedFields
+          const fieldCount = parsedFields ? countTemplateFields(parsedFields) : 0
+          const isReleve = surveyType.id === 'releve_survey'
 
           return (
             <Card key={surveyType.id} className={!isActive ? 'opacity-60' : ''}>
@@ -79,7 +88,7 @@ export function SurveyTemplatesTab({ organizationId }: SurveyTemplatesTabProps) 
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2">
                     <ClipboardList className="h-5 w-5 text-emerald-600" />
-                    <CardTitle className="text-base">{surveyType.label}</CardTitle>
+                    <CardTitle className="text-base">{saved?.name ?? surveyType.label}</CardTitle>
                   </div>
                   <Switch
                     checked={isActive}
@@ -92,9 +101,21 @@ export function SurveyTemplatesTab({ organizationId }: SurveyTemplatesTabProps) 
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between">
-                  <Badge variant={hasCustomization ? 'default' : 'secondary'}>
-                    {hasCustomization ? 'Customized' : 'Dulra Standard'}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={hasCustomization ? 'default' : 'secondary'}>
+                      {hasCustomization ? 'Customized' : 'Dulra Standard'}
+                    </Badge>
+                    {hasCustomization && fieldCount > 0 && (
+                      <span className="text-xs text-gray-500">
+                        {fieldCount} field{fieldCount !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {isReleve && (
+                      <Badge variant="outline" className="text-xs">
+                        Dedicated Form
+                      </Badge>
+                    )}
+                  </div>
                   <Button
                     variant="ghost"
                     size="sm"

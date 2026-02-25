@@ -1,6 +1,6 @@
 'use client'
 
-import { Calendar, Clock, User, FileText, Hash, Loader2 } from 'lucide-react'
+import { Calendar, Clock, User, FileText, Hash, Loader2, Pencil } from 'lucide-react'
 import { format } from 'date-fns'
 
 import { Badge } from '@/components/ui/badge'
@@ -10,7 +10,11 @@ import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ReleveSurveyForm } from './releve-survey-form'
 import { useReleveSurveyBySurveyId } from '@/hooks/queries/use-releve-hooks'
+import { TemplateSectionsRenderer } from './survey-template-fields/template-sections-renderer'
+import { getDefaultFieldsForType } from '@/lib/config/survey-field-definitions'
 import type { Survey, SurveyStatus } from './survey-card'
+
+type FieldValue = string | number | boolean | string[] | null
 
 interface SurveyViewDialogProps {
   open: boolean
@@ -18,6 +22,7 @@ interface SurveyViewDialogProps {
   survey: Survey
   projectId?: string
   projectName?: string
+  onEdit?: (survey: Survey) => void
 }
 
 const SURVEY_TYPE_LABELS: Record<string, string> = {
@@ -70,6 +75,7 @@ export function SurveyViewDialog({
   survey,
   projectId,
   projectName,
+  onEdit,
 }: SurveyViewDialogProps) {
   const statusStyle = STATUS_STYLES[survey.status]
   const isReleve = survey.surveyType === 'releve_survey'
@@ -86,6 +92,18 @@ export function SurveyViewDialog({
       return dateString
     }
   }
+
+  // Parse template field values from weather JSONB
+  const templateFieldValues: Record<string, FieldValue> = (() => {
+    if (!survey.weather || typeof survey.weather !== 'object') return {}
+    const weather = survey.weather as Record<string, unknown>
+    return (weather.templateFields as Record<string, FieldValue>) ?? {}
+  })()
+
+  const hasTemplateData = Object.keys(templateFieldValues).length > 0
+
+  // Get template definition for read-only display
+  const templateDef = !isReleve ? (getDefaultFieldsForType(survey.surveyType) ?? null) : null
 
   // Relevé Survey: show full template form
   if (isReleve && projectId) {
@@ -120,10 +138,12 @@ export function SurveyViewDialog({
     )
   }
 
-  // Default: generic survey view
+  // Default: generic survey view (with template data if available)
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent
+        className={hasTemplateData ? 'max-h-[90vh] max-w-2xl overflow-y-auto' : 'max-w-lg'}
+      >
         <DialogHeader>
           <div className="flex items-center gap-2">
             <DialogTitle className="text-lg">Survey Details</DialogTitle>
@@ -165,9 +185,38 @@ export function SurveyViewDialog({
           </>
         )}
 
+        {/* Template-driven field data (read-only) */}
+        {hasTemplateData && templateDef && (
+          <>
+            <Separator />
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-gray-700">Survey-Specific Data</p>
+              <TemplateSectionsRenderer
+                templateFields={templateDef}
+                values={templateFieldValues}
+                onChange={() => {}}
+                readOnly
+              />
+            </div>
+          </>
+        )}
+
         <Separator />
 
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          {onEdit && survey.status !== 'approved' && (
+            <Button
+              variant="outline"
+              className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-950"
+              onClick={() => {
+                onOpenChange(false)
+                onEdit(survey)
+              }}
+            >
+              <Pencil className="mr-1.5 h-3.5 w-3.5" />
+              Edit
+            </Button>
+          )}
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>

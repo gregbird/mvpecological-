@@ -34,6 +34,25 @@ export async function upsertSurveyTemplate(
   return data
 }
 
+export async function getSurveyTemplateByType(
+  organizationId: string,
+  surveyType: string
+): Promise<SurveyTemplate | null> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('survey_templates')
+    .select('*')
+    .eq('organization_id', organizationId)
+    .eq('survey_type', surveyType)
+    .single()
+
+  if (error) {
+    if (error.code === 'PGRST116') return null
+    throw error
+  }
+  return data
+}
+
 // --- Report Templates ---
 
 export async function getReportTemplates(organizationId: string): Promise<ReportTemplate[]> {

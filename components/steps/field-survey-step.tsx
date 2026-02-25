@@ -858,17 +858,20 @@ export function FieldSurveyStep({
             initialData={
               editingSurvey
                 ? {
+                    id: editingSurvey.id,
                     surveyType: editingSurvey.surveyType,
                     surveyDate: editingSurvey.surveyDate,
                     startTime: editingSurvey.startTime,
                     endTime: editingSurvey.endTime,
                     surveyor: editingSurvey.surveyor,
+                    expectedSurveyCount: editingSurvey.expectedSurveyCount,
                     weather: editingSurvey.weather,
                     notes: editingSurvey.notes,
                   }
                 : undefined
             }
             projectId={project.id}
+            organizationId={project.organization_id ?? undefined}
           />
 
           {/* Survey View Dialog */}

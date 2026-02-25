@@ -5,6 +5,13 @@ import { Loader2, AlertTriangle, Bot, FileText } from 'lucide-react'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -14,6 +21,7 @@ import {
   useCreateReportVersion,
   useReports,
 } from '@/hooks/queries/use-report-hooks'
+import { useUpdateProject } from '@/hooks/queries/use-project-hooks'
 import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { useTemplateData } from '@/hooks/queries/use-template-data'
 import {
@@ -30,6 +38,7 @@ import { AIDraftTab } from '@/components/steps/ai-draft/ai-draft-tab'
 import { VersionCompareDialog } from '@/components/steps/ai-draft/version-compare-dialog'
 import { VersionViewDialog } from '@/components/steps/ai-draft/version-view-dialog'
 import { RestoreVersionDialog } from '@/components/steps/ai-draft/restore-version-dialog'
+import { REPORT_TYPES } from '@/lib/config/template-types'
 import type { Project, Report, WorkflowStep, Json } from '@/types/database'
 
 interface AIDraftStepProps {
@@ -41,7 +50,7 @@ interface AIDraftStepProps {
 
 export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDraftStepProps) {
   const { toast } = useToast()
-  const reportType = project.survey_type || 'pea'
+  const [reportType, setReportType] = React.useState(project.survey_type || 'pea')
   const [activeTab, setActiveTab] = React.useState('agent')
   const [generatingSection, setGeneratingSection] = React.useState<string | null>(null)
   const [sections, setSections] = React.useState<ReportSection[]>([])
@@ -60,6 +69,19 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
   const updateReport = useUpdateReport()
   const createVersion = useCreateReportVersion()
   const completeStep = useCompleteWorkflowStep()
+  const updateProject = useUpdateProject()
+
+  const handleReportTypeChange = async (newType: string) => {
+    setReportType(newType)
+    try {
+      await updateProject.mutateAsync({
+        projectId: project.id,
+        updates: { survey_type: newType },
+      })
+    } catch {
+      // Silently fail — local state is already updated
+    }
+  }
 
   // Initialize sections from existing report, org template, or defaults
   React.useEffect(() => {
@@ -439,17 +461,35 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
             Generate AI-assisted report draft based on collected data
           </p>
         </div>
-        <Badge
-          variant={
-            isComplete ? 'default' : workflowStep.status === 'in_progress' ? 'secondary' : 'outline'
-          }
-        >
-          {isComplete
-            ? 'Completed'
-            : workflowStep.status === 'in_progress'
-              ? 'In Progress'
-              : 'Pending'}
-        </Badge>
+        <div className="flex items-center gap-3">
+          <Select value={reportType} onValueChange={handleReportTypeChange}>
+            <SelectTrigger className="w-[260px]">
+              <SelectValue placeholder="Select report type" />
+            </SelectTrigger>
+            <SelectContent>
+              {REPORT_TYPES.map((type) => (
+                <SelectItem key={type.id} value={type.id}>
+                  {type.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Badge
+            variant={
+              isComplete
+                ? 'default'
+                : workflowStep.status === 'in_progress'
+                  ? 'secondary'
+                  : 'outline'
+            }
+          >
+            {isComplete
+              ? 'Completed'
+              : workflowStep.status === 'in_progress'
+                ? 'In Progress'
+                : 'Pending'}
+          </Badge>
+        </div>
       </div>
 
       {/* Revision requested banner */}

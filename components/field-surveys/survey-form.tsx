@@ -39,8 +39,14 @@ import { cn } from '@/lib/utils'
 
 import { useRole } from '@/contexts/role-context'
 import { createClient } from '@/lib/supabase/client'
+import { useSurveyTemplateByType } from '@/hooks/queries/use-template-management-hooks'
+import { getDefaultFieldsForType, parseTemplateFields } from '@/lib/config/survey-field-definitions'
+import type { SurveyTemplateFields } from '@/lib/config/survey-field-definitions'
+import { TemplateSectionsRenderer } from './survey-template-fields/template-sections-renderer'
 import type { Survey, SurveyType, WeatherData } from './survey-card'
 import type { Profile } from '@/types/database'
+
+type FieldValue = string | number | boolean | string[] | null
 
 const surveyFormSchema = z.object({
   surveyType: z.enum([
@@ -69,6 +75,7 @@ interface SurveyFormProps {
   onSubmit: (data: Partial<Survey>) => Promise<void>
   initialData?: Partial<Survey>
   projectId: string
+  organizationId?: string
 }
 
 const SURVEY_TYPES: { value: SurveyType; label: string }[] = [
@@ -90,11 +97,64 @@ export function SurveyForm({
   onSubmit,
   initialData,
   projectId: _projectId,
+  organizationId,
 }: SurveyFormProps) {
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [teamMembers, setTeamMembers] = React.useState<Profile[]>([])
   const [isLoadingMembers, setIsLoadingMembers] = React.useState(true)
+  const [templateFieldValues, setTemplateFieldValues] = React.useState<Record<string, FieldValue>>(
+    {}
+  )
   const { user } = useRole()
+
+  const form = useForm<SurveyFormValues>({
+    resolver: zodResolver(surveyFormSchema),
+    defaultValues: {
+      surveyType: initialData?.surveyType || 'walkover',
+      surveyDate: initialData?.surveyDate ? new Date(initialData.surveyDate) : new Date(),
+      surveyorId: initialData?.surveyor?.id || '',
+      expectedSurveyCount:
+        initialData?.expectedSurveyCount?.toString() ||
+        (
+          initialData?.weather as Record<string, unknown> | undefined
+        )?.expectedSurveyCount?.toString() ||
+        '',
+      notes: initialData?.notes || '',
+    },
+  })
+
+  const selectedSurveyType = form.watch('surveyType')
+  const orgId = organizationId ?? user?.organization_id
+
+  // Fetch org template for selected survey type
+  const { data: orgTemplate } = useSurveyTemplateByType(orgId ?? undefined, selectedSurveyType)
+
+  // Resolve effective template fields
+  const effectiveTemplate: SurveyTemplateFields | null = React.useMemo(() => {
+    if (selectedSurveyType === 'releve_survey') return null
+    const saved = orgTemplate?.default_fields
+      ? parseTemplateFields(orgTemplate.default_fields)
+      : null
+    return saved ?? getDefaultFieldsForType(selectedSurveyType)
+  }, [orgTemplate, selectedSurveyType])
+
+  // Initialize template field values from existing survey weather data
+  React.useEffect(() => {
+    if (initialData?.weather && typeof initialData.weather === 'object') {
+      const weather = initialData.weather as Record<string, unknown>
+      const saved = (weather.templateFields as Record<string, FieldValue>) ?? {}
+      setTemplateFieldValues(saved)
+    } else {
+      setTemplateFieldValues({})
+    }
+  }, [initialData?.weather])
+
+  // Reset template field values when survey type changes (only for new surveys)
+  React.useEffect(() => {
+    if (!initialData?.id) {
+      setTemplateFieldValues({})
+    }
+  }, [selectedSurveyType, initialData?.id])
 
   // Fetch team members from organization
   React.useEffect(() => {
@@ -104,7 +164,6 @@ export function SurveyForm({
       try {
         const supabase = createClient()
 
-        // If user has organization_id, filter by it; otherwise get all profiles
         let query = supabase.from('profiles').select('*').order('full_name', { ascending: true })
 
         if (user?.organization_id) {
@@ -127,26 +186,29 @@ export function SurveyForm({
     }
   }, [open, user?.organization_id])
 
-  const form = useForm<SurveyFormValues>({
-    resolver: zodResolver(surveyFormSchema),
-    defaultValues: {
-      surveyType: initialData?.surveyType || 'walkover',
-      surveyDate: initialData?.surveyDate ? new Date(initialData.surveyDate) : new Date(),
-      surveyorId: initialData?.surveyor?.id || '',
-      expectedSurveyCount:
-        initialData?.expectedSurveyCount?.toString() ||
-        (
-          initialData?.weather as Record<string, unknown> | undefined
-        )?.expectedSurveyCount?.toString() ||
-        '',
-      notes: initialData?.notes || '',
-    },
-  })
+  const handleTemplateFieldChange = (key: string, value: FieldValue) => {
+    setTemplateFieldValues((prev) => ({ ...prev, [key]: value }))
+  }
 
   const handleSubmit = async (values: SurveyFormValues) => {
     setIsSubmitting(true)
     try {
       const surveyor = teamMembers.find((s) => s.id === values.surveyorId)
+
+      // Build weather JSONB with template fields
+      const weatherData: WeatherData = {
+        expectedSurveyCount: values.expectedSurveyCount
+          ? parseInt(values.expectedSurveyCount)
+          : undefined,
+      }
+
+      // Include template field values if any exist
+      const hasTemplateValues = Object.values(templateFieldValues).some(
+        (v) => v !== null && v !== undefined && v !== ''
+      )
+      if (hasTemplateValues) {
+        weatherData.templateFields = templateFieldValues
+      }
 
       await onSubmit({
         id: initialData?.id,
@@ -158,17 +220,14 @@ export function SurveyForm({
         expectedSurveyCount: values.expectedSurveyCount
           ? parseInt(values.expectedSurveyCount)
           : undefined,
-        weather: {
-          expectedSurveyCount: values.expectedSurveyCount
-            ? parseInt(values.expectedSurveyCount)
-            : undefined,
-        } as WeatherData,
+        weather: weatherData,
         notes: values.notes || undefined,
         status: initialData?.status || 'planned',
       })
 
       onOpenChange(false)
       form.reset()
+      setTemplateFieldValues({})
     } catch (error) {
       console.error('Error submitting survey:', error)
     } finally {
@@ -328,6 +387,18 @@ export function SurveyForm({
                 </FormItem>
               )}
             />
+
+            {/* Template-driven fields */}
+            {effectiveTemplate && (
+              <div className="space-y-3 border-t pt-4">
+                <p className="text-sm font-medium text-gray-700">Survey-Specific Fields</p>
+                <TemplateSectionsRenderer
+                  templateFields={effectiveTemplate}
+                  values={templateFieldValues}
+                  onChange={handleTemplateFieldChange}
+                />
+              </div>
+            )}
 
             {/* Actions */}
             <div className="flex justify-end gap-3">

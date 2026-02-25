@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   getSurveyTemplates,
+  getSurveyTemplateByType,
   upsertSurveyTemplate,
   deleteSurveyTemplate,
   getReportTemplates,
@@ -55,6 +56,17 @@ export function useDeleteReportTemplate(organizationId: string | undefined) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['report-templates', organizationId] })
     },
+  })
+}
+
+export function useSurveyTemplateByType(
+  organizationId: string | undefined,
+  surveyType: string | undefined
+) {
+  return useQuery({
+    queryKey: ['survey-template', organizationId, surveyType],
+    queryFn: () => getSurveyTemplateByType(organizationId!, surveyType!),
+    enabled: !!organizationId && !!surveyType,
   })
 }
 

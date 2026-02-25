@@ -34,7 +34,7 @@ const SURVEY_TYPES = SURVEY_TYPE_DEFS.map((s) => ({ value: s.id, label: s.label 
 
 const quickCreateSchema = z.object({
   name: z.string().min(3, 'Project name must be at least 3 characters'),
-  surveyType: z.string().min(1, 'Please select a survey type'),
+  surveyType: z.string().optional(),
   location: z.string().optional(),
 })
 
@@ -91,7 +91,7 @@ export function QuickCreateProjectModal({
         .insert({
           name: data.name,
           site_code: siteCode,
-          survey_type: data.surveyType,
+          survey_type: data.surveyType || null,
           county: data.location || null,
           organization_id: organizationId,
           created_by: userId,
@@ -150,7 +150,7 @@ export function QuickCreateProjectModal({
               name="surveyType"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Survey Type *</FormLabel>
+                  <FormLabel>Report Type</FormLabel>
                   <Select
                     onValueChange={field.onChange}
                     defaultValue={field.value}
@@ -158,7 +158,7 @@ export function QuickCreateProjectModal({
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select survey type" />
+                        <SelectValue placeholder="Select report type (optional)" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>

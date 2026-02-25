@@ -26,7 +26,7 @@ import { createClient } from '@/lib/supabase/client'
 const projectSchema = z.object({
   name: z.string().min(3, 'Project name must be at least 3 characters'),
   siteCode: z.string().optional(),
-  surveyType: z.string().min(1, 'Please select a survey type'),
+  surveyType: z.string().optional(),
   clientId: z.string().optional(),
   expectedStartDate: z.string().optional(),
   expectedEndDate: z.string().optional(),
@@ -86,7 +86,7 @@ export default function NewProjectPage() {
         .insert({
           name: data.name,
           site_code: siteCode,
-          survey_type: data.surveyType,
+          survey_type: data.surveyType || null,
           expected_start_date: data.expectedStartDate || null,
           expected_end_date: data.expectedEndDate || null,
           budget_days: data.budgetDays ? parseInt(data.budgetDays) : null,
@@ -188,13 +188,13 @@ export default function NewProjectPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="surveyType">Survey Type *</Label>
+                <Label htmlFor="surveyType">Report Type</Label>
                 <Select
                   onValueChange={(value) => setValue('surveyType', value)}
                   disabled={isLoading}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select survey type" />
+                    <SelectValue placeholder="Select report type (optional)" />
                   </SelectTrigger>
                   <SelectContent>
                     {surveyTypes.map((type) => (
@@ -204,9 +204,9 @@ export default function NewProjectPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                {errors.surveyType && (
-                  <p className="text-destructive text-sm">{errors.surveyType.message}</p>
-                )}
+                <p className="text-muted-foreground text-xs">
+                  Can also be set later in the AI Draft step
+                </p>
               </div>
 
               <div className="space-y-2">
