@@ -39,7 +39,10 @@ import { cn } from '@/lib/utils'
 
 import { useRole } from '@/contexts/role-context'
 import { createClient } from '@/lib/supabase/client'
-import { useSurveyTemplateByType } from '@/hooks/queries/use-template-management-hooks'
+import {
+  useSurveyTemplateByType,
+  useSurveyTemplates,
+} from '@/hooks/queries/use-template-management-hooks'
 import { getDefaultFieldsForType, parseTemplateFields } from '@/lib/config/survey-field-definitions'
 import type { SurveyTemplateFields } from '@/lib/config/survey-field-definitions'
 import { TemplateSectionsRenderer } from './survey-template-fields/template-sections-renderer'
@@ -126,17 +129,46 @@ export function SurveyForm({
   const selectedSurveyType = form.watch('surveyType')
   const orgId = organizationId ?? user?.organization_id
 
+  // Fetch all org survey templates to filter inactive types
+  const { data: allOrgTemplates } = useSurveyTemplates(orgId ?? undefined)
+
+  // Filter survey types: hide those explicitly set as inactive by the org
+  const activeSurveyTypes = React.useMemo(() => {
+    if (!allOrgTemplates?.length) return SURVEY_TYPES
+    const inactiveTypes = new Set(
+      allOrgTemplates.filter((t) => !t.is_active).map((t) => t.survey_type)
+    )
+    return SURVEY_TYPES.filter((type) => !inactiveTypes.has(type.value))
+  }, [allOrgTemplates])
+
+  // Reset survey type if the current selection is no longer active
+  React.useEffect(() => {
+    if (initialData?.surveyType) return // Don't reset when editing existing survey
+    const currentType = form.getValues('surveyType')
+    const isCurrentActive = activeSurveyTypes.some((t) => t.value === currentType)
+    if (!isCurrentActive) {
+      const firstActive = activeSurveyTypes[0]?.value as SurveyFormValues['surveyType'] | undefined
+      if (firstActive) {
+        form.setValue('surveyType', firstActive)
+      } else {
+        form.resetField('surveyType', { defaultValue: '' as SurveyFormValues['surveyType'] })
+      }
+    }
+  }, [activeSurveyTypes, form, initialData?.surveyType])
+
   // Fetch org template for selected survey type
   const { data: orgTemplate } = useSurveyTemplateByType(orgId ?? undefined, selectedSurveyType)
 
   // Resolve effective template fields
   const effectiveTemplate: SurveyTemplateFields | null = React.useMemo(() => {
     if (selectedSurveyType === 'releve_survey') return null
+    // Don't show template fields if the selected type is not in active list
+    if (!activeSurveyTypes.some((t) => t.value === selectedSurveyType)) return null
     const saved = orgTemplate?.default_fields
       ? parseTemplateFields(orgTemplate.default_fields)
       : null
     return saved ?? getDefaultFieldsForType(selectedSurveyType)
-  }, [orgTemplate, selectedSurveyType])
+  }, [orgTemplate, selectedSurveyType, activeSurveyTypes])
 
   // Initialize template field values from existing survey weather data
   React.useEffect(() => {
@@ -264,7 +296,7 @@ export function SurveyForm({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {SURVEY_TYPES.map((type) => (
+                        {activeSurveyTypes.map((type) => (
                           <SelectItem key={type.value} value={type.value}>
                             {type.label}
                           </SelectItem>

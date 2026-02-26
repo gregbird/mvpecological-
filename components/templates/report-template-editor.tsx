@@ -19,8 +19,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
 import {
   REPORT_TYPES,
-  PEA_DEFAULT_SECTIONS,
   DEFAULT_SECTIONS_BY_TYPE,
+  OTHER_DEFAULT_SECTIONS,
 } from '@/lib/config/template-types'
 import { useUpsertReportTemplate } from '@/hooks/queries/use-template-management-hooks'
 import { jsonToSections, sectionsToJson } from '@/lib/supabase/queries/templates'
@@ -50,7 +50,7 @@ export function ReportTemplateEditor({
 
   // Initialize sections from existing template or defaults (type-specific)
   const getDefaultSections = (): TemplateSectionData[] => {
-    const typeSections = DEFAULT_SECTIONS_BY_TYPE[reportTypeId] ?? PEA_DEFAULT_SECTIONS
+    const typeSections = DEFAULT_SECTIONS_BY_TYPE[reportTypeId] ?? OTHER_DEFAULT_SECTIONS
     return typeSections.map((s) => ({
       id: s.id,
       title: s.title,
@@ -152,10 +152,15 @@ export function ReportTemplateEditor({
               </div>
 
               <Tabs defaultValue={sections[0]?.id} className="space-y-3">
-                <TabsList className="flex-wrap">
-                  {sections.map((section) => (
-                    <TabsTrigger key={section.id} value={section.id} className="text-xs">
-                      {section.title}
+                <TabsList className="grid h-auto w-full grid-cols-3 gap-1">
+                  {sections.map((section, index) => (
+                    <TabsTrigger
+                      key={section.id}
+                      value={section.id}
+                      className="truncate px-2 py-1.5 text-xs"
+                      title={section.title}
+                    >
+                      {index + 1}. {section.title.replace(/^\d+\.\s*/, '')}
                     </TabsTrigger>
                   ))}
                 </TabsList>

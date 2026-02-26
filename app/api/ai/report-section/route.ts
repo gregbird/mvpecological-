@@ -370,7 +370,7 @@ export async function POST(request: NextRequest) {
           const customSections = jsonToSections(orgTemplate.sections)
           const customSection = customSections.find((s) => s.id === sectionId)
           if (customSection?.template) {
-            customTemplateGuidance = `\n\n**Organization Template Guidance for this section:**\n${customSection.template}\n\nUse this as structural guidance for the section content.`
+            customTemplateGuidance = `\n\n**IMPORTANT — Organization Custom Template for this section:**\n${customSection.template}\n\nYou MUST follow this template exactly. If the template says to skip or leave this section empty, output only a brief placeholder note (e.g. "This section is not required for this report."). Structure your output to match the template's format, headings, and content requirements.`
           }
         }
       } catch {

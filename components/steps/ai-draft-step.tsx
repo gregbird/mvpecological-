@@ -30,7 +30,7 @@ import {
   type ReportContent,
   type ReportSection,
 } from '@/lib/supabase/queries/reports'
-import { renderPeaTemplate } from '@/lib/templates/template-renderer'
+import { renderPeaTemplate, buildReplacements } from '@/lib/templates/template-renderer'
 import { getReportTemplateByType } from '@/lib/supabase/queries/templates'
 import { jsonToSections } from '@/lib/supabase/queries/templates'
 import { DulraAgentTab } from '@/components/steps/ai-draft/dulra-agent-tab'
@@ -163,11 +163,8 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
           setSections(content.sections)
         }
       }
-    } else if (templateData && reportType === 'pea') {
-      // PEA has a dedicated template renderer with placeholder substitution
-      setSections(renderPeaTemplate(templateData))
     } else {
-      // For all report types: try org custom template, then fall back to defaults
+      // For all report types (including PEA): try org custom template, then fall back to defaults
       const initSections = async () => {
         // Check if org has a custom template for this report type
         if (project.organization_id) {
@@ -176,14 +173,22 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
             if (orgTemplate?.use_custom && orgTemplate.sections) {
               const customSections = jsonToSections(orgTemplate.sections)
               if (customSections.length > 0) {
+                // Apply placeholder substitution if template data is available
+                const replacements = templateData ? buildReplacements(templateData) : {}
                 setSections(
-                  customSections.map((s) => ({
-                    id: s.id,
-                    title: s.title,
-                    content: s.template || '',
-                    isEdited: false,
-                    aiGenerated: false,
-                  }))
+                  customSections.map((s) => {
+                    let content = s.template || ''
+                    for (const [key, value] of Object.entries(replacements)) {
+                      content = content.replaceAll(`{{${key}}}`, value)
+                    }
+                    return {
+                      id: s.id,
+                      title: s.title,
+                      content,
+                      isEdited: false,
+                      aiGenerated: false,
+                    }
+                  })
                 )
                 return
               }
@@ -191,6 +196,12 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
           } catch {
             // Fall through to defaults
           }
+        }
+
+        // PEA fallback: use dedicated template renderer with placeholder substitution
+        if (templateData && reportType === 'pea') {
+          setSections(renderPeaTemplate(templateData))
+          return
         }
 
         // Use type-specific default sections

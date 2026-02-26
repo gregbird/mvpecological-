@@ -39,19 +39,28 @@ export function renderPeaTemplate(data: TemplateData): ReportSection[] {
   })
 }
 
-function buildReplacements(data: TemplateData): Record<string, string> {
+export function buildReplacements(data: TemplateData): Record<string, string> {
   const { project } = data
   const locationParts: string[] = []
   if (project.townland) locationParts.push(project.townland)
   if (project.county) locationParts.push(`Co. ${project.county}`)
   if (project.province) locationParts.push(project.province)
 
+  const locationStr =
+    locationParts.length > 0 ? locationParts.join(', ') : '*[Location not available]*'
+
   return {
     project_name: project.name || '*[Project name]*',
-    location_description:
-      locationParts.length > 0 ? locationParts.join(', ') : '*[Location not available]*',
+    location_description: locationStr,
+    site_location: locationStr,
+    site_description: locationStr,
     site_code: project.site_code || '*[Not assigned]*',
     grid_reference: project.grid_reference || '*[Not available]*',
+    survey_date: new Date().toLocaleDateString('en-IE', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }),
     desk_sources_summary: buildDeskSourcesSummary(data.findings),
     survey_details: buildSurveyDetails(data.surveys),
     designated_sites_table: buildDesignatedSitesTable(data.findings),
