@@ -23,25 +23,74 @@
 
 **Orijinal:** "Create a new page for Surveys and Reports. On this new page, the management of the ecologist firm needs the ability to: View and Edit Templates, Manage Templates within the Platform."
 
-**Greg'e yorum:** Done. New "Surveys & Reports" page added under Admin sidebar at /templates. Two tabs: Survey Templates (card grid with active/inactive toggle per type) and Report Templates (with "Dulra Standard" / "Custom" toggle and section editor). DB tables created for org-level template storage. DOCX/PDF upload deferred to post-MVP.
+**Greg'e yorum:** Done. New "Surveys & Reports" page added under Admin sidebar at /templates. Two tabs: Survey Templates (10 field survey types with section/field-level customization) and Report Templates (with "Dulra Standard" / "Custom" toggle and section editor). Survey templates now flow into Step 4 forms — when an ecologist creates a survey, the template-defined fields appear automatically. DOCX/PDF upload deferred to post-MVP.
 
-**Yapılacaklar:**
+### Mimari Yaklaşım
+
+İki farklı kavram ayrıldı:
+
+- **Report Templates** = Rapor şablonları (PEA, EcIA, AA, NIS) → teslim edilecek belge formatları
+- **Survey Templates** = Saha survey şablonları (Walkover, Bat, Bird...) → veri toplama formu formatları
+
+Tek sayfa, iki tab: `/templates`
+
+### Yapılacaklar
 
 - [x] **2.1** Sol menüye "Surveys & Reports" sayfası ekle ✅ (24 Şubat 2026)
-  - Dosya: `app/(dashboard)/templates/page.tsx`
-  - Dosya: `components/layout/sidebar.tsx` — yeni link eklendi
-- [x] **2.2** Survey Templates listesi ✅ (24 Şubat 2026)
-  - Tüm survey tipleri için template kartları (card grid)
-  - Her template için: Edit, Active/Inactive toggle
-- [x] **2.3** Report Templates listesi ✅ (24 Şubat 2026)
-  - PEA, EcIA, AA Screening, NIS + diğer template'ler
-  - Dulra Standard / Custom badge + toggle
-- [x] **2.4** Template editor ✅ (24 Şubat 2026)
-  - Survey: name, description, active toggle
-  - Report: tabbed section editor (per CIEEM section), {{placeholder}} support
-  - "Use Dulra Standard" / "Use Custom Template" toggle
-  - "Reset to Dulra Standard" button
-- [ ] **2.5** (Post-MVP) Custom template upload (DOCX/PDF)
+  - `app/(dashboard)/templates/page.tsx` — Ana sayfa (2 tab)
+  - `components/layout/sidebar.tsx` — Sidebar'a link eklendi
+- [x] **2.2** Survey Templates tab — 10 saha survey tipi ✅ (25 Şubat 2026)
+  - `components/templates/survey-templates-tab.tsx` — Kart listesi
+  - 10 tip: Walkover, Habitat Mapping, Relevé, Bat, Bird, Mammal, Aquatic, Botanical, Invertebrate, Other
+  - Her kart: alan sayısı badge'i, "Dulra Standard" / "Customized" badge'i, Active/Inactive toggle
+- [x] **2.3** Report Templates tab ✅ (24 Şubat 2026)
+  - `components/templates/report-templates-tab.tsx` — Rapor template listesi
+  - `components/templates/report-template-editor.tsx` — Bölüm bazlı editor
+  - `components/templates/new-report-template-dialog.tsx` — Yeni template oluşturma
+  - `lib/templates/pea-template.ts` — Dulra standart PEA template'i
+  - `lib/templates/template-renderer.ts` — `{{placeholder}}` desteği ile rendering
+  - "Use Dulra Standard" / "Reset to Dulra Standard" toggle
+- [x] **2.4** Survey Template Editor — bölüm/alan düzeyinde özelleştirme ✅ (25 Şubat 2026)
+  - `components/templates/survey-template-editor.tsx` — Ana editor
+  - `components/templates/survey-template/section-editor.tsx` — Bölüm düzenleyici
+  - `components/templates/survey-template/field-editor.tsx` — Alan düzenleyici
+  - `components/templates/survey-template/tag-list-input.tsx` — Tag input (hedef türler, ekipman)
+  - Özellikler: bölüm enable/disable, alan ekleme/silme, alan tipi değiştirme, özel alan ekleme
+  - Relevé survey için "kendi form sistemini kullanır" bilgi notu
+- [x] **2.5** Varsayılan alan tanımları — İrlanda ekolojik standartlarına uygun ✅ (25 Şubat 2026)
+  - `lib/config/survey-field-definitions.ts` (~1219 satır)
+  - Her survey tipi için domain-specific bölümler ve alanlar (toplam ~115 alan)
+  - Kaynaklar: BCIreland bat survey guidelines, BTO bird survey methodology, EPA aquatic survey guidelines, Fossitt (2000) habitat classification
+- [x] **2.6** Step 4 entegrasyonu — template alanları survey formunda ✅ (25 Şubat 2026)
+  - `components/field-surveys/survey-template-fields/dynamic-field-renderer.tsx` — Alan tipine göre UI render
+  - `components/field-surveys/survey-template-fields/template-sections-renderer.tsx` — Bölüm render
+  - `components/field-surveys/survey-form.tsx` — Survey tipi seçilince template alanları otomatik görünür
+  - `components/field-surveys/survey-view-dialog.tsx` — Kaydedilmiş verileri read-only gösterir + Edit butonu
+  - Veri `surveys.weather.templateFields` JSONB'de saklanır (geriye uyumlu)
+- [x] **2.7** Ek düzeltmeler ✅ (25 Şubat 2026)
+  - Proje oluşturmada `survey_type` artık zorunlu değil (optional)
+  - AI Draft step'inde rapor tipi seçici dropdown eklendi (`ai-draft-step.tsx`)
+  - Survey view dialog'dan edit'e geçiş butonu eklendi
+- [ ] **2.8** (Post-MVP) Custom template upload (DOCX/PDF)
+
+### Dosya Özeti (14 dosya, ~1951 satır yeni kod)
+
+| Dosya                                                                            | Satır | Durum           |
+| -------------------------------------------------------------------------------- | ----- | --------------- |
+| `lib/config/survey-field-definitions.ts`                                         | 1219  | YENİ            |
+| `lib/config/template-types.ts`                                                   | ~80   | YENİ            |
+| `app/(dashboard)/templates/page.tsx`                                             | 70    | YENİ            |
+| `components/templates/survey-templates-tab.tsx`                                  | 147   | YENİ            |
+| `components/templates/survey-template-editor.tsx`                                | 264   | YENİDEN YAZILDI |
+| `components/templates/survey-template/section-editor.tsx`                        | 105   | YENİ            |
+| `components/templates/survey-template/field-editor.tsx`                          | 76    | YENİ            |
+| `components/templates/survey-template/tag-list-input.tsx`                        | 56    | YENİ            |
+| `components/templates/report-templates-tab.tsx`                                  | 208   | YENİ            |
+| `components/templates/report-template-editor.tsx`                                | 195   | YENİ            |
+| `components/templates/new-report-template-dialog.tsx`                            | 189   | YENİ            |
+| `components/field-surveys/survey-template-fields/dynamic-field-renderer.tsx`     | ~100  | YENİ            |
+| `components/field-surveys/survey-template-fields/template-sections-renderer.tsx` | ~120  | YENİ            |
+| `hooks/queries/use-template-management-hooks.ts`                                 | 81    | GENİŞLETİLDİ    |
 
 ---
 
@@ -193,4 +242,4 @@
 
 ---
 
-_Son güncelleme: 24 Şubat 2026_
+_Son güncelleme: 25 Şubat 2026_

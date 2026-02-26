@@ -30,9 +30,8 @@ import {
   type ReportContent,
   type ReportSection,
 } from '@/lib/supabase/queries/reports'
-import { renderPeaTemplate, buildReplacements } from '@/lib/templates/template-renderer'
-import { getReportTemplateByType } from '@/lib/supabase/queries/templates'
-import { jsonToSections } from '@/lib/supabase/queries/templates'
+import { renderReportTemplate } from '@/lib/templates/template-renderer'
+import { getReportTemplateByType, jsonToSections } from '@/lib/supabase/queries/templates'
 import { DulraAgentTab } from '@/components/steps/ai-draft/dulra-agent-tab'
 import { AIDraftTab } from '@/components/steps/ai-draft/ai-draft-tab'
 import { VersionCompareDialog } from '@/components/steps/ai-draft/version-compare-dialog'
@@ -163,58 +162,52 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
           setSections(content.sections)
         }
       }
-    } else {
-      // For all report types (including PEA): try org custom template, then fall back to defaults
+    } else if (templateData) {
+      // Render template with placeholder substitution for all report types
+      // Check org custom template first, then use Dulra Standard defaults
       const initSections = async () => {
-        // Check if org has a custom template for this report type
+        let customSections: { id: string; title: string; template: string }[] | undefined
         if (project.organization_id) {
           try {
             const orgTemplate = await getReportTemplateByType(project.organization_id, reportType)
             if (orgTemplate?.use_custom && orgTemplate.sections) {
-              const customSections = jsonToSections(orgTemplate.sections)
-              if (customSections.length > 0) {
-                // Apply placeholder substitution if template data is available
-                const replacements = templateData ? buildReplacements(templateData) : {}
-                setSections(
-                  customSections.map((s) => {
-                    let content = s.template || ''
-                    for (const [key, value] of Object.entries(replacements)) {
-                      content = content.replaceAll(`{{${key}}}`, value)
-                    }
-                    return {
-                      id: s.id,
-                      title: s.title,
-                      content,
-                      isEdited: false,
-                      aiGenerated: false,
-                    }
-                  })
-                )
-                return
+              const parsed = jsonToSections(orgTemplate.sections)
+              if (parsed.length > 0) {
+                customSections = parsed
               }
             }
           } catch {
             // Fall through to defaults
           }
         }
-
-        // PEA fallback: use dedicated template renderer with placeholder substitution
-        if (templateData && reportType === 'pea') {
-          setSections(renderPeaTemplate(templateData))
-          return
+        const rendered = renderReportTemplate(reportType, templateData, customSections)
+        if (rendered.length > 0) {
+          setSections(rendered)
+        } else {
+          // Fallback: empty sections from type definitions
+          setSections(
+            reportSectionDefs.map((s) => ({
+              id: s.id,
+              title: s.title,
+              content: '',
+              isEdited: false,
+              aiGenerated: false,
+            }))
+          )
         }
-
-        // Use type-specific default sections
-        const initialSections: ReportSection[] = reportSectionDefs.map((s) => ({
+      }
+      initSections()
+    } else {
+      // No template data yet — show empty sections
+      setSections(
+        reportSectionDefs.map((s) => ({
           id: s.id,
           title: s.title,
           content: '',
           isEdited: false,
           aiGenerated: false,
         }))
-        setSections(initialSections)
-      }
-      initSections()
+      )
     }
   }, [existingReport, templateData, reportType, reportSectionDefs, project.organization_id])
 

@@ -1,10 +1,13 @@
 /**
- * PEA Template Renderer
+ * Report Template Renderer
  * Replaces {{placeholder}} variables in template sections with real project data.
+ * Supports all report types (PEA, EcIA, AA Screening, NIS, Bat, Bird, Habitat, etc.)
  */
 
 import { PEA_TEMPLATE_SECTIONS } from './pea-template'
+import { DEFAULT_SECTIONS_BY_TYPE } from '@/lib/config/template-types'
 import type { ReportSection } from '@/lib/supabase/queries/reports'
+import type { TemplateSectionData } from '@/lib/supabase/queries/templates'
 import type {
   Project,
   DeskResearchFinding,
@@ -21,6 +24,10 @@ export interface TemplateData {
   surveys: Survey[]
 }
 
+/**
+ * Render PEA template with full placeholder substitution.
+ * PEA has the most detailed template with rich markdown content.
+ */
 export function renderPeaTemplate(data: TemplateData): ReportSection[] {
   const replacements = buildReplacements(data)
 
@@ -39,7 +46,63 @@ export function renderPeaTemplate(data: TemplateData): ReportSection[] {
   })
 }
 
-export function buildReplacements(data: TemplateData): Record<string, string> {
+/**
+ * Render any report type template with placeholder substitution.
+ * Uses PEA's rich template for PEA type, DEFAULT_SECTIONS_BY_TYPE for others.
+ * If customSections are provided (from org template), those are used instead.
+ */
+export function renderReportTemplate(
+  reportType: string,
+  data: TemplateData,
+  customSections?: TemplateSectionData[]
+): ReportSection[] {
+  const replacements = buildReplacements(data)
+
+  // If org has custom sections, use those
+  if (customSections && customSections.length > 0) {
+    return customSections.map((section) => {
+      let content = section.template || ''
+      for (const [key, value] of Object.entries(replacements)) {
+        content = content.replaceAll(`{{${key}}}`, value)
+      }
+      return {
+        id: section.id,
+        title: section.title,
+        content,
+        isEdited: false,
+        aiGenerated: false,
+      }
+    })
+  }
+
+  // PEA has its own detailed template with rich markdown
+  if (reportType === 'pea') {
+    return renderPeaTemplate(data)
+  }
+
+  // Other report types: use defaultTemplate from template-types.ts
+  const sectionDefs = DEFAULT_SECTIONS_BY_TYPE[reportType]
+  if (!sectionDefs) {
+    // Unknown type — return empty sections
+    return []
+  }
+
+  return sectionDefs.map((def) => {
+    let content = def.defaultTemplate || ''
+    for (const [key, value] of Object.entries(replacements)) {
+      content = content.replaceAll(`{{${key}}}`, value)
+    }
+    return {
+      id: def.id,
+      title: def.title,
+      content,
+      isEdited: false,
+      aiGenerated: false,
+    }
+  })
+}
+
+function buildReplacements(data: TemplateData): Record<string, string> {
   const { project } = data
   const locationParts: string[] = []
   if (project.townland) locationParts.push(project.townland)

@@ -884,6 +884,10 @@ export function FieldSurveyStep({
               survey={viewingSurvey}
               projectId={project.id}
               projectName={project.name}
+              onEdit={(survey) => {
+                setViewingSurvey(null)
+                handleOpenEditForm(survey)
+              }}
             />
           )}
         </TabsContent>
