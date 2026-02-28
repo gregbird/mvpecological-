@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2, Pencil, ClipboardList } from 'lucide-react'
+import { Loader2, Pencil, ClipboardList, Plus, Trash2 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -15,11 +15,16 @@ import {
 import {
   useSurveyTemplates,
   useUpsertSurveyTemplate,
+  useDeleteSurveyTemplate,
 } from '@/hooks/queries/use-template-management-hooks'
 import { SurveyTemplateEditor } from '@/components/templates/survey-template-editor'
+import { NewSurveyTemplateDialog } from '@/components/templates/new-survey-template-dialog'
 import type { Database } from '@/types/database'
 
 type SurveyTemplate = Database['public']['Tables']['survey_templates']['Row']
+
+// Predefined survey type IDs that cannot be deleted
+const PREDEFINED_IDS = new Set(FIELD_SURVEY_TYPES.map((s) => s.id))
 
 interface SurveyTemplatesTabProps {
   organizationId: string
@@ -29,7 +34,9 @@ export function SurveyTemplatesTab({ organizationId }: SurveyTemplatesTabProps) 
   const { toast } = useToast()
   const { data: templates, isLoading } = useSurveyTemplates(organizationId)
   const upsertMutation = useUpsertSurveyTemplate(organizationId)
+  const deleteMutation = useDeleteSurveyTemplate(organizationId)
   const [editingSurveyType, setEditingSurveyType] = React.useState<string | null>(null)
+  const [showNewDialog, setShowNewDialog] = React.useState(false)
 
   // Map saved templates by survey_type for quick lookup
   const templateMap = React.useMemo(() => {
@@ -37,6 +44,20 @@ export function SurveyTemplatesTab({ organizationId }: SurveyTemplatesTabProps) 
     templates?.forEach((t) => map.set(t.survey_type, t))
     return map
   }, [templates])
+
+  // Custom templates from DB that are not predefined
+  const customTemplates = React.useMemo(() => {
+    return (templates ?? []).filter((t) => !PREDEFINED_IDS.has(t.survey_type))
+  }, [templates])
+
+  const handleDeleteCustom = async (template: SurveyTemplate) => {
+    try {
+      await deleteMutation.mutateAsync(template.id)
+      toast({ title: 'Template deleted', description: `${template.name} has been removed` })
+    } catch {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete template' })
+    }
+  }
 
   const handleToggleActive = async (surveyTypeId: string, currentlyActive: boolean) => {
     const existing = templateMap.get(surveyTypeId)
@@ -129,6 +150,66 @@ export function SurveyTemplatesTab({ organizationId }: SurveyTemplatesTabProps) 
             </Card>
           )
         })}
+
+        {/* Custom templates from DB */}
+        {customTemplates.map((template) => (
+          <Card key={template.id} className="border-emerald-200">
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2">
+                  <ClipboardList className="h-5 w-5 text-emerald-600" />
+                  <CardTitle className="text-base">{template.name}</CardTitle>
+                </div>
+                <Switch
+                  checked={template.is_active}
+                  onCheckedChange={() =>
+                    handleToggleActive(template.survey_type, template.is_active)
+                  }
+                />
+              </div>
+              <CardDescription className="text-sm">
+                {template.description ?? 'Custom survey template'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <Badge variant="default" className="bg-emerald-600">
+                  Custom
+                </Badge>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingSurveyType(template.survey_type)}
+                  >
+                    <Pencil className="mr-1 h-3.5 w-3.5" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-600 hover:text-red-700"
+                    onClick={() => handleDeleteCustom(template)}
+                    disabled={deleteMutation.isPending}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+
+        {/* Create New Template card */}
+        <Card
+          className="flex cursor-pointer items-center justify-center border-dashed border-gray-300 transition-colors hover:border-emerald-400 hover:bg-emerald-50/50"
+          onClick={() => setShowNewDialog(true)}
+        >
+          <CardContent className="flex flex-col items-center gap-2 py-8">
+            <Plus className="h-8 w-8 text-gray-400" />
+            <p className="text-sm font-medium text-gray-500">Create New Template</p>
+          </CardContent>
+        </Card>
       </div>
 
       {editingSurveyType && (
@@ -142,6 +223,12 @@ export function SurveyTemplatesTab({ organizationId }: SurveyTemplatesTabProps) 
           }}
         />
       )}
+
+      <NewSurveyTemplateDialog
+        organizationId={organizationId}
+        open={showNewDialog}
+        onOpenChange={setShowNewDialog}
+      />
     </>
   )
 }

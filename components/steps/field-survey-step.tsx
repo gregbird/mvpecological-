@@ -58,6 +58,7 @@ const SURVEY_TYPE_LABELS: Record<string, string> = {
   aquatic_survey: 'Aquatic Survey',
   botanical_survey: 'Botanical Survey',
   invertebrate_survey: 'Invertebrate Survey',
+  biodiversity_net_gain: 'Biodiversity Net Gain',
   other: 'Other Survey',
 }
 

@@ -95,6 +95,11 @@ export const FIELD_SURVEY_TYPES: FieldSurveyTypeDefinition[] = [
     label: 'Invertebrate Survey',
     description: 'Invertebrate species surveys and sampling',
   },
+  {
+    id: 'biodiversity_net_gain',
+    label: 'Biodiversity Net Gain',
+    description: 'BNG baseline and post-development habitat condition assessment',
+  },
   { id: 'other', label: 'Other Survey', description: 'Custom or miscellaneous survey type' },
 ]
 
@@ -1149,6 +1154,173 @@ function invertebrateSurveyDefaults(): SurveyTemplateFields {
   }
 }
 
+function bngDefaults(): SurveyTemplateFields {
+  return {
+    sections: [
+      weatherSection(),
+      {
+        id: 'bng_site',
+        title: 'Site Assessment',
+        description: 'Baseline or post-development site information',
+        enabled: true,
+        fields: [
+          {
+            id: 'bng_phase',
+            label: 'Assessment Phase',
+            key: 'bng_assessment_phase',
+            type: 'select',
+            required: true,
+            options: [
+              { value: 'baseline', label: 'Baseline (Pre-development)' },
+              { value: 'post_development', label: 'Post-development' },
+              { value: 'monitoring', label: 'Monitoring Visit' },
+            ],
+          },
+          {
+            id: 'bng_metric',
+            label: 'Metric Version',
+            key: 'bng_metric_version',
+            type: 'select',
+            required: false,
+            options: [
+              { value: '4.0', label: 'Metric 4.0' },
+              { value: '3.1', label: 'Metric 3.1' },
+              { value: 'other', label: 'Other' },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'bng_habitat',
+        title: 'Habitat Parcel',
+        description: 'Individual habitat parcel assessment for BNG metric',
+        enabled: true,
+        fields: [
+          {
+            id: 'bng_hab_type',
+            label: 'Habitat Type',
+            key: 'bng_habitat_type',
+            type: 'text',
+            required: false,
+            placeholder: 'e.g. Modified grassland, Mixed scrub',
+            helpText: 'UK Hab classification or Fossitt code',
+          },
+          {
+            id: 'bng_hab_area',
+            label: 'Area',
+            key: 'bng_habitat_area_ha',
+            type: 'number',
+            required: false,
+            unit: 'ha',
+            min: 0,
+          },
+          {
+            id: 'bng_condition',
+            label: 'Condition',
+            key: 'bng_condition',
+            type: 'select',
+            required: false,
+            options: [
+              { value: 'good', label: 'Good' },
+              { value: 'fairly_good', label: 'Fairly Good' },
+              { value: 'moderate', label: 'Moderate' },
+              { value: 'fairly_poor', label: 'Fairly Poor' },
+              { value: 'poor', label: 'Poor' },
+              { value: 'na', label: 'N/A' },
+            ],
+          },
+          {
+            id: 'bng_strategic',
+            label: 'Strategic Significance',
+            key: 'bng_strategic_significance',
+            type: 'select',
+            required: false,
+            options: [
+              { value: 'high', label: 'High' },
+              { value: 'medium', label: 'Medium' },
+              { value: 'low', label: 'Low' },
+            ],
+          },
+          {
+            id: 'bng_distinctiveness',
+            label: 'Distinctiveness',
+            key: 'bng_distinctiveness',
+            type: 'select',
+            required: false,
+            options: [
+              { value: 'v_high', label: 'Very High' },
+              { value: 'high', label: 'High' },
+              { value: 'medium', label: 'Medium' },
+              { value: 'low', label: 'Low' },
+              { value: 'v_low', label: 'Very Low' },
+            ],
+          },
+          {
+            id: 'bng_notes',
+            label: 'Notes',
+            key: 'bng_habitat_notes',
+            type: 'textarea',
+            required: false,
+          },
+        ],
+      },
+      {
+        id: 'bng_linear',
+        title: 'Linear Features',
+        description: 'Hedgerows, watercourses, and other linear habitats',
+        enabled: true,
+        fields: [
+          {
+            id: 'bng_lin_type',
+            label: 'Linear Type',
+            key: 'bng_linear_type',
+            type: 'select',
+            required: false,
+            options: [
+              { value: 'hedgerow', label: 'Hedgerow' },
+              { value: 'line_of_trees', label: 'Line of Trees' },
+              { value: 'watercourse', label: 'Watercourse' },
+              { value: 'ditch', label: 'Ditch' },
+              { value: 'wall', label: 'Stone Wall' },
+              { value: 'other', label: 'Other' },
+            ],
+          },
+          {
+            id: 'bng_lin_length',
+            label: 'Length',
+            key: 'bng_linear_length_m',
+            type: 'number',
+            required: false,
+            unit: 'm',
+            min: 0,
+          },
+          {
+            id: 'bng_lin_condition',
+            label: 'Condition',
+            key: 'bng_linear_condition',
+            type: 'select',
+            required: false,
+            options: [
+              { value: 'good', label: 'Good' },
+              { value: 'moderate', label: 'Moderate' },
+              { value: 'poor', label: 'Poor' },
+            ],
+          },
+        ],
+      },
+    ],
+    methodologyGuidance:
+      'Assess all habitat parcels within the site boundary using BNG Metric methodology. Record habitat type (UK Hab or Fossitt), condition, and area. Include all linear features.',
+    requiredEquipment: [
+      'GPS unit',
+      'Tablet with mapping app',
+      'Camera',
+      'Measuring tape',
+      'Plant identification guide',
+    ],
+  }
+}
+
 function otherSurveyDefaults(): SurveyTemplateFields {
   return {
     sections: [
@@ -1192,6 +1364,7 @@ const DEFAULT_FIELDS_MAP: Record<string, () => SurveyTemplateFields> = {
   aquatic_survey: aquaticSurveyDefaults,
   botanical_survey: botanicalSurveyDefaults,
   invertebrate_survey: invertebrateSurveyDefaults,
+  biodiversity_net_gain: bngDefaults,
   other: otherSurveyDefaults,
 }
 

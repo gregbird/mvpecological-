@@ -491,8 +491,8 @@ export function HabitatMappingStep({
         {/* Left Panel - Tabbed Interface with Add Habitat button */}
         <Card className="flex shrink-0 flex-col md:w-[38%]">
           <Tabs defaultValue="habitats" className="flex flex-1 flex-col">
-            <div className="flex flex-wrap items-center gap-2 px-3 pt-3">
-              <TabsList className="grid w-auto grid-cols-2">
+            <div className="flex items-center gap-2 px-3 pt-3">
+              <TabsList className="grid w-auto shrink-0 grid-cols-2">
                 <TabsTrigger value="habitats" className="text-xs">
                   Habitats ({habitats.length})
                 </TabsTrigger>
@@ -502,7 +502,7 @@ export function HabitatMappingStep({
               </TabsList>
               <Button
                 size="sm"
-                className="ml-auto"
+                className="ml-auto shrink-0"
                 onClick={() => {
                   setEditingHabitat(null)
                   setDrawnBoundary(null)

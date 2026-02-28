@@ -62,6 +62,7 @@ const surveyFormSchema = z.object({
     'aquatic_survey',
     'botanical_survey',
     'invertebrate_survey',
+    'biodiversity_net_gain',
     'other',
   ]),
   surveyDate: z.date({ message: 'Survey date is required' }),

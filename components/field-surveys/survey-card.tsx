@@ -20,6 +20,7 @@ export type SurveyType =
   | 'aquatic_survey'
   | 'botanical_survey'
   | 'invertebrate_survey'
+  | 'biodiversity_net_gain'
   | 'other'
 
 export interface WeatherData {
@@ -81,6 +82,7 @@ const SURVEY_TYPE_LABELS: Record<SurveyType, string> = {
   aquatic_survey: 'Aquatic Survey',
   botanical_survey: 'Botanical Survey',
   invertebrate_survey: 'Invertebrate Survey',
+  biodiversity_net_gain: 'Biodiversity Net Gain',
   other: 'Other Survey',
 }
 
