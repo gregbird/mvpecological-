@@ -18,6 +18,7 @@ function sanitizeText(text: string): string {
 }
 const CHUNK_TARGET_WORDS = 400
 const CHUNK_MIN_WORDS = 100
+const CHUNK_OVERLAP_WORDS = 50
 
 /** Download a file from Dropbox using content API directly (SDK's filesDownload
  *  relies on res.buffer() which is unavailable with globalThis.fetch in Node 18+) */
@@ -68,18 +69,22 @@ export async function downloadAndExtractText(
   throw new Error(`Unsupported file type: .${extension}`)
 }
 
-/** Split text into chunks of approximately targetWords words */
+/** Split text into overlapping chunks of approximately targetWords words.
+ *  Each chunk includes the last overlapWords from the previous chunk so
+ *  context is not lost at boundaries. */
 export function chunkText(
   text: string,
-  options?: { targetWords?: number; minWords?: number }
+  options?: { targetWords?: number; minWords?: number; overlapWords?: number }
 ): TextChunk[] {
   const targetWords = options?.targetWords ?? CHUNK_TARGET_WORDS
   const minWords = options?.minWords ?? CHUNK_MIN_WORDS
+  const overlapWords = options?.overlapWords ?? CHUNK_OVERLAP_WORDS
 
   // Split by paragraphs (double newline) to preserve natural boundaries
   const paragraphs = text.split(/\n\s*\n/).filter((p) => p.trim().length > 0)
 
-  const chunks: TextChunk[] = []
+  // First pass: group paragraphs into raw (non-overlapping) segments
+  const segments: string[] = []
   let currentContent = ''
   let currentWordCount = 0
 
@@ -88,12 +93,7 @@ export function chunkText(
     const trimmedParagraph = paragraph.trim()
 
     if (currentWordCount + paragraphWords > targetWords && currentWordCount >= minWords) {
-      chunks.push({
-        content: currentContent.trim(),
-        chunkIndex: chunks.length,
-        pageStart: null,
-        pageEnd: null,
-      })
+      segments.push(currentContent.trim())
       currentContent = trimmedParagraph
       currentWordCount = paragraphWords
     } else {
@@ -102,11 +102,24 @@ export function chunkText(
     }
   }
 
-  // Don't lose the last chunk
   if (currentContent.trim().length > 0) {
+    segments.push(currentContent.trim())
+  }
+
+  // Second pass: add overlap from previous segment
+  const chunks: TextChunk[] = []
+  for (let i = 0; i < segments.length; i++) {
+    let content = segments[i]
+
+    if (i > 0 && overlapWords > 0) {
+      const prevWords = segments[i - 1].split(/\s+/)
+      const overlap = prevWords.slice(-overlapWords).join(' ')
+      content = overlap + '\n\n' + content
+    }
+
     chunks.push({
-      content: currentContent.trim(),
-      chunkIndex: chunks.length,
+      content,
+      chunkIndex: i,
       pageStart: null,
       pageEnd: null,
     })

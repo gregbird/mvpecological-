@@ -12,6 +12,7 @@ import {
   ChevronUp,
   CheckCircle2,
   File,
+  Sparkles,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -19,8 +20,8 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { useDocumentSearch } from '@/hooks/queries/use-document-hooks'
 import { useCreateFinding, useSavedFindings } from '@/hooks/queries/use-finding-hooks'
-import { getIndexedDocumentCount } from '@/lib/dropbox/search'
-import type { DocumentSearchResult } from '@/lib/dropbox/search'
+import { getIndexedDocumentCount, getAIAnswer } from '@/lib/dropbox/search'
+import type { DocumentSearchResult, AIAnswerResponse } from '@/lib/dropbox/search'
 import { useRole } from '@/contexts/role-context'
 import { useToast } from '@/hooks/use-toast'
 import type { Project } from '@/types/database'
@@ -81,8 +82,9 @@ function ResultCard({
   onSave: () => void
 }) {
   const [expanded, setExpanded] = React.useState(false)
-  const isLong = result.content.length > 400
-  const displayText = expanded ? result.content : result.content.slice(0, 400)
+  const PREVIEW_LEN = 300
+  const isLong = result.content.length > PREVIEW_LEN
+  const displayText = expanded ? result.content : result.content.slice(0, PREVIEW_LEN)
 
   return (
     <Card className={saved ? 'border-green-200 bg-green-50/50' : ''}>
@@ -160,6 +162,8 @@ export function CompanyReportsSubStep({ project, userId, isActive }: CompanyRepo
   const [debouncedQuery, setDebouncedQuery] = React.useState('')
   const [hasDocuments, setHasDocuments] = React.useState<boolean | null>(null)
   const [savingIds, setSavingIds] = React.useState<Set<string>>(new Set())
+  const [aiAnswer, setAiAnswer] = React.useState<AIAnswerResponse | null>(null)
+  const [aiLoading, setAiLoading] = React.useState(false)
 
   const { user } = useRole()
   const { toast } = useToast()
@@ -178,6 +182,19 @@ export function CompanyReportsSubStep({ project, userId, isActive }: CompanyRepo
     const timer = setTimeout(() => setDebouncedQuery(query), 300)
     return () => clearTimeout(timer)
   }, [query])
+
+  // Fetch AI answer when debounced query changes
+  React.useEffect(() => {
+    if (debouncedQuery.length < 3) {
+      setAiAnswer(null)
+      return
+    }
+    setAiLoading(true)
+    getAIAnswer(debouncedQuery)
+      .then(setAiAnswer)
+      .catch(() => setAiAnswer(null))
+      .finally(() => setAiLoading(false))
+  }, [debouncedQuery])
 
   // Check if organization has indexed documents
   React.useEffect(() => {
@@ -307,6 +324,36 @@ export function CompanyReportsSubStep({ project, userId, isActive }: CompanyRepo
             <Search className="mx-auto mb-2 h-8 w-8 text-gray-300" />
             Search your firm&apos;s previous ecological reports
           </div>
+        )}
+
+        {/* AI Answer */}
+        {debouncedQuery.length >= 3 && (aiLoading || aiAnswer) && (
+          <Card className="mb-4 border-purple-200 bg-purple-50/50">
+            <CardContent className="p-3">
+              <div className="mb-1 flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-purple-600" />
+                <span className="text-sm font-medium text-purple-900">AI Answer</span>
+              </div>
+              {aiLoading ? (
+                <div className="flex items-center gap-2 text-xs text-purple-600">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Analyzing documents...
+                </div>
+              ) : aiAnswer ? (
+                <>
+                  <p className="text-xs leading-relaxed whitespace-pre-wrap text-gray-700">
+                    {aiAnswer.answer}
+                  </p>
+                  {aiAnswer.sources.length > 0 && (
+                    <p className="mt-2 text-xs text-purple-500">
+                      Sources:{' '}
+                      {aiAnswer.sources.map((s) => `${s.fileName} (§${s.section})`).join(', ')}
+                    </p>
+                  )}
+                </>
+              ) : null}
+            </CardContent>
+          </Card>
         )}
 
         {results.length > 0 && (

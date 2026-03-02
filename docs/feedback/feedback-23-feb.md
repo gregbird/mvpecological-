@@ -300,5 +300,4 @@ Tek sayfa, iki tab: `/templates`
 
 _Son güncelleme: 2 Mart 2026_
 
-
-normalde drobbox bağlantısını yapıp tüm docx ve pdf leri parse edip chunklara ayırdım ve vectoral hale getirdim. ardından her chunkı bir vektör veritabanına kaydettim. ve semantic arama ile bulup hem search kısmına hemde data gathering e ekledim ama sonra yeterli bulmadığım için openai bağlantısı yapıp rag kurdum.  
+normalde drobbox bağlantısını yapıp tüm docx ve pdf leri parse edip chunklara ayırdım ve vectoral hale getirdim. ardından her chunkı bir vektör veritabanına kaydettim. ve semantic arama ile bulup hem search kısmına hemde data gathering e ekledim ama sonra yeterli bulmadığım için openai bağlantısı yapıp rag kurdum.

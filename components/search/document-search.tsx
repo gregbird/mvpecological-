@@ -1,12 +1,13 @@
 'use client'
 
 import * as React from 'react'
-import { Search, FileText, Loader2, ChevronDown, ChevronUp, File } from 'lucide-react'
+import { Search, FileText, Loader2, ChevronDown, ChevronUp, File, Sparkles } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useDocumentSearch } from '@/hooks/queries/use-document-hooks'
-import type { DocumentSearchResult } from '@/lib/dropbox/search'
+import { getAIAnswer } from '@/lib/dropbox/search'
+import type { DocumentSearchResult, AIAnswerResponse } from '@/lib/dropbox/search'
 
 interface DocumentSearchProps {
   organizationId: string
@@ -56,8 +57,9 @@ function SearchResultCard({
   searchQuery: string
 }) {
   const [expanded, setExpanded] = React.useState(false)
-  const isLong = result.content.length > 400
-  const displayText = expanded ? result.content : result.content.slice(0, 400)
+  const PREVIEW_LEN = 300
+  const isLong = result.content.length > PREVIEW_LEN
+  const displayText = expanded ? result.content : result.content.slice(0, PREVIEW_LEN)
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4 transition-colors hover:border-emerald-200">
@@ -107,6 +109,8 @@ function SearchResultCard({
 export function DocumentSearch({ organizationId }: DocumentSearchProps) {
   const [query, setQuery] = React.useState('')
   const [debouncedQuery, setDebouncedQuery] = React.useState('')
+  const [aiAnswer, setAiAnswer] = React.useState<AIAnswerResponse | null>(null)
+  const [aiLoading, setAiLoading] = React.useState(false)
 
   // Debounce search input
   React.useEffect(() => {
@@ -119,6 +123,19 @@ export function DocumentSearch({ organizationId }: DocumentSearchProps) {
     isLoading,
     isFetching,
   } = useDocumentSearch(organizationId, debouncedQuery)
+
+  // Fetch AI answer
+  React.useEffect(() => {
+    if (debouncedQuery.length < 3) {
+      setAiAnswer(null)
+      return
+    }
+    setAiLoading(true)
+    getAIAnswer(debouncedQuery)
+      .then(setAiAnswer)
+      .catch(() => setAiAnswer(null))
+      .finally(() => setAiLoading(false))
+  }, [debouncedQuery])
 
   return (
     <Card>
@@ -150,6 +167,34 @@ export function DocumentSearch({ organizationId }: DocumentSearchProps) {
           <div className="py-8 text-center text-sm text-gray-500">
             <Search className="mx-auto mb-2 h-8 w-8 text-gray-300" />
             No results found for &quot;{debouncedQuery}&quot;
+          </div>
+        )}
+
+        {/* AI Answer */}
+        {debouncedQuery.length >= 3 && (aiLoading || aiAnswer) && (
+          <div className="rounded-lg border border-purple-200 bg-purple-50/50 p-4">
+            <div className="mb-1 flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-purple-600" />
+              <span className="text-sm font-medium text-purple-900">AI Answer</span>
+            </div>
+            {aiLoading ? (
+              <div className="flex items-center gap-2 text-sm text-purple-600">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Analyzing documents...
+              </div>
+            ) : aiAnswer ? (
+              <>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap text-gray-700">
+                  {aiAnswer.answer}
+                </p>
+                {aiAnswer.sources.length > 0 && (
+                  <p className="mt-2 text-xs text-purple-500">
+                    Sources:{' '}
+                    {aiAnswer.sources.map((s) => `${s.fileName} (§${s.section})`).join(', ')}
+                  </p>
+                )}
+              </>
+            ) : null}
           </div>
         )}
 

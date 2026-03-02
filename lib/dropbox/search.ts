@@ -37,6 +37,28 @@ export async function searchDocuments(
   return data.results
 }
 
+export interface AIAnswerResponse {
+  answer: string
+  sources: Array<{ fileName: string; section: number }>
+}
+
+/** Ask AI to answer a question based on indexed documents */
+export async function getAIAnswer(query: string): Promise<AIAnswerResponse> {
+  if (!query.trim()) return { answer: '', sources: [] }
+
+  const response = await fetch('/api/dropbox/answer', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
+  })
+
+  if (!response.ok) {
+    return { answer: 'Failed to generate AI answer.', sources: [] }
+  }
+
+  return (await response.json()) as AIAnswerResponse
+}
+
 /** Get indexed document count for an organization */
 export async function getIndexedDocumentCount(organizationId: string): Promise<number> {
   const supabase = createClient()
