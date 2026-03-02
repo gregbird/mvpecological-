@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getReportSectionsForType } from '@/lib/supabase/queries/reports'
 import { jsonToSections } from '@/lib/supabase/queries/templates'
 import { REPORT_TYPES } from '@/lib/config/template-types'
+import { getSectionPrompt, getSectionMaxTokens } from '@/lib/ai/report-section-prompts'
 
 /**
  * AI Report Section Generator API
@@ -130,88 +131,7 @@ interface AquaticResearchData {
   ai_analysis: string | null
 }
 
-// PEA-specific detailed section prompts (used when reportType is 'pea')
-// For other report types, prompts are generated from DEFAULT_SECTIONS_BY_TYPE aiPrompt field
-const PEA_SECTION_PROMPTS: Record<string, string> = {
-  introduction: `Write the Introduction section (~300-400 words). Include:
-1. Project background and purpose of the PEA
-2. Site location using the provided grid reference, county, and townland
-3. Scope of the ecological assessment
-4. Brief overview of relevant legislation (Wildlife Acts 1976-2021, EU Habitats & Birds Directives, European Communities Regulations 2011)
-5. Report structure overview`,
-
-  methodology: `Write the Methodology section (~400-500 words). Include:
-1. **Desk Study** — list all data sources consulted (NPWS, GBIF, NBDC, EPA, Catchments.ie) with specific counts of findings retrieved
-2. **Field Survey** — describe survey types conducted, dates, methods used, weather conditions, and surveyor effort (start/end times)
-3. **Habitat Mapping** — reference Fossitt (2000) classification, survey methods used
-4. **Limitations** — any constraints on the assessment (seasonal, access, weather)
-Reference standard survey guidelines (CIEEM, NRA, Bat Conservation Ireland) where appropriate.`,
-
-  results: `Write the Results section (~1500-2000 words). This is the main findings section combining all ecological data. Structure it with the following sub-headings:
-
-### 3.1 Designated Sites
-- Summary table of all designated sites (SACs, SPAs, NHAs, pNHAs) with distances from site boundary
-- For each site within 2km, describe qualifying interests and conservation status
-- Assess potential connectivity between the project site and designated areas
-- Reference deep research data for conservation summaries and threats where available
-- Note any sites requiring AA Screening consideration
-
-### 3.2 Habitats
-- Summary of all habitat types recorded using Fossitt (2000) codes
-- Description of each habitat: area, condition, notable features
-- Identify any habitats corresponding to EU Habitats Directive Annex I types
-- Note habitat connectivity and ecological corridors
-- Reference any threats identified during surveys
-
-### 3.3 Flora & Invasive Species
-- Plant species recorded during field surveys with DAFOR abundance scores
-- Notable or indicator species, link flora to habitat descriptions
-- Any Flora Protection Order species if present
-- Invasive species observed or recorded in desk study — reference Third Schedule of European Communities (Birds and Natural Habitats) Regulations 2011
-- If no invasive species found, state this clearly but note habitats with potential for colonisation
-
-### 3.4 Fauna
-- Summary of all fauna observations by taxon group
-- Highlight protected species with specific legislation references (Wildlife Acts, Habitats Directive Annex II/IV)
-- Include abundance (DAFOR), evidence type, and confidence level where available
-- Reference behavioural notes where relevant
-- Assess ecological importance of species assemblages
-- Cross-reference with desk study species records
-
-Use markdown sub-headings (###) for each sub-section. Be thorough and evidence-based.`,
-
-  constraints: `Write the Ecological Constraints section (~500-600 words). Include:
-1. **Constraints Table** — create a markdown table with columns: Ecological Receptor | Importance (Local/County/National/International) | Potential Impact | Recommended Action
-2. Assess ecological value using standard criteria: naturalness, rarity, size/extent, diversity, fragility, typicalness
-3. Apply geographic frame of reference for each receptor
-4. Follow the mitigation hierarchy (avoid, minimise, remediate, compensate) for recommended actions
-5. Reference the Zone of Influence concept
-6. Incorporate the ecologist's professional opinion where provided
-7. Include timing constraints and seasonal restrictions for works`,
-
-  discussion: `Write the Discussion & Conclusions section (~500-700 words). Include:
-1. **Synthesis** — key ecological findings from desk study and field surveys
-2. **Potential Impacts** — discuss potential impacts on identified ecological receptors
-3. **Cumulative Effects** — consider cumulative and in-combination effects
-4. **Precautionary Principle** — reference where uncertainty exists
-5. **AA Screening** — identify any triggers for Appropriate Assessment Screening
-6. **Further Surveys** — specify what surveys are needed, target species/habitats, optimal timing
-7. **Enhancement Opportunities** — biodiversity net gain measures and monitoring requirements
-Incorporate the ecologist's professional opinion where provided. Be specific and actionable.`,
-
-  appendices: `Write the Appendices section (~100-200 words). List the appendices that should accompany this report:
-- Appendix A: Site Location Map
-- Appendix B: Habitat Map (reference FOSSITT codes mapped)
-- Appendix C: Species List (reference observation counts)
-- Appendix D: Site Photographs
-- Appendix E: Survey Datasheets
-Add brief descriptions of what each appendix contains based on the available data.`,
-}
-
-// Results section is much longer — use higher token limit
-const SECTION_MAX_TOKENS: Record<string, number> = {
-  results: 4000,
-}
+// AI section prompts are now in lib/ai/report-section-prompts.ts
 
 export async function POST(request: NextRequest) {
   try {
@@ -255,6 +175,7 @@ export async function POST(request: NextRequest) {
       deepResearchResult,
       aquaticResearchResult,
       workflowResult,
+      releveSurveysResult,
     ] = await Promise.all([
       supabase
         .from('projects')
@@ -315,6 +236,12 @@ export async function POST(request: NextRequest) {
         .eq('project_id', projectId)
         .eq('step_number', 3)
         .single(),
+      supabase
+        .from('releve_surveys')
+        .select(
+          'releve_code, habitat_type, soil_type, soil_stability, aspect, slope_degrees, releve_area_sqm, total_vegetation_cover_pct, cover_graminea_pct, cover_forbs_pct, cover_mosses_liverworts_pct, cover_trees_pct, cover_shrubs_pct, cover_litter_pct, cover_bare_soil_pct, cover_bare_rock_pct, cover_open_water_pct, max_height_trees_m, max_height_shrubs_cm, max_height_graminea_cm, max_height_forbs_cm, fauna_observations, releve_comment, id'
+        )
+        .eq('project_id', projectId),
     ])
 
     if (projectResult.error) {
@@ -333,6 +260,21 @@ export async function POST(request: NextRequest) {
       | string
       | undefined
 
+    // Fetch releve species for all releve surveys
+    const releveSurveys = (releveSurveysResult.data || []) as ReleveData[]
+    const releveIds = releveSurveys.map((r) => r.id)
+    let releveSpecies: ReleveSpeciesData[] = []
+    if (releveIds.length > 0) {
+      const { data: speciesData } = await supabase
+        .from('releve_species')
+        .select(
+          'releve_id, species_name_latin, species_name_english, species_cover_domin, species_cover_pct'
+        )
+        .in('releve_id', releveIds)
+        .order('species_name_latin')
+      releveSpecies = (speciesData || []) as ReleveSpeciesData[]
+    }
+
     // Build context
     const context = buildReportContext({
       project,
@@ -344,13 +286,15 @@ export async function POST(request: NextRequest) {
       deepResearch,
       aquaticResearch,
       deskInsights,
+      releveSurveys,
+      releveSpecies,
     })
 
-    // Build section-specific prompt
-    // For PEA, use detailed SECTION_PROMPTS; for other types, use aiPrompt from section definitions
+    // Build section-specific prompt from centralized prompt definitions
     let sectionPrompt: string
-    if (reportType === 'pea' && PEA_SECTION_PROMPTS[sectionId]) {
-      sectionPrompt = PEA_SECTION_PROMPTS[sectionId]
+    const promptConfig = getSectionPrompt(reportType, sectionId)
+    if (promptConfig) {
+      sectionPrompt = promptConfig.prompt
     } else {
       sectionPrompt = `Write the ${sectionDef.title} section. Focus on: ${sectionDef.aiPrompt}.`
     }
@@ -396,7 +340,7 @@ ${context}
 
 Write the section content now. Use markdown formatting (bold, bullet points, tables where appropriate). Do not include the section title as a heading — it will be added separately.`
 
-    const maxTokens = SECTION_MAX_TOKENS[sectionId] ?? 2000
+    const maxTokens = getSectionMaxTokens(reportType, sectionId)
 
     const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -438,6 +382,7 @@ Write the section content now. Use markdown formatting (bold, bullet points, tab
     if (deepResearch.length > 0) dataSources.push('deep_research_results')
     if (aquaticResearch.length > 0) dataSources.push('aquatic_research_results')
     if (deskInsights) dataSources.push('desk_insights')
+    if (releveSurveys.length > 0) dataSources.push('releve_surveys')
 
     return NextResponse.json({
       sectionId,
@@ -458,6 +403,41 @@ Write the section content now. Use markdown formatting (bold, bullet points, tab
   }
 }
 
+interface ReleveData {
+  id: string
+  releve_code: string
+  habitat_type: string | null
+  soil_type: string | null
+  soil_stability: string | null
+  aspect: string | null
+  slope_degrees: number | null
+  releve_area_sqm: number | null
+  total_vegetation_cover_pct: number | null
+  cover_graminea_pct: number | null
+  cover_forbs_pct: number | null
+  cover_mosses_liverworts_pct: number | null
+  cover_trees_pct: number | null
+  cover_shrubs_pct: number | null
+  cover_litter_pct: number | null
+  cover_bare_soil_pct: number | null
+  cover_bare_rock_pct: number | null
+  cover_open_water_pct: number | null
+  max_height_trees_m: number | null
+  max_height_shrubs_cm: number | null
+  max_height_graminea_cm: number | null
+  max_height_forbs_cm: number | null
+  fauna_observations: string | null
+  releve_comment: string | null
+}
+
+interface ReleveSpeciesData {
+  releve_id: string
+  species_name_latin: string
+  species_name_english: string | null
+  species_cover_domin: number | null
+  species_cover_pct: number | null
+}
+
 interface ReportContextInput {
   project: ProjectData
   habitats: HabitatData[]
@@ -468,6 +448,8 @@ interface ReportContextInput {
   deepResearch: DeepResearchData[]
   aquaticResearch: AquaticResearchData[]
   deskInsights?: string
+  releveSurveys: ReleveData[]
+  releveSpecies: ReleveSpeciesData[]
 }
 
 function buildReportContext(input: ReportContextInput): string {
@@ -501,6 +483,23 @@ function buildReportContext(input: ReportContextInput): string {
         if (weather.cloudCover != null) weatherParts.push(`cloud ${weather.cloudCover}%`)
         if (weather.precipitation) weatherParts.push(`${weather.precipitation}`)
         if (weatherParts.length > 0) parts.push(`  Weather: ${weatherParts.join(', ')}`)
+
+        // Include custom template field data
+        const templateFields = weather.templateFields as Record<string, unknown> | undefined
+        if (templateFields && typeof templateFields === 'object') {
+          const fieldParts = Object.entries(templateFields)
+            .filter(([, v]) => v != null && v !== '' && v !== false)
+            .map(([k, v]) => {
+              const label = k
+                .replace(/_/g, ' ')
+                .replace(/([a-z])([A-Z])/g, '$1 $2')
+                .replace(/^\w/, (c) => c.toUpperCase())
+              return `${label}: ${Array.isArray(v) ? v.join(', ') : v}`
+            })
+          if (fieldParts.length > 0) {
+            parts.push(`  Survey data: ${fieldParts.join('; ')}`)
+          }
+        }
       }
       if (s.notes) parts.push(`  Notes: ${s.notes}`)
     }
@@ -567,6 +566,64 @@ function buildReportContext(input: ReportContextInput): string {
     parts.push('No species observations recorded.')
   }
   parts.push('')
+
+  // 4b. Relevé vegetation surveys
+  if (input.releveSurveys.length > 0) {
+    parts.push('# RELEVÉ VEGETATION SURVEYS')
+    parts.push(`Total relevés: ${input.releveSurveys.length}`)
+    for (const r of input.releveSurveys) {
+      parts.push(`\n## Relevé ${r.releve_code}${r.habitat_type ? ` — ${r.habitat_type}` : ''}`)
+      const siteParts: string[] = []
+      if (r.releve_area_sqm != null) siteParts.push(`Area: ${r.releve_area_sqm} sqm`)
+      if (r.soil_type) siteParts.push(`Soil: ${r.soil_type}`)
+      if (r.soil_stability) siteParts.push(`Stability: ${r.soil_stability}`)
+      if (r.slope_degrees != null) siteParts.push(`Slope: ${r.slope_degrees}°`)
+      if (r.aspect) siteParts.push(`Aspect: ${r.aspect}`)
+      if (siteParts.length > 0) parts.push(siteParts.join(' | '))
+
+      const coverParts: string[] = []
+      if (r.total_vegetation_cover_pct != null)
+        coverParts.push(`Total vegetation: ${r.total_vegetation_cover_pct}%`)
+      if (r.cover_graminea_pct != null) coverParts.push(`Graminea: ${r.cover_graminea_pct}%`)
+      if (r.cover_forbs_pct != null) coverParts.push(`Forbs: ${r.cover_forbs_pct}%`)
+      if (r.cover_mosses_liverworts_pct != null)
+        coverParts.push(`Mosses: ${r.cover_mosses_liverworts_pct}%`)
+      if (r.cover_trees_pct != null) coverParts.push(`Trees: ${r.cover_trees_pct}%`)
+      if (r.cover_shrubs_pct != null) coverParts.push(`Shrubs: ${r.cover_shrubs_pct}%`)
+      if (r.cover_bare_soil_pct != null) coverParts.push(`Bare soil: ${r.cover_bare_soil_pct}%`)
+      if (r.cover_bare_rock_pct != null) coverParts.push(`Bare rock: ${r.cover_bare_rock_pct}%`)
+      if (r.cover_litter_pct != null) coverParts.push(`Litter: ${r.cover_litter_pct}%`)
+      if (r.cover_open_water_pct != null) coverParts.push(`Open water: ${r.cover_open_water_pct}%`)
+      if (coverParts.length > 0) parts.push(`Cover: ${coverParts.join(', ')}`)
+
+      const heightParts: string[] = []
+      if (r.max_height_trees_m != null) heightParts.push(`Trees: ${r.max_height_trees_m}m`)
+      if (r.max_height_shrubs_cm != null) heightParts.push(`Shrubs: ${r.max_height_shrubs_cm}cm`)
+      if (r.max_height_graminea_cm != null)
+        heightParts.push(`Graminea: ${r.max_height_graminea_cm}cm`)
+      if (r.max_height_forbs_cm != null) heightParts.push(`Forbs: ${r.max_height_forbs_cm}cm`)
+      if (heightParts.length > 0) parts.push(`Max heights: ${heightParts.join(', ')}`)
+
+      if (r.fauna_observations) parts.push(`Fauna: ${r.fauna_observations}`)
+      if (r.releve_comment) parts.push(`Comment: ${r.releve_comment}`)
+
+      // Species for this releve
+      const species = input.releveSpecies.filter((s) => s.releve_id === r.id)
+      if (species.length > 0) {
+        parts.push(`Species (${species.length} recorded):`)
+        for (const sp of species) {
+          const spParts: string[] = []
+          if (sp.species_name_english) spParts.push(sp.species_name_english)
+          if (sp.species_cover_domin != null) spParts.push(`DOMIN ${sp.species_cover_domin}`)
+          if (sp.species_cover_pct != null) spParts.push(`${sp.species_cover_pct}%`)
+          parts.push(
+            `- ${sp.species_name_latin}${spParts.length > 0 ? ` (${spParts.join(', ')})` : ''}`
+          )
+        }
+      }
+    }
+    parts.push('')
+  }
 
   // 5. Desk research findings
   parts.push('# DESK RESEARCH FINDINGS')

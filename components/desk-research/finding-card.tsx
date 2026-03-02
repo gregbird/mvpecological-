@@ -18,12 +18,21 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
-export type FindingSource = 'npws' | 'gbif' | 'nbdc' | 'epa' | 'catchments' | 'fpo' | 'manual'
+export type FindingSource =
+  | 'npws'
+  | 'gbif'
+  | 'nbdc'
+  | 'epa'
+  | 'catchments'
+  | 'fpo'
+  | 'manual'
+  | 'company_reports'
 export type FindingType =
   | 'designated_site'
   | 'species_record'
   | 'water_quality'
   | 'catchment'
+  | 'company_report'
   | 'other'
 
 export interface DeskResearchFinding {
@@ -87,6 +96,10 @@ const SOURCE_LABELS: Record<FindingSource, { label: string; color: string }> = {
     label: 'Manual',
     color: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100',
   },
+  company_reports: {
+    label: 'Company Reports',
+    color: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-100',
+  },
 }
 
 const TYPE_LABELS: Record<FindingType, string> = {
@@ -94,6 +107,7 @@ const TYPE_LABELS: Record<FindingType, string> = {
   species_record: 'Species Record',
   water_quality: 'Water Quality',
   catchment: 'Catchment',
+  company_report: 'Company Report',
   other: 'Other',
 }
 

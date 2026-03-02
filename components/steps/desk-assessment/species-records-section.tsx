@@ -114,6 +114,7 @@ const SOURCE_COLORS: Record<string, string> = {
   manual: 'bg-gray-100 text-gray-700 border-gray-200',
   epa: 'bg-blue-100 text-blue-800 border-blue-200',
   catchments: 'bg-teal-100 text-teal-800 border-teal-200',
+  company_reports: 'bg-indigo-100 text-indigo-800 border-indigo-200',
 }
 
 const RED_LIST_COLORS: Record<string, string> = {

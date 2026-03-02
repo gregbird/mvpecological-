@@ -39,7 +39,13 @@ interface BufferColorConfig {
 export interface FindingMarker {
   id: string
   title: string
-  dataType: 'designated_site' | 'species_record' | 'water_quality' | 'catchment' | 'other'
+  dataType:
+    | 'designated_site'
+    | 'species_record'
+    | 'water_quality'
+    | 'catchment'
+    | 'company_report'
+    | 'other'
   location: { coordinates: [number, number] } | null // [lng, lat] GeoJSON format
   isProtected?: boolean
   source?: string

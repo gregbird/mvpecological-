@@ -29,7 +29,7 @@ import { useHabitatStats } from '@/hooks/queries/use-habitat-hooks'
 import { useObservationStats } from '@/hooks/queries/use-observation-hooks'
 import { useFindingsStats } from '@/hooks/queries/use-finding-hooks'
 import { useCompleteWorkflowStep, useUpdateWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
-import { PEA_REPORT_SECTIONS, type ReportContent } from '@/lib/supabase/queries/reports'
+import { getReportSectionsForType, type ReportContent } from '@/lib/supabase/queries/reports'
 import type { Project, WorkflowStep, Json } from '@/types/database'
 
 interface QualityReviewStepProps {
@@ -108,7 +108,8 @@ export function QualityReviewStep({
   // Get report content
   const reportContent = report?.content as unknown as ReportContent | undefined
   const completedSections = reportContent?.sections?.filter((s) => s.content).length || 0
-  const totalSections = PEA_REPORT_SECTIONS.length
+  const reportSectionDefs = getReportSectionsForType(project.survey_type || 'pea')
+  const totalSections = reportSectionDefs.length
 
   // Toggle checklist item
   const toggleChecklistItem = (itemId: string) => {

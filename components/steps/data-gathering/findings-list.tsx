@@ -132,6 +132,7 @@ const SOURCE_COLORS: Record<string, string> = {
   epa: 'bg-cyan-100 text-cyan-700',
   fpo: 'bg-rose-100 text-rose-700',
   manual: 'bg-gray-100 text-gray-700',
+  company_reports: 'bg-indigo-100 text-indigo-700',
 }
 
 // Designated site type badge colors (SAC, SPA, NHA, pNHA)

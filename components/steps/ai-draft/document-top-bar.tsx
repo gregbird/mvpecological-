@@ -4,9 +4,9 @@ import { Loader2, Save, Copy, Sparkles, RefreshCw, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import type { ReportSection } from '@/lib/supabase/queries/reports'
-import { PEA_REPORT_SECTIONS } from '@/lib/supabase/queries/reports'
 
 interface DocumentTopBarProps {
+  totalSections: number
   sections: ReportSection[]
   hasContent: boolean
   canComplete: boolean
@@ -22,6 +22,7 @@ interface DocumentTopBarProps {
 }
 
 export function DocumentTopBar({
+  totalSections,
   sections,
   hasContent,
   canComplete,
@@ -36,7 +37,7 @@ export function DocumentTopBar({
   onComplete,
 }: DocumentTopBarProps) {
   const filled = sections.filter((s) => s.content).length
-  const total = PEA_REPORT_SECTIONS.length
+  const total = totalSections
   const progress = (filled / total) * 100
 
   return (

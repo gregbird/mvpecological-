@@ -74,8 +74,15 @@ const SOURCE_DEFAULT_TYPE: Record<string, string> = {
 
 const schema = z.object({
   title: z.string().min(1, 'Title is required'),
-  source: z.enum(['npws', 'gbif', 'nbdc', 'epa', 'catchments', 'manual']),
-  data_type: z.enum(['designated_site', 'species_record', 'water_quality', 'catchment', 'other']),
+  source: z.enum(['npws', 'gbif', 'nbdc', 'epa', 'catchments', 'manual', 'company_reports']),
+  data_type: z.enum([
+    'designated_site',
+    'species_record',
+    'water_quality',
+    'catchment',
+    'company_report',
+    'other',
+  ]),
   relevance_level: z.string().nullable(),
   notes: z.string().nullable(),
 })

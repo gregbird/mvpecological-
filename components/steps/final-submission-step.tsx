@@ -29,7 +29,7 @@ import { useUpdateProject } from '@/hooks/queries/use-project-hooks'
 import { useHabitatStats } from '@/hooks/queries/use-habitat-hooks'
 import { useObservationStats } from '@/hooks/queries/use-observation-hooks'
 import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
-import { PEA_REPORT_SECTIONS, type ReportContent } from '@/lib/supabase/queries/reports'
+import { getReportSectionsForType, type ReportContent } from '@/lib/supabase/queries/reports'
 import type { Project, WorkflowStep } from '@/types/database'
 
 interface FinalSubmissionStepProps {
@@ -379,7 +379,8 @@ export function FinalSubmissionStep({
             <div>
               <p className="text-muted-foreground text-sm">Sections</p>
               <p className="font-medium">
-                {completedSections} / {PEA_REPORT_SECTIONS.length}
+                {completedSections} /{' '}
+                {getReportSectionsForType(project.survey_type || 'pea').length}
               </p>
             </div>
           </div>

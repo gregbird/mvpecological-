@@ -90,6 +90,7 @@ const DATA_SOURCE_LABELS: Record<string, string> = {
   epa: 'EPA',
   catchments: 'Catchments',
   manual: 'Manual',
+  company_reports: 'Company Reports',
 }
 
 function getPhaseInfo(stepNumber: number) {

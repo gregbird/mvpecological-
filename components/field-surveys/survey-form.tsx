@@ -46,6 +46,7 @@ import {
 import { getDefaultFieldsForType, parseTemplateFields } from '@/lib/config/survey-field-definitions'
 import type { SurveyTemplateFields } from '@/lib/config/survey-field-definitions'
 import { TemplateSectionsRenderer } from './survey-template-fields/template-sections-renderer'
+import { PhotoUpload } from '@/components/ui/photo-upload'
 import type { Survey, SurveyType, WeatherData } from './survey-card'
 import type { Profile } from '@/types/database'
 
@@ -100,7 +101,7 @@ export function SurveyForm({
   onOpenChange,
   onSubmit,
   initialData,
-  projectId: _projectId,
+  projectId,
   organizationId,
 }: SurveyFormProps) {
   const [isSubmitting, setIsSubmitting] = React.useState(false)
@@ -110,6 +111,32 @@ export function SurveyForm({
     {}
   )
   const { user } = useRole()
+  const [surveyPhotos, setSurveyPhotos] = React.useState<string[]>([])
+
+  // Load existing photos when editing a survey
+  React.useEffect(() => {
+    if (!open || !initialData?.id) {
+      setSurveyPhotos([])
+      return
+    }
+    const supabase = createClient()
+    supabase
+      .from('photos')
+      .select('storage_path')
+      .eq('survey_id', initialData.id)
+      .order('created_at', { ascending: true })
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          const urls = data.map((p) => {
+            const { data: urlData } = supabase.storage
+              .from('project-photos')
+              .getPublicUrl(p.storage_path)
+            return urlData.publicUrl
+          })
+          setSurveyPhotos(urls)
+        }
+      })
+  }, [open, initialData?.id])
 
   const form = useForm<SurveyFormValues>({
     resolver: zodResolver(surveyFormSchema),
@@ -126,6 +153,24 @@ export function SurveyForm({
       notes: initialData?.notes || '',
     },
   })
+
+  // Reset form when dialog opens with different data (edit vs create)
+  React.useEffect(() => {
+    if (open) {
+      form.reset({
+        surveyType: initialData?.surveyType || 'walkover',
+        surveyDate: initialData?.surveyDate ? new Date(initialData.surveyDate) : new Date(),
+        surveyorId: initialData?.surveyor?.id || '',
+        expectedSurveyCount:
+          initialData?.expectedSurveyCount?.toString() ||
+          (
+            initialData?.weather as Record<string, unknown> | undefined
+          )?.expectedSurveyCount?.toString() ||
+          '',
+        notes: initialData?.notes || '',
+      })
+    }
+  }, [open, initialData, form])
 
   const selectedSurveyType = form.watch('surveyType')
   const orgId = organizationId ?? user?.organization_id
@@ -429,6 +474,21 @@ export function SurveyForm({
                   templateFields={effectiveTemplate}
                   values={templateFieldValues}
                   onChange={handleTemplateFieldChange}
+                />
+              </div>
+            )}
+
+            {/* Photos (only when editing an existing survey) */}
+            {initialData?.id && (
+              <div className="space-y-2 border-t pt-4">
+                <p className="text-sm font-medium text-gray-700">Survey Photos</p>
+                <PhotoUpload
+                  projectId={projectId}
+                  entityType="survey"
+                  entityId={initialData.id}
+                  photos={surveyPhotos}
+                  onPhotosChange={setSurveyPhotos}
+                  maxPhotos={10}
                 />
               </div>
             )}

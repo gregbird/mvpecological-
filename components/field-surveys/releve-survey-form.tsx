@@ -221,7 +221,11 @@ export function ReleveSurveyForm({
         {/* Header actions */}
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold">
-            {existing ? 'Edit Relevé Survey' : 'New Relevé Survey'}
+            {readOnly
+              ? 'Relevé Survey Data'
+              : existing
+                ? 'Edit Relevé Survey'
+                : 'New Relevé Survey'}
           </h3>
           <div className="flex gap-2">
             {!readOnly && <TemplateLoadDropdown form={form} />}

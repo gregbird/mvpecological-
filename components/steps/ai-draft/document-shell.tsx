@@ -1,10 +1,15 @@
 'use client'
 
-import { PEA_REPORT_SECTIONS } from '@/lib/supabase/queries/reports'
 import type { ReportSection } from '@/lib/supabase/queries/reports'
 import { DocumentSection } from './document-section'
 
+interface SectionDef {
+  id: string
+  title: string
+}
+
 interface DocumentShellProps {
+  sectionDefs: SectionDef[]
   sections: ReportSection[]
   generatingSection: string | null
   onGenerate: (sectionId: string) => void
@@ -14,6 +19,7 @@ interface DocumentShellProps {
 }
 
 export function DocumentShell({
+  sectionDefs,
   sections,
   generatingSection,
   onGenerate,
@@ -24,7 +30,7 @@ export function DocumentShell({
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
       <div className="mx-auto max-w-[800px] space-y-6">
-        {PEA_REPORT_SECTIONS.map((templateSection) => {
+        {sectionDefs.map((templateSection) => {
           const section = sections.find((s) => s.id === templateSection.id)
           return (
             <DocumentSection

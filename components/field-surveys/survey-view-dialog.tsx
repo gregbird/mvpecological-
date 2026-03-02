@@ -26,6 +26,8 @@ interface SurveyViewDialogProps {
   projectId?: string
   projectName?: string
   onEdit?: (survey: Survey) => void
+  /** Open the relevé form in edit mode immediately */
+  initialEditMode?: boolean
 }
 
 const SURVEY_TYPE_LABELS: Record<string, string> = {
@@ -80,11 +82,19 @@ export function SurveyViewDialog({
   projectId,
   projectName,
   onEdit,
+  initialEditMode = false,
 }: SurveyViewDialogProps) {
   const statusStyle = STATUS_STYLES[survey.status]
   const isReleve = survey.surveyType === 'releve_survey'
   const [releveEditing, setReleveEditing] = React.useState(false)
   const [surveyPhotos, setSurveyPhotos] = React.useState<string[]>([])
+
+  // Open in edit mode when requested (e.g. Edit button on relevé survey card)
+  React.useEffect(() => {
+    if (open && initialEditMode && isReleve) {
+      setReleveEditing(true)
+    }
+  }, [open, initialEditMode, isReleve])
 
   // Reset edit mode and load photos when dialog opens/closes
   React.useEffect(() => {
@@ -166,7 +176,7 @@ export function SurveyViewDialog({
                 {releveEditing ? 'Edit Relevé Survey' : 'Relevé Survey Details'}
               </DialogTitle>
               <Badge variant={statusStyle.variant}>{statusStyle.label}</Badge>
-              {!releveEditing && survey.status !== 'approved' && (
+              {!releveEditing && survey.status !== 'approved' && releveData && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -184,6 +194,23 @@ export function SurveyViewDialog({
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
                 <span className="text-muted-foreground ml-2 text-sm">Loading survey data...</span>
+              </div>
+            ) : !releveData && !releveEditing ? (
+              <div className="space-y-4 py-8 text-center">
+                <p className="text-muted-foreground text-sm">
+                  No relevé data has been recorded for this survey yet.
+                </p>
+                {survey.status !== 'approved' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                    onClick={() => setReleveEditing(true)}
+                  >
+                    <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                    Start Relevé Survey
+                  </Button>
+                )}
               </div>
             ) : (
               <>
@@ -307,7 +334,7 @@ export function SurveyViewDialog({
                 photos={surveyPhotos}
                 onPhotosChange={setSurveyPhotos}
                 maxPhotos={10}
-                disabled={survey.status === 'approved'}
+                disabled
               />
             </div>
           </>

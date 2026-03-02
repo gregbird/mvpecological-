@@ -159,7 +159,8 @@ export async function createReportVersion(
   content: ReportContent,
   reportType: string,
   generatedBy: string,
-  sourceVersion?: number
+  sourceVersion?: number,
+  versionName?: string
 ): Promise<Report | null> {
   const contentWithMeta: ReportContent = {
     ...content,
@@ -175,7 +176,16 @@ export async function createReportVersion(
     status: 'draft',
     content: contentWithMeta as unknown as Json,
     generated_by: generatedBy,
+    ...(versionName && { version_name: versionName }),
   })
+}
+
+// Update report version name
+export async function updateReportVersionName(
+  reportId: string,
+  versionName: string
+): Promise<Report | null> {
+  return updateReport(reportId, { version_name: versionName })
 }
 
 // Get a specific report version for a project

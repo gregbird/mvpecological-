@@ -6,6 +6,7 @@ import {
   MapPin,
   Bug,
   Droplets,
+  FileText,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -33,6 +34,7 @@ import { DesignatedSitesSubStep } from './data-gathering/designated-sites-subste
 import { SpeciesRecordsSubStep } from './data-gathering/species-records-substep'
 import { AquaticFeaturesSubStep } from './data-gathering/aquatic-features-substep'
 import { ReviewExportSubStep } from './data-gathering/review-export-substep'
+import { CompanyReportsSubStep } from './data-gathering/company-reports-substep'
 
 // Dynamic import for map
 const ProjectMap = dynamic(
@@ -55,7 +57,7 @@ interface DataGatheringStepProps {
 }
 
 // Wizard steps
-type WizardStep = 'info' | 'sites' | 'species' | 'aquatic' | 'review'
+type WizardStep = 'info' | 'sites' | 'species' | 'aquatic' | 'reports' | 'review'
 type ViewMode = 'preview' | 'wizard'
 
 const WIZARD_STEPS: { id: WizardStep; label: string; icon: React.ElementType }[] = [
@@ -63,6 +65,7 @@ const WIZARD_STEPS: { id: WizardStep; label: string; icon: React.ElementType }[]
   { id: 'sites', label: 'Designated Sites', icon: MapPin },
   { id: 'species', label: 'Species Records', icon: Bug },
   { id: 'aquatic', label: 'Aquatic Features', icon: Droplets },
+  { id: 'reports', label: 'Company Reports', icon: FileText },
   { id: 'review', label: 'Review & Export', icon: Check },
 ]
 
@@ -90,7 +93,7 @@ export function DataGatheringStep({
   const [currentStep, setCurrentStep] = React.useState<WizardStep>(() => {
     if (typeof window !== 'undefined') {
       const cached = sessionStorage.getItem(wizardStepCacheKey)
-      if (cached && ['info', 'sites', 'species', 'aquatic', 'review'].includes(cached)) {
+      if (cached && ['info', 'sites', 'species', 'aquatic', 'reports', 'review'].includes(cached)) {
         return cached as WizardStep
       }
     }
@@ -262,7 +265,7 @@ export function DataGatheringStep({
   }
 
   const isComplete = workflowStep.status === 'approved'
-  const isMapMode = currentStep !== 'info' && currentStep !== 'review'
+  const isMapMode = currentStep !== 'info' && currentStep !== 'reports' && currentStep !== 'review'
 
   // Track visited substeps so we keep them mounted (preserves searchResults + map state)
   const [visitedSteps, setVisitedSteps] = React.useState<Set<WizardStep>>(
@@ -806,7 +809,16 @@ export function DataGatheringStep({
           </div>
         )}
 
-        {/* Step 5: Review & Export - simple step, conditional render is fine */}
+        {/* Step 5: Company Reports - text search, conditional render */}
+        {currentStep === 'reports' && (
+          <CompanyReportsSubStep
+            project={project}
+            userId={userId}
+            isActive={currentStep === 'reports'}
+          />
+        )}
+
+        {/* Step 6: Review & Export - simple step, conditional render is fine */}
         {currentStep === 'review' && (
           <ReviewExportSubStep
             project={project}

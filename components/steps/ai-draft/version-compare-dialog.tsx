@@ -16,7 +16,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
-import { PEA_REPORT_SECTIONS, type ReportContent } from '@/lib/supabase/queries/reports'
+import type { ReportContent } from '@/lib/supabase/queries/reports'
 import type { Report } from '@/types/database'
 
 const SectionEditor = dynamic(
@@ -24,7 +24,13 @@ const SectionEditor = dynamic(
   { ssr: false, loading: () => <div className="bg-muted/30 h-24 animate-pulse rounded-md" /> }
 )
 
+interface SectionDef {
+  id: string
+  title: string
+}
+
 interface VersionCompareDialogProps {
+  sectionDefs: SectionDef[]
   open: boolean
   onOpenChange: (open: boolean) => void
   currentReport: Report | null
@@ -51,13 +57,17 @@ const STATUS_BADGE: Record<
   removed: { label: 'Removed', variant: 'destructive' },
 }
 
-function computeDiffs(oldReport: Report | null, newReport: Report | null): SectionDiff[] {
+function computeDiffs(
+  oldReport: Report | null,
+  newReport: Report | null,
+  sectionDefs: SectionDef[]
+): SectionDiff[] {
   const oldContent = oldReport?.content as unknown as ReportContent | null
   const newContent = newReport?.content as unknown as ReportContent | null
   const oldSections = oldContent?.sections ?? []
   const newSections = newContent?.sections ?? []
 
-  return PEA_REPORT_SECTIONS.map((tmpl) => {
+  return sectionDefs.map((tmpl) => {
     const oldSection = oldSections.find((s) => s.id === tmpl.id)
     const newSection = newSections.find((s) => s.id === tmpl.id)
     const oldText = oldSection?.content?.trim() ?? ''
@@ -79,6 +89,7 @@ function computeDiffs(oldReport: Report | null, newReport: Report | null): Secti
 }
 
 export function VersionCompareDialog({
+  sectionDefs,
   open,
   onOpenChange,
   currentReport,
@@ -86,7 +97,7 @@ export function VersionCompareDialog({
 }: VersionCompareDialogProps) {
   if (!currentReport || !compareReport) return null
 
-  const diffs = computeDiffs(compareReport, currentReport)
+  const diffs = computeDiffs(compareReport, currentReport, sectionDefs)
   const changedCount = diffs.filter((d) => d.status !== 'unchanged').length
 
   return (

@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { PEA_REPORT_SECTIONS, type ReportSection } from '@/lib/supabase/queries/reports'
+import type { ReportSection } from '@/lib/supabase/queries/reports'
 import { TableOfContents } from './table-of-contents'
 import { DocumentShell } from './document-shell'
 import { DocumentTopBar } from './document-top-bar'
@@ -9,8 +9,15 @@ import { AssetPanel } from './asset-panel'
 import { VersionHistoryPanel } from './version-history-panel'
 import type { Project, Report } from '@/types/database'
 
+interface SectionDef {
+  id: string
+  title: string
+  aiPrompt: string
+}
+
 interface AIDraftTabProps {
   project: Project
+  sectionDefs: SectionDef[]
   sections: ReportSection[]
   generatingSection: string | null
   hasContent: boolean
@@ -35,6 +42,7 @@ interface AIDraftTabProps {
 
 export function AIDraftTab({
   project,
+  sectionDefs,
   sections,
   generatingSection,
   hasContent,
@@ -57,7 +65,7 @@ export function AIDraftTab({
   onRestoreVersion,
 }: AIDraftTabProps) {
   const [activeSectionId, setActiveSectionId] = React.useState<string | null>(
-    PEA_REPORT_SECTIONS[0]?.id ?? null
+    sectionDefs[0]?.id ?? null
   )
 
   const handleSectionClick = (id: string) => {
@@ -83,6 +91,7 @@ export function AIDraftTab({
 
       {/* Top bar */}
       <DocumentTopBar
+        totalSections={sectionDefs.length}
         sections={sections}
         hasContent={hasContent}
         canComplete={canComplete}
@@ -100,12 +109,13 @@ export function AIDraftTab({
       {/* Three-column layout */}
       <div className="flex min-h-0 flex-1 p-4">
         <TableOfContents
-          sectionDefs={PEA_REPORT_SECTIONS}
+          sectionDefs={sectionDefs}
           sections={sections}
           activeSectionId={activeSectionId}
           onSectionClick={handleSectionClick}
         />
         <DocumentShell
+          sectionDefs={sectionDefs}
           sections={sections}
           generatingSection={generatingSection}
           onGenerate={onGenerate}

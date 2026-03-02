@@ -3,6 +3,7 @@ import {
   getReleveSurveys,
   getReleveSurveyWithSpecies,
   getReleveSurveyBySurveyId,
+  getReleveSpeciesByProject,
   upsertReleveSurvey,
   deleteReleveSurvey,
   getReleveTemplates,
@@ -33,6 +34,14 @@ export function useReleveSurveyBySurveyId(surveyId: string | null) {
     queryKey: ['releve-survey-by-survey', surveyId],
     queryFn: () => getReleveSurveyBySurveyId(surveyId!),
     enabled: !!surveyId,
+  })
+}
+
+export function useReleveSpeciesByProject(projectId: string) {
+  return useQuery({
+    queryKey: ['releve-species-by-project', projectId],
+    queryFn: () => getReleveSpeciesByProject(projectId),
+    enabled: !!projectId,
   })
 }
 

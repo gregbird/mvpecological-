@@ -36,6 +36,12 @@ const navItems = [
     permission: 'canManageTemplates' as keyof RolePermissions,
   },
   {
+    label: 'Search',
+    href: '/search',
+    icon: Search,
+    permission: 'canManageDocuments' as keyof RolePermissions,
+  },
+  {
     label: 'Team Members',
     href: '/team',
     icon: Users,

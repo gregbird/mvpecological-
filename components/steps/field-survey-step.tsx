@@ -6,7 +6,6 @@ import {
   Loader2,
   Check,
   AlertCircle,
-  Info,
   Calendar,
   Bug,
   Waves,
@@ -76,6 +75,7 @@ export function FieldSurveyStep({
   const [topTab, setTopTab] = React.useState<'surveys' | 'photos'>('surveys')
   const [showFindings, setShowFindings] = React.useState(true)
   const [highlightedSurveyId, setHighlightedSurveyId] = React.useState<string | null>(null)
+  const [releveEditOnOpen, setReleveEditOnOpen] = React.useState(false)
   const surveyListRef = React.useRef<HTMLDivElement>(null)
 
   // React Query hooks
@@ -331,7 +331,49 @@ export function FieldSurveyStep({
     }
   }
 
-  // Handle approving a survey
+  // Handle starting a survey (planned → in_progress)
+  const handleStartSurvey = async (survey: SurveyCardType) => {
+    try {
+      await updateSurvey.mutateAsync({
+        surveyId: survey.id,
+        updates: { status: 'in_progress' },
+      })
+
+      toast({
+        title: 'Survey started',
+        description: 'Survey is now in progress.',
+      })
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Error starting survey',
+        description: 'Failed to start the survey.',
+      })
+    }
+  }
+
+  // Handle completing a survey (in_progress → completed)
+  const handleCompleteSurvey = async (survey: SurveyCardType) => {
+    try {
+      await updateSurvey.mutateAsync({
+        surveyId: survey.id,
+        updates: { status: 'completed' },
+      })
+
+      toast({
+        title: 'Survey completed',
+        description: 'Survey has been marked as completed.',
+      })
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Error completing survey',
+        description: 'Failed to complete the survey.',
+      })
+    }
+  }
+
+  // Handle approving a survey (completed → approved)
   const handleApproveSurvey = async (survey: SurveyCardType) => {
     try {
       await updateSurvey.mutateAsync({
@@ -359,8 +401,14 @@ export function FieldSurveyStep({
 
   // Handle opening edit form
   const handleOpenEditForm = (survey: SurveyCardType) => {
-    setEditingSurvey(survey)
-    setShowSurveyForm(true)
+    if (survey.surveyType === 'releve_survey') {
+      // Relevé surveys use their own dedicated form inside the view dialog
+      setViewingSurvey(survey)
+      setReleveEditOnOpen(true)
+    } else {
+      setEditingSurvey(survey)
+      setShowSurveyForm(true)
+    }
   }
 
   // Complete workflow step
@@ -635,84 +683,6 @@ export function FieldSurveyStep({
             </Card>
           </Collapsible>
 
-          {/* Instructions */}
-          <Alert>
-            <Info className="h-4 w-4" />
-            <AlertTitle>Survey Planning</AlertTitle>
-            <AlertDescription>
-              Based on the desk assessment findings above, plan the required field surveys. Schedule
-              surveys for different ecological aspects such as habitat mapping, bat surveys, bird
-              surveys, etc. Each survey will capture species observations and habitat data.
-            </AlertDescription>
-          </Alert>
-
-          {/* Stats */}
-          <div className="grid gap-4 sm:grid-cols-5">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Total Surveys</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {surveyStats?.total || surveysAsCards.length}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Planned</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-blue-600">
-                  {surveyStats?.planned || surveysByStatus.planned.length}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-amber-600">
-                  {surveyStats?.in_progress || surveysByStatus.in_progress.length}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Completed</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">
-                  {surveyStats?.completed || surveysByStatus.completed.length}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Approved</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-purple-600">
-                  {surveyStats?.approved || surveysByStatus.approved.length}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Action Button */}
-          <div className="flex justify-end">
-            <Button
-              onClick={() => {
-                setEditingSurvey(null)
-                setShowSurveyForm(true)
-              }}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Schedule Survey
-            </Button>
-          </div>
-
           {/* Survey List */}
           {surveysAsCards.length === 0 ? (
             <Alert>
@@ -723,14 +693,38 @@ export function FieldSurveyStep({
                 assessment, you may need habitat mapping, species-specific surveys, or general
                 walkover surveys.
               </AlertDescription>
+              <div className="mt-3">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setEditingSurvey(null)
+                    setShowSurveyForm(true)
+                  }}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Schedule Survey
+                </Button>
+              </div>
             </Alert>
           ) : (
             <Card ref={surveyListRef}>
-              <CardHeader>
-                <CardTitle>Survey Schedule</CardTitle>
-                <CardDescription>
-                  Manage and track all field surveys for this project
-                </CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <div>
+                  <CardTitle>Survey Schedule</CardTitle>
+                  <CardDescription>
+                    Manage and track all field surveys for this project
+                  </CardDescription>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setEditingSurvey(null)
+                    setShowSurveyForm(true)
+                  }}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Schedule Survey
+                </Button>
               </CardHeader>
               <CardContent>
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -752,7 +746,7 @@ export function FieldSurveyStep({
 
                   <TabsContent value="all" className="mt-4">
                     <ScrollArea className="h-100">
-                      <div className="grid gap-4 pr-4 md:grid-cols-2">
+                      <div className="grid gap-4 pr-4 sm:grid-cols-2 lg:grid-cols-3">
                         {surveysAsCards.map((survey) => (
                           <SurveyCard
                             key={survey.id}
@@ -760,6 +754,8 @@ export function FieldSurveyStep({
                             onView={handleViewSurvey}
                             onEdit={handleOpenEditForm}
                             onDelete={handleDeleteSurvey}
+                            onStart={handleStartSurvey}
+                            onComplete={handleCompleteSurvey}
                             onApprove={handleApproveSurvey}
                             isHighlighted={survey.id === highlightedSurveyId}
                           />
@@ -776,7 +772,7 @@ export function FieldSurveyStep({
                             No {status.replace('_', ' ')} surveys
                           </div>
                         ) : (
-                          <div className="grid gap-4 pr-4 md:grid-cols-2">
+                          <div className="grid gap-4 pr-4 sm:grid-cols-2 lg:grid-cols-3">
                             {statusSurveys.map((survey) => (
                               <SurveyCard
                                 key={survey.id}
@@ -880,13 +876,18 @@ export function FieldSurveyStep({
             <SurveyViewDialog
               open={!!viewingSurvey}
               onOpenChange={(open) => {
-                if (!open) setViewingSurvey(null)
+                if (!open) {
+                  setViewingSurvey(null)
+                  setReleveEditOnOpen(false)
+                }
               }}
               survey={viewingSurvey}
               projectId={project.id}
               projectName={project.name}
+              initialEditMode={releveEditOnOpen}
               onEdit={(survey) => {
                 setViewingSurvey(null)
+                setReleveEditOnOpen(false)
                 handleOpenEditForm(survey)
               }}
             />

@@ -37,6 +37,7 @@ import { AIDraftTab } from '@/components/steps/ai-draft/ai-draft-tab'
 import { VersionCompareDialog } from '@/components/steps/ai-draft/version-compare-dialog'
 import { VersionViewDialog } from '@/components/steps/ai-draft/version-view-dialog'
 import { RestoreVersionDialog } from '@/components/steps/ai-draft/restore-version-dialog'
+import { ChangeReportTypeDialog } from '@/components/steps/ai-draft/change-report-type-dialog'
 import { REPORT_TYPES } from '@/lib/config/template-types'
 import type { Project, Report, WorkflowStep, Json } from '@/types/database'
 
@@ -60,6 +61,9 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
   const [compareReport, setCompareReport] = React.useState<Report | null>(null)
   const [viewReport, setViewReport] = React.useState<Report | null>(null)
   const [restoreReport, setRestoreReport] = React.useState<Report | null>(null)
+  const [pendingTypeChange, setPendingTypeChange] = React.useState<string | null>(null)
+  // Tracks which report type was set via explicit user switch — prevents template re-fill
+  const [switchedToType, setSwitchedToType] = React.useState<string | null>(null)
 
   const { data: existingReport, isLoading: loadingReport } = useLatestReport(project.id)
   const { data: allReports } = useReports(project.id)
@@ -70,21 +74,83 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
   const completeStep = useCompleteWorkflowStep()
   const updateProject = useUpdateProject()
 
-  const handleReportTypeChange = async (newType: string) => {
+  const handleReportTypeChange = (newType: string) => {
+    if (newType === reportType) return
+    const hasExistingContent = sections.some((s) => s.content)
+    if (hasExistingContent) {
+      setPendingTypeChange(newType)
+    } else {
+      applyReportTypeChange(newType)
+    }
+  }
+
+  const applyReportTypeChange = async (newType: string) => {
+    // Save current content as new version if there's existing content
+    const hasExistingContent = sections.some((s) => s.content)
+    if (hasExistingContent) {
+      const reportContent: ReportContent = {
+        sections,
+        metadata: {
+          generatedAt: new Date().toISOString(),
+          editedAt: new Date().toISOString(),
+          aiModel: 'gpt-4o',
+        },
+      }
+      const currentTypeName = REPORT_TYPES.find((t) => t.id === reportType)?.name ?? reportType
+      try {
+        await createVersion.mutateAsync({
+          projectId: project.id,
+          content: reportContent,
+          reportType: reportType,
+          generatedBy: userId,
+          versionName: `Pre-switch from ${currentTypeName}`,
+        })
+      } catch {
+        toast({
+          variant: 'destructive',
+          title: 'Error saving version',
+          description: 'Failed to save current content before switching type.',
+        })
+        return
+      }
+    }
+
+    // Update project survey_type in DB — mark as type change so useEffect gives empty sections
+    setSwitchedToType(newType)
     setReportType(newType)
+    setPendingTypeChange(null)
     try {
       await updateProject.mutateAsync({
         projectId: project.id,
         updates: { survey_type: newType },
       })
     } catch {
-      // Silently fail — local state is already updated
+      // Local state already updated
     }
   }
 
   // Initialize sections from existing report, org template, or defaults
   React.useEffect(() => {
-    if (existingReport?.content) {
+    // When user explicitly switches report type, keep empty sections until they regenerate
+    if (switchedToType === reportType) {
+      setSections(
+        reportSectionDefs.map((s) => ({
+          id: s.id,
+          title: s.title,
+          content: '',
+          isEdited: false,
+          aiGenerated: false,
+        }))
+      )
+      return
+    }
+
+    const existingMatchesType =
+      existingReport?.report_type === reportType ||
+      // Also accept if the existing report has no report_type (legacy)
+      !existingReport?.report_type
+
+    if (existingReport?.content && existingMatchesType) {
       const content = existingReport.content as unknown as ReportContent
       if (content.sections) {
         // Migrate old 11-section PEA reports to new 6-section structure
@@ -209,7 +275,14 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
         }))
       )
     }
-  }, [existingReport, templateData, reportType, reportSectionDefs, project.organization_id])
+  }, [
+    existingReport,
+    templateData,
+    reportType,
+    reportSectionDefs,
+    project.organization_id,
+    switchedToType,
+  ])
 
   const generateSectionContent = async (sectionId: string) => {
     const section = reportSectionDefs.find((s) => s.id === sectionId)
@@ -315,6 +388,9 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
           generated_by: userId,
         })
       }
+
+      // Clear type-switch guard so future reloads work normally
+      setSwitchedToType(null)
 
       toast({
         title: 'Report saved',
@@ -539,6 +615,7 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
           <div className="border-muted h-full rounded-lg border">
             <AIDraftTab
               project={project}
+              sectionDefs={reportSectionDefs}
               sections={sections}
               generatingSection={generatingSection}
               hasContent={hasContent}
@@ -566,12 +643,14 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
 
       {/* Version Dialogs */}
       <VersionViewDialog
+        sectionDefs={reportSectionDefs}
         open={!!viewReport}
         onOpenChange={(open) => !open && setViewReport(null)}
         report={viewReport}
       />
 
       <VersionCompareDialog
+        sectionDefs={reportSectionDefs}
         open={!!compareReport}
         onOpenChange={(open) => !open && setCompareReport(null)}
         currentReport={existingReport ?? null}
@@ -585,6 +664,20 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
         nextVersion={nextVersion}
         isPending={createVersion.isPending}
         onConfirm={handleRestoreVersion}
+      />
+
+      <ChangeReportTypeDialog
+        open={!!pendingTypeChange}
+        onOpenChange={(open) => !open && setPendingTypeChange(null)}
+        currentTypeName={REPORT_TYPES.find((t) => t.id === reportType)?.name ?? reportType}
+        newTypeName={
+          REPORT_TYPES.find((t) => t.id === pendingTypeChange)?.name ?? pendingTypeChange ?? ''
+        }
+        newSectionCount={pendingTypeChange ? getReportSectionsForType(pendingTypeChange).length : 0}
+        isPending={createVersion.isPending || updateProject.isPending}
+        onConfirm={() => {
+          if (pendingTypeChange) applyReportTypeChange(pendingTypeChange)
+        }}
       />
     </div>
   )

@@ -172,6 +172,28 @@ export async function upsertReleveSurvey(
   return result as unknown as ReleveSurveyRow
 }
 
+/** Get all relevé species for a project (via releve_surveys.project_id) */
+export async function getReleveSpeciesByProject(projectId: string): Promise<ReleveSpeciesRow[]> {
+  const supabase = createClient()
+
+  const { data: releves } = await supabase
+    .from('releve_surveys')
+    .select('id')
+    .eq('project_id', projectId)
+
+  const releveIds = (releves ?? []).map((r) => r.id)
+  if (releveIds.length === 0) return []
+
+  const { data, error } = await supabase
+    .from('releve_species')
+    .select('*')
+    .in('releve_id', releveIds)
+    .order('species_name_latin')
+
+  if (error) throw error
+  return (data ?? []) as unknown as ReleveSpeciesRow[]
+}
+
 /** Delete a relevé survey (cascade deletes species) */
 export async function deleteReleveSurvey(releveId: string): Promise<void> {
   const supabase = createClient()

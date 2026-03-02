@@ -393,6 +393,106 @@ export type Database = {
           },
         ]
       }
+      document_chunks: {
+        Row: {
+          chunk_index: number
+          content: string
+          content_tsv: unknown
+          created_at: string
+          document_id: string
+          id: string
+          page_end: number | null
+          page_start: number | null
+        }
+        Insert: {
+          chunk_index: number
+          content: string
+          content_tsv?: unknown
+          created_at?: string
+          document_id: string
+          id?: string
+          page_end?: number | null
+          page_start?: number | null
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          content_tsv?: unknown
+          created_at?: string
+          document_id?: string
+          id?: string
+          page_end?: number | null
+          page_start?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'document_chunks_document_id_fkey'
+            columns: ['document_id']
+            isOneToOne: false
+            referencedRelation: 'indexed_documents'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      dropbox_connections: {
+        Row: {
+          access_token: string
+          account_email: string
+          account_id: string
+          connected_by: string
+          created_at: string
+          cursor: string | null
+          id: string
+          last_synced_at: string | null
+          organization_id: string
+          refresh_token: string | null
+          root_folder_path: string | null
+          selected_folders: string[] | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          access_token: string
+          account_email: string
+          account_id: string
+          connected_by: string
+          created_at?: string
+          cursor?: string | null
+          id?: string
+          last_synced_at?: string | null
+          organization_id: string
+          refresh_token?: string | null
+          root_folder_path?: string | null
+          selected_folders?: string[] | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string
+          account_email?: string
+          account_id?: string
+          connected_by?: string
+          created_at?: string
+          cursor?: string | null
+          id?: string
+          last_synced_at?: string | null
+          organization_id?: string
+          refresh_token?: string | null
+          root_folder_path?: string | null
+          selected_folders?: string[] | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'dropbox_connections_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       habitat_polygons: {
         Row: {
           area_hectares: number | null
@@ -467,6 +567,75 @@ export type Database = {
             columns: ['survey_id']
             isOneToOne: false
             referencedRelation: 'surveys'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      indexed_documents: {
+        Row: {
+          connection_id: string
+          content_hash: string | null
+          created_at: string
+          dropbox_modified_at: string | null
+          error_message: string | null
+          file_extension: string
+          file_name: string
+          file_path: string
+          file_size: number
+          id: string
+          last_indexed_at: string | null
+          organization_id: string
+          status: string
+          total_chunks: number | null
+          updated_at: string
+        }
+        Insert: {
+          connection_id: string
+          content_hash?: string | null
+          created_at?: string
+          dropbox_modified_at?: string | null
+          error_message?: string | null
+          file_extension: string
+          file_name: string
+          file_path: string
+          file_size?: number
+          id?: string
+          last_indexed_at?: string | null
+          organization_id: string
+          status?: string
+          total_chunks?: number | null
+          updated_at?: string
+        }
+        Update: {
+          connection_id?: string
+          content_hash?: string | null
+          created_at?: string
+          dropbox_modified_at?: string | null
+          error_message?: string | null
+          file_extension?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number
+          id?: string
+          last_indexed_at?: string | null
+          organization_id?: string
+          status?: string
+          total_chunks?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'indexed_documents_connection_id_fkey'
+            columns: ['connection_id']
+            isOneToOne: false
+            referencedRelation: 'dropbox_connections'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'indexed_documents_organization_id_fkey'
+            columns: ['organization_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
             referencedColumns: ['id']
           },
         ]
@@ -1166,6 +1335,7 @@ export type Database = {
           status: Database['public']['Enums']['report_status']
           updated_at: string
           version: number
+          version_name: string | null
         }
         Insert: {
           content?: Json | null
@@ -1178,6 +1348,7 @@ export type Database = {
           status?: Database['public']['Enums']['report_status']
           updated_at?: string
           version?: number
+          version_name?: string | null
         }
         Update: {
           content?: Json | null
@@ -1190,6 +1361,7 @@ export type Database = {
           status?: Database['public']['Enums']['report_status']
           updated_at?: string
           version?: number
+          version_name?: string | null
         }
         Relationships: [
           {
@@ -1996,6 +2168,20 @@ export type Database = {
       }
       postgis_version: { Args: never; Returns: string }
       postgis_wagyu_version: { Args: never; Returns: string }
+      search_document_chunks: {
+        Args: { p_limit?: number; p_organization_id: string; p_query: string }
+        Returns: {
+          chunk_id: string
+          chunk_index: number
+          content: string
+          document_id: string
+          file_name: string
+          file_path: string
+          page_end: number
+          page_start: number
+          rank: number
+        }[]
+      }
       st_3dclosestpoint: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: unknown
@@ -2638,13 +2824,14 @@ export type Database = {
     Enums: {
       audit_action: 'INSERT' | 'UPDATE' | 'DELETE'
       confidence_level: 'high' | 'medium' | 'low' | 'certain' | 'probable' | 'possible'
-      data_source: 'npws' | 'gbif' | 'nbdc' | 'epa' | 'catchments' | 'manual'
+      data_source: 'npws' | 'gbif' | 'nbdc' | 'epa' | 'catchments' | 'manual' | 'company_reports'
       finding_data_type:
         | 'designated_site'
         | 'species_record'
         | 'water_quality'
         | 'catchment'
         | 'other'
+        | 'company_report'
       health_status: 'on_track' | 'at_risk' | 'overdue'
       project_member_role: 'lead' | 'surveyor' | 'analyst' | 'reviewer' | 'viewer'
       project_phase: 'desk_research' | 'field_research' | 'reporting'
@@ -2789,13 +2976,14 @@ export const Constants = {
     Enums: {
       audit_action: ['INSERT', 'UPDATE', 'DELETE'],
       confidence_level: ['high', 'medium', 'low', 'certain', 'probable', 'possible'],
-      data_source: ['npws', 'gbif', 'nbdc', 'epa', 'catchments', 'manual'],
+      data_source: ['npws', 'gbif', 'nbdc', 'epa', 'catchments', 'manual', 'company_reports'],
       finding_data_type: [
         'designated_site',
         'species_record',
         'water_quality',
         'catchment',
         'other',
+        'company_report',
       ],
       health_status: ['on_track', 'at_risk', 'overdue'],
       project_member_role: ['lead', 'surveyor', 'analyst', 'reviewer', 'viewer'],
@@ -2809,6 +2997,8 @@ export const Constants = {
     },
   },
 } as const
+
+// ─── Table Row type aliases ─────────────────────────────────────────
 export type Project = Database['public']['Tables']['projects']['Row']
 export type ProjectInsert = Database['public']['Tables']['projects']['Insert']
 export type ProjectUpdate = Database['public']['Tables']['projects']['Update']
@@ -2873,7 +3063,30 @@ export type AquaticResearchResultInsert =
 export type AquaticResearchResultUpdate =
   Database['public']['Tables']['aquatic_research_results']['Update']
 
-// Enum type aliases
+export type Photo = Database['public']['Tables']['photos']['Row']
+export type PhotoInsert = Database['public']['Tables']['photos']['Insert']
+export type PhotoUpdate = Database['public']['Tables']['photos']['Update']
+
+export type BaselineReportCache = Database['public']['Tables']['baseline_report_cache']['Row']
+export type BaselineReportCacheInsert =
+  Database['public']['Tables']['baseline_report_cache']['Insert']
+export type BaselineReportCacheUpdate =
+  Database['public']['Tables']['baseline_report_cache']['Update']
+
+// New table aliases
+export type DropboxConnection = Database['public']['Tables']['dropbox_connections']['Row']
+export type DropboxConnectionInsert = Database['public']['Tables']['dropbox_connections']['Insert']
+export type DropboxConnectionUpdate = Database['public']['Tables']['dropbox_connections']['Update']
+
+export type IndexedDocument = Database['public']['Tables']['indexed_documents']['Row']
+export type IndexedDocumentInsert = Database['public']['Tables']['indexed_documents']['Insert']
+export type IndexedDocumentUpdate = Database['public']['Tables']['indexed_documents']['Update']
+
+export type DocumentChunk = Database['public']['Tables']['document_chunks']['Row']
+export type DocumentChunkInsert = Database['public']['Tables']['document_chunks']['Insert']
+export type DocumentChunkUpdate = Database['public']['Tables']['document_chunks']['Update']
+
+// ─── Enum type aliases ──────────────────────────────────────────────
 export type UserRole = Database['public']['Enums']['user_role']
 export type ProjectStatus = Database['public']['Enums']['project_status']
 export type ProjectPhase = Database['public']['Enums']['project_phase']
@@ -2888,7 +3101,7 @@ export type ProjectMemberRole = Database['public']['Enums']['project_member_role
 export type ReportStatus = Database['public']['Enums']['report_status']
 export type AuditAction = Database['public']['Enums']['audit_action']
 
-// Target note specific types
+// ─── Custom types ───────────────────────────────────────────────────
 export type TargetNoteCategory =
   | 'access_point'
   | 'check_feature'
@@ -2900,17 +3113,7 @@ export type TargetNoteCategory =
   | 'ownership'
 export type TargetNotePriority = 'high' | 'normal' | 'low'
 
-export type Photo = Database['public']['Tables']['photos']['Row']
-export type PhotoInsert = Database['public']['Tables']['photos']['Insert']
-export type PhotoUpdate = Database['public']['Tables']['photos']['Update']
-
-export type BaselineReportCache = Database['public']['Tables']['baseline_report_cache']['Row']
-export type BaselineReportCacheInsert =
-  Database['public']['Tables']['baseline_report_cache']['Insert']
-export type BaselineReportCacheUpdate =
-  Database['public']['Tables']['baseline_report_cache']['Update']
-
-// Generic helper types for Insert and Update operations
+// ─── Generic helper types ───────────────────────────────────────────
 export type InsertTables<T extends keyof Database['public']['Tables']> =
   Database['public']['Tables'][T]['Insert']
 export type UpdateTables<T extends keyof Database['public']['Tables']> =

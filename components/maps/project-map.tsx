@@ -104,6 +104,7 @@ const FINDING_SOURCE_COLORS: Record<string, string> = {
   epa: '#06b6d4', // Cyan
   fpo: '#dc2626', // Red - Flora Protection Order (always protected)
   manual: '#f59e0b', // Amber
+  company_reports: '#6366f1', // Indigo
 }
 
 /**

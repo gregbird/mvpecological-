@@ -56,11 +56,15 @@ A comprehensive desk study was undertaken to gather existing ecological informat
 
 {{survey_details}}
 
-### 2.3 Habitat Classification
+### 2.3 Relevé Vegetation Surveys
+
+{{releve_details}}
+
+### 2.4 Habitat Classification
 
 Habitats were classified in accordance with **Fossitt (2000)** *A Guide to Habitats in Ireland*, the standard Irish habitat classification system. Habitat mapping was carried out using a combination of aerial photography interpretation and ground-truthing during field surveys.
 
-### 2.4 Limitations
+### 2.5 Limitations
 
 The findings of this assessment are based on the conditions observed at the time of the survey(s) and the data available from desk study sources. Seasonal constraints may affect the detection of certain species groups. Where data gaps are identified, recommendations for further targeted surveys are provided in Section 5.`,
   },

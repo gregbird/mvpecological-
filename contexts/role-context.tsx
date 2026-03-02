@@ -31,6 +31,8 @@ export interface RolePermissions {
   canApproveReport: boolean
   // Template Management
   canManageTemplates: boolean
+  // Document Management
+  canManageDocuments: boolean
 }
 
 const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
@@ -61,6 +63,8 @@ const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canApproveReport: true,
     // Template Management
     canManageTemplates: true,
+    // Document Management
+    canManageDocuments: true,
   },
   assessor: {
     // Project Management
@@ -89,6 +93,8 @@ const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canApproveReport: false,
     // Template Management
     canManageTemplates: false,
+    // Document Management
+    canManageDocuments: false,
   },
   client: {
     // Project Management
@@ -117,6 +123,8 @@ const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canApproveReport: false,
     // Template Management
     canManageTemplates: false,
+    // Document Management
+    canManageDocuments: false,
   },
 }
 
@@ -195,6 +203,8 @@ const DEFAULT_PERMISSIONS: RolePermissions = {
   canApproveReport: false,
   // Template Management
   canManageTemplates: false,
+  // Documents
+  canManageDocuments: false,
 }
 
 export function RoleProvider({ children }: { children: React.ReactNode }) {

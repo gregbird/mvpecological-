@@ -1,7 +1,17 @@
 'use client'
 
 import * as React from 'react'
-import { Calendar, Clock, MapPin, Eye, Pencil, Trash2 } from 'lucide-react'
+import {
+  Calendar,
+  Clock,
+  MapPin,
+  Eye,
+  Pencil,
+  Trash2,
+  Play,
+  CheckCircle2,
+  ShieldCheck,
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -58,6 +68,8 @@ interface SurveyCardProps {
   onView?: (survey: Survey) => void
   onEdit?: (survey: Survey) => void
   onDelete?: (survey: Survey) => void
+  onStart?: (survey: Survey) => void
+  onComplete?: (survey: Survey) => void
   onApprove?: (survey: Survey) => void
   isHighlighted?: boolean
 }
@@ -91,7 +103,9 @@ export function SurveyCard({
   onView,
   onEdit,
   onDelete,
-  onApprove: _onApprove,
+  onStart,
+  onComplete,
+  onApprove,
   isHighlighted,
 }: SurveyCardProps) {
   const statusStyle = STATUS_STYLES[survey.status]
@@ -183,7 +197,36 @@ export function SurveyCard({
         </div>
       </CardContent>
 
-      <CardFooter className="pt-0">
+      <CardFooter className="flex-col gap-2 pt-0">
+        {/* Status transition button */}
+        {survey.status === 'planned' && onStart && (
+          <Button size="sm" className="w-full" onClick={() => onStart(survey)}>
+            <Play className="mr-1.5 h-3.5 w-3.5" />
+            Start Survey
+          </Button>
+        )}
+        {survey.status === 'in_progress' && onComplete && (
+          <Button
+            size="sm"
+            className="w-full bg-green-600 hover:bg-green-700"
+            onClick={() => onComplete(survey)}
+          >
+            <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+            Complete Survey
+          </Button>
+        )}
+        {survey.status === 'completed' && onApprove && (
+          <Button
+            size="sm"
+            className="w-full bg-purple-600 hover:bg-purple-700"
+            onClick={() => onApprove(survey)}
+          >
+            <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+            Approve
+          </Button>
+        )}
+
+        {/* Action buttons */}
         <div className="flex w-full items-center gap-2">
           {onView && (
             <Button variant="outline" size="sm" className="flex-1" onClick={() => onView(survey)}>

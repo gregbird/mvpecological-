@@ -17,7 +17,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
-import { PEA_REPORT_SECTIONS, type ReportContent } from '@/lib/supabase/queries/reports'
+import type { ReportContent } from '@/lib/supabase/queries/reports'
 import type { Report } from '@/types/database'
 
 const SectionEditor = dynamic(
@@ -25,13 +25,24 @@ const SectionEditor = dynamic(
   { ssr: false, loading: () => <div className="bg-muted/30 h-32 animate-pulse rounded-md" /> }
 )
 
+interface SectionDef {
+  id: string
+  title: string
+}
+
 interface VersionViewDialogProps {
+  sectionDefs: SectionDef[]
   open: boolean
   onOpenChange: (open: boolean) => void
   report: Report | null
 }
 
-export function VersionViewDialog({ open, onOpenChange, report }: VersionViewDialogProps) {
+export function VersionViewDialog({
+  sectionDefs,
+  open,
+  onOpenChange,
+  report,
+}: VersionViewDialogProps) {
   if (!report) return null
 
   const content = report.content as unknown as ReportContent | null
@@ -56,12 +67,8 @@ export function VersionViewDialog({ open, onOpenChange, report }: VersionViewDia
         </DialogHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto pr-4">
-          <Accordion
-            type="multiple"
-            defaultValue={PEA_REPORT_SECTIONS.map((s) => s.id)}
-            className="w-full"
-          >
-            {PEA_REPORT_SECTIONS.map((tmpl) => {
+          <Accordion type="multiple" defaultValue={sectionDefs.map((s) => s.id)} className="w-full">
+            {sectionDefs.map((tmpl) => {
               const section = sections.find((s) => s.id === tmpl.id)
               const hasContent = !!section?.content?.trim()
 

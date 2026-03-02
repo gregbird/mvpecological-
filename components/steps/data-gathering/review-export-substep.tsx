@@ -81,6 +81,7 @@ const SOURCE_COLORS: Record<string, string> = {
   epa: 'bg-cyan-100 text-cyan-700',
   catchments: 'bg-cyan-100 text-cyan-700',
   manual: 'bg-gray-100 text-gray-700',
+  company_reports: 'bg-indigo-100 text-indigo-700',
 }
 
 // Data type badge colors
