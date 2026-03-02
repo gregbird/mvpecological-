@@ -400,6 +400,7 @@ export type Database = {
           content_tsv: unknown
           created_at: string
           document_id: string
+          embedding: string | null
           id: string
           page_end: number | null
           page_start: number | null
@@ -410,6 +411,7 @@ export type Database = {
           content_tsv?: unknown
           created_at?: string
           document_id: string
+          embedding?: string | null
           id?: string
           page_end?: number | null
           page_start?: number | null
@@ -420,6 +422,7 @@ export type Database = {
           content_tsv?: unknown
           created_at?: string
           document_id?: string
+          embedding?: string | null
           id?: string
           page_end?: number | null
           page_start?: number | null
@@ -2175,11 +2178,34 @@ export type Database = {
           chunk_index: number
           content: string
           document_id: string
+          file_extension: string
           file_name: string
           file_path: string
           page_end: number
           page_start: number
           rank: number
+          total_chunks: number
+        }[]
+      }
+      search_document_chunks_semantic: {
+        Args: {
+          p_embedding: string
+          p_limit?: number
+          p_match_threshold?: number
+          p_organization_id: string
+        }
+        Returns: {
+          chunk_id: string
+          chunk_index: number
+          content: string
+          document_id: string
+          file_extension: string
+          file_name: string
+          file_path: string
+          page_end: number
+          page_start: number
+          similarity: number
+          total_chunks: number
         }[]
       }
       st_3dclosestpoint: {

@@ -1,5 +1,6 @@
 import pdfParse from 'pdf-parse'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { generateEmbeddingsBatch } from '@/lib/dropbox/embeddings'
 
 export interface TextChunk {
   content: string
@@ -15,8 +16,8 @@ function sanitizeText(text: string): string {
   // eslint-disable-next-line no-control-regex
   return text.replace(/\u0000/g, '')
 }
-const CHUNK_TARGET_WORDS = 1200
-const CHUNK_MIN_WORDS = 200
+const CHUNK_TARGET_WORDS = 400
+const CHUNK_MIN_WORDS = 100
 
 /** Download a file from Dropbox using content API directly (SDK's filesDownload
  *  relies on res.buffer() which is unavailable with globalThis.fetch in Node 18+) */
@@ -29,11 +30,17 @@ export async function downloadAndExtractText(
     throw new Error(`File exceeds ${MAX_FILE_SIZE / 1024 / 1024}MB limit`)
   }
 
+  // Dropbox-API-Arg header only accepts ASCII; escape non-ASCII chars as \uXXXX
+  const dropboxArg = JSON.stringify({ path: filePath }).replace(
+    /[\u0080-\uffff]/g,
+    (ch) => `\\u${ch.charCodeAt(0).toString(16).padStart(4, '0')}`
+  )
+
   const response = await fetch('https://content.dropboxapi.com/2/files/download', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      'Dropbox-API-Arg': JSON.stringify({ path: filePath }),
+      'Dropbox-API-Arg': dropboxArg,
     },
   })
 
@@ -183,6 +190,30 @@ export async function indexDocument(params: {
 
       const { error: chunkError } = await supabase.from('document_chunks').insert(chunkRows)
       if (chunkError) throw new Error(`Failed to insert chunks: ${chunkError.message}`)
+
+      // Generate embeddings and update chunks
+      try {
+        const embeddings = await generateEmbeddingsBatch(chunks.map((c) => c.content))
+
+        // Get inserted chunk IDs in order
+        const { data: insertedChunks } = await supabase
+          .from('document_chunks')
+          .select('id, chunk_index')
+          .eq('document_id', documentId)
+          .order('chunk_index')
+
+        if (insertedChunks) {
+          for (let i = 0; i < insertedChunks.length; i++) {
+            await supabase
+              .from('document_chunks')
+              .update({ embedding: JSON.stringify(embeddings[i]) })
+              .eq('id', insertedChunks[i].id)
+          }
+        }
+      } catch (embeddingError) {
+        // Embedding failure is non-fatal — keyword search still works
+        console.error('Embedding generation failed (non-fatal):', embeddingError)
+      }
     }
 
     // Update document status

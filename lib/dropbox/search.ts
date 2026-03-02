@@ -14,26 +14,27 @@ export interface DocumentSearchResult {
   file_extension: string | null
 }
 
-/** Full-text search across indexed document chunks using PostgreSQL tsvector */
+/** Hybrid search: keyword (tsvector) + semantic (pgvector) via API route */
 export async function searchDocuments(
-  organizationId: string,
+  _organizationId: string,
   query: string,
   limit: number = 20
 ): Promise<DocumentSearchResult[]> {
   if (!query.trim()) return []
 
-  const supabase = createClient()
-  const { data, error } = await supabase.rpc('search_document_chunks', {
-    p_organization_id: organizationId,
-    p_query: query,
-    p_limit: limit,
+  const response = await fetch('/api/dropbox/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, limit }),
   })
 
-  if (error) {
-    throw new Error(`Document search failed: ${error.message}`)
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Search failed' }))
+    throw new Error(errorData.error || 'Search failed')
   }
 
-  return (data ?? []) as DocumentSearchResult[]
+  const data = (await response.json()) as { results: DocumentSearchResult[] }
+  return data.results
 }
 
 /** Get indexed document count for an organization */
