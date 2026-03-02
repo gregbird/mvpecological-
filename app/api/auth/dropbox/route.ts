@@ -1,17 +1,13 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
-import {
-  generateCodeVerifier,
-  generateCodeChallenge,
-  getDropboxAuthUrl,
-} from '@/lib/dropbox/client'
+import { createAuthUrlWithPKCE } from '@/lib/dropbox/client'
 
 export async function GET() {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+
   try {
-    // Check env vars first
-    if (!process.env.DROPBOX_APP_KEY || !process.env.DROPBOX_APP_SECRET) {
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    if (!process.env.DROPBOX_APP_KEY) {
       return NextResponse.redirect(`${baseUrl}/search?error=dropbox_not_configured`)
     }
 
@@ -22,18 +18,14 @@ export async function GET() {
     } = await supabase.auth.getUser()
 
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.redirect(`${baseUrl}/search?error=unauthorized`)
     }
 
-    // Generate PKCE values
-    const codeVerifier = generateCodeVerifier()
-    const codeChallenge = await generateCodeChallenge(codeVerifier)
-
-    // Determine redirect URI
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    // Generate PKCE auth URL using Dropbox SDK
     const redirectUri = `${baseUrl}/api/auth/dropbox/callback`
+    const { authUrl, codeVerifier } = await createAuthUrlWithPKCE(redirectUri, user.id)
 
-    // Store code verifier in cookie (10 min expiry)
+    // Store code verifier in HTTP-only cookie (10 min expiry)
     const cookieStore = await cookies()
     cookieStore.set('dropbox_code_verifier', codeVerifier, {
       httpOnly: true,
@@ -43,12 +35,9 @@ export async function GET() {
       path: '/',
     })
 
-    // Build auth URL and redirect
-    const authUrl = await getDropboxAuthUrl(redirectUri, codeChallenge, user.id)
     return NextResponse.redirect(authUrl)
   } catch (error) {
     console.error('Dropbox auth initiation error:', error)
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     return NextResponse.redirect(`${baseUrl}/search?error=auth_initiation_failed`)
   }
 }

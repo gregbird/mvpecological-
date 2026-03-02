@@ -1,4 +1,4 @@
-import { Dropbox } from 'dropbox'
+import { Dropbox, DropboxAuth } from 'dropbox'
 
 export interface DropboxTokens {
   access_token: string
@@ -6,60 +6,40 @@ export interface DropboxTokens {
   account_id: string
 }
 
-const DROPBOX_AUTH_URL = 'https://www.dropbox.com/oauth2/authorize'
-const DROPBOX_TOKEN_URL = 'https://api.dropboxapi.com/oauth2/token'
-
 function getAppKey(): string {
   const key = process.env.DROPBOX_APP_KEY
   if (!key) throw new Error('Missing DROPBOX_APP_KEY environment variable')
   return key
 }
 
-function getAppSecret(): string {
-  const secret = process.env.DROPBOX_APP_SECRET
-  if (!secret) throw new Error('Missing DROPBOX_APP_SECRET environment variable')
-  return secret
-}
+const DROPBOX_TOKEN_URL = 'https://api.dropboxapi.com/oauth2/token'
 
-/** Generate a random PKCE code verifier */
-export function generateCodeVerifier(): string {
-  const array = new Uint8Array(32)
-  crypto.getRandomValues(array)
-  return Array.from(array, (byte) => byte.toString(36).padStart(2, '0'))
-    .join('')
-    .slice(0, 64)
-}
-
-/** Create PKCE code challenge from verifier */
-export async function generateCodeChallenge(verifier: string): Promise<string> {
-  const encoder = new TextEncoder()
-  const data = encoder.encode(verifier)
-  const digest = await crypto.subtle.digest('SHA-256', data)
-  return btoa(String.fromCharCode(...new Uint8Array(digest)))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '')
-}
-
-/** Build the Dropbox OAuth2 authorization URL */
-export async function getDropboxAuthUrl(
+/** Create a DropboxAuth instance to generate PKCE auth URL + code verifier */
+export async function createAuthUrlWithPKCE(
   redirectUri: string,
-  codeChallenge: string,
   state: string
-): Promise<string> {
-  const params = new URLSearchParams({
-    client_id: getAppKey(),
-    redirect_uri: redirectUri,
-    response_type: 'code',
-    token_access_type: 'offline',
-    code_challenge: codeChallenge,
-    code_challenge_method: 'S256',
-    state,
+): Promise<{ authUrl: string; codeVerifier: string }> {
+  const dbxAuth = new DropboxAuth({
+    clientId: getAppKey(),
+    fetch: globalThis.fetch,
   })
-  return `${DROPBOX_AUTH_URL}?${params.toString()}`
+
+  const authUrl = (await dbxAuth.getAuthenticationUrl(
+    redirectUri,
+    state,
+    'code',
+    'offline',
+    undefined,
+    'none',
+    true // usePKCE
+  )) as unknown as string
+
+  const codeVerifier = dbxAuth.getCodeVerifier()
+
+  return { authUrl, codeVerifier }
 }
 
-/** Exchange authorization code for tokens */
+/** Exchange authorization code for tokens using direct fetch (not SDK, avoids this.fetch bug) */
 export async function exchangeCodeForTokens(
   code: string,
   codeVerifier: string,
@@ -72,7 +52,6 @@ export async function exchangeCodeForTokens(
       code,
       grant_type: 'authorization_code',
       client_id: getAppKey(),
-      client_secret: getAppSecret(),
       redirect_uri: redirectUri,
       code_verifier: codeVerifier,
     }),
@@ -80,19 +59,19 @@ export async function exchangeCodeForTokens(
 
   if (!response.ok) {
     const errorText = await response.text()
-    throw new Error(`Dropbox token exchange failed: ${errorText}`)
+    throw new Error(`Token exchange failed (${response.status}): ${errorText}`)
   }
 
   const data = await response.json()
   return {
     access_token: data.access_token,
-    refresh_token: data.refresh_token,
-    account_id: data.account_id,
+    refresh_token: data.refresh_token ?? '',
+    account_id: data.account_id ?? '',
   }
 }
 
 /** Refresh an expired access token */
-export async function refreshAccessToken(refreshToken: string): Promise<DropboxTokens> {
+export async function refreshAccessToken(refreshToken: string): Promise<string> {
   const response = await fetch(DROPBOX_TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -100,24 +79,19 @@ export async function refreshAccessToken(refreshToken: string): Promise<DropboxT
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
       client_id: getAppKey(),
-      client_secret: getAppSecret(),
     }),
   })
 
   if (!response.ok) {
     const errorText = await response.text()
-    throw new Error(`Dropbox token refresh failed: ${errorText}`)
+    throw new Error(`Token refresh failed (${response.status}): ${errorText}`)
   }
 
   const data = await response.json()
-  return {
-    access_token: data.access_token,
-    refresh_token: refreshToken,
-    account_id: data.account_id ?? '',
-  }
+  return data.access_token
 }
 
 /** Create an authenticated Dropbox SDK client */
 export function createDropboxClient(accessToken: string): Dropbox {
-  return new Dropbox({ accessToken })
+  return new Dropbox({ accessToken, fetch: globalThis.fetch })
 }

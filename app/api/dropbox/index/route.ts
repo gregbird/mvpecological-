@@ -49,11 +49,11 @@ export async function POST(request: NextRequest) {
     let accessToken = connection.access_token
     if (connection.refresh_token) {
       try {
-        const tokens = await refreshAccessToken(connection.refresh_token)
-        accessToken = tokens.access_token
+        const newAccessToken = await refreshAccessToken(connection.refresh_token)
+        accessToken = newAccessToken
         await adminSupabase
           .from('dropbox_connections')
-          .update({ access_token: tokens.access_token })
+          .update({ access_token: newAccessToken })
           .eq('id', connection.id)
       } catch {
         // Use existing token if refresh fails

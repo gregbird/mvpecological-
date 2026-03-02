@@ -69,13 +69,13 @@ export async function GET(request: NextRequest) {
     } catch (err: unknown) {
       // Token expired — try refresh
       if (connection.refresh_token && isAuthError(err)) {
-        const tokens = await refreshAccessToken(connection.refresh_token)
-        accessToken = tokens.access_token
+        const newAccessToken = await refreshAccessToken(connection.refresh_token)
+        accessToken = newAccessToken
 
         // Update stored token
         await adminSupabase
           .from('dropbox_connections')
-          .update({ access_token: tokens.access_token })
+          .update({ access_token: newAccessToken })
           .eq('id', connection.id)
 
         const dbx = createDropboxClient(accessToken)

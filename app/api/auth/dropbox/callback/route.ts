@@ -2,17 +2,25 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { exchangeCodeForTokens } from '@/lib/dropbox/client'
-import { Dropbox } from 'dropbox'
+import { exchangeCodeForTokens, createDropboxClient } from '@/lib/dropbox/client'
 
 export async function GET(request: NextRequest) {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+
   try {
     const { searchParams } = new URL(request.url)
     const code = searchParams.get('code')
-    const state = searchParams.get('state') // user ID
+    const error = searchParams.get('error')
+
+    // Dropbox may redirect with an error
+    if (error) {
+      console.error('Dropbox auth denied:', error)
+      return NextResponse.redirect(`${baseUrl}/search?error=${error}`)
+    }
 
     if (!code) {
-      return NextResponse.redirect(new URL('/search?error=no_code', request.url))
+      console.error('Dropbox callback: no code parameter')
+      return NextResponse.redirect(`${baseUrl}/search?error=no_code`)
     }
 
     // Retrieve code verifier from cookie
@@ -20,7 +28,8 @@ export async function GET(request: NextRequest) {
     const codeVerifier = cookieStore.get('dropbox_code_verifier')?.value
 
     if (!codeVerifier) {
-      return NextResponse.redirect(new URL('/search?error=no_verifier', request.url))
+      console.error('Dropbox callback: code_verifier cookie missing')
+      return NextResponse.redirect(`${baseUrl}/search?error=no_verifier`)
     }
 
     // Clear the cookie
@@ -33,7 +42,8 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (!user) {
-      return NextResponse.redirect(new URL('/search?error=unauthorized', request.url))
+      console.error('Dropbox callback: user not authenticated')
+      return NextResponse.redirect(`${baseUrl}/search?error=unauthorized`)
     }
 
     // Get user profile for organization_id
@@ -44,32 +54,31 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (!profile?.organization_id) {
-      return NextResponse.redirect(new URL('/search?error=no_organization', request.url))
+      console.error('Dropbox callback: no organization for user', user.id)
+      return NextResponse.redirect(`${baseUrl}/search?error=no_organization`)
     }
 
-    // Exchange code for tokens
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    // Exchange code for tokens via SDK PKCE
     const redirectUri = `${baseUrl}/api/auth/dropbox/callback`
     const tokens = await exchangeCodeForTokens(code, codeVerifier, redirectUri)
 
     // Get account email from Dropbox
-    const dbx = new Dropbox({ accessToken: tokens.access_token })
+    const dbx = createDropboxClient(tokens.access_token)
     const accountInfo = await dbx.usersGetCurrentAccount()
     const accountEmail = accountInfo.result.email
 
-    // Store connection using admin client (bypasses RLS for token storage)
+    // Store connection using admin client (bypasses RLS)
     const adminSupabase = createAdminClient()
 
-    // Upsert: update existing connection or create new one
+    // Check for existing connection
     const { data: existing } = await adminSupabase
       .from('dropbox_connections')
       .select('id')
       .eq('organization_id', profile.organization_id)
-      .eq('status', 'connected')
       .maybeSingle()
 
     if (existing) {
-      await adminSupabase
+      const { error: updateError } = await adminSupabase
         .from('dropbox_connections')
         .update({
           access_token: tokens.access_token,
@@ -80,21 +89,32 @@ export async function GET(request: NextRequest) {
           connected_by: user.id,
         })
         .eq('id', existing.id)
+
+      if (updateError) {
+        console.error('Dropbox callback: DB update error:', updateError)
+        return NextResponse.redirect(`${baseUrl}/search?error=db_error`)
+      }
     } else {
-      await adminSupabase.from('dropbox_connections').insert({
+      const { error: insertError } = await adminSupabase.from('dropbox_connections').insert({
         organization_id: profile.organization_id,
         connected_by: user.id,
         access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token ?? '',
+        refresh_token: tokens.refresh_token,
         account_id: tokens.account_id,
         account_email: accountEmail,
         status: 'connected',
       })
+
+      if (insertError) {
+        console.error('Dropbox callback: DB insert error:', insertError)
+        return NextResponse.redirect(`${baseUrl}/search?error=db_error`)
+      }
     }
 
-    return NextResponse.redirect(new URL('/search?connected=true', request.url))
+    return NextResponse.redirect(`${baseUrl}/search?connected=true`)
   } catch (error) {
     console.error('Dropbox callback error:', error)
-    return NextResponse.redirect(new URL('/search?error=callback_failed', request.url))
+    const msg = error instanceof Error ? error.message : 'unknown'
+    return NextResponse.redirect(`${baseUrl}/search?error=${encodeURIComponent(msg.slice(0, 80))}`)
   }
 }
