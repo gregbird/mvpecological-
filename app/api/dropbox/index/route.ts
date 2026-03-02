@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createDropboxClient, refreshAccessToken } from '@/lib/dropbox/client'
+import { refreshAccessToken } from '@/lib/dropbox/client'
 import { indexDocument } from '@/lib/dropbox/indexer'
 
 export async function POST(request: NextRequest) {
@@ -60,38 +60,48 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const dbx = createDropboxClient(accessToken)
-
     // Get file metadata for all requested paths
     const results: Array<{ path: string; status: string; chunks?: number; error?: string }> = []
 
     for (const filePath of filePaths) {
       try {
-        // Get metadata from Dropbox
-        const metaResponse = await dbx.filesGetMetadata({ path: filePath })
-        const meta = metaResponse.result
+        // Get metadata from Dropbox via API directly
+        const metaResponse = await fetch('https://api.dropboxapi.com/2/files/get_metadata', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ path: filePath }),
+        })
+
+        if (!metaResponse.ok) {
+          const errText = await metaResponse.text()
+          throw new Error(`Metadata fetch failed: ${errText}`)
+        }
+
+        const meta = (await metaResponse.json()) as {
+          '.tag': string
+          name: string
+          size: number
+          content_hash?: string
+          server_modified?: string
+        }
 
         if (meta['.tag'] !== 'file') {
           results.push({ path: filePath, status: 'skipped', error: 'Not a file' })
           continue
         }
 
-        const fileMeta = meta as {
-          name: string
-          size: number
-          content_hash: string
-          server_modified: string
-        }
-
         const result = await indexDocument({
-          dbx,
+          accessToken,
           connectionId: connection.id,
           organizationId: profile.organization_id,
           filePath,
-          fileName: fileMeta.name,
-          fileSize: fileMeta.size,
-          contentHash: fileMeta.content_hash ?? '',
-          dropboxModifiedAt: fileMeta.server_modified,
+          fileName: meta.name,
+          fileSize: meta.size,
+          contentHash: meta.content_hash ?? '',
+          dropboxModifiedAt: meta.server_modified ?? '',
         })
 
         results.push({

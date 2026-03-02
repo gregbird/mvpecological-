@@ -10,6 +10,8 @@ export interface DocumentSearchResult {
   page_start: number | null
   page_end: number | null
   rank: number
+  total_chunks: number | null
+  file_extension: string | null
 }
 
 /** Full-text search across indexed document chunks using PostgreSQL tsvector */

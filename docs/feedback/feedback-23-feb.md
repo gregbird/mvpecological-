@@ -72,13 +72,51 @@ Tek sayfa, iki tab: `/templates`
   - AI Draft step'inde rapor tipi seçici dropdown eklendi (`ai-draft-step.tsx`)
   - Survey view dialog'dan edit'e geçiş butonu eklendi
 - [ ] **2.8** (Post-MVP) Custom template upload (DOCX/PDF)
+- [x] **2.9** AI Draft (Step 8) — 10 rapor tipi için uçtan uca destek ✅ (2 Mart 2026)
+  - Önceki durum: Sadece PEA çalışıyordu, diğer 9 tip PEA'nın 6 bölümünü gösteriyordu, AI'a 1 cümle prompt gidiyordu
+  - `lib/ai/report-section-prompts.ts` — 10 rapor tipi için detaylı AI talimatları (~530 satır). Her bölüm İrlanda mevzuatına referanslı, kelime sayısı hedefli, alt başlıklı
+  - `app/api/ai/report-section/route.ts` — PEA-only inline promptlar kaldırıldı, merkezi prompt sistemi kullanılıyor
+  - 8 dosyadan hardcoded `PEA_REPORT_SECTIONS` kaldırıldı (15 referans), dinamik `sectionDefs` prop ile değiştirildi
+  - Her rapor tipi kendi bölüm yapısına sahip (5-8 bölüm arası, tipe göre değişir)
+  - Step 9 (Quality Review) ve Step 10 (Final Submission) da seçilen tipe göre doğru bölüm sayısını gösteriyor
+- [x] **2.10** Rapor tipi değişiminde güvenli geçiş ✅ (2 Mart 2026)
+  - `components/steps/ai-draft/change-report-type-dialog.tsx` — Onay dialogu
+  - İçerik varken tip değiştirilince: onay isteniyor → mevcut içerik versiyon olarak saklanıyor → yeni tip boş bölümlerle açılıyor
+  - İçerik yoksa direkt geçiyor
+  - useEffect'te `existingReport.report_type === reportType` kontrolü — tip değişiminde eski rapor yüklenmiyor
+- [x] **2.11** Versiyon isimlendirme ✅ (2 Mart 2026)
+  - DB: `version_name` kolonu `reports` tablosuna eklendi
+  - `version-history-panel.tsx` — Versiyonlara inline isim verme/düzenleme (kalem ikonu, Enter/Escape)
+  - Tip değişiminde otomatik isim: "Pre-switch from {eski tip}"
+  - Scroll düzeltmesi: 5+ versiyon olduğunda liste scroll edilebiliyor
+- [x] **2.12** Zengin başlangıç şablonları ✅ (2 Mart 2026)
+  - `lib/templates/ecia-template.ts` — 8 bölümlük EcIA şablonu (CIEEM 2018, EIA Directive)
+  - `lib/templates/aa-screening-template.ts` — 6 bölümlük AA Screening şablonu (Article 6(3), source-pathway-receptor)
+  - `lib/templates/nis-template.ts` — 8 bölümlük NIS şablonu (DoEHLG 2010, AA Stage 2 ve NIA için ortak)
+  - `lib/templates/template-renderer.ts` — Zengin şablon registry'si güncellendi (PEA, EcIA, AA Screening, NIS)
+  - Proje verileri (designated sites, habitats, flora, fauna) şablonlara otomatik doluyor
+- [x] **2.13** Survey form/view/edit davranışı düzeltildi ✅ (2 Mart 2026)
+  - Fotoğraf yönetimi View'dan Edit'e taşındı — View'da fotoğraflar artık sadece görüntülenebilir
+  - Relevé'de veri yokken boş form yerine bilgilendirme mesajı gösteriliyor
+  - Edit butonu artık Relevé dahil tüm tiplerde tutarlı: doğrudan ilgili formu açıyor
+  - Form açıldığında farklı survey verisi doğru yükleniyor (sıfırlanma hatası düzeltildi)
+- [x] **2.14** BNG survey tipi Step 4'e tam entegre edildi ✅ (2 Mart 2026)
+  - Varsayılan alanlar: Weather, Site Assessment, Habitat Parcel, Linear Features
+  - Tüm dosyalarda label, Zod schema ve tip tanımları eklendi
+- [x] **2.15** Field Survey step UI sadeleştirildi ✅ (2 Mart 2026)
+  - Bilgilendirme kutusu ve 5 istatistik kartı kaldırıldı
+  - "Schedule Survey" butonu liste başlığının yanına taşındı
+  - Kartlar satırda 3 olarak düzenlendi
+- [x] **2.16** Email paylaşımı eklendi ✅ (2 Mart 2026)
+  - Generic ve Relevé survey view'a Email butonu eklendi (mailto: link)
+- [ ] **2.17** (Post-MVP) Custom template upload (DOCX/PDF)
 
-### Dosya Özeti (14 dosya, ~1951 satır yeni kod)
+### Dosya Özeti (14+12 dosya, ~1951+2100 satır yeni kod)
 
 | Dosya                                                                            | Satır | Durum           |
 | -------------------------------------------------------------------------------- | ----- | --------------- |
 | `lib/config/survey-field-definitions.ts`                                         | 1219  | YENİ            |
-| `lib/config/template-types.ts`                                                   | ~80   | YENİ            |
+| `lib/config/template-types.ts`                                                   | ~540  | GENİŞLETİLDİ    |
 | `app/(dashboard)/templates/page.tsx`                                             | 70    | YENİ            |
 | `components/templates/survey-templates-tab.tsx`                                  | 147   | YENİ            |
 | `components/templates/survey-template-editor.tsx`                                | 264   | YENİDEN YAZILDI |
@@ -91,6 +129,24 @@ Tek sayfa, iki tab: `/templates`
 | `components/field-surveys/survey-template-fields/dynamic-field-renderer.tsx`     | ~100  | YENİ            |
 | `components/field-surveys/survey-template-fields/template-sections-renderer.tsx` | ~120  | YENİ            |
 | `hooks/queries/use-template-management-hooks.ts`                                 | 81    | GENİŞLETİLDİ    |
+| `lib/ai/report-section-prompts.ts`                                               | ~530  | YENİ            |
+| `lib/templates/ecia-template.ts`                                                 | ~180  | YENİ            |
+| `lib/templates/aa-screening-template.ts`                                         | ~150  | YENİ            |
+| `lib/templates/nis-template.ts`                                                  | ~200  | YENİ            |
+| `lib/templates/template-renderer.ts`                                             | ~530  | GENİŞLETİLDİ    |
+| `components/steps/ai-draft/change-report-type-dialog.tsx`                        | ~50   | YENİ            |
+| `components/steps/ai-draft/version-history-panel.tsx`                            | ~250  | GENİŞLETİLDİ    |
+| `components/steps/ai-draft-step.tsx`                                             | ~655  | GENİŞLETİLDİ    |
+| `components/steps/ai-draft/ai-draft-tab.tsx`                                     | ~130  | GENİŞLETİLDİ    |
+| `components/steps/ai-draft/document-shell.tsx`                                   | —     | GENİŞLETİLDİ    |
+| `components/steps/ai-draft/document-top-bar.tsx`                                 | ~110  | GENİŞLETİLDİ    |
+| `components/steps/ai-draft/version-compare-dialog.tsx`                           | —     | GENİŞLETİLDİ    |
+| `components/steps/ai-draft/version-view-dialog.tsx`                              | —     | GENİŞLETİLDİ    |
+| `components/steps/quality-review-step.tsx`                                       | —     | GENİŞLETİLDİ    |
+| `components/steps/final-submission-step.tsx`                                     | —     | GENİŞLETİLDİ    |
+| `app/api/ai/report-section/route.ts`                                             | —     | GENİŞLETİLDİ    |
+| `lib/supabase/queries/reports.ts`                                                | —     | GENİŞLETİLDİ    |
+| `hooks/queries/use-report-hooks.ts`                                              | —     | GENİŞLETİLDİ    |
 
 ---
 
@@ -242,4 +298,4 @@ Tek sayfa, iki tab: `/templates`
 
 ---
 
-_Son güncelleme: 25 Şubat 2026_
+_Son güncelleme: 2 Mart 2026_

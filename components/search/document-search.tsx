@@ -1,14 +1,107 @@
 'use client'
 
 import * as React from 'react'
-import { Search, FileText, Loader2 } from 'lucide-react'
+import { Search, FileText, Loader2, ChevronDown, ChevronUp, File } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useDocumentSearch } from '@/hooks/queries/use-document-hooks'
+import type { DocumentSearchResult } from '@/lib/dropbox/search'
 
 interface DocumentSearchProps {
   organizationId: string
+}
+
+/** Highlight matching terms in text */
+function highlightMatch(text: string, searchQuery: string): React.ReactNode {
+  if (!searchQuery.trim()) return text
+  const words = searchQuery.trim().split(/\s+/)
+  const pattern = new RegExp(
+    `(${words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`,
+    'gi'
+  )
+  const parts = text.split(pattern)
+  return parts.map((part, i) =>
+    pattern.test(part) ? (
+      <mark key={i} className="rounded bg-yellow-200 px-0.5">
+        {part}
+      </mark>
+    ) : (
+      part
+    )
+  )
+}
+
+function ExtensionBadge({ extension }: { extension: string | null }) {
+  if (!extension) return null
+  const isPdf = extension === 'pdf'
+  return (
+    <Badge
+      variant="outline"
+      className={
+        isPdf ? 'border-red-200 bg-red-50 text-red-700' : 'border-blue-200 bg-blue-50 text-blue-700'
+      }
+    >
+      <File className="mr-1 h-3 w-3" />
+      {extension.toUpperCase()}
+    </Badge>
+  )
+}
+
+function SearchResultCard({
+  result,
+  searchQuery,
+}: {
+  result: DocumentSearchResult
+  searchQuery: string
+}) {
+  const [expanded, setExpanded] = React.useState(false)
+  const isLong = result.content.length > 400
+  const displayText = expanded ? result.content : result.content.slice(0, 400)
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-4 transition-colors hover:border-emerald-200">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <FileText className="h-4 w-4 text-blue-500" />
+        <span className="text-sm font-medium text-gray-900">{result.file_name}</span>
+        <ExtensionBadge extension={result.file_extension} />
+        {result.total_chunks != null && result.total_chunks > 1 && (
+          <Badge variant="secondary" className="text-xs">
+            Section {result.chunk_index + 1} of {result.total_chunks}
+          </Badge>
+        )}
+        {result.page_start != null && (
+          <Badge variant="outline" className="text-xs">
+            Page {result.page_start}
+            {result.page_end && result.page_end !== result.page_start ? `-${result.page_end}` : ''}
+          </Badge>
+        )}
+      </div>
+      <p className="text-sm leading-relaxed text-gray-600">
+        {highlightMatch(displayText, searchQuery)}
+        {isLong && !expanded && '...'}
+      </p>
+      {isLong && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="mt-1 flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800"
+        >
+          {expanded ? (
+            <>
+              <ChevronUp className="h-3 w-3" />
+              Show less
+            </>
+          ) : (
+            <>
+              <ChevronDown className="h-3 w-3" />
+              Show more
+            </>
+          )}
+        </button>
+      )}
+      <p className="mt-2 text-xs text-gray-400">{result.file_path}</p>
+    </div>
+  )
 }
 
 export function DocumentSearch({ organizationId }: DocumentSearchProps) {
@@ -26,31 +119,6 @@ export function DocumentSearch({ organizationId }: DocumentSearchProps) {
     isLoading,
     isFetching,
   } = useDocumentSearch(organizationId, debouncedQuery)
-
-  /** Highlight matching terms in text */
-  const highlightMatch = (text: string, searchQuery: string) => {
-    if (!searchQuery.trim()) return text
-    const words = searchQuery.trim().split(/\s+/)
-    const pattern = new RegExp(
-      `(${words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`,
-      'gi'
-    )
-    const parts = text.split(pattern)
-    return parts.map((part, i) =>
-      pattern.test(part) ? (
-        <mark key={i} className="rounded bg-yellow-200 px-0.5">
-          {part}
-        </mark>
-      ) : (
-        part
-      )
-    )
-  }
-
-  const truncateContent = (content: string, maxLength: number = 300) => {
-    if (content.length <= maxLength) return content
-    return content.slice(0, maxLength) + '...'
-  }
 
   return (
     <Card>
@@ -91,30 +159,11 @@ export function DocumentSearch({ organizationId }: DocumentSearchProps) {
               {results.length} result{results.length !== 1 ? 's' : ''} found
             </p>
             {results.map((result) => (
-              <div
+              <SearchResultCard
                 key={result.chunk_id}
-                className="rounded-lg border border-gray-200 bg-white p-4 transition-colors hover:border-emerald-200"
-              >
-                <div className="mb-2 flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-blue-500" />
-                  <span className="text-sm font-medium text-gray-900">{result.file_name}</span>
-                  {result.page_start != null && (
-                    <Badge variant="outline" className="text-xs">
-                      Page {result.page_start}
-                      {result.page_end && result.page_end !== result.page_start
-                        ? `-${result.page_end}`
-                        : ''}
-                    </Badge>
-                  )}
-                  <Badge variant="outline" className="ml-auto text-xs text-gray-500">
-                    Relevance: {(result.rank * 100).toFixed(0)}%
-                  </Badge>
-                </div>
-                <p className="text-sm leading-relaxed text-gray-600">
-                  {highlightMatch(truncateContent(result.content), debouncedQuery)}
-                </p>
-                <p className="mt-1 text-xs text-gray-400">{result.file_path}</p>
-              </div>
+                result={result}
+                searchQuery={debouncedQuery}
+              />
             ))}
           </div>
         )}

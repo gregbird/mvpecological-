@@ -1,5 +1,4 @@
-import type { Dropbox } from 'dropbox'
-import { PDFParse } from 'pdf-parse'
+import pdfParse from 'pdf-parse'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 export interface TextChunk {
@@ -10,12 +9,19 @@ export interface TextChunk {
 }
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
+
+/** Remove null bytes and other invalid Unicode that PostgreSQL rejects */
+function sanitizeText(text: string): string {
+  // eslint-disable-next-line no-control-regex
+  return text.replace(/\u0000/g, '')
+}
 const CHUNK_TARGET_WORDS = 1200
 const CHUNK_MIN_WORDS = 200
 
-/** Download a file from Dropbox and extract its text content */
+/** Download a file from Dropbox using content API directly (SDK's filesDownload
+ *  relies on res.buffer() which is unavailable with globalThis.fetch in Node 18+) */
 export async function downloadAndExtractText(
-  dbx: Dropbox,
+  accessToken: string,
   filePath: string,
   fileSize: number
 ): Promise<{ text: string; extension: string }> {
@@ -23,24 +29,33 @@ export async function downloadAndExtractText(
     throw new Error(`File exceeds ${MAX_FILE_SIZE / 1024 / 1024}MB limit`)
   }
 
-  const response = await dbx.filesDownload({ path: filePath })
-  // The SDK adds fileBinary to the response in Node.js
-  const fileData = response.result as unknown as { fileBinary: Buffer; name: string }
-  const buffer = Buffer.from(fileData.fileBinary)
+  const response = await fetch('https://content.dropboxapi.com/2/files/download', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Dropbox-API-Arg': JSON.stringify({ path: filePath }),
+    },
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Dropbox download failed (${response.status}): ${errorText}`)
+  }
+
+  const arrayBuffer = await response.arrayBuffer()
+  const buffer = Buffer.from(arrayBuffer)
   const extension = filePath.split('.').pop()?.toLowerCase() ?? ''
 
   if (extension === 'pdf') {
-    const parser = new PDFParse({ data: new Uint8Array(buffer) })
-    const textResult = await parser.getText()
-    await parser.destroy()
-    return { text: textResult.text, extension: 'pdf' }
+    const result = await pdfParse(buffer)
+    return { text: sanitizeText(result.text), extension: 'pdf' }
   }
 
   if (extension === 'docx' || extension === 'doc') {
     // Use dynamic import for mammoth (CJS module)
     const mammoth = await import('mammoth')
     const result = await mammoth.extractRawText({ buffer })
-    return { text: result.value, extension: extension === 'doc' ? 'doc' : 'docx' }
+    return { text: sanitizeText(result.value), extension: extension === 'doc' ? 'doc' : 'docx' }
   }
 
   throw new Error(`Unsupported file type: .${extension}`)
@@ -95,7 +110,7 @@ export function chunkText(
 
 /** Full indexing pipeline: download → extract → chunk → store */
 export async function indexDocument(params: {
-  dbx: Dropbox
+  accessToken: string
   connectionId: string
   organizationId: string
   filePath: string
@@ -147,7 +162,11 @@ export async function indexDocument(params: {
 
   try {
     // Extract text
-    const { text } = await downloadAndExtractText(params.dbx, params.filePath, params.fileSize)
+    const { text } = await downloadAndExtractText(
+      params.accessToken,
+      params.filePath,
+      params.fileSize
+    )
 
     // Chunk text
     const chunks = chunkText(text)

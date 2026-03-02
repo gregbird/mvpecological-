@@ -1,7 +1,18 @@
 'use client'
 
 import * as React from 'react'
-import { Search, FileText, Save, Loader2, ExternalLink, BookOpen } from 'lucide-react'
+import {
+  Search,
+  FileText,
+  Save,
+  Loader2,
+  ExternalLink,
+  BookOpen,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
+  File,
+} from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -9,6 +20,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { useDocumentSearch } from '@/hooks/queries/use-document-hooks'
 import { useCreateFinding, useSavedFindings } from '@/hooks/queries/use-finding-hooks'
 import { getIndexedDocumentCount } from '@/lib/dropbox/search'
+import type { DocumentSearchResult } from '@/lib/dropbox/search'
 import { useRole } from '@/contexts/role-context'
 import { useToast } from '@/hooks/use-toast'
 import type { Project } from '@/types/database'
@@ -17,6 +29,130 @@ interface CompanyReportsSubStepProps {
   project: Project
   userId: string
   isActive?: boolean
+}
+
+/** Highlight matching terms in text */
+function highlightMatch(text: string, searchQuery: string): React.ReactNode {
+  if (!searchQuery.trim()) return text
+  const words = searchQuery.trim().split(/\s+/)
+  const pattern = new RegExp(
+    `(${words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`,
+    'gi'
+  )
+  const parts = text.split(pattern)
+  return parts.map((part, i) =>
+    pattern.test(part) ? (
+      <mark key={i} className="rounded bg-yellow-200 px-0.5">
+        {part}
+      </mark>
+    ) : (
+      part
+    )
+  )
+}
+
+function ExtensionBadge({ extension }: { extension: string | null }) {
+  if (!extension) return null
+  const isPdf = extension === 'pdf'
+  return (
+    <Badge
+      variant="outline"
+      className={
+        isPdf ? 'border-red-200 bg-red-50 text-red-700' : 'border-blue-200 bg-blue-50 text-blue-700'
+      }
+    >
+      <File className="mr-1 h-3 w-3" />
+      {extension.toUpperCase()}
+    </Badge>
+  )
+}
+
+function ResultCard({
+  result,
+  searchQuery,
+  saved,
+  saving,
+  onSave,
+}: {
+  result: DocumentSearchResult
+  searchQuery: string
+  saved: boolean
+  saving: boolean
+  onSave: () => void
+}) {
+  const [expanded, setExpanded] = React.useState(false)
+  const isLong = result.content.length > 400
+  const displayText = expanded ? result.content : result.content.slice(0, 400)
+
+  return (
+    <Card className={saved ? 'border-green-200 bg-green-50/50' : ''}>
+      <CardContent className="p-3">
+        {/* Header row */}
+        <div className="mb-2 flex items-start justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <FileText className="h-4 w-4 shrink-0 text-blue-500" />
+            <span className="text-sm font-medium text-gray-900">{result.file_name}</span>
+            <ExtensionBadge extension={result.file_extension} />
+            {result.total_chunks != null && result.total_chunks > 1 && (
+              <Badge variant="secondary" className="text-xs">
+                Section {result.chunk_index + 1} of {result.total_chunks}
+              </Badge>
+            )}
+          </div>
+          <Button
+            variant={saved ? 'ghost' : 'outline'}
+            size="sm"
+            disabled={saved || saving}
+            onClick={onSave}
+            className="shrink-0"
+          >
+            {saving ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : saved ? (
+              <>
+                <CheckCircle2 className="mr-1 h-3 w-3 text-green-600" />
+                Saved
+              </>
+            ) : (
+              <>
+                <Save className="mr-1 h-3 w-3" />
+                Save
+              </>
+            )}
+          </Button>
+        </div>
+
+        {/* Content with highlight */}
+        <p className="text-xs leading-relaxed text-gray-600">
+          {highlightMatch(displayText, searchQuery)}
+          {isLong && !expanded && '...'}
+        </p>
+
+        {/* Expand/collapse */}
+        {isLong && (
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="mt-1 flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800"
+          >
+            {expanded ? (
+              <>
+                <ChevronUp className="h-3 w-3" />
+                Show less
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-3 w-3" />
+                Show more
+              </>
+            )}
+          </button>
+        )}
+
+        {/* Footer: file path */}
+        <p className="mt-2 text-xs text-gray-400">{result.file_path}</p>
+      </CardContent>
+    </Card>
+  )
 }
 
 export function CompanyReportsSubStep({ project, userId, isActive }: CompanyReportsSubStepProps) {
@@ -56,16 +192,7 @@ export function CompanyReportsSubStep({ project, userId, isActive }: CompanyRepo
     })
   }
 
-  const handleSave = async (result: {
-    chunk_id: string
-    document_id: string
-    file_name: string
-    file_path: string
-    content: string
-    page_start: number | null
-    page_end: number | null
-    rank: number
-  }) => {
+  const handleSave = async (result: DocumentSearchResult) => {
     setSavingIds((prev) => new Set(prev).add(result.chunk_id))
     try {
       await createFinding.mutateAsync({
@@ -81,8 +208,11 @@ export function CompanyReportsSubStep({ project, userId, isActive }: CompanyRepo
           documentId: result.document_id,
           fileName: result.file_name,
           filePath: result.file_path,
+          fileExtension: result.file_extension,
           pageStart: result.page_start,
           pageEnd: result.page_end,
+          chunkIndex: result.chunk_index,
+          totalChunks: result.total_chunks,
           rank: result.rank,
           searchQuery: debouncedQuery,
         },
@@ -184,53 +314,16 @@ export function CompanyReportsSubStep({ project, userId, isActive }: CompanyRepo
             <p className="text-xs text-gray-500">
               {results.length} result{results.length !== 1 ? 's' : ''}
             </p>
-            {results.map((result) => {
-              const saved = isAlreadySaved(result.chunk_id)
-              const saving = savingIds.has(result.chunk_id)
-              return (
-                <Card
-                  key={result.chunk_id}
-                  className={saved ? 'border-green-200 bg-green-50/50' : ''}
-                >
-                  <CardContent className="p-3">
-                    <div className="mb-2 flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 shrink-0 text-blue-500" />
-                        <span className="text-sm font-medium text-gray-900">
-                          {result.file_name}
-                        </span>
-                        {result.page_start != null && (
-                          <Badge variant="outline" className="text-xs">
-                            p.{result.page_start}
-                          </Badge>
-                        )}
-                      </div>
-                      <Button
-                        variant={saved ? 'ghost' : 'outline'}
-                        size="sm"
-                        disabled={saved || saving}
-                        onClick={() => handleSave(result)}
-                        className="shrink-0"
-                      >
-                        {saving ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : saved ? (
-                          <>Saved</>
-                        ) : (
-                          <>
-                            <Save className="mr-1 h-3 w-3" />
-                            Save
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                    <p className="line-clamp-3 text-xs leading-relaxed text-gray-600">
-                      {result.content.slice(0, 300)}
-                    </p>
-                  </CardContent>
-                </Card>
-              )
-            })}
+            {results.map((result) => (
+              <ResultCard
+                key={result.chunk_id}
+                result={result}
+                searchQuery={debouncedQuery}
+                saved={isAlreadySaved(result.chunk_id)}
+                saving={savingIds.has(result.chunk_id)}
+                onSave={() => handleSave(result)}
+              />
+            ))}
           </div>
         )}
       </div>
