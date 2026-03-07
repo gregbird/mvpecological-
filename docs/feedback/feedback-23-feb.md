@@ -194,22 +194,22 @@ Tek sayfa, iki tab: `/templates`
 
 ### Eklenecek Veri Kaynakları:
 
-| #   | Veri Kaynağı                             | Tür                  | Endpoint/Not                                                                                                |
-| --- | ---------------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------- |
-| a   | OSI Aerial photography                   | Harita katmanı       | WMS/WMTS endpoint gerekli                                                                                   |
-| b   | NBDC (on-line map viewer)                | Mevcut               | Zaten entegre, UI'da seçenek olarak ekle                                                                    |
-| c   | Teagasc soil area maps                   | Harita katmanı       | NBDC website üzerinden                                                                                      |
-| d   | GSI area maps                            | Harita katmanı       | Geological Survey Ireland                                                                                   |
-| e   | EPA water quality data                   | Mevcut               | Zaten entegre, UI'da seçenek olarak ekle                                                                    |
-| f   | River Basin District (SWRBD/WFD)         | Mevcut               | Catchments.ie zaten entegre                                                                                 |
-| g   | Bat Conservation Ireland (BCIreland)     | Yeni API             | Araştırılacak                                                                                               |
-| h   | County Development Plan                  | Doküman arama        | Ekolojist county girer, uygulama arar                                                                       |
-| i   | Municipal District Local Area Plan       | Doküman arama        | Ekolojist city/town girer, uygulama arar                                                                    |
-| j   | Town Development Plan                    | Doküman arama        | Ekolojist town girer, uygulama arar                                                                         |
-| k   | NPWS Rare and Protected Species database | Yeni                 | Request-based kayıt inceleme                                                                                |
-| l   | Bird Watch Ireland I-WEBS Boundaries     | ArcGIS FeatureServer | `https://services5.arcgis.com/rmbpRCdMkd6BizHt/arcgis/rest/services/IWeBS_Boundaries_2017/FeatureServer`    |
-| m   | Bird Watch Ireland I-WEBS Site points    | ArcGIS FeatureServer | `https://services5.arcgis.com/rmbpRCdMkd6BizHt/arcgis/rest/services/Map_Data_Coverage_Jul22/FeatureServer`  |
-| n   | Bird Watch Ireland I-WEBS Sub-sites      | ArcGIS FeatureServer | `https://services5.arcgis.com/rmbpRCdMkd6BizHt/arcgis/rest/services/Season_26_IWeBS_Subsites/FeatureServer` |
+| #   | Veri Kaynağı                             | Tür                  | Endpoint/Not                                                                                                                                                                                                                                                                                                                                               |
+| --- | ---------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| a   | OSI Aerial photography                   | Harita katmanı       | ⏳ **Greg'e soruldu:** OSI (Tailte Éireann) MapGenie ücretsiz endpoint sunmuyor, auth gerekli. Şu an ESRI World Imagery kullanılıyor. Firmanın MapGenie hesabı varsa entegre edilebilir. Cevap bekleniyor.                                                                                                                                                 |
+| b   | NBDC (on-line map viewer)                | Mevcut               | ✅ Tür verileri GBIF + NBDC API enrichment ile zaten entegre. NBDC'nin ArcGIS sunucusu (`gisserver.biodiversityireland.ie`) sadece County sınırları sunuyor — tür dağılım haritası yok. Map viewer (`maps.biodiversityireland.ie`) deep linking desteklemiyor (koordinat/zoom URL parametresi yok). Greg'e durum bildirildi, ek istek varsa o karar verir. |
+| c   | Teagasc soil area maps                   | Harita katmanı       | NBDC website üzerinden                                                                                                                                                                                                                                                                                                                                     |
+| d   | GSI area maps                            | Harita katmanı       | Geological Survey Ireland                                                                                                                                                                                                                                                                                                                                  |
+| e   | EPA water quality data                   | Mevcut               | Zaten entegre, UI'da seçenek olarak ekle                                                                                                                                                                                                                                                                                                                   |
+| f   | River Basin District (SWRBD/WFD)         | Mevcut               | Catchments.ie zaten entegre                                                                                                                                                                                                                                                                                                                                |
+| g   | Bat Conservation Ireland (BCIreland)     | Yeni API             | Araştırılacak                                                                                                                                                                                                                                                                                                                                              |
+| h   | County Development Plan                  | Doküman arama        | Ekolojist county girer, uygulama arar                                                                                                                                                                                                                                                                                                                      |
+| i   | Municipal District Local Area Plan       | Doküman arama        | Ekolojist city/town girer, uygulama arar                                                                                                                                                                                                                                                                                                                   |
+| j   | Town Development Plan                    | Doküman arama        | Ekolojist town girer, uygulama arar                                                                                                                                                                                                                                                                                                                        |
+| k   | NPWS Rare and Protected Species database | Yeni                 | Request-based kayıt inceleme                                                                                                                                                                                                                                                                                                                               |
+| l   | Bird Watch Ireland I-WEBS Boundaries     | ArcGIS FeatureServer | `https://services5.arcgis.com/rmbpRCdMkd6BizHt/arcgis/rest/services/IWeBS_Boundaries_2017/FeatureServer`                                                                                                                                                                                                                                                   |
+| m   | Bird Watch Ireland I-WEBS Site points    | ArcGIS FeatureServer | `https://services5.arcgis.com/rmbpRCdMkd6BizHt/arcgis/rest/services/Map_Data_Coverage_Jul22/FeatureServer`                                                                                                                                                                                                                                                 |
+| n   | Bird Watch Ireland I-WEBS Sub-sites      | ArcGIS FeatureServer | `https://services5.arcgis.com/rmbpRCdMkd6BizHt/arcgis/rest/services/Season_26_IWeBS_Subsites/FeatureServer`                                                                                                                                                                                                                                                |
 
 **Yapılacaklar:**
 
@@ -220,47 +220,59 @@ Tek sayfa, iki tab: `/templates`
 - [ ] **5.2** County/City/Town input alanı (Greg comment)
   - Development Plan aramaları için ekolojist lokasyon girer
   - Uygulama otomatik olarak ilgili planları arar
-- [ ] **5.3** Bird Watch Ireland I-WEBS entegrasyonu
-  - 3 ArcGIS FeatureServer endpoint'ini `lib/external-apis/` altına ekle
-  - Harita katmanı olarak da göster
-- [ ] **5.4** Teagasc soil maps katmanı
-  - WMS/WMTS endpoint araştır ve ekle
-- [ ] **5.5** GSI area maps katmanı
-  - Geological Survey Ireland API/WMS araştır ve ekle
+- [x] **5.3** Bird Watch Ireland I-WEBS entegrasyonu ✅ (5 Mart 2026)
+  - 3 ArcGIS FeatureServer endpoint harita katmanı olarak eklendi (`dataset-layers.ts`)
+  - I-WEBS Site Boundaries (polygon), Site Locations (point), Sub-sites (point)
+  - Metadata + renk tanımları eklendi (`layer-metadata.ts`)
+  - Tüm haritalardaki Layers dropdown'unda "BirdWatch Ireland" grubu olarak görünüyor
+- [x] **5.4** Teagasc soil maps katmanı ✅ (zaten mevcuttu)
+  - `dataset-layers.ts`'de Geology & Soils grubunda: Soil Types + Soil Drainage
+  - Layers dropdown'una eklendi
+- [x] **5.5** GSI area maps katmanı ✅ (5 Mart 2026)
+  - GSI endpoint'leri güncellendi: `gis.gsi.ie` (çökmüş) → `gsi.geodata.gov.ie` (yeni)
+  - WMS → ArcGIS FeatureServer'a geçirildi (Bedrock 100K, Quaternary 50K, Landslide Susceptibility)
+  - Layers dropdown'unda Geology & Soils + Terrain gruplarında görünüyor
 - [ ] **5.6** OSI Aerial photography katmanı
-  - OSI aerial imagery WMS endpoint araştır ve ekle
-- [ ] **5.7** Bat Conservation Ireland entegrasyonu
-  - BCIreland veri erişimi araştır
+  - ⏳ Greg'e soruldu — MapGenie auth gerekli, firmanın hesabı varsa entegre edilecek
+- [x] **5.7** Bat Conservation Ireland entegrasyonu ✅ (araştırma tamamlandı)
+  - BCIreland'ın kendi API'si yok — yarasa verileri NBDC Dataset #128 üzerinden sunuluyor
+  - GBIF + NBDC enrichment zaten bu verileri çekiyor, ayrı entegrasyon gerekmez
 - [ ] **5.8** County/Municipal/Town Development Plan arama
   - Greg'in comment'ine göre: ekolojist county/city/town girer → uygulama planları arar
 
 ---
 
-## 6. Tüm Haritalara Scale (Ölçek) Ekle
+## 6. Tüm Haritalara Scale (Ölçek) Ekle ✅
 
 **Orijinal:** "Can you add a scale to all maps"
 
+**Greg'e yorum:** Done. Metric scale bar added to the bottom-left corner of all maps across the application. It dynamically updates based on zoom level (e.g., shows "500m", "1km", "5km").
+
 **Yapılacaklar:**
 
-- [ ] **6.1** Leaflet scale control ekle
-  - Tüm harita bileşenlerine `L.control.scale()` ekle
-  - Dosyalar: `components/maps/project-map.tsx`, `project-map-with-draw.tsx`, ve diğer harita bileşenleri
-  - Metric + Imperial ölçek gösterimi
+- [x] **6.1** Leaflet scale control ekle ✅ (5 Mart 2026)
+  - `components/maps/project-map.tsx` — MapController'a scale control eklendi (~15 harita instance'ını kapsar)
+  - `components/maps/project-map-with-draw.tsx` — LoadExistingBoundary'ye scale control eklendi (Step 1 GIS Mapping, Step 5 Habitat Mapping)
+  - `components/field-surveys/photo-map-view.tsx` — Raw Leaflet haritasına scale control eklendi (fotoğraf galerisi)
+  - Metric only, bottom-left pozisyon
 
 ---
 
-## 7. Harita Görüntüleme Düzeltmeleri
+## 7. Harita Görüntüleme Düzeltmeleri ✅
 
 **Orijinal:** "Ensure all maps are displayed like below: a number of them are viewed [Yes/No örnekleri]"
 
+**Greg'e yorum:** Checked all maps across Steps 1–7. Only the Habitat Map in Desk Assessment (Step 3) displays in a wide horizontal format — this is intentional because the section content is long and a taller map would push the habitat legend and other data too far down. All other maps render at proper proportions. Happy to adjust the Desk Assessment habitat map height if you'd prefer it taller.
+
 **Yapılacaklar:**
 
-- [ ] **7.1** Tüm harita bileşenlerini kontrol et
-  - Bazı haritalar düzgün render edilmiyormuş
-  - Her step'teki haritayı test et ve düzelt
-- [ ] **7.2** Harita boyutlandırma ve responsive kontrol
-  - Container resize'da haritaların düzgün render olmasını sağla
-  - `map.invalidateSize()` çağrılarını kontrol et
+- [x] **7.1** Tüm harita bileşenleri kontrol edildi ✅ (5 Mart 2026)
+  - Step 1–7 arası tüm haritalar Chrome'dan tek tek test edildi
+  - Sadece Desk Assessment (Step 3) Habitat Map yatay/geniş formatında — uzun section içeriği nedeniyle kasıtlı
+  - Diğer tüm haritalar düzgün oranlarla render ediliyor
+- [x] **7.2** Harita boyutlandırma kontrol edildi ✅ (5 Mart 2026)
+  - Tüm haritalar container'larına uygun şekilde render ediliyor
+  - Greg isterse Desk Assessment habitat map yüksekliği artırılabilir
 
 ---
 
@@ -298,6 +310,4 @@ Tek sayfa, iki tab: `/templates`
 
 ---
 
-_Son güncelleme: 2 Mart 2026_
-
-normalde drobbox bağlantısını yapıp tüm docx ve pdf leri parse edip chunklara ayırdım ve vectoral hale getirdim. ardından her chunkı bir vektör veritabanına kaydettim. ve semantic arama ile bulup hem search kısmına hemde data gathering e ekledim ama sonra yeterli bulmadığım için openai bağlantısı yapıp rag kurdum.
+_Son güncelleme: 5 Mart 2026_

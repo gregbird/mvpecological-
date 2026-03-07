@@ -81,6 +81,9 @@ export function useEPALayers(
   // Calculate bounding box from boundary with buffer
   const getBoundingBox = React.useCallback(
     (feature: GeoJSON.Feature<GeoJSON.Polygon>) => {
+      if (!feature?.geometry?.coordinates?.[0]) {
+        return null
+      }
       const coords = feature.geometry.coordinates[0]
       let minLng = Infinity,
         maxLng = -Infinity,
@@ -123,6 +126,7 @@ export function useEPALayers(
       setIsLoading(true)
       try {
         const bbox = getBoundingBox(boundary)
+        if (!bbox) return
         const bboxParams = {
           bbox: {
             minLat: bbox.minLat,
@@ -169,7 +173,7 @@ export function useEPALayers(
 
   // Render layers on map
   React.useEffect(() => {
-    if (!map) return
+    if (!map || !map.getPane('overlayPane')) return
 
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const L = require('leaflet')

@@ -176,8 +176,9 @@ function MapComponent({
   onMapClick?: (latlng?: { lat: number; lng: number }) => void
   mapRef: React.MutableRefObject<LeafletMap | null>
 }) {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { MapContainer, TileLayer, GeoJSON, CircleMarker, Popup, useMap } = require('react-leaflet')
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- react-leaflet must be client-side only
+  const rl = require('react-leaflet')
+  const { MapContainer, TileLayer, WMSTileLayer, GeoJSON, CircleMarker, Popup, useMap } = rl
 
   const boundaryLayer = layers.find((l) => l.id === 'boundary')
   const habitatLayer = layers.find((l) => l.id === 'habitats')
@@ -254,6 +255,18 @@ function MapComponent({
     onMapClick?: (latlng?: { lat: number; lng: number }) => void
   }) {
     const map = useMap()
+
+    // Add scale control
+    React.useEffect(() => {
+      if (!map) return
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const leaflet = require('leaflet')
+      const scale = leaflet.control.scale({ metric: true, imperial: false, position: 'bottomleft' })
+      scale.addTo(map)
+      return () => {
+        scale.remove()
+      }
+    }, [map])
 
     // Handle map click to clear selection and pass coordinates
     React.useEffect(() => {
@@ -427,8 +440,26 @@ function MapComponent({
       style={{ height: '100%', minHeight: '400px' }}
       zoomControl={false}
     >
-      <TileLayer key={currentStyle} url={tileConfig.url} attribution={tileConfig.attribution} />
-      {/* Labels overlay for hybrid mode - roads, places, boundaries */}
+      {/* Base map — WMS, TMS, or regular tile depending on style */}
+      {tileConfig.wms && tileConfig.wms.transparent && (
+        <TileLayer
+          key="base-streets"
+          url={TILE_LAYERS.streets.url}
+          attribution={TILE_LAYERS.streets.attribution}
+        />
+      )}
+      {tileConfig.wms ? (
+        <WMSTileLayer
+          key={currentStyle}
+          url={tileConfig.url}
+          params={tileConfig.wms}
+          maxZoom={tileConfig.maxZoom}
+          attribution={tileConfig.attribution}
+        />
+      ) : (
+        <TileLayer key={currentStyle} url={tileConfig.url} attribution={tileConfig.attribution} />
+      )}
+      {/* Labels overlay for hybrid mode */}
       {currentStyle === 'hybrid' && (
         <TileLayer
           key="hybrid-labels"
@@ -982,12 +1013,13 @@ export function ProjectMap({
   const toggleFullscreen = () => {
     if (!containerRef.current) return
 
-    if (!isFullscreen) {
+    if (!document.fullscreenElement) {
       containerRef.current.requestFullscreen?.()
+      setIsFullscreen(true)
     } else {
       document.exitFullscreen?.()
+      setIsFullscreen(false)
     }
-    setIsFullscreen(!isFullscreen)
   }
 
   if (!mapLoaded) {
@@ -1040,13 +1072,25 @@ export function ProjectMap({
                 Layers
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="z-9999">
+            <DropdownMenuContent align="start" className="z-9999" container={containerRef.current}>
               <DropdownMenuLabel>Base Map</DropdownMenuLabel>
               {(Object.keys(TILE_LAYERS) as MapStyle[]).map((style) => (
                 <DropdownMenuCheckboxItem
                   key={style}
                   checked={currentStyle === style}
-                  onCheckedChange={() => setCurrentStyle(style)}
+                  onCheckedChange={() => {
+                    setCurrentStyle(style)
+                    const config = TILE_LAYERS[style]
+                    if (config.minZoom && mapRef.current) {
+                      const map = mapRef.current
+                      if (map.getZoom() < config.minZoom) {
+                        map.setZoom(config.minZoom)
+                      }
+                      map.setMinZoom(config.minZoom)
+                    } else if (mapRef.current) {
+                      mapRef.current.setMinZoom(0)
+                    }
+                  }}
                 >
                   {TILE_LAYERS[style].label}
                 </DropdownMenuCheckboxItem>

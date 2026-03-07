@@ -192,16 +192,18 @@ function MapComponentWithDraw({
   allowMultipleDrawings?: boolean
   onMapReady?: (map: LeafletMap) => void
 }) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const rl = require('react-leaflet')
   const {
     MapContainer,
     TileLayer,
+    WMSTileLayer,
     GeoJSON,
     FeatureGroup,
     useMap,
     CircleMarker,
     Popup,
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-  } = require('react-leaflet')
+  } = rl
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { EditControl } = require('react-leaflet-draw')
 
@@ -240,6 +242,18 @@ function MapComponentWithDraw({
         onMapReady?.(map)
       }
     }, [map, onMapReady])
+
+    // Add scale control
+    React.useEffect(() => {
+      if (!map) return
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const leaflet = require('leaflet')
+      const scale = leaflet.control.scale({ metric: true, imperial: false, position: 'bottomleft' })
+      scale.addTo(map)
+      return () => {
+        scale.remove()
+      }
+    }, [map])
 
     React.useEffect(() => {
       if (!map || !onViewChange) return
@@ -516,8 +530,26 @@ function MapComponentWithDraw({
       style={{ height: '100%', minHeight: '400px' }}
       zoomControl={false}
     >
-      <TileLayer key={currentStyle} url={tileConfig.url} attribution={tileConfig.attribution} />
-      {/* Labels overlay for hybrid mode - roads, places, boundaries */}
+      {/* Base map — WMS, TMS, or regular tile depending on style */}
+      {tileConfig.wms && tileConfig.wms.transparent && (
+        <TileLayer
+          key="base-streets"
+          url={TILE_LAYERS.streets.url}
+          attribution={TILE_LAYERS.streets.attribution}
+        />
+      )}
+      {tileConfig.wms ? (
+        <WMSTileLayer
+          key={currentStyle}
+          url={tileConfig.url}
+          params={tileConfig.wms}
+          maxZoom={tileConfig.maxZoom}
+          attribution={tileConfig.attribution}
+        />
+      ) : (
+        <TileLayer key={currentStyle} url={tileConfig.url} attribution={tileConfig.attribution} />
+      )}
+      {/* Labels overlay for hybrid mode */}
       {currentStyle === 'hybrid' && (
         <TileLayer
           key="hybrid-labels"
@@ -883,12 +915,13 @@ export function ProjectMapWithDraw({
   const toggleFullscreen = () => {
     if (!containerRef.current) return
 
-    if (!isFullscreen) {
+    if (!document.fullscreenElement) {
       containerRef.current.requestFullscreen?.()
+      setIsFullscreen(true)
     } else {
       document.exitFullscreen?.()
+      setIsFullscreen(false)
     }
-    setIsFullscreen(!isFullscreen)
   }
 
   if (!mapLoaded) {
@@ -971,13 +1004,25 @@ export function ProjectMapWithDraw({
                 Layers
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="z-9999">
+            <DropdownMenuContent align="start" className="z-9999" container={containerRef.current}>
               <DropdownMenuLabel>Base Map</DropdownMenuLabel>
               {(Object.keys(TILE_LAYERS) as MapStyle[]).map((style) => (
                 <DropdownMenuCheckboxItem
                   key={style}
                   checked={currentStyle === style}
-                  onCheckedChange={() => setCurrentStyle(style)}
+                  onCheckedChange={() => {
+                    setCurrentStyle(style)
+                    const config = TILE_LAYERS[style]
+                    if (config.minZoom && mapRef.current) {
+                      const map = mapRef.current
+                      if (map.getZoom() < config.minZoom) {
+                        map.setZoom(config.minZoom)
+                      }
+                      map.setMinZoom(config.minZoom)
+                    } else if (mapRef.current) {
+                      mapRef.current.setMinZoom(0)
+                    }
+                  }}
                 >
                   {TILE_LAYERS[style].label}
                 </DropdownMenuCheckboxItem>

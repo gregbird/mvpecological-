@@ -28,11 +28,12 @@ const NPWS_BASE_URL =
 const EPA_BASE_URL = 'https://gis.epa.ie/geoserver'
 
 // DAFM WMS base URL
-// GSI (Geological Survey Ireland) WMS base URL
-const GSI_BASE_URL = 'https://gis.gsi.ie/server/services'
+// GSI (Geological Survey Ireland) — data mirrored on EPA GeoServer for reliability
+const GSI_EPA_WMS_URL = 'https://gis.epa.ie/geoserver/EPA/wms'
 
 // Teagasc (Irish Soil Information System) WMS base URL
-const TEAGASC_BASE_URL = 'https://gis.teagasc.ie/arcgis/services'
+// Teagasc soil data served via EPA GeoServer (gis.teagasc.ie is down)
+const TEAGASC_WMS_URL = 'https://gis.epa.ie/geoserver/EPA/wms'
 
 export const DATASET_GROUPS: DatasetGroup[] = [
   {
@@ -139,42 +140,42 @@ export const DATASET_GROUPS: DatasetGroup[] = [
       {
         id: 'soil_types',
         label: 'Soil Types',
-        description: 'Irish Soil Information System - soil associations and types',
-        url: `${TEAGASC_BASE_URL}/Soils/SoilsWMS/MapServer/WMSServer`,
+        description: 'National soils classification (Teagasc) — works at all zoom levels',
+        url: TEAGASC_WMS_URL,
         type: 'wms',
         defaultVisible: false,
         color: '#d97706',
-        wmsLayer: '0', // Soil Associations layer
+        wmsLayer: 'EPA:SOILS_NationalSoils',
       },
       {
         id: 'soil_drainage',
         label: 'Soil Drainage',
-        description: 'Soil drainage classification (well-drained to poorly-drained)',
-        url: `${TEAGASC_BASE_URL}/Soils/SoilsWMS/MapServer/WMSServer`,
+        description: 'Soil wet/dry classification (well-drained to poorly-drained)',
+        url: TEAGASC_WMS_URL,
         type: 'wms',
         defaultVisible: false,
         color: '#92400e',
-        wmsLayer: '1', // Soil Drainage layer
+        wmsLayer: 'EPA:SOILS_WETDRY',
       },
       {
         id: 'bedrock_geology',
         label: 'Bedrock Geology',
-        description: 'Bedrock geological formations and rock types',
-        url: `${GSI_BASE_URL}/Bedrock/Bedrock100k/MapServer/WMSServer`,
+        description: 'Bedrock geological formations and rock types (100K)',
+        url: GSI_EPA_WMS_URL,
         type: 'wms',
         defaultVisible: false,
         color: '#78716c',
-        wmsLayer: '0',
+        wmsLayer: 'EPA:GSI_Bedrock_100k',
       },
       {
         id: 'quaternary_geology',
-        label: 'Quaternary Deposits',
+        label: 'Subsoils / Quaternary',
         description: 'Superficial deposits (glacial till, alluvium, peat)',
-        url: `${GSI_BASE_URL}/Quaternary/Quaternary100k/MapServer/WMSServer`,
+        url: GSI_EPA_WMS_URL,
         type: 'wms',
         defaultVisible: false,
         color: '#a8a29e',
-        wmsLayer: '0',
+        wmsLayer: 'EPA:Soil_subsoils_ie',
       },
     ],
   },
@@ -204,14 +205,14 @@ export const DATASET_GROUPS: DatasetGroup[] = [
         color: '#475569',
       },
       {
-        id: 'slope',
-        label: 'Slope Analysis',
-        description: 'Terrain slope gradient classification',
-        url: `${GSI_BASE_URL}/Geohazards/Landslides/MapServer/WMSServer`,
+        id: 'landslide_susceptibility',
+        label: 'Landslide Susceptibility',
+        description: 'GSI landslide susceptibility classification (may be slow)',
+        url: 'https://gsi.geodata.gov.ie/server/services/Geohazards/IE_GSI_Landslide_Susceptibility_Classification_50K_IE26_ITM/MapServer/WMSServer',
         type: 'wms',
         defaultVisible: false,
         color: '#334155',
-        wmsLayer: '2', // Slope layer
+        wmsLayer: 'IE_GSI_Landslide_Susceptibility_Classification_50K_IE26_ITM',
       },
     ],
   },

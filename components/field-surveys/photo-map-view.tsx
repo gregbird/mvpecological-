@@ -60,6 +60,8 @@ export default function PhotoMapView({ photos, onPhotoClick }: PhotoMapViewProps
       attribution: '&copy; OpenStreetMap contributors',
     }).addTo(map)
 
+    L.control.scale({ metric: true, imperial: false, position: 'bottomleft' }).addTo(map)
+
     return () => {
       map.remove()
       mapInstanceRef.current = null

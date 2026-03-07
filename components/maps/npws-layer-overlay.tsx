@@ -337,7 +337,7 @@ export function useNPWSLayers(
 
   // Render effect
   React.useEffect(() => {
-    if (!map) return
+    if (!map || !map.getPane('overlayPane')) return
 
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const L = require('leaflet')
