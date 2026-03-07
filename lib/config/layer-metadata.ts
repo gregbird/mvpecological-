@@ -253,11 +253,78 @@ export const BOUNDARIES_METADATA: Record<string, LayerMetadata> = {
 }
 
 /**
+ * BirdWatch Ireland I-WEBS Layer Metadata
+ */
+export const IWEBS_METADATA: Record<string, LayerMetadata> = {
+  iwebs_boundaries: {
+    id: 'iwebs_boundaries',
+    name: 'I-WEBS Site Boundaries',
+    source: 'BirdWatch Ireland',
+    sourceUrl:
+      'https://birdwatchireland.ie/our-work/surveys-research/research-surveys/irish-wetland-bird-survey/',
+    description:
+      'Boundary polygons for Irish Wetland Bird Survey (I-WEBS) sites. I-WEBS is the principal scheme for monitoring wintering waterbird populations in the Republic of Ireland, coordinated by BirdWatch Ireland.',
+    methodology:
+      'Site boundaries are delineated based on wetland extent and waterbird usage patterns. Sites are surveyed monthly from September to March by volunteer counters using standardised count methodology.',
+    lastUpdated: '2017',
+    coverage: 'Republic of Ireland — wetland sites of importance for waterbirds',
+    license: 'ArcGIS FeatureServer (public access)',
+    attribution: 'BirdWatch Ireland / I-WEBS',
+    relevance:
+      'Projects near I-WEBS sites may impact wintering waterbird populations. Proximity to I-WEBS sites is relevant for AA Screening and EcIA, particularly near SPAs designated for waterbirds.',
+    dataFormat: 'ArcGIS Feature Service (polygon)',
+    updateFrequency: 'Boundaries updated periodically as survey coverage changes',
+    contactInfo: 'iwebs@birdwatchireland.ie',
+  },
+  iwebs_sites: {
+    id: 'iwebs_sites',
+    name: 'I-WEBS Site Locations',
+    source: 'BirdWatch Ireland',
+    sourceUrl:
+      'https://birdwatchireland.ie/our-work/surveys-research/research-surveys/irish-wetland-bird-survey/',
+    description:
+      'Point locations of I-WEBS survey sites with data coverage information including the most recent survey year.',
+    methodology:
+      'Site locations represent the central point of each I-WEBS wetland survey site. Coverage data indicates which sites are actively monitored.',
+    lastUpdated: '2022',
+    coverage: 'Republic of Ireland — 561 wetland survey sites',
+    license: 'ArcGIS FeatureServer (public access)',
+    attribution: 'BirdWatch Ireland / I-WEBS',
+    relevance:
+      'Active I-WEBS sites near a project indicate that waterbird monitoring data exists for the area, which can be referenced in ecological assessments.',
+    dataFormat: 'ArcGIS Feature Service (point)',
+    updateFrequency: 'Updated as survey coverage changes',
+    contactInfo: 'iwebs@birdwatchireland.ie',
+  },
+  iwebs_subsites: {
+    id: 'iwebs_subsites',
+    name: 'I-WEBS Sub-site Locations',
+    source: 'BirdWatch Ireland',
+    sourceUrl:
+      'https://birdwatchireland.ie/our-work/surveys-research/research-surveys/irish-wetland-bird-survey/',
+    description:
+      'Point locations of I-WEBS sub-sites. Larger I-WEBS sites are subdivided into sub-sites to allow more detailed spatial analysis of waterbird distribution within a wetland complex.',
+    methodology:
+      'Sub-sites are defined within larger I-WEBS sites to enable finer-scale waterbird count data. Each sub-site is counted independently during monthly surveys.',
+    lastUpdated: '2022',
+    coverage: 'Republic of Ireland — 1,483 sub-sites across major wetlands',
+    license: 'ArcGIS FeatureServer (public access)',
+    attribution: 'BirdWatch Ireland / I-WEBS',
+    relevance:
+      'Sub-site data provides finer spatial resolution for assessing potential impacts on specific parts of a wetland complex used by waterbirds.',
+    dataFormat: 'ArcGIS Feature Service (point)',
+    updateFrequency: 'Updated seasonally',
+    contactInfo: 'iwebs@birdwatchireland.ie',
+  },
+}
+
+/**
  * Combined metadata lookup
  */
 export const ALL_LAYER_METADATA: Record<string, LayerMetadata> = {
   ...NPWS_METADATA,
   ...EPA_METADATA,
+  ...IWEBS_METADATA,
   ...BOUNDARIES_METADATA,
 }
 

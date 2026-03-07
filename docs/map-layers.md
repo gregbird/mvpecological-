@@ -1,6 +1,6 @@
 # Map Layers Documentation
 
-> Last updated: 6 March 2026
+> Last updated: 7 March 2026
 
 ## Architecture
 
@@ -144,6 +144,16 @@ Fetched as GeoJSON via WFS and rendered client-side via `useEPALayers` hook.
 | Elevation Contours       | ESRI World Hillshade (ArcGIS)     | Working | Free global service            |
 | Hillshade                | ESRI World Hillshade (ArcGIS)     | Working | Free global service            |
 | Landslide Susceptibility | GSI direct (`gsi.geodata.gov.ie`) | Slow    | Not on EPA mirror, may timeout |
+
+### GBIF Bat Records (XYZ Tile — fast)
+
+| Layer              | URL                                                                                                    | Status  | Notes                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------------------ | ------- | ----------------------------------------------------------- |
+| Bat Records (GBIF) | `api.gbif.org/v2/map/occurrence/density/{z}/{x}/{y}@1x.png?taxonKey=734&country=IE&style=orange.point` | Working | Pre-rendered 512px density tiles, orange triangles, Ireland |
+
+Uses GBIF Map Tiles API v2 with `taxonKey=734` (order Chiroptera) filtered to Ireland (`country=IE`). Rendered as a TileLayer overlay in the `overlayPane` with `tileSize=512` and `zoomOffset=-1` (GBIF `@1x` tiles are 512x512px). Toggle available in both `project-map.tsx` and `project-map-with-draw.tsx` under "Data Layers > ▲ Bat Records (GBIF)".
+
+**Why GBIF?** BCIreland does not have a public API. Their bat records are held by NBDC (Dataset #128) under a "Restricted" license — view-only on their website, no API, WMS, or download available. NBDC ArcGIS server only hosts a Counties boundary service. GBIF is the only source with a Leaflet-compatible tile API for bat occurrence data in Ireland. If species-level bat data is needed (not just occurrence locations), a formal data request to NBDC or BCIreland would be required.
 
 ### BirdWatch Ireland I-WEBS (ArcGIS FeatureServer)
 

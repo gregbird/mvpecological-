@@ -27,6 +27,7 @@ import type { MapStyle } from '@/lib/config/map-constants'
 import { MeasureControl } from './measure-control'
 import { useNPWSLayers } from './npws-layer-overlay'
 import { useEPALayers } from './epa-layer-overlay'
+import { useIWebsLayers } from './iwebs-layer-overlay'
 import { useAdministrativeBoundaries } from '@/hooks/maps/use-administrative-boundaries'
 
 interface BufferColorConfig {
@@ -162,6 +163,7 @@ function MapComponentWithDraw({
   onHabitatClick,
   allowMultipleDrawings = false,
   onMapReady,
+  showBatRecords,
 }: {
   center: [number, number]
   zoom: number
@@ -191,6 +193,7 @@ function MapComponentWithDraw({
   onHabitatClick?: (id: string) => void
   allowMultipleDrawings?: boolean
   onMapReady?: (map: LeafletMap) => void
+  showBatRecords?: boolean
 }) {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const rl = require('react-leaflet')
@@ -558,6 +561,17 @@ function MapComponentWithDraw({
           pane="overlayPane"
         />
       )}
+      {/* GBIF bat records overlay */}
+      {showBatRecords && (
+        <TileLayer
+          key="gbif-bats"
+          url="https://api.gbif.org/v2/map/occurrence/density/{z}/{x}/{y}@1x.png?taxonKey=734&country=IE&style=orange.point"
+          attribution="Bat records &copy; GBIF"
+          pane="overlayPane"
+          tileSize={512}
+          zoomOffset={-1}
+        />
+      )}
       <LoadExistingBoundary />
 
       {/* County Boundaries - render at bottom as reference layer */}
@@ -839,6 +853,9 @@ export function ProjectMapWithDraw({
     return () => clearTimeout(timer)
   }, [editable, boundary])
 
+  // GBIF bat records overlay
+  const [showBatRecords, setShowBatRecords] = React.useState(false)
+
   // Administrative boundaries (counties + townlands)
   const {
     showCounties,
@@ -879,6 +896,10 @@ export function ProjectMapWithDraw({
     ignoredItems,
     deletedItems
   )
+
+  // BirdWatch Ireland I-WEBS layer overlay
+  const [iwebsVisibleLayers, setIwebsVisibleLayers] = React.useState<string[]>([])
+  useIWebsLayers(mapInstance, boundary ?? null, iwebsVisibleLayers)
 
   React.useEffect(() => {
     setMapLoaded(true)
@@ -963,6 +984,7 @@ export function ProjectMapWithDraw({
           onHabitatClick={onHabitatClick}
           allowMultipleDrawings={allowMultipleDrawings}
           onMapReady={setMapInstance}
+          showBatRecords={showBatRecords}
         />
       </div>
 
@@ -1004,10 +1026,15 @@ export function ProjectMapWithDraw({
                 Layers
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="z-9999" container={containerRef.current}>
+            <DropdownMenuContent
+              align="start"
+              className="z-9999 max-h-[70vh] overflow-y-auto"
+              container={containerRef.current}
+            >
               <DropdownMenuLabel>Base Map</DropdownMenuLabel>
               {(Object.keys(TILE_LAYERS) as MapStyle[]).map((style) => (
                 <DropdownMenuCheckboxItem
+                  onSelect={(e) => e.preventDefault()}
                   key={style}
                   checked={currentStyle === style}
                   onCheckedChange={() => {
@@ -1030,6 +1057,7 @@ export function ProjectMapWithDraw({
               <DropdownMenuSeparator />
               <DropdownMenuLabel>Data Layers</DropdownMenuLabel>
               <DropdownMenuCheckboxItem
+                onSelect={(e) => e.preventDefault()}
                 checked={showCounties}
                 onCheckedChange={() => setShowCounties(!showCounties)}
               >
@@ -1039,12 +1067,74 @@ export function ProjectMapWithDraw({
                 </div>
               </DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem
+                onSelect={(e) => e.preventDefault()}
                 checked={showTownlands}
                 onCheckedChange={() => setShowTownlands(!showTownlands)}
               >
                 <div className="flex items-center gap-2">
                   <div className="h-3 w-3 rounded-full" style={{ backgroundColor: '#a855f7' }} />
                   Townlands (zoom 12+)
+                </div>
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                onSelect={(e) => e.preventDefault()}
+                checked={showBatRecords}
+                onCheckedChange={() => setShowBatRecords(!showBatRecords)}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-xs leading-none" style={{ color: '#f59e0b' }}>
+                    ▲
+                  </span>
+                  Bat Records (GBIF)
+                </div>
+              </DropdownMenuCheckboxItem>
+
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>BirdWatch Ireland</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem
+                onSelect={(e) => e.preventDefault()}
+                checked={iwebsVisibleLayers.includes('iwebs_boundaries')}
+                onCheckedChange={(checked) =>
+                  setIwebsVisibleLayers((prev) =>
+                    checked
+                      ? [...prev, 'iwebs_boundaries']
+                      : prev.filter((id) => id !== 'iwebs_boundaries')
+                  )
+                }
+              >
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded-full" style={{ backgroundColor: '#0ea5e9' }} />
+                  I-WEBS Boundaries
+                </div>
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                onSelect={(e) => e.preventDefault()}
+                checked={iwebsVisibleLayers.includes('iwebs_sites')}
+                onCheckedChange={(checked) =>
+                  setIwebsVisibleLayers((prev) =>
+                    checked ? [...prev, 'iwebs_sites'] : prev.filter((id) => id !== 'iwebs_sites')
+                  )
+                }
+              >
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded-full" style={{ backgroundColor: '#2563eb' }} />
+                  I-WEBS Sites
+                </div>
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                onSelect={(e) => e.preventDefault()}
+                checked={iwebsVisibleLayers.includes('iwebs_subsites')}
+                onCheckedChange={(checked) =>
+                  setIwebsVisibleLayers((prev) =>
+                    checked
+                      ? [...prev, 'iwebs_subsites']
+                      : prev.filter((id) => id !== 'iwebs_subsites')
+                  )
+                }
+              >
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded-full" style={{ backgroundColor: '#7c3aed' }} />
+                  I-WEBS Sub-sites
                 </div>
               </DropdownMenuCheckboxItem>
             </DropdownMenuContent>

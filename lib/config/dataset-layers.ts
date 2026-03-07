@@ -1,4 +1,4 @@
-import { LucideIcon, Shield, Droplets, Mountain, Layers } from 'lucide-react'
+import { LucideIcon, Shield, Droplets, Mountain, Layers, Bird } from 'lucide-react'
 
 export interface DatasetLayer {
   id: string
@@ -180,6 +180,42 @@ export const DATASET_GROUPS: DatasetGroup[] = [
     ],
   },
   {
+    id: 'birdwatch',
+    label: 'BirdWatch Ireland',
+    description: 'I-WEBS wetland bird survey sites and boundaries',
+    icon: Bird,
+    color: 'sky',
+    layers: [
+      {
+        id: 'iwebs_boundaries',
+        label: 'I-WEBS Boundaries',
+        description: 'Irish Wetland Bird Survey site boundary polygons (2017)',
+        url: 'https://services5.arcgis.com/rmbpRCdMkd6BizHt/arcgis/rest/services/IWeBS_Boundaries_2017/FeatureServer/0',
+        type: 'arcgis',
+        defaultVisible: false,
+        color: '#0ea5e9',
+      },
+      {
+        id: 'iwebs_sites',
+        label: 'I-WEBS Site Locations',
+        description: 'I-WEBS survey site point locations with coverage data',
+        url: 'https://services5.arcgis.com/rmbpRCdMkd6BizHt/arcgis/rest/services/Map_Data_Coverage_Jul22/FeatureServer/0',
+        type: 'arcgis',
+        defaultVisible: false,
+        color: '#2563eb',
+      },
+      {
+        id: 'iwebs_subsites',
+        label: 'I-WEBS Sub-sites',
+        description: 'I-WEBS survey sub-site point locations',
+        url: 'https://services5.arcgis.com/rmbpRCdMkd6BizHt/arcgis/rest/services/Season_26_IWeBS_Subsites/FeatureServer/0',
+        type: 'arcgis',
+        defaultVisible: false,
+        color: '#7c3aed',
+      },
+    ],
+  },
+  {
     id: 'terrain',
     label: 'Terrain & Elevation',
     description: 'Topographic and elevation data',
@@ -278,6 +314,13 @@ export function getGroupColorClasses(groupId: string): {
         text: 'text-amber-700 dark:text-amber-400',
         border: 'border-amber-200 dark:border-amber-800',
         bgLight: 'bg-amber-50 dark:bg-amber-950/30',
+      }
+    case 'birdwatch':
+      return {
+        bg: 'bg-sky-500',
+        text: 'text-sky-700 dark:text-sky-400',
+        border: 'border-sky-200 dark:border-sky-800',
+        bgLight: 'bg-sky-50 dark:bg-sky-950/30',
       }
     case 'terrain':
       return {

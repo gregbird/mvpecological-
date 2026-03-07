@@ -194,22 +194,22 @@ Tek sayfa, iki tab: `/templates`
 
 ### Eklenecek Veri Kaynakları:
 
-| #   | Veri Kaynağı                             | Tür                  | Endpoint/Not                                                                                                                                                                                                                                                                                                                                               |
-| --- | ---------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| a   | OSI Aerial photography                   | Harita katmanı       | ⏳ **Greg'e soruldu:** OSI (Tailte Éireann) MapGenie ücretsiz endpoint sunmuyor, auth gerekli. Şu an ESRI World Imagery kullanılıyor. Firmanın MapGenie hesabı varsa entegre edilebilir. Cevap bekleniyor.                                                                                                                                                 |
-| b   | NBDC (on-line map viewer)                | Mevcut               | ✅ Tür verileri GBIF + NBDC API enrichment ile zaten entegre. NBDC'nin ArcGIS sunucusu (`gisserver.biodiversityireland.ie`) sadece County sınırları sunuyor — tür dağılım haritası yok. Map viewer (`maps.biodiversityireland.ie`) deep linking desteklemiyor (koordinat/zoom URL parametresi yok). Greg'e durum bildirildi, ek istek varsa o karar verir. |
-| c   | Teagasc soil area maps                   | Harita katmanı       | NBDC website üzerinden                                                                                                                                                                                                                                                                                                                                     |
-| d   | GSI area maps                            | Harita katmanı       | Geological Survey Ireland                                                                                                                                                                                                                                                                                                                                  |
-| e   | EPA water quality data                   | Mevcut               | Zaten entegre, UI'da seçenek olarak ekle                                                                                                                                                                                                                                                                                                                   |
-| f   | River Basin District (SWRBD/WFD)         | Mevcut               | Catchments.ie zaten entegre                                                                                                                                                                                                                                                                                                                                |
-| g   | Bat Conservation Ireland (BCIreland)     | Yeni API             | Araştırılacak                                                                                                                                                                                                                                                                                                                                              |
-| h   | County Development Plan                  | Doküman arama        | Ekolojist county girer, uygulama arar                                                                                                                                                                                                                                                                                                                      |
-| i   | Municipal District Local Area Plan       | Doküman arama        | Ekolojist city/town girer, uygulama arar                                                                                                                                                                                                                                                                                                                   |
-| j   | Town Development Plan                    | Doküman arama        | Ekolojist town girer, uygulama arar                                                                                                                                                                                                                                                                                                                        |
-| k   | NPWS Rare and Protected Species database | Yeni                 | Request-based kayıt inceleme                                                                                                                                                                                                                                                                                                                               |
-| l   | Bird Watch Ireland I-WEBS Boundaries     | ArcGIS FeatureServer | `https://services5.arcgis.com/rmbpRCdMkd6BizHt/arcgis/rest/services/IWeBS_Boundaries_2017/FeatureServer`                                                                                                                                                                                                                                                   |
-| m   | Bird Watch Ireland I-WEBS Site points    | ArcGIS FeatureServer | `https://services5.arcgis.com/rmbpRCdMkd6BizHt/arcgis/rest/services/Map_Data_Coverage_Jul22/FeatureServer`                                                                                                                                                                                                                                                 |
-| n   | Bird Watch Ireland I-WEBS Sub-sites      | ArcGIS FeatureServer | `https://services5.arcgis.com/rmbpRCdMkd6BizHt/arcgis/rest/services/Season_26_IWeBS_Subsites/FeatureServer`                                                                                                                                                                                                                                                |
+| #   | Veri Kaynağı                             | Tür                  | Endpoint/Not                                                                                                                                                                                                                                                                                                                                                 |
+| --- | ---------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| a   | OSI Aerial photography                   | Harita katmanı       | ⏳ **Greg'e soruldu:** OSI (Tailte Éireann) MapGenie ücretsiz endpoint sunmuyor, auth gerekli. Şu an ESRI World Imagery kullanılıyor. Firmanın MapGenie hesabı varsa entegre edilebilir. Cevap bekleniyor.                                                                                                                                                   |
+| b   | NBDC (on-line map viewer)                | Mevcut               | ✅ Tür verileri GBIF + NBDC API enrichment ile zaten entegre. NBDC'nin ArcGIS sunucusu (`gisserver.biodiversityireland.ie`) sadece County sınırları sunuyor — tür dağılım haritası yok. Map viewer (`maps.biodiversityireland.ie`) deep linking desteklemiyor (koordinat/zoom URL parametresi yok). Greg'e durum bildirildi, ek istek varsa o karar verir.   |
+| c   | Teagasc soil area maps                   | Harita katmanı       | NBDC website üzerinden                                                                                                                                                                                                                                                                                                                                       |
+| d   | GSI area maps                            | Harita katmanı       | Geological Survey Ireland                                                                                                                                                                                                                                                                                                                                    |
+| e   | EPA water quality data                   | Harita katmanı       | ✅ 6 WMS katmanı eklendi: River WFD Status, Lake WFD Status, Groundwater WFD Status, WFD Catchments, WFD Sub-Catchments, River Basin Districts. Tümü EPA GeoServer'dan transparent overlay olarak çalışıyor.                                                                                                                                                 |
+| f   | River Basin District (SWRBD/WFD)         | Harita katmanı       | ✅ `EPA:WFD_RIVERBASINDISTRICT` + `EPA:WFD_Catchments` + `EPA:WFD_SubCatchments` katmanları eklendi. Layers dropdown'unda "Water & WFD" grubu altında seçilebilir.                                                                                                                                                                                           |
+| g   | Bat Conservation Ireland (BCIreland)     | Harita katmanı       | ✅ BCIreland'ın kendi API'si yok. NBDC Dataset #128 "Restricted" lisanslı (sadece görüntüleme, API/WMS/download yok). Bunun yerine GBIF Map Tiles API kullanıldı — `taxonKey=734` (Chiroptera) ile İrlanda'daki yarasa kayıtlarını turuncu nokta olarak gösteren overlay katmanı eklendi. Her iki haritada "Data Layers > Bat Records (GBIF)" olarak mevcut. |
+| h   | County Development Plan                  | Lookup substep       | ✅ "Planning Policy" substep eklendi (Step 2.5). Ekolojist county seçer → CDP + Biodiversity chapter + Biodiversity Action Plan linkleri otomatik gösterilir. 31 county için doğrulanmış URL'ler hardcoded.                                                                                                                                                  |
+| i   | Municipal District Local Area Plan       | N/A                  | ✅ Municipal district'lerin kendi development plan'ları yok — planlama her zaman county seviyesinde. County Development Plan yeterli.                                                                                                                                                                                                                        |
+| j   | Town Development Plan                    | N/A                  | ✅ Town Development Plan'lar 2014 Yerel Yönetim Reform Yasası ile kaldırıldı (80 town council kapatıldı). County Development Plan tüm fonksiyonları kapsar.                                                                                                                                                                                                  |
+| k   | NPWS Rare and Protected Species database | Yeni                 | ⏳ **Greg'e soruldu:** API/WMS yok — tamamen request-based. Aşağıda detaylı analiz ve öneri var. Örnek çıktı (CSV/Excel) bekleniyor.                                                                                                                                                                                                                         |
+| l   | Bird Watch Ireland I-WEBS Boundaries     | ArcGIS FeatureServer | `https://services5.arcgis.com/rmbpRCdMkd6BizHt/arcgis/rest/services/IWeBS_Boundaries_2017/FeatureServer`                                                                                                                                                                                                                                                     |
+| m   | Bird Watch Ireland I-WEBS Site points    | ArcGIS FeatureServer | `https://services5.arcgis.com/rmbpRCdMkd6BizHt/arcgis/rest/services/Map_Data_Coverage_Jul22/FeatureServer`                                                                                                                                                                                                                                                   |
+| n   | Bird Watch Ireland I-WEBS Sub-sites      | ArcGIS FeatureServer | `https://services5.arcgis.com/rmbpRCdMkd6BizHt/arcgis/rest/services/Season_26_IWeBS_Subsites/FeatureServer`                                                                                                                                                                                                                                                  |
 
 **Yapılacaklar:**
 
@@ -217,14 +217,16 @@ Tek sayfa, iki tab: `/templates`
   - Dosya: `components/steps/data-gathering/data-source-selector.tsx`
   - Desk research başlamadan önce ekolojist hangi kaynakları kullanacağını seçsin
   - Checkbox listesi + "Select All" / "Deselect All"
-- [ ] **5.2** County/City/Town input alanı (Greg comment)
-  - Development Plan aramaları için ekolojist lokasyon girer
-  - Uygulama otomatik olarak ilgili planları arar
-- [x] **5.3** Bird Watch Ireland I-WEBS entegrasyonu ✅ (5 Mart 2026)
-  - 3 ArcGIS FeatureServer endpoint harita katmanı olarak eklendi (`dataset-layers.ts`)
-  - I-WEBS Site Boundaries (polygon), Site Locations (point), Sub-sites (point)
-  - Metadata + renk tanımları eklendi (`layer-metadata.ts`)
-  - Tüm haritalardaki Layers dropdown'unda "BirdWatch Ireland" grubu olarak görünüyor
+- [x] **5.2** County/City/Town input alanı (Greg comment) ✅ (7 Mart 2026)
+  - "Planning Policy" substep olarak entegre edildi (Step 2, Aquatic Features ile Company Reports arası)
+  - Ekolojist county seçer → County Development Plan + Biodiversity chapter + Biodiversity Action Plan linkleri gösterilir
+  - Town Development Plan'lar 2014'te kaldırıldı, Municipal District'lerin kendi planı yok — county plan yeterli
+- [x] **5.3** Bird Watch Ireland I-WEBS entegrasyonu ✅ (7 Mart 2026)
+  - 3 ArcGIS FeatureServer endpoint: Boundaries (1042 polygon), Sites (561 point), Sub-sites (1483 point)
+  - `iwebs-layer-overlay.tsx`: bbox-filtered GeoJSON fetch + Leaflet render (popup: site name, code, grid ref, last survey year)
+  - `dataset-layers.ts`: "BirdWatch Ireland" grubu + 3 katman tanımı
+  - `layer-metadata.ts`: 3 I-WEBS katman metadata'sı (source, description, relevance)
+  - Her iki haritada (project-map.tsx, project-map-with-draw.tsx) Layers dropdown'unda "BirdWatch Ireland" bölümü altında 3 checkbox
 - [x] **5.4** Teagasc soil maps katmanı ✅ (zaten mevcuttu)
   - `dataset-layers.ts`'de Geology & Soils grubunda: Soil Types + Soil Drainage
   - Layers dropdown'una eklendi
@@ -234,11 +236,68 @@ Tek sayfa, iki tab: `/templates`
   - Layers dropdown'unda Geology & Soils + Terrain gruplarında görünüyor
 - [ ] **5.6** OSI Aerial photography katmanı
   - ⏳ Greg'e soruldu — MapGenie auth gerekli, firmanın hesabı varsa entegre edilecek
-- [x] **5.7** Bat Conservation Ireland entegrasyonu ✅ (araştırma tamamlandı)
-  - BCIreland'ın kendi API'si yok — yarasa verileri NBDC Dataset #128 üzerinden sunuluyor
-  - GBIF + NBDC enrichment zaten bu verileri çekiyor, ayrı entegrasyon gerekmez
-- [ ] **5.8** County/Municipal/Town Development Plan arama
-  - Greg'in comment'ine göre: ekolojist county/city/town girer → uygulama planları arar
+- [x] **5.7** Bat Conservation Ireland entegrasyonu ✅ (7 Mart 2026)
+  - BCIreland'ın kendi API'si yok — yarasa verileri NBDC Dataset #128 üzerinden sunuluyor ama "Restricted" lisanslı (API/WMS/download yok)
+  - GBIF Map Tiles API kullanıldı: `taxonKey=734` (Chiroptera), `country=IE`, turuncu üçgen overlay
+  - 512px tile + `tileSize=512` + `zoomOffset=-1` — tüm zoom seviyelerinde (ülke geneli dahil) görünür
+  - Her iki haritada (project-map.tsx, project-map-with-draw.tsx) "Data Layers > ▲ Bat Records (GBIF)" checkbox'u eklendi
+  - Pre-rendered density tile — CDN üzerinden hızlı, API key gerektirmez
+  - Tür bazında veri gerekirse NBDC/BCIreland'a resmi veri talebi gerekir
+- [x] **5.8a** EPA water quality WMS katmanları ✅ (7 Mart 2026)
+  - 6 yeni base map katmanı eklendi: River WFD Status, Lake WFD Status, Groundwater WFD Status, WFD Catchments, WFD Sub-Catchments, River Basin Districts
+  - Tümü EPA GeoServer transparent overlay — Streets base map üzerine render ediliyor
+  - Lake WFD: `WFD_LWBStatus_20192024` kullanıldı (LatestStatus country zoom'da 15s+ timeout yapıyordu)
+  - `map-constants.ts`'e 6 yeni MapStyle ve TileLayerConfig eklendi
+- [x] **5.8b** County/Municipal/Town Development Plan ✅ (7 Mart 2026)
+  - `lib/data/county-development-plans.ts` — 31 county lookup table (plan adı, dönem, plan URL, biodiversity chapter URL/adı, biodiversity action plan URL)
+  - `components/steps/data-gathering/planning-policy-substep.tsx` — Planning Policy substep bileşeni
+  - `components/steps/data-gathering-step.tsx` — Wizard'a 5. adım olarak eklendi (7 adımlı wizard)
+  - Municipal District ve Town Development Plan araştırıldı: artık mevcut değiller, county plan tümünü kapsar
+- [ ] **5.9** NPWS Rare and Protected Species database entegrasyonu
+  - ⏳ Greg'den örnek çıktı (CSV/Excel) bekleniyor — aşağıda detaylı analiz
+
+### 5.9 — NPWS Rare and Protected Species Database (Detaylı Analiz)
+
+**Araştırma sonucu:**
+
+NPWS Rare and Protected Species database'in herkese açık bir API'si veya WMS servisi yok — tamamen request-based çalışıyor. Standart akış:
+
+1. Ekolojist, proje alanı koordinatları ve buffer yarıçapıyla NPWS'ye resmi veri talebi gönderiyor
+2. NPWS günler/haftalar sonra tür kayıtlarını (genellikle CSV veya Excel) e-posta ile gönderiyor
+3. Ekolojist bu kayıtları desk study kapsamında inceliyor
+
+Talep formu: https://www.npws.ie/maps-and-data/sensitive-data-access
+
+**Öneri:**
+
+Otomatik sorgulama yapılamadığı için Dulra'ya şu şekilde entegre etmeyi öneriyoruz:
+
+- Species Records substep'ine (Step 2.3) **"Import NPWS Records"** upload butonu eklenir
+- Ekolojist NPWS'den aldığı CSV/Excel dosyasını yükler
+- Uygulama dosyayı parse eder ve kayıtları GBIF/NBDC/FPO sonuçlarının yanında aynı findings listesinde gösterir (kaynak: "NPWS Rare")
+- Bu kayıtlar desk assessment, data analysis ve raporlamaya diğer tür verileri gibi otomatik akar
+- Opsiyonel: Project Info substep'ine basit bir talep takibi — "NPWS veri talebi gönderildi" / "yanıt alındı" tarih alanları
+
+**Greg'e mesaj (EN):**
+
+> **Re: NPWS Rare and Protected Species Database (item k)**
+>
+> I looked into this. The NPWS Rare and Protected Species database doesn't have a public API or WMS service — it's entirely request-based. The standard workflow is:
+>
+> 1. Ecologist submits a data request to NPWS with project coordinates and buffer radius
+> 2. NPWS responds (usually days/weeks later) with species records as CSV or Excel
+> 3. Ecologist reviews the records as part of desk study
+>
+> Since we can't query it automatically, here's what I'd propose for Dulra:
+>
+> - Add an **"Import NPWS Records"** upload button in the Species Records substep (Step 2.3)
+> - Ecologist uploads the CSV/Excel file received from NPWS
+> - App parses it and displays the records alongside GBIF/NBDC/FPO results in the same findings list (tagged as source: "NPWS Rare")
+> - These records then flow into desk assessment, data analysis, and reporting like all other species data
+>
+> Optionally, we could also add a simple **request tracker** in the Project Info substep — just date fields for "NPWS data request sent" and "response received" so ecologists can track the status.
+>
+> **Question:** Could you share a sample of what the NPWS response looks like (the Excel/CSV they send back)? I need to know the column structure (species name, grid reference, date, etc.) so I can build the parser accordingly. Also, does this workflow match how your team currently handles it, or would you want something different?
 
 ---
 
@@ -310,4 +369,4 @@ Tek sayfa, iki tab: `/templates`
 
 ---
 
-_Son güncelleme: 5 Mart 2026_
+_Son güncelleme: 7 Mart 2026_

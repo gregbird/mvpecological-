@@ -25,6 +25,7 @@ import {
 export type { MapStyle } from '@/lib/config/map-constants'
 import type { MapStyle } from '@/lib/config/map-constants'
 import type { DeskResearchFinding } from '@/components/desk-research/finding-card'
+import { useIWebsLayers } from '@/components/maps/iwebs-layer-overlay'
 
 export interface MapLayer {
   id: string
@@ -156,6 +157,8 @@ function MapComponent({
   onFindingClick,
   onMapClick,
   mapRef,
+  showBatRecords,
+  iwebsVisibleLayers,
 }: {
   center: [number, number]
   zoom: number
@@ -175,6 +178,8 @@ function MapComponent({
   onFindingClick?: (finding: DeskResearchFinding) => void
   onMapClick?: (latlng?: { lat: number; lng: number }) => void
   mapRef: React.MutableRefObject<LeafletMap | null>
+  showBatRecords?: boolean
+  iwebsVisibleLayers?: string[]
 }) {
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- react-leaflet must be client-side only
   const rl = require('react-leaflet')
@@ -420,6 +425,9 @@ function MapComponent({
       }
     }, [map, townlandsLayer?.visible, loadTownlandsForBbox])
 
+    // I-WEBS layers — fetch and render BirdWatch Ireland wetland bird survey data
+    useIWebsLayers(map, boundary ?? null, iwebsVisibleLayers ?? [])
+
     return null
   }
 
@@ -466,6 +474,17 @@ function MapComponent({
           url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
           attribution=""
           pane="overlayPane"
+        />
+      )}
+      {/* GBIF bat records overlay */}
+      {showBatRecords && (
+        <TileLayer
+          key="gbif-bats"
+          url="https://api.gbif.org/v2/map/occurrence/density/{z}/{x}/{y}@1x.png?taxonKey=734&country=IE&style=orange.point"
+          attribution="Bat records &copy; GBIF"
+          pane="overlayPane"
+          tileSize={512}
+          zoomOffset={-1}
         />
       )}
       <MapController
@@ -985,6 +1004,8 @@ export function ProjectMap({
   const [mapLoaded, setMapLoaded] = React.useState(false)
   const [currentStyle, setCurrentStyle] = React.useState<MapStyle>('satellite')
   const [isFullscreen, setIsFullscreen] = React.useState(false)
+  const [showBatRecords, setShowBatRecords] = React.useState(false)
+  const [iwebsVisibleLayers, setIwebsVisibleLayers] = React.useState<string[]>([])
   const containerRef = React.useRef<HTMLDivElement>(null)
   const mapRef = React.useRef<LeafletMap | null>(null)
   const [layers, setLayers] = React.useState<MapLayer[]>([
@@ -1055,6 +1076,8 @@ export function ProjectMap({
           onFindingClick={onFindingClick}
           onMapClick={onMapClick}
           mapRef={mapRef}
+          showBatRecords={showBatRecords}
+          iwebsVisibleLayers={iwebsVisibleLayers}
         />
       </div>
 
@@ -1072,10 +1095,15 @@ export function ProjectMap({
                 Layers
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="z-9999" container={containerRef.current}>
+            <DropdownMenuContent
+              align="start"
+              className="z-9999 max-h-[70vh] overflow-y-auto"
+              container={containerRef.current}
+            >
               <DropdownMenuLabel>Base Map</DropdownMenuLabel>
               {(Object.keys(TILE_LAYERS) as MapStyle[]).map((style) => (
                 <DropdownMenuCheckboxItem
+                  onSelect={(e) => e.preventDefault()}
                   key={style}
                   checked={currentStyle === style}
                   onCheckedChange={() => {
@@ -1100,6 +1128,7 @@ export function ProjectMap({
               <DropdownMenuLabel>Data Layers</DropdownMenuLabel>
               {layers.map((layer) => (
                 <DropdownMenuCheckboxItem
+                  onSelect={(e) => e.preventDefault()}
                   key={layer.id}
                   checked={layer.visible}
                   onCheckedChange={() => toggleLayer(layer.id)}
@@ -1115,6 +1144,67 @@ export function ProjectMap({
                   </div>
                 </DropdownMenuCheckboxItem>
               ))}
+              <DropdownMenuCheckboxItem
+                onSelect={(e) => e.preventDefault()}
+                checked={showBatRecords}
+                onCheckedChange={(checked) => setShowBatRecords(checked === true)}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-xs leading-none" style={{ color: '#f97316' }}>
+                    ▲
+                  </span>
+                  Bat Records (GBIF)
+                </div>
+              </DropdownMenuCheckboxItem>
+
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>BirdWatch Ireland</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem
+                onSelect={(e) => e.preventDefault()}
+                checked={iwebsVisibleLayers.includes('iwebs_boundaries')}
+                onCheckedChange={(checked) =>
+                  setIwebsVisibleLayers((prev) =>
+                    checked
+                      ? [...prev, 'iwebs_boundaries']
+                      : prev.filter((id) => id !== 'iwebs_boundaries')
+                  )
+                }
+              >
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded-full" style={{ backgroundColor: '#0ea5e9' }} />
+                  I-WEBS Boundaries
+                </div>
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                onSelect={(e) => e.preventDefault()}
+                checked={iwebsVisibleLayers.includes('iwebs_sites')}
+                onCheckedChange={(checked) =>
+                  setIwebsVisibleLayers((prev) =>
+                    checked ? [...prev, 'iwebs_sites'] : prev.filter((id) => id !== 'iwebs_sites')
+                  )
+                }
+              >
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded-full" style={{ backgroundColor: '#2563eb' }} />
+                  I-WEBS Sites
+                </div>
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                onSelect={(e) => e.preventDefault()}
+                checked={iwebsVisibleLayers.includes('iwebs_subsites')}
+                onCheckedChange={(checked) =>
+                  setIwebsVisibleLayers((prev) =>
+                    checked
+                      ? [...prev, 'iwebs_subsites']
+                      : prev.filter((id) => id !== 'iwebs_subsites')
+                  )
+                }
+              >
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded-full" style={{ backgroundColor: '#7c3aed' }} />
+                  I-WEBS Sub-sites
+                </div>
+              </DropdownMenuCheckboxItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
