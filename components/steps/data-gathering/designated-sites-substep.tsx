@@ -130,9 +130,7 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
         // SSCO enrichment
         if (boundary) {
           try {
-            console.log('🔍 Searching SSCO with buffer:', buffer, 'km')
             const sscoResults = await findIntersectingSSCO(boundary, buffer)
-            console.log('🔍 SSCO Results:', sscoResults.length, 'SAC sites found')
 
             for (const ssco of sscoResults) {
               const matchingFinding = findings.find(

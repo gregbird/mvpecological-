@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
+import { IRELAND_CENTER } from '@/lib/config/map-constants'
 import { useToast } from '@/hooks/use-toast'
 import { useTargetNotes, useUpdateTargetNote } from '@/hooks/queries/use-target-note-hooks'
 import { useProjectObservations } from '@/hooks/queries/use-observation-hooks'
@@ -120,7 +121,7 @@ export function TargetNotesTab({ projectId, project }: TargetNotesTabProps) {
         <CardContent className="p-3 pt-0">
           <DynamicProjectMap
             className="h-72"
-            center={projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]}
+            center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
             zoom={projectCenter ? 14 : 7}
             boundary={projectBoundary}
             targetNotes={targetNoteMarkers}

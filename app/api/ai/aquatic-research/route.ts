@@ -42,7 +42,6 @@ export async function POST(request: NextRequest) {
     let wfdData: CatchmentsWaterBodyData | null = null
     if (waterBodyCode) {
       wfdData = await getWaterBodyData(waterBodyCode)
-      console.log('[Aquatic Research] WFD data:', wfdData ? 'Found' : 'Not found')
     }
 
     // 3. Extract aquatic habitats and species from best match

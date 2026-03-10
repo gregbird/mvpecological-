@@ -339,16 +339,14 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
           let gridRef: string | null = null
           try {
             gridRef = wgs84ToGridRef(projectCenter.lat, projectCenter.lng, 2, true)
-            console.log('🔍 Irish Grid ref calculated:', gridRef, 'for', projectCenter)
           } catch {
-            console.log('📍 Project is outside Irish Grid - skipping FPO/Article17 search')
+            // Project is outside Irish Grid - skip FPO/Article17 search
           }
 
           if (gridRef) {
             // FPO
             try {
               const fpoResults = await searchFPOByGridRef(gridRef)
-              console.log('🔍 FPO Results:', fpoResults.length, 'records found')
 
               const fpoSpeciesGroups = new Map<string, { count: number; records: FPORecord[] }>()
               for (const record of fpoResults) {
@@ -390,7 +388,6 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
             // Article 17
             try {
               const annexSpecies = await searchSpeciesByGridRef(gridRef)
-              console.log('🔍 Article 17 Results:', annexSpecies.length, 'species found')
 
               const commonNames: Record<string, string> = {
                 '1355': 'Otter',

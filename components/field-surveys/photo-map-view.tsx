@@ -5,6 +5,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
 import { getPhotoPublicUrl } from '@/lib/supabase/queries'
+import { IRELAND_CENTER, DEFAULT_ZOOM } from '@/lib/config/map-constants'
 import type { Photo } from '@/types/database'
 
 // Fix default marker icons in webpack/next.js
@@ -53,7 +54,7 @@ export default function PhotoMapView({ photos, onPhotoClick }: PhotoMapViewProps
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return
 
-    const map = L.map(mapRef.current).setView([53.1424, -7.6921], 7)
+    const map = L.map(mapRef.current).setView(IRELAND_CENTER, DEFAULT_ZOOM)
     mapInstanceRef.current = map
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {

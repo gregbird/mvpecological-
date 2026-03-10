@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { IRELAND_CENTER } from '@/lib/config/map-constants'
 import { useToast } from '@/hooks/use-toast'
 import {
   useSavedFindings,
@@ -152,7 +153,7 @@ export function DataGatheringTab({ projectId, userId, project }: DataGatheringTa
         <CardContent className="p-3 pt-0">
           <DynamicProjectMap
             className="h-72"
-            center={projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]}
+            center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
             zoom={projectCenter ? 14 : 7}
             boundary={projectBoundary}
             findings={mapFindings}

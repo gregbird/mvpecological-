@@ -29,7 +29,8 @@ import { useUpdateProject } from '@/hooks/queries/use-project-hooks'
 import { useHabitatStats } from '@/hooks/queries/use-habitat-hooks'
 import { useObservationStats } from '@/hooks/queries/use-observation-hooks'
 import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
-import { getReportSectionsForType, type ReportContent } from '@/lib/supabase/queries/reports'
+import { getReportSectionsForType } from '@/lib/config/template-types'
+import type { ReportContent } from '@/lib/supabase/queries/reports'
 import type { Project, WorkflowStep } from '@/types/database'
 
 interface FinalSubmissionStepProps {

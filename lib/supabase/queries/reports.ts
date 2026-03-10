@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/client'
-import { DEFAULT_SECTIONS_BY_TYPE } from '@/lib/config/template-types'
 import type { Database, Report, Json } from '@/types/database'
 
 type InsertReport = Database['public']['Tables']['reports']['Insert']
@@ -223,66 +222,9 @@ export async function deleteReport(reportId: string): Promise<boolean> {
   return true
 }
 
-// Report types
-export const REPORT_TYPES = [
-  { id: 'ecia', name: 'Ecological Impact Assessment (EcIA)' },
-  { id: 'nia', name: 'Natura Impact Assessment (NIA)' },
-  { id: 'aa_screening', name: 'Appropriate Assessment Screening' },
-  { id: 'aa_stage2', name: 'Appropriate Assessment (Stage 2)' },
-  { id: 'pea', name: 'Preliminary Ecological Appraisal (PEA)' },
-  { id: 'bat_survey', name: 'Bat Survey Report' },
-  { id: 'bird_survey', name: 'Bird Survey Report' },
-  { id: 'habitat_survey', name: 'Habitat Survey Report' },
-  { id: 'protected_species', name: 'Protected Species Report' },
-  { id: 'other', name: 'Other Technical Report' },
-]
-
-// Get report section definitions for a given report type
-// Falls back to PEA sections for unknown types
-export function getReportSectionsForType(
-  reportType: string
-): Array<{ id: string; title: string; aiPrompt: string }> {
-  const sections = DEFAULT_SECTIONS_BY_TYPE[reportType]
-  if (sections) {
-    return sections.map((s) => ({
-      id: s.id,
-      title: s.title,
-      aiPrompt: s.aiPrompt,
-    }))
-  }
-  return PEA_REPORT_SECTIONS
-}
-
-// Report sections template — CIEEM standard PEA structure (6 sections)
-export const PEA_REPORT_SECTIONS = [
-  {
-    id: 'introduction',
-    title: '1. Introduction',
-    aiPrompt: 'project background and site location',
-  },
-  {
-    id: 'methodology',
-    title: '2. Methodology',
-    aiPrompt: 'desk study sources and field survey methods',
-  },
-  {
-    id: 'results',
-    title: '3. Results',
-    aiPrompt: 'designated sites, habitats, flora, fauna, invasive species',
-  },
-  {
-    id: 'constraints',
-    title: '4. Ecological Constraints',
-    aiPrompt: 'constraints table and recommendations',
-  },
-  {
-    id: 'discussion',
-    title: '5. Discussion & Conclusions',
-    aiPrompt: 'synthesis and further survey recommendations',
-  },
-  {
-    id: 'appendices',
-    title: '6. Appendices',
-    aiPrompt: 'habitat map, photos, species lists',
-  },
-]
+// Re-export report config from centralized location for backward compatibility
+export {
+  REPORT_TYPES,
+  PEA_REPORT_SECTIONS,
+  getReportSectionsForType,
+} from '@/lib/config/template-types'

@@ -31,6 +31,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useRole } from '@/contexts/role-context'
 import { getPhaseByStepNumber } from '@/lib/config/workflow'
+import { PROJECT_TYPE_LABELS } from '@/lib/config/survey'
 import { createClient } from '@/lib/supabase/client'
 import type { Project, WorkflowStep } from '@/types/database'
 
@@ -69,18 +70,6 @@ const statusConfig = {
       'bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950/30 dark:text-gray-400 dark:border-gray-800',
     dot: 'bg-gray-500',
   },
-}
-
-const SURVEY_TYPE_LABELS: Record<string, string> = {
-  pea: 'PEA',
-  ecia: 'EcIA',
-  aa: 'AA',
-  screening: 'AA Screening',
-  nis: 'NIS',
-  bat_survey: 'Bat Survey',
-  bird_survey: 'Bird Survey',
-  habitat_survey: 'Habitat Survey',
-  other: 'Other',
 }
 
 const DATA_SOURCE_LABELS: Record<string, string> = {
@@ -413,10 +402,10 @@ export default function ProjectsPage() {
               {availableSurveyTypes.length > 0
                 ? availableSurveyTypes.map((t) => (
                     <SelectItem key={t} value={t}>
-                      {SURVEY_TYPE_LABELS[t] || t}
+                      {PROJECT_TYPE_LABELS[t] || t}
                     </SelectItem>
                   ))
-                : Object.entries(SURVEY_TYPE_LABELS).map(([value, label]) => (
+                : Object.entries(PROJECT_TYPE_LABELS).map(([value, label]) => (
                     <SelectItem key={value} value={value}>
                       {label}
                     </SelectItem>
@@ -493,7 +482,7 @@ export default function ProjectsPage() {
                         </Badge>
                         {project.survey_type && (
                           <Badge variant="outline" className="text-xs font-medium">
-                            {SURVEY_TYPE_LABELS[project.survey_type] || project.survey_type}
+                            {PROJECT_TYPE_LABELS[project.survey_type] || project.survey_type}
                           </Badge>
                         )}
                       </div>

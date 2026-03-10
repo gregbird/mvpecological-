@@ -37,6 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { IRELAND_CENTER } from '@/lib/config/map-constants'
 import { useToast } from '@/hooks/use-toast'
 import {
   useProjectObservations,
@@ -735,7 +736,7 @@ export function TargetNotesStep({
                   <div className="h-full min-h-0 overflow-hidden rounded-lg border">
                     <DynamicProjectMap
                       center={
-                        projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]
+                        projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER
                       }
                       zoom={projectCenter ? 14 : 7}
                       boundary={projectBoundary}
@@ -908,7 +909,7 @@ export function TargetNotesStep({
                   <div className="h-full min-h-0 overflow-hidden rounded-lg border">
                     <DynamicProjectMap
                       center={
-                        projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]
+                        projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER
                       }
                       zoom={projectCenter ? 14 : 7}
                       boundary={projectBoundary}

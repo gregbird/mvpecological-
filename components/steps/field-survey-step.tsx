@@ -38,6 +38,7 @@ import { SurveyCard, type Survey as SurveyCardType } from '@/components/field-su
 import { SurveyForm } from '@/components/field-surveys/survey-form'
 import { SurveyViewDialog } from '@/components/field-surveys/survey-view-dialog'
 import { PhotoGallery } from '@/components/field-surveys/photo-gallery'
+import { FIELD_SURVEY_TYPE_LABELS } from '@/lib/config/survey'
 import type { Project, WorkflowStep, Json } from '@/types/database'
 
 interface FieldSurveyStepProps {
@@ -45,20 +46,6 @@ interface FieldSurveyStepProps {
   workflowStep: WorkflowStep
   userId: string
   onComplete?: () => void
-}
-
-const SURVEY_TYPE_LABELS: Record<string, string> = {
-  walkover: 'Walkover Survey',
-  habitat_mapping: 'Habitat Mapping',
-  releve_survey: 'Relevé Survey',
-  bat_survey: 'Bat Survey',
-  bird_survey: 'Bird Survey',
-  mammal_survey: 'Mammal Survey',
-  aquatic_survey: 'Aquatic Survey',
-  botanical_survey: 'Botanical Survey',
-  invertebrate_survey: 'Invertebrate Survey',
-  biodiversity_net_gain: 'Biodiversity Net Gain',
-  other: 'Other Survey',
 }
 
 export function FieldSurveyStep({
@@ -669,7 +656,7 @@ export function FieldSurveyStep({
                             }}
                           >
                             {rec.priority === 'high' && '⚠️ '}
-                            {SURVEY_TYPE_LABELS[rec.type] || rec.type}
+                            {FIELD_SURVEY_TYPE_LABELS[rec.type] || rec.type}
                           </Badge>
                         ))}
                       </div>

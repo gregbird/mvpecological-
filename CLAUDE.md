@@ -113,9 +113,9 @@ NEXT_PUBLIC_OPENAI_API_KEY=    # Client-side AI (reports)
 
 ## Known Issues to Fix
 
-- [ ] `habitat-mapping-step.tsx:539` — `disabled={false}` hardcoded
-- [ ] Ireland center coords duplicated in 4+ files
-- [ ] `SURVEY_TYPE_LABELS` duplicated in 3 files
-- [ ] `findingsByType` grouping logic duplicated in 3 step components
+- [x] `habitat-mapping-step.tsx:539` — `disabled={false}` hardcoded → fixed: uses `workflowStep.status === 'approved'`
+- [x] Ireland center coords duplicated in 13 files → fixed: all use `IRELAND_CENTER` from `lib/config/map-constants.ts`
+- [x] `SURVEY_TYPE_LABELS` duplicated in 6 files → fixed: centralized in `lib/config/survey.ts`
+- [x] `findingsByType` grouping logic duplicated → fixed: `groupFindingsByType()` in `lib/utils/group-findings-by-type.ts`
 - [ ] Two separate `TargetNoteForm` components exist
-- [ ] Debug `console.log` in `designated-sites-substep.tsx` and `species-records-substep.tsx`
+- [x] Debug `console.log` in production code (5 files) → fixed: all removed

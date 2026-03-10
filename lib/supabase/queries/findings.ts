@@ -88,10 +88,9 @@ export async function updateFinding(
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', findingId)
     .select()
-    .single()
+    .maybeSingle()
 
   if (error) {
-    console.error('Error updating finding:', error.message, error.code, error.details, error.hint)
     throw new Error(error.message || 'Failed to update finding')
   }
 

@@ -29,7 +29,8 @@ import { useHabitatStats } from '@/hooks/queries/use-habitat-hooks'
 import { useObservationStats } from '@/hooks/queries/use-observation-hooks'
 import { useFindingsStats } from '@/hooks/queries/use-finding-hooks'
 import { useCompleteWorkflowStep, useUpdateWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
-import { getReportSectionsForType, type ReportContent } from '@/lib/supabase/queries/reports'
+import { getReportSectionsForType } from '@/lib/config/template-types'
+import type { ReportContent } from '@/lib/supabase/queries/reports'
 import type { Project, WorkflowStep, Json } from '@/types/database'
 
 interface QualityReviewStepProps {

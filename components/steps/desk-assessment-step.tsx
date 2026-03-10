@@ -41,6 +41,7 @@ import { BaselineReportTab } from '@/components/steps/desk-assessment/baseline-r
 import { DeepResearchTab } from '@/components/steps/desk-assessment/deep-research-tab'
 import { EcologicalSummaryPanel } from '@/components/desk-research/ecological-summary-panel'
 import { getFindingSourceUrl } from '@/lib/utils/finding-source-url'
+import { groupFindingsByType } from '@/lib/utils/group-findings-by-type'
 import type { Project, WorkflowStep, DeskResearchFinding } from '@/types/database'
 
 interface DeskAssessmentStepProps {
@@ -186,15 +187,10 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
     })
   }, [savedFindings])
 
-  // Group by type
-  const findingsByType = React.useMemo(() => {
-    const groups: Record<string, FindingWithRelevance[]> = {}
-    for (const f of findingsWithRelevance) {
-      if (!groups[f.data_type]) groups[f.data_type] = []
-      groups[f.data_type].push(f)
-    }
-    return groups
-  }, [findingsWithRelevance])
+  const findingsByType = React.useMemo(
+    () => groupFindingsByType(findingsWithRelevance),
+    [findingsWithRelevance]
+  )
 
   // Stats
   const highRelevanceCount = findingsWithRelevance.filter((f) => f.relevance === 'high').length
@@ -282,9 +278,9 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
       console.error('Error generating insights:', error)
 
       // Fallback to template-based insights
-      const designatedSites = findingsByType['designated_site'] || []
-      const speciesRecords = findingsByType['species_record'] || []
-      const aquaticFeatures = findingsByType['water_quality'] || []
+      const designatedSites = findingsByType.designated_site || []
+      const speciesRecords = findingsByType.species_record || []
+      const aquaticFeatures = findingsByType.aquatic || []
 
       const fallbackInsights = `## Key Findings Summary
 
@@ -485,7 +481,7 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
                       <ul className="text-muted-foreground space-y-1 text-sm">
                         <li>• Habitat Survey (Fossitt Level 3)</li>
                         {protectedSpeciesCount > 0 && <li>• Protected Species Survey</li>}
-                        {(findingsByType['designated_site']?.length || 0) > 0 && (
+                        {(findingsByType.designated_site?.length || 0) > 0 && (
                           <li>• Connectivity Assessment</li>
                         )}
                       </ul>
@@ -535,7 +531,7 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
                           </div>
                           <div className="text-left">
                             <div className="text-2xl font-bold">
-                              {findingsByType['designated_site']?.length || 0}
+                              {findingsByType.designated_site?.length || 0}
                             </div>
                             <div className="text-muted-foreground text-xs">Designated Sites</div>
                           </div>
@@ -547,9 +543,9 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
                           />
                         </button>
                         {expandedCard === 'designated_site' &&
-                          findingsByType['designated_site']?.length > 0 && (
+                          findingsByType.designated_site?.length > 0 && (
                             <ul className="mt-3 space-y-1 border-t pt-2">
-                              {findingsByType['designated_site'].map((f) => {
+                              {findingsByType.designated_site.map((f) => {
                                 const url = getFindingSourceUrl(f)
                                 return (
                                   <li key={f.id} className="flex items-start gap-1.5 text-xs">
@@ -592,7 +588,7 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
                           </div>
                           <div className="text-left">
                             <div className="text-2xl font-bold">
-                              {findingsByType['species_record']?.length || 0}
+                              {findingsByType.species_record?.length || 0}
                             </div>
                             <div className="text-muted-foreground text-xs">Species Records</div>
                           </div>
@@ -604,9 +600,9 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
                           />
                         </button>
                         {expandedCard === 'species_record' &&
-                          findingsByType['species_record']?.length > 0 && (
+                          findingsByType.species_record?.length > 0 && (
                             <ul className="mt-3 space-y-1 border-t pt-2">
-                              {findingsByType['species_record'].map((f) => {
+                              {findingsByType.species_record.map((f) => {
                                 const url = getFindingSourceUrl(f)
                                 return (
                                   <li key={f.id} className="flex items-start gap-1.5 text-xs">
@@ -649,7 +645,7 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
                           </div>
                           <div className="text-left">
                             <div className="text-2xl font-bold">
-                              {findingsByType['water_quality']?.length || 0}
+                              {findingsByType.aquatic?.length || 0}
                             </div>
                             <div className="text-muted-foreground text-xs">Aquatic Features</div>
                           </div>
@@ -660,32 +656,31 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
                             )}
                           />
                         </button>
-                        {expandedCard === 'water_quality' &&
-                          findingsByType['water_quality']?.length > 0 && (
-                            <ul className="mt-3 space-y-1 border-t pt-2">
-                              {findingsByType['water_quality'].map((f) => {
-                                const url = getFindingSourceUrl(f)
-                                return (
-                                  <li key={f.id} className="flex items-start gap-1.5 text-xs">
-                                    <span className="text-muted-foreground mt-0.5">•</span>
-                                    {url ? (
-                                      <a
-                                        href={url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-1 text-blue-700 hover:underline"
-                                      >
-                                        <span className="line-clamp-1">{f.title}</span>
-                                        <ExternalLink className="h-3 w-3 shrink-0" />
-                                      </a>
-                                    ) : (
+                        {expandedCard === 'water_quality' && findingsByType.aquatic?.length > 0 && (
+                          <ul className="mt-3 space-y-1 border-t pt-2">
+                            {findingsByType.aquatic.map((f) => {
+                              const url = getFindingSourceUrl(f)
+                              return (
+                                <li key={f.id} className="flex items-start gap-1.5 text-xs">
+                                  <span className="text-muted-foreground mt-0.5">•</span>
+                                  {url ? (
+                                    <a
+                                      href={url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 text-blue-700 hover:underline"
+                                    >
                                       <span className="line-clamp-1">{f.title}</span>
-                                    )}
-                                  </li>
-                                )
-                              })}
-                            </ul>
-                          )}
+                                      <ExternalLink className="h-3 w-3 shrink-0" />
+                                    </a>
+                                  ) : (
+                                    <span className="line-clamp-1">{f.title}</span>
+                                  )}
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        )}
                       </CardContent>
                     </Card>
                   </div>

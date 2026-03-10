@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { IRELAND_CENTER } from '@/lib/config/map-constants'
 import { useToast } from '@/hooks/use-toast'
 import { useSavedFindings } from '@/hooks/queries/use-finding-hooks'
 import { useHabitats } from '@/hooks/queries/use-habitat-hooks'
@@ -475,7 +476,7 @@ export function MapsTab({ projectId, userId, project }: MapsTabProps) {
             >
               <DynamicProjectMap
                 className="h-full"
-                center={projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]}
+                center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
                 zoom={projectCenter ? 14 : 7}
                 boundary={visibleOverlays.has('boundary') ? projectBoundary : undefined}
                 bufferDistances={project.buffer_distances ?? undefined}

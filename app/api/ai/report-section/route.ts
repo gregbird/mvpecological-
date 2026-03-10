@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getReportSectionsForType } from '@/lib/supabase/queries/reports'
+import { getReportSectionsForType } from '@/lib/config/template-types'
 import { jsonToSections } from '@/lib/supabase/queries/templates'
 import { REPORT_TYPES } from '@/lib/config/template-types'
 import { getSectionPrompt, getSectionMaxTokens } from '@/lib/ai/report-section-prompts'

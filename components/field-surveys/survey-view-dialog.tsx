@@ -15,6 +15,7 @@ import { TemplateSectionsRenderer } from './survey-template-fields/template-sect
 import { getDefaultFieldsForType } from '@/lib/config/survey-field-definitions'
 import { PhotoUpload } from '@/components/ui/photo-upload'
 import { createClient } from '@/lib/supabase/client'
+import { FIELD_SURVEY_TYPE_LABELS } from '@/lib/config/survey'
 import type { Survey, SurveyStatus } from './survey-card'
 
 type FieldValue = string | number | boolean | string[] | null
@@ -28,20 +29,6 @@ interface SurveyViewDialogProps {
   onEdit?: (survey: Survey) => void
   /** Open the relevé form in edit mode immediately */
   initialEditMode?: boolean
-}
-
-const SURVEY_TYPE_LABELS: Record<string, string> = {
-  walkover: 'Walkover Survey',
-  habitat_mapping: 'Habitat Mapping',
-  releve_survey: 'Relevé Survey',
-  bat_survey: 'Bat Survey',
-  bird_survey: 'Bird Survey',
-  mammal_survey: 'Mammal Survey',
-  aquatic_survey: 'Aquatic Survey',
-  botanical_survey: 'Botanical Survey',
-  invertebrate_survey: 'Invertebrate Survey',
-  biodiversity_net_gain: 'Biodiversity Net Gain',
-  other: 'Other Survey',
 }
 
 const STATUS_STYLES: Record<
@@ -149,7 +136,7 @@ export function SurveyViewDialog({
   const templateDef = !isReleve ? (getDefaultFieldsForType(survey.surveyType) ?? null) : null
 
   const handleEmail = () => {
-    const typeLabel = SURVEY_TYPE_LABELS[survey.surveyType] || survey.surveyType
+    const typeLabel = FIELD_SURVEY_TYPE_LABELS[survey.surveyType] || survey.surveyType
     const subject = encodeURIComponent(
       `${typeLabel} — ${projectName || 'Survey'} — ${formatDate(survey.surveyDate)}`
     )
@@ -273,7 +260,7 @@ export function SurveyViewDialog({
           <InfoRow
             icon={FileText}
             label="Survey Type"
-            value={SURVEY_TYPE_LABELS[survey.surveyType] || survey.surveyType}
+            value={FIELD_SURVEY_TYPE_LABELS[survey.surveyType] || survey.surveyType}
           />
 
           <InfoRow icon={Calendar} label="Survey Date" value={formatDate(survey.surveyDate)} />

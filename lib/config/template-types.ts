@@ -537,3 +537,45 @@ export const DEFAULT_SECTIONS_BY_TYPE: Record<string, ReportSectionDefinition[]>
   protected_species: PROTECTED_SPECIES_DEFAULT_SECTIONS,
   other: OTHER_DEFAULT_SECTIONS,
 }
+
+// Simplified PEA sections (CIEEM standard, 6 sections) — used as fallback
+export const PEA_REPORT_SECTIONS = [
+  {
+    id: 'introduction',
+    title: '1. Introduction',
+    aiPrompt: 'project background and site location',
+  },
+  {
+    id: 'methodology',
+    title: '2. Methodology',
+    aiPrompt: 'desk study sources and field survey methods',
+  },
+  {
+    id: 'results',
+    title: '3. Results',
+    aiPrompt: 'designated sites, habitats, flora, fauna, invasive species',
+  },
+  {
+    id: 'constraints',
+    title: '4. Ecological Constraints',
+    aiPrompt: 'constraints table and recommendations',
+  },
+  {
+    id: 'discussion',
+    title: '5. Discussion & Conclusions',
+    aiPrompt: 'synthesis and further survey recommendations',
+  },
+  { id: 'appendices', title: '6. Appendices', aiPrompt: 'habitat map, photos, species lists' },
+]
+
+// Get report section definitions for a given report type.
+// Falls back to PEA sections for unknown types.
+export function getReportSectionsForType(
+  reportType: string
+): Array<{ id: string; title: string; aiPrompt: string }> {
+  const sections = DEFAULT_SECTIONS_BY_TYPE[reportType]
+  if (sections) {
+    return sections.map((s) => ({ id: s.id, title: s.title, aiPrompt: s.aiPrompt }))
+  }
+  return PEA_REPORT_SECTIONS
+}

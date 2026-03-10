@@ -47,6 +47,8 @@ import {
   type HabitatPolygon as HabitatFormType,
 } from '@/components/field-surveys/habitat-form'
 import { calculateAreaHectares } from '@/lib/supabase/queries/habitats'
+import { IRELAND_CENTER } from '@/lib/config/map-constants'
+import { groupFindingsByType } from '@/lib/utils/group-findings-by-type'
 import { getHabitatByCode } from '@/lib/data/fossitt-codes'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -134,28 +136,7 @@ export function HabitatMappingStep({
   const deleteHabitat = useDeleteHabitat()
   const completeStep = useCompleteWorkflowStep()
 
-  // Group findings by data_type
-  const findingsByType = React.useMemo(() => {
-    const groups: Record<string, DeskResearchFinding[]> = {
-      designated_site: [],
-      species_record: [],
-      aquatic: [], // water_quality + catchment
-      other: [],
-    }
-    savedFindings.forEach((finding) => {
-      const type = finding.data_type
-      if (type === 'designated_site') {
-        groups.designated_site.push(finding)
-      } else if (type === 'species_record') {
-        groups.species_record.push(finding)
-      } else if (type === 'water_quality' || type === 'catchment') {
-        groups.aquatic.push(finding)
-      } else {
-        groups.other.push(finding)
-      }
-    })
-    return groups
-  }, [savedFindings])
+  const findingsByType = React.useMemo(() => groupFindingsByType(savedFindings), [savedFindings])
 
   // Convert findings to map markers (filtered by visibility toggles)
   const findingMarkers: FindingMarker[] = React.useMemo(() => {
@@ -536,7 +517,7 @@ export function HabitatMappingStep({
                             setShowHabitatForm(true)
                           }}
                           onDelete={() => setDeletingHabitat(habitat)}
-                          disabled={false}
+                          disabled={workflowStep.status === 'approved'}
                         />
                       ))}
                     </div>
@@ -689,7 +670,7 @@ export function HabitatMappingStep({
             </div>
             <div className="min-h-64 flex-1 overflow-hidden rounded-lg border">
               <ProjectMapWithDraw
-                center={projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]}
+                center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
                 zoom={projectCenter ? 14 : 7}
                 boundary={projectBoundary}
                 onBoundaryChange={handleBoundaryChange}

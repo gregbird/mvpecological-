@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
+import { FIELD_SURVEY_TYPE_LABELS } from '@/lib/config/survey'
 
 export type SurveyStatus = 'planned' | 'in_progress' | 'completed' | 'approved'
 export type SurveyType =
@@ -84,20 +85,6 @@ const STATUS_STYLES: Record<
   approved: { label: 'Approved', variant: 'default' },
 }
 
-const SURVEY_TYPE_LABELS: Record<SurveyType, string> = {
-  walkover: 'Walkover Survey',
-  habitat_mapping: 'Habitat Mapping',
-  releve_survey: 'Relevé Survey',
-  bat_survey: 'Bat Survey',
-  bird_survey: 'Bird Survey',
-  mammal_survey: 'Mammal Survey',
-  aquatic_survey: 'Aquatic Survey',
-  botanical_survey: 'Botanical Survey',
-  invertebrate_survey: 'Invertebrate Survey',
-  biodiversity_net_gain: 'Biodiversity Net Gain',
-  other: 'Other Survey',
-}
-
 export function SurveyCard({
   survey,
   onView,
@@ -109,7 +96,7 @@ export function SurveyCard({
   isHighlighted,
 }: SurveyCardProps) {
   const statusStyle = STATUS_STYLES[survey.status]
-  const surveyTypeLabel = SURVEY_TYPE_LABELS[survey.surveyType]
+  const surveyTypeLabel = FIELD_SURVEY_TYPE_LABELS[survey.surveyType]
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)

@@ -164,18 +164,6 @@ export async function updateProjectBoundary(
 ): Promise<Project | null> {
   const supabase = createClient()
 
-  console.log('[updateProjectBoundary] Attempting to update:', {
-    projectId,
-    gridReference,
-    hasBoundary: !!boundary,
-    hasCenterPoint: !!centerPoint,
-    bufferDistances,
-    visibleLayers,
-    townland,
-    county,
-    province,
-  })
-
   // Use RPC function to convert GeoJSON to PostGIS geometry
   // Cast to Json type for Supabase RPC
   const { data, error } = await supabase.rpc('update_project_boundary', {
@@ -202,7 +190,6 @@ export async function updateProjectBoundary(
     return null
   }
 
-  console.log('[updateProjectBoundary] Success:', data?.id)
   return data as unknown as Project
 }
 

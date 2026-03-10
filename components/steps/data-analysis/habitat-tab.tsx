@@ -28,6 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { IRELAND_CENTER } from '@/lib/config/map-constants'
 import { useToast } from '@/hooks/use-toast'
 import { useHabitats, useHabitatStats, useUpdateHabitat } from '@/hooks/queries/use-habitat-hooks'
 import { HabitatEditDialog } from '@/components/steps/data-analysis/habitat-edit-dialog'
@@ -155,7 +156,7 @@ export function HabitatTab({ projectId, siteCode, project }: HabitatTabProps) {
         <CardContent className="p-3 pt-0">
           <DynamicProjectMap
             className="h-72"
-            center={projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]}
+            center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
             zoom={projectCenter ? 14 : 7}
             boundary={projectBoundary}
             habitatPolygons={habitatFeatureCollection}

@@ -88,8 +88,6 @@ export async function getWaterBodyData(
     // The API endpoint uses /WaterBody/ (capital W and B)
     const url = `${CATCHMENTS_API_URL}/WaterBody/${encodeURIComponent(euCode)}`
 
-    console.log('[Catchments.ie] Fetching water body:', url)
-
     const response = await fetch(url, {
       signal: controller.signal,
       headers: {
@@ -104,7 +102,6 @@ export async function getWaterBodyData(
     }
 
     const data = await response.json()
-    console.log('[Catchments.ie] Raw response:', JSON.stringify(data).slice(0, 500))
 
     return parseWaterBodyResponse(data, euCode)
   } catch (error) {

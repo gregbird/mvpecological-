@@ -25,6 +25,7 @@ import { useSavedFindings, useFindingsStats } from '@/hooks/queries/use-finding-
 import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { useTargetNotes } from '@/hooks/queries/use-target-note-hooks'
 import { useHabitats } from '@/hooks/queries/use-habitat-hooks'
+import { IRELAND_CENTER } from '@/lib/config/map-constants'
 import { useProjectContext } from '@/contexts/project-context'
 import type { Project, WorkflowStep } from '@/types/database'
 
@@ -292,7 +293,7 @@ export function DataGatheringStep({
         <div className="flex-1">
           <ProjectMap
             className="h-full"
-            center={projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]}
+            center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
             zoom={12}
             boundary={projectBoundary}
             bufferDistances={bufferDistances}

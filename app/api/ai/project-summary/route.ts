@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { PROJECT_TYPE_LABELS_LONG } from '@/lib/config/survey'
 import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: NextRequest) {
@@ -54,19 +55,7 @@ export async function POST(request: NextRequest) {
       .filter(Boolean)
       .join(', ')
 
-    const SURVEY_TYPE_LABELS: Record<string, string> = {
-      pea: 'Preliminary Ecological Appraisal (PEA)',
-      ecia: 'Ecological Impact Assessment (EcIA)',
-      aa: 'Appropriate Assessment (AA)',
-      screening: 'Appropriate Assessment Screening',
-      nis: 'Natura Impact Statement (NIS)',
-      bat_survey: 'Bat Survey',
-      bird_survey: 'Bird Survey',
-      habitat_survey: 'Habitat Survey',
-      other: 'Ecological Survey',
-    }
-
-    const surveyLabel = SURVEY_TYPE_LABELS[project.survey_type || ''] || 'Ecological Survey'
+    const surveyLabel = PROJECT_TYPE_LABELS_LONG[project.survey_type || ''] || 'Ecological Survey'
 
     const prompt = `You are an Irish ecological consultant. Generate a 3-sentence executive summary for this project:
 

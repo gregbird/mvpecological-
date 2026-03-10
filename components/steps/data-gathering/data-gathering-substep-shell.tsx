@@ -29,6 +29,7 @@ import {
   type FindingType,
   type DeskResearchFinding as MapFinding,
 } from '@/components/desk-research/finding-card'
+import { IRELAND_CENTER } from '@/lib/config/map-constants'
 import { MapCaptureButton } from '@/components/maps/map-capture-button'
 import type { MapStepName } from '@/lib/map-screenshots/types'
 
@@ -581,7 +582,7 @@ export function DataGatheringSubstepShell({
         <div className="relative flex-1" ref={mapContainerRef}>
           <ProjectMap
             className="h-full"
-            center={projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]}
+            center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
             zoom={11}
             boundary={projectBoundary}
             bufferDistances={bufferDistances}

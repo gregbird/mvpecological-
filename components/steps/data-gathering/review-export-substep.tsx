@@ -40,6 +40,7 @@ import { TargetNoteForm } from './target-note-form'
 import { useUpdateFinding } from '@/hooks/queries/use-finding-hooks'
 import type { Project, DeskResearchFinding } from '@/types/database'
 import type { TargetNoteWithCreator } from '@/lib/supabase/queries/target-notes'
+import { IRELAND_CENTER } from '@/lib/config/map-constants'
 import { ScreenshotGallery } from '@/components/maps/screenshot-gallery'
 
 // Dynamic import for map
@@ -849,7 +850,7 @@ export function ReviewExportSubStep({
       <div className="w-[40%] shrink-0">
         <ProjectMap
           className="h-full"
-          center={projectCenter ? [projectCenter.lat, projectCenter.lng] : [53.1424, -7.6921]}
+          center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
           zoom={12}
           boundary={projectBoundary}
           bufferDistances={bufferDistances}
