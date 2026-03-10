@@ -1,20 +1,12 @@
 'use client'
 
 import * as React from 'react'
-import { Info, Layers, Maximize2, Minimize2, Pentagon, Square } from 'lucide-react'
+import { Info, Maximize2, Minimize2, Pentagon, Square } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import type { Map as LeafletMap, FeatureGroup as LeafletFeatureGroup } from 'leaflet'
 import type L from 'leaflet'
 
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import {
   IRELAND_CENTER,
@@ -29,38 +21,14 @@ import { useNPWSLayers } from './npws-layer-overlay'
 import { useEPALayers } from './epa-layer-overlay'
 import { useIWebsLayers } from './iwebs-layer-overlay'
 import { useAdministrativeBoundaries } from '@/hooks/maps/use-administrative-boundaries'
-
-interface BufferColorConfig {
-  fill: string
-  stroke: string
-  name: string
-}
-
-// Finding marker interface for displaying desk research findings on map
-export interface FindingMarker {
-  id: string
-  title: string
-  dataType:
-    | 'designated_site'
-    | 'species_record'
-    | 'water_quality'
-    | 'catchment'
-    | 'company_report'
-    | 'other'
-  location: { coordinates: [number, number] } | null // [lng, lat] GeoJSON format
-  isProtected?: boolean
-  source?: string
-}
-
-/** Saved habitat polygon for display on map */
-export interface HabitatPolygonOverlay {
-  id: string
-  geometry: GeoJSON.Geometry
-  fossittCode: string
-  fossittName: string
-  condition: string | null
-  color?: string
-}
+import { MapLayersDropdown } from '@/components/maps/map-layers-dropdown'
+export type { FindingMarker, HabitatPolygonOverlay } from '@/components/maps/map-types'
+import type {
+  FindingMarker,
+  HabitatPolygonOverlay,
+  BufferColorConfig,
+} from '@/components/maps/map-types'
+import { getBufferZoneStyle } from '@/components/maps/map-types'
 
 interface ProjectMapWithDrawProps {
   className?: string
@@ -116,24 +84,6 @@ interface DrawEditedEvent {
 
 interface DrawDeletedEvent {
   layers: L.LayerGroup
-}
-
-// Buffer zone styles with custom colors
-function getBufferZoneStyle(distance: number, colorConfig?: BufferColorConfig) {
-  const fillColor = colorConfig?.fill || '#3b82f6'
-  const strokeColor = colorConfig?.stroke || '#2563eb'
-
-  // Opacity decreases with distance for better visibility
-  const fillOpacity = distance <= 1 ? 0.2 : distance <= 2 ? 0.15 : distance <= 5 ? 0.1 : 0.08
-  const weight = distance <= 2 ? 2 : 1.5
-
-  return {
-    color: strokeColor,
-    fillColor: fillColor,
-    fillOpacity,
-    weight,
-    dashArray: distance > 2 ? '8, 4' : undefined,
-  }
 }
 
 // Internal map component
@@ -1017,128 +967,26 @@ export function ProjectMapWithDraw({
 
       {/* Map controls overlay */}
       <div data-map-control="true" className="absolute top-4 left-4 z-1000 flex flex-col gap-2">
-        {/* Style selector */}
+        {/* Layers dropdown */}
         {showLayersControl && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="secondary" size="sm" className="shadow-md">
-                <Layers className="mr-2 h-4 w-4" />
-                Layers
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="start"
-              className="z-9999 max-h-[70vh] overflow-y-auto"
-              container={containerRef.current}
-            >
-              <DropdownMenuLabel>Base Map</DropdownMenuLabel>
-              {(Object.keys(TILE_LAYERS) as MapStyle[]).map((style) => (
-                <DropdownMenuCheckboxItem
-                  onSelect={(e) => e.preventDefault()}
-                  key={style}
-                  checked={currentStyle === style}
-                  onCheckedChange={() => {
-                    setCurrentStyle(style)
-                    const config = TILE_LAYERS[style]
-                    if (config.minZoom && mapRef.current) {
-                      const map = mapRef.current
-                      if (map.getZoom() < config.minZoom) {
-                        map.setZoom(config.minZoom)
-                      }
-                      map.setMinZoom(config.minZoom)
-                    } else if (mapRef.current) {
-                      mapRef.current.setMinZoom(0)
-                    }
-                  }}
-                >
-                  {TILE_LAYERS[style].label}
-                </DropdownMenuCheckboxItem>
-              ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>Data Layers</DropdownMenuLabel>
-              <DropdownMenuCheckboxItem
-                onSelect={(e) => e.preventDefault()}
-                checked={showCounties}
-                onCheckedChange={() => setShowCounties(!showCounties)}
-              >
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full" style={{ backgroundColor: '#f97316' }} />
-                  County Boundaries
-                </div>
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                onSelect={(e) => e.preventDefault()}
-                checked={showTownlands}
-                onCheckedChange={() => setShowTownlands(!showTownlands)}
-              >
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full" style={{ backgroundColor: '#a855f7' }} />
-                  Townlands (zoom 12+)
-                </div>
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                onSelect={(e) => e.preventDefault()}
-                checked={showBatRecords}
-                onCheckedChange={() => setShowBatRecords(!showBatRecords)}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-xs leading-none" style={{ color: '#f59e0b' }}>
-                    ▲
-                  </span>
-                  Bat Records (GBIF)
-                </div>
-              </DropdownMenuCheckboxItem>
-
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>BirdWatch Ireland</DropdownMenuLabel>
-              <DropdownMenuCheckboxItem
-                onSelect={(e) => e.preventDefault()}
-                checked={iwebsVisibleLayers.includes('iwebs_boundaries')}
-                onCheckedChange={(checked) =>
-                  setIwebsVisibleLayers((prev) =>
-                    checked
-                      ? [...prev, 'iwebs_boundaries']
-                      : prev.filter((id) => id !== 'iwebs_boundaries')
-                  )
-                }
-              >
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full" style={{ backgroundColor: '#0ea5e9' }} />
-                  I-WEBS Boundaries
-                </div>
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                onSelect={(e) => e.preventDefault()}
-                checked={iwebsVisibleLayers.includes('iwebs_sites')}
-                onCheckedChange={(checked) =>
-                  setIwebsVisibleLayers((prev) =>
-                    checked ? [...prev, 'iwebs_sites'] : prev.filter((id) => id !== 'iwebs_sites')
-                  )
-                }
-              >
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full" style={{ backgroundColor: '#2563eb' }} />
-                  I-WEBS Sites
-                </div>
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                onSelect={(e) => e.preventDefault()}
-                checked={iwebsVisibleLayers.includes('iwebs_subsites')}
-                onCheckedChange={(checked) =>
-                  setIwebsVisibleLayers((prev) =>
-                    checked
-                      ? [...prev, 'iwebs_subsites']
-                      : prev.filter((id) => id !== 'iwebs_subsites')
-                  )
-                }
-              >
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full" style={{ backgroundColor: '#7c3aed' }} />
-                  I-WEBS Sub-sites
-                </div>
-              </DropdownMenuCheckboxItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <MapLayersDropdown
+            currentStyle={currentStyle}
+            setCurrentStyle={setCurrentStyle}
+            mapRef={mapRef}
+            portalContainer={containerRef.current}
+            showCounties={showCounties}
+            onToggleCounties={() => setShowCounties(!showCounties)}
+            showTownlands={showTownlands}
+            onToggleTownlands={() => setShowTownlands(!showTownlands)}
+            showBatRecords={showBatRecords}
+            onToggleBatRecords={setShowBatRecords}
+            iwebsVisibleLayers={iwebsVisibleLayers}
+            onToggleIwebsLayer={(layerId, checked) =>
+              setIwebsVisibleLayers((prev) =>
+                checked ? [...prev, layerId] : prev.filter((id) => id !== layerId)
+              )
+            }
+          />
         )}
 
         {/* Fullscreen toggle */}

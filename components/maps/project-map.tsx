@@ -1,61 +1,23 @@
 'use client'
 
 import * as React from 'react'
-import { Layers, Maximize2, Minimize2 } from 'lucide-react'
+import { Maximize2, Minimize2 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import type { Map as LeafletMap } from 'leaflet'
 import type L from 'leaflet'
 
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
-import {
-  IRELAND_CENTER,
-  DEFAULT_ZOOM,
-  TILE_LAYERS,
-  FINDING_TYPE_COLORS,
-} from '@/lib/config/map-constants'
+import { IRELAND_CENTER, DEFAULT_ZOOM, TILE_LAYERS } from '@/lib/config/map-constants'
 export type { MapStyle } from '@/lib/config/map-constants'
 import type { MapStyle } from '@/lib/config/map-constants'
 import type { DeskResearchFinding } from '@/components/desk-research/finding-card'
 import { useIWebsLayers } from '@/components/maps/iwebs-layer-overlay'
-
-export interface MapLayer {
-  id: string
-  name: string
-  visible: boolean
-  color?: string
-}
-
-// Target Note marker interface
-export interface TargetNoteMarker {
-  id: string
-  category: string
-  title: string
-  description?: string | null
-  priority?: string | null
-  isVerified?: boolean | null
-  location: { coordinates: [number, number] } | null
-}
-
-// Target note category colors for markers
-const TARGET_NOTE_COLORS: Record<string, string> = {
-  access_point: '#3b82f6', // blue
-  check_feature: '#8b5cf6', // purple
-  habitat: '#22c55e', // green
-  fauna: '#f59e0b', // amber
-  flora: '#ec4899', // pink
-  management: '#64748b', // slate
-  damage: '#ef4444', // red
-  ownership: '#6366f1', // indigo
-}
+export type { MapLayer, TargetNoteMarker } from '@/components/maps/map-types'
+import type { MapLayer, TargetNoteMarker } from '@/components/maps/map-types'
+import { TARGET_NOTE_COLORS, BUFFER_COLORS } from '@/components/maps/map-types'
+import { MapLayersDropdown } from '@/components/maps/map-layers-dropdown'
+import { FindingMarkers } from '@/components/maps/finding-markers'
 
 interface ProjectMapProps {
   className?: string
@@ -77,64 +39,6 @@ interface ProjectMapProps {
   onMapReady?: () => void
   editable?: boolean
   showControls?: boolean
-}
-
-// Buffer zone colors (matching GIS mapping step)
-const BUFFER_COLORS: Record<number, string> = {
-  0.5: '#ef4444', // red
-  1: '#f97316', // orange
-  2: '#eab308', // yellow
-  5: '#22c55e', // green
-  10: '#3b82f6', // blue
-  15: '#8b5cf6', // purple
-}
-
-// Species status colors (for species_record findings)
-const SPECIES_STATUS_COLORS = {
-  protected: '#dc2626', // Red - protected species (requires attention)
-  invasive: '#f97316', // Orange - invasive species (problem species)
-  threatened: '#eab308', // Yellow - threatened but not legally protected
-  normal: '#3b82f6', // Blue - regular species
-}
-
-// Finding source colors
-const FINDING_SOURCE_COLORS: Record<string, string> = {
-  npws: '#22c55e', // Green
-  gbif: '#3b82f6', // Blue
-  nbdc: '#8b5cf6', // Purple
-  epa: '#06b6d4', // Cyan
-  fpo: '#dc2626', // Red - Flora Protection Order (always protected)
-  manual: '#f59e0b', // Amber
-  company_reports: '#6366f1', // Indigo
-}
-
-/**
- * Get color for a species based on its conservation status
- */
-function getSpeciesColor(finding: DeskResearchFinding): string {
-  if (finding.dataType !== 'species_record') {
-    return FINDING_TYPE_COLORS[finding.dataType] || FINDING_TYPE_COLORS.other
-  }
-
-  // FPO species are always protected
-  if (finding.source === 'fpo') {
-    return SPECIES_STATUS_COLORS.protected
-  }
-
-  const metadata = finding.metadata as Record<string, unknown> | undefined
-
-  // Priority: protected > invasive > threatened > normal
-  if (metadata?.isProtected) {
-    return SPECIES_STATUS_COLORS.protected
-  }
-  if (metadata?.isInvasive) {
-    return SPECIES_STATUS_COLORS.invasive
-  }
-  if (metadata?.isThreatened) {
-    return SPECIES_STATUS_COLORS.threatened
-  }
-
-  return SPECIES_STATUS_COLORS.normal
 }
 
 // The actual map component that uses react-leaflet
@@ -750,231 +654,14 @@ function MapComponent({
         })}
 
       {/* Desk Research Findings */}
-      {visibleFindings.length > 0 &&
-        findingsLayer?.visible &&
-        visibleFindings.map((finding) => {
-          if (!finding.location) return null
-
-          const isSelected = selectedFinding?.id === finding.id
-          // Use species-aware color function for species records
-          const color = getSpeciesColor(finding)
-          const sourceColor = FINDING_SOURCE_COLORS[finding.source] || '#6b7280'
-
-          // Determine marker size based on status (protected/invasive are larger)
-          const metadata = finding.metadata as Record<string, unknown> | undefined
-          const isImportantSpecies =
-            metadata?.isProtected || metadata?.isInvasive || finding.source === 'fpo'
-          const baseRadius = isImportantSpecies ? 10 : 8
-
-          // Render based on geometry type
-          if (finding.location.type === 'Point') {
-            const [lng, lat] = finding.location.coordinates as [number, number]
-            return (
-              <CircleMarker
-                key={`finding-${finding.id}`}
-                center={[lat, lng]}
-                radius={isSelected ? baseRadius + 4 : baseRadius}
-                pathOptions={{
-                  color: isSelected ? '#fbbf24' : '#ffffff',
-                  weight: isSelected ? 3 : isImportantSpecies ? 2.5 : 2,
-                  fillColor: color,
-                  fillOpacity: isSelected ? 1 : 0.85,
-                }}
-                eventHandlers={{
-                  click: (e: L.LeafletMouseEvent) => {
-                    // eslint-disable-next-line @typescript-eslint/no-require-imports
-                    const L = require('leaflet')
-                    L.DomEvent.stopPropagation(e)
-                    onFindingClick?.(finding)
-                  },
-                }}
-              >
-                <Popup>
-                  <div className="max-w-xs p-2">
-                    <div className="mb-1 flex flex-wrap items-center gap-1">
-                      <span
-                        className="rounded px-1.5 py-0.5 text-xs font-medium text-white"
-                        style={{ backgroundColor: sourceColor }}
-                      >
-                        {finding.source.toUpperCase()}
-                      </span>
-                      {/* Species status badges */}
-                      {!!metadata?.isProtected && (
-                        <span className="rounded bg-red-600 px-1.5 py-0.5 text-xs font-medium text-white">
-                          Protected
-                        </span>
-                      )}
-                      {!!metadata?.isInvasive && (
-                        <span className="rounded bg-orange-500 px-1.5 py-0.5 text-xs font-medium text-white">
-                          Invasive
-                        </span>
-                      )}
-                      {!!metadata?.isThreatened && !metadata?.isProtected && (
-                        <span className="rounded bg-yellow-500 px-1.5 py-0.5 text-xs font-medium text-white">
-                          Threatened
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="font-semibold">{finding.title}</h3>
-                    {/* Scientific name if different from title */}
-                    {typeof metadata?.scientificName === 'string' &&
-                      metadata.scientificName !== finding.title && (
-                        <p className="text-xs text-gray-500 italic">{metadata.scientificName}</p>
-                      )}
-                    {finding.content && (
-                      <p className="mt-1 line-clamp-2 text-sm text-gray-600">{finding.content}</p>
-                    )}
-                    {/* Designations */}
-                    {typeof metadata?.designations === 'string' && (
-                      <p className="mt-1 text-xs text-red-700">
-                        {metadata.designations.split('||')[0].trim()}
-                      </p>
-                    )}
-                    {finding.metadata?.distance !== undefined && (
-                      <p className="mt-1 text-xs text-gray-500">
-                        {finding.metadata.distance === 0
-                          ? 'Within boundary'
-                          : `${finding.metadata.distance.toFixed(1)} km from boundary`}
-                      </p>
-                    )}
-                  </div>
-                </Popup>
-              </CircleMarker>
-            )
-          } else if (
-            finding.location.type === 'Polygon' ||
-            finding.location.type === 'MultiPolygon'
-          ) {
-            return (
-              <GeoJSON
-                key={`finding-${finding.id}`}
-                data={finding.location}
-                style={{
-                  color: isSelected ? '#fbbf24' : color,
-                  weight: isSelected ? 3 : 2,
-                  fillColor: color,
-                  fillOpacity: isSelected ? 0.4 : 0.2,
-                }}
-                eventHandlers={{
-                  click: (e: L.LeafletMouseEvent) => {
-                    // eslint-disable-next-line @typescript-eslint/no-require-imports
-                    const L = require('leaflet')
-                    L.DomEvent.stopPropagation(e)
-                    onFindingClick?.(finding)
-                  },
-                }}
-              >
-                <Popup>
-                  <div className="max-w-xs p-2">
-                    <div className="mb-1 flex items-center gap-1">
-                      <span
-                        className="rounded px-1.5 py-0.5 text-xs font-medium text-white"
-                        style={{ backgroundColor: sourceColor }}
-                      >
-                        {finding.source.toUpperCase()}
-                      </span>
-                    </div>
-                    <h3 className="font-semibold">{finding.title}</h3>
-                    {finding.content && (
-                      <p className="mt-1 line-clamp-2 text-sm text-gray-600">{finding.content}</p>
-                    )}
-                  </div>
-                </Popup>
-              </GeoJSON>
-            )
-          } else if (
-            finding.location.type === 'LineString' ||
-            finding.location.type === 'MultiLineString'
-          ) {
-            return (
-              <GeoJSON
-                key={`finding-${finding.id}`}
-                data={finding.location}
-                style={{
-                  color: isSelected ? '#fbbf24' : color,
-                  weight: isSelected ? 4 : 3,
-                }}
-                eventHandlers={{
-                  click: (e: L.LeafletMouseEvent) => {
-                    // eslint-disable-next-line @typescript-eslint/no-require-imports
-                    const L = require('leaflet')
-                    L.DomEvent.stopPropagation(e)
-                    onFindingClick?.(finding)
-                  },
-                }}
-              >
-                <Popup>
-                  <div className="max-w-xs p-2">
-                    <div className="mb-1 flex items-center gap-1">
-                      <span
-                        className="rounded px-1.5 py-0.5 text-xs font-medium text-white"
-                        style={{ backgroundColor: sourceColor }}
-                      >
-                        {finding.source.toUpperCase()}
-                      </span>
-                    </div>
-                    <h3 className="font-semibold">{finding.title}</h3>
-                    {finding.content && (
-                      <p className="mt-1 line-clamp-2 text-sm text-gray-600">{finding.content}</p>
-                    )}
-                  </div>
-                </Popup>
-              </GeoJSON>
-            )
-          } else if (finding.location.type === 'GeometryCollection') {
-            // Render first point from GeometryCollection
-            const geoms = (finding.location as GeoJSON.GeometryCollection).geometries
-            const firstPoint = geoms.find((g) => g.type === 'Point') as GeoJSON.Point | undefined
-            if (!firstPoint) return null
-
-            const [lng, lat] = firstPoint.coordinates
-            const recordCount = finding.metadata?.recordCount || geoms.length
-
-            return (
-              <CircleMarker
-                key={`finding-${finding.id}`}
-                center={[lat, lng]}
-                radius={isSelected ? 12 : 8}
-                pathOptions={{
-                  color: isSelected ? '#fbbf24' : '#ffffff',
-                  weight: isSelected ? 3 : 2,
-                  fillColor: color,
-                  fillOpacity: isSelected ? 1 : 0.8,
-                }}
-                eventHandlers={{
-                  click: (e: L.LeafletMouseEvent) => {
-                    // eslint-disable-next-line @typescript-eslint/no-require-imports
-                    const L = require('leaflet')
-                    L.DomEvent.stopPropagation(e)
-                    onFindingClick?.(finding)
-                  },
-                }}
-              >
-                <Popup>
-                  <div className="max-w-xs p-2">
-                    <div className="mb-1 flex items-center gap-1">
-                      <span
-                        className="rounded px-1.5 py-0.5 text-xs font-medium text-white"
-                        style={{ backgroundColor: sourceColor }}
-                      >
-                        {finding.source.toUpperCase()}
-                      </span>
-                      <span className="text-muted-foreground text-xs">
-                        {recordCount} location{recordCount > 1 ? 's' : ''}
-                      </span>
-                    </div>
-                    <h3 className="font-semibold">{finding.title}</h3>
-                    {finding.content && (
-                      <p className="mt-1 line-clamp-2 text-sm text-gray-600">{finding.content}</p>
-                    )}
-                  </div>
-                </Popup>
-              </CircleMarker>
-            )
-          }
-
-          return null
-        })}
+      {visibleFindings.length > 0 && findingsLayer?.visible && (
+        <FindingMarkers
+          findings={visibleFindings}
+          selectedFinding={selectedFinding}
+          onFindingClick={onFindingClick}
+          rl={{ CircleMarker, GeoJSON, Popup }}
+        />
+      )}
     </MapContainer>
   )
 }
@@ -1087,126 +774,23 @@ export function ProjectMap({
           data-map-control="true"
           className="pointer-events-auto absolute top-4 left-4 z-9999 flex flex-col gap-2"
         >
-          {/* Style selector */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="secondary" size="sm" className="shadow-md">
-                <Layers className="mr-2 h-4 w-4" />
-                Layers
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="start"
-              className="z-9999 max-h-[70vh] overflow-y-auto"
-              container={containerRef.current}
-            >
-              <DropdownMenuLabel>Base Map</DropdownMenuLabel>
-              {(Object.keys(TILE_LAYERS) as MapStyle[]).map((style) => (
-                <DropdownMenuCheckboxItem
-                  onSelect={(e) => e.preventDefault()}
-                  key={style}
-                  checked={currentStyle === style}
-                  onCheckedChange={() => {
-                    setCurrentStyle(style)
-                    const config = TILE_LAYERS[style]
-                    if (config.minZoom && mapRef.current) {
-                      const map = mapRef.current
-                      if (map.getZoom() < config.minZoom) {
-                        map.setZoom(config.minZoom)
-                      }
-                      map.setMinZoom(config.minZoom)
-                    } else if (mapRef.current) {
-                      mapRef.current.setMinZoom(0)
-                    }
-                  }}
-                >
-                  {TILE_LAYERS[style].label}
-                </DropdownMenuCheckboxItem>
-              ))}
-
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>Data Layers</DropdownMenuLabel>
-              {layers.map((layer) => (
-                <DropdownMenuCheckboxItem
-                  onSelect={(e) => e.preventDefault()}
-                  key={layer.id}
-                  checked={layer.visible}
-                  onCheckedChange={() => toggleLayer(layer.id)}
-                >
-                  <div className="flex items-center gap-2">
-                    {layer.color && (
-                      <div
-                        className="h-3 w-3 rounded-full"
-                        style={{ backgroundColor: layer.color }}
-                      />
-                    )}
-                    {layer.name}
-                  </div>
-                </DropdownMenuCheckboxItem>
-              ))}
-              <DropdownMenuCheckboxItem
-                onSelect={(e) => e.preventDefault()}
-                checked={showBatRecords}
-                onCheckedChange={(checked) => setShowBatRecords(checked === true)}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-xs leading-none" style={{ color: '#f97316' }}>
-                    ▲
-                  </span>
-                  Bat Records (GBIF)
-                </div>
-              </DropdownMenuCheckboxItem>
-
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>BirdWatch Ireland</DropdownMenuLabel>
-              <DropdownMenuCheckboxItem
-                onSelect={(e) => e.preventDefault()}
-                checked={iwebsVisibleLayers.includes('iwebs_boundaries')}
-                onCheckedChange={(checked) =>
-                  setIwebsVisibleLayers((prev) =>
-                    checked
-                      ? [...prev, 'iwebs_boundaries']
-                      : prev.filter((id) => id !== 'iwebs_boundaries')
-                  )
-                }
-              >
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full" style={{ backgroundColor: '#0ea5e9' }} />
-                  I-WEBS Boundaries
-                </div>
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                onSelect={(e) => e.preventDefault()}
-                checked={iwebsVisibleLayers.includes('iwebs_sites')}
-                onCheckedChange={(checked) =>
-                  setIwebsVisibleLayers((prev) =>
-                    checked ? [...prev, 'iwebs_sites'] : prev.filter((id) => id !== 'iwebs_sites')
-                  )
-                }
-              >
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full" style={{ backgroundColor: '#2563eb' }} />
-                  I-WEBS Sites
-                </div>
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                onSelect={(e) => e.preventDefault()}
-                checked={iwebsVisibleLayers.includes('iwebs_subsites')}
-                onCheckedChange={(checked) =>
-                  setIwebsVisibleLayers((prev) =>
-                    checked
-                      ? [...prev, 'iwebs_subsites']
-                      : prev.filter((id) => id !== 'iwebs_subsites')
-                  )
-                }
-              >
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full" style={{ backgroundColor: '#7c3aed' }} />
-                  I-WEBS Sub-sites
-                </div>
-              </DropdownMenuCheckboxItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Layers dropdown */}
+          <MapLayersDropdown
+            currentStyle={currentStyle}
+            setCurrentStyle={setCurrentStyle}
+            mapRef={mapRef}
+            portalContainer={containerRef.current}
+            dataLayers={layers}
+            onToggleLayer={toggleLayer}
+            showBatRecords={showBatRecords}
+            onToggleBatRecords={setShowBatRecords}
+            iwebsVisibleLayers={iwebsVisibleLayers}
+            onToggleIwebsLayer={(layerId, checked) =>
+              setIwebsVisibleLayers((prev) =>
+                checked ? [...prev, layerId] : prev.filter((id) => id !== layerId)
+              )
+            }
+          />
 
           {/* Fullscreen toggle */}
           <Button variant="secondary" size="icon" className="shadow-md" onClick={toggleFullscreen}>

@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import type { Project, DeskResearchFinding } from '@/types/database'
-import type { TargetNoteMarker } from '@/components/maps/project-map'
+import type { TargetNoteMarker } from '@/components/maps/map-types'
 
 const DynamicProjectMap = dynamic(
   () => import('@/components/maps/project-map').then((mod) => mod.ProjectMap),

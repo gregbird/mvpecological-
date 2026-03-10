@@ -60,7 +60,7 @@ import type {
   Json,
 } from '@/types/database'
 
-import type { FindingMarker, HabitatPolygonOverlay } from '@/components/maps/project-map-with-draw'
+import type { FindingMarker, HabitatPolygonOverlay } from '@/components/maps/map-types'
 
 // Dynamic import for map with draw controls
 const ProjectMapWithDraw = dynamic(

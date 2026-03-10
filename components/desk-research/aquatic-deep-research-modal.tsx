@@ -3,24 +3,14 @@
 import * as React from 'react'
 import {
   Droplets,
-  Fish,
-  Leaf,
   MapPin,
   Sparkles,
   Info,
   AlertTriangle,
-  Loader2,
   Link2,
   FileText,
   Waves,
-  Mountain,
-  TrendingUp,
-  TrendingDown,
-  Minus,
   Activity,
-  AlertCircle,
-  ArrowRight,
-  Clock,
   Shield,
 } from 'lucide-react'
 
@@ -30,106 +20,32 @@ import { useToast } from '@/hooks/use-toast'
 import { useWaterBodyResearch } from '@/hooks/queries/use-deep-research-hooks'
 import { saveAquaticResearch } from '@/lib/supabase/queries/aquatic-research'
 import { DeepResearchShell, AiAnalysisCard, ResourceLinkCard } from './deep-research-shell'
+import type { AquaticResearchResult } from './aquatic-research/aquatic-types'
+import { WFD_STATUS_COLORS, WATER_BODY_ICONS } from './aquatic-research/aquatic-types'
+import { WfdTab } from './aquatic-research/wfd-tab'
+import { SacTab } from './aquatic-research/sac-tab'
 
-export interface AquaticDeepResearchSite {
-  waterBodyName: string
-  waterBodyType: 'River' | 'Lake' | 'Catchment'
-  waterBodyCode?: string
-  wfdStatus?: string
-  catchmentName?: string
-  catchmentId?: string
-  distance?: number
-  areaHa?: number
-  lengthKm?: number
-}
-
-interface LinkedSAC {
-  siteCode: string
-  siteName: string
-  matchScore: number
-  matchReason: string
-  siteArea?: number
-  sscoUrl?: string
-  aquaticHabitats: Array<{ code: string; name: string; description: string }>
-  aquaticSpecies: Array<{ code: string; name: string; commonName: string }>
-  allHabitats: Array<{ code: string; name: string }>
-  allSpecies: Array<{ code: string; name: string }>
-}
-
-interface WFDStatusHistory {
-  period: string
-  status: string
-  details: string[]
-}
-
-interface WFDTrend {
-  ParameterName: string
-  TrendDesc: string
-}
-
-interface WFDFailure {
-  Name: string
-}
-
-interface WFDConnectivity {
-  Code: string
-  Name: string
-  Type: string
-  Direction: 'Input' | 'Output'
-}
-
-interface WFDData {
-  currentStatus?: string
-  risk?: string
-  statusHistory: WFDStatusHistory[]
-  trends: WFDTrend[]
-  failures: WFDFailure[]
-  connectivity: WFDConnectivity[]
-  catchmentName?: string
-  subCatchmentName?: string
-}
-
-interface AquaticResearchResult {
-  summary: string
-  linkedSACs: LinkedSAC[]
-  wfdData: WFDData | null
-  resources: {
-    catchmentsUrl: string
-    epaWaterMapUrl: string
-    hydroNetUrl: string
-    wfdDataUrl: string
-    waterBodyUrl?: string
-    sacUrl?: string
-    sscoUrl?: string
-    siUrl?: string
-  }
-}
+export type { AquaticDeepResearchSite } from './aquatic-research/aquatic-types'
 
 interface AquaticDeepResearchModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  site: AquaticDeepResearchSite | null
+  site: {
+    waterBodyName: string
+    waterBodyType: 'River' | 'Lake' | 'Catchment'
+    waterBodyCode?: string
+    wfdStatus?: string
+    catchmentName?: string
+    catchmentId?: string
+    distance?: number
+    areaHa?: number
+    lengthKm?: number
+  } | null
   projectId: string
   userId: string
   findingId?: string | null
   existingAnalysis?: string
   onSaveAnalysis?: (data: { aiAnalysis: string; waterBodyCode: string }) => void
-}
-
-// WFD Status colors
-const WFD_STATUS_COLORS: Record<string, string> = {
-  High: 'bg-emerald-100 text-emerald-700 border-emerald-300',
-  Good: 'bg-green-100 text-green-700 border-green-300',
-  Moderate: 'bg-amber-100 text-amber-700 border-amber-300',
-  Poor: 'bg-orange-100 text-orange-700 border-orange-300',
-  Bad: 'bg-red-100 text-red-700 border-red-300',
-}
-
-// Water body type icons
-const WATER_BODY_ICONS: Record<string, React.ElementType> = {
-  River: Waves,
-  Lake: Droplets,
-  Catchment: Mountain,
 }
 
 export function AquaticDeepResearchModal({
@@ -424,254 +340,6 @@ export function AquaticDeepResearchModal({
     </>
   )
 
-  const wfdTab = (
-    <>
-      {result?.wfdData ? (
-        <>
-          {/* Current Status & Risk */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <Activity className="h-4 w-4 text-blue-500" />
-                WFD Assessment
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-4">
-                <div>
-                  <span className="text-muted-foreground text-xs">Current Status</span>
-                  <div className="flex items-center gap-2">
-                    <Badge className={WFD_STATUS_COLORS[result.wfdData.currentStatus || ''] || ''}>
-                      {result.wfdData.currentStatus || 'Not Assessed'}
-                    </Badge>
-                  </div>
-                </div>
-                <div>
-                  <span className="text-muted-foreground text-xs">Risk Level</span>
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      variant="outline"
-                      className={
-                        result.wfdData.risk === 'At risk'
-                          ? 'border-red-300 bg-red-50 text-red-700'
-                          : result.wfdData.risk === 'Not at risk'
-                            ? 'border-green-300 bg-green-50 text-green-700'
-                            : ''
-                      }
-                    >
-                      {result.wfdData.risk === 'At risk' && (
-                        <AlertCircle className="mr-1 h-3 w-3" />
-                      )}
-                      {result.wfdData.risk || 'Unknown'}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-
-              {result.wfdData.catchmentName && (
-                <div className="text-sm">
-                  <span className="text-muted-foreground">Catchment: </span>
-                  <span className="font-medium">{result.wfdData.catchmentName}</span>
-                  {result.wfdData.subCatchmentName && (
-                    <span className="text-muted-foreground">
-                      {' '}
-                      / {result.wfdData.subCatchmentName}
-                    </span>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Status History */}
-          {result.wfdData.statusHistory.length > 0 && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <Clock className="h-4 w-4 text-gray-500" />
-                  Status History
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {result.wfdData.statusHistory.slice(0, 5).map((h, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-start justify-between rounded border px-3 py-2 text-sm"
-                    >
-                      <div>
-                        <span className="font-medium">{h.period}</span>
-                        {h.details.length > 0 && (
-                          <p className="text-muted-foreground mt-1 text-xs">
-                            {h.details.join(' • ')}
-                          </p>
-                        )}
-                      </div>
-                      <Badge className={WFD_STATUS_COLORS[h.status] || ''}>{h.status}</Badge>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Trends */}
-          {result.wfdData.trends.length > 0 && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <TrendingUp className="h-4 w-4 text-amber-500" />
-                  Water Quality Trends
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {result.wfdData.trends.map((t, idx) => {
-                    const isUpward = t.TrendDesc.toLowerCase().includes('upward')
-                    const isDownward = t.TrendDesc.toLowerCase().includes('downward')
-                    const WfdTrendIcon = isUpward ? TrendingUp : isDownward ? TrendingDown : Minus
-
-                    return (
-                      <div
-                        key={idx}
-                        className="flex items-center justify-between rounded bg-gray-50 px-3 py-2 text-sm"
-                      >
-                        <span className="font-medium">{t.ParameterName}</span>
-                        <div className="flex items-center gap-1">
-                          <WfdTrendIcon
-                            className={`h-4 w-4 ${
-                              isUpward
-                                ? 'text-red-500'
-                                : isDownward
-                                  ? 'text-green-500'
-                                  : 'text-gray-500'
-                            }`}
-                          />
-                          <span
-                            className={
-                              isUpward
-                                ? 'text-red-600'
-                                : isDownward
-                                  ? 'text-green-600'
-                                  : 'text-gray-600'
-                            }
-                          >
-                            {t.TrendDesc}
-                          </span>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-                <p className="text-muted-foreground mt-2 text-xs">
-                  Note: Upward trends for pollutants indicate degrading conditions.
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Failures */}
-          {result.wfdData.failures.length > 0 && (
-            <Card className="border-red-200 bg-red-50/30">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm text-red-700">
-                  <AlertTriangle className="h-4 w-4" />
-                  Environmental Failures
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-1">
-                  {result.wfdData.failures.map((f, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-2 rounded bg-red-100 px-3 py-2 text-sm text-red-700"
-                    >
-                      <AlertCircle className="h-4 w-4 shrink-0" />
-                      {f.Name}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Connectivity */}
-          {result.wfdData.connectivity.length > 0 && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <ArrowRight className="h-4 w-4 text-cyan-500" />
-                  Hydrological Connectivity
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="mb-2 text-sm font-medium text-gray-600">Upstream (Input)</h4>
-                    <div className="space-y-1">
-                      {result.wfdData.connectivity
-                        .filter((c) => c.Direction === 'Input')
-                        .map((c, idx) => (
-                          <div
-                            key={idx}
-                            className="rounded bg-blue-50 px-2 py-1 text-sm text-blue-700"
-                          >
-                            {c.Name}
-                          </div>
-                        ))}
-                      {result.wfdData.connectivity.filter((c) => c.Direction === 'Input').length ===
-                        0 && <p className="text-muted-foreground text-sm">None recorded</p>}
-                    </div>
-                  </div>
-                  <div>
-                    <h4 className="mb-2 text-sm font-medium text-gray-600">Downstream (Output)</h4>
-                    <div className="space-y-1">
-                      {result.wfdData.connectivity
-                        .filter((c) => c.Direction === 'Output')
-                        .map((c, idx) => (
-                          <div
-                            key={idx}
-                            className="rounded bg-green-50 px-2 py-1 text-sm text-green-700"
-                          >
-                            {c.Name}
-                          </div>
-                        ))}
-                      {result.wfdData.connectivity.filter((c) => c.Direction === 'Output')
-                        .length === 0 && (
-                        <p className="text-muted-foreground text-sm">None recorded</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </>
-      ) : isLoading ? (
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <Loader2 className="mx-auto mb-3 h-10 w-10 animate-spin text-blue-400" />
-            <p className="text-sm font-medium">Fetching WFD data from Catchments.ie...</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="border-amber-200 bg-amber-50/50">
-          <CardContent className="flex items-start gap-2 pt-4">
-            <Info className="h-4 w-4 shrink-0 text-amber-600" />
-            <div className="text-sm">
-              <p className="font-medium text-amber-700">No WFD Data Available</p>
-              <p className="text-muted-foreground">
-                {result
-                  ? 'Detailed WFD data was not available from Catchments.ie for this water body.'
-                  : 'WFD data will be fetched when research completes.'}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </>
-  )
-
   const aiTab = (
     <>
       <AiAnalysisCard
@@ -709,121 +377,6 @@ export function AquaticDeepResearchModal({
           </ul>
         </CardContent>
       </Card>
-    </>
-  )
-
-  const sacTab = (
-    <>
-      {bestMatch ? (
-        <>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">{bestMatch.siteName}</CardTitle>
-              <p className="text-muted-foreground text-xs">
-                Site Code: {bestMatch.siteCode}
-                {bestMatch.siteArea && ` • Area: ${bestMatch.siteArea.toFixed(0)} ha`}
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Aquatic Species */}
-              {bestMatch.aquaticSpecies.length > 0 && (
-                <div>
-                  <h4 className="mb-2 flex items-center gap-1 text-xs font-medium">
-                    <Fish className="h-4 w-4 text-cyan-600" />
-                    Annex II Aquatic Species (Qualifying Interests)
-                  </h4>
-                  <div className="space-y-1">
-                    {bestMatch.aquaticSpecies.map((s) => (
-                      <div
-                        key={s.code}
-                        className="flex items-center justify-between rounded bg-cyan-50 px-2 py-1 text-sm"
-                      >
-                        <span className="font-medium">{s.commonName}</span>
-                        <span className="text-muted-foreground text-xs italic">
-                          {s.name} [{s.code}]
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Aquatic Habitats */}
-              {bestMatch.aquaticHabitats.length > 0 && (
-                <div>
-                  <h4 className="mb-2 flex items-center gap-1 text-xs font-medium">
-                    <Leaf className="h-4 w-4 text-green-600" />
-                    Annex I Aquatic Habitats
-                  </h4>
-                  <div className="space-y-1">
-                    {bestMatch.aquaticHabitats.map((h) => (
-                      <div key={h.code} className="rounded bg-green-50 px-2 py-1 text-sm">
-                        <span className="font-medium">[{h.code}]</span> <span>{h.name}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Other Species */}
-              {bestMatch.allSpecies.length > bestMatch.aquaticSpecies.length && (
-                <div>
-                  <h4 className="mb-2 text-xs font-medium text-gray-700">
-                    Other Qualifying Species
-                  </h4>
-                  <div className="flex flex-wrap gap-1">
-                    {bestMatch.allSpecies
-                      .filter((s) => !bestMatch.aquaticSpecies.some((as) => as.code === s.code))
-                      .map((s) => (
-                        <Badge key={s.code} variant="outline" className="text-xs">
-                          {s.name}
-                        </Badge>
-                      ))}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Other potential matches */}
-          {result && result.linkedSACs.length > 1 && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs text-gray-600">Other Potential SAC Matches</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {result.linkedSACs.slice(1).map((sac) => (
-                    <div key={sac.siteCode} className="flex items-center justify-between text-sm">
-                      <span>{sac.siteName}</span>
-                      <Badge variant="outline" className="text-xs">
-                        {sac.matchScore}% match
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </>
-      ) : isLoading ? (
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <Loader2 className="mx-auto mb-3 h-10 w-10 animate-spin text-cyan-400" />
-            <p className="text-sm font-medium">Searching for linked SAC sites...</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardContent className="pt-4 text-center">
-            <Info className="text-muted-foreground mx-auto mb-2 h-8 w-8" />
-            <p className="text-muted-foreground text-sm">No linked Natura 2000 SAC sites found.</p>
-            <p className="text-muted-foreground mt-1 text-xs">
-              This water body may still support protected species downstream.
-            </p>
-          </CardContent>
-        </Card>
-      )}
     </>
   )
 
@@ -950,7 +503,9 @@ export function AquaticDeepResearchModal({
               WFD
             </>
           ),
-          content: wfdTab,
+          content: (
+            <WfdTab wfdData={result?.wfdData || null} isLoading={isLoading} result={result} />
+          ),
         },
         {
           value: 'ai',
@@ -970,7 +525,13 @@ export function AquaticDeepResearchModal({
               SAC
             </>
           ),
-          content: sacTab,
+          content: (
+            <SacTab
+              bestMatch={bestMatch}
+              linkedSACs={result?.linkedSACs || []}
+              isLoading={isLoading}
+            />
+          ),
         },
         { value: 'resources', label: 'Links', content: resourcesTab },
       ]}

@@ -6,15 +6,9 @@ import {
   MapPin,
   Shield,
   Sparkles,
-  Info,
   AlertTriangle,
   BookOpen,
   Target,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  HelpCircle,
-  AlertOctagon,
   Bird,
   Bug,
   FileText,
@@ -22,18 +16,18 @@ import {
 
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
-import { getHabitatDescription } from '@/lib/data/ssco-lookup'
 import {
   getArticle17Data,
   getStatusDisplay,
-  getTrendDisplay,
   getHabitatsSummary,
 } from '@/lib/data/article17-habitats'
 import { getNPWSSiteData, type NPWSSiteData } from '@/lib/data/npws-site-lookup'
 import { useSaveDeepResearch, useSiteDeepResearch } from '@/hooks/queries/use-deep-research-hooks'
 import { useToast } from '@/hooks/use-toast'
 import { DeepResearchShell, AiAnalysisCard, ResourceLinkCard } from './deep-research-shell'
+import { getNPWSUrls, getProtectionDescription } from './deep-research/npws-helpers'
+import { StatusTab } from './deep-research/status-tab'
+import { HabitatsTab } from './deep-research/habitats-tab'
 
 export interface DeepResearchSite {
   siteCode: string
@@ -55,67 +49,6 @@ interface DeepResearchModalProps {
   userId?: string
   findingId?: string
   onSaveAnalysis?: (data: { aiAnalysis: string; siteCode: string }) => void
-}
-
-/**
- * Generate NPWS URLs for a site
- */
-function getNPWSUrls(siteCode: string, siteType: string) {
-  const typePathMap: Record<string, string> = {
-    SAC: 'sac',
-    SPA: 'spa',
-    NHA: 'nha',
-  }
-  const typePath = typePathMap[siteType]
-
-  // pNHA sites: use synopsis PDF URL directly
-  const numericCode = siteCode.replace(/^IE/, '').padStart(6, '0')
-  const synopsisPdfUrl = `https://www.npws.ie/sites/default/files/protected-sites/synopsis/SY${numericCode}.pdf`
-
-  const baseUrl = typePath
-    ? `https://www.npws.ie/protected-sites/${typePath}/${siteCode}`
-    : siteType === 'pNHA'
-      ? synopsisPdfUrl
-      : `https://www.npws.ie/protected-sites/sac/${siteCode}`
-
-  return {
-    synopsis: baseUrl,
-    synopsisPdf: synopsisPdfUrl,
-    conservationObjectives:
-      siteType === 'pNHA'
-        ? 'https://www.npws.ie/protected-sites'
-        : `${baseUrl}/conservation-objectives`,
-    article17: 'https://www.npws.ie/publications/article-17-reports',
-    siteMap: `https://www.npws.ie/maps-and-data`,
-  }
-}
-
-/**
- * Get protection level description
- */
-function getProtectionDescription(siteType: string): string {
-  const descriptions: Record<string, string> = {
-    SAC: 'Special Area of Conservation - Protected under EU Habitats Directive (92/43/EEC). Legally binding conservation objectives apply.',
-    SPA: 'Special Protection Area - Protected under EU Birds Directive (2009/147/EC). Protects rare and vulnerable bird species.',
-    NHA: 'Natural Heritage Area - Protected under Wildlife (Amendment) Act 2000. National level protection for habitats and species.',
-    pNHA: 'Proposed Natural Heritage Area - Identified for protection but not yet legally designated. Still requires consideration in planning.',
-  }
-  return descriptions[siteType] || 'Protected site requiring ecological assessment.'
-}
-
-/**
- * Trend icon component
- */
-function TrendIcon({ trend }: { trend: string }) {
-  const trendDisplay = getTrendDisplay(trend as 'improving' | 'stable' | 'declining' | 'unknown')
-  const icons = {
-    improving: TrendingUp,
-    stable: Minus,
-    declining: TrendingDown,
-    unknown: HelpCircle,
-  }
-  const Icon = icons[trend as keyof typeof icons] || HelpCircle
-  return <Icon className={`h-4 w-4 ${trendDisplay.color}`} />
 }
 
 export function DeepResearchModal({
@@ -580,290 +513,6 @@ export function DeepResearchModal({
     </>
   )
 
-  const statusTab = (
-    <>
-      {summary.total > 0 ? (
-        <>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <BookOpen className="h-4 w-4 text-purple-600" />
-                Article 17 (2025) Conservation Assessment
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground mb-3 text-xs">
-                Based on NPWS Article 17 Report 2025 - national conservation status of qualifying
-                habitats.
-              </p>
-              <div className="grid grid-cols-4 gap-2">
-                <div className="rounded bg-green-50 p-2 text-center">
-                  <div className="text-lg font-bold text-green-700">{summary.favourable}</div>
-                  <div className="text-[10px] text-green-600">Favourable</div>
-                </div>
-                <div className="rounded bg-amber-50 p-2 text-center">
-                  <div className="text-lg font-bold text-amber-700">
-                    {summary.unfavourableInadequate}
-                  </div>
-                  <div className="text-[10px] text-amber-600">Inadequate</div>
-                </div>
-                <div className="rounded bg-red-50 p-2 text-center">
-                  <div className="text-lg font-bold text-red-700">{summary.unfavourableBad}</div>
-                  <div className="text-[10px] text-red-600">Bad</div>
-                </div>
-                <div className="rounded bg-gray-50 p-2 text-center">
-                  <div className="text-lg font-bold text-gray-700">{summary.unknown}</div>
-                  <div className="text-[10px] text-gray-600">Unknown</div>
-                </div>
-              </div>
-              <div className="mt-3 flex gap-4 text-xs">
-                <span className="flex items-center gap-1">
-                  <TrendingUp className="h-3 w-3 text-green-600" />
-                  {summary.improving} improving
-                </span>
-                <span className="flex items-center gap-1">
-                  <TrendingDown className="h-3 w-3 text-red-600" />
-                  {summary.declining} declining
-                </span>
-                {summary.priorityCount > 0 && (
-                  <span className="flex items-center gap-1">
-                    <AlertOctagon className="h-3 w-3 text-red-500" />
-                    {summary.priorityCount} priority
-                  </span>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Threats & Pressures */}
-          {(allPressures.size > 0 || allThreats.size > 0) && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <AlertTriangle className="h-4 w-4 text-orange-600" />
-                  Threats & Pressures
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {allPressures.size > 0 && (
-                  <div>
-                    <p className="text-muted-foreground mb-1 text-xs font-medium">
-                      Current Pressures:
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {Array.from(allPressures).map((pressure, idx) => (
-                        <Badge key={idx} variant="outline" className="bg-orange-50 text-xs">
-                          {pressure}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {allThreats.size > 0 && (
-                  <div>
-                    <p className="text-muted-foreground mb-1 text-xs font-medium">
-                      Future Threats:
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {Array.from(allThreats).map((threat, idx) => (
-                        <Badge key={idx} variant="outline" className="bg-red-50 text-xs">
-                          {threat}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Per-habitat status */}
-          <div className="space-y-2">
-            <p className="text-muted-foreground text-xs font-medium">Status by Habitat:</p>
-            {habitatsWithArticle17.map((habitat, idx) => {
-              const a17 = habitat.article17
-              if (!a17) return null
-              const statusDisplay = getStatusDisplay(a17.status)
-              const trendDisplay = getTrendDisplay(a17.trend)
-              return (
-                <Card key={idx} className="p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="secondary" className="text-xs">
-                          {habitat.habitatCode}
-                        </Badge>
-                        <Badge
-                          className={`text-xs ${statusDisplay.bgColor} ${statusDisplay.color} border-0`}
-                        >
-                          {statusDisplay.label}
-                        </Badge>
-                        <span className={`flex items-center gap-1 text-xs ${trendDisplay.color}`}>
-                          <TrendIcon trend={a17.trend} />
-                          {trendDisplay.label}
-                        </span>
-                        {a17.priorityHabitat && (
-                          <Badge variant="destructive" className="text-[10px]">
-                            Priority*
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-muted-foreground mt-1 line-clamp-2 text-xs">
-                        {a17.assessment}
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              )
-            })}
-          </div>
-        </>
-      ) : (
-        <Card>
-          <CardContent className="pt-4 text-center">
-            <Info className="text-muted-foreground mx-auto mb-2 h-8 w-8" />
-            <p className="text-muted-foreground text-sm">Conservation status data not available.</p>
-            <p className="text-muted-foreground mt-1 text-xs">
-              Check NPWS Article 17 Reports for detailed assessments.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-    </>
-  )
-
-  const habitatsTab = (
-    <>
-      {/* Habitats Section */}
-      {mergedHabitats.length > 0 && (
-        <>
-          <div className="text-muted-foreground flex items-center gap-1.5 text-sm font-medium">
-            <Leaf className="h-4 w-4 text-emerald-500" />
-            Annex I Habitats ({mergedHabitats.length})
-            {excelData && (
-              <Badge variant="outline" className="text-[10px]">
-                NPWS Datasheet
-              </Badge>
-            )}
-          </div>
-          {habitatsWithArticle17.map((habitat, idx) => {
-            const a17 = habitat.article17
-            const description = getHabitatDescription(habitat.habitatCode)
-            const statusDisplay = a17 ? getStatusDisplay(a17.status) : null
-            return (
-              <Card key={idx}>
-                <CardContent className="pt-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge
-                          variant={a17?.priorityHabitat ? 'destructive' : 'secondary'}
-                          className="text-xs"
-                        >
-                          {habitat.habitatCode}
-                        </Badge>
-                        {a17?.priorityHabitat && (
-                          <Badge variant="outline" className="border-red-300 text-xs text-red-700">
-                            Priority*
-                          </Badge>
-                        )}
-                        {statusDisplay && (
-                          <Badge
-                            className={`text-xs ${statusDisplay.bgColor} ${statusDisplay.color} border-0`}
-                          >
-                            {statusDisplay.label}
-                          </Badge>
-                        )}
-                        {a17 && (
-                          <span
-                            className={`flex items-center gap-1 text-xs ${getTrendDisplay(a17.trend).color}`}
-                          >
-                            <TrendIcon trend={a17.trend} />
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-1 text-sm font-medium">{habitat.habitatName}</p>
-                      <p className="text-muted-foreground mt-1 text-xs">{description}</p>
-                    </div>
-                    <Leaf className="h-4 w-4 shrink-0 text-emerald-500" />
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </>
-      )}
-
-      {/* Species Section (SAC - Annex II) */}
-      {siteSpecies.length > 0 && (
-        <>
-          <Separator />
-          <div className="text-muted-foreground flex items-center gap-1.5 text-sm font-medium">
-            <Bug className="h-4 w-4 text-amber-600" />
-            Annex II Species ({siteSpecies.length})
-          </div>
-          {siteSpecies.map((species, idx) => (
-            <Card key={idx}>
-              <CardContent className="pt-3 pb-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium italic">{species.name}</p>
-                    <p className="text-muted-foreground text-xs">Species Code: {species.code}</p>
-                  </div>
-                  <Badge variant="outline" className="text-xs">
-                    Annex II
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </>
-      )}
-
-      {/* Bird Species Section (SPA) */}
-      {birdSpecies.length > 0 && (
-        <>
-          <Separator />
-          <div className="text-muted-foreground flex items-center gap-1.5 text-sm font-medium">
-            <Bird className="h-4 w-4 text-blue-600" />
-            Special Conservation Interest Birds ({birdSpecies.length})
-            {excelData?.isWetland && (
-              <Badge className="bg-cyan-100 text-xs text-cyan-700">Wetland SPA</Badge>
-            )}
-          </div>
-          <div className="grid grid-cols-1 gap-1.5">
-            {birdSpecies.map((bird, idx) => (
-              <Card key={idx}>
-                <CardContent className="px-3 py-2.5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium italic">{bird.name}</p>
-                      <p className="text-muted-foreground text-xs">Species Code: {bird.code}</p>
-                    </div>
-                    <Bird className="h-4 w-4 text-blue-400" />
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* No data fallback */}
-      {mergedHabitats.length === 0 && siteSpecies.length === 0 && birdSpecies.length === 0 && (
-        <Card>
-          <CardContent className="pt-4 text-center">
-            <Info className="text-muted-foreground mx-auto mb-2 h-8 w-8" />
-            <p className="text-muted-foreground text-sm">Qualifying interest data not available.</p>
-            <p className="text-muted-foreground mt-1 text-xs">
-              This site may be an NHA/pNHA not covered in NPWS datasheets.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-    </>
-  )
-
   const resourcesTab = (
     <>
       <p className="text-muted-foreground text-sm">
@@ -997,11 +646,30 @@ export function DeepResearchModal({
           ),
           content: aiAnalysisTab,
         },
-        { value: 'status', label: 'Status', content: statusTab },
+        {
+          value: 'status',
+          label: 'Status',
+          content: (
+            <StatusTab
+              summary={summary}
+              habitatsWithArticle17={habitatsWithArticle17}
+              allPressures={allPressures}
+              allThreats={allThreats}
+            />
+          ),
+        },
         {
           value: 'habitats',
           label: `QIs (${mergedHabitats.length + siteSpecies.length + birdSpecies.length})`,
-          content: habitatsTab,
+          content: (
+            <HabitatsTab
+              mergedHabitats={mergedHabitats}
+              habitatsWithArticle17={habitatsWithArticle17}
+              siteSpecies={siteSpecies}
+              birdSpecies={birdSpecies}
+              excelData={excelData}
+            />
+          ),
         },
         { value: 'resources', label: 'Links', content: resourcesTab },
       ]}
