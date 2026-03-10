@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/supabase/auth-guard'
 
 const NPWS_USER_AGENT = 'Mozilla/5.0 (compatible; DulraBot/1.0; Ecological Assessment Tool)'
 
@@ -12,6 +13,9 @@ const NPWS_USER_AGENT = 'Mozilla/5.0 (compatible; DulraBot/1.0; Ecological Asses
  */
 export async function POST(request: NextRequest) {
   try {
+    const { user: _authUser, error: authError } = await requireAuth()
+    if (authError) return authError
+
     const { siteCode, siteType } = await request.json()
 
     if (!siteCode || !siteType) {

@@ -44,12 +44,9 @@ export async function getSurveyTemplateByType(
     .select('*')
     .eq('organization_id', organizationId)
     .eq('survey_type', surveyType)
-    .single()
+    .maybeSingle()
 
-  if (error) {
-    if (error.code === 'PGRST116') return null
-    throw error
-  }
+  if (error) throw error
   return data
 }
 
@@ -77,12 +74,9 @@ export async function getReportTemplateByType(
     .select('*')
     .eq('organization_id', organizationId)
     .eq('report_type', reportType)
-    .single()
+    .maybeSingle()
 
-  if (error) {
-    if (error.code === 'PGRST116') return null
-    throw error
-  }
+  if (error) throw error
   return data
 }
 

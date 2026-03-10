@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/supabase/auth-guard'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import type { UserRole } from '@/types/database'
@@ -12,6 +13,9 @@ interface CreateMemberRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    const { user: _authUser, error: authError } = await requireAuth()
+    if (authError) return authError
+
     // Verify the requesting user is admin
     const serverClient = await createClient()
     const {

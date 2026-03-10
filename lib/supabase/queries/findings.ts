@@ -46,7 +46,7 @@ export async function getFinding(findingId: string): Promise<DeskResearchFinding
     .from('desk_research_findings')
     .select('*')
     .eq('id', findingId)
-    .single()
+    .maybeSingle()
 
   if (error) {
     console.error('Error fetching finding:', error)

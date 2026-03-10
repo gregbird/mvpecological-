@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/supabase/auth-guard'
 import { createClient } from '@/lib/supabase/server'
 
 /**
@@ -63,6 +64,9 @@ interface AquaticResearchData {
 
 export async function POST(request: NextRequest) {
   try {
+    const { user: _authUser, error: authError } = await requireAuth()
+    if (authError) return authError
+
     const { projectId, projectName, projectLocation } = await request.json()
 
     if (!projectId) {

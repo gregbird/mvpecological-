@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/supabase/auth-guard'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createDropboxClient, refreshAccessToken } from '@/lib/dropbox/client'
@@ -17,14 +18,10 @@ const SUPPORTED_EXTENSIONS = ['pdf', 'docx', 'doc']
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const { user, error: authError } = await requireAuth()
+    if (authError) return authError
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const supabase = await createClient()
 
     const { data: profile } = await supabase
       .from('profiles')

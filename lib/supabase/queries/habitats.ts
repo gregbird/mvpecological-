@@ -43,7 +43,7 @@ export async function getHabitat(habitatId: string): Promise<HabitatPolygon | nu
     .from('habitat_polygons')
     .select('*')
     .eq('id', habitatId)
-    .single()
+    .maybeSingle()
 
   if (error) {
     console.error('Error fetching habitat:', error)
@@ -80,7 +80,7 @@ export async function updateHabitat(
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', habitatId)
     .select()
-    .single()
+    .maybeSingle()
 
   if (error) {
     throw new Error(error.message || 'Failed to update habitat')

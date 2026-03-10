@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/supabase/auth-guard'
 
 // Tailte Éireann ArcGIS REST API endpoint for townlands
 const TOWNLANDS_API_URL =
@@ -29,6 +30,9 @@ interface TownlandProperties {
  * - limit: Maximum number of features to return (default: 500, max: 1000)
  */
 export async function GET(request: NextRequest) {
+  const { user: _authUser, error: authError } = await requireAuth()
+  if (authError) return authError
+
   const searchParams = request.nextUrl.searchParams
   const bbox = searchParams.get('bbox')
   const limitParam = searchParams.get('limit')

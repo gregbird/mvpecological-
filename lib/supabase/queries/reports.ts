@@ -51,13 +51,9 @@ export async function getLatestReport(projectId: string): Promise<Report | null>
     .eq('project_id', projectId)
     .order('version', { ascending: false })
     .limit(1)
-    .single()
+    .maybeSingle()
 
   if (error) {
-    if (error.code === 'PGRST116') {
-      // No rows returned
-      return null
-    }
     console.error('Error fetching latest report:', error)
     return null
   }
@@ -68,7 +64,11 @@ export async function getLatestReport(projectId: string): Promise<Report | null>
 // Get single report by ID
 export async function getReport(reportId: string): Promise<Report | null> {
   const supabase = createClient()
-  const { data, error } = await supabase.from('reports').select('*').eq('id', reportId).single()
+  const { data, error } = await supabase
+    .from('reports')
+    .select('*')
+    .eq('id', reportId)
+    .maybeSingle()
 
   if (error) {
     console.error('Error fetching report:', error)
@@ -88,7 +88,7 @@ export async function createReport(report: InsertReport): Promise<Report | null>
     .eq('project_id', report.project_id)
     .order('version', { ascending: false })
     .limit(1)
-    .single()
+    .maybeSingle()
 
   const existingVersion = existing as { version: number } | null
   const nextVersion = existingVersion ? existingVersion.version + 1 : 1
@@ -120,7 +120,7 @@ export async function updateReport(
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', reportId)
     .select()
-    .single()
+    .maybeSingle()
 
   if (error) {
     throw new Error(error.message || 'Failed to update report')
@@ -196,10 +196,9 @@ export async function getReportByVersion(
     .select('*')
     .eq('project_id', projectId)
     .eq('version', version)
-    .single()
+    .maybeSingle()
 
   if (error) {
-    if (error.code === 'PGRST116') return null
     console.error('Error fetching report by version:', error)
     return null
   }

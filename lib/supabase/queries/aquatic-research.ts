@@ -172,9 +172,9 @@ export async function getWaterBodyResearch(
     .eq('water_body_code', waterBodyCode)
     .order('researched_at', { ascending: false })
     .limit(1)
-    .single()
+    .maybeSingle()
 
-  if (error && error.code !== 'PGRST116') throw error // PGRST116 = no rows
+  if (error) throw error
   return data ? parseAquaticResearchResult(data) : null
 }
 

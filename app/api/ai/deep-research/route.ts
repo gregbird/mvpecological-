@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/supabase/auth-guard'
 import { extractText } from 'unpdf'
 import { getNPWSSiteData, type NPWSSiteData } from '@/lib/data/npws-site-lookup'
 
@@ -18,6 +19,9 @@ const NBDC_BASE_URL = 'https://maps.biodiversityireland.ie'
  */
 export async function POST(request: NextRequest) {
   try {
+    const { user: _authUser, error: authError } = await requireAuth()
+    if (authError) return authError
+
     const { siteCode, siteName, siteType } = await request.json()
 
     if (!siteCode || !siteName) {

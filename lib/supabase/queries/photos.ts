@@ -28,7 +28,7 @@ export async function updatePhoto(photoId: string, updates: PhotoUpdate): Promis
     .update(updates)
     .eq('id', photoId)
     .select()
-    .single()
+    .maybeSingle()
 
   if (error) throw error
   return data as Photo

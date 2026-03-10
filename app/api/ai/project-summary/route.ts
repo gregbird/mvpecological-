@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/supabase/auth-guard'
 import { PROJECT_TYPE_LABELS_LONG } from '@/lib/config/survey'
 import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: NextRequest) {
   try {
+    const { user: _authUser, error: authError } = await requireAuth()
+    if (authError) return authError
+
     const { projectId } = await request.json()
 
     if (!projectId) {

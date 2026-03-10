@@ -59,7 +59,7 @@ export async function getObservation(observationId: string): Promise<SpeciesObse
     .from('species_observations')
     .select('*')
     .eq('id', observationId)
-    .single()
+    .maybeSingle()
 
   if (error) {
     console.error('Error fetching observation:', error)
@@ -98,7 +98,7 @@ export async function updateObservation(
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', observationId)
     .select()
-    .single()
+    .maybeSingle()
 
   if (error) {
     throw new Error(error.message || 'Failed to update observation')

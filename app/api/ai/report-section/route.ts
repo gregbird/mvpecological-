@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/supabase/auth-guard'
 import { createClient } from '@/lib/supabase/server'
 import { getReportSectionsForType } from '@/lib/config/template-types'
 import { jsonToSections } from '@/lib/supabase/queries/templates'
@@ -135,6 +136,9 @@ interface AquaticResearchData {
 
 export async function POST(request: NextRequest) {
   try {
+    const { user: _authUser, error: authError } = await requireAuth()
+    if (authError) return authError
+
     const {
       projectId,
       sectionId,

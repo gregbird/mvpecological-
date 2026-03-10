@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/supabase/auth-guard'
 
 const NBDC_BASE_URL = 'https://maps.biodiversityireland.ie'
 
@@ -27,6 +28,9 @@ function cleanScientificName(name: string): string {
 
 export async function POST(request: NextRequest) {
   try {
+    const { user: _authUser, error: authError } = await requireAuth()
+    if (authError) return authError
+
     const { scientificName: rawName } = await request.json()
 
     if (!rawName) {

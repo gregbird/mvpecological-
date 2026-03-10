@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/supabase/auth-guard'
 import { createClient } from '@/lib/supabase/server'
 
 /**
@@ -34,6 +35,9 @@ interface ChatMessage {
 
 export async function POST(request: NextRequest) {
   try {
+    const { user: _authUser, error: authError } = await requireAuth()
+    if (authError) return authError
+
     const { projectId, message, chatHistory } = (await request.json()) as {
       projectId: string
       message: string

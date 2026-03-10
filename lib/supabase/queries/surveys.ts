@@ -43,7 +43,7 @@ export async function getSurvey(surveyId: string): Promise<SurveyWithSurveyor | 
     `
     )
     .eq('id', surveyId)
-    .single()
+    .maybeSingle()
 
   if (error) {
     console.error('Error fetching survey:', error)
@@ -80,7 +80,7 @@ export async function updateSurvey(
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', surveyId)
     .select()
-    .single()
+    .maybeSingle()
 
   if (error) {
     throw new Error(error.message || 'Failed to update survey')

@@ -18,7 +18,6 @@ import { calculateDistanceFromBoundary } from '@/lib/gis/distance'
 import type { Project, DeskResearchFinding, Json } from '@/types/database'
 import { useCreateFinding, useUpdateFinding } from '@/hooks/queries/use-finding-hooks'
 import type { FindingSource, FindingType } from '@/components/desk-research/finding-card'
-import type { FindingDisplay } from './findings-list'
 
 interface DesignatedSitesSubStepProps {
   project: Project
@@ -75,7 +74,7 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
         try {
           const payload = {
             project_id: project.id,
-            source: 'npws',
+            source: 'npws' as const,
             data_type: 'designated_site' as const,
             title: deepResearchFinding.title,
             content: deepResearchFinding.content || null,

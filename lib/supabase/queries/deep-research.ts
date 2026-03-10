@@ -113,9 +113,9 @@ export async function getSiteDeepResearch(
     .eq('site_code', siteCode)
     .order('researched_at', { ascending: false })
     .limit(1)
-    .single()
+    .maybeSingle()
 
-  if (error && error.code !== 'PGRST116') throw error // PGRST116 = no rows
+  if (error) throw error
   return data as unknown as DeepResearchResult | null
 }
 

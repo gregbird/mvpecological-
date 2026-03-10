@@ -45,7 +45,7 @@ export async function getProject(projectId: string): Promise<ProjectWithRelation
     `
     )
     .eq('id', projectId)
-    .single()
+    .maybeSingle()
 
   if (relatedError) {
     if (process.env.NODE_ENV === 'development') {
@@ -138,7 +138,7 @@ export async function updateProject(
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', projectId)
     .select()
-    .single()
+    .maybeSingle()
 
   if (error) {
     throw new Error(error.message || 'Failed to update project')

@@ -54,7 +54,7 @@ export async function updateDropboxConnection(
     .update(updates)
     .eq('id', id)
     .select()
-    .single()
+    .maybeSingle()
 
   if (error) throw new Error(`Failed to update connection: ${error.message}`)
   if (!data) throw new Error('No data returned from update')

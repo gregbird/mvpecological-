@@ -14,7 +14,6 @@ import { calculateDistanceFromBoundary } from '@/lib/gis/distance'
 import type { Project, DeskResearchFinding, Json } from '@/types/database'
 import { useCreateFinding, useUpdateFinding } from '@/hooks/queries/use-finding-hooks'
 import type { FindingSource, FindingType } from '@/components/desk-research/finding-card'
-import type { FindingDisplay } from './findings-list'
 
 interface AquaticFeaturesSubStepProps {
   project: Project
@@ -76,7 +75,7 @@ export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
         try {
           const payload = {
             project_id: project.id,
-            source: 'epa',
+            source: 'epa' as const,
             data_type: deepResearchFinding.dataType as 'water_quality' | 'catchment',
             title: deepResearchFinding.title,
             content: deepResearchFinding.content || null,
@@ -324,6 +323,7 @@ export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
         projectId={project.id}
         userId={userId}
         existingAnalysis={aquaticExistingAnalysis}
+        onSaveAnalysis={handleDeepResearchSave}
       />
     </>
   )

@@ -49,7 +49,7 @@ export async function getWorkflowStep(
     .select('*')
     .eq('project_id', projectId)
     .eq('step_number', stepNumber)
-    .single()
+    .maybeSingle()
 
   if (error) {
     if (process.env.NODE_ENV === 'development') {
@@ -95,7 +95,7 @@ export async function updateWorkflowStep(
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', stepId)
     .select()
-    .single()
+    .maybeSingle()
 
   if (error) {
     throw new Error(error.message || 'Failed to update workflow step')
@@ -122,7 +122,7 @@ export async function completeWorkflowStep(
     .eq('project_id', projectId)
     .eq('step_number', stepNumber)
     .select()
-    .single()
+    .maybeSingle()
 
   if (currentError) {
     throw new Error(currentError.message || 'Failed to complete workflow step')
@@ -141,7 +141,7 @@ export async function completeWorkflowStep(
       .eq('project_id', projectId)
       .eq('step_number', stepNumber + 1)
       .select()
-      .single()
+      .maybeSingle()
 
     if (nextError) {
       throw new Error(nextError.message || 'Failed to activate next workflow step')
@@ -189,7 +189,7 @@ export async function startWorkflowStep(
     .eq('project_id', projectId)
     .eq('step_number', stepNumber)
     .select()
-    .single()
+    .maybeSingle()
 
   if (error) {
     throw new Error(error.message || 'Failed to start workflow step')
@@ -213,7 +213,7 @@ export async function submitForReview(
     .eq('project_id', projectId)
     .eq('step_number', stepNumber)
     .select()
-    .single()
+    .maybeSingle()
 
   if (error) {
     throw new Error(error.message || 'Failed to submit step for review')

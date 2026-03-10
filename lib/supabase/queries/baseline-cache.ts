@@ -25,9 +25,9 @@ export async function getBaselineCache(
     .eq('project_id', projectId)
     .eq('boundary_hash', boundaryHash)
     .limit(1)
-    .single()
+    .maybeSingle()
 
-  if (error && error.code !== 'PGRST116') throw error
+  if (error) throw error
   return (data as BaselineReportCache) ?? null
 }
 

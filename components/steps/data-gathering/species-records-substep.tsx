@@ -247,7 +247,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       try {
         const payload = {
           project_id: project.id,
-          source: deepResearchFinding.metadata?.nbdcEnriched ? 'nbdc' : 'gbif',
+          source: (deepResearchFinding.metadata?.nbdcEnriched ? 'nbdc' : 'gbif') as 'nbdc' | 'gbif',
           data_type: 'species_record' as const,
           title: deepResearchFinding.title,
           content: deepResearchFinding.content || null,

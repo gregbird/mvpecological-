@@ -75,7 +75,7 @@ export async function getReleveSurveyWithSpecies(
   const supabase = createClient()
 
   const [surveyResult, speciesResult] = await Promise.all([
-    supabase.from('releve_surveys').select('*').eq('id', releveId).single(),
+    supabase.from('releve_surveys').select('*').eq('id', releveId).maybeSingle(),
     supabase
       .from('releve_species')
       .select('*')
@@ -85,6 +85,7 @@ export async function getReleveSurveyWithSpecies(
 
   if (surveyResult.error) throw surveyResult.error
   if (speciesResult.error) throw speciesResult.error
+  if (!surveyResult.data) throw new Error(`Relevé survey not found: ${releveId}`)
 
   return {
     survey: surveyResult.data as unknown as ReleveSurveyRow,
@@ -139,8 +140,9 @@ export async function upsertReleveSurvey(
       .update(surveyData as never)
       .eq('id', data.id)
       .select()
-      .single()
+      .maybeSingle()
     if (error) throw error
+    if (!updated) throw new Error('Failed to update relevé survey — row not found')
     releveId = updated.id
   } else {
     const { data: inserted, error } = await supabase
@@ -167,8 +169,9 @@ export async function upsertReleveSurvey(
     .from('releve_surveys')
     .select('*')
     .eq('id', releveId)
-    .single()
+    .maybeSingle()
   if (fetchError) throw fetchError
+  if (!result) throw new Error('Failed to fetch relevé survey after save')
   return result as unknown as ReleveSurveyRow
 }
 
