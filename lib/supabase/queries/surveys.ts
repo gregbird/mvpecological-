@@ -63,8 +63,7 @@ export async function createSurvey(survey: InsertSurvey): Promise<Survey | null>
     .single()
 
   if (error) {
-    console.error('Error creating survey:', error)
-    return null
+    throw new Error(error.message || 'Failed to create survey')
   }
 
   return data as unknown as Survey
@@ -84,8 +83,7 @@ export async function updateSurvey(
     .single()
 
   if (error) {
-    console.error('Error updating survey:', error)
-    return null
+    throw new Error(error.message || 'Failed to update survey')
   }
 
   return data as unknown as Survey
@@ -97,8 +95,7 @@ export async function deleteSurvey(surveyId: string): Promise<boolean> {
   const { error } = await supabase.from('surveys').delete().eq('id', surveyId)
 
   if (error) {
-    console.error('Error deleting survey:', error)
-    return false
+    throw new Error(error.message || 'Failed to delete survey')
   }
 
   return true

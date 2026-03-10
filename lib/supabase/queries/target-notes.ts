@@ -94,7 +94,6 @@ export async function createTargetNote(note: InsertTargetNote): Promise<TargetNo
     .single()
 
   if (error) {
-    console.error('Error creating target note:', error)
     throw new Error(error.message || 'Failed to create target note')
   }
 
@@ -115,7 +114,6 @@ export async function updateTargetNote(
     .single()
 
   if (error) {
-    console.error('Error updating target note:', error)
     throw new Error(error.message || 'Failed to update target note')
   }
 
@@ -128,8 +126,7 @@ export async function deleteTargetNote(noteId: string): Promise<boolean> {
   const { error } = await supabase.from('target_notes').delete().eq('id', noteId)
 
   if (error) {
-    console.error('Error deleting target note:', error)
-    return false
+    throw new Error(error.message || 'Failed to delete target note')
   }
 
   return true
@@ -154,8 +151,7 @@ export async function verifyTargetNote(
     .single()
 
   if (error) {
-    console.error('Error verifying target note:', error)
-    return null
+    throw new Error(error.message || 'Failed to verify target note')
   }
 
   return data as unknown as TargetNote

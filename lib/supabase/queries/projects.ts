@@ -121,8 +121,7 @@ export async function createProject(project: InsertProject): Promise<Project | n
     .single()
 
   if (error) {
-    console.error('Error creating project:', error)
-    return null
+    throw new Error(error.message || 'Failed to create project')
   }
 
   return data as unknown as Project
@@ -142,8 +141,7 @@ export async function updateProject(
     .single()
 
   if (error) {
-    console.error('Error updating project:', error)
-    return null
+    throw new Error(error.message || 'Failed to update project')
   }
 
   return data as unknown as Project
@@ -181,13 +179,7 @@ export async function updateProjectBoundary(
   })
 
   if (error) {
-    console.error('Error updating project boundary:', {
-      code: error.code,
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
-    })
-    return null
+    throw new Error(error.message || 'Failed to update project boundary')
   }
 
   return data as unknown as Project
@@ -199,8 +191,7 @@ export async function deleteProject(projectId: string): Promise<boolean> {
   const { error } = await supabase.from('projects').delete().eq('id', projectId)
 
   if (error) {
-    console.error('Error deleting project:', error)
-    return false
+    throw new Error(error.message || 'Failed to delete project')
   }
 
   return true
@@ -216,8 +207,7 @@ export async function addProjectMember(member: InsertProjectMember): Promise<Pro
     .single()
 
   if (error) {
-    console.error('Error adding project member:', error)
-    return null
+    throw new Error(error.message || 'Failed to add project member')
   }
 
   return data as unknown as ProjectMember
@@ -233,8 +223,7 @@ export async function removeProjectMember(projectId: string, userId: string): Pr
     .eq('user_id', userId)
 
   if (error) {
-    console.error('Error removing project member:', error)
-    return false
+    throw new Error(error.message || 'Failed to remove project member')
   }
 
   return true

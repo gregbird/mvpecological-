@@ -12,7 +12,9 @@ import {
 import { searchAllAquaticFeatures, getWFDStatusDisplayName } from '@/lib/external-apis/epa'
 import { calculateDistanceFromBoundary } from '@/lib/gis/distance'
 import type { Project, DeskResearchFinding, Json } from '@/types/database'
+import { useCreateFinding, useUpdateFinding } from '@/hooks/queries/use-finding-hooks'
 import type { FindingSource, FindingType } from '@/components/desk-research/finding-card'
+import type { FindingDisplay } from './findings-list'
 
 interface AquaticFeaturesSubStepProps {
   project: Project
@@ -29,14 +31,74 @@ interface AquaticFeaturesSubStepProps {
 }
 
 export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
-  const { projectBoundary, project, userId } = props
+  const { projectBoundary, savedFindings, project, userId } = props
+  const createFinding = useCreateFinding()
+  const updateFinding = useUpdateFinding()
 
   // Deep Research modal state
   const [deepResearchSite, setDeepResearchSite] = React.useState<AquaticDeepResearchSite | null>(
     null
   )
+  const [deepResearchFinding, setDeepResearchFinding] = React.useState<FindingDisplay | null>(null)
   const [isDeepResearchOpen, setIsDeepResearchOpen] = React.useState(false)
   const [aquaticExistingAnalysis, setAquaticExistingAnalysis] = React.useState<string | undefined>()
+
+  // Handle Deep Research save -> auto-save card if needed + update AI summary
+  const handleDeepResearchSave = React.useCallback(
+    async (data: { aiAnalysis: string; waterBodyCode: string }) => {
+      const existingSaved = savedFindings.find(
+        (f) =>
+          (f.raw_data as Record<string, unknown>)?.siteCode === data.waterBodyCode &&
+          f.source === 'epa'
+      )
+
+      if (existingSaved) {
+        // Card already saved — update with deep research AI + card AI summary
+        try {
+          const existingRawData = (existingSaved.raw_data as Record<string, unknown>) || {}
+          const existingMetadata = (existingRawData.metadata as Record<string, unknown>) || {}
+
+          await updateFinding.mutateAsync({
+            findingId: existingSaved.id,
+            updates: {
+              raw_data: {
+                ...existingRawData,
+                metadata: { ...existingMetadata, aiSummary: data.aiAnalysis },
+                aquaticResearch: { aiAnalysis: data.aiAnalysis },
+              } as unknown as Json,
+            },
+          })
+        } catch (error) {
+          console.error('Failed to update finding with aquatic research:', error)
+        }
+      } else if (deepResearchFinding) {
+        // Card not saved — create finding first with deep research data
+        try {
+          const payload = {
+            project_id: project.id,
+            source: 'epa',
+            data_type: deepResearchFinding.dataType as 'water_quality' | 'catchment',
+            title: deepResearchFinding.title,
+            content: deepResearchFinding.content || null,
+            raw_data: {
+              ...deepResearchFinding.rawData,
+              siteCode: deepResearchFinding.metadata?.siteCode,
+              metadata: { ...deepResearchFinding.metadata, aiSummary: data.aiAnalysis },
+              aquaticResearch: { aiAnalysis: data.aiAnalysis },
+            } as unknown as Json,
+            location: deepResearchFinding.location as unknown as Json,
+            is_saved: true,
+            distance_from_boundary_km: deepResearchFinding.metadata?.distance || null,
+            created_by: userId,
+          }
+          await createFinding.mutateAsync(payload)
+        } catch (error) {
+          console.error('Failed to create finding from aquatic research:', error)
+        }
+      }
+    },
+    [savedFindings, deepResearchFinding, updateFinding, createFinding, project.id, userId]
+  )
 
   const config: SubstepShellConfig = React.useMemo(
     () => ({
@@ -244,6 +306,7 @@ export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
         }
 
         setDeepResearchSite(site)
+        setDeepResearchFinding(finding)
         setAquaticExistingAnalysis(cachedAnalysis)
         setIsDeepResearchOpen(true)
       },

@@ -54,7 +54,6 @@ interface AiAnalysisCardProps {
   isLoading: boolean
   error: string | null
   onGenerate: () => void
-  onRegenerate: () => void
   headerBadges?: React.ReactNode
   emptyTitle?: string
   emptyDescription?: string
@@ -67,7 +66,6 @@ export function AiAnalysisCard({
   isLoading,
   error,
   onGenerate,
-  onRegenerate,
   headerBadges,
   emptyTitle = 'AI-Powered Analysis',
   emptyDescription = 'Generate a detailed ecological analysis.',
@@ -82,20 +80,6 @@ export function AiAnalysisCard({
             <Sparkles className="h-4 w-4 text-purple-600" />
             AI Analysis
             {headerBadges}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="ml-auto h-6 px-2 text-[10px] text-purple-600 hover:text-purple-700"
-              onClick={onRegenerate}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-              ) : (
-                <Sparkles className="mr-1 h-3 w-3" />
-              )}
-              Regenerate
-            </Button>
           </CardTitle>
         </CardHeader>
         <CardContent>

@@ -520,7 +520,6 @@ export function DeepResearchModal({
         isLoading={aiLoading}
         error={aiError}
         onGenerate={handleAiAnalysis}
-        onRegenerate={handleAiAnalysis}
         headerBadges={
           <>
             {aiMeta.hadPdfContent && (
@@ -1009,7 +1008,7 @@ export function DeepResearchModal({
       footerInfo="Data: NPWS + NBDC + Article 17 (2025)"
       isSaved={isSaved}
       isSaving={saveResearch.isPending}
-      canSave={!!projectId}
+      canSave={!!projectId && !!aiSummary}
       onSave={handleSaveResearch}
     />
   )

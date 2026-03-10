@@ -63,8 +63,7 @@ export async function createHabitat(habitat: InsertHabitat): Promise<HabitatPoly
     .single()
 
   if (error) {
-    console.error('Error creating habitat:', error.message, error.code, error.details, error.hint)
-    throw error
+    throw new Error(error.message || 'Failed to create habitat')
   }
 
   return data as unknown as HabitatPolygon
@@ -84,7 +83,6 @@ export async function updateHabitat(
     .single()
 
   if (error) {
-    console.error('Error updating habitat:', error)
     throw new Error(error.message || 'Failed to update habitat')
   }
 
@@ -97,8 +95,7 @@ export async function deleteHabitat(habitatId: string): Promise<boolean> {
   const { error } = await supabase.from('habitat_polygons').delete().eq('id', habitatId)
 
   if (error) {
-    console.error('Error deleting habitat:', error)
-    return false
+    throw new Error(error.message || 'Failed to delete habitat')
   }
 
   return true

@@ -103,8 +103,7 @@ export async function createReport(report: InsertReport): Promise<Report | null>
     .single()
 
   if (error) {
-    console.error('Error creating report:', error)
-    return null
+    throw new Error(error.message || 'Failed to create report')
   }
 
   return data as unknown as Report
@@ -124,8 +123,7 @@ export async function updateReport(
     .single()
 
   if (error) {
-    console.error('Error updating report:', error)
-    return null
+    throw new Error(error.message || 'Failed to update report')
   }
 
   return data as unknown as Report
@@ -215,8 +213,7 @@ export async function deleteReport(reportId: string): Promise<boolean> {
   const { error } = await supabase.from('reports').delete().eq('id', reportId)
 
   if (error) {
-    console.error('Error deleting report:', error)
-    return false
+    throw new Error(error.message || 'Failed to delete report')
   }
 
   return true

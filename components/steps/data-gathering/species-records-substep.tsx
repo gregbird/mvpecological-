@@ -14,7 +14,7 @@ import { searchFPOByGridRef, type FPORecord } from '@/lib/data/fpo-species'
 import { searchSpeciesByGridRef, type Article17Species } from '@/lib/data/article17-species'
 import { wgs84ToGridRef } from '@/lib/utils/grid-reference'
 import { calculateDistanceFromBoundary } from '@/lib/gis/distance'
-import { useUpdateFinding } from '@/hooks/queries/use-finding-hooks'
+import { useCreateFinding, useUpdateFinding } from '@/hooks/queries/use-finding-hooks'
 import type { Project, DeskResearchFinding, Json } from '@/types/database'
 import type { FindingSource, FindingType } from '@/components/desk-research/finding-card'
 
@@ -33,7 +33,8 @@ interface SpeciesRecordsSubStepProps {
 }
 
 export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
-  const { projectBoundary, projectCenter, savedFindings } = props
+  const { projectBoundary, projectCenter, savedFindings, project, userId } = props
+  const createFinding = useCreateFinding()
   const updateFinding = useUpdateFinding()
 
   // Species Deep Research modal state
@@ -41,6 +42,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
   const [selectedSpeciesResearch, setSelectedSpeciesResearch] =
     React.useState<SpeciesResearchData | null>(null)
   const [speciesExistingAnalysis, setSpeciesExistingAnalysis] = React.useState<string | undefined>()
+  const [deepResearchFinding, setDeepResearchFinding] = React.useState<FindingDisplay | null>(null)
 
   // Enrichment state
   const [isEnriching, setIsEnriching] = React.useState(false)
@@ -195,12 +197,13 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       article17Species,
       relatedSites,
     })
+    setDeepResearchFinding(finding)
     setSpeciesExistingAnalysis(cachedAnalysis)
     setSpeciesResearchOpen(true)
   }
 
   // Handle saving Deep Research analysis to finding
-  const handleSaveDeepResearchAnalysis = (data: {
+  const handleSaveDeepResearchAnalysis = async (data: {
     aiAnalysis: string
     relatedSites?: import('@/lib/data/npws-site-lookup').SiteWithSpecies[]
     fpoRecords?: FPORecord[]
@@ -218,11 +221,12 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       generatedAt: new Date().toISOString(),
     }
 
-    // Also persist to DB if finding is already saved
     const existingSaved = savedFindings.find(
       (f) => (f.raw_data as Record<string, unknown>)?.scientificName === scientificName
     )
+
     if (existingSaved) {
+      // Card already saved — update with deep research AI + card AI summary
       const existingRawData = (existingSaved.raw_data as Record<string, unknown>) || {}
       const existingMetadata = (existingRawData.metadata as Record<string, unknown>) || {}
 
@@ -232,12 +236,37 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
           updates: {
             raw_data: {
               ...existingRawData,
-              metadata: existingMetadata,
+              metadata: { ...existingMetadata, aiSummary: data.aiAnalysis },
               deepResearch: deepResearchData,
             } as unknown as Json,
           },
         })
         .catch((err) => console.error('Failed to persist deep research to finding:', err))
+    } else if (deepResearchFinding) {
+      // Card not saved — create finding first with deep research data
+      try {
+        const payload = {
+          project_id: project.id,
+          source: deepResearchFinding.metadata?.nbdcEnriched ? 'nbdc' : 'gbif',
+          data_type: 'species_record' as const,
+          title: deepResearchFinding.title,
+          content: deepResearchFinding.content || null,
+          raw_data: {
+            ...deepResearchFinding.rawData,
+            scientificName,
+            metadata: { ...deepResearchFinding.metadata, aiSummary: data.aiAnalysis },
+            deepResearch: deepResearchData,
+          } as unknown as Json,
+          location: deepResearchFinding.location as unknown as Json,
+          is_saved: true,
+          distance_from_boundary_km: deepResearchFinding.metadata?.distance || null,
+          is_protected: deepResearchFinding.metadata?.isProtected || false,
+          created_by: userId,
+        }
+        await createFinding.mutateAsync(payload)
+      } catch (error) {
+        console.error('Failed to create finding from deep research:', error)
+      }
     }
   }
 

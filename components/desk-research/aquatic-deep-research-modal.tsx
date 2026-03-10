@@ -113,6 +113,7 @@ interface AquaticDeepResearchModalProps {
   userId: string
   findingId?: string | null
   existingAnalysis?: string
+  onSaveAnalysis?: (data: { aiAnalysis: string; waterBodyCode: string }) => void
 }
 
 // WFD Status colors
@@ -139,6 +140,7 @@ export function AquaticDeepResearchModal({
   userId,
   findingId,
   existingAnalysis,
+  onSaveAnalysis,
 }: AquaticDeepResearchModalProps) {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = React.useState(false)
@@ -223,6 +225,14 @@ export function AquaticDeepResearchModal({
       })
 
       setIsSaved(true)
+
+      // Notify parent to update finding card
+      if (result.summary && site) {
+        onSaveAnalysis?.({
+          aiAnalysis: result.summary,
+          waterBodyCode: site.waterBodyCode || site.waterBodyName,
+        })
+      }
     } catch (error) {
       console.error('Error saving aquatic research:', error)
       toast({
@@ -669,11 +679,6 @@ export function AquaticDeepResearchModal({
         isLoading={isLoading}
         error={aiError}
         onGenerate={fetchResearch}
-        onRegenerate={() => {
-          setResult(null)
-          setIsSaved(false)
-          fetchResearch()
-        }}
         headerBadges={
           <>
             {bestMatch && (

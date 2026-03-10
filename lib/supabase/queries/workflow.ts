@@ -78,10 +78,7 @@ export async function initializeWorkflowSteps(projectId: string): Promise<Workfl
     .select()
 
   if (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.debug('[Supabase] Workflow initialization skipped:', error.code)
-    }
-    return []
+    throw new Error(error.message || 'Failed to initialize workflow steps')
   }
 
   return (data ?? []) as unknown as WorkflowStep[]
@@ -101,8 +98,7 @@ export async function updateWorkflowStep(
     .single()
 
   if (error) {
-    console.error('Error updating workflow step:', error)
-    return null
+    throw new Error(error.message || 'Failed to update workflow step')
   }
 
   return data as unknown as WorkflowStep
@@ -129,8 +125,7 @@ export async function completeWorkflowStep(
     .single()
 
   if (currentError) {
-    console.error('Error completing workflow step:', currentError)
-    return { current: null, next: null }
+    throw new Error(currentError.message || 'Failed to complete workflow step')
   }
 
   // If not the last step, activate next step
@@ -149,7 +144,7 @@ export async function completeWorkflowStep(
       .single()
 
     if (nextError) {
-      console.error('Error activating next workflow step:', nextError)
+      throw new Error(nextError.message || 'Failed to activate next workflow step')
     } else {
       nextStep = data as unknown as WorkflowStep
     }
@@ -197,8 +192,7 @@ export async function startWorkflowStep(
     .single()
 
   if (error) {
-    console.error('Error starting workflow step:', error)
-    return null
+    throw new Error(error.message || 'Failed to start workflow step')
   }
 
   return data as unknown as WorkflowStep
@@ -222,8 +216,7 @@ export async function submitForReview(
     .single()
 
   if (error) {
-    console.error('Error submitting step for review:', error)
-    return null
+    throw new Error(error.message || 'Failed to submit step for review')
   }
 
   return data as unknown as WorkflowStep

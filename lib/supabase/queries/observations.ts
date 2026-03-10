@@ -81,8 +81,7 @@ export async function createObservation(
     .single()
 
   if (error) {
-    console.error('Error creating observation:', error)
-    return null
+    throw new Error(error.message || 'Failed to create observation')
   }
 
   return data as unknown as SpeciesObservation
@@ -102,8 +101,7 @@ export async function updateObservation(
     .single()
 
   if (error) {
-    console.error('Error updating observation:', error)
-    return null
+    throw new Error(error.message || 'Failed to update observation')
   }
 
   return data as unknown as SpeciesObservation
@@ -115,8 +113,7 @@ export async function deleteObservation(observationId: string): Promise<boolean>
   const { error } = await supabase.from('species_observations').delete().eq('id', observationId)
 
   if (error) {
-    console.error('Error deleting observation:', error)
-    return false
+    throw new Error(error.message || 'Failed to delete observation')
   }
 
   return true

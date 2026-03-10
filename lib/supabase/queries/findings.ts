@@ -66,7 +66,6 @@ export async function createFinding(finding: InsertFinding): Promise<DeskResearc
     .single()
 
   if (error) {
-    console.error('Error creating finding:', error)
     throw new Error(error.message || 'Failed to create finding')
   }
 
@@ -103,7 +102,6 @@ export async function deleteFinding(findingId: string): Promise<void> {
   const { error } = await supabase.from('desk_research_findings').delete().eq('id', findingId)
 
   if (error) {
-    console.error('Error deleting finding:', error)
     throw new Error(error.message || 'Failed to delete finding')
   }
 }
@@ -189,8 +187,7 @@ export async function bulkSaveFindings(findings: InsertFinding[]): Promise<DeskR
     .select()
 
   if (error) {
-    console.error('Error bulk saving findings:', error)
-    return []
+    throw new Error(error.message || 'Failed to bulk save findings')
   }
 
   return (data ?? []) as unknown as DeskResearchFinding[]

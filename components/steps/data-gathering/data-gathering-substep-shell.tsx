@@ -293,6 +293,11 @@ export function DataGatheringSubstepShell({
           userId,
         })
         await createFinding.mutateAsync(payload as Parameters<typeof createFinding.mutateAsync>[0])
+
+        // Auto-trigger AI summary generation after saving
+        if (!finding.metadata?.aiSummary) {
+          handleFetchAiSummary(finding)
+        }
       }
     } catch (error) {
       console.error('Save finding error:', error)

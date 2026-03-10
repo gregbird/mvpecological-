@@ -16,8 +16,9 @@ import {
 } from '@/lib/data/ssco-lookup'
 import { calculateDistanceFromBoundary } from '@/lib/gis/distance'
 import type { Project, DeskResearchFinding, Json } from '@/types/database'
-import { useUpdateFinding } from '@/hooks/queries/use-finding-hooks'
+import { useCreateFinding, useUpdateFinding } from '@/hooks/queries/use-finding-hooks'
 import type { FindingSource, FindingType } from '@/components/desk-research/finding-card'
+import type { FindingDisplay } from './findings-list'
 
 interface DesignatedSitesSubStepProps {
   project: Project
@@ -35,29 +36,33 @@ interface DesignatedSitesSubStepProps {
 
 export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
   const { projectBoundary, savedFindings, project, userId } = props
+  const createFinding = useCreateFinding()
   const updateFinding = useUpdateFinding()
 
   // Deep Research modal state
   const [deepResearchSite, setDeepResearchSite] = React.useState<DeepResearchSite | null>(null)
+  const [deepResearchFinding, setDeepResearchFinding] = React.useState<FindingDisplay | null>(null)
   const [isDeepResearchOpen, setIsDeepResearchOpen] = React.useState(false)
 
-  // Handle Deep Research save -> update finding's raw_data with AI analysis
+  // Handle Deep Research save -> auto-save card if needed + update AI summary
   const handleDeepResearchSave = React.useCallback(
     async (data: { aiAnalysis: string; siteCode: string }) => {
-      const finding = savedFindings.find(
+      const existingSaved = savedFindings.find(
         (f) => (f.raw_data as Record<string, unknown>)?.siteCode === data.siteCode
       )
-      if (finding) {
+
+      if (existingSaved) {
+        // Card already saved — update with deep research AI + card AI summary
         try {
-          const existingRawData = (finding.raw_data as Record<string, unknown>) || {}
+          const existingRawData = (existingSaved.raw_data as Record<string, unknown>) || {}
           const existingMetadata = (existingRawData.metadata as Record<string, unknown>) || {}
 
           await updateFinding.mutateAsync({
-            findingId: finding.id,
+            findingId: existingSaved.id,
             updates: {
               raw_data: {
                 ...existingRawData,
-                metadata: existingMetadata,
+                metadata: { ...existingMetadata, aiSummary: data.aiAnalysis },
                 deepResearch: { aiAnalysis: data.aiAnalysis },
               } as unknown as Json,
             },
@@ -65,9 +70,34 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
         } catch (error) {
           console.error('Failed to update finding with deep research:', error)
         }
+      } else if (deepResearchFinding) {
+        // Card not saved — create finding first, then update with deep research
+        try {
+          const payload = {
+            project_id: project.id,
+            source: 'npws',
+            data_type: 'designated_site' as const,
+            title: deepResearchFinding.title,
+            content: deepResearchFinding.content || null,
+            raw_data: {
+              ...deepResearchFinding.rawData,
+              siteCode: deepResearchFinding.metadata?.siteCode,
+              metadata: { ...deepResearchFinding.metadata, aiSummary: data.aiAnalysis },
+              deepResearch: { aiAnalysis: data.aiAnalysis },
+            } as unknown as Json,
+            location: deepResearchFinding.location as unknown as Json,
+            is_saved: true,
+            distance_from_boundary_km: deepResearchFinding.metadata?.distance || null,
+            is_protected: true,
+            created_by: userId,
+          }
+          await createFinding.mutateAsync(payload)
+        } catch (error) {
+          console.error('Failed to create finding from deep research:', error)
+        }
       }
     },
-    [savedFindings, updateFinding]
+    [savedFindings, deepResearchFinding, updateFinding, createFinding, project.id, userId]
   )
 
   const config: SubstepShellConfig = React.useMemo(
@@ -310,6 +340,7 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
         }
 
         setDeepResearchSite(site)
+        setDeepResearchFinding(finding)
         setIsDeepResearchOpen(true)
       },
     }),

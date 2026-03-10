@@ -423,20 +423,6 @@ export function SpeciesResearchModal({
                           {species.relatedSites!.length} sites
                         </Badge>
                       )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="ml-auto h-6 px-2 text-[10px] text-purple-600 hover:text-purple-700"
-                        onClick={fetchAiAnalysis}
-                        disabled={aiLoading}
-                      >
-                        {aiLoading ? (
-                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                        ) : (
-                          <Sparkles className="mr-1 h-3 w-3" />
-                        )}
-                        Regenerate
-                      </Button>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
