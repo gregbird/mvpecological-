@@ -13,6 +13,7 @@ import {
   Globe,
   AlertTriangle,
 } from 'lucide-react'
+import { MarkdownContent } from '@/components/desk-research/deep-research-shell'
 
 import {
   Dialog,
@@ -426,34 +427,7 @@ export function SpeciesResearchModal({
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="prose prose-sm max-w-none">
-                      {aiSummary.split('\n').map((line, idx) => {
-                        if (line.startsWith('**') && line.endsWith('**')) {
-                          return (
-                            <h4 key={idx} className="mt-3 mb-1 text-sm font-semibold">
-                              {line.replace(/\*\*/g, '')}
-                            </h4>
-                          )
-                        }
-                        if (line.startsWith('**')) {
-                          const parts = line.split('**')
-                          return (
-                            <div key={idx} className="mt-3">
-                              <h4 className="mb-1 text-sm font-semibold">{parts[1]}</h4>
-                              {parts[2] && (
-                                <p className="text-muted-foreground text-xs">{parts[2]}</p>
-                              )}
-                            </div>
-                          )
-                        }
-                        if (line.trim() === '') return <div key={idx} className="h-1" />
-                        return (
-                          <p key={idx} className="text-muted-foreground text-xs leading-relaxed">
-                            {line}
-                          </p>
-                        )
-                      })}
-                    </div>
+                    <MarkdownContent text={aiSummary} />
                   </CardContent>
                 </Card>
               ) : aiError ? (

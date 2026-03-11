@@ -42,6 +42,9 @@ export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
   const [isDeepResearchOpen, setIsDeepResearchOpen] = React.useState(false)
   const [aquaticExistingAnalysis, setAquaticExistingAnalysis] = React.useState<string | undefined>()
 
+  // Ref to trigger short AI summary from the shell
+  const aiSummaryTriggerRef = React.useRef<((finding: FindingDisplay) => void) | null>(null)
+
   // Handle Deep Research save -> auto-save card if needed + update AI summary
   const handleDeepResearchSave = React.useCallback(
     async (data: { aiAnalysis: string; waterBodyCode: string }) => {
@@ -52,17 +55,15 @@ export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
       )
 
       if (existingSaved) {
-        // Card already saved — update with deep research AI + card AI summary
+        // Card already saved — update with deep research data (not as aiSummary)
         try {
           const existingRawData = (existingSaved.raw_data as Record<string, unknown>) || {}
-          const existingMetadata = (existingRawData.metadata as Record<string, unknown>) || {}
 
           await updateFinding.mutateAsync({
             findingId: existingSaved.id,
             updates: {
               raw_data: {
                 ...existingRawData,
-                metadata: { ...existingMetadata, aiSummary: data.aiAnalysis },
                 aquaticResearch: { aiAnalysis: data.aiAnalysis },
               } as unknown as Json,
             },
@@ -82,7 +83,7 @@ export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
             raw_data: {
               ...deepResearchFinding.rawData,
               siteCode: deepResearchFinding.metadata?.siteCode,
-              metadata: { ...deepResearchFinding.metadata, aiSummary: data.aiAnalysis },
+              metadata: deepResearchFinding.metadata,
               aquaticResearch: { aiAnalysis: data.aiAnalysis },
             } as unknown as Json,
             location: deepResearchFinding.location as unknown as Json,
@@ -94,6 +95,11 @@ export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
         } catch (error) {
           console.error('Failed to create finding from aquatic research:', error)
         }
+      }
+
+      // Trigger short AI summary for the card
+      if (deepResearchFinding) {
+        aiSummaryTriggerRef.current?.(deepResearchFinding)
       }
     },
     [savedFindings, deepResearchFinding, updateFinding, createFinding, project.id, userId]
@@ -315,7 +321,11 @@ export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
 
   return (
     <>
-      <DataGatheringSubstepShell {...props} config={config} />
+      <DataGatheringSubstepShell
+        {...props}
+        config={config}
+        aiSummaryTriggerRef={aiSummaryTriggerRef}
+      />
       <AquaticDeepResearchModal
         open={isDeepResearchOpen}
         onOpenChange={setIsDeepResearchOpen}

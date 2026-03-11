@@ -16,8 +16,15 @@
 
 **Yapilacilar:**
 
-- [ ] **1.1** "Regenerate AI Summary" butonunu deep research view'dan kaldir
-- [ ] **1.2** Deep research save isleminde AI summary'i de otomatik kaydet (tek save butonu)
+- [x] **1.1** "Regenerate AI Summary" butonunu deep research view'dan kaldir (Designated Sites, Species Records, Aquatic Features)
+- [x] **1.2** Deep research save isleminde AI summary'i de otomatik kaydet (tek save butonu)
+- [x] **1.3** Save Research butonu AI analysis tamamlanmadan disabled
+- [x] **1.4** Deep research save olunca kart save degilse otomatik save et (yesil yansın)
+- [x] **1.5** Deep research save olunca kartin kisa AI summary'sini tetikle (deep research analizi degil, kisa ozet)
+- [x] **1.6** Finding (kart) save edildiginde AI summary otomatik uretilsin
+- [x] **1.7** Deep research modal'da markdown render hatasi duzeltildi (react-markdown)
+- [x] **1.8** Designated sites filtre barinda yatay scroll hatasi duzeltildi
+- [x] **1.9** DB'den restore sirasinda AI summary kayip sorunu duzeltildi
 
 ---
 
@@ -49,9 +56,9 @@ Siralama: conservation status rengine gore (Red > Orange > Blue)
 
 **Yapilacilar:**
 
-- [ ] **2.1** NPWS designated sites appendix tablosu olustur (saved findings'den)
-- [ ] **2.2** Species records appendix tablosu olustur (conservation status siralama: Red > Orange > Blue)
-- [ ] **2.3** Tablolari rapor PDF/DOCX export'una entegre et
+- [x] **2.1** NPWS designated sites appendix tablosu olustur (saved findings'den)
+- [x] **2.2** Species records appendix tablosu olustur (conservation status siralama: Red > Orange > Blue)
+- [x] **2.3** Tablolari rapor PDF/DOCX export'una entegre et
 
 ---
 
@@ -64,7 +71,7 @@ Species Records substep'inde (Step 2.3) mesafeye gore filtreleme ozeligi. Kullan
 
 **Yapilacilar:**
 
-- [ ] **3.1** Species records listesine mesafe filtresi ekle (proximity to site boundary)
+- [x] **3.1** Species records listesine mesafe filtresi ekle (proximity to site boundary)
 
 ---
 
@@ -165,17 +172,17 @@ Step 7 (Data Analysis) harita sekmesinde rapor icin harita ciktisi ozellikleri:
 
 ## Oncelik Tablosu
 
-| #   | Konu                             | Oncelik | Efor   | Bagimliilik |
-| --- | -------------------------------- | ------- | ------ | ----------- |
-| 6   | Aquatic mesafe olcum hatasi      | Kirmizi | Dusuk  | -           |
-| 5   | SAC eslestirme dogrulugu         | Kirmizi | Orta   | -           |
-| 1   | Deep Research save/regenerate    | Kirmizi | Dusuk  | -           |
-| 3   | Species proximity filtresi       | Sari    | Dusuk  | -           |
-| 2   | Rapor appendix tablolari         | Sari    | Orta   | -           |
-| 4   | National Land Cover habitat data | Sari    | Yuksek | -           |
-| 7   | Nehir mesafesi (river distance)  | Sari    | Yuksek | 6           |
-| 8   | Data Analysis harita ozellikleri | Sari    | Yuksek | -           |
+| #   | Konu                             | Oncelik           | Efor   | Bagimliilik |
+| --- | -------------------------------- | ----------------- | ------ | ----------- |
+| 6   | Aquatic mesafe olcum hatasi      | Kirmizi           | Dusuk  | -           |
+| 5   | SAC eslestirme dogrulugu         | Kirmizi           | Orta   | -           |
+| 1   | Deep Research save/regenerate    | ~~Kirmizi~~ Tamam | Dusuk  | -           |
+| 3   | Species proximity filtresi       | ~~Sari~~ Tamam    | Dusuk  | -           |
+| 2   | Rapor appendix tablolari         | Sari              | Orta   | -           |
+| 4   | National Land Cover habitat data | Sari              | Yuksek | -           |
+| 7   | Nehir mesafesi (river distance)  | Sari              | Yuksek | 6           |
+| 8   | Data Analysis harita ozellikleri | Sari              | Yuksek | -           |
 
 ---
 
-_Son guncelleme: 9 Mart 2026_
+_Son guncelleme: 11 Mart 2026_

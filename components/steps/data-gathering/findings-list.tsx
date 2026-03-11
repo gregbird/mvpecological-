@@ -122,6 +122,9 @@ interface FindingsListProps {
   enrichmentStatus?: { isEnriching: boolean; current: number; total: number } | null
   sourceFilter?: 'all' | 'gbif' | 'nbdc' | 'protected'
   onSourceFilterChange?: (filter: 'all' | 'gbif' | 'nbdc' | 'protected') => void
+  // Distance/proximity filter
+  distanceFilter?: 'all' | '0-1' | '1-5' | '5-10' | '10+'
+  onDistanceFilterChange?: (filter: 'all' | '0-1' | '1-5' | '5-10' | '10+') => void
 }
 
 // Source badge colors
@@ -192,6 +195,8 @@ export function FindingsList({
   enrichmentStatus,
   sourceFilter,
   onSourceFilterChange,
+  distanceFilter,
+  onDistanceFilterChange,
   onUpdateNote,
 }: FindingsListProps) {
   const [sortBy, setSortBy] = React.useState<'distance' | 'title' | 'type'>('type')
@@ -269,7 +274,7 @@ export function FindingsList({
     return sortedFindings.filter((f) => isFindingSaved(f)).length
   }, [sortedFindings, savedFindings])
 
-  // Apply site type filter + saved filter
+  // Apply site type filter + saved filter + distance filter
   const filteredFindings = React.useMemo(() => {
     let result = sortedFindings
     if (activeSiteTypeFilter) {
@@ -278,8 +283,26 @@ export function FindingsList({
     if (showSavedOnly) {
       result = result.filter((f) => isFindingSaved(f))
     }
+    if (distanceFilter && distanceFilter !== 'all') {
+      result = result.filter((f) => {
+        const d = f.metadata?.distance
+        if (d == null) return false
+        switch (distanceFilter) {
+          case '0-1':
+            return d <= 1
+          case '1-5':
+            return d > 1 && d <= 5
+          case '5-10':
+            return d > 5 && d <= 10
+          case '10+':
+            return d > 10
+          default:
+            return true
+        }
+      })
+    }
     return result
-  }, [sortedFindings, activeSiteTypeFilter, showSavedOnly, savedFindings])
+  }, [sortedFindings, activeSiteTypeFilter, showSavedOnly, savedFindings, distanceFilter])
 
   // Paginated findings
   const paginatedFindings = filteredFindings.slice(0, displayLimit)
@@ -288,7 +311,7 @@ export function FindingsList({
   // Reset display limit when findings or filter change
   React.useEffect(() => {
     setDisplayLimit(RESULTS_PER_PAGE)
-  }, [findings, activeSiteTypeFilter, showSavedOnly])
+  }, [findings, activeSiteTypeFilter, showSavedOnly, distanceFilter])
 
   // When selectedFindingId changes (e.g. map marker click), ensure it's visible and scroll to it
   React.useEffect(() => {
@@ -340,7 +363,7 @@ export function FindingsList({
       {/* Header with count and filters */}
       {showFilters && (
         <div className="flex items-center justify-between gap-1.5 border-b px-3 py-2">
-          <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1 overflow-hidden">
             {/* Species header: enrichment status + count + filter badges */}
             {showSpeciesHeader ? (
               <>
@@ -353,16 +376,24 @@ export function FindingsList({
                   </span>
                 ) : (
                   <button
-                    className={`shrink-0 text-sm font-medium ${showSavedOnly || sourceFilter !== 'all' ? 'text-blue-600 hover:underline' : ''}`}
+                    className={`shrink-0 text-sm font-medium ${showSavedOnly || sourceFilter !== 'all' || (distanceFilter && distanceFilter !== 'all') ? 'text-blue-600 hover:underline' : ''}`}
                     onClick={() => {
-                      if (showSavedOnly || (sourceFilter && sourceFilter !== 'all')) {
+                      if (
+                        showSavedOnly ||
+                        (sourceFilter && sourceFilter !== 'all') ||
+                        (distanceFilter && distanceFilter !== 'all')
+                      ) {
                         setShowSavedOnly(false)
                         onSavedFilterChange?.(false)
                         onSourceFilterChange?.('all')
+                        onDistanceFilterChange?.('all')
                       }
                     }}
                   >
-                    {sortedFindings.length} results
+                    {filteredFindings.length !== sortedFindings.length
+                      ? `${filteredFindings.length} / ${sortedFindings.length}`
+                      : sortedFindings.length}{' '}
+                    results
                   </button>
                 )}
                 {(speciesCounts?.protected ?? 0) > 0 && (
@@ -424,7 +455,10 @@ export function FindingsList({
                     }
                   }}
                 >
-                  {sortedFindings.length} results
+                  {filteredFindings.length !== sortedFindings.length
+                    ? `${filteredFindings.length} / ${sortedFindings.length}`
+                    : sortedFindings.length}{' '}
+                  results
                 </button>
                 {savedCount > 0 && (
                   <button
@@ -533,6 +567,26 @@ export function FindingsList({
                 </SelectContent>
               </Select>
             )}
+            {/* Distance/proximity filter dropdown */}
+            {onDistanceFilterChange && (
+              <Select
+                value={distanceFilter || 'all'}
+                onValueChange={(v) =>
+                  onDistanceFilterChange(v as 'all' | '0-1' | '1-5' | '5-10' | '10+')
+                }
+              >
+                <SelectTrigger className="h-7 w-auto min-w-[70px] border-0 bg-transparent px-1.5 text-xs shadow-none">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Distances</SelectItem>
+                  <SelectItem value="0-1">&lt; 1 km</SelectItem>
+                  <SelectItem value="1-5">1–5 km</SelectItem>
+                  <SelectItem value="5-10">5–10 km</SelectItem>
+                  <SelectItem value="10+">10+ km</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
             <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
               <SelectTrigger className="h-7 w-auto min-w-[80px] border-0 bg-transparent px-1.5 text-xs shadow-none">
                 <SelectValue />
@@ -557,6 +611,11 @@ export function FindingsList({
       {/* Findings list */}
       <ScrollArea className="flex-1">
         <div className="space-y-1.5 p-2">
+          {paginatedFindings.length === 0 && (
+            <div className="flex h-32 flex-col items-center justify-center text-center">
+              <p className="text-muted-foreground text-sm">No results match the current filter</p>
+            </div>
+          )}
           {paginatedFindings.map((finding) => {
             const saved = isFindingSaved(finding)
             const isSaving = savingIds?.has(finding.id) ?? false

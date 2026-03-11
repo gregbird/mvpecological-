@@ -44,6 +44,9 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
   const [speciesExistingAnalysis, setSpeciesExistingAnalysis] = React.useState<string | undefined>()
   const [deepResearchFinding, setDeepResearchFinding] = React.useState<FindingDisplay | null>(null)
 
+  // Ref to trigger short AI summary from the shell
+  const aiSummaryTriggerRef = React.useRef<((finding: FindingDisplay) => void) | null>(null)
+
   // Enrichment state
   const [isEnriching, setIsEnriching] = React.useState(false)
   const [enrichmentProgress, setEnrichmentProgress] = React.useState<{
@@ -226,9 +229,8 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
     )
 
     if (existingSaved) {
-      // Card already saved — update with deep research AI + card AI summary
+      // Card already saved — update with deep research data (not as aiSummary)
       const existingRawData = (existingSaved.raw_data as Record<string, unknown>) || {}
-      const existingMetadata = (existingRawData.metadata as Record<string, unknown>) || {}
 
       updateFinding
         .mutateAsync({
@@ -236,7 +238,6 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
           updates: {
             raw_data: {
               ...existingRawData,
-              metadata: { ...existingMetadata, aiSummary: data.aiAnalysis },
               deepResearch: deepResearchData,
             } as unknown as Json,
           },
@@ -254,7 +255,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
           raw_data: {
             ...deepResearchFinding.rawData,
             scientificName,
-            metadata: { ...deepResearchFinding.metadata, aiSummary: data.aiAnalysis },
+            metadata: deepResearchFinding.metadata,
             deepResearch: deepResearchData,
           } as unknown as Json,
           location: deepResearchFinding.location as unknown as Json,
@@ -267,6 +268,11 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       } catch (error) {
         console.error('Failed to create finding from deep research:', error)
       }
+    }
+
+    // Trigger short AI summary for the card
+    if (deepResearchFinding) {
+      aiSummaryTriggerRef.current?.(deepResearchFinding)
     }
   }
 
@@ -527,6 +533,9 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       }),
       summarizeFilter: (f) => f.dataType === 'species_record' && !f.metadata?.aiSummary,
 
+      // Distance/proximity filter
+      showDistanceFilter: true,
+
       // FindingsList extra props
       findingsListExtraProps: {
         showSpeciesHeader: true,
@@ -599,7 +608,11 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
 
   return (
     <>
-      <DataGatheringSubstepShell {...props} config={config} />
+      <DataGatheringSubstepShell
+        {...props}
+        config={config}
+        aiSummaryTriggerRef={aiSummaryTriggerRef}
+      />
       <SpeciesResearchModal
         open={speciesResearchOpen}
         onOpenChange={setSpeciesResearchOpen}

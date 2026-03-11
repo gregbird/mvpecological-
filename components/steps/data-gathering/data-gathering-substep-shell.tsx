@@ -65,6 +65,9 @@ export interface SubstepShellProps {
   // Configuration
   config: SubstepShellConfig
 
+  // Ref to expose the AI summary trigger to parent substep components
+  aiSummaryTriggerRef?: React.MutableRefObject<((finding: FindingDisplay) => void) | null>
+
   // Children: render prop for deep research modal
   renderDeepResearchModal?: (props: {
     searchResults: FindingDisplay[]
@@ -123,6 +126,9 @@ export interface SubstepShellConfig {
     siteTypeFilterConfig: Record<string, { active: string; inactive: string }>
   }
 
+  // Distance/proximity filter (for species records)
+  showDistanceFilter?: boolean
+
   // Extra FindingsList props
   findingsListExtraProps?: Record<string, unknown>
 
@@ -165,6 +171,7 @@ export function DataGatheringSubstepShell({
   autoSearchTrigger,
   onAutoSearchComplete,
   config,
+  aiSummaryTriggerRef,
   renderDeepResearchModal,
   renderExtraControls,
 }: SubstepShellProps) {
@@ -184,6 +191,11 @@ export function DataGatheringSubstepShell({
 
   // Site type filter for map sync
   const [activeSiteTypeFilter, setActiveSiteTypeFilter] = React.useState<string | null>(null)
+
+  // Distance filter for map sync
+  const [activeDistanceFilter, setActiveDistanceFilter] = React.useState<
+    'all' | '0-1' | '1-5' | '5-10' | '10+'
+  >('all')
 
   // Shared substep search logic
   const performSearchRef = React.useRef<(() => Promise<void>) | null>(null)
@@ -385,6 +397,11 @@ export function DataGatheringSubstepShell({
     }
   }
 
+  // ── Expose AI summary trigger to parent substep components ──────────────
+  if (aiSummaryTriggerRef) {
+    aiSummaryTriggerRef.current = handleFetchAiSummary
+  }
+
   // ── Batch summarize ─────────────────────────────────────────────────────
   const [isSummarizing, setIsSummarizing] = React.useState(false)
   const summarizeCancelRef = React.useRef(false)
@@ -446,9 +463,30 @@ export function DataGatheringSubstepShell({
 
   // ── Filter results for map ──────────────────────────────────────────────
   const filteredResults = React.useMemo(() => {
-    if (!activeSiteTypeFilter) return searchResults
-    return searchResults.filter((f) => f.metadata?.siteType === activeSiteTypeFilter)
-  }, [searchResults, activeSiteTypeFilter])
+    let result = searchResults
+    if (activeSiteTypeFilter) {
+      result = result.filter((f) => f.metadata?.siteType === activeSiteTypeFilter)
+    }
+    if (activeDistanceFilter && activeDistanceFilter !== 'all') {
+      result = result.filter((f) => {
+        const d = f.metadata?.distance
+        if (d == null) return false
+        switch (activeDistanceFilter) {
+          case '0-1':
+            return d <= 1
+          case '1-5':
+            return d > 1 && d <= 5
+          case '5-10':
+            return d > 5 && d <= 10
+          case '10+':
+            return d > 10
+          default:
+            return true
+        }
+      })
+    }
+    return result
+  }, [searchResults, activeSiteTypeFilter, activeDistanceFilter])
 
   // Default map findings mapper
   const defaultMapFindingsMapper = (f: FindingDisplay): MapFinding => ({
@@ -492,6 +530,14 @@ export function DataGatheringSubstepShell({
       config.onSiteTypeFilterChange?.(siteType)
     },
     [config]
+  )
+
+  // Handle distance filter change (syncs map)
+  const handleDistanceFilterChange = React.useCallback(
+    (filter: 'all' | '0-1' | '1-5' | '5-10' | '10+') => {
+      setActiveDistanceFilter(filter)
+    },
+    []
   )
 
   // ── Render ──────────────────────────────────────────────────────────────
@@ -576,6 +622,13 @@ export function DataGatheringSubstepShell({
                   onSiteTypeFilterChange: handleSiteTypeFilterChange,
                 }
               : {})}
+            // Distance filter props
+            {...(config.showDistanceFilter
+              ? {
+                  distanceFilter: activeDistanceFilter,
+                  onDistanceFilterChange: handleDistanceFilterChange,
+                }
+              : {})}
             // Extra props (e.g. species header, enrichment, source filter)
             {...(config.findingsListExtraProps || {})}
           />
@@ -591,7 +644,10 @@ export function DataGatheringSubstepShell({
             zoom={11}
             boundary={projectBoundary}
             bufferDistances={bufferDistances}
-            findings={(config.filterConfig ? filteredResults : searchResults)
+            findings={(config.filterConfig || config.showDistanceFilter
+              ? filteredResults
+              : searchResults
+            )
               .filter((f) => !hiddenIds.has(f.id))
               .filter((f) => !showSavedOnMap || savedFilter(f))
               .map(mapFindingsMapper)}

@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Sparkles, AlertTriangle, Loader2 } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
 
 import {
   Dialog,
@@ -20,30 +21,29 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 export function MarkdownContent({ text }: { text: string }) {
   return (
     <div className="prose prose-sm max-w-none">
-      {text.split('\n').map((line, idx) => {
-        if (line.startsWith('**') && line.endsWith('**')) {
-          return (
-            <h4 key={idx} className="mt-3 mb-1 text-sm font-semibold">
-              {line.replace(/\*\*/g, '')}
-            </h4>
-          )
-        }
-        if (line.startsWith('**')) {
-          const parts = line.split('**')
-          return (
-            <div key={idx} className="mt-3">
-              <h4 className="mb-1 text-sm font-semibold">{parts[1]}</h4>
-              {parts[2] && <p className="text-muted-foreground text-xs">{parts[2]}</p>}
-            </div>
-          )
-        }
-        if (line.trim() === '') return <div key={idx} className="h-1" />
-        return (
-          <p key={idx} className="text-muted-foreground mb-2 text-xs leading-relaxed">
-            {line}
-          </p>
-        )
-      })}
+      <ReactMarkdown
+        components={{
+          h1: ({ children }) => <h4 className="mt-3 mb-1 text-sm font-semibold">{children}</h4>,
+          h2: ({ children }) => <h4 className="mt-3 mb-1 text-sm font-semibold">{children}</h4>,
+          h3: ({ children }) => <h4 className="mt-3 mb-1 text-sm font-semibold">{children}</h4>,
+          h4: ({ children }) => <h4 className="mt-3 mb-1 text-sm font-semibold">{children}</h4>,
+          p: ({ children }) => (
+            <p className="text-muted-foreground mb-2 text-xs leading-relaxed">{children}</p>
+          ),
+          strong: ({ children }) => (
+            <strong className="text-foreground font-semibold">{children}</strong>
+          ),
+          ul: ({ children }) => (
+            <ul className="text-muted-foreground mb-2 list-disc pl-4 text-xs">{children}</ul>
+          ),
+          ol: ({ children }) => (
+            <ol className="text-muted-foreground mb-2 list-decimal pl-4 text-xs">{children}</ol>
+          ),
+          li: ({ children }) => <li className="mb-0.5 leading-relaxed">{children}</li>,
+        }}
+      >
+        {text}
+      </ReactMarkdown>
     </div>
   )
 }

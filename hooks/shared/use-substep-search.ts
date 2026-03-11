@@ -112,26 +112,29 @@ export function useSubstepSearch(
     const relevant = savedFindings.filter((f) => sourceFilter.includes(f.source))
     if (relevant.length === 0) return
 
-    const restored: FindingDisplay[] = relevant.map((f) => ({
-      id: f.id,
-      source: f.source,
-      dataType: f.data_type,
-      title: f.title,
-      content: f.content || undefined,
-      location: f.location as GeoJSON.Geometry | undefined,
-      isSaved: true,
-      notes: f.notes ?? undefined,
-      metadata: {
-        siteCode: (f.raw_data as Record<string, unknown>)?.siteCode as string | undefined,
-        siteType: (f.raw_data as Record<string, unknown>)?.siteType as string | undefined,
-        scientificName: (f.raw_data as Record<string, unknown>)?.scientificName as
-          | string
-          | undefined,
-        commonName: (f.raw_data as Record<string, unknown>)?.commonName as string | undefined,
-        distance: f.distance_from_boundary_km ?? undefined,
-        isProtected: f.is_protected ?? undefined,
-      },
-    }))
+    const restored: FindingDisplay[] = relevant.map((f) => {
+      const rawData = f.raw_data as Record<string, unknown> | undefined
+      const rawMetadata = rawData?.metadata as Record<string, unknown> | undefined
+      return {
+        id: f.id,
+        source: f.source,
+        dataType: f.data_type,
+        title: f.title,
+        content: f.content || undefined,
+        location: f.location as GeoJSON.Geometry | undefined,
+        isSaved: true,
+        notes: f.notes ?? undefined,
+        metadata: {
+          siteCode: rawData?.siteCode as string | undefined,
+          siteType: rawData?.siteType as string | undefined,
+          scientificName: rawData?.scientificName as string | undefined,
+          commonName: rawData?.commonName as string | undefined,
+          distance: f.distance_from_boundary_km ?? undefined,
+          isProtected: f.is_protected ?? undefined,
+          aiSummary: rawMetadata?.aiSummary as string | undefined,
+        },
+      }
+    })
 
     setSearchResults(restored)
   }, [searchResults.length, savedFindings, sourceFilter, cacheKey, setSearchResults])

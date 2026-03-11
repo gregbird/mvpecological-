@@ -2,6 +2,7 @@
 
 import { jsPDF } from 'jspdf'
 import type { ReportSection } from '@/lib/supabase/queries/reports'
+import type { AppendixData } from './appendix-data'
 import { fetchImageAsBase64 } from './image-utils'
 
 export interface PeaExportOptions {
@@ -12,6 +13,7 @@ export interface PeaExportOptions {
   date: string
   sections: ReportSection[]
   appendices: string[]
+  appendixData?: AppendixData
 }
 
 const APPENDIX_LABELS: Record<string, string> = {
@@ -729,7 +731,11 @@ export async function generatePeaPdf(options: PeaExportOptions): Promise<jsPDF> 
     // Parse and render content
     const blocks = parseMarkdown(section.content)
 
-    for (const block of blocks) {
+    for (let blockIdx = 0; blockIdx < blocks.length; blockIdx++) {
+      // Yield every 10 blocks to keep the UI responsive
+      if (blockIdx > 0 && blockIdx % 10 === 0) await yieldToBrowser()
+
+      const block = blocks[blockIdx]
       switch (block.type) {
         case 'heading':
           y = ensureSpace(y, 15)
@@ -808,25 +814,67 @@ export async function generatePeaPdf(options: PeaExportOptions): Promise<jsPDF> 
 
   // ===== APPENDICES =====
   if (options.appendices.length > 0) {
-    y = ensureSpace(y, 35)
-    y += 4
-
-    doc.setFontSize(14)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(44, 82, 52)
-    doc.text('Appendices', margin, y)
-    doc.setTextColor(0, 0, 0)
-    y += 10
-
     const letters = 'ABCDEFGHIJ'
+    const ad = options.appendixData
+
     for (let i = 0; i < options.appendices.length; i++) {
-      const label = APPENDIX_LABELS[options.appendices[i]] || options.appendices[i]
-      y = writePlainText(`Appendix ${letters[i] || i + 1}: ${label}`, margin, y, {
-        fontSize: 11,
-        bold: true,
-      })
-      y = writePlainText('[Content to be inserted]', margin, y, { fontSize: 10, italic: true })
-      y += 4
+      const key = options.appendices[i]
+      const label = APPENDIX_LABELS[key] || key
+
+      // Each appendix starts on a new page
+      y = newPage()
+
+      // Appendix heading with green underline
+      _curStyle = ''
+      _curSize = 0
+      doc.setFontSize(14)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(44, 82, 52)
+      const headingText = `Appendix ${letters[i] || i + 1}: ${label}`
+      doc.text(headingText, margin, y)
+      const hw = doc.getTextWidth(headingText)
+      doc.setDrawColor(44, 82, 52)
+      doc.setLineWidth(0.4)
+      doc.line(margin, y + 1.5, margin + hw, y + 1.5)
+      doc.setDrawColor(0, 0, 0)
+      doc.setTextColor(0, 0, 0)
+      y += 10
+
+      // --- Designated Sites table ---
+      if (key === 'desk_study_data' && ad && ad.designatedSites.length > 0) {
+        await yieldToBrowser()
+        const dsTable: MdTable = {
+          type: 'table',
+          headers: ['Name', 'Site Number', 'Distance', 'AI Summary'],
+          rows: ad.designatedSites.map((s) => [
+            s.name,
+            `${s.siteNumber} (${s.siteType})`,
+            s.distanceKm,
+            s.aiSummary,
+          ]),
+        }
+        y = renderTable(doc, dsTable, y, margin, contentWidth, ensureSpace, newPage)
+        y += 4
+
+        // --- Species Records table ---
+      } else if (key === 'species_list' && ad && ad.speciesRecords.length > 0) {
+        await yieldToBrowser()
+        const spTable: MdTable = {
+          type: 'table',
+          headers: ['Name', 'AI Summary', 'Protection Status'],
+          rows: ad.speciesRecords.map((s) => [s.name, s.aiSummary, s.protectionStatus]),
+        }
+        y = renderTable(doc, spTable, y, margin, contentWidth, ensureSpace, newPage)
+        y += 4
+
+        // --- Other appendices: placeholder ---
+      } else if ((key !== 'desk_study_data' && key !== 'species_list') || !ad) {
+        y = writePlainText('[Content to be inserted]', margin, y, {
+          fontSize: 10,
+          italic: true,
+        })
+        y += 4
+      }
     }
   }
 
@@ -996,17 +1044,39 @@ export function generatePeaHtml(options: PeaExportOptions): string {
     )
     .join('\n')
 
+  const ad = options.appendixData
   const appendicesHtml =
     options.appendices.length > 0
       ? `
     <div class="section">
       <h2>Appendices</h2>
       ${options.appendices
-        .map(
-          (a, i) => `
-        <h3>Appendix ${String.fromCharCode(65 + i)}: ${APPENDIX_LABELS[a] || a}</h3>
-        <p><em>[Content to be inserted]</em></p>`
-        )
+        .map((a, i) => {
+          const label = APPENDIX_LABELS[a] || a
+          const heading = `<h3>Appendix ${String.fromCharCode(65 + i)}: ${label}</h3>`
+
+          if (a === 'desk_study_data' && ad && ad.designatedSites.length > 0) {
+            const rows = ad.designatedSites
+              .map(
+                (s) =>
+                  `<tr><td>${escapeHtml(s.name)}</td><td>${escapeHtml(`${s.siteNumber} (${s.siteType})`)}</td><td>${escapeHtml(s.distanceKm)}</td><td>${escapeHtml(s.aiSummary)}</td></tr>`
+              )
+              .join('')
+            return `${heading}<table><thead><tr><th>Name</th><th>Site Number</th><th>Distance</th><th>AI Summary</th></tr></thead><tbody>${rows}</tbody></table>`
+          }
+
+          if (a === 'species_list' && ad && ad.speciesRecords.length > 0) {
+            const rows = ad.speciesRecords
+              .map(
+                (s) =>
+                  `<tr><td>${escapeHtml(s.name)}</td><td>${escapeHtml(s.aiSummary)}</td><td>${escapeHtml(s.protectionStatus)}</td></tr>`
+              )
+              .join('')
+            return `${heading}<table><thead><tr><th>Name</th><th>AI Summary</th><th>Protection Status</th></tr></thead><tbody>${rows}</tbody></table>`
+          }
+
+          return `${heading}<p><em>[Content to be inserted]</em></p>`
+        })
         .join('\n')}
     </div>`
       : ''

@@ -351,6 +351,58 @@ const APPENDIX_LABELS: Record<string, string> = {
   legislation: 'Legislation References',
 }
 
+/** Build a styled table for appendix data (designated sites or species records). */
+function buildDocxAppendixTable(headers: string[], rows: string[][]): Table {
+  const colCount = headers.length
+  const colPct = Math.floor(100 / colCount)
+
+  const headerRow = new TableRow({
+    tableHeader: true,
+    children: headers.map(
+      (h) =>
+        new TableCell({
+          shading: { type: ShadingType.SOLID, color: DARK_GREEN, fill: DARK_GREEN },
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text: h, bold: true, color: 'FFFFFF', size: 18 })],
+            }),
+          ],
+          width: { size: colPct, type: WidthType.PERCENTAGE },
+        })
+    ),
+  })
+
+  const bodyRows = rows.map(
+    (row, rowIdx) =>
+      new TableRow({
+        children: row.map(
+          (cell) =>
+            new TableCell({
+              shading:
+                rowIdx % 2 === 0
+                  ? { type: ShadingType.SOLID, color: TABLE_STRIPE, fill: TABLE_STRIPE }
+                  : undefined,
+              children: [new Paragraph({ children: [new TextRun({ text: cell, size: 18 })] })],
+              width: { size: colPct, type: WidthType.PERCENTAGE },
+            })
+        ),
+      })
+  )
+
+  return new Table({
+    rows: [headerRow, ...bodyRows],
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: {
+      top: { style: BorderStyle.SINGLE, size: 4, color: DARK_GREEN },
+      bottom: { style: BorderStyle.SINGLE, size: 4, color: DARK_GREEN },
+      left: { style: BorderStyle.SINGLE, size: 4, color: DARK_GREEN },
+      right: { style: BorderStyle.SINGLE, size: 4, color: DARK_GREEN },
+      insideHorizontal: { style: BorderStyle.SINGLE, size: 2, color: 'CCCCCC' },
+      insideVertical: { style: BorderStyle.SINGLE, size: 2, color: 'CCCCCC' },
+    },
+  })
+}
+
 export async function generatePeaDocx(options: PeaExportOptions): Promise<Blob> {
   const contentSections = options.sections.filter((s) => s.content)
 
@@ -491,39 +543,65 @@ export async function generatePeaDocx(options: PeaExportOptions): Promise<Blob> 
 
   // ===== APPENDICES =====
   if (options.appendices.length > 0) {
-    children.push(
-      new Paragraph({ children: [new PageBreak()] }),
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: 'Appendices',
-            bold: true,
-            color: DARK_GREEN,
-            size: 28,
-            underline: { type: UnderlineType.SINGLE, color: DARK_GREEN },
-          }),
-        ],
-        spacing: { before: 240, after: 200 },
-      })
-    )
+    const ad = options.appendixData
+    const appendixLetters = 'ABCDEFGHIJ'
 
-    const letters = 'ABCDEFGHIJ'
     options.appendices.forEach((a, i) => {
       const label = APPENDIX_LABELS[a] || a
+
+      // Page break before each appendix
       children.push(
+        new Paragraph({ children: [new PageBreak()] }),
         new Paragraph({
           children: [
-            new TextRun({ text: `Appendix ${letters[i] || i + 1}: ${label}`, bold: true }),
+            new TextRun({
+              text: `Appendix ${appendixLetters[i] || i + 1}: ${label}`,
+              bold: true,
+              color: DARK_GREEN,
+              size: 28,
+              underline: { type: UnderlineType.SINGLE, color: DARK_GREEN },
+            }),
           ],
-          spacing: { before: 240, after: 80 },
-        }),
-        new Paragraph({
-          children: [
-            new TextRun({ text: '[Content to be inserted]', italics: true, color: '888888' }),
-          ],
-          spacing: { after: 160 },
+          spacing: { before: 240, after: 200 },
         })
       )
+
+      // --- Designated Sites table ---
+      if (a === 'desk_study_data' && ad && ad.designatedSites.length > 0) {
+        children.push(
+          buildDocxAppendixTable(
+            ['Name', 'Site Number', 'Distance', 'AI Summary'],
+            ad.designatedSites.map((s) => [
+              s.name,
+              `${s.siteNumber} (${s.siteType})`,
+              s.distanceKm,
+              s.aiSummary,
+            ])
+          )
+        )
+        children.push(new Paragraph({ text: '', spacing: { after: 120 } }))
+
+        // --- Species Records table ---
+      } else if (a === 'species_list' && ad && ad.speciesRecords.length > 0) {
+        children.push(
+          buildDocxAppendixTable(
+            ['Name', 'AI Summary', 'Protection Status'],
+            ad.speciesRecords.map((s) => [s.name, s.aiSummary, s.protectionStatus])
+          )
+        )
+        children.push(new Paragraph({ text: '', spacing: { after: 120 } }))
+
+        // --- Other appendices: placeholder ---
+      } else if ((a !== 'desk_study_data' && a !== 'species_list') || !ad) {
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({ text: '[Content to be inserted]', italics: true, color: '888888' }),
+            ],
+            spacing: { after: 160 },
+          })
+        )
+      }
     })
   }
 

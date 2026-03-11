@@ -29,6 +29,8 @@ import { useUpdateProject } from '@/hooks/queries/use-project-hooks'
 import { useHabitatStats } from '@/hooks/queries/use-habitat-hooks'
 import { useObservationStats } from '@/hooks/queries/use-observation-hooks'
 import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
+import { useSavedFindings } from '@/hooks/queries/use-finding-hooks'
+import { prepareAppendixData } from '@/lib/export/appendix-data'
 import { getReportSectionsForType } from '@/lib/config/template-types'
 import type { ReportContent } from '@/lib/supabase/queries/reports'
 import type { Project, WorkflowStep } from '@/types/database'
@@ -80,6 +82,7 @@ export function FinalSubmissionStep({
   const { data: report, isLoading: loadingReport } = useLatestReport(project.id)
   const { data: habitatStats } = useHabitatStats(project.id)
   const { data: observationStats } = useObservationStats(project.id)
+  const { data: savedFindings } = useSavedFindings(project.id)
   const updateReport = useUpdateReport()
   const updateProject = useUpdateProject()
   const completeStep = useCompleteWorkflowStep()
@@ -125,6 +128,8 @@ export function FinalSubmissionStep({
     date: new Date().toLocaleDateString('en-IE'),
     sections: reportContent?.sections || [],
     appendices: selectedAppendices,
+    appendixData:
+      savedFindings && savedFindings.length > 0 ? prepareAppendixData(savedFindings) : undefined,
   })
 
   // Handle print — generates PDF and opens in new tab for browser print dialog

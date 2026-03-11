@@ -43,7 +43,10 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
   const [deepResearchFinding, setDeepResearchFinding] = React.useState<FindingDisplay | null>(null)
   const [isDeepResearchOpen, setIsDeepResearchOpen] = React.useState(false)
 
-  // Handle Deep Research save -> auto-save card if needed + update AI summary
+  // Ref to trigger short AI summary from the shell
+  const aiSummaryTriggerRef = React.useRef<((finding: FindingDisplay) => void) | null>(null)
+
+  // Handle Deep Research save -> auto-save card if needed + trigger short AI summary
   const handleDeepResearchSave = React.useCallback(
     async (data: { aiAnalysis: string; siteCode: string }) => {
       const existingSaved = savedFindings.find(
@@ -51,17 +54,15 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
       )
 
       if (existingSaved) {
-        // Card already saved — update with deep research AI + card AI summary
+        // Card already saved — update with deep research data (not as aiSummary)
         try {
           const existingRawData = (existingSaved.raw_data as Record<string, unknown>) || {}
-          const existingMetadata = (existingRawData.metadata as Record<string, unknown>) || {}
 
           await updateFinding.mutateAsync({
             findingId: existingSaved.id,
             updates: {
               raw_data: {
                 ...existingRawData,
-                metadata: { ...existingMetadata, aiSummary: data.aiAnalysis },
                 deepResearch: { aiAnalysis: data.aiAnalysis },
               } as unknown as Json,
             },
@@ -70,7 +71,7 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
           console.error('Failed to update finding with deep research:', error)
         }
       } else if (deepResearchFinding) {
-        // Card not saved — create finding first, then update with deep research
+        // Card not saved — create finding first with deep research data
         try {
           const payload = {
             project_id: project.id,
@@ -81,7 +82,7 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
             raw_data: {
               ...deepResearchFinding.rawData,
               siteCode: deepResearchFinding.metadata?.siteCode,
-              metadata: { ...deepResearchFinding.metadata, aiSummary: data.aiAnalysis },
+              metadata: deepResearchFinding.metadata,
               deepResearch: { aiAnalysis: data.aiAnalysis },
             } as unknown as Json,
             location: deepResearchFinding.location as unknown as Json,
@@ -94,6 +95,11 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
         } catch (error) {
           console.error('Failed to create finding from deep research:', error)
         }
+      }
+
+      // Trigger short AI summary for the card
+      if (deepResearchFinding) {
+        aiSummaryTriggerRef.current?.(deepResearchFinding)
       }
     },
     [savedFindings, deepResearchFinding, updateFinding, createFinding, project.id, userId]
@@ -348,7 +354,11 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
 
   return (
     <>
-      <DataGatheringSubstepShell {...props} config={config} />
+      <DataGatheringSubstepShell
+        {...props}
+        config={config}
+        aiSummaryTriggerRef={aiSummaryTriggerRef}
+      />
       <DeepResearchModal
         open={isDeepResearchOpen}
         onOpenChange={setIsDeepResearchOpen}

@@ -13,7 +13,7 @@ interface FetchedImage {
 /** Max dimensions for exported images — 1600x1200 keeps good print quality (~200 DPI on A4 half-width) */
 const MAX_EXPORT_WIDTH = 1600
 const MAX_EXPORT_HEIGHT = 1200
-const FETCH_TIMEOUT_MS = 15000
+const FETCH_TIMEOUT_MS = 5000
 const JPEG_QUALITY = 0.92
 
 /**
@@ -44,12 +44,27 @@ function loadImage(url: string, timeoutMs: number): Promise<HTMLImageElement> {
   })
 }
 
+/** Check if a Supabase signed URL has an expired JWT token */
+function isSignedUrlExpired(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    const token = parsed.searchParams.get('token')
+    if (!token) return false
+    // JWT has 3 parts; payload is the second, base64url-encoded
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    return typeof payload.exp === 'number' && payload.exp * 1000 < Date.now()
+  } catch {
+    return false
+  }
+}
+
 /**
  * Fetch an image URL and return it as base64 with dimensions.
  * Downscales large images. Returns null on failure so exports don't break.
  */
 export async function fetchImageAsBase64(url: string): Promise<FetchedImage | null> {
   try {
+    if (isSignedUrlExpired(url)) return null
     const img = await loadImage(url, FETCH_TIMEOUT_MS)
 
     const origW = img.naturalWidth
@@ -87,6 +102,7 @@ export async function fetchImageAsBuffer(
   url: string
 ): Promise<{ buffer: ArrayBuffer; width: number; height: number } | null> {
   try {
+    if (isSignedUrlExpired(url)) return null
     const img = await loadImage(url, FETCH_TIMEOUT_MS)
 
     const origW = img.naturalWidth
