@@ -18,6 +18,7 @@ export interface PeaExportOptions {
 
 const APPENDIX_LABELS: Record<string, string> = {
   habitat_map: 'Habitat Map',
+  habitat_data: 'Habitat Data',
   species_list: 'Species List',
   photographs: 'Site Photographs',
   survey_datasheets: 'Survey Datasheets',
@@ -867,8 +868,27 @@ export async function generatePeaPdf(options: PeaExportOptions): Promise<jsPDF> 
         y = renderTable(doc, spTable, y, margin, contentWidth, ensureSpace, newPage)
         y += 4
 
+        // --- Habitat Data table ---
+      } else if (key === 'habitat_data' && ad && ad.habitats.length > 0) {
+        await yieldToBrowser()
+        const hTable: MdTable = {
+          type: 'table',
+          headers: ['Fossitt Code', 'Habitat Category', 'Area (ha)', '% Cover'],
+          rows: ad.habitats.map((h) => [
+            h.fossittCode,
+            h.habitatName,
+            h.areaHectares,
+            h.percentCover,
+          ]),
+        }
+        y = renderTable(doc, hTable, y, margin, contentWidth, ensureSpace, newPage)
+        y += 4
+
         // --- Other appendices: placeholder ---
-      } else if ((key !== 'desk_study_data' && key !== 'species_list') || !ad) {
+      } else if (
+        (key !== 'desk_study_data' && key !== 'species_list' && key !== 'habitat_data') ||
+        !ad
+      ) {
         y = writePlainText('[Content to be inserted]', margin, y, {
           fontSize: 10,
           italic: true,
@@ -1073,6 +1093,16 @@ export function generatePeaHtml(options: PeaExportOptions): string {
               )
               .join('')
             return `${heading}<table><thead><tr><th>Name</th><th>AI Summary</th><th>Protection Status</th></tr></thead><tbody>${rows}</tbody></table>`
+          }
+
+          if (a === 'habitat_data' && ad && ad.habitats.length > 0) {
+            const rows = ad.habitats
+              .map(
+                (h) =>
+                  `<tr><td>${escapeHtml(h.fossittCode)}</td><td>${escapeHtml(h.habitatName)}</td><td>${escapeHtml(h.areaHectares)}</td><td>${escapeHtml(h.percentCover)}</td></tr>`
+              )
+              .join('')
+            return `${heading}<table><thead><tr><th>Fossitt Code</th><th>Habitat Category</th><th>Area (ha)</th><th>% Cover</th></tr></thead><tbody>${rows}</tbody></table>`
           }
 
           return `${heading}<p><em>[Content to be inserted]</em></p>`

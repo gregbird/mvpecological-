@@ -53,6 +53,20 @@ export const AQUATIC_SPECIES_CODES: Record<string, string> = {
   '1990': 'Nore Freshwater Pearl Mussel (Margaritifera durrovensis)',
 }
 
+/**
+ * Haversine distance between two lat/lng points in kilometres.
+ * Used to penalise SAC matches that are geographically far from the project.
+ */
+function haversineDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371
+  const dLat = ((lat2 - lat1) * Math.PI) / 180
+  const dLng = ((lng2 - lng1) * Math.PI) / 180
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
 // Common river name variations for better matching
 const RIVER_NAME_NORMALIZATIONS: Record<string, string[]> = {
   shannon: ['shannon', 'sionainn'],
@@ -181,27 +195,51 @@ function hasAquaticFeatures(site: NPWSSiteData): boolean {
 }
 
 /**
- * Find SACs that match a given water body name
+ * Find SACs that match a given water body name.
+ * When project coordinates are provided, applies a geographic distance penalty
+ * so that SACs far from the project are ranked lower or excluded entirely.
  */
 export function findMatchingSACs(
   waterBodyName: string,
-  _waterBodyType?: 'River' | 'Lake' | 'Catchment'
+  _waterBodyType?: 'River' | 'Lake' | 'Catchment',
+  projectLat?: number,
+  projectLng?: number
 ): AquaticSACMatch[] {
   const matches: AquaticSACMatch[] = []
+  const hasProjectCoords = projectLat != null && projectLng != null
 
   for (const [_siteCode, site] of Object.entries(sitesData)) {
     // Skip non-SAC sites for now (SPAs don't have aquatic QIs)
     if (site.siteType !== 'SAC') continue
 
-    // Calculate match score
-    const { score, reason } = calculateMatchScore(waterBodyName, site.siteName)
+    // Calculate text-based match score
+    const { score: textScore, reason } = calculateMatchScore(waterBodyName, site.siteName)
+    if (textScore === 0) continue
 
-    // Only include if score > 50 OR if it has aquatic features and score > 30
     const hasAquatic = hasAquaticFeatures(site)
-    if (score < 50 && !(hasAquatic && score > 30)) continue
 
     // Boost score if SAC has aquatic features
-    const finalScore = hasAquatic ? Math.min(100, score + 10) : score
+    let finalScore = hasAquatic ? Math.min(100, textScore + 10) : textScore
+
+    // Apply geographic distance penalty when project coordinates are available
+    let distanceNote = ''
+    if (hasProjectCoords && site.latitude && site.longitude) {
+      const distKm = haversineDistanceKm(projectLat, projectLng, site.latitude, site.longitude)
+
+      if (distKm > 200) {
+        finalScore -= 50
+        distanceNote = ` [${Math.round(distKm)} km away — heavy penalty]`
+      } else if (distKm > 100) {
+        finalScore -= 30
+        distanceNote = ` [${Math.round(distKm)} km away — moderate penalty]`
+      } else if (distKm > 50) {
+        finalScore -= 15
+        distanceNote = ` [${Math.round(distKm)} km away — light penalty]`
+      }
+    }
+
+    // Only include if score > 50 OR if it has aquatic features and score > 30
+    if (finalScore < 50 && !(hasAquatic && finalScore > 30)) continue
 
     matches.push({
       siteCode: site.siteCode,
@@ -215,7 +253,7 @@ export function findMatchingSACs(
       habitats: site.habitats || [],
       species: site.species || [],
       matchScore: finalScore,
-      matchReason: reason + (hasAquatic ? ' (has aquatic QIs)' : ''),
+      matchReason: reason + (hasAquatic ? ' (has aquatic QIs)' : '') + distanceNote,
     })
   }
 

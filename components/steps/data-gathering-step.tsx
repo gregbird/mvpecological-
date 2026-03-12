@@ -37,6 +37,7 @@ import { AquaticFeaturesSubStep } from './data-gathering/aquatic-features-subste
 import { ReviewExportSubStep } from './data-gathering/review-export-substep'
 import { CompanyReportsSubStep } from './data-gathering/company-reports-substep'
 import { PlanningPolicySubStep } from './data-gathering/planning-policy-substep'
+import { HabitatDataSubStep } from './data-gathering/habitat-data-substep'
 
 // Dynamic import for map
 const ProjectMap = dynamic(
@@ -59,7 +60,15 @@ interface DataGatheringStepProps {
 }
 
 // Wizard steps
-type WizardStep = 'info' | 'sites' | 'species' | 'aquatic' | 'planning' | 'reports' | 'review'
+type WizardStep =
+  | 'info'
+  | 'sites'
+  | 'species'
+  | 'aquatic'
+  | 'habitats'
+  | 'planning'
+  | 'reports'
+  | 'review'
 type ViewMode = 'preview' | 'wizard'
 
 const WIZARD_STEPS: { id: WizardStep; label: string; icon: React.ElementType }[] = [
@@ -67,6 +76,7 @@ const WIZARD_STEPS: { id: WizardStep; label: string; icon: React.ElementType }[]
   { id: 'sites', label: 'Designated Sites', icon: MapPin },
   { id: 'species', label: 'Species Records', icon: Bug },
   { id: 'aquatic', label: 'Aquatic Features', icon: Droplets },
+  { id: 'habitats', label: 'Habitat Data', icon: Layers },
   { id: 'planning', label: 'Planning Policy', icon: Database },
   { id: 'reports', label: 'Company Reports', icon: FileText },
   { id: 'review', label: 'Review & Export', icon: Check },
@@ -98,7 +108,16 @@ export function DataGatheringStep({
       const cached = sessionStorage.getItem(wizardStepCacheKey)
       if (
         cached &&
-        ['info', 'sites', 'species', 'aquatic', 'planning', 'reports', 'review'].includes(cached)
+        [
+          'info',
+          'sites',
+          'species',
+          'aquatic',
+          'habitats',
+          'planning',
+          'reports',
+          'review',
+        ].includes(cached)
       ) {
         return cached as WizardStep
       }
@@ -815,7 +834,20 @@ export function DataGatheringStep({
           </div>
         )}
 
-        {/* Step 5: Planning Policy - county development plan references */}
+        {/* Step 5: Habitat Data - NLC 2018 land cover */}
+        {currentStep === 'habitats' && (
+          <HabitatDataSubStep
+            project={project}
+            projectBoundary={projectBoundary}
+            projectCenter={projectCenter}
+            bufferDistances={bufferDistances}
+            showMap={showMap}
+            onToggleMap={() => setShowMap(!showMap)}
+            isActive={currentStep === 'habitats'}
+          />
+        )}
+
+        {/* Step 6: Planning Policy - county development plan references */}
         {currentStep === 'planning' && (
           <PlanningPolicySubStep project={project} isActive={currentStep === 'planning'} />
         )}

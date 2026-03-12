@@ -52,6 +52,7 @@ const EXPORT_FORMATS = [
 // Appendices options
 const APPENDIX_OPTIONS = [
   { id: 'habitat_map', label: 'Habitat Map' },
+  { id: 'habitat_data', label: 'Habitat Data' },
   { id: 'species_list', label: 'Species List' },
   { id: 'photographs', label: 'Site Photographs' },
   { id: 'survey_datasheets', label: 'Survey Datasheets' },

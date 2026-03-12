@@ -523,35 +523,36 @@ function MapComponent({
         />
       )}
 
-      {/* Habitat Polygons */}
-      {habitatPolygons &&
-        habitatPolygons.features.length > 0 &&
-        habitatLayer?.visible &&
-        habitatPolygons.features.map((feature, index) => (
-          <GeoJSON
-            key={`habitat-${index}`}
-            data={feature}
-            style={{
-              color: (feature.properties?.color as string) || '#22c55e',
-              weight: 2,
-              fillColor: (feature.properties?.color as string) || '#22c55e',
-              fillOpacity: 0.5,
-            }}
-          >
-            <Popup>
-              <div className="p-2">
-                <h3 className="font-semibold">{feature.properties?.fossitt_name}</h3>
-                <p className="text-sm text-gray-600">{feature.properties?.fossitt_code}</p>
-                {feature.properties?.condition && (
-                  <p className="mt-1 text-sm">Condition: {feature.properties.condition}</p>
-                )}
-                {feature.properties?.area_hectares && (
-                  <p className="text-sm">Area: {feature.properties.area_hectares} ha</p>
-                )}
-              </div>
-            </Popup>
-          </GeoJSON>
-        ))}
+      {/* Habitat Polygons — rendered as single GeoJSON for performance */}
+      {habitatPolygons && habitatPolygons.features.length > 0 && habitatLayer?.visible && (
+        <GeoJSON
+          key={`habitats-${String((habitatPolygons as unknown as { _selKey?: string })?._selKey ?? 'all')}-${habitatPolygons.features.length}`}
+          data={habitatPolygons}
+          style={(feature: GeoJSON.Feature | undefined) => {
+            const props = feature?.properties
+            const opacity = (props?.fillOpacity as number) ?? 0.5
+            return {
+              color: (props?.color as string) || '#22c55e',
+              weight: opacity > 0.3 ? 1.5 : 0.5,
+              fillColor: (props?.color as string) || '#22c55e',
+              fillOpacity: opacity,
+            }
+          }}
+          onEachFeature={(feature: GeoJSON.Feature, layer: L.Layer) => {
+            const props = feature.properties
+            if (props) {
+              ;(layer as L.GeoJSON).bindPopup(`
+                  <div style="min-width:180px;padding:8px">
+                    <strong style="font-size:14px">${props.fossitt_name || ''}</strong>
+                    <div style="color:#374151;font-size:13px;margin-top:2px">${props.fossitt_code || ''}</div>
+                    ${props.nlc_label ? `<div style="color:#6b7280;font-size:11px;margin-top:4px">NLC: ${props.nlc_label}</div>` : ''}
+                    ${props.area_hectares ? `<div style="font-size:13px;margin-top:4px">Area: ${props.area_hectares} ha</div>` : ''}
+                  </div>
+                `)
+            }
+          }}
+        />
+      )}
 
       {/* Observation Points */}
       {observationPoints &&

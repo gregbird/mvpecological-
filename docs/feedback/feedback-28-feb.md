@@ -72,6 +72,9 @@ Species Records substep'inde (Step 2.3) mesafeye gore filtreleme ozeligi. Kullan
 **Yapilacilar:**
 
 - [x] **3.1** Species records listesine mesafe filtresi ekle (proximity to site boundary)
+- [x] **3.2** Filtre secildiginde harita senkronize olsun (sadece eslesen turler gorunsun)
+- [x] **3.3** Filtrelenmis sonuc sayisi gosterilsin (orn. "4 / 50 results")
+- [x] **3.4** 0 sonuc durumunda UI kirilmasi duzeltildi
 
 ---
 
@@ -93,10 +96,11 @@ OSI National Land Cover 2018 dataseti ArcGIS FeatureServer olarak mevcut. LEVEL_
 
 **Yapilacilar:**
 
-- [ ] **4.1** OSI National Land Cover 2018 ArcGIS endpoint'ini arastir ve test et
-- [ ] **4.2** LEVEL_1_VALUE / LEVEL_2_VALUE -> FOSSITT kod donusturme mapping'i olustur
-- [ ] **4.3** Proje boundary + buffer zone icindeki habitat verilerini fetch et
-- [ ] **4.4** Habitat tablosunu rapor appendix'ine ekle
+- [x] **4.1** OSI National Land Cover 2018 ArcGIS endpoint'ini arastir ve test et
+- [x] **4.2** LEVEL_1_VALUE / LEVEL_2_VALUE -> FOSSITT kod donusturme mapping'i olustur (36 NLC Level 2 → Fossitt)
+- [x] **4.3** Proje boundary + buffer zone icindeki habitat verilerini fetch et (pagination + aggregation)
+- [x] **4.4** Habitat tablosunu rapor appendix'ine ekle (PDF + HTML export)
+- [x] **4.5** Data Gathering wizard'ina "Habitat Data" substep eklendi (Step 2, Aquatic'ten sonra)
 
 ---
 
@@ -111,9 +115,9 @@ Mevcut SAC eslestirme sistemi isim benzerligine dayaniyor (`aquatic-sac-lookup.t
 
 **Yapilacilar:**
 
-- [ ] **5.1** SAC eslestirme algoritmasina cografi yakinlik filtresi ekle (isim + mesafe)
-- [ ] **5.2** Eslestirme skoru hesaplamasina mesafe agirligini dahil et
-- [ ] **5.3** Cografi olarak uzak eslestirmeleri otomatik ele veya uyari goster
+- [x] **5.1** SAC eslestirme algoritmasina cografi yakinlik filtresi ekle (isim + mesafe)
+- [x] **5.2** Eslestirme skoru hesaplamasina mesafe agirligini dahil et (haversine distance penalty)
+- [x] **5.3** Cografi olarak uzak eslestirmeleri otomatik ele (>200km: -50 puan → esik altina duser)
 
 ---
 
@@ -175,14 +179,14 @@ Step 7 (Data Analysis) harita sekmesinde rapor icin harita ciktisi ozellikleri:
 | #   | Konu                             | Oncelik           | Efor   | Bagimliilik |
 | --- | -------------------------------- | ----------------- | ------ | ----------- |
 | 6   | Aquatic mesafe olcum hatasi      | Kirmizi           | Dusuk  | -           |
-| 5   | SAC eslestirme dogrulugu         | Kirmizi           | Orta   | -           |
+| 5   | SAC eslestirme dogrulugu         | ~~Kirmizi~~ Tamam | Orta   | -           |
 | 1   | Deep Research save/regenerate    | ~~Kirmizi~~ Tamam | Dusuk  | -           |
 | 3   | Species proximity filtresi       | ~~Sari~~ Tamam    | Dusuk  | -           |
-| 2   | Rapor appendix tablolari         | Sari              | Orta   | -           |
-| 4   | National Land Cover habitat data | Sari              | Yuksek | -           |
+| 2   | Rapor appendix tablolari         | ~~Sari~~ Tamam    | Orta   | -           |
+| 4   | National Land Cover habitat data | ~~Sari~~ Tamam    | Yuksek | -           |
 | 7   | Nehir mesafesi (river distance)  | Sari              | Yuksek | 6           |
 | 8   | Data Analysis harita ozellikleri | Sari              | Yuksek | -           |
 
 ---
 
-_Son guncelleme: 11 Mart 2026_
+_Son guncelleme: 12 Mart 2026_

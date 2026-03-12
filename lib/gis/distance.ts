@@ -18,19 +18,20 @@ export function calculateDistanceFromBoundary(
       if (turf.booleanIntersects(feature, projectBoundary)) {
         return 0
       }
-      const centroid = turf.centroid(feature)
-      return distanceToPolygonEdge(centroid, projectBoundary)
+      // Use the polygon's boundary as a line to find closest edge-to-edge distance
+      const asLine = turf.polygonToLine(feature) as GeoJSON.Feature<
+        GeoJSON.LineString | GeoJSON.MultiLineString
+      >
+      return lineDistanceToPolygon(asLine, projectBoundary)
     }
 
-    // For line geometries, use centroid
+    // For line geometries, find the nearest point on the line to the boundary
     if (location.type === 'LineString' || location.type === 'MultiLineString') {
-      const centroid = turf.centroid(
-        location as unknown as GeoJSON.LineString | GeoJSON.MultiLineString
-      )
-      if (turf.booleanPointInPolygon(centroid, projectBoundary)) {
+      const lineFeature = turf.feature(location as GeoJSON.LineString | GeoJSON.MultiLineString)
+      if (turf.booleanIntersects(lineFeature, projectBoundary)) {
         return 0
       }
-      return distanceToPolygonEdge(centroid, projectBoundary)
+      return lineDistanceToPolygon(lineFeature, projectBoundary)
     }
 
     // For point geometries
@@ -60,6 +61,31 @@ export function calculateDistanceFromBoundary(
     console.warn('Error calculating distance:', error)
     return undefined
   }
+}
+
+/**
+ * Find the minimum distance from any point on a line to a polygon boundary.
+ * Uses the polygon's boundary as a line and finds the nearest point on
+ * the input line to that boundary line.
+ */
+function lineDistanceToPolygon(
+  line: GeoJSON.Feature<GeoJSON.LineString | GeoJSON.MultiLineString>,
+  polygon: GeoJSON.Feature<GeoJSON.Polygon>
+): number {
+  const boundaryLine = turf.polygonToLine(polygon) as GeoJSON.Feature<GeoJSON.LineString>
+
+  // Get all coordinates from the line (handles both LineString and MultiLineString)
+  const coords = turf.coordAll(line)
+
+  let minDist = Infinity
+  for (const coord of coords) {
+    const pt = turf.point(coord)
+    const nearest = turf.nearestPointOnLine(boundaryLine, pt)
+    const dist = turf.distance(pt, nearest, { units: 'kilometers' })
+    if (dist < minDist) minDist = dist
+  }
+
+  return Math.round(minDist * 100) / 100
 }
 
 function distanceToPolygonEdge(

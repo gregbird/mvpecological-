@@ -331,6 +331,7 @@ export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
         onOpenChange={setIsDeepResearchOpen}
         site={deepResearchSite}
         projectId={project.id}
+        projectCenter={props.projectCenter}
         userId={userId}
         existingAnalysis={aquaticExistingAnalysis}
         onSaveAnalysis={handleDeepResearchSave}

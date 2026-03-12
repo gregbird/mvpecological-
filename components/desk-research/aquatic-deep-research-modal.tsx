@@ -42,6 +42,7 @@ interface AquaticDeepResearchModalProps {
     lengthKm?: number
   } | null
   projectId: string
+  projectCenter?: { lat: number; lng: number }
   userId: string
   findingId?: string | null
   existingAnalysis?: string
@@ -53,6 +54,7 @@ export function AquaticDeepResearchModal({
   onOpenChange,
   site,
   projectId,
+  projectCenter,
   userId,
   findingId,
   existingAnalysis,
@@ -177,6 +179,8 @@ export function AquaticDeepResearchModal({
           wfdStatus: site.wfdStatus,
           catchmentName: site.catchmentName,
           catchmentId: site.catchmentId,
+          projectLat: projectCenter?.lat,
+          projectLng: projectCenter?.lng,
         }),
       })
 
@@ -192,7 +196,7 @@ export function AquaticDeepResearchModal({
     } finally {
       setIsLoading(false)
     }
-  }, [site])
+  }, [site, projectCenter])
 
   // Auto-start research when modal opens
   React.useEffect(() => {
@@ -230,7 +234,9 @@ export function AquaticDeepResearchModal({
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <div className="text-2xl font-bold text-blue-600">{site.wfdStatus || '—'}</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {result?.wfdData?.currentStatus || site.wfdStatus || '—'}
+            </div>
             <p className="text-muted-foreground text-xs">WFD Status</p>
           </CardContent>
         </Card>

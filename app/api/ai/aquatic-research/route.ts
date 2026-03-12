@@ -26,8 +26,15 @@ export async function POST(request: NextRequest) {
     const { user: _authUser, error: authError } = await requireAuth()
     if (authError) return authError
 
-    const { waterBodyName, waterBodyType, waterBodyCode, wfdStatus, catchmentName } =
-      await request.json()
+    const {
+      waterBodyName,
+      waterBodyType,
+      waterBodyCode,
+      wfdStatus,
+      catchmentName,
+      projectLat,
+      projectLng,
+    } = await request.json()
 
     if (!waterBodyName) {
       return NextResponse.json({ error: 'waterBodyName is required' }, { status: 400 })
@@ -38,8 +45,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 })
     }
 
-    // 1. Find matching SACs
-    const linkedSACs = findMatchingSACs(waterBodyName, waterBodyType)
+    // 1. Find matching SACs (with geographic filtering when coordinates available)
+    const linkedSACs = findMatchingSACs(waterBodyName, waterBodyType, projectLat, projectLng)
     const bestMatch = linkedSACs.length > 0 ? linkedSACs[0] : null
 
     // 2. Fetch real WFD data from Catchments.ie
