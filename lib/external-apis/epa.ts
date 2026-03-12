@@ -423,6 +423,100 @@ export function riversToGeoJSON(rivers: EPARiver[]): GeoJSON.FeatureCollection {
   }
 }
 
+// --- RIVNETROUTES (River Network Segments) ---
+
+export interface EPARiverSegment {
+  Segment_Code: string
+  River_Waterbody_Code: string
+  EPA_Name: string
+  ORDER_: number
+  Segment_Length: number // meters
+  geometry: GeoJSON.MultiLineString
+}
+
+/**
+ * Query EPA WFS service with a CQL_FILTER instead of bbox.
+ * Used for attribute-based queries like fetching all segments for a water body.
+ */
+async function queryEPAWFSWithFilter(
+  typeName: string,
+  cqlFilter: string,
+  limit = 500
+): Promise<GeoJSON.FeatureCollection> {
+  const url = new URL(EPA_WFS_URL)
+
+  url.searchParams.set('service', 'WFS')
+  url.searchParams.set('version', '2.0.0')
+  url.searchParams.set('request', 'GetFeature')
+  url.searchParams.set('typeName', typeName)
+  url.searchParams.set('outputFormat', 'application/json')
+  url.searchParams.set('srsName', 'EPSG:4326')
+  url.searchParams.set('CQL_FILTER', cqlFilter)
+  url.searchParams.set('count', limit.toString())
+
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 15000)
+
+  try {
+    const response = await fetch(url.toString(), {
+      signal: controller.signal,
+    })
+    clearTimeout(timeoutId)
+
+    if (!response.ok) {
+      console.warn(`EPA WFS CQL error for ${typeName}: ${response.statusText}`)
+      return { type: 'FeatureCollection', features: [] }
+    }
+
+    return await response.json()
+  } catch (error) {
+    clearTimeout(timeoutId)
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.warn(`EPA WFS CQL timeout for ${typeName}`)
+    } else {
+      console.error(`EPA WFS CQL error for ${typeName}:`, error)
+    }
+    return { type: 'FeatureCollection', features: [] }
+  }
+}
+
+/**
+ * Fetch all RIVNETROUTES segments for a given river water body code.
+ * The WATER_RIVNETROUTES layer has ~116K segments with Segment_Length in meters.
+ * Uses CQL_FILTER on WATER_BOD_1 (the river water body code field).
+ */
+export async function fetchRiverNetworkSegments(waterBodyCode: string): Promise<EPARiverSegment[]> {
+  if (!waterBodyCode) return []
+
+  try {
+    // WATER_RIVNETROUTES uses WATER_BOD_1 for the water body code
+    const cqlFilter = `WATER_BOD_1='${waterBodyCode}'`
+    const data = await queryEPAWFSWithFilter('EPA:WATER_RIVNETROUTES', cqlFilter, 500)
+
+    return data.features
+      .filter((f) => f.geometry)
+      .map(
+        (feature): EPARiverSegment => ({
+          Segment_Code:
+            (feature.properties?.SEGMENT_CD as string) ||
+            (feature.properties?.SEG_CD as string) ||
+            '',
+          River_Waterbody_Code:
+            (feature.properties?.WATER_BOD_1 as string) ||
+            (feature.properties?.WATERBODY as string) ||
+            '',
+          EPA_Name: (feature.properties?.EPA_NAME as string) || '',
+          ORDER_: (feature.properties?.ORDER_ as number) || 0,
+          Segment_Length: (feature.properties?.SEGMENT_LE as number) || 0,
+          geometry: feature.geometry as GeoJSON.MultiLineString,
+        })
+      )
+  } catch (error) {
+    console.error('Error fetching RIVNETROUTES segments:', error)
+    return []
+  }
+}
+
 export function lakesToGeoJSON(lakes: EPALake[]): GeoJSON.FeatureCollection {
   return {
     type: 'FeatureCollection',

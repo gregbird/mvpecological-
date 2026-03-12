@@ -12,6 +12,7 @@ import {
   Waves,
   Activity,
   Shield,
+  Navigation,
 } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
@@ -93,6 +94,7 @@ export function AquaticDeepResearchModal({
               summary: cachedAnalysis,
               linkedSACs: [],
               wfdData: null,
+              riverDistance: null,
               resources: {
                 catchmentsUrl: 'https://www.catchments.ie',
                 epaWaterMapUrl: 'https://gis.epa.ie/EPAMaps/Water',
@@ -225,7 +227,9 @@ export function AquaticDeepResearchModal({
   const overviewTab = (
     <>
       {/* Quick Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div
+        className={`grid gap-3 ${result?.riverDistance?.riverDistanceKm != null ? 'grid-cols-4' : 'grid-cols-3'}`}
+      >
         <Card>
           <CardContent className="pt-4">
             <div className="text-2xl font-bold text-cyan-600">{site.waterBodyType}</div>
@@ -254,6 +258,20 @@ export function AquaticDeepResearchModal({
             </p>
           </CardContent>
         </Card>
+        {result?.riverDistance?.riverDistanceKm != null && (
+          <Card className={result.riverDistance.riverDistanceKm <= 15 ? 'border-amber-200' : ''}>
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-1">
+                <Navigation className="h-4 w-4 text-blue-600" />
+                <span className="text-2xl font-bold text-blue-600">
+                  {result.riverDistance.riverDistanceKm}
+                </span>
+                <span className="text-xs text-blue-600">km</span>
+              </div>
+              <p className="text-muted-foreground text-xs">River Distance</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Water Body Details */}
@@ -536,6 +554,7 @@ export function AquaticDeepResearchModal({
               bestMatch={bestMatch}
               linkedSACs={result?.linkedSACs || []}
               isLoading={isLoading}
+              riverDistance={result?.riverDistance}
             />
           ),
         },

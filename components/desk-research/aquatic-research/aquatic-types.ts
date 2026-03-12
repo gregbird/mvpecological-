@@ -59,10 +59,28 @@ export interface WFDData {
   subCatchmentName?: string
 }
 
+export interface RiverDistancePathStep {
+  waterBodyCode: string
+  waterBodyName: string
+  waterBodyType: string
+  distanceKm: number
+  cumulativeKm: number
+  segmentCount: number
+}
+
+export interface RiverDistanceData {
+  riverDistanceKm: number | null
+  downstreamPath: RiverDistancePathStep[]
+  sacReached: { siteCode: string; siteName: string; distanceKm: number } | null
+  truncatedAt15km: boolean
+  error?: string
+}
+
 export interface AquaticResearchResult {
   summary: string
   linkedSACs: LinkedSAC[]
   wfdData: WFDData | null
+  riverDistance: RiverDistanceData | null
   resources: {
     catchmentsUrl: string
     epaWaterMapUrl: string

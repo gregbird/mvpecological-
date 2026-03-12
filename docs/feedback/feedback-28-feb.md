@@ -132,9 +132,9 @@ Mesafe hesaplamasi muhtemelen nehrin/golun **centroid noktasindan** proje siniri
 
 **Yapilacilar:**
 
-- [ ] **6.1** Aquatic feature mesafe hesaplamasini duzelt: centroid yerine en yakin geometri noktasi kullan
-  - Dosya: `lib/gis/distance.ts` veya `calculateDistanceFromBoundary` fonksiyonu
-  - LineString/MultiLineString geometrileri icin en yakin noktayi bul
+- [x] **6.1** Aquatic feature mesafe hesaplamasini duzelt: centroid yerine en yakin geometri noktasi kullan
+  - Dosya: `lib/gis/distance.ts` — `lineDistanceToPolygon()` eklendi
+  - LineString/MultiLineString + Polygon/MultiPolygon icin en yakin noktayi buluyor
 
 ---
 
@@ -178,7 +178,7 @@ Step 7 (Data Analysis) harita sekmesinde rapor icin harita ciktisi ozellikleri:
 
 | #   | Konu                             | Oncelik           | Efor   | Bagimliilik |
 | --- | -------------------------------- | ----------------- | ------ | ----------- |
-| 6   | Aquatic mesafe olcum hatasi      | Kirmizi           | Dusuk  | -           |
+| 6   | Aquatic mesafe olcum hatasi      | ~~Kirmizi~~ Tamam | Dusuk  | -           |
 | 5   | SAC eslestirme dogrulugu         | ~~Kirmizi~~ Tamam | Orta   | -           |
 | 1   | Deep Research save/regenerate    | ~~Kirmizi~~ Tamam | Dusuk  | -           |
 | 3   | Species proximity filtresi       | ~~Sari~~ Tamam    | Dusuk  | -           |

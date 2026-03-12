@@ -12,6 +12,7 @@ import {
   formatStatusHistory,
   CatchmentsWaterBodyData,
 } from '@/lib/external-apis/catchments'
+import { calculateRiverDistanceToSAC, type DownstreamTraceResult } from '@/lib/gis/river-distance'
 
 /**
  * AI Aquatic Deep Research API
@@ -49,11 +50,27 @@ export async function POST(request: NextRequest) {
     const linkedSACs = findMatchingSACs(waterBodyName, waterBodyType, projectLat, projectLng)
     const bestMatch = linkedSACs.length > 0 ? linkedSACs[0] : null
 
-    // 2. Fetch real WFD data from Catchments.ie
-    let wfdData: CatchmentsWaterBodyData | null = null
-    if (waterBodyCode) {
-      wfdData = await getWaterBodyData(waterBodyCode)
-    }
+    // 2. Fetch WFD data and river distance in parallel
+    const knownSACCodes = linkedSACs.map((s) => s.siteCode)
+
+    const [wfdData, riverDistanceResult] = (await Promise.all([
+      waterBodyCode ? getWaterBodyData(waterBodyCode) : Promise.resolve(null),
+      waterBodyCode && projectLat && projectLng
+        ? calculateRiverDistanceToSAC(
+            { lat: projectLat, lng: projectLng },
+            waterBodyCode,
+            knownSACCodes
+          ).catch(
+            (): DownstreamTraceResult => ({
+              riverDistanceKm: null,
+              downstreamPath: [],
+              sacReached: null,
+              truncatedAt15km: false,
+              error: 'River distance calculation unavailable',
+            })
+          )
+        : Promise.resolve(null),
+    ])) as [CatchmentsWaterBodyData | null, DownstreamTraceResult | null]
 
     // 3. Extract aquatic habitats and species from best match
     let aquaticHabitats: Array<{ code: string; name: string; description: string }> = []
@@ -125,6 +142,28 @@ export async function POST(request: NextRequest) {
     } else if (wfdStatus) {
       // Fallback to EPA data if Catchments.ie data not available
       contextParts.push(`WFD Status (from EPA): ${wfdStatus}`)
+    }
+
+    // Add river distance data if available
+    if (riverDistanceResult?.riverDistanceKm != null) {
+      contextParts.push(`\n--- RIVER NETWORK DISTANCE ---`)
+      contextParts.push(`Distance along river: ${riverDistanceResult.riverDistanceKm} km`)
+      if (riverDistanceResult.sacReached) {
+        contextParts.push(
+          `SAC reached: ${riverDistanceResult.sacReached.siteCode} at ${riverDistanceResult.sacReached.distanceKm} km`
+        )
+      }
+      if (riverDistanceResult.truncatedAt15km) {
+        contextParts.push(`Note: Trace stopped at 15km Zone of Influence threshold`)
+      }
+      if (riverDistanceResult.downstreamPath.length > 0) {
+        contextParts.push(`Downstream path:`)
+        for (const step of riverDistanceResult.downstreamPath) {
+          contextParts.push(
+            `- ${step.waterBodyName} (${step.waterBodyType}): ${step.distanceKm} km (cumulative: ${step.cumulativeKm} km)`
+          )
+        }
+      }
     }
 
     if (catchmentName) {
@@ -259,6 +298,15 @@ export async function POST(request: NextRequest) {
             connectivity: wfdData.InputOutputs,
             catchmentName: wfdData.CatchmentName,
             subCatchmentName: wfdData.SubCatchmentName,
+          }
+        : null,
+      riverDistance: riverDistanceResult
+        ? {
+            riverDistanceKm: riverDistanceResult.riverDistanceKm,
+            downstreamPath: riverDistanceResult.downstreamPath,
+            sacReached: riverDistanceResult.sacReached,
+            truncatedAt15km: riverDistanceResult.truncatedAt15km,
+            error: riverDistanceResult.error,
           }
         : null,
       linkedSACs: linkedSACs.map((sac) => ({

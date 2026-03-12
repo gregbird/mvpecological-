@@ -834,17 +834,26 @@ export function DataGatheringStep({
           </div>
         )}
 
-        {/* Step 5: Habitat Data - NLC 2018 land cover */}
-        {currentStep === 'habitats' && (
-          <HabitatDataSubStep
-            project={project}
-            projectBoundary={projectBoundary}
-            projectCenter={projectCenter}
-            bufferDistances={bufferDistances}
-            showMap={showMap}
-            onToggleMap={() => setShowMap(!showMap)}
-            isActive={currentStep === 'habitats'}
-          />
+        {/* Step 5: Habitat Data - NLC 2018 land cover - keep mounted once visited */}
+        {visitedSteps.has('habitats') && (
+          <div
+            className={cn(
+              'absolute inset-0',
+              currentStep === 'habitats' ? 'visible z-10' : 'invisible z-0'
+            )}
+          >
+            <HabitatDataSubStep
+              project={project}
+              projectBoundary={projectBoundary}
+              projectCenter={projectCenter}
+              bufferDistances={bufferDistances}
+              showMap={showMap}
+              onToggleMap={() => setShowMap(!showMap)}
+              isActive={currentStep === 'habitats'}
+              userId={userId}
+              savedFindings={savedFindings}
+            />
+          </div>
         )}
 
         {/* Step 6: Planning Policy - county development plan references */}

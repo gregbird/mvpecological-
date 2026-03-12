@@ -281,6 +281,20 @@ function parseWaterBodyResponse(
 }
 
 /**
+ * Get downstream (receiving) water bodies for a given water body code.
+ * Uses existing cached data if provided, otherwise fetches from Catchments.ie.
+ */
+export async function getDownstreamWaterBodies(
+  waterBodyCode: string,
+  cachedData?: CatchmentsWaterBodyData | null
+): Promise<CatchmentsInputOutput[]> {
+  const data = cachedData ?? (await getWaterBodyData(waterBodyCode))
+  if (!data) return []
+
+  return data.InputOutputs.filter((io) => io.Direction === 'Output')
+}
+
+/**
  * Get WFD status trend description for display
  */
 export function getTrendDescription(trendCode: string): string {

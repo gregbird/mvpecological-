@@ -1,24 +1,36 @@
 'use client'
 
-import { Fish, Leaf, Info, Loader2 } from 'lucide-react'
+import { Fish, Leaf, Info, Loader2, Navigation, AlertTriangle, ChevronRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { LinkedSAC } from './aquatic-types'
+import type { LinkedSAC, RiverDistanceData } from './aquatic-types'
 
 interface SacTabProps {
   bestMatch: LinkedSAC | undefined
   linkedSACs: LinkedSAC[]
   isLoading: boolean
+  riverDistance?: RiverDistanceData | null
 }
 
-export function SacTab({ bestMatch, linkedSACs, isLoading }: SacTabProps) {
+export function SacTab({ bestMatch, linkedSACs, isLoading, riverDistance }: SacTabProps) {
   return (
     <>
+      {/* River Distance to SAC */}
+      {riverDistance && !riverDistance.error && <RiverDistanceCard riverDistance={riverDistance} />}
+
       {bestMatch ? (
         <>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">{bestMatch.siteName}</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm">{bestMatch.siteName}</CardTitle>
+                {riverDistance?.sacReached && (
+                  <Badge className="border-blue-300 bg-blue-100 text-xs text-blue-700">
+                    <Navigation className="mr-1 h-3 w-3" />
+                    {riverDistance.sacReached.distanceKm} km along river
+                  </Badge>
+                )}
+              </div>
               <p className="text-muted-foreground text-xs">
                 Site Code: {bestMatch.siteCode}
                 {bestMatch.siteArea && ` • Area: ${bestMatch.siteArea.toFixed(0)} ha`}
@@ -125,5 +137,73 @@ export function SacTab({ bestMatch, linkedSACs, isLoading }: SacTabProps) {
         </Card>
       )}
     </>
+  )
+}
+
+function RiverDistanceCard({ riverDistance }: { riverDistance: RiverDistanceData }) {
+  const { riverDistanceKm, downstreamPath, sacReached, truncatedAt15km } = riverDistance
+
+  if (riverDistanceKm == null) return null
+
+  const isWithinZoI = riverDistanceKm <= 15
+
+  return (
+    <Card className={sacReached ? 'border-blue-200 bg-blue-50/50' : 'border-gray-200'}>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-1.5 text-sm">
+            <Navigation className="h-4 w-4 text-blue-600" />
+            River Network Distance
+          </CardTitle>
+          {isWithinZoI && (
+            <Badge className="border-amber-300 bg-amber-100 text-xs text-amber-700">
+              <AlertTriangle className="mr-1 h-3 w-3" />
+              Within 15km ZoI
+            </Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="text-center">
+          <span className="text-2xl font-bold text-blue-600">{riverDistanceKm}</span>
+          <span className="ml-1 text-sm text-blue-600">km along river</span>
+          {truncatedAt15km && (
+            <p className="text-muted-foreground mt-1 text-xs">
+              Trace stopped at 15km zone of influence threshold
+            </p>
+          )}
+        </div>
+
+        {/* Downstream path breadcrumb */}
+        {downstreamPath.length > 0 && (
+          <div>
+            <p className="mb-1.5 text-xs font-medium text-gray-600">Downstream Path</p>
+            <div className="flex flex-wrap items-center gap-1 text-xs">
+              <Badge variant="secondary" className="text-[10px]">
+                Project
+              </Badge>
+              {downstreamPath.map((step, i) => (
+                <span key={step.waterBodyCode} className="flex items-center gap-1">
+                  <ChevronRight className="h-3 w-3 text-gray-400" />
+                  <Badge
+                    variant={i === downstreamPath.length - 1 && sacReached ? 'default' : 'outline'}
+                    className="text-[10px]"
+                  >
+                    {step.waterBodyName}
+                    <span className="ml-1 text-gray-500">{step.distanceKm} km</span>
+                  </Badge>
+                </span>
+              ))}
+              {sacReached && (
+                <span className="flex items-center gap-1">
+                  <ChevronRight className="h-3 w-3 text-gray-400" />
+                  <Badge className="bg-emerald-100 text-[10px] text-emerald-700">SAC</Badge>
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }

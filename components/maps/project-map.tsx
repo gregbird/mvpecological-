@@ -26,6 +26,7 @@ interface ProjectMapProps {
   boundary?: GeoJSON.Feature<GeoJSON.Polygon>
   bufferDistances?: number[] // Buffer zones in km to display
   habitatPolygons?: GeoJSON.FeatureCollection
+  habitatSelectionKey?: string
   observationPoints?: GeoJSON.FeatureCollection
   targetNotes?: TargetNoteMarker[]
   selectedTargetNote?: TargetNoteMarker | null
@@ -48,6 +49,7 @@ function MapComponent({
   boundary,
   bufferDistances,
   habitatPolygons,
+  habitatSelectionKey,
   observationPoints,
   targetNotes,
   selectedTargetNote,
@@ -69,6 +71,7 @@ function MapComponent({
   boundary?: GeoJSON.Feature<GeoJSON.Polygon>
   bufferDistances?: number[]
   habitatPolygons?: GeoJSON.FeatureCollection
+  habitatSelectionKey?: string
   observationPoints?: GeoJSON.FeatureCollection
   targetNotes?: TargetNoteMarker[]
   selectedTargetNote?: TargetNoteMarker | null
@@ -526,14 +529,14 @@ function MapComponent({
       {/* Habitat Polygons — rendered as single GeoJSON for performance */}
       {habitatPolygons && habitatPolygons.features.length > 0 && habitatLayer?.visible && (
         <GeoJSON
-          key={`habitats-${String(habitatPolygons.features[0]?.properties?._highlight ?? 'all')}-${habitatPolygons.features.length}`}
+          key={`habitats-${habitatSelectionKey || 'all'}-${habitatPolygons.features.length}`}
           data={habitatPolygons}
           style={(feature: GeoJSON.Feature | undefined) => {
             const props = feature?.properties
             const opacity = (props?.fillOpacity as number) ?? 0.5
             return {
-              color: (props?.color as string) || '#22c55e',
-              weight: opacity > 0.3 ? 1.5 : 0.5,
+              color: opacity > 0.5 ? '#000000' : (props?.color as string) || '#22c55e',
+              weight: opacity > 0.5 ? 2.5 : 0.5,
               fillColor: (props?.color as string) || '#22c55e',
               fillOpacity: opacity,
             }
@@ -677,6 +680,7 @@ export function ProjectMap({
   boundary,
   bufferDistances,
   habitatPolygons,
+  habitatSelectionKey,
   observationPoints,
   targetNotes,
   selectedTargetNote,
@@ -751,6 +755,7 @@ export function ProjectMap({
           boundary={boundary}
           bufferDistances={bufferDistances}
           habitatPolygons={habitatPolygons}
+          habitatSelectionKey={habitatSelectionKey}
           observationPoints={observationPoints}
           targetNotes={targetNotes}
           selectedTargetNote={selectedTargetNote}

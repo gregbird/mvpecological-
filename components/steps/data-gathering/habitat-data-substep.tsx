@@ -1,7 +1,19 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2, Search, Layers, AlertCircle, Eye, EyeOff, Sparkles } from 'lucide-react'
+import {
+  Loader2,
+  Search,
+  Layers,
+  AlertCircle,
+  Eye,
+  EyeOff,
+  Sparkles,
+  FlaskConical,
+  MessageSquare,
+  Save,
+  Check,
+} from 'lucide-react'
 import dynamic from 'next/dynamic'
 
 import { Button } from '@/components/ui/button'
@@ -28,9 +40,10 @@ import { mapNlcToFossitt } from '@/lib/data/nlc-to-fossitt'
 import { useSessionStorage } from '@/hooks/shared/use-session-storage'
 import { IRELAND_CENTER } from '@/lib/config/map-constants'
 import { MarkdownContent } from '@/components/desk-research/deep-research-shell'
-import type { Project } from '@/types/database'
+import { HabitatDeepResearchModal } from '@/components/desk-research/habitat-deep-research-modal'
+import { useCreateFinding, useDeleteFinding } from '@/hooks/queries/use-finding-hooks'
+import type { Project, DeskResearchFinding, Json } from '@/types/database'
 
-// Dynamic import for map
 const ProjectMap = dynamic(
   () => import('@/components/maps/project-map').then((mod) => mod.ProjectMap),
   {
@@ -51,6 +64,8 @@ interface HabitatDataSubStepProps {
   showMap: boolean
   onToggleMap: () => void
   isActive?: boolean
+  userId: string
+  savedFindings: DeskResearchFinding[]
 }
 
 export interface HabitatResult {
@@ -71,8 +86,12 @@ export function HabitatDataSubStep({
   showMap,
   onToggleMap,
   isActive,
+  userId,
+  savedFindings,
 }: HabitatDataSubStepProps) {
   const { toast } = useToast()
+  const createFinding = useCreateFinding()
+  const deleteFinding = useDeleteFinding()
   const cacheKey = `nlc-habitat-${project.id}`
 
   const [isSearching, setIsSearching] = React.useState(false)
@@ -81,18 +100,32 @@ export function HabitatDataSubStep({
     null
   )
   const [selectedHabitatType, setSelectedHabitatType] = React.useState<string | null>(null)
+  const [styleVersion, setStyleVersion] = React.useState(0)
   const [selectedBuffer, setSelectedBuffer] = React.useState(bufferDistances[0] || 2)
   const [totalArea, setTotalArea] = React.useState(0)
-  const [aiAnalysis, setAiAnalysis] = useSessionStorage<string>(`${cacheKey}-ai`, '')
-  const [isAnalysing, setIsAnalysing] = React.useState(false)
-  const [aiError, setAiError] = React.useState<string | null>(null)
-  const [notes, setNotes] = useSessionStorage<Record<string, string>>(`${cacheKey}-notes`, {})
-  const [expandedRow, setExpandedRow] = React.useState<string | null>(null)
 
-  // Style polygons — always create new features with _highlight key for reliable GeoJSON re-render
+  // Per-card state (sessionStorage)
+  const [notes, setNotes] = useSessionStorage<Record<string, string>>(`${cacheKey}-notes`, {})
+  const [aiSummaries, setAiSummaries] = useSessionStorage<Record<string, string>>(
+    `${cacheKey}-summaries`,
+    {}
+  )
+  const [overallAi, setOverallAi] = useSessionStorage<string>(`${cacheKey}-ai`, '')
+  const [loadingSummaries, setLoadingSummaries] = React.useState<Set<string>>(new Set())
+  const [isOverallLoading, setIsOverallLoading] = React.useState(false)
+  const [savingIds, setSavingIds] = React.useState<Set<string>>(new Set())
+
+  // Note editing
+  const [editingNoteId, setEditingNoteId] = React.useState<string | null>(null)
+  const [noteDraft, setNoteDraft] = React.useState('')
+
+  // Deep research modal
+  const [deepResearchSite, setDeepResearchSite] = React.useState<HabitatResult | null>(null)
+  const [isDeepResearchOpen, setIsDeepResearchOpen] = React.useState(false)
+
+  // Style polygons for map highlight
   const styledPolygons = React.useMemo((): GeoJSON.FeatureCollection | undefined => {
     if (!habitatPolygons) return undefined
-
     return {
       type: 'FeatureCollection',
       features: habitatPolygons.features.map((f) => ({
@@ -100,27 +133,41 @@ export function HabitatDataSubStep({
         properties: {
           ...f.properties,
           fillOpacity: !selectedHabitatType
-            ? 0.5
+            ? 0.45
             : String(f.properties?.nlc_id) === selectedHabitatType
-              ? 0.7
-              : 0.08,
-          _highlight: selectedHabitatType || '',
+              ? 0.85
+              : 0.05,
         },
       })),
     }
   }, [habitatPolygons, selectedHabitatType])
 
-  // Invalidate Leaflet map size when tab becomes visible
+  // Auto-refetch polygons when switching back to this tab (results exist from sessionStorage)
+  const hasFetchedRef = React.useRef(false)
+  React.useEffect(() => {
+    if (results.length > 0 && !habitatPolygons && !isSearching && !hasFetchedRef.current) {
+      hasFetchedRef.current = true
+      const bbox = getBoundingBox(projectBoundary, projectCenter, selectedBuffer)
+      if (bbox) {
+        fetchNlcPolygons({
+          bbox: {
+            minLat: bbox.minLat,
+            maxLat: bbox.maxLat,
+            minLng: bbox.minLng,
+            maxLng: bbox.maxLng,
+          },
+        }).then(setHabitatPolygons)
+      }
+    }
+  }, [results, habitatPolygons, isSearching, projectBoundary, projectCenter, selectedBuffer])
+
   React.useEffect(() => {
     if (isActive) {
-      const timer = setTimeout(() => {
-        window.dispatchEvent(new Event('resize'))
-      }, 100)
+      const timer = setTimeout(() => window.dispatchEvent(new Event('resize')), 100)
       return () => clearTimeout(timer)
     }
   }, [isActive])
 
-  // Compute total area from results
   React.useEffect(() => {
     const total = results.reduce((sum, r) => sum + r.areaHectares, 0)
     setTotalArea(Math.round(total * 100) / 100)
@@ -132,7 +179,7 @@ export function HabitatDataSubStep({
       toast({
         variant: 'destructive',
         title: 'No boundary',
-        description: 'Please define a project boundary first.',
+        description: 'Define a project boundary first.',
       })
       return
     }
@@ -140,14 +187,10 @@ export function HabitatDataSubStep({
     setIsSearching(true)
     setResults([])
     setHabitatPolygons(null)
+    hasFetchedRef.current = true
 
     const bboxParams = {
-      bbox: {
-        minLat: bbox.minLat,
-        maxLat: bbox.maxLat,
-        minLng: bbox.minLng,
-        maxLng: bbox.maxLng,
-      },
+      bbox: { minLat: bbox.minLat, maxLat: bbox.maxLat, minLng: bbox.minLng, maxLng: bbox.maxLng },
     }
 
     try {
@@ -157,10 +200,7 @@ export function HabitatDataSubStep({
       ])
 
       if (aggregated.length === 0) {
-        toast({
-          title: 'No habitats found',
-          description: 'No land cover data found within the selected buffer zone.',
-        })
+        toast({ title: 'No habitats found', description: 'No land cover data in buffer zone.' })
         setIsSearching(false)
         return
       }
@@ -191,20 +231,49 @@ export function HabitatDataSubStep({
       toast({
         variant: 'destructive',
         title: 'Search failed',
-        description: 'Could not fetch land cover data from OSI.',
+        description: 'Could not fetch land cover data.',
       })
     } finally {
       setIsSearching(false)
     }
   }
 
-  const generateAnalysis = async () => {
-    if (results.length === 0) return
-    setIsAnalysing(true)
-    setAiError(null)
-
+  // Per-type AI summary
+  const fetchAiSummary = async (r: HabitatResult) => {
+    setLoadingSummaries((prev) => new Set(prev).add(r.nlcId))
     try {
-      const response = await fetch('/api/ai/habitat-analysis', {
+      const pct = totalArea > 0 ? ((r.areaHectares / totalArea) * 100).toFixed(1) : '0'
+      const res = await fetch('/api/ai/habitat-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fossittCode: r.fossittCode,
+          fossittName: r.fossittName,
+          nlcLabel: r.nlcLabel,
+          areaHectares: r.areaHectares,
+          percentCover: pct,
+          bufferKm: selectedBuffer,
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setAiSummaries((prev) => ({ ...prev, [r.nlcId]: data.summary }))
+      }
+    } finally {
+      setLoadingSummaries((prev) => {
+        const next = new Set(prev)
+        next.delete(r.nlcId)
+        return next
+      })
+    }
+  }
+
+  // Overall AI analysis
+  const generateOverallAnalysis = async () => {
+    if (results.length === 0) return
+    setIsOverallLoading(true)
+    try {
+      const res = await fetch('/api/ai/habitat-analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -218,28 +287,86 @@ export function HabitatDataSubStep({
           bufferKm: selectedBuffer,
         }),
       })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Failed to generate analysis')
+      if (res.ok) {
+        const data = await res.json()
+        setOverallAi(data.analysis)
       }
-
-      const data = await response.json()
-      setAiAnalysis(data.analysis)
-    } catch (error) {
-      setAiError(error instanceof Error ? error.message : 'Analysis failed')
     } finally {
-      setIsAnalysing(false)
+      setIsOverallLoading(false)
     }
+  }
+
+  const openDeepResearch = (r: HabitatResult) => {
+    setDeepResearchSite(r)
+    setIsDeepResearchOpen(true)
+  }
+
+  const startEditNote = (nlcId: string) => {
+    setEditingNoteId(nlcId)
+    setNoteDraft(notes[nlcId] || '')
+  }
+
+  const saveNote = (nlcId: string) => {
+    setNotes((prev) => ({ ...prev, [nlcId]: noteDraft }))
+    setEditingNoteId(null)
   }
 
   const handleRowClick = (nlcId: string) => {
     setSelectedHabitatType((prev) => (prev === nlcId ? null : nlcId))
-    setExpandedRow((prev) => (prev === nlcId ? null : nlcId))
+    setStyleVersion((v) => v + 1)
   }
 
-  const updateNote = (nlcId: string, text: string) => {
-    setNotes((prev) => ({ ...prev, [nlcId]: text }))
+  // Check if a habitat is already saved in DB
+  const getSavedFinding = (nlcId: string): DeskResearchFinding | undefined =>
+    savedFindings.find((f) => {
+      const raw = f.raw_data as Record<string, unknown> | null
+      return raw?.nlcId === nlcId && raw?.habitatFinding === true
+    })
+
+  // Save a habitat finding to DB
+  const handleSave = async (r: HabitatResult) => {
+    setSavingIds((prev) => new Set(prev).add(r.nlcId))
+    try {
+      const existing = getSavedFinding(r.nlcId)
+      if (existing) {
+        await deleteFinding.mutateAsync(existing.id)
+        toast({ title: 'Removed', description: `${r.fossittCode} removed from findings.` })
+      } else {
+        const pct = totalArea > 0 ? ((r.areaHectares / totalArea) * 100).toFixed(1) : '0'
+        await createFinding.mutateAsync({
+          project_id: project.id,
+          created_by: userId,
+          source: 'manual' as const,
+          data_type: 'other' as const,
+          title: `${r.fossittCode} — ${r.fossittName}`,
+          content: aiSummaries[r.nlcId] || `${r.fossittName} (${r.areaHectares} ha, ${pct}% cover)`,
+          is_saved: true,
+          notes: notes[r.nlcId] || null,
+          raw_data: {
+            habitatFinding: true,
+            nlcId: r.nlcId,
+            nlcLabel: r.nlcLabel,
+            nlcLevel1: r.nlcLevel1,
+            fossittCode: r.fossittCode,
+            fossittName: r.fossittName,
+            areaHectares: r.areaHectares,
+            polygonCount: r.polygonCount,
+            percentCover: pct,
+            aiSummary: aiSummaries[r.nlcId] || null,
+            bufferKm: selectedBuffer,
+          } as unknown as Json,
+        })
+        toast({ title: 'Saved', description: `${r.fossittCode} saved to findings.` })
+      }
+    } catch {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to save finding.' })
+    } finally {
+      setSavingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(r.nlcId)
+        return next
+      })
+    }
   }
 
   if (!projectBoundary) {
@@ -265,11 +392,6 @@ export function HabitatDataSubStep({
             <Layers className="h-4 w-4 text-green-600" />
             Habitat Data (NLC 2018)
           </h3>
-          <p className="text-muted-foreground mb-4 text-sm">
-            Fetch land cover data from the National Land Cover 2018 dataset and convert to Fossitt
-            habitat codes.
-          </p>
-
           <div className="flex items-center gap-2">
             <Select
               value={selectedBuffer.toString()}
@@ -281,12 +403,11 @@ export function HabitatDataSubStep({
               <SelectContent>
                 {(bufferDistances.length > 0 ? bufferDistances : [2, 5]).map((d) => (
                   <SelectItem key={d} value={d.toString()}>
-                    {d} km buffer
+                    {d} km
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-
             <Button
               variant="outline"
               onClick={performSearch}
@@ -296,7 +417,7 @@ export function HabitatDataSubStep({
               {isSearching ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Fetching habitats...
+                  Fetching...
                 </>
               ) : (
                 <>
@@ -308,7 +429,7 @@ export function HabitatDataSubStep({
           </div>
         </div>
 
-        {/* Results */}
+        {/* Results list */}
         <div className="flex-1 overflow-hidden">
           {results.length === 0 && !isSearching ? (
             <div className="flex h-64 flex-col items-center justify-center text-center">
@@ -321,7 +442,6 @@ export function HabitatDataSubStep({
             </div>
           ) : (
             <div className="flex h-full flex-col">
-              {/* Summary header */}
               <div className="flex items-center justify-between border-b px-4 py-2">
                 <span className="text-sm font-medium">{results.length} habitat types</span>
                 <div className="flex items-center gap-2">
@@ -331,80 +451,192 @@ export function HabitatDataSubStep({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={generateAnalysis}
-                    disabled={isAnalysing}
-                    className="h-7 gap-1 text-xs text-purple-600 hover:text-purple-700"
+                    onClick={generateOverallAnalysis}
+                    disabled={isOverallLoading}
+                    className="h-7 gap-1 text-xs text-purple-600"
                   >
-                    {isAnalysing ? (
+                    {isOverallLoading ? (
                       <Loader2 className="h-3 w-3 animate-spin" />
                     ) : (
                       <Sparkles className="h-3 w-3" />
                     )}
-                    {aiAnalysis ? 'Regenerate' : 'AI Analysis'}
+                    {overallAi ? 'Regenerate' : 'AI Analysis'}
                   </Button>
                 </div>
               </div>
 
-              {/* Habitat list */}
               <ScrollArea className="flex-1">
-                <div className="divide-y">
+                <div className="space-y-2 p-2">
                   {results.map((r) => {
                     const pct =
                       totalArea > 0 ? ((r.areaHectares / totalArea) * 100).toFixed(1) : '0'
                     const color = NLC_LEVEL1_COLORS[r.nlcLevel1] || '#22c55e'
                     const isSelected = selectedHabitatType === r.nlcId
-                    const isExpanded = expandedRow === r.nlcId
-                    const note = notes[r.nlcId] || ''
+                    const summary = aiSummaries[r.nlcId]
+                    const isSummaryLoading = loadingSummaries.has(r.nlcId)
+                    const note = notes[r.nlcId]
+                    const isEditingNote = editingNoteId === r.nlcId
+                    const isSaved = !!getSavedFinding(r.nlcId)
+                    const isSaving = savingIds.has(r.nlcId)
+
                     return (
-                      <div key={r.nlcId}>
-                        {/* Row */}
-                        <div
-                          className={`flex cursor-pointer items-center gap-2 px-3 py-2.5 transition-colors ${
-                            isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
-                          }`}
-                          onClick={() => handleRowClick(r.nlcId)}
-                        >
-                          <div
-                            className="h-4 w-4 shrink-0 rounded-sm"
-                            style={{ backgroundColor: color }}
-                          />
-                          <Badge variant="outline" className="shrink-0 font-mono text-xs">
-                            {r.fossittCode}
-                          </Badge>
+                      <div
+                        key={r.nlcId}
+                        className={`cursor-pointer rounded-lg p-2.5 transition-colors ${
+                          isSelected
+                            ? 'border border-blue-400 bg-blue-50 ring-2 ring-blue-400'
+                            : isSaved
+                              ? 'border-t border-r border-b border-l-4 border-gray-200 border-l-emerald-500 bg-emerald-50/60'
+                              : 'border hover:bg-gray-50'
+                        }`}
+                        onClick={() => handleRowClick(r.nlcId)}
+                      >
+                        {/* Title + save button row */}
+                        <div className="flex items-start gap-2">
                           <div className="min-w-0 flex-1">
-                            <div className="truncate text-sm font-medium">{r.fossittName}</div>
-                            <div className="text-muted-foreground text-[11px]">
-                              NLC: {r.nlcLabel}
+                            <div className="flex items-center gap-1.5">
+                              <div
+                                className="h-3.5 w-3.5 shrink-0 rounded-sm"
+                                style={{ backgroundColor: color }}
+                              />
+                              <h4 className="line-clamp-2 text-sm leading-tight font-medium">
+                                {r.fossittName}
+                              </h4>
                             </div>
                           </div>
-                          <div className="shrink-0 text-right">
-                            <div className="text-sm tabular-nums">
-                              {r.areaHectares.toLocaleString()} ha
-                            </div>
-                            <div className="text-muted-foreground text-[11px] tabular-nums">
-                              {pct}%
-                            </div>
-                          </div>
-                          {note && <div className="h-2 w-2 shrink-0 rounded-full bg-amber-400" />}
+                          <button
+                            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors ${
+                              isSaved
+                                ? 'text-emerald-600 hover:text-emerald-700'
+                                : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                            }`}
+                            disabled={isSaving}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleSave(r)
+                            }}
+                            title={isSaved ? 'Remove from saved' : 'Save finding'}
+                          >
+                            {isSaving ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : isSaved ? (
+                              <Check className="h-3.5 w-3.5" />
+                            ) : (
+                              <Save className="h-3.5 w-3.5" />
+                            )}
+                          </button>
                         </div>
 
-                        {/* Expanded detail */}
-                        {isExpanded && (
-                          <div className="border-t border-blue-100 bg-blue-50/50 px-3 py-2.5">
-                            <div className="mb-2">
-                              <label className="text-muted-foreground mb-1 block text-[11px] font-medium">
-                                Notes
-                              </label>
-                              <Textarea
-                                placeholder="Add notes about this habitat..."
-                                value={note}
-                                onChange={(e) => updateNote(r.nlcId, e.target.value)}
-                                className="min-h-[60px] bg-white text-xs"
-                                onClick={(e) => e.stopPropagation()}
-                              />
+                        {/* AI Summary */}
+                        <div className="mt-1.5">
+                          {summary ? (
+                            <p className="text-muted-foreground text-[11px] leading-relaxed">
+                              {summary}
+                            </p>
+                          ) : isSummaryLoading ? (
+                            <div className="flex items-center gap-1.5 text-[11px] text-purple-600">
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              Generating summary...
                             </div>
-                            <div className="text-muted-foreground text-[10px]">
-                              {r.polygonCount.toLocaleString()} polygons in buffer zone
+                          ) : (
+                            <button
+                              className="flex items-center gap-1 text-[11px] text-purple-600 hover:underline"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                fetchAiSummary(r)
+                              }}
+                            >
+                              <Sparkles className="h-3 w-3" />
+                              AI Summary
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Note display */}
+                        {note && !isEditingNote && (
+                          <div className="mt-1.5 rounded border border-amber-200 bg-amber-50 px-2 py-1.5">
+                            <p className="text-[11px] leading-relaxed text-amber-900">
+                              <MessageSquare className="mr-1 inline h-3 w-3 text-amber-500" />
+                              {note}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Badges row */}
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                          <Badge variant="outline" className="h-5 px-1.5 font-mono text-[10px]">
+                            {r.fossittCode}
+                          </Badge>
+                          <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+                            {r.nlcLabel}
+                          </Badge>
+                          <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+                            {r.areaHectares.toLocaleString()} ha ({pct}%)
+                          </Badge>
+                        </div>
+
+                        {/* Action links row */}
+                        <div className="mt-1.5 flex items-center gap-3 text-[11px]">
+                          <button
+                            className="flex items-center gap-1 font-medium text-purple-600 hover:underline"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              openDeepResearch(r)
+                            }}
+                          >
+                            <FlaskConical className="h-3 w-3" />
+                            Deep Research
+                          </button>
+                          <button
+                            className={`flex items-center gap-1 hover:underline ${note ? 'text-amber-600' : 'text-gray-500'}`}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (isEditingNote) {
+                                setEditingNoteId(null)
+                              } else {
+                                startEditNote(r.nlcId)
+                              }
+                            }}
+                          >
+                            <MessageSquare className="h-3 w-3" />
+                            {isEditingNote ? 'Close Note' : note ? 'Edit Note' : 'Add Note'}
+                          </button>
+                        </div>
+
+                        {/* Note edit area */}
+                        {isEditingNote && (
+                          <div className="mt-2">
+                            <Textarea
+                              autoFocus
+                              rows={3}
+                              value={noteDraft}
+                              onChange={(e) => setNoteDraft(e.target.value)}
+                              placeholder="Add notes about this habitat..."
+                              className="min-h-[60px] border-amber-300 bg-amber-50 text-xs text-amber-900 placeholder:text-amber-400 focus:border-amber-400 focus:ring-amber-300"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <div className="mt-1 flex gap-1">
+                              <Button
+                                size="sm"
+                                className="h-6 text-[11px]"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  saveNote(r.nlcId)
+                                }}
+                              >
+                                Save
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 text-[11px]"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setEditingNoteId(null)
+                                }}
+                              >
+                                Cancel
+                              </Button>
                             </div>
                           </div>
                         )}
@@ -413,36 +645,16 @@ export function HabitatDataSubStep({
                   })}
                 </div>
 
-                {/* AI Habitat Analysis */}
-                {(aiAnalysis || isAnalysing || aiError) && (
+                {/* Overall AI Analysis */}
+                {overallAi && (
                   <div className="border-t p-3">
-                    {isAnalysing ? (
-                      <div className="flex items-center gap-2 py-4 text-center">
-                        <Loader2 className="mx-auto h-6 w-6 animate-spin text-purple-400" />
-                      </div>
-                    ) : aiError ? (
-                      <div className="rounded-md border border-red-200 bg-red-50 p-3">
-                        <p className="text-xs text-red-700">{aiError}</p>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="mt-2"
-                          onClick={generateAnalysis}
-                        >
-                          Try Again
-                        </Button>
-                      </div>
-                    ) : aiAnalysis ? (
-                      <div>
-                        <div className="mb-2 flex items-center gap-1.5">
-                          <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-                          <span className="text-xs font-semibold text-purple-700">
-                            AI Habitat Analysis
-                          </span>
-                        </div>
-                        <MarkdownContent text={aiAnalysis} />
-                      </div>
-                    ) : null}
+                    <div className="mb-2 flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                      <span className="text-xs font-semibold text-purple-700">
+                        Overall Habitat Analysis
+                      </span>
+                    </div>
+                    <MarkdownContent text={overallAi} />
                   </div>
                 )}
               </ScrollArea>
@@ -461,9 +673,9 @@ export function HabitatDataSubStep({
             boundary={projectBoundary}
             bufferDistances={bufferDistances}
             habitatPolygons={styledPolygons}
+            habitatSelectionKey={`${selectedHabitatType || 'all'}-v${styleVersion}`}
             findings={[]}
           />
-
           <Button
             variant="secondary"
             size="sm"
@@ -485,6 +697,30 @@ export function HabitatDataSubStep({
           </Button>
         </div>
       )}
+
+      {/* Deep Research Modal */}
+      <HabitatDeepResearchModal
+        open={isDeepResearchOpen}
+        onOpenChange={setIsDeepResearchOpen}
+        site={
+          deepResearchSite
+            ? {
+                ...deepResearchSite,
+                percentCover:
+                  totalArea > 0
+                    ? ((deepResearchSite.areaHectares / totalArea) * 100).toFixed(1)
+                    : '0',
+              }
+            : null
+        }
+        projectName={project.name}
+        bufferKm={selectedBuffer}
+        onSaveAnalysis={(data) => {
+          if (deepResearchSite) {
+            setAiSummaries((prev) => ({ ...prev, [deepResearchSite.nlcId]: data.aiAnalysis }))
+          }
+        }}
+      />
     </div>
   )
 }
