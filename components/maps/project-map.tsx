@@ -526,7 +526,7 @@ function MapComponent({
       {/* Habitat Polygons — rendered as single GeoJSON for performance */}
       {habitatPolygons && habitatPolygons.features.length > 0 && habitatLayer?.visible && (
         <GeoJSON
-          key={`habitats-${String((habitatPolygons as unknown as { _selKey?: string })?._selKey ?? 'all')}-${habitatPolygons.features.length}`}
+          key={`habitats-${String(habitatPolygons.features[0]?.properties?._highlight ?? 'all')}-${habitatPolygons.features.length}`}
           data={habitatPolygons}
           style={(feature: GeoJSON.Feature | undefined) => {
             const props = feature?.properties

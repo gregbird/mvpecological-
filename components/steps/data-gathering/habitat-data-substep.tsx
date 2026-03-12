@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -52,7 +53,7 @@ interface HabitatDataSubStepProps {
   isActive?: boolean
 }
 
-interface HabitatResult {
+export interface HabitatResult {
   nlcId: string
   nlcLabel: string
   nlcLevel1: string
@@ -85,25 +86,25 @@ export function HabitatDataSubStep({
   const [aiAnalysis, setAiAnalysis] = useSessionStorage<string>(`${cacheKey}-ai`, '')
   const [isAnalysing, setIsAnalysing] = React.useState(false)
   const [aiError, setAiError] = React.useState<string | null>(null)
+  const [notes, setNotes] = useSessionStorage<Record<string, string>>(`${cacheKey}-notes`, {})
+  const [expandedRow, setExpandedRow] = React.useState<string | null>(null)
 
-  // Apply highlight/dim styling to polygons based on selected habitat type
-  // Adds _selKey for stable GeoJSON re-render key in ProjectMap
-  const styledPolygons = React.useMemo(():
-    | (GeoJSON.FeatureCollection & { _selKey?: string })
-    | undefined => {
+  // Style polygons — always create new features with _highlight key for reliable GeoJSON re-render
+  const styledPolygons = React.useMemo((): GeoJSON.FeatureCollection | undefined => {
     if (!habitatPolygons) return undefined
-    if (!selectedHabitatType) {
-      return Object.assign({}, habitatPolygons, { _selKey: '' })
-    }
 
     return {
-      type: 'FeatureCollection' as const,
-      _selKey: selectedHabitatType,
+      type: 'FeatureCollection',
       features: habitatPolygons.features.map((f) => ({
         ...f,
         properties: {
           ...f.properties,
-          fillOpacity: String(f.properties?.nlc_id) === selectedHabitatType ? 0.7 : 0.08,
+          fillOpacity: !selectedHabitatType
+            ? 0.5
+            : String(f.properties?.nlc_id) === selectedHabitatType
+              ? 0.7
+              : 0.08,
+          _highlight: selectedHabitatType || '',
         },
       })),
     }
@@ -150,7 +151,6 @@ export function HabitatDataSubStep({
     }
 
     try {
-      // Fetch aggregated stats and polygons in parallel
       const [aggregated, polygons] = await Promise.all([
         searchNlcLandCover(bboxParams),
         fetchNlcPolygons(bboxParams),
@@ -165,7 +165,6 @@ export function HabitatDataSubStep({
         return
       }
 
-      // Map to Fossitt codes
       const mapped: HabitatResult[] = aggregated.map((h: AggregatedHabitat) => {
         const fossitt = mapNlcToFossitt(h.nlcId)
         return {
@@ -232,6 +231,15 @@ export function HabitatDataSubStep({
     } finally {
       setIsAnalysing(false)
     }
+  }
+
+  const handleRowClick = (nlcId: string) => {
+    setSelectedHabitatType((prev) => (prev === nlcId ? null : nlcId))
+    setExpandedRow((prev) => (prev === nlcId ? null : nlcId))
+  }
+
+  const updateNote = (nlcId: string, text: string) => {
+    setNotes((prev) => ({ ...prev, [nlcId]: text }))
   }
 
   if (!projectBoundary) {
@@ -337,72 +345,72 @@ export function HabitatDataSubStep({
                 </div>
               </div>
 
-              {/* Habitat table */}
+              {/* Habitat list */}
               <ScrollArea className="flex-1">
-                <div className="p-2">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b text-left">
-                        <th className="w-6 px-1 py-1.5" />
-                        <th className="px-2 py-1.5 text-xs font-medium text-gray-500">
-                          Fossitt Code
-                        </th>
-                        <th className="px-2 py-1.5 text-xs font-medium text-gray-500">
-                          Habitat Category
-                        </th>
-                        <th className="px-2 py-1.5 text-right text-xs font-medium text-gray-500">
-                          Area (ha)
-                        </th>
-                        <th className="px-2 py-1.5 text-right text-xs font-medium text-gray-500">
-                          %
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {results.map((r) => {
-                        const pct =
-                          totalArea > 0 ? ((r.areaHectares / totalArea) * 100).toFixed(1) : '0'
-                        const color = NLC_LEVEL1_COLORS[r.nlcLevel1] || '#22c55e'
-                        const isSelected = selectedHabitatType === r.nlcId
-                        return (
-                          <tr
-                            key={r.nlcId}
-                            className={`cursor-pointer border-b border-gray-100 transition-colors ${
-                              isSelected
-                                ? 'bg-blue-50 ring-1 ring-blue-200 ring-inset'
-                                : 'hover:bg-gray-50'
-                            }`}
-                            onClick={() => setSelectedHabitatType(isSelected ? null : r.nlcId)}
-                          >
-                            <td className="px-1 py-2">
-                              <div
-                                className="h-4 w-4 rounded-sm border border-white/50"
-                                style={{ backgroundColor: color }}
-                                title={r.nlcLevel1}
-                              />
-                            </td>
-                            <td className="px-2 py-2">
-                              <Badge variant="outline" className="font-mono text-xs">
-                                {r.fossittCode}
-                              </Badge>
-                            </td>
-                            <td className="px-2 py-2">
-                              <div className="font-medium">{r.fossittName}</div>
-                              <div className="text-muted-foreground text-[11px]">
-                                NLC: {r.nlcLabel}
-                              </div>
-                            </td>
-                            <td className="px-2 py-2 text-right tabular-nums">
-                              {r.areaHectares.toLocaleString()}
-                            </td>
-                            <td className="text-muted-foreground px-2 py-2 text-right tabular-nums">
+                <div className="divide-y">
+                  {results.map((r) => {
+                    const pct =
+                      totalArea > 0 ? ((r.areaHectares / totalArea) * 100).toFixed(1) : '0'
+                    const color = NLC_LEVEL1_COLORS[r.nlcLevel1] || '#22c55e'
+                    const isSelected = selectedHabitatType === r.nlcId
+                    const isExpanded = expandedRow === r.nlcId
+                    const note = notes[r.nlcId] || ''
+                    return (
+                      <div key={r.nlcId}>
+                        {/* Row */}
+                        <div
+                          className={`flex cursor-pointer items-center gap-2 px-3 py-2.5 transition-colors ${
+                            isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
+                          }`}
+                          onClick={() => handleRowClick(r.nlcId)}
+                        >
+                          <div
+                            className="h-4 w-4 shrink-0 rounded-sm"
+                            style={{ backgroundColor: color }}
+                          />
+                          <Badge variant="outline" className="shrink-0 font-mono text-xs">
+                            {r.fossittCode}
+                          </Badge>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-medium">{r.fossittName}</div>
+                            <div className="text-muted-foreground text-[11px]">
+                              NLC: {r.nlcLabel}
+                            </div>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <div className="text-sm tabular-nums">
+                              {r.areaHectares.toLocaleString()} ha
+                            </div>
+                            <div className="text-muted-foreground text-[11px] tabular-nums">
                               {pct}%
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
+                            </div>
+                          </div>
+                          {note && <div className="h-2 w-2 shrink-0 rounded-full bg-amber-400" />}
+                        </div>
+
+                        {/* Expanded detail */}
+                        {isExpanded && (
+                          <div className="border-t border-blue-100 bg-blue-50/50 px-3 py-2.5">
+                            <div className="mb-2">
+                              <label className="text-muted-foreground mb-1 block text-[11px] font-medium">
+                                Notes
+                              </label>
+                              <Textarea
+                                placeholder="Add notes about this habitat..."
+                                value={note}
+                                onChange={(e) => updateNote(r.nlcId, e.target.value)}
+                                className="min-h-[60px] bg-white text-xs"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </div>
+                            <div className="text-muted-foreground text-[10px]">
+                              {r.polygonCount.toLocaleString()} polygons in buffer zone
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
 
                 {/* AI Habitat Analysis */}
