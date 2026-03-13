@@ -489,25 +489,19 @@ export async function fetchRiverNetworkSegments(waterBodyCode: string): Promise<
   if (!waterBodyCode) return []
 
   try {
-    // WATER_RIVNETROUTES uses WATER_BOD_1 for the water body code
-    const cqlFilter = `WATER_BOD_1='${waterBodyCode}'`
+    // WATER_RIVNETROUTES uses River_Waterbody_Code for the water body code
+    const cqlFilter = `River_Waterbody_Code='${waterBodyCode}'`
     const data = await queryEPAWFSWithFilter('EPA:WATER_RIVNETROUTES', cqlFilter, 500)
 
     return data.features
       .filter((f) => f.geometry)
       .map(
         (feature): EPARiverSegment => ({
-          Segment_Code:
-            (feature.properties?.SEGMENT_CD as string) ||
-            (feature.properties?.SEG_CD as string) ||
-            '',
-          River_Waterbody_Code:
-            (feature.properties?.WATER_BOD_1 as string) ||
-            (feature.properties?.WATERBODY as string) ||
-            '',
-          EPA_Name: (feature.properties?.EPA_NAME as string) || '',
+          Segment_Code: (feature.properties?.Segment_Code as string) || '',
+          River_Waterbody_Code: (feature.properties?.River_Waterbody_Code as string) || '',
+          EPA_Name: (feature.properties?.EPA_Name as string) || '',
           ORDER_: (feature.properties?.ORDER_ as number) || 0,
-          Segment_Length: (feature.properties?.SEGMENT_LE as number) || 0,
+          Segment_Length: (feature.properties?.Segment_Length as number) || 0,
           geometry: feature.geometry as GeoJSON.MultiLineString,
         })
       )

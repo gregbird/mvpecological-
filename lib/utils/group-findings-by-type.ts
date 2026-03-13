@@ -4,17 +4,25 @@ export interface FindingsByType {
   designated_site: DeskResearchFinding[]
   species_record: DeskResearchFinding[]
   aquatic: DeskResearchFinding[]
+  habitat: DeskResearchFinding[]
   other: DeskResearchFinding[]
 }
 
 /** Group desk research findings by data_type, merging water_quality + catchment into 'aquatic'. */
 export function groupFindingsByType<T extends Pick<DeskResearchFinding, 'data_type'>>(
   findings: T[]
-): { designated_site: T[]; species_record: T[]; aquatic: T[]; other: T[] } {
-  const groups: { designated_site: T[]; species_record: T[]; aquatic: T[]; other: T[] } = {
+): { designated_site: T[]; species_record: T[]; aquatic: T[]; habitat: T[]; other: T[] } {
+  const groups: {
+    designated_site: T[]
+    species_record: T[]
+    aquatic: T[]
+    habitat: T[]
+    other: T[]
+  } = {
     designated_site: [],
     species_record: [],
     aquatic: [],
+    habitat: [],
     other: [],
   }
 
@@ -26,6 +34,8 @@ export function groupFindingsByType<T extends Pick<DeskResearchFinding, 'data_ty
       groups.species_record.push(finding)
     } else if (type === 'water_quality' || type === 'catchment') {
       groups.aquatic.push(finding)
+    } else if (type === 'habitat') {
+      groups.habitat.push(finding)
     } else {
       groups.other.push(finding)
     }

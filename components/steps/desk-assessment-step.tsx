@@ -16,6 +16,7 @@ import {
   ChevronDown,
   FileText,
   BarChart3,
+  Layers,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -679,6 +680,44 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
                                 </li>
                               )
                             })}
+                          </ul>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Habitat Data */}
+                    <Card>
+                      <CardContent className="p-4">
+                        <button
+                          className="flex w-full items-center gap-3"
+                          onClick={() =>
+                            setExpandedCard((prev) => (prev === 'habitat' ? null : 'habitat'))
+                          }
+                        >
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100">
+                            <Layers className="h-5 w-5 text-green-600" />
+                          </div>
+                          <div className="text-left">
+                            <div className="text-2xl font-bold">
+                              {findingsByType.habitat?.length || 0}
+                            </div>
+                            <div className="text-muted-foreground text-xs">Habitat Types</div>
+                          </div>
+                          <ChevronDown
+                            className={cn(
+                              'ml-auto h-4 w-4 shrink-0 transition-transform',
+                              expandedCard === 'habitat' && 'rotate-180'
+                            )}
+                          />
+                        </button>
+                        {expandedCard === 'habitat' && findingsByType.habitat?.length > 0 && (
+                          <ul className="mt-3 space-y-1 border-t pt-2">
+                            {findingsByType.habitat.map((f) => (
+                              <li key={f.id} className="flex items-start gap-1.5 text-xs">
+                                <span className="text-muted-foreground mt-0.5">•</span>
+                                <span className="line-clamp-1">{f.title}</span>
+                              </li>
+                            ))}
                           </ul>
                         )}
                       </CardContent>

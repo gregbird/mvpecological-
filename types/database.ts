@@ -2856,6 +2856,7 @@ export type Database = {
         | 'species_record'
         | 'water_quality'
         | 'catchment'
+        | 'habitat'
         | 'other'
         | 'company_report'
       health_status: 'on_track' | 'at_risk' | 'overdue'
@@ -3008,6 +3009,7 @@ export const Constants = {
         'species_record',
         'water_quality',
         'catchment',
+        'habitat',
         'other',
         'company_report',
       ],

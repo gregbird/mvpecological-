@@ -638,7 +638,29 @@ function buildReportContext(input: ReportContextInput): string {
       byType[f.data_type].push(f)
     }
 
+    // Habitat findings — rich context from raw_data
+    const habitatFindings = byType['habitat'] || []
+    if (habitatFindings.length > 0) {
+      parts.push(`\n## HABITAT DATA (${habitatFindings.length} types from NLC 2018)`)
+      for (const f of habitatFindings) {
+        const raw = f.raw_data as Record<string, unknown> | null
+        const fossittCode = raw?.fossittCode || '—'
+        const nlcLabel = raw?.nlcLabel || ''
+        const areaHa = raw?.areaHectares != null ? Number(raw.areaHectares).toFixed(2) : '?'
+        const pct = raw?.percentCover || '?'
+        const bufferKm = raw?.bufferKm || '?'
+        parts.push(`- **[${fossittCode}] ${f.title}**`)
+        parts.push(`  NLC Label: ${nlcLabel}`)
+        parts.push(`  Area: ${areaHa} ha (${pct}% of ${bufferKm} km buffer)`)
+        if (raw?.aiSummary) {
+          parts.push(`  AI Summary: ${String(raw.aiSummary).substring(0, 400)}`)
+        }
+        if (f.notes) parts.push(`  Ecologist Notes: ${f.notes}`)
+      }
+    }
+
     for (const [type, items] of Object.entries(byType)) {
+      if (type === 'habitat') continue // already handled above
       parts.push(`\n## ${type.replace('_', ' ').toUpperCase()} (${items.length} records)`)
       for (const f of items) {
         parts.push(`- **${f.title}** [${f.source.toUpperCase()}]`)

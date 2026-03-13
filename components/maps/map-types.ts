@@ -30,6 +30,7 @@ export interface FindingMarker {
     | 'species_record'
     | 'water_quality'
     | 'catchment'
+    | 'habitat'
     | 'company_report'
     | 'other'
   location: { coordinates: [number, number] } | null // [lng, lat] GeoJSON format

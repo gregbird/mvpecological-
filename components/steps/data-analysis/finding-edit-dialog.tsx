@@ -42,6 +42,7 @@ const DATA_TYPES = [
   { value: 'species_record', label: 'Species Record' },
   { value: 'water_quality', label: 'Water Quality' },
   { value: 'catchment', label: 'Catchment' },
+  { value: 'habitat', label: 'Habitat' },
   { value: 'other', label: 'Other' },
 ] as const
 
@@ -80,6 +81,7 @@ const schema = z.object({
     'species_record',
     'water_quality',
     'catchment',
+    'habitat',
     'company_report',
     'other',
   ]),

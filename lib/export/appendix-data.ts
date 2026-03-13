@@ -180,7 +180,27 @@ export function prepareAppendixData(findings: DeskResearchFinding[]): AppendixDa
       return a.name.localeCompare(b.name)
     })
 
-  return { designatedSites, speciesRecords, habitats: [] }
+  // --- Habitat Data (from DB findings) ---
+  const habitats: HabitatRow[] = grouped.habitat
+    .map((f) => {
+      const rawData = getRawData(f)
+      const fossittCode = String(rawData.fossittCode ?? '—')
+      const fossittName = String(rawData.fossittName ?? f.title)
+      const nlcLabel = String(rawData.nlcLabel ?? '')
+      const areaHa = Number(rawData.areaHectares ?? 0)
+      const pct = rawData.percentCover ? `${rawData.percentCover}%` : '—'
+
+      return {
+        fossittCode,
+        habitatName: fossittName,
+        nlcLabel,
+        areaHectares: areaHa > 0 ? `${areaHa.toLocaleString()} ha` : '—',
+        percentCover: pct,
+      }
+    })
+    .sort((a, b) => a.fossittCode.localeCompare(b.fossittCode))
+
+  return { designatedSites, speciesRecords, habitats }
 }
 
 // ============================================================

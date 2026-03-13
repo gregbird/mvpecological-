@@ -32,6 +32,7 @@ export type FindingType =
   | 'species_record'
   | 'water_quality'
   | 'catchment'
+  | 'habitat'
   | 'company_report'
   | 'other'
 
@@ -107,6 +108,7 @@ const TYPE_LABELS: Record<FindingType, string> = {
   species_record: 'Species Record',
   water_quality: 'Water Quality',
   catchment: 'Catchment',
+  habitat: 'Habitat',
   company_report: 'Company Report',
   other: 'Other',
 }

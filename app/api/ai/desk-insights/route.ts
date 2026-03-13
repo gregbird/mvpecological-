@@ -542,6 +542,32 @@ function buildContext(input: ContextInput): string {
     parts.push('')
   }
 
+  // === HABITAT DATA ===
+  const habitatFindings = input.findings.filter((f) => f.data_type === 'habitat')
+  if (habitatFindings.length > 0) {
+    parts.push('## HABITAT DATA (NLC 2018)')
+    parts.push(`Total: ${habitatFindings.length} habitat types identified`)
+    parts.push('')
+
+    for (const h of habitatFindings) {
+      const raw = h.raw_data as Record<string, unknown> | null
+      const fossittCode = raw?.fossittCode || '\u2014'
+      const nlcLabel = raw?.nlcLabel || ''
+      const areaHa = raw?.areaHectares != null ? Number(raw.areaHectares).toFixed(2) : '?'
+      const pct = raw?.percentCover || '?'
+      const bufferKm = raw?.bufferKm || '?'
+
+      parts.push(`### [${fossittCode}] ${h.title}`)
+      parts.push(`- NLC Label: ${nlcLabel}`)
+      parts.push(`- Area: ${areaHa} ha (${pct}% of ${bufferKm} km buffer)`)
+      if (raw?.aiSummary) {
+        parts.push(`- AI Summary: ${String(raw.aiSummary).substring(0, 400)}`)
+      }
+      if (h.notes) parts.push(`- Ecologist Notes: ${h.notes}`)
+      parts.push('')
+    }
+  }
+
   return parts.join('\n')
 }
 
