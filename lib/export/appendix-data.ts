@@ -202,38 +202,3 @@ export function prepareAppendixData(findings: DeskResearchFinding[]): AppendixDa
 
   return { designatedSites, speciesRecords, habitats }
 }
-
-// ============================================================
-// Habitat appendix data (from sessionStorage NLC results)
-// ============================================================
-
-interface NlcHabitatResult {
-  nlcId: string
-  nlcLabel: string
-  fossittCode: string
-  fossittName: string
-  areaHectares: number
-}
-
-/**
- * Prepare habitat appendix rows from NLC habitat search results.
- * These are stored in sessionStorage, not in DeskResearchFinding records.
- * Call this separately and merge into AppendixData.
- */
-export function prepareHabitatAppendixData(habitatResults: NlcHabitatResult[]): HabitatRow[] {
-  if (habitatResults.length === 0) return []
-
-  const totalArea = habitatResults.reduce((sum, h) => sum + h.areaHectares, 0)
-
-  return habitatResults
-    .filter((h) => h.fossittCode !== '\u2014')
-    .map((h) => ({
-      fossittCode: h.fossittCode,
-      habitatName: h.fossittName,
-      nlcLabel: h.nlcLabel,
-      areaHectares: h.areaHectares > 0 ? `${h.areaHectares.toLocaleString()} ha` : '\u2014',
-      percentCover:
-        totalArea > 0 ? `${((h.areaHectares / totalArea) * 100).toFixed(1)}%` : '\u2014',
-    }))
-    .sort((a, b) => a.fossittCode.localeCompare(b.fossittCode))
-}

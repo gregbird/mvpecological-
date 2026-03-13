@@ -19,6 +19,7 @@ export interface BaselineExportData {
   habitatTypes: {
     fossittCode: string
     name: string
+    nlcLabel: string
     areaHa: number
     percentage: number
   }[]
@@ -74,10 +75,11 @@ export function generateBaselineReportHtml(data: BaselineExportData): string {
   const habitatTable =
     data.habitatTypes.length > 0
       ? renderTable(
-          ['FOSSITT Code', 'Habitat Name', 'Area (ha)', '%'],
+          ['FOSSITT Code', 'Habitat Name', 'NLC Label', 'Area (ha)', '%'],
           data.habitatTypes.map((h) => [
             h.fossittCode,
             h.name,
+            h.nlcLabel,
             h.areaHa.toFixed(1),
             h.percentage.toFixed(1) + '%',
           ])
@@ -140,7 +142,7 @@ ${speciesTable}
 
 <h2>3. Preliminary Habitat Inventory</h2>
 ${habitatTable}
-<div class="note">Based on CORINE 2018 Land Cover (25 ha minimum mapping unit). Requires field verification.</div>
+<div class="note">Based on National Land Cover 2018 (NLC). Requires field verification using FOSSITT Level 3 classification.</div>
 
 <h2>4. Aquatic Environment</h2>
 ${waterBodiesTable}

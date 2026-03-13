@@ -79,11 +79,16 @@ export async function calculateRiverDistanceToSAC(
           // Subsequent hops: sum all segment lengths
           stepDistanceKm = sumSegmentLengths(segments)
         }
-      } else if (waterBodyType === 'Lake' && waterBodyData) {
-        // Lake: no RIVNETROUTES data — estimate using haversine across the water body
+      } else if (
+        (waterBodyType === 'Lake' ||
+          waterBodyType === 'Transitional' ||
+          waterBodyType === 'Coastal') &&
+        waterBodyData
+      ) {
+        // Lake/Transitional/Coastal: no RIVNETROUTES data — estimate distance
         stepDistanceKm = estimateLakeDistance(waterBodyData.Length)
       } else {
-        // No segment data and not a lake — cannot continue tracing
+        // No segment data and unknown type — cannot estimate distance
         stepDistanceKm = 0
       }
 
@@ -196,11 +201,11 @@ function calculateDistanceFromSnapPoint(
     }
   }
 
-  // Sort segments by stream order (higher ORDER_ = further downstream typically)
-  // For the first segment, use only the portion downstream of the snap point
+  // Sort segments numerically by the numeric suffix of Segment_Code.
+  // EPA codes are like "35_24", "35_196", "35_4771" — lower number = upstream,
+  // higher number = downstream (verified via Z elevation values).
   const sortedSegments = [...segments].sort((a, b) => {
-    // Sort by Segment_Code as a proxy for position along the water body
-    return a.Segment_Code.localeCompare(b.Segment_Code)
+    return extractSegmentNumber(a.Segment_Code) - extractSegmentNumber(b.Segment_Code)
   })
 
   const snapSegment = segments[nearestSegmentIdx]
@@ -280,6 +285,16 @@ function estimateLakeDistance(lengthKm?: number): number {
  */
 function multiLineToLines(geom: GeoJSON.MultiLineString): GeoJSON.Feature<GeoJSON.LineString>[] {
   return geom.coordinates.map((coords) => turf.lineString(coords))
+}
+
+/**
+ * Extract the numeric suffix from an EPA segment code like "35_1234".
+ * Falls back to 0 if parsing fails.
+ */
+function extractSegmentNumber(code: string): number {
+  const parts = code.split('_')
+  const num = parseInt(parts[parts.length - 1], 10)
+  return isNaN(num) ? 0 : num
 }
 
 /**

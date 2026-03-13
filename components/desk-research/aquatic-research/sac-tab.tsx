@@ -169,7 +169,7 @@ function RiverDistanceCard({ riverDistance }: { riverDistance: RiverDistanceData
           <span className="ml-1 text-sm text-blue-600">km along river</span>
           {truncatedAt15km && (
             <p className="text-muted-foreground mt-1 text-xs">
-              Trace stopped at 15km zone of influence threshold
+              Exceeds 15km zone of influence threshold
             </p>
           )}
         </div>

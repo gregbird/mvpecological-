@@ -26,6 +26,7 @@ import type { DeskResearchFinding, Project } from '@/types/database'
 interface HabitatRow {
   fossittCode: string
   fossittName: string
+  nlcLabel: string
   areaHa: number
   percentage: number
 }
@@ -194,6 +195,7 @@ export function BaselineReportTab({ savedFindings, project }: BaselineReportTabP
       habitatTypes: habitatRows.map((h) => ({
         fossittCode: h.fossittCode,
         name: h.fossittName,
+        nlcLabel: h.nlcLabel,
         areaHa: h.areaHa,
         percentage: h.percentage,
       })),
@@ -303,7 +305,7 @@ export function BaselineReportTab({ savedFindings, project }: BaselineReportTabP
       {/* Section 3: Preliminary Habitat Inventory */}
       <section>
         <h3 className="mb-4 text-lg font-semibold">3. Preliminary Habitat Inventory</h3>
-        <HabitatInventorySection project={project} onHabitatData={setHabitatRows} />
+        <HabitatInventorySection findings={savedFindings} onHabitatData={setHabitatRows} />
       </section>
 
       {/* Section 4: Aquatic Environment */}
