@@ -33,6 +33,9 @@ export function FindingMarkers({
       {findings.map((finding) => {
         if (!finding.location) return null
 
+        // Skip species record dots on map (feedback: not helpful)
+        if (finding.dataType === 'species_record') return null
+
         const isSelected = selectedFinding?.id === finding.id
         // Use species-aware color function for species records
         const color = getSpeciesColor(finding)

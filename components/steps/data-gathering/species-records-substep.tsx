@@ -9,10 +9,14 @@ import {
   type SpeciesResearchData,
 } from '@/components/desk-research/species-research-modal'
 import { searchOccurrences } from '@/lib/external-apis/gbif'
-import { enrichSpeciesFromNBDC } from '@/lib/external-apis/nbdc'
+import {
+  enrichSpeciesFromNBDC,
+  searchRecordsByGridRefProxy,
+  type NBDCRecord,
+} from '@/lib/external-apis/nbdc'
 import { searchFPOByGridRef, type FPORecord } from '@/lib/data/fpo-species'
 import { searchSpeciesByGridRef, type Article17Species } from '@/lib/data/article17-species'
-import { wgs84ToGridRef } from '@/lib/utils/grid-reference'
+import { wgs84ToGridRef, wgs84ToItm, itmToGridRef } from '@/lib/utils/grid-reference'
 import { calculateDistanceFromBoundary } from '@/lib/gis/distance'
 import { useCreateFinding, useUpdateFinding } from '@/hooks/queries/use-finding-hooks'
 import type { Project, DeskResearchFinding, Json } from '@/types/database'
@@ -54,10 +58,13 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
     total: number
   } | null>(null)
 
-  // Source filter
+  // Source filter — default to 'protected' (only show species with designation)
   const [sourceFilter, setSourceFilter] = React.useState<'all' | 'gbif' | 'nbdc' | 'protected'>(
-    'all'
+    'protected'
   )
+
+  // Grid resolution for NBDC search: '10km' | '2km' | '1km'
+  const [gridResolution, setGridResolution] = React.useState<'10km' | '2km' | '1km'>('10km')
 
   // Auto-enrich findings with NBDC data
   const autoEnrich = async (
@@ -111,6 +118,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
               nbdcEnriched: true,
               gbifUrl: finding.sourceUrl,
               nbdcUrl: nbdcData.nbdcUrl,
+              newestRecordDate: nbdcData.newestRecordDate || finding.metadata?.newestRecordDate,
             },
             rawData: {
               ...finding.rawData,
@@ -126,6 +134,20 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
     setResults([...enriched])
     setIsEnriching(false)
     setEnrichmentProgress(null)
+
+    // Auto-generate AI summaries for designated/protected species
+    const designatedSpecies = enriched.filter(
+      (f) =>
+        (f.metadata?.isProtected || f.metadata?.designations) &&
+        !f.metadata?.aiSummary &&
+        !f.metadata?.aiSummaryLoading
+    )
+    if (designatedSpecies.length > 0 && aiSummaryTriggerRef.current) {
+      for (const species of designatedSpecies) {
+        aiSummaryTriggerRef.current(species)
+        await new Promise((resolve) => setTimeout(resolve, 500))
+      }
+    }
   }
 
   // Handle species deep research
@@ -287,7 +309,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
   const config: SubstepShellConfig = React.useMemo(
     () => ({
       title: 'Species Records',
-      description: 'Search GBIF for species occurrences and enrich with NBDC protection status.',
+      description: 'Search Biodiversity Ireland (NBDC) by grid reference for species records.',
       searchButtonLabel: 'Search Species',
       searchButtonColor: 'border-purple-300 text-purple-700 hover:bg-gray-50',
       emptyMessage: 'Search to find species',
@@ -297,86 +319,268 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       sourceFilter: ['gbif', 'nbdc'],
       isSearchDisabled: isEnriching,
 
-      // Search
+      // Search — primary source is NBDC grid reference, fallback to GBIF bbox
       performSearch: async ({ bbox }) => {
-        const results = await searchOccurrences({
-          bbox: {
-            minLat: bbox.minLat,
-            maxLat: bbox.maxLat,
-            minLng: bbox.minLng,
-            maxLng: bbox.maxLng,
-          },
-          limit: 100,
-          year: `2015,${new Date().getFullYear()}`,
-        })
-
-        // Group by species
-        const speciesGroups = new Map<string, { count: number; records: typeof results.results }>()
-
-        for (const record of results.results) {
-          const key = record.scientificName || 'Unknown'
-          if (!speciesGroups.has(key)) {
-            speciesGroups.set(key, { count: 0, records: [] })
-          }
-          const group = speciesGroups.get(key)!
-          group.count++
-          group.records.push(record)
-        }
-
         const findings: FindingDisplay[] = []
-        for (const [scientificName, { count, records }] of speciesGroups) {
-          const firstRecord = records[0]
 
-          let locationGeometry: GeoJSON.Geometry
-          if (count === 1) {
-            locationGeometry = {
-              type: 'Point',
-              coordinates: [firstRecord.decimalLongitude, firstRecord.decimalLatitude],
+        // Calculate ALL grid squares intersecting the project buffer bbox
+        const gridRefsToSearch: string[] = []
+        let gridRef1km: string | null = null
+        let searchLabel = ''
+
+        // Grid step size in meters based on resolution
+        const stepSize = gridResolution === '10km' ? 10000 : gridResolution === '2km' ? 1000 : 1000
+        // Irish Grid precision: 1 = 10km, 2 = 1km
+        const precision: 1 | 2 = gridResolution === '10km' ? 1 : 2
+        // Max grid squares to search (avoid too many API calls)
+        const maxSquares = gridResolution === '10km' ? 20 : gridResolution === '2km' ? 40 : 30
+
+        if (projectCenter) {
+          try {
+            // Convert bbox corners to ITM
+            const swItm = wgs84ToItm(bbox.minLat, bbox.minLng)
+            const neItm = wgs84ToItm(bbox.maxLat, bbox.maxLng)
+
+            // Floor to grid step boundaries
+            const minE = Math.floor(swItm.easting / stepSize) * stepSize
+            const minN = Math.floor(swItm.northing / stepSize) * stepSize
+            const maxE = Math.floor(neItm.easting / stepSize) * stepSize
+            const maxN = Math.floor(neItm.northing / stepSize) * stepSize
+
+            // Iterate all grid squares in the bbox
+            for (let e = minE; e <= maxE; e += stepSize) {
+              for (let n = minN; n <= maxN; n += stepSize) {
+                if (gridRefsToSearch.length >= maxSquares) break
+                try {
+                  const ref = itmToGridRef(e, n, precision, true)
+                  if (!gridRefsToSearch.includes(ref)) {
+                    gridRefsToSearch.push(ref)
+                  }
+                } catch {
+                  // Square outside Irish Grid
+                }
+              }
+              if (gridRefsToSearch.length >= maxSquares) break
             }
-          } else {
-            const geometries: GeoJSON.Point[] = records
-              .filter((r) => r.decimalLatitude && r.decimalLongitude)
-              .map((r) => ({
-                type: 'Point' as const,
-                coordinates: [r.decimalLongitude, r.decimalLatitude],
-              }))
-            locationGeometry = { type: 'GeometryCollection', geometries }
+
+            searchLabel =
+              gridRefsToSearch.length === 1
+                ? gridRefsToSearch[0]
+                : `${gridRefsToSearch.length} ${gridResolution} squares`
+
+            gridRef1km = wgs84ToGridRef(projectCenter.lat, projectCenter.lng, 2, true)
+          } catch {
+            // Project is outside Irish Grid
           }
-
-          const distance = calculateDistanceFromBoundary(locationGeometry, projectBoundary)
-
-          findings.push({
-            id: `gbif-${scientificName.replace(/\s+/g, '-')}`,
-            source: 'gbif',
-            dataType: 'species_record',
-            title: firstRecord.vernacularName || scientificName,
-            content: `${count} record${count > 1 ? 's' : ''} found. Family: ${firstRecord.family || 'Unknown'}.`,
-            location: locationGeometry,
-            isSaved: false,
-            sourceUrl: firstRecord.speciesKey
-              ? `https://www.gbif.org/species/${firstRecord.speciesKey}`
-              : `https://www.gbif.org/occurrence/search?scientificName=${encodeURIComponent(scientificName)}`,
-            rawData: { recordCount: count, sampleRecords: records.slice(0, 3) },
-            metadata: {
-              scientificName,
-              commonName: firstRecord.vernacularName,
-              recordCount: count,
-              distance,
-              gbifUrl: firstRecord.speciesKey
-                ? `https://www.gbif.org/species/${firstRecord.speciesKey}`
-                : undefined,
-            },
-          })
         }
 
-        // FPO and Article 17 search
-        if (projectCenter) {
-          let gridRef: string | null = null
+        // --- NBDC Grid Reference Search (primary) ---
+        let nbdcRecords: NBDCRecord[] = []
+        if (gridRefsToSearch.length > 0) {
           try {
-            gridRef = wgs84ToGridRef(projectCenter.lat, projectCenter.lng, 2, true)
+            // Fetch in batches of 5 to avoid overwhelming the API
+            const batchSize = 5
+            for (let i = 0; i < gridRefsToSearch.length; i += batchSize) {
+              const batch = gridRefsToSearch.slice(i, i + batchSize)
+              const results = await Promise.all(
+                batch.map((ref) => searchRecordsByGridRefProxy(ref, 2015))
+              )
+              nbdcRecords.push(...results.flat())
+              if (i + batchSize < gridRefsToSearch.length) {
+                await new Promise((resolve) => setTimeout(resolve, 200))
+              }
+            }
           } catch {
-            // Project is outside Irish Grid - skip FPO/Article17 search
+            // NBDC grid search failed, will fallback to GBIF
           }
+        }
+
+        if (nbdcRecords.length > 0) {
+          // Group NBDC records by species (LatinName)
+          const speciesGroups = new Map<string, { count: number; records: NBDCRecord[] }>()
+
+          for (const record of nbdcRecords) {
+            const key = record.LatinName || 'Unknown'
+            if (!speciesGroups.has(key)) {
+              speciesGroups.set(key, { count: 0, records: [] })
+            }
+            const group = speciesGroups.get(key)!
+            group.count += 1
+            group.records.push(record)
+          }
+
+          for (const [latinName, { count, records }] of speciesGroups) {
+            const firstRecord = records[0]
+
+            // Build location from records that have coordinates
+            const recordsWithCoords = records.filter((r) => r.Latitude && r.Longitude)
+            let locationGeometry: GeoJSON.Geometry | undefined
+            if (recordsWithCoords.length === 1) {
+              locationGeometry = {
+                type: 'Point',
+                coordinates: [recordsWithCoords[0].Longitude!, recordsWithCoords[0].Latitude!],
+              }
+            } else if (recordsWithCoords.length > 1) {
+              locationGeometry = {
+                type: 'GeometryCollection',
+                geometries: recordsWithCoords.map((r) => ({
+                  type: 'Point' as const,
+                  coordinates: [r.Longitude!, r.Latitude!],
+                })),
+              }
+            }
+
+            const distance = locationGeometry
+              ? calculateDistanceFromBoundary(locationGeometry, projectBoundary)
+              : undefined
+
+            // Newest date from records
+            const dates = records
+              .map((r) => r.Date || (r.Year ? `${r.Year}` : null))
+              .filter(Boolean)
+              .sort()
+              .reverse()
+            const newestDate = dates[0] || undefined
+
+            // Most common dataset name
+            const datasetCounts = new Map<string, number>()
+            for (const r of records) {
+              if (r.DatasetName) {
+                datasetCounts.set(r.DatasetName, (datasetCounts.get(r.DatasetName) || 0) + 1)
+              }
+            }
+            let mostCommonDataset: string | undefined
+            let maxDsCount = 0
+            for (const [name, cnt] of datasetCounts) {
+              if (cnt > maxDsCount) {
+                maxDsCount = cnt
+                mostCommonDataset = name
+              }
+            }
+
+            findings.push({
+              id: `nbdc-${latinName.replace(/\s+/g, '-')}`,
+              source: 'nbdc',
+              dataType: 'species_record',
+              title: firstRecord.CommonName || latinName,
+              content: `${count} record${count > 1 ? 's' : ''} in ${searchLabel}. Group: ${firstRecord.TaxonGroup || 'Unknown'}.`,
+              location: locationGeometry,
+              isSaved: false,
+              sourceUrl: `https://maps.biodiversityireland.ie`,
+              rawData: { recordCount: count, sampleRecords: records.slice(0, 5) },
+              metadata: {
+                scientificName: latinName,
+                commonName: firstRecord.CommonName || undefined,
+                taxonGroup: firstRecord.TaxonGroup || undefined,
+                recordCount: count,
+                distance,
+                datasetName: mostCommonDataset,
+                newestRecordDate: newestDate,
+                gridReference: firstRecord.GridReference || gridRefsToSearch[0] || undefined,
+                nbdcEnriched: false, // will be enriched in post-search
+              },
+            })
+          }
+        } else {
+          // --- GBIF Fallback (if NBDC grid search returned nothing) ---
+          const results = await searchOccurrences({
+            bbox: {
+              minLat: bbox.minLat,
+              maxLat: bbox.maxLat,
+              minLng: bbox.minLng,
+              maxLng: bbox.maxLng,
+            },
+            limit: 100,
+            year: `2015,${new Date().getFullYear()}`,
+          })
+
+          const speciesGroups = new Map<
+            string,
+            { count: number; records: typeof results.results }
+          >()
+
+          for (const record of results.results) {
+            const key = record.scientificName || 'Unknown'
+            if (!speciesGroups.has(key)) {
+              speciesGroups.set(key, { count: 0, records: [] })
+            }
+            const group = speciesGroups.get(key)!
+            group.count++
+            group.records.push(record)
+          }
+
+          for (const [scientificName, { count, records }] of speciesGroups) {
+            const firstRecord = records[0]
+
+            let locationGeometry: GeoJSON.Geometry
+            if (count === 1) {
+              locationGeometry = {
+                type: 'Point',
+                coordinates: [firstRecord.decimalLongitude, firstRecord.decimalLatitude],
+              }
+            } else {
+              const geometries: GeoJSON.Point[] = records
+                .filter((r) => r.decimalLatitude && r.decimalLongitude)
+                .map((r) => ({
+                  type: 'Point' as const,
+                  coordinates: [r.decimalLongitude, r.decimalLatitude],
+                }))
+              locationGeometry = { type: 'GeometryCollection', geometries }
+            }
+
+            const distance = calculateDistanceFromBoundary(locationGeometry, projectBoundary)
+
+            const eventDates = records
+              .map((r) => r.eventDate)
+              .filter(Boolean)
+              .sort()
+              .reverse()
+            const newestEventDate = eventDates[0] || undefined
+
+            const datasetNames = records.map((r) => r.datasetName).filter(Boolean)
+            const datasetNameCounts = new Map<string, number>()
+            for (const name of datasetNames) {
+              datasetNameCounts.set(name!, (datasetNameCounts.get(name!) || 0) + 1)
+            }
+            let mostCommonDataset: string | undefined
+            let maxCount = 0
+            for (const [name, cnt] of datasetNameCounts) {
+              if (cnt > maxCount) {
+                maxCount = cnt
+                mostCommonDataset = name
+              }
+            }
+
+            findings.push({
+              id: `gbif-${scientificName.replace(/\s+/g, '-')}`,
+              source: 'gbif',
+              dataType: 'species_record',
+              title: firstRecord.vernacularName || scientificName,
+              content: `${count} record${count > 1 ? 's' : ''} found. Family: ${firstRecord.family || 'Unknown'}.`,
+              location: locationGeometry,
+              isSaved: false,
+              sourceUrl: firstRecord.speciesKey
+                ? `https://www.gbif.org/species/${firstRecord.speciesKey}`
+                : `https://www.gbif.org/occurrence/search?scientificName=${encodeURIComponent(scientificName)}`,
+              rawData: { recordCount: count, sampleRecords: records.slice(0, 3) },
+              metadata: {
+                scientificName,
+                commonName: firstRecord.vernacularName,
+                recordCount: count,
+                distance,
+                gbifUrl: firstRecord.speciesKey
+                  ? `https://www.gbif.org/species/${firstRecord.speciesKey}`
+                  : undefined,
+                datasetName: mostCommonDataset,
+                newestRecordDate: newestEventDate,
+              },
+            })
+          }
+        }
+
+        // --- FPO and Article 17 search (always runs) ---
+        if (projectCenter) {
+          const gridRef = gridRef1km
 
           if (gridRef) {
             // FPO
@@ -398,6 +602,9 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
                 const firstRecord = records[0]
                 const locations = [...new Set(records.map((r) => r.locationName).filter(Boolean))]
 
+                // Skip if already found via NBDC
+                if (findings.some((f) => f.metadata?.scientificName === latinName)) continue
+
                 findings.push({
                   id: `fpo-${latinName.replace(/\s+/g, '-')}`,
                   source: 'fpo',
@@ -413,6 +620,13 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
                     recordCount: count,
                     isProtected: true,
                     designation: 'Flora Protection Order 2022',
+                    datasetName: 'Flora Protection Order 2022',
+                    newestRecordDate: records
+                      .map((r) => r.year)
+                      .filter(Boolean)
+                      .sort()
+                      .reverse()[0]
+                      ?.toString(),
                   },
                 })
               }
@@ -443,6 +657,10 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
                 const commonName = commonNames[species.code] || ''
                 const displayName = commonName || species.scientificName
 
+                // Skip if already found via NBDC
+                if (findings.some((f) => f.metadata?.scientificName === species.scientificName))
+                  continue
+
                 findings.push({
                   id: `art17-${species.code}`,
                   source: 'npws',
@@ -461,6 +679,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
                     recordCount: species.gridCount,
                     isProtected: true,
                     designation: 'Habitats Directive Annex II/IV/V',
+                    datasetName: 'Habitats Directive Reporting',
                   },
                 })
               }
@@ -599,11 +818,36 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       isEnriching,
       enrichmentProgress,
       sourceFilter,
+      gridResolution,
       currentSearchResults.length,
       protectedCount,
       invasiveCount,
       enrichedCount,
     ]
+  )
+
+  const renderResolutionControls = React.useCallback(
+    () => (
+      <div className="flex items-center gap-2 border-b px-4 py-2">
+        <span className="text-muted-foreground text-xs">Grid Resolution:</span>
+        <div className="flex gap-1">
+          {(['10km', '2km', '1km'] as const).map((res) => (
+            <button
+              key={res}
+              onClick={() => setGridResolution(res)}
+              className={`rounded px-2 py-0.5 text-xs font-medium transition-colors ${
+                gridResolution === res
+                  ? 'bg-purple-100 text-purple-700'
+                  : 'text-muted-foreground hover:bg-gray-100'
+              }`}
+            >
+              {res}
+            </button>
+          ))}
+        </div>
+      </div>
+    ),
+    [gridResolution]
   )
 
   return (
@@ -612,6 +856,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
         {...props}
         config={config}
         aiSummaryTriggerRef={aiSummaryTriggerRef}
+        renderExtraControls={renderResolutionControls}
       />
       <SpeciesResearchModal
         open={speciesResearchOpen}

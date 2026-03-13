@@ -408,6 +408,34 @@ export function recordsToGeoJSON(records: NBDCRecord[]): GeoJSON.FeatureCollecti
   }
 }
 
+/**
+ * Search for species records by grid reference via our API proxy
+ * This avoids CORS issues by going through the Next.js API route
+ */
+export async function searchRecordsByGridRefProxy(
+  gridReference: string,
+  startYear?: number
+): Promise<NBDCRecord[]> {
+  try {
+    const response = await fetch('/api/nbdc/grid-records', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gridReference, startYear }),
+    })
+
+    if (!response.ok) {
+      console.warn(`[NBDC] Grid records search failed: ${response.statusText}`)
+      return []
+    }
+
+    const data = await response.json()
+    return data.records || []
+  } catch (error) {
+    console.error('[NBDC] Error searching grid records:', error)
+    return []
+  }
+}
+
 // ============================================================================
 // NEW API: Species Enrichment from NBDC
 // These functions use the working NBDC endpoints to enrich GBIF data
