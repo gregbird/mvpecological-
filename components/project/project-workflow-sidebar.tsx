@@ -175,12 +175,12 @@ export function ProjectWorkflowSidebar() {
 
       setTeamMembers(memberProfiles)
 
-      // Fetch available members (same organization, not already assigned, only assessors)
+      // Fetch available members (same organization, not already assigned)
       const { data: orgMembers, error: orgError } = await supabase
         .from('profiles')
         .select('*')
         .eq('organization_id', project.organization_id)
-        .eq('role', 'assessor') // Only assessors can be assigned to projects
+        .neq('role', 'client') // Clients cannot be assigned to project steps
 
       if (orgError) throw orgError
 

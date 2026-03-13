@@ -2866,7 +2866,14 @@ export type Database = {
       report_status: 'draft' | 'internal_review' | 'client_review' | 'approved' | 'final'
       survey_status: 'planned' | 'in_progress' | 'completed' | 'approved'
       sync_status: 'synced' | 'pending' | 'conflict'
-      user_role: 'admin' | 'assessor' | 'client'
+      user_role:
+        | 'admin'
+        | 'project_manager'
+        | 'ecologist'
+        | 'assessor'
+        | 'junior'
+        | 'third_party'
+        | 'client'
       workflow_status: 'pending' | 'in_progress' | 'needs_review' | 'approved' | 'blocked'
     }
     CompositeTypes: {
@@ -3020,7 +3027,15 @@ export const Constants = {
       report_status: ['draft', 'internal_review', 'client_review', 'approved', 'final'],
       survey_status: ['planned', 'in_progress', 'completed', 'approved'],
       sync_status: ['synced', 'pending', 'conflict'],
-      user_role: ['admin', 'assessor', 'client'],
+      user_role: [
+        'admin',
+        'project_manager',
+        'ecologist',
+        'assessor',
+        'junior',
+        'third_party',
+        'client',
+      ],
       workflow_status: ['pending', 'in_progress', 'needs_review', 'approved', 'blocked'],
     },
   },

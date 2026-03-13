@@ -96,6 +96,126 @@ const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     // Document Management
     canManageDocuments: false,
   },
+  project_manager: {
+    // Project Management
+    canCreateProject: true,
+    canDeleteProject: false,
+    canViewAllProjects: true,
+    // Team & System
+    canManageTeam: true,
+    canManageSettings: false,
+    canViewAuditTrail: true,
+    canViewTimesheets: true,
+    // GIS & Mapping
+    canDrawBoundary: true,
+    canUploadShapefiles: true,
+    // Data Gathering
+    canSearchExternalData: true,
+    canSaveFindings: true,
+    // Field Surveys
+    canCreateSurvey: true,
+    canMarkAsUncertain: true,
+    canEnterFieldData: true,
+    canEditHabitats: true,
+    // Reporting
+    canWriteReports: true,
+    canSubmitForReview: true,
+    canApproveReport: true,
+    // Template Management
+    canManageTemplates: true,
+    // Document Management
+    canManageDocuments: true,
+  },
+  ecologist: {
+    // Project Management
+    canCreateProject: false,
+    canDeleteProject: false,
+    canViewAllProjects: false,
+    // Team & System
+    canManageTeam: false,
+    canManageSettings: false,
+    canViewAuditTrail: false,
+    canViewTimesheets: false,
+    // GIS & Mapping
+    canDrawBoundary: true,
+    canUploadShapefiles: true,
+    // Data Gathering
+    canSearchExternalData: true,
+    canSaveFindings: true,
+    // Field Surveys
+    canCreateSurvey: true,
+    canMarkAsUncertain: true,
+    canEnterFieldData: true,
+    canEditHabitats: true,
+    // Reporting
+    canWriteReports: true,
+    canSubmitForReview: true,
+    canApproveReport: false,
+    // Template Management
+    canManageTemplates: false,
+    // Document Management
+    canManageDocuments: false,
+  },
+  junior: {
+    // Project Management
+    canCreateProject: false,
+    canDeleteProject: false,
+    canViewAllProjects: false,
+    // Team & System
+    canManageTeam: false,
+    canManageSettings: false,
+    canViewAuditTrail: false,
+    canViewTimesheets: false,
+    // GIS & Mapping
+    canDrawBoundary: false,
+    canUploadShapefiles: false,
+    // Data Gathering
+    canSearchExternalData: true,
+    canSaveFindings: true,
+    // Field Surveys
+    canCreateSurvey: false,
+    canMarkAsUncertain: true,
+    canEnterFieldData: true,
+    canEditHabitats: false,
+    // Reporting
+    canWriteReports: false,
+    canSubmitForReview: false,
+    canApproveReport: false,
+    // Template Management
+    canManageTemplates: false,
+    // Document Management
+    canManageDocuments: false,
+  },
+  third_party: {
+    // Project Management
+    canCreateProject: false,
+    canDeleteProject: false,
+    canViewAllProjects: false,
+    // Team & System
+    canManageTeam: false,
+    canManageSettings: false,
+    canViewAuditTrail: false,
+    canViewTimesheets: false,
+    // GIS & Mapping
+    canDrawBoundary: false,
+    canUploadShapefiles: false,
+    // Data Gathering
+    canSearchExternalData: false,
+    canSaveFindings: false,
+    // Field Surveys
+    canCreateSurvey: false,
+    canMarkAsUncertain: true,
+    canEnterFieldData: true,
+    canEditHabitats: false,
+    // Reporting
+    canWriteReports: false,
+    canSubmitForReview: false,
+    canApproveReport: false,
+    // Template Management
+    canManageTemplates: false,
+    // Document Management
+    canManageDocuments: false,
+  },
   client: {
     // Project Management
     canCreateProject: false,

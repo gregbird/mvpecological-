@@ -12,6 +12,8 @@ import {
   Clock,
   CheckCircle,
   XCircle,
+  Copy,
+  Link as LinkIcon,
 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -21,15 +23,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,10 +36,22 @@ import { useRole } from '@/contexts/role-context'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile, Invite, UserRole } from '@/types/database'
 
+const TEAM_ROLES = [
+  { value: 'admin', label: 'Admin', description: 'Full system access' },
+  {
+    value: 'project_manager',
+    label: 'Project Manager',
+    description: 'Create/manage projects, assign team',
+  },
+  { value: 'ecologist', label: 'Ecologist', description: 'End-to-end project management' },
+  { value: 'junior', label: 'Junior', description: 'Data gathering + field research' },
+  { value: 'third_party', label: '3rd Party', description: 'Field research only' },
+] as const
+
 const inviteSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
   fullName: z.string().min(2, 'Full name must be at least 2 characters'),
-  role: z.enum(['admin', 'assessor'] as const),
+  role: z.enum(['admin', 'project_manager', 'ecologist', 'junior', 'third_party'] as const),
 })
 
 type InviteFormData = z.infer<typeof inviteSchema>
@@ -63,6 +68,7 @@ export default function TeamPage() {
   const [isLoading, setIsLoading] = React.useState(true)
   const [isInviting, setIsInviting] = React.useState(false)
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
+  const [inviteLink, setInviteLink] = React.useState<string | null>(null)
 
   const {
     register,
@@ -74,7 +80,7 @@ export default function TeamPage() {
   } = useForm<InviteFormData>({
     resolver: zodResolver(inviteSchema),
     defaultValues: {
-      role: 'assessor',
+      role: 'ecologist',
     },
   })
 
@@ -139,12 +145,9 @@ export default function TeamPage() {
 
     setIsInviting(true)
     try {
-      // Call API to create user directly
-      const response = await fetch('/api/team/create-member', {
+      const response = await fetch('/api/team/invite', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: data.email,
           fullName: data.fullName,
@@ -159,37 +162,46 @@ export default function TeamPage() {
         toast({
           variant: 'destructive',
           title: 'Error',
-          description: result.error || 'Failed to create team member',
+          description: result.error || 'Failed to send invitation',
         })
         return
       }
 
-      toast({
-        title: 'Team member created!',
-        description: `${data.fullName} has been added as ${data.role}. Password: 123456`,
-      })
+      setInviteLink(result.invite.inviteLink)
 
-      // Refresh team members list
+      // Refresh pending invites
       const supabase = createClient()
-      const { data: members } = await supabase
-        .from('profiles')
+      const { data: invites } = await supabase
+        .from('invites')
         .select('*')
         .eq('organization_id', user.organization_id)
-        .order('created_at', { ascending: true })
+        .is('accepted_at', null)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
 
-      setTeamMembers(members || [])
-      reset()
-      setIsDialogOpen(false)
+      setPendingInvites(invites || [])
     } catch (err) {
-      console.error('Error creating team member:', err)
+      console.error('Error sending invitation:', err)
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to create team member',
+        description: 'Failed to send invitation',
       })
     } finally {
       setIsInviting(false)
     }
+  }
+
+  const handleCopyLink = async () => {
+    if (!inviteLink) return
+    await navigator.clipboard.writeText(inviteLink)
+    toast({ title: 'Copied!', description: 'Invite link copied to clipboard' })
+  }
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false)
+    setInviteLink(null)
+    reset()
   }
 
   const handleCancelInvite = async (inviteId: string) => {
@@ -216,6 +228,14 @@ export default function TeamPage() {
     }
   }
 
+  const getRoleLabel = (role: UserRole) => {
+    const found = TEAM_ROLES.find((r) => r.value === role)
+    if (found) return found.label
+    if (role === 'assessor') return 'Ecologist'
+    if (role === 'client') return 'Client'
+    return role
+  }
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -228,8 +248,15 @@ export default function TeamPage() {
     switch (role) {
       case 'admin':
         return 'bg-emerald-100 text-emerald-700'
+      case 'project_manager':
+        return 'bg-purple-100 text-purple-700'
+      case 'ecologist':
       case 'assessor':
         return 'bg-blue-100 text-blue-700'
+      case 'junior':
+        return 'bg-cyan-100 text-cyan-700'
+      case 'third_party':
+        return 'bg-orange-100 text-orange-700'
       case 'client':
         return 'bg-gray-100 text-gray-700'
       default:
@@ -247,7 +274,7 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 lg:p-8">
+    <div className="h-full bg-gray-50 p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8 flex items-center justify-between">
         <div>
@@ -256,79 +283,115 @@ export default function TeamPage() {
             Manage your organization&apos;s team members and invitations
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-emerald-600 hover:bg-emerald-700">
-              <UserPlus className="mr-2 h-4 w-4" />
-              Invite Member
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Invite Team Member</DialogTitle>
-              <DialogDescription>
-                Send an invitation to join your organization (Password: 123456)
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit(onInviteSubmit)}>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="fullName">Full Name</Label>
-                  <Input
-                    id="fullName"
-                    type="text"
-                    placeholder="John Doe"
-                    {...register('fullName')}
-                  />
-                  {errors.fullName && (
-                    <p className="text-sm text-red-600">{errors.fullName.message}</p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="colleague@example.com"
-                    {...register('email')}
-                  />
-                  {errors.email && <p className="text-sm text-red-600">{errors.email.message}</p>}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
-                  <select
-                    id="role"
-                    value={selectedRole}
-                    onChange={(e) => setValue('role', e.target.value as 'admin' | 'assessor')}
-                    className="border-input bg-background ring-offset-background focus:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:ring-offset-2 focus:outline-none"
-                  >
-                    <option value="admin">Admin</option>
-                    <option value="assessor">Assessor</option>
-                  </select>
-                  {errors.role && <p className="text-sm text-red-600">{errors.role.message}</p>}
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={isInviting}
-                  className="bg-emerald-600 hover:bg-emerald-700"
-                >
-                  {isInviting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Send Invite
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button
+          className="shrink-0 bg-emerald-600 hover:bg-emerald-700"
+          onClick={() => setIsDialogOpen(true)}
+        >
+          <UserPlus className="mr-2 h-4 w-4" />
+          Invite Member
+        </Button>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      {/* Invite Modal — rendered via portal to avoid layout issues */}
+      {isDialogOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/50" onClick={handleCloseDialog} />
+          <div className="relative z-10 mx-4 w-full max-w-md rounded-lg border bg-white p-6 shadow-xl">
+            <button
+              onClick={handleCloseDialog}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              <XCircle className="h-5 w-5" />
+            </button>
+
+            {inviteLink ? (
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Invitation Created</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Share this link with the team member. It expires in 7 days.
+                </p>
+                <div className="mt-4 overflow-hidden rounded-md border bg-gray-50 px-3 py-2">
+                  <p className="truncate font-mono text-xs text-gray-700">{inviteLink}</p>
+                </div>
+                <div className="mt-4 flex flex-col gap-2">
+                  <Button
+                    className="w-full bg-emerald-600 hover:bg-emerald-700"
+                    onClick={handleCopyLink}
+                  >
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copy Invite Link
+                  </Button>
+                  <p className="text-center text-xs text-gray-500">
+                    The invited person will set their own password when they accept.
+                  </p>
+                  <Button variant="outline" className="w-full" onClick={handleCloseDialog}>
+                    Done
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Invite Team Member</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Create an invitation link to share with a new team member.
+                </p>
+                <form onSubmit={handleSubmit(onInviteSubmit)} className="mt-4 space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="fullName">Full Name</Label>
+                    <Input id="fullName" placeholder="John Doe" {...register('fullName')} />
+                    {errors.fullName && (
+                      <p className="text-sm text-red-600">{errors.fullName.message}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email Address</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="colleague@example.com"
+                      {...register('email')}
+                    />
+                    {errors.email && <p className="text-sm text-red-600">{errors.email.message}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="role">Role</Label>
+                    <select
+                      id="role"
+                      value={selectedRole}
+                      onChange={(e) => setValue('role', e.target.value as InviteFormData['role'])}
+                      className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    >
+                      {TEAM_ROLES.map((r) => (
+                        <option key={r.value} value={r.value}>
+                          {r.label} — {r.description}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.role && <p className="text-sm text-red-600">{errors.role.message}</p>}
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button type="button" variant="outline" onClick={handleCloseDialog}>
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isInviting}
+                      className="bg-emerald-600 hover:bg-emerald-700"
+                    >
+                      {isInviting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Create Invite
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="grid gap-6 xl:grid-cols-2">
         {/* Team Members */}
-        <Card>
+        <Card className="min-w-0 overflow-hidden">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
@@ -346,19 +409,21 @@ export default function TeamPage() {
                   key={member.id}
                   className="flex items-center justify-between rounded-lg border p-3"
                 >
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <Avatar className="h-10 w-10 shrink-0">
                       <AvatarFallback className="bg-emerald-100 text-emerald-700">
                         {getInitials(member.full_name)}
                       </AvatarFallback>
                     </Avatar>
-                    <div>
-                      <p className="font-medium text-gray-900">{member.full_name}</p>
-                      <p className="text-sm text-gray-500">{member.email}</p>
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-gray-900">{member.full_name}</p>
+                      <p className="truncate text-sm text-gray-500">{member.email}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge className={getRoleBadgeColor(member.role)}>{member.role}</Badge>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Badge className={getRoleBadgeColor(member.role)}>
+                      {getRoleLabel(member.role)}
+                    </Badge>
                     {member.id !== user?.id && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -389,7 +454,7 @@ export default function TeamPage() {
         </Card>
 
         {/* Pending Invites */}
-        <Card>
+        <Card className="min-w-0 overflow-hidden">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Mail className="h-5 w-5" />
@@ -407,19 +472,21 @@ export default function TeamPage() {
                   key={invite.id}
                   className="flex items-center justify-between rounded-lg border border-dashed p-3"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100">
                       <Clock className="h-5 w-5 text-gray-400" />
                     </div>
-                    <div>
-                      <p className="font-medium text-gray-900">{invite.email}</p>
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-gray-900">{invite.email}</p>
                       <p className="text-sm text-gray-500">
                         Expires {new Date(invite.expires_at).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge className={getRoleBadgeColor(invite.role)}>{invite.role}</Badge>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Badge className={getRoleBadgeColor(invite.role)}>
+                      {getRoleLabel(invite.role)}
+                    </Badge>
                     <Button
                       variant="ghost"
                       size="icon"

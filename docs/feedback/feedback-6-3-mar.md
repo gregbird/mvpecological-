@@ -64,16 +64,57 @@
 
 ## 5. Anketler için Kullanıcı Rolleri ve Üçüncü Taraf Erişimi
 
-**Orijinal:** "The need for different user roles was identified, particularly the need for field workers who only require access to the survey element of the application, not the reporting side."
+**Orijinal:** "User Roles and Third-Party Access for Surveys: Identified Need: Different user roles are required, specifically for field workers who only need access to the survey element, not the reporting side. While third-party consultants often work independently, the application needs the functionality to assign them a login for data submission. This standardizes methods and data collection, allowing the firm to manage capacity by assigning fieldwork to third parties and focusing internal teams on reporting and administration."
 
 **Yapılacaklar:**
 
-- [ ] **5.1** Mevcut rol sistemini genişlet — 3 rol yerine 5 rol:
+- [x] **5.1** Mevcut rol sistemini genişlet — 3 rol yerine 7 rol:
   - **Admin:** Tam yetki
-  - **Proje Yöneticisi:** Proje oluşturma/yönetme, anket ve rapor şablonlarını düzenleme, projeye kullanıcı ekleme
-  - **Ekolojist:** Bir projeyi uçtan uca yönetebilir
-  - **Junior:** Bir projenin farklı aşamalarına sınırlı erişim
-  - **3. Taraf:** Belirli bir ankete erişim ve düzenleme, isteğe bağlı rapor oluşturma
-- [ ] **5.2** Saha çalışanlarının yalnızca anket kısmına erişimini sağla (raporlama tarafını gizle)
-- [ ] **5.3** Üçüncü taraf danışmanlara (örn. yarasa ekolojistleri) firma uygulamasında login atayarak veri gönderimi yapabilmelerini sağla
-- [ ] **5.4** Rol bazlı erişim kontrolünü proje sayfasında uygula (şu an permission matrix tanımlı ama UI'da kullanılmıyor)
+  - **Proje Yöneticisi (Project Manager):** Proje oluşturma/yönetme, anket ve rapor şablonlarını düzenleme (amending surveys and report templates), projeye kullanıcı ekleme
+  - **Ekolojist (Ecologist):** Bir projeyi uçtan uca (end-to-end) yönetebilir
+  - **Assessor:** Ecologist ile aynı yetkilere sahip (legacy, geriye uyumluluk)
+  - **Junior:** Bir projenin farklı aşamalarına (different stages) erişim — Step 2 (Data Gathering) + Step 4-6 (Field Research)
+  - **3. Taraf (3rd Party):** Sadece Step 4-6 (Field Research) — belirli bir ankete erişim ve düzenleme
+  - **Client:** Salt okunur proje görüntüleme (hiçbir adıma erişim yok)
+    > DB migration oluşturuldu (`20260313_expand_user_roles.sql`): `user_role` enum'una `project_manager`, `ecologist`, `junior`, `third_party` eklendi. `types/database.ts` güncellendi. `role-context.tsx`'te her rol için izin matrisi tanımlandı. `header.tsx`'te her rol için stil ve etiketler eklendi. Dosyalar: `supabase/migrations/20260313_expand_user_roles.sql`, `types/database.ts`, `contexts/role-context.tsx`, `components/layout/header.tsx`
+- [x] **5.2** Saha çalışanlarının yalnızca anket kısmına erişimini sağla (raporlama tarafını gizle)
+  > `ROLE_STEP_ACCESS` config'i `lib/config/workflow.ts`'ye eklendi. Junior: step 2,4,5,6. Third_party: step 4,5,6. Client: hiçbir step yok. `isStepLocked()` fonksiyonu project-context'te bu config'e göre çalışıyor. Sidebar'da kilitli adımlar `opacity-40` + `cursor-not-allowed` ile gösteriliyor. `page.tsx`'te kilitli adıma URL ile erişim de engellendi — Lock ikonu ve "Access Restricted" mesajı gösteriliyor. Dosyalar: `lib/config/workflow.ts`, `contexts/project-context.tsx`, `app/(dashboard)/projects/[id]/page.tsx`, `components/project/project-workflow-sidebar.tsx`
+- [x] **5.3** 3. taraf danışmanlara firma uygulamasından login atayarak standart formlarla veri girmelerini sağla — bu sayede firma saha çalışmasını dışarıya devredip iç ekibi raporlama ve yönetime odaklayabilir (kapasite yönetimi)
+  > Team sayfasından 5 rolden biri seçilerek davet oluşturuluyor (Admin, PM, Ecologist, Junior, 3rd Party). Davet linki kopyalanıp manuel paylaşılıyor. Davet edilen kişi `/accept-invite?token=...` sayfasında isim + şifre belirleyerek kayıt oluyor. Kayıt işlemi server-side `/api/team/accept-invite` endpoint'i üzerinden admin client ile yapılıyor — profil doğru organization ve role ile oluşturuluyor, invite otomatik accepted olarak işaretleniyor. Kayıt sonrası otomatik login + `/projects`'e yönlendirme. Re-invite desteği var: aynı email'e tekrar davet gönderilirse eski token silinip yeni oluşturuluyor. Dosyalar: `app/(dashboard)/team/page.tsx`, `app/api/team/invite/route.ts`, `app/api/team/accept-invite/route.ts`, `app/(auth)/accept-invite/page.tsx`
+  >
+  > **TODO: Resend entegrasyonu** — Şu an davet sadece link kopyalama ile çalışıyor, mail gönderimi yok. Resend (resend.com) entegre edilmeli: davet oluşturulduğunda kullanıcıya otomatik e-posta gitmeli, mail içinde şifre oluşturma linki (`/accept-invite?token=...`) bulunmalı. Bu sayede admin'in linki manuel kopyalayıp paylaşmasına gerek kalmaz.
+- [x] **5.4** Rol bazlı erişim kontrolünü proje sayfasında uygula
+  > 5.2 ile birlikte yapıldı. `canRoleAccessStep()` fonksiyonu + `isStepLocked()` callback'i tüm adımlarda rol bazlı erişimi kontrol ediyor. Sidebar ve sayfa içeriği bu kontrole göre davranıyor.
+
+### Rol-Step Erişim Tablosu
+
+| Step | Name             | Admin | PM  | Ecologist | Junior | 3rd Party | Client |
+| ---- | ---------------- | :---: | :-: | :-------: | :----: | :-------: | :----: |
+| 1    | GIS Mapping      |   Y   |  Y  |     Y     |   -    |     -     |   -    |
+| 2    | Data Gathering   |   Y   |  Y  |     Y     |   Y    |     -     |   -    |
+| 3    | Desk Assessment  |   Y   |  Y  |     Y     |   -    |     -     |   -    |
+| 4    | Field Survey     |   Y   |  Y  |     Y     |   Y    |     Y     |   -    |
+| 5    | Habitat Mapping  |   Y   |  Y  |     Y     |   Y    |     Y     |   -    |
+| 6    | Target Notes     |   Y   |  Y  |     Y     |   Y    |     Y     |   -    |
+| 7    | Data Analysis    |   Y   |  Y  |     Y     |   -    |     -     |   -    |
+| 8    | AI Draft         |   Y   |  Y  |     Y     |   -    |     -     |   -    |
+| 9    | Quality Review   |   Y   |  Y  |     Y     |   -    |     -     |   -    |
+| 10   | Final Submission |   Y   |  Y  |     Y     |   -    |     -     |   -    |
+
+### Temel Yetki Farkları
+
+| Yetki                           | Admin | PM  | Ecologist | Junior | 3rd Party | Client |
+| ------------------------------- | :---: | :-: | :-------: | :----: | :-------: | :----: |
+| Proje oluşturma                 |   Y   |  Y  |     -     |   -    |     -     |   -    |
+| Proje silme                     |   Y   |  -  |     -     |   -    |     -     |   -    |
+| Ekip yönetimi                   |   Y   |  Y  |     -     |   -    |     -     |   -    |
+| Sistem ayarları                 |   Y   |  -  |     -     |   -    |     -     |   -    |
+| Sınır çizme / shapefile yükleme |   Y   |  Y  |     Y     |   -    |     -     |   -    |
+| Harici veri arama               |   Y   |  Y  |     Y     |   Y    |     -     |   -    |
+| Anket oluşturma                 |   Y   |  Y  |     Y     |   -    |     -     |   -    |
+| Saha verisi girişi              |   Y   |  Y  |     Y     |   Y    |     Y     |   -    |
+| Belirsiz işaretleme             |   Y   |  Y  |     Y     |   Y    |     Y     |   -    |
+| Habitat düzenleme               |   Y   |  Y  |     Y     |   -    |     -     |   -    |
+| Rapor yazma                     |   Y   |  Y  |     Y     |   -    |     -     |   -    |
+| Rapor onaylama                  |   Y   |  Y  |     -     |   -    |     -     |   -    |
+| Şablon yönetimi                 |   Y   |  Y  |     -     |   -    |     -     |   -    |

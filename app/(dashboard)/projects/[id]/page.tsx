@@ -1,11 +1,12 @@
 'use client'
 
 import * as React from 'react'
-import { AlertTriangle, Loader2 } from 'lucide-react'
+import { AlertTriangle, Loader2, Lock } from 'lucide-react'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { useProjectContext } from '@/contexts/project-context'
 import { useRole } from '@/contexts/role-context'
+import { getStepByNumber } from '@/lib/config/workflow'
 import {
   GISMappingStep,
   DataGatheringStep,
@@ -20,8 +21,15 @@ import {
 } from '@/components/steps'
 
 export default function ProjectDetailPage() {
-  const { project, workflowSteps, currentStepNumber, isLoading, error, navigateToNextStep } =
-    useProjectContext()
+  const {
+    project,
+    workflowSteps,
+    currentStepNumber,
+    isLoading,
+    error,
+    navigateToNextStep,
+    isStepLocked,
+  } = useProjectContext()
   const { user } = useRole()
 
   const currentWorkflowStep = workflowSteps.find((s) => s.step_number === currentStepNumber)
@@ -70,6 +78,24 @@ export default function ProjectDetailPage() {
     return (
       <div className="flex min-h-100 items-center justify-center">
         <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+      </div>
+    )
+  }
+
+  // Check if the current step is locked for this user's role
+  if (isStepLocked(currentStepNumber)) {
+    const stepInfo = getStepByNumber(currentStepNumber)
+    return (
+      <div className="flex h-full items-center justify-center p-6">
+        <div className="text-center">
+          <Lock className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
+          <h2 className="text-lg font-semibold">Access Restricted</h2>
+          <p className="text-muted-foreground mt-2 max-w-md">
+            You do not have permission to access{' '}
+            <span className="font-medium">{stepInfo?.label || `Step ${currentStepNumber}`}</span>.
+            Contact your project manager if you need access.
+          </p>
+        </div>
       </div>
     )
   }

@@ -103,43 +103,53 @@ function AcceptInviteContent() {
   }, [token])
 
   const onSubmit = async (data: AcceptInviteFormData) => {
-    if (!inviteDetails) return
+    if (!inviteDetails || !token) return
 
     setIsLoading(true)
     try {
-      const supabase = createClient()
-
-      // Sign up the user with the invite email
-      // The database trigger will:
-      // 1. Find the pending invite for this email
-      // 2. Create a profile with the invited role and organization
-      // 3. Mark the invite as accepted
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: inviteDetails.email,
-        password: data.password,
-        options: {
-          data: {
-            full_name: data.fullName,
-          },
-        },
+      // Call server-side API to create user + profile + accept invite
+      const response = await fetch('/api/team/accept-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token,
+          fullName: data.fullName,
+          password: data.password,
+        }),
       })
 
-      if (authError) {
+      const result = await response.json()
+
+      if (!response.ok) {
         toast({
           variant: 'destructive',
           title: 'Registration failed',
-          description: authError.message,
+          description: result.error || 'Something went wrong',
         })
         return
       }
 
-      if (authData.user) {
+      // Auto-login after successful registration
+      const supabase = createClient()
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: inviteDetails.email,
+        password: data.password,
+      })
+
+      if (signInError) {
         toast({
-          title: 'Welcome to the team!',
-          description: `You've joined ${inviteDetails.organization_name}. Please check your email to verify your account.`,
+          title: 'Account created!',
+          description: `You've joined ${inviteDetails.organization_name}. Please sign in.`,
         })
         router.push('/login')
+        return
       }
+
+      toast({
+        title: 'Welcome to the team!',
+        description: `You've joined ${inviteDetails.organization_name}.`,
+      })
+      router.push('/projects')
     } catch {
       toast({
         variant: 'destructive',

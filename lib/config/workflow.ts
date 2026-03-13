@@ -167,3 +167,27 @@ export function getPhaseColorClasses(phaseId: string): {
 
 // Total steps count
 export const TOTAL_STEPS = 10
+
+/**
+ * Role-based step access control
+ * Defines which steps each user role can access.
+ * Steps not listed are locked (hidden/disabled) for that role.
+ */
+export const ROLE_STEP_ACCESS: Record<string, number[]> = {
+  admin: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  project_manager: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  ecologist: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  assessor: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], // legacy, same as ecologist
+  junior: [2, 4, 5, 6], // Data Gathering + Field Research steps
+  third_party: [4, 5, 6], // Field Research steps only
+  client: [], // No step access (read-only project view)
+}
+
+/**
+ * Check if a role can access a specific step
+ */
+export function canRoleAccessStep(role: string, stepNumber: number): boolean {
+  const allowedSteps = ROLE_STEP_ACCESS[role]
+  if (!allowedSteps) return false
+  return allowedSteps.includes(stepNumber)
+}

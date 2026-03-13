@@ -5,7 +5,8 @@ import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { useProject } from '@/hooks/queries/use-project-hooks'
 import { useWorkflowSteps, useProjectProgress } from '@/hooks/queries/use-workflow-hooks'
 import type { Project, WorkflowStep } from '@/types/database'
-import { TOTAL_STEPS } from '@/lib/config/workflow'
+import { TOTAL_STEPS, canRoleAccessStep } from '@/lib/config/workflow'
+import { useRole } from '@/contexts/role-context'
 
 interface ProjectContextType {
   // Project data
@@ -50,9 +51,11 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const params = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { user } = useRole()
 
   const projectId = params.id as string
   const stepParam = searchParams.get('step')
+  const userRole = user?.role || 'client'
 
   // Sidebar state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false)
@@ -163,11 +166,12 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     [currentStepNumber]
   )
 
-  const isStepLocked = React.useCallback((_stepNumber: number) => {
-    // A step is locked if it's beyond the current accessible step
-    // For now, allow navigation to all steps for demo purposes
-    return false
-  }, [])
+  const isStepLocked = React.useCallback(
+    (stepNumber: number) => {
+      return !canRoleAccessStep(userRole, stepNumber)
+    },
+    [userRole]
+  )
 
   const getStepStatus = React.useCallback(
     (stepNumber: number): 'completed' | 'active' | 'pending' | 'locked' => {

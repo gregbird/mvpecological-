@@ -33,8 +33,14 @@ export async function POST(request: NextRequest) {
       .eq('id', currentUser.id)
       .single()
 
-    if (!currentProfile || currentProfile.role !== 'admin') {
-      return NextResponse.json({ error: 'Only admins can create team members' }, { status: 403 })
+    if (
+      !currentProfile ||
+      (currentProfile.role !== 'admin' && currentProfile.role !== 'project_manager')
+    ) {
+      return NextResponse.json(
+        { error: 'Only admins and project managers can create team members' },
+        { status: 403 }
+      )
     }
 
     const body: CreateMemberRequest = await request.json()

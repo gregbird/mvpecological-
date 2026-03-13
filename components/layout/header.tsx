@@ -28,13 +28,21 @@ const ROLE_STYLES: Record<
   { bg: string; text: string; icon: React.ComponentType<{ className?: string }> }
 > = {
   admin: { bg: 'bg-emerald-500/10', text: 'text-emerald-600', icon: Shield },
+  project_manager: { bg: 'bg-purple-500/10', text: 'text-purple-600', icon: Shield },
+  ecologist: { bg: 'bg-blue-500/10', text: 'text-blue-600', icon: Map },
   assessor: { bg: 'bg-blue-500/10', text: 'text-blue-600', icon: Map },
+  junior: { bg: 'bg-cyan-500/10', text: 'text-cyan-600', icon: User },
+  third_party: { bg: 'bg-orange-500/10', text: 'text-orange-600', icon: User },
   client: { bg: 'bg-gray-500/10', text: 'text-gray-600', icon: User },
 }
 
 const ROLE_LABELS: Record<UserRole, string> = {
   admin: 'Admin',
+  project_manager: 'Project Manager',
+  ecologist: 'Ecologist',
   assessor: 'Assessor',
+  junior: 'Junior',
+  third_party: '3rd Party',
   client: 'Client',
 }
 
