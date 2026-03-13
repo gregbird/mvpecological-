@@ -535,8 +535,8 @@ function MapComponent({
             const props = feature?.properties
             const opacity = (props?.fillOpacity as number) ?? 0.5
             return {
-              color: opacity > 0.5 ? '#000000' : (props?.color as string) || '#22c55e',
-              weight: opacity > 0.5 ? 2.5 : 0.5,
+              color: opacity > 0.5 ? '#1e293b' : (props?.color as string) || '#22c55e',
+              weight: opacity > 0.5 ? 3 : 0.5,
               fillColor: (props?.color as string) || '#22c55e',
               fillOpacity: opacity,
             }

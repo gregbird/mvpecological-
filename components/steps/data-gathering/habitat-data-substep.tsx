@@ -99,7 +99,7 @@ export function HabitatDataSubStep({
   const [habitatPolygons, setHabitatPolygons] = React.useState<GeoJSON.FeatureCollection | null>(
     null
   )
-  const [selectedHabitatType, setSelectedHabitatType] = React.useState<string | null>(null)
+  const [selectedHabitat, setSelectedHabitat] = React.useState<HabitatResult | null>(null)
   const [styleVersion, setStyleVersion] = React.useState(0)
   const [selectedBuffer, setSelectedBuffer] = React.useState(bufferDistances[0] || 2)
   const [totalArea, setTotalArea] = React.useState(0)
@@ -123,24 +123,42 @@ export function HabitatDataSubStep({
   const [deepResearchSite, setDeepResearchSite] = React.useState<HabitatResult | null>(null)
   const [isDeepResearchOpen, setIsDeepResearchOpen] = React.useState(false)
 
-  // Style polygons for map highlight
+  // Style polygons for map highlight — 3-field fallback matching
   const styledPolygons = React.useMemo((): GeoJSON.FeatureCollection | undefined => {
     if (!habitatPolygons) return undefined
     return {
       type: 'FeatureCollection',
-      features: habitatPolygons.features.map((f) => ({
-        ...f,
-        properties: {
-          ...f.properties,
-          fillOpacity: !selectedHabitatType
-            ? 0.45
-            : String(f.properties?.nlc_id) === selectedHabitatType
-              ? 0.85
-              : 0.05,
-        },
-      })),
+      features: habitatPolygons.features.map((f) => {
+        let isMatch = false
+        if (selectedHabitat) {
+          const p = f.properties
+          // Primary: nlc_id (LEVEL_2_ID)
+          if (p?.nlc_id && String(p.nlc_id).trim() === selectedHabitat.nlcId) isMatch = true
+          // Fallback 1: nlc_label (LEVEL_2_VALUE, case-insensitive)
+          else if (
+            p?.nlc_label &&
+            String(p.nlc_label).trim().toLowerCase() ===
+              selectedHabitat.nlcLabel.trim().toLowerCase()
+          )
+            isMatch = true
+          // Fallback 2: fossitt_code
+          else if (
+            p?.fossitt_code &&
+            selectedHabitat.fossittCode !== '\u2014' &&
+            String(p.fossitt_code) === selectedHabitat.fossittCode
+          )
+            isMatch = true
+        }
+        return {
+          ...f,
+          properties: {
+            ...f.properties,
+            fillOpacity: !selectedHabitat ? 0.2 : isMatch ? 0.85 : 0.05,
+          },
+        }
+      }),
     }
-  }, [habitatPolygons, selectedHabitatType])
+  }, [habitatPolygons, selectedHabitat])
 
   // Auto-refetch polygons when switching back to this tab (results exist from sessionStorage)
   const hasFetchedRef = React.useRef(false)
@@ -311,8 +329,8 @@ export function HabitatDataSubStep({
     setEditingNoteId(null)
   }
 
-  const handleRowClick = (nlcId: string) => {
-    setSelectedHabitatType((prev) => (prev === nlcId ? null : nlcId))
+  const handleRowClick = (r: HabitatResult) => {
+    setSelectedHabitat((prev) => (prev?.nlcId === r.nlcId ? null : r))
     setStyleVersion((v) => v + 1)
   }
 
@@ -471,7 +489,7 @@ export function HabitatDataSubStep({
                     const pct =
                       totalArea > 0 ? ((r.areaHectares / totalArea) * 100).toFixed(1) : '0'
                     const color = NLC_LEVEL1_COLORS[r.nlcLevel1] || '#22c55e'
-                    const isSelected = selectedHabitatType === r.nlcId
+                    const isSelected = selectedHabitat?.nlcId === r.nlcId
                     const summary = aiSummaries[r.nlcId]
                     const isSummaryLoading = loadingSummaries.has(r.nlcId)
                     const note = notes[r.nlcId]
@@ -489,7 +507,7 @@ export function HabitatDataSubStep({
                               ? 'border-t border-r border-b border-l-4 border-gray-200 border-l-emerald-500 bg-emerald-50/60'
                               : 'border hover:bg-gray-50'
                         }`}
-                        onClick={() => handleRowClick(r.nlcId)}
+                        onClick={() => handleRowClick(r)}
                       >
                         {/* Title + save button row */}
                         <div className="flex items-start gap-2">
@@ -663,8 +681,8 @@ export function HabitatDataSubStep({
         </div>
       </div>
 
-      {/* Map */}
-      {showMap && (
+      {/* Map — only render when active to avoid Leaflet container conflicts */}
+      {showMap && isActive && (
         <div className="relative flex-1">
           <ProjectMap
             className="h-full"
@@ -673,7 +691,7 @@ export function HabitatDataSubStep({
             boundary={projectBoundary}
             bufferDistances={bufferDistances}
             habitatPolygons={styledPolygons}
-            habitatSelectionKey={`${selectedHabitatType || 'all'}-v${styleVersion}`}
+            habitatSelectionKey={`${selectedHabitat?.nlcId || 'all'}-v${styleVersion}`}
             findings={[]}
           />
           <Button
@@ -689,7 +707,7 @@ export function HabitatDataSubStep({
         </div>
       )}
 
-      {!showMap && (
+      {(!showMap || !isActive) && (
         <div className="flex flex-1 items-center justify-center bg-gray-50">
           <Button variant="outline" onClick={onToggleMap}>
             <Eye className="mr-2 h-4 w-4" />
