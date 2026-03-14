@@ -41,7 +41,11 @@ import { useSessionStorage } from '@/hooks/shared/use-session-storage'
 import { IRELAND_CENTER } from '@/lib/config/map-constants'
 import { MarkdownContent } from '@/components/desk-research/deep-research-shell'
 import { HabitatDeepResearchModal } from '@/components/desk-research/habitat-deep-research-modal'
-import { useCreateFinding, useDeleteFinding } from '@/hooks/queries/use-finding-hooks'
+import {
+  useCreateFinding,
+  useDeleteFinding,
+  useUpdateFinding,
+} from '@/hooks/queries/use-finding-hooks'
 import type { Project, DeskResearchFinding, Json } from '@/types/database'
 
 const ProjectMap = dynamic(
@@ -92,6 +96,7 @@ export function HabitatDataSubStep({
   const { toast } = useToast()
   const createFinding = useCreateFinding()
   const deleteFinding = useDeleteFinding()
+  const updateFinding = useUpdateFinding()
   const cacheKey = `nlc-habitat-${project.id}`
 
   const [isSearching, setIsSearching] = React.useState(false)
@@ -276,6 +281,18 @@ export function HabitatDataSubStep({
       if (res.ok) {
         const data = await res.json()
         setAiSummaries((prev) => ({ ...prev, [r.nlcId]: data.summary }))
+        // Persist to DB if finding is already saved
+        const existing = getSavedFinding(r.nlcId)
+        if (existing) {
+          const existingRaw = (existing.raw_data as Record<string, unknown>) || {}
+          updateFinding.mutate({
+            findingId: existing.id,
+            updates: {
+              content: data.summary,
+              raw_data: { ...existingRaw, aiSummary: data.summary } as unknown as Json,
+            },
+          })
+        }
       }
     } finally {
       setLoadingSummaries((prev) => {
@@ -376,6 +393,10 @@ export function HabitatDataSubStep({
           } as unknown as Json,
         })
         toast({ title: 'Saved', description: `${r.fossittCode} saved to findings.` })
+        // Auto-trigger AI summary if not already generated
+        if (!aiSummaries[r.nlcId]) {
+          fetchAiSummary(r)
+        }
       }
     } catch {
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to save finding.' })
@@ -737,6 +758,18 @@ export function HabitatDataSubStep({
         onSaveAnalysis={(data) => {
           if (deepResearchSite) {
             setAiSummaries((prev) => ({ ...prev, [deepResearchSite.nlcId]: data.aiAnalysis }))
+            // Persist to DB if finding is already saved
+            const existing = getSavedFinding(deepResearchSite.nlcId)
+            if (existing) {
+              const existingRaw = (existing.raw_data as Record<string, unknown>) || {}
+              updateFinding.mutate({
+                findingId: existing.id,
+                updates: {
+                  content: data.aiAnalysis,
+                  raw_data: { ...existingRaw, aiSummary: data.aiAnalysis } as unknown as Json,
+                },
+              })
+            }
           }
         }}
       />
