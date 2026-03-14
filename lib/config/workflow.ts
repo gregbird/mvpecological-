@@ -177,7 +177,7 @@ export const ROLE_STEP_ACCESS: Record<string, number[]> = {
   admin: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
   project_manager: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
   ecologist: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-  assessor: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], // legacy, same as ecologist
+  assessor: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], // deprecated, maps to ecologist
   junior: [2, 4, 5, 6], // Data Gathering + Field Research steps
   third_party: [4, 5, 6], // Field Research steps only
   client: [], // No step access (read-only project view)

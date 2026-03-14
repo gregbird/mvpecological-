@@ -214,7 +214,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <p className="text-foreground truncate text-sm font-semibold">
                 {user?.full_name || 'User'}
               </p>
-              <p className="text-muted-foreground text-xs capitalize">{user?.role || 'assessor'}</p>
+              <p className="text-muted-foreground text-xs capitalize">
+                {user?.role || 'ecologist'}
+              </p>
             </div>
           </div>
 

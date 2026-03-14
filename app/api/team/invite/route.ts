@@ -76,13 +76,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Delete any existing pending invites for this email (re-invite = refresh token)
+    // Delete any existing invites for this email (covers re-invite and previously removed users)
     await serverClient
       .from('invites')
       .delete()
       .eq('email', email)
       .eq('organization_id', organizationId)
-      .is('accepted_at', null)
 
     // Create invite token
     const token = randomUUID()
@@ -93,6 +92,7 @@ export async function POST(request: NextRequest) {
       .from('invites')
       .insert({
         email,
+        full_name: fullName,
         organization_id: organizationId,
         role,
         token,

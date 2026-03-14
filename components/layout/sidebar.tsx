@@ -324,7 +324,7 @@ export function Sidebar() {
             <p className="truncate text-sm font-medium text-gray-900">
               {user?.full_name || 'User'}
             </p>
-            <p className="text-xs text-gray-500 capitalize">{user?.role || 'assessor'}</p>
+            <p className="text-xs text-gray-500 capitalize">{user?.role || 'ecologist'}</p>
           </div>
         </div>
 

@@ -118,3 +118,14 @@
 | Rapor yazma                     |   Y   |  Y  |     Y     |   -    |     -     |   -    |
 | Rapor onaylama                  |   Y   |  Y  |     -     |   -    |     -     |   -    |
 | Şablon yönetimi                 |   Y   |  Y  |     -     |   -    |     -     |   -    |
+
+---
+
+## 5. Düzeltmeler (14 Mart 2026)
+
+- [x] **5.5** Active Members listesindeki "Remove" butonu çalışmıyordu → `/api/team/remove-member` endpoint'i oluşturuldu, buton `onClick` handler'a bağlandı. Güvenlik kontrolleri: kendini silemez, PM admin'i silemez, farklı organizasyondaki üyeyi silemez. Profil + auth user birlikte siliniyor.
+- [x] **5.6** Invite Member'da doldurulan Full Name, davet linkini açan kullanıcıya boş geliyordu → `invites` tablosuna `full_name` sütunu eklendi, `get_invite_by_token` RPC güncellendi, accept-invite sayfası artık ismi ön doldurarak gösteriyor.
+- [x] **5.7** Silinen bir kullanıcının e-postasına tekrar davet oluşturulamıyordu → Invite API'de eski davetler silinirken sadece pending (`accepted_at IS NULL`) olanlar temizleniyordu, kabul edilmiş eski davetler kalıyordu. Filtre kaldırıldı — aynı email+org için tüm eski davetler temizleniyor.
+- [x] **5.8** Manage Team (proje içi) dialogundaki rol seçenekleri eski sistemden kalmaydı (`surveyor`, `analyst`) → `lead`, `member`, `reviewer`, `viewer` olarak güncellendi. `project_member_role` enum'una `member` eklendi, mevcut `surveyor`/`analyst` kayıtları `member`'a migrate edildi.
+- [x] **5.9** Manage Team dialogunda kişilerin org rolü (Ecologist, PM, Junior vb.) görünmüyordu → Hem assigned hem available listesinde ismin yanına org role badge'i eklendi.
+- [x] **5.10** `assessor` rolü deprecated edildi → DB'deki 3 assessor kullanıcı `ecologist`'e migrate edildi. UI'da assessor seçeneği hiçbir yerde gösterilmiyor. `Record<UserRole>` zorunlu olan yerlerde ecologist'e yönlendiren fallback'lar bırakıldı (DB enum'unda değer kaldığı için type-safety gereği).

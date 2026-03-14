@@ -174,7 +174,7 @@ export default function DashboardPage() {
       try {
         const supabase = createClient()
 
-        // For assessors, get their assigned project IDs first
+        // For non-admin users, get their assigned project IDs first
         let assignedProjectIds: string[] = []
         if (!isAdmin) {
           const { data: memberships } = await supabase
@@ -192,7 +192,7 @@ export default function DashboardPage() {
           .eq('organization_id', user.organization_id)
           .order('updated_at', { ascending: false })
 
-        // For assessors, filter to only assigned projects
+        // For non-admin users, filter to only assigned projects
         if (!isAdmin && assignedProjectIds.length > 0) {
           projectsQuery = projectsQuery.in('id', assignedProjectIds)
         } else if (!isAdmin && assignedProjectIds.length === 0) {

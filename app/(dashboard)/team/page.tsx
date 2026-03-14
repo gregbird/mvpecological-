@@ -228,10 +228,45 @@ export default function TeamPage() {
     }
   }
 
+  const handleRemoveMember = async (memberId: string, memberName: string) => {
+    if (!confirm(`Are you sure you want to remove ${memberName} from the organization?`)) return
+
+    try {
+      const response = await fetch('/api/team/remove-member', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memberId }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: result.error || 'Failed to remove member',
+        })
+        return
+      }
+
+      setTeamMembers((prev) => prev.filter((m) => m.id !== memberId))
+      toast({
+        title: 'Member removed',
+        description: `${memberName} has been removed from the organization`,
+      })
+    } catch (err) {
+      console.error('Error removing member:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to remove member',
+      })
+    }
+  }
+
   const getRoleLabel = (role: UserRole) => {
     const found = TEAM_ROLES.find((r) => r.value === role)
     if (found) return found.label
-    if (role === 'assessor') return 'Ecologist'
     if (role === 'client') return 'Client'
     return role
   }
@@ -251,7 +286,6 @@ export default function TeamPage() {
       case 'project_manager':
         return 'bg-purple-100 text-purple-700'
       case 'ecologist':
-      case 'assessor':
         return 'bg-blue-100 text-blue-700'
       case 'junior':
         return 'bg-cyan-100 text-cyan-700'
@@ -432,7 +466,10 @@ export default function TeamPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem className="text-red-600">
+                          <DropdownMenuItem
+                            className="text-red-600"
+                            onClick={() => handleRemoveMember(member.id, member.full_name)}
+                          >
                             <Trash2 className="mr-2 h-4 w-4" />
                             Remove
                           </DropdownMenuItem>

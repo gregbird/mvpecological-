@@ -649,6 +649,7 @@ export type Database = {
           created_at: string | null
           email: string
           expires_at: string
+          full_name: string | null
           id: string
           invited_by: string | null
           organization_id: string
@@ -660,6 +661,7 @@ export type Database = {
           created_at?: string | null
           email: string
           expires_at?: string
+          full_name?: string | null
           id?: string
           invited_by?: string | null
           organization_id: string
@@ -671,6 +673,7 @@ export type Database = {
           created_at?: string | null
           email?: string
           expires_at?: string
+          full_name?: string | null
           id?: string
           invited_by?: string | null
           organization_id?: string
@@ -2118,6 +2121,7 @@ export type Database = {
         Returns: {
           email: string
           expires_at: string
+          full_name: string | null
           id: string
           organization_id: string
           organization_name: string
@@ -2860,7 +2864,7 @@ export type Database = {
         | 'other'
         | 'company_report'
       health_status: 'on_track' | 'at_risk' | 'overdue'
-      project_member_role: 'lead' | 'surveyor' | 'analyst' | 'reviewer' | 'viewer'
+      project_member_role: 'lead' | 'surveyor' | 'analyst' | 'reviewer' | 'viewer' | 'member'
       project_phase: 'desk_research' | 'field_research' | 'reporting'
       project_status: 'draft' | 'active' | 'completed' | 'archived'
       report_status: 'draft' | 'internal_review' | 'client_review' | 'approved' | 'final'
@@ -3021,7 +3025,7 @@ export const Constants = {
         'company_report',
       ],
       health_status: ['on_track', 'at_risk', 'overdue'],
-      project_member_role: ['lead', 'surveyor', 'analyst', 'reviewer', 'viewer'],
+      project_member_role: ['lead', 'surveyor', 'analyst', 'reviewer', 'viewer', 'member'],
       project_phase: ['desk_research', 'field_research', 'reporting'],
       project_status: ['draft', 'active', 'completed', 'archived'],
       report_status: ['draft', 'internal_review', 'client_review', 'approved', 'final'],

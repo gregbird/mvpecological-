@@ -30,6 +30,7 @@ interface InviteDetails {
   email: string
   role: string
   expires_at: string
+  full_name: string | null
 }
 
 const acceptInviteSchema = z
@@ -59,6 +60,7 @@ function AcceptInviteContent() {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<AcceptInviteFormData>({
     resolver: zodResolver(acceptInviteSchema),
@@ -91,6 +93,9 @@ function AcceptInviteContent() {
         }
 
         setInviteDetails(data[0])
+        if (data[0].full_name) {
+          setValue('fullName', data[0].full_name)
+        }
       } catch (err) {
         console.error('Error fetching invite:', err)
         setInviteError('Failed to load invitation details')

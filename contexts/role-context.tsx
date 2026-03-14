@@ -66,36 +66,6 @@ const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     // Document Management
     canManageDocuments: true,
   },
-  assessor: {
-    // Project Management
-    canCreateProject: false,
-    canDeleteProject: false,
-    canViewAllProjects: false,
-    // Team & System
-    canManageTeam: false,
-    canManageSettings: false,
-    canViewAuditTrail: false,
-    canViewTimesheets: false,
-    // GIS & Mapping
-    canDrawBoundary: true,
-    canUploadShapefiles: true,
-    // Data Gathering
-    canSearchExternalData: true,
-    canSaveFindings: true,
-    // Field Surveys
-    canCreateSurvey: true,
-    canMarkAsUncertain: true,
-    canEnterFieldData: true,
-    canEditHabitats: true,
-    // Reporting
-    canWriteReports: true,
-    canSubmitForReview: true,
-    canApproveReport: false,
-    // Template Management
-    canManageTemplates: false,
-    // Document Management
-    canManageDocuments: false,
-  },
   project_manager: {
     // Project Management
     canCreateProject: true,
@@ -155,6 +125,10 @@ const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canManageTemplates: false,
     // Document Management
     canManageDocuments: false,
+  },
+  // assessor is deprecated — maps to ecologist permissions
+  get assessor() {
+    return this.ecologist
   },
   junior: {
     // Project Management
@@ -265,11 +239,32 @@ export const ROLE_CONFIGS: RoleConfig[] = [
     bgColor: 'bg-emerald-600',
   },
   {
-    id: 'assessor',
-    label: 'Assessor',
-    description: 'Field work & data entry',
+    id: 'project_manager',
+    label: 'Project Manager',
+    description: 'Create/manage projects, assign team',
+    color: 'text-purple-600',
+    bgColor: 'bg-purple-600',
+  },
+  {
+    id: 'ecologist',
+    label: 'Ecologist',
+    description: 'End-to-end project management',
     color: 'text-blue-600',
     bgColor: 'bg-blue-600',
+  },
+  {
+    id: 'junior',
+    label: 'Junior',
+    description: 'Data gathering + field research',
+    color: 'text-cyan-600',
+    bgColor: 'bg-cyan-600',
+  },
+  {
+    id: 'third_party',
+    label: '3rd Party',
+    description: 'Field research only',
+    color: 'text-orange-600',
+    bgColor: 'bg-orange-600',
   },
   {
     id: 'client',
@@ -436,7 +431,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
   }, [fetchUser])
 
   const permissions = user ? ROLE_PERMISSIONS[user.role] : DEFAULT_PERMISSIONS
-  const roleConfig = ROLE_CONFIGS.find((r) => r.id === user?.role) || ROLE_CONFIGS[1] // Default to assessor config
+  const roleConfig = ROLE_CONFIGS.find((r) => r.id === user?.role) || ROLE_CONFIGS[0]
 
   return (
     <RoleContext.Provider

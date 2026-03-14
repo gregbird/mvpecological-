@@ -40,7 +40,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
   admin: 'Admin',
   project_manager: 'Project Manager',
   ecologist: 'Ecologist',
-  assessor: 'Assessor',
+  assessor: 'Ecologist',
   junior: 'Junior',
   third_party: '3rd Party',
   client: 'Client',
@@ -51,7 +51,7 @@ export function Header() {
   const { user, permissions, isLoading } = useRole()
   const [isSigningOut, setIsSigningOut] = React.useState(false)
 
-  const currentRole = user?.role || 'assessor'
+  const currentRole = user?.role || 'ecologist'
   const roleStyle = ROLE_STYLES[currentRole]
   const RoleIcon = roleStyle.icon
 

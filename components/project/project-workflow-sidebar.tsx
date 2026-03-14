@@ -111,9 +111,9 @@ export function ProjectWorkflowSidebar() {
   const [isLoadingTeam, setIsLoadingTeam] = React.useState(false)
   const [isAddingMember, setIsAddingMember] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState('')
-  const [selectedRole, setSelectedRole] = React.useState<
-    'lead' | 'surveyor' | 'analyst' | 'reviewer' | 'viewer'
-  >('surveyor')
+  const [selectedRole, setSelectedRole] = React.useState<'lead' | 'member' | 'reviewer' | 'viewer'>(
+    'member'
+  )
 
   const handleDeleteProject = async () => {
     if (!project) return
@@ -202,7 +202,7 @@ export function ProjectWorkflowSidebar() {
 
   const handleAddMember = async (
     userId: string,
-    role: 'lead' | 'surveyor' | 'analyst' | 'reviewer' | 'viewer' = 'surveyor'
+    role: 'lead' | 'member' | 'reviewer' | 'viewer' = 'member'
   ) => {
     if (!project) return
 
@@ -281,14 +281,50 @@ export function ProjectWorkflowSidebar() {
     switch (role) {
       case 'lead':
         return 'bg-emerald-100 text-emerald-700'
-      case 'surveyor':
+      case 'member':
         return 'bg-blue-100 text-blue-700'
-      case 'analyst':
-        return 'bg-purple-100 text-purple-700'
       case 'reviewer':
         return 'bg-amber-100 text-amber-700'
+      case 'viewer':
+        return 'bg-gray-100 text-gray-700'
       default:
         return 'bg-gray-100 text-gray-700'
+    }
+  }
+
+  const getUserRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return 'bg-emerald-100 text-emerald-700'
+      case 'project_manager':
+        return 'bg-purple-100 text-purple-700'
+      case 'ecologist':
+        return 'bg-blue-100 text-blue-700'
+      case 'junior':
+        return 'bg-cyan-100 text-cyan-700'
+      case 'third_party':
+        return 'bg-orange-100 text-orange-700'
+      default:
+        return 'bg-gray-100 text-gray-700'
+    }
+  }
+
+  const getUserRoleLabel = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return 'Admin'
+      case 'project_manager':
+        return 'PM'
+      case 'ecologist':
+        return 'Ecologist'
+      case 'junior':
+        return 'Junior'
+      case 'third_party':
+        return '3rd Party'
+      case 'client':
+        return 'Client'
+      default:
+        return role
     }
   }
 
@@ -715,7 +751,7 @@ export function ProjectWorkflowSidebar() {
           setShowTeamDialog(open)
           if (!open) {
             setSearchQuery('')
-            setSelectedRole('surveyor')
+            setSelectedRole('member')
           }
         }}
       >
@@ -757,7 +793,14 @@ export function ProjectWorkflowSidebar() {
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="font-medium">{member.profile.full_name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{member.profile.full_name}</p>
+                            <Badge
+                              className={`text-xs ${getUserRoleBadgeColor(member.profile.role)}`}
+                            >
+                              {getUserRoleLabel(member.profile.role)}
+                            </Badge>
+                          </div>
                           <p className="text-sm text-gray-500">{member.profile.email}</p>
                         </div>
                       </div>
@@ -780,7 +823,7 @@ export function ProjectWorkflowSidebar() {
 
             {/* Add Team Members Section */}
             <div>
-              <h4 className="mb-3 text-sm font-medium text-gray-700">Add Assessors to Project</h4>
+              <h4 className="mb-3 text-sm font-medium text-gray-700">Add Members to Project</h4>
 
               {/* Search and Filter */}
               <div className="mb-4 flex gap-3">
@@ -797,15 +840,12 @@ export function ProjectWorkflowSidebar() {
                   <select
                     value={selectedRole}
                     onChange={(e) =>
-                      setSelectedRole(
-                        e.target.value as 'lead' | 'surveyor' | 'analyst' | 'reviewer' | 'viewer'
-                      )
+                      setSelectedRole(e.target.value as 'lead' | 'member' | 'reviewer' | 'viewer')
                     }
                     className="border-input bg-background ring-offset-background focus:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:ring-offset-2 focus:outline-none"
                   >
                     <option value="lead">Lead</option>
-                    <option value="surveyor">Surveyor</option>
-                    <option value="analyst">Analyst</option>
+                    <option value="member">Member</option>
                     <option value="reviewer">Reviewer</option>
                     <option value="viewer">Viewer</option>
                   </select>
@@ -821,7 +861,7 @@ export function ProjectWorkflowSidebar() {
                 <div className="rounded-lg border border-dashed py-8 text-center">
                   <UserPlus className="mx-auto mb-2 h-10 w-10 text-gray-300" />
                   <p className="text-sm text-gray-500">
-                    All assessors are already assigned to this project
+                    All members are already assigned to this project
                   </p>
                 </div>
               ) : (
@@ -847,7 +887,12 @@ export function ProjectWorkflowSidebar() {
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="font-medium">{member.full_name}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">{member.full_name}</p>
+                              <Badge className={`text-xs ${getUserRoleBadgeColor(member.role)}`}>
+                                {getUserRoleLabel(member.role)}
+                              </Badge>
+                            </div>
                             <p className="text-sm text-gray-500">{member.email}</p>
                           </div>
                         </div>
@@ -878,9 +923,7 @@ export function ProjectWorkflowSidebar() {
                     )
                   }).length === 0 && (
                     <div className="py-4 text-center">
-                      <p className="text-sm text-gray-500">
-                        No assessors found matching &quot;{searchQuery}&quot;
-                      </p>
+                      <p className="text-sm text-gray-500">No members found</p>
                     </div>
                   )}
                 </div>
