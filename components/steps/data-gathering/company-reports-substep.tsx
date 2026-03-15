@@ -215,8 +215,8 @@ export function CompanyReportsSubStep({ project, userId, isActive }: CompanyRepo
       await createFinding.mutateAsync({
         project_id: project.id,
         created_by: userId,
-        source: 'company_reports' as 'manual',
-        data_type: 'other',
+        source: 'company_reports',
+        data_type: 'company_report',
         title: `${result.file_name}${result.page_start ? ` (p.${result.page_start})` : ''}`,
         content: result.content.slice(0, 500),
         is_saved: true,

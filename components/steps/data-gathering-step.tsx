@@ -21,6 +21,7 @@ import dynamic from 'next/dynamic'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { useToast } from '@/hooks/use-toast'
 import { useSavedFindings, useFindingsStats } from '@/hooks/queries/use-finding-hooks'
 import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { useTargetNotes } from '@/hooks/queries/use-target-note-hooks'
@@ -89,6 +90,7 @@ export function DataGatheringStep({
   onComplete,
 }: DataGatheringStepProps) {
   const { setMapFullscreen, refetchWorkflowSteps } = useProjectContext()
+  const { toast } = useToast()
 
   // Check if step is completed
   const isStepCompleted =
@@ -243,7 +245,11 @@ export function DataGatheringStep({
 
   // Toggle map fullscreen mode in wizard
   React.useEffect(() => {
-    const isMapStep = viewMode === 'wizard' && currentStep !== 'info' && currentStep !== 'review'
+    const isMapStep =
+      viewMode === 'wizard' &&
+      currentStep !== 'info' &&
+      currentStep !== 'reports' &&
+      currentStep !== 'review'
     setMapFullscreen(isMapStep)
 
     return () => {
@@ -267,6 +273,11 @@ export function DataGatheringStep({
   // Handle step completion
   const handleComplete = async () => {
     if (savedFindings.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'No findings saved',
+        description: 'Save at least one finding before completing this step.',
+      })
       return
     }
 
@@ -337,8 +348,11 @@ export function DataGatheringStep({
                 <h2 className="text-lg font-semibold">Data Gathering</h2>
                 <p className="text-muted-foreground text-sm">Ecological data collection</p>
               </div>
-              <Badge variant="default" className="bg-emerald-500">
-                Completed
+              <Badge
+                variant="default"
+                className={workflowStep.status === 'approved' ? 'bg-emerald-500' : 'bg-amber-500'}
+              >
+                {workflowStep.status === 'approved' ? 'Completed' : 'Needs Review'}
               </Badge>
             </div>
           </div>
@@ -852,6 +866,7 @@ export function DataGatheringStep({
               isActive={currentStep === 'habitats'}
               userId={userId}
               savedFindings={savedFindings}
+              workflowStep={workflowStep}
             />
           </div>
         )}
@@ -861,7 +876,7 @@ export function DataGatheringStep({
           <PlanningPolicySubStep project={project} isActive={currentStep === 'planning'} />
         )}
 
-        {/* Step 6: Company Reports - text search, conditional render */}
+        {/* Step 7: Company Reports - text search, conditional render */}
         {currentStep === 'reports' && (
           <CompanyReportsSubStep
             project={project}
@@ -870,7 +885,7 @@ export function DataGatheringStep({
           />
         )}
 
-        {/* Step 6: Review & Export - simple step, conditional render is fine */}
+        {/* Step 8: Review & Export - simple step, conditional render is fine */}
         {currentStep === 'review' && (
           <ReviewExportSubStep
             project={project}

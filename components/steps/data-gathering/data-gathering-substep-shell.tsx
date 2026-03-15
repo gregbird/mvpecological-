@@ -288,17 +288,11 @@ export function DataGatheringSubstepShell({
   const handleSaveFinding = async (finding: FindingDisplay) => {
     setSavingIds((prev) => new Set(prev).add(finding.id))
     try {
-      const isCurrentlySaved = savedFindings.some(
-        (f) => f.title === finding.title || f.id === finding.id
-      )
+      // Use the substep's matchPredicate for consistent matching
+      const existingFinding = savedFindings.find((f) => config.matchPredicate(f, finding))
 
-      if (isCurrentlySaved) {
-        const existingFinding = savedFindings.find(
-          (f) => f.title === finding.title || f.id === finding.id
-        )
-        if (existingFinding) {
-          await deleteFinding.mutateAsync(existingFinding.id)
-        }
+      if (existingFinding) {
+        await deleteFinding.mutateAsync(existingFinding.id)
       } else {
         const payload = config.buildCreatePayload(finding, {
           projectId: project.id,
@@ -313,6 +307,11 @@ export function DataGatheringSubstepShell({
       }
     } catch (error) {
       console.error('Save finding error:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Save failed',
+        description: 'Could not save the finding. Please try again.',
+      })
     } finally {
       setSavingIds((prev) => {
         const next = new Set(prev)
@@ -360,9 +359,7 @@ export function DataGatheringSubstepShell({
       )
 
       // Persist AI summary to DB if finding is already saved
-      const existingSaved = savedFindings.find(
-        (f) => f.title === finding.title || f.id === finding.id
-      )
+      const existingSaved = savedFindings.find((f) => config.matchPredicate(f, finding))
       if (existingSaved) {
         const existingRawData = (existingSaved.raw_data as Record<string, unknown>) || {}
         const existingMetadata = (existingRawData.metadata as Record<string, unknown>) || {}
@@ -496,12 +493,12 @@ export function DataGatheringSubstepShell({
     title: f.title,
     content: f.content,
     location: f.location,
-    isSaved: savedFindings.some((sf) => sf.title === f.title || sf.id === f.id),
+    isSaved: savedFindings.some((sf) => config.matchPredicate(sf, f)),
   })
 
   // Default saved filter
   const defaultSavedFilter = (f: FindingDisplay) =>
-    savedFindings.some((sf) => sf.title === f.title || sf.id === f.id)
+    savedFindings.some((sf) => config.matchPredicate(sf, f))
 
   const mapFindingsMapper = config.mapFindingsMapper
     ? (f: FindingDisplay) => config.mapFindingsMapper!(f, savedFindings)

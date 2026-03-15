@@ -1,8 +1,9 @@
 'use client'
 
 import * as React from 'react'
-import { MapPin, Circle, CheckCircle2, Maximize2 } from 'lucide-react'
+import { MapPin, Circle, CheckCircle2, Maximize2, ChevronRight } from 'lucide-react'
 
+import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { calculateAreaHectares } from '@/lib/supabase/queries/habitats'
@@ -36,7 +37,7 @@ export function ProjectInfoSubStep({
   project,
   bufferDistances,
   savedFindingsCount,
-  onNext: _onNext,
+  onNext,
 }: ProjectInfoSubStepProps) {
   const hasBoundary = !!project.boundary
   const boundary = project.boundary as GeoJSON.Feature<GeoJSON.Polygon> | undefined
@@ -151,6 +152,13 @@ export function ProjectInfoSubStep({
             </div>
           )}
         </div>
+
+        {onNext && (
+          <Button onClick={onNext} className="mt-4 w-full" size="lg">
+            Begin Data Gathering
+            <ChevronRight className="ml-2 h-4 w-4" />
+          </Button>
+        )}
       </div>
     </div>
   )

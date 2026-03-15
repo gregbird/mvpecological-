@@ -441,7 +441,7 @@ export function ReviewExportSubStep({
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {savedFindings.slice(0, 30).map((finding) => {
+                  {savedFindings.map((finding) => {
                     const aiSummary = getAISummary(finding)
                     const deepResearch = getDeepResearch(finding)
                     const siteType = getSiteType(finding)
@@ -689,11 +689,6 @@ export function ReviewExportSubStep({
                       </div>
                     )
                   })}
-                  {savedFindings.length > 30 && (
-                    <p className="text-muted-foreground pt-1 text-center text-xs">
-                      +{savedFindings.length - 30} more findings
-                    </p>
-                  )}
                 </div>
               )}
             </div>

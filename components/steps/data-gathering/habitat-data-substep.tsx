@@ -45,7 +45,8 @@ import {
   useDeleteFinding,
   useUpdateFinding,
 } from '@/hooks/queries/use-finding-hooks'
-import type { Project, DeskResearchFinding, Json } from '@/types/database'
+import { useUpdateWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
+import type { Project, DeskResearchFinding, WorkflowStep, Json } from '@/types/database'
 
 const ProjectMap = dynamic(
   () => import('@/components/maps/project-map').then((mod) => mod.ProjectMap),
@@ -69,6 +70,7 @@ interface HabitatDataSubStepProps {
   isActive?: boolean
   userId: string
   savedFindings: DeskResearchFinding[]
+  workflowStep?: WorkflowStep
 }
 
 export interface HabitatResult {
@@ -91,6 +93,7 @@ export function HabitatDataSubStep({
   isActive,
   userId,
   savedFindings,
+  workflowStep,
 }: HabitatDataSubStepProps) {
   const { toast } = useToast()
   const createFinding = useCreateFinding()
@@ -114,7 +117,11 @@ export function HabitatDataSubStep({
     `${cacheKey}-summaries`,
     {}
   )
-  const [overallAi, setOverallAi] = useSessionStorage<string>(`${cacheKey}-ai`, '')
+  const updateWorkflowStep = useUpdateWorkflowStep()
+  const [overallAi, setOverallAi] = React.useState<string>(() => {
+    const meta = workflowStep?.metadata as Record<string, unknown> | null
+    return (meta?.habitatOverallAnalysis as string) || ''
+  })
   const [loadingSummaries, setLoadingSummaries] = React.useState<Set<string>>(new Set())
   const [isOverallLoading, setIsOverallLoading] = React.useState(false)
   const [savingIds, setSavingIds] = React.useState<Set<string>>(new Set())
@@ -324,6 +331,20 @@ export function HabitatDataSubStep({
       if (res.ok) {
         const data = await res.json()
         setOverallAi(data.analysis)
+        // Persist to workflow step metadata
+        if (workflowStep) {
+          const existingMeta = (workflowStep.metadata as Record<string, unknown>) || {}
+          updateWorkflowStep.mutate({
+            stepId: workflowStep.id,
+            updates: {
+              metadata: {
+                ...existingMeta,
+                habitatOverallAnalysis: data.analysis,
+                habitatOverallAnalysisUpdatedAt: new Date().toISOString(),
+              } as unknown as Json,
+            },
+          })
+        }
       }
     } finally {
       setIsOverallLoading(false)
@@ -753,11 +774,12 @@ export function HabitatDataSubStep({
         }
         projectName={project.name}
         bufferKm={selectedBuffer}
-        onSaveAnalysis={(data) => {
+        onSaveAnalysis={async (data) => {
           if (deepResearchSite) {
-            const existing = getSavedFinding(deepResearchSite.nlcId)
+            const r = deepResearchSite
+            const existing = getSavedFinding(r.nlcId)
             if (existing) {
-              // Save deep research to raw_data.deepResearch (don't overwrite aiSummary)
+              // Update existing finding with deep research
               const existingRaw = (existing.raw_data as Record<string, unknown>) || {}
               updateFinding.mutate({
                 findingId: existing.id,
@@ -768,10 +790,39 @@ export function HabitatDataSubStep({
                   } as unknown as Json,
                 },
               })
+            } else {
+              // Auto-save finding with deep research (card not saved yet)
+              const pct = totalArea > 0 ? ((r.areaHectares / totalArea) * 100).toFixed(1) : '0'
+              await createFinding.mutateAsync({
+                project_id: project.id,
+                created_by: userId,
+                source: 'manual' as const,
+                data_type: 'habitat' as const,
+                include_in_report: true,
+                title: `${r.fossittCode} — ${r.fossittName}`,
+                content:
+                  aiSummaries[r.nlcId] || `${r.fossittName} (${r.areaHectares} ha, ${pct}% cover)`,
+                is_saved: true,
+                notes: notes[r.nlcId] || null,
+                raw_data: {
+                  habitatFinding: true,
+                  nlcId: r.nlcId,
+                  nlcLabel: r.nlcLabel,
+                  nlcLevel1: r.nlcLevel1,
+                  fossittCode: r.fossittCode,
+                  fossittName: r.fossittName,
+                  areaHectares: r.areaHectares,
+                  polygonCount: r.polygonCount,
+                  percentCover: pct,
+                  aiSummary: aiSummaries[r.nlcId] || null,
+                  bufferKm: selectedBuffer,
+                  deepResearch: { aiAnalysis: data.aiAnalysis },
+                } as unknown as Json,
+              })
             }
             // Auto-trigger short AI summary if not already generated
-            if (!aiSummaries[deepResearchSite.nlcId]) {
-              const habitat = results.find((r) => r.nlcId === deepResearchSite.nlcId)
+            if (!aiSummaries[r.nlcId]) {
+              const habitat = results.find((h) => h.nlcId === r.nlcId)
               if (habitat) fetchAiSummary(habitat)
             }
           }

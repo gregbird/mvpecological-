@@ -65,11 +65,18 @@ export function useUpdateFinding() {
     }: {
       findingId: string
       updates: UpdateTables<'desk_research_findings'>
+      projectId?: string
     }) => updateFinding(findingId, updates),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['findings'] })
-      queryClient.invalidateQueries({ queryKey: ['saved-findings'] })
-      queryClient.invalidateQueries({ queryKey: ['findings-stats'] })
+    onSuccess: (_data, variables) => {
+      if (variables.projectId) {
+        queryClient.invalidateQueries({ queryKey: ['findings', variables.projectId] })
+        queryClient.invalidateQueries({ queryKey: ['saved-findings', variables.projectId] })
+        queryClient.invalidateQueries({ queryKey: ['findings-stats', variables.projectId] })
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['findings'] })
+        queryClient.invalidateQueries({ queryKey: ['saved-findings'] })
+        queryClient.invalidateQueries({ queryKey: ['findings-stats'] })
+      }
     },
   })
 }

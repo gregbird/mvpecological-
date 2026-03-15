@@ -25,11 +25,13 @@ interface PlanningPolicySubStepProps {
   isActive?: boolean
 }
 
-export function PlanningPolicySubStep({
-  project: _project,
-  isActive: _isActive,
-}: PlanningPolicySubStepProps) {
-  const [selectedCounty, setSelectedCounty] = React.useState('')
+export function PlanningPolicySubStep({ project }: PlanningPolicySubStepProps) {
+  const [selectedCounty, setSelectedCounty] = React.useState(() => {
+    if (project.county && findPlanByCounty(project.county)) {
+      return project.county
+    }
+    return ''
+  })
 
   const selectedPlan = selectedCounty ? findPlanByCounty(selectedCounty) : undefined
 

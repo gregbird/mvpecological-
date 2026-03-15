@@ -64,7 +64,17 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
   )
 
   // Grid resolution for NBDC search: '10km' | '2km' | '1km'
-  const [gridResolution, setGridResolution] = React.useState<'10km' | '2km' | '1km'>('10km')
+  const gridResolutionKey = `species-grid-res-${project.id}`
+  const [gridResolution, setGridResolution] = React.useState<'10km' | '2km' | '1km'>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = sessionStorage.getItem(gridResolutionKey)
+      if (cached === '10km' || cached === '2km' || cached === '1km') return cached
+    }
+    return '10km'
+  })
+  React.useEffect(() => {
+    sessionStorage.setItem(gridResolutionKey, gridResolution)
+  }, [gridResolution, gridResolutionKey])
 
   // Auto-enrich findings with NBDC data
   const autoEnrich = async (
@@ -375,7 +385,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
         }
 
         // --- NBDC Grid Reference Search (primary) ---
-        let nbdcRecords: NBDCRecord[] = []
+        const nbdcRecords: NBDCRecord[] = []
         if (gridRefsToSearch.length > 0) {
           try {
             // Fetch in batches of 5 to avoid overwhelming the API

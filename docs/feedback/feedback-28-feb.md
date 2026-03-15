@@ -148,10 +148,14 @@ Greg, nehir mesafesini (nehir yatagi boyunca) istiyor, duz cizgi (kus ucusu) deg
 
 **Not:** Bu madde 6 ile birlikte degerlendirilmeli. Oncelik: once #6'yi duzelt (geometri-bazli mesafe), sonra #7 icin nehir network mesafesini degerlendirt.
 
-**Yapilacilar:**
+**Durum: TAMAM** (15 Mart 2026)
 
-- [ ] **7.1** EPA AAGeoTool API'sini arastir — nehir mesafesi hesaplama endpoint'i var mi?
-- [ ] **7.2** Alternatif: WFD river network geometrisi uzerinde nearest-point-on-line hesaplamasi
+EPA WATER_RIVNETROUTES WFS katmani (116K segment) + Catchments.ie downstream baglantisi kullanilarak nehir agi uzerinde mesafe hesaplaniyor. Deep Research modalinda SAC tab'inda ve overview'da gosteriliyor — downstream path breadcrumb'i ve "Within 15km ZoI" uyarisi ile birlikte.
+
+- [x] **7.1** EPA RIVNETROUTES WFS segmentleri + CQL_FILTER ile veri cekimi
+- [x] **7.2** Snap-to-nearest-segment + Z koordinatlari ile akis yonu belirleme
+- [x] **7.3** Catchments.ie downstream connectivity ile su kutlesi zincirleme
+- [x] **7.4** SAC tab'inda river distance card + downstream path breadcrumb
 
 ---
 
@@ -159,18 +163,14 @@ Greg, nehir mesafesini (nehir yatagi boyunca) istiyor, duz cizgi (kus ucusu) deg
 
 **Orijinal:** "Legend Selection, Default View and Orientation (portgrid layout, landscape option), Map Size Options (A5, A4, A3)."
 
-**Analiz:**
-Step 7 (Data Analysis) harita sekmesinde rapor icin harita ciktisi ozellikleri:
+**Durum: TAMAM** (15 Mart 2026)
 
-- **Legend Selection:** Kullanici haritada hangi lejant(lar)i gostermek istedigini secer
-- **Default View:** Varsayilan gorunum "portrait" grid tabanlii layout, landscape secenegi de olacak
-- **Map Size:** A5, A4, A3 kagit boyutu secimi (harita export/print icin)
+Maps tab'ina 3 ozellik eklendi: legend checkbox secimi, A5/A4/A3 sayfa boyutu ve landscape/portrait yon secici. Screenshot ciktisi secilen boyuta gore olusturuluyor. Species observations katmani da haritaya eklendi.
 
-**Yapilacilar:**
-
-- [ ] **8.1** Harita legend secim paneli (hangi katmanlarin lejanti gosterilecek)
-- [ ] **8.2** Portrait/Landscape orientation secimi
-- [ ] **8.3** Kagit boyutu secimi (A5, A4, A3) ve harita boyutlandirma
+- [x] **8.1** Harita legend secim paneli (checkbox'lar ile lejant item secimi)
+- [x] **8.2** Portrait/Landscape orientation secimi
+- [x] **8.3** Kagit boyutu secimi (A5, A4, A3) ve screenshot boyutlandirma
+- [x] **8.4** Species observations katmani haritaya eklendi
 
 ---
 
@@ -184,9 +184,9 @@ Step 7 (Data Analysis) harita sekmesinde rapor icin harita ciktisi ozellikleri:
 | 3   | Species proximity filtresi       | ~~Sari~~ Tamam    | Dusuk  | -           |
 | 2   | Rapor appendix tablolari         | ~~Sari~~ Tamam    | Orta   | -           |
 | 4   | National Land Cover habitat data | ~~Sari~~ Tamam    | Yuksek | -           |
-| 7   | Nehir mesafesi (river distance)  | Sari              | Yuksek | 6           |
-| 8   | Data Analysis harita ozellikleri | Sari              | Yuksek | -           |
+| 7   | Nehir mesafesi (river distance)  | ~~Sari~~ Tamam    | Yuksek | 6           |
+| 8   | Data Analysis harita ozellikleri | ~~Sari~~ Tamam    | Yuksek | -           |
 
 ---
 
-_Son guncelleme: 12 Mart 2026_
+_Son guncelleme: 15 Mart 2026_
