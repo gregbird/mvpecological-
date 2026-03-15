@@ -23,6 +23,7 @@ const APPENDIX_LABELS: Record<string, string> = {
   photographs: 'Site Photographs',
   survey_datasheets: 'Survey Datasheets',
   desk_study_data: 'Desk Study Data',
+  aquatic_data: 'Aquatic Features',
   legislation: 'Legislation References',
 }
 
@@ -884,9 +885,23 @@ export async function generatePeaPdf(options: PeaExportOptions): Promise<jsPDF> 
         y = renderTable(doc, hTable, y, margin, contentWidth, ensureSpace, newPage)
         y += 4
 
+        // --- Aquatic Features table ---
+      } else if (key === 'aquatic_data' && ad && ad.aquaticFeatures.length > 0) {
+        await yieldToBrowser()
+        const aqTable: MdTable = {
+          type: 'table',
+          headers: ['Name', 'Type', 'WFD Status', 'Distance'],
+          rows: ad.aquaticFeatures.map((a) => [a.name, a.waterBodyType, a.wfdStatus, a.distanceKm]),
+        }
+        y = renderTable(doc, aqTable, y, margin, contentWidth, ensureSpace, newPage)
+        y += 4
+
         // --- Other appendices: placeholder ---
       } else if (
-        (key !== 'desk_study_data' && key !== 'species_list' && key !== 'habitat_data') ||
+        (key !== 'desk_study_data' &&
+          key !== 'species_list' &&
+          key !== 'habitat_data' &&
+          key !== 'aquatic_data') ||
         !ad
       ) {
         y = writePlainText('[Content to be inserted]', margin, y, {
@@ -1103,6 +1118,16 @@ export function generatePeaHtml(options: PeaExportOptions): string {
               )
               .join('')
             return `${heading}<table><thead><tr><th>Fossitt Code</th><th>Habitat Category</th><th>Area (ha)</th><th>% Cover</th></tr></thead><tbody>${rows}</tbody></table>`
+          }
+
+          if (a === 'aquatic_data' && ad && ad.aquaticFeatures.length > 0) {
+            const rows = ad.aquaticFeatures
+              .map(
+                (aq) =>
+                  `<tr><td>${escapeHtml(aq.name)}</td><td>${escapeHtml(aq.waterBodyType)}</td><td>${escapeHtml(aq.wfdStatus)}</td><td>${escapeHtml(aq.distanceKm)}</td></tr>`
+              )
+              .join('')
+            return `${heading}<table><thead><tr><th>Name</th><th>Type</th><th>WFD Status</th><th>Distance</th></tr></thead><tbody>${rows}</tbody></table>`
           }
 
           return `${heading}<p><em>[Content to be inserted]</em></p>`

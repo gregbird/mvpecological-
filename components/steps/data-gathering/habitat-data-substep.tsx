@@ -20,7 +20,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -645,38 +644,37 @@ export function HabitatDataSubStep({
 
                         {/* Note edit area */}
                         {isEditingNote && (
-                          <div className="mt-2">
-                            <Textarea
+                          <div className="mt-1.5 space-y-1.5">
+                            <textarea
                               autoFocus
                               rows={3}
                               value={noteDraft}
                               onChange={(e) => setNoteDraft(e.target.value)}
-                              placeholder="Add notes about this habitat..."
-                              className="min-h-[60px] border-amber-300 bg-amber-50 text-xs text-amber-900 placeholder:text-amber-400 focus:border-amber-400 focus:ring-amber-300"
+                              placeholder="Add a note about this finding..."
+                              className="w-full rounded border border-amber-300 bg-amber-50 p-2 text-[11px] leading-relaxed text-amber-900 placeholder:text-amber-400 focus:border-amber-400 focus:ring-1 focus:ring-amber-300 focus:outline-none"
                               onClick={(e) => e.stopPropagation()}
                             />
-                            <div className="mt-1 flex gap-1">
-                              <Button
-                                size="sm"
-                                className="h-6 text-[11px]"
+                            <div className="flex items-center gap-2">
+                              <button
+                                className="flex h-6 items-center gap-1 rounded bg-amber-500 px-2 text-[11px] font-medium text-white hover:bg-amber-600"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   saveNote(r.nlcId)
                                 }}
                               >
+                                <Check className="h-3 w-3" />
                                 Save
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-6 text-[11px]"
+                              </button>
+                              <button
+                                className="flex h-6 items-center gap-1 rounded px-2 text-[11px] text-gray-500 hover:text-gray-700"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   setEditingNoteId(null)
                                 }}
                               >
+                                <span className="text-[11px]">×</span>
                                 Cancel
-                              </Button>
+                              </button>
                             </div>
                           </div>
                         )}
@@ -757,18 +755,24 @@ export function HabitatDataSubStep({
         bufferKm={selectedBuffer}
         onSaveAnalysis={(data) => {
           if (deepResearchSite) {
-            setAiSummaries((prev) => ({ ...prev, [deepResearchSite.nlcId]: data.aiAnalysis }))
-            // Persist to DB if finding is already saved
             const existing = getSavedFinding(deepResearchSite.nlcId)
             if (existing) {
+              // Save deep research to raw_data.deepResearch (don't overwrite aiSummary)
               const existingRaw = (existing.raw_data as Record<string, unknown>) || {}
               updateFinding.mutate({
                 findingId: existing.id,
                 updates: {
-                  content: data.aiAnalysis,
-                  raw_data: { ...existingRaw, aiSummary: data.aiAnalysis } as unknown as Json,
+                  raw_data: {
+                    ...existingRaw,
+                    deepResearch: { aiAnalysis: data.aiAnalysis },
+                  } as unknown as Json,
                 },
               })
+            }
+            // Auto-trigger short AI summary if not already generated
+            if (!aiSummaries[deepResearchSite.nlcId]) {
+              const habitat = results.find((r) => r.nlcId === deepResearchSite.nlcId)
+              if (habitat) fetchAiSummary(habitat)
             }
           }
         }}

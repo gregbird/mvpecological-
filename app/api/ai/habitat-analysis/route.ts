@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     const { user: _authUser, error: authError } = await requireAuth()
     if (authError) return authError
 
-    const { habitats, projectName, bufferKm } = await request.json()
+    const { habitats, projectName, bufferKm, singleHabitat } = await request.json()
 
     if (!habitats || !Array.isArray(habitats) || habitats.length === 0) {
       return NextResponse.json({ error: 'habitats array is required' }, { status: 400 })
@@ -34,7 +34,26 @@ export async function POST(request: NextRequest) {
       }
     )
 
-    const prompt = `Analyse the following habitat composition within ${bufferKm || 5}km of ${projectName ? `"${projectName}"` : 'the project site'} in Ireland. Data from National Land Cover 2018 mapped to Fossitt habitat codes.
+    const siteContext = projectName ? `"${projectName}"` : 'the project site'
+    const bufferStr = bufferKm || 5
+
+    // Single habitat deep research vs overall composition analysis
+    const prompt =
+      singleHabitat && habitats.length === 1
+        ? `Provide a detailed ecological deep research analysis for the habitat type **${habitats[0].fossittCode} — ${habitats[0].fossittName}** (NLC category: ${habitats[0].nlcLabel}) found within ${bufferStr}km of ${siteContext} in Ireland.
+
+This habitat covers ${habitats[0].areaHectares.toLocaleString()} ha in the study area.
+
+Provide a structured analysis specific to THIS habitat type covering:
+1. **Habitat Description** — Detailed description of ${habitats[0].fossittCode} according to Fossitt classification, typical vegetation structure, indicator species, soil/hydrology requirements
+2. **Conservation Status** — Is this an Annex I habitat under the EU Habitats Directive? What is its conservation status in Ireland? Any relevant Article 17 reporting data?
+3. **Associated Protected Species** — Which protected species (Wildlife Acts, Habitats Directive Annexes) are typically associated with this habitat in Ireland? Be specific to the habitat type.
+4. **Ecological Sensitivities** — Key sensitivities, threats, and pressures specific to this habitat (e.g. drainage, overgrazing, invasive species, nutrient enrichment)
+5. **Field Survey Requirements** — Recommended survey methods for this habitat (relevé, quadrat, DAFOR scale), optimal survey season, what to look for during ground-truthing
+6. **Assessment Implications** — What does the presence of this habitat mean for EcIA/AA screening? Any specific mitigation measures typically required?
+
+Be specific to Irish ecological context. Reference Fossitt (2000), relevant NPWS guidance, and EU Habitats Directive where applicable.`
+        : `Analyse the following habitat composition within ${bufferStr}km of ${siteContext} in Ireland. Data from National Land Cover 2018 mapped to Fossitt habitat codes.
 
 Total area: ${totalArea.toLocaleString()} ha
 ${habitatLines.join('\n')}

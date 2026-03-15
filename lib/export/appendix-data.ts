@@ -30,10 +30,19 @@ export interface HabitatRow {
   percentCover: string
 }
 
+export interface AquaticFeatureRow {
+  name: string
+  waterBodyType: string
+  wfdStatus: string
+  distanceKm: string
+  aiSummary: string
+}
+
 export interface AppendixData {
   designatedSites: DesignatedSiteRow[]
   speciesRecords: SpeciesRecordRow[]
   habitats: HabitatRow[]
+  aquaticFeatures: AquaticFeatureRow[]
 }
 
 // ============================================================
@@ -200,5 +209,38 @@ export function prepareAppendixData(findings: DeskResearchFinding[]): AppendixDa
     })
     .sort((a, b) => a.fossittCode.localeCompare(b.fossittCode))
 
-  return { designatedSites, speciesRecords, habitats }
+  // --- Aquatic Features ---
+  const aquaticFeatures: AquaticFeatureRow[] = grouped.aquatic
+    .map((f) => {
+      const rawData = getRawData(f)
+      const metadata = getMetadata(rawData)
+
+      const siteType = String(metadata.siteType ?? rawData.waterBodyType ?? '')
+      let waterBodyType = 'River'
+      if (siteType.toLowerCase().includes('lake')) waterBodyType = 'Lake'
+      else if (siteType.toLowerCase().includes('transitional')) waterBodyType = 'Transitional'
+      else if (f.data_type === 'catchment') waterBodyType = 'Catchment'
+
+      const wfdStatus = String(
+        rawData.WFD_Status ?? rawData.wfdStatus ?? metadata.designation ?? '—'
+      )
+
+      return {
+        name: f.title,
+        waterBodyType,
+        wfdStatus,
+        distanceKm:
+          f.distance_from_boundary_km != null
+            ? `${f.distance_from_boundary_km.toFixed(1)} km`
+            : '—',
+        aiSummary: getAiSummary(rawData),
+      }
+    })
+    .sort((a, b) => {
+      const da = parseFloat(a.distanceKm) || 999
+      const db = parseFloat(b.distanceKm) || 999
+      return da - db
+    })
+
+  return { designatedSites, speciesRecords, habitats, aquaticFeatures }
 }

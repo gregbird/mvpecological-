@@ -538,7 +538,7 @@ function MapComponent({
             const isFaded = fill < 0.1
             return {
               color: isHighlighted ? '#1e293b' : (props?.color as string) || '#22c55e',
-              weight: isHighlighted ? 3 : isFaded ? 0 : 0.5,
+              weight: isHighlighted ? 1 : isFaded ? 0 : 0.3,
               opacity: isFaded ? 0 : 1,
               fillColor: (props?.color as string) || '#22c55e',
               fillOpacity: fill,

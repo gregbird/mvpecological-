@@ -139,6 +139,7 @@ export const NLC_LEVEL1_COLORS: Record<string, string> = {
 /**
  * Fetch NLC 2018 polygons with geometry for map display.
  * Uses outSR=4326 and maxAllowableOffset for geometry simplification.
+ * Paginates with resultOffset to retrieve all polygons (ArcGIS returns max 2000 per request).
  * Returns GeoJSON FeatureCollection for Leaflet rendering.
  */
 export async function fetchNlcPolygons(
@@ -151,56 +152,73 @@ export async function fetchNlcPolygons(
   const extent = Math.max(bbox.maxLng - bbox.minLng, bbox.maxLat - bbox.minLat)
   const simplifyTolerance = extent * 0.005
 
-  const body = new URLSearchParams({
-    f: 'geojson',
-    where: '1=1',
-    returnGeometry: 'true',
-    geometryType: 'esriGeometryEnvelope',
-    spatialRel: 'esriSpatialRelIntersects',
-    inSR: '4326',
-    outSR: '4326',
-    outFields: 'LEVEL_2_ID,LEVEL_2_VALUE,LEVEL_1_VALUE,AREA',
-    maxAllowableOffset: simplifyTolerance.toString(),
-    resultRecordCount: '2000',
-    geometry: JSON.stringify({
-      xmin: bbox.minLng,
-      ymin: bbox.minLat,
-      xmax: bbox.maxLng,
-      ymax: bbox.maxLat,
-      spatialReference: { wkid: 4326 },
-    }),
+  const PAGE_SIZE = 2000
+  const MAX_FEATURES = 15000
+  const allFeatures: GeoJSON.Feature[] = []
+  let offset = 0
+
+  const geometryJson = JSON.stringify({
+    xmin: bbox.minLng,
+    ymin: bbox.minLat,
+    xmax: bbox.maxLng,
+    ymax: bbox.maxLat,
+    spatialReference: { wkid: 4326 },
   })
 
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 45000)
-
   try {
-    const response = await fetch(`${NLC_FEATURE_SERVER}/query`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: body.toString(),
-      signal: controller.signal,
-    })
-    clearTimeout(timeoutId)
+    while (offset < MAX_FEATURES) {
+      const body = new URLSearchParams({
+        f: 'geojson',
+        where: '1=1',
+        returnGeometry: 'true',
+        geometryType: 'esriGeometryEnvelope',
+        spatialRel: 'esriSpatialRelIntersects',
+        inSR: '4326',
+        outSR: '4326',
+        outFields: 'LEVEL_2_ID,LEVEL_2_VALUE,LEVEL_1_VALUE,AREA',
+        maxAllowableOffset: simplifyTolerance.toString(),
+        resultRecordCount: PAGE_SIZE.toString(),
+        resultOffset: offset.toString(),
+        geometry: geometryJson,
+      })
 
-    if (!response.ok) {
-      console.error(`NLC polygon query error: ${response.status}`)
-      return empty
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 45000)
+
+      const response = await fetch(`${NLC_FEATURE_SERVER}/query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+        signal: controller.signal,
+      })
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        console.error(`NLC polygon query error: ${response.status}`)
+        break
+      }
+
+      const data = await response.json()
+
+      if (data.error) {
+        console.error('NLC polygon query API error:', data.error)
+        break
+      }
+
+      const fc = data as GeoJSON.FeatureCollection
+      if (!fc.features || fc.features.length === 0) break
+
+      allFeatures.push(...fc.features)
+
+      // If we got fewer than PAGE_SIZE, we've reached the end
+      if (fc.features.length < PAGE_SIZE) break
+      offset += PAGE_SIZE
     }
 
-    const data = await response.json()
-
-    if (data.error) {
-      console.error('NLC polygon query API error:', data.error)
-      return empty
-    }
-
-    // f=geojson returns a FeatureCollection directly
-    const fc = data as GeoJSON.FeatureCollection
-    if (!fc.features || fc.features.length === 0) return empty
+    if (allFeatures.length === 0) return empty
 
     // Enrich properties with Fossitt mapping and color for map styling
-    for (const feature of fc.features) {
+    for (const feature of allFeatures) {
       const props = feature.properties ?? {}
       const level1 = String(props.LEVEL_1_VALUE || '')
       const nlcId = String(props.LEVEL_2_ID || '')
@@ -217,13 +235,16 @@ export async function fetchNlcPolygons(
       }
     }
 
-    return fc
+    return { type: 'FeatureCollection', features: allFeatures }
   } catch (error) {
-    clearTimeout(timeoutId)
     if (error instanceof Error && error.name === 'AbortError') {
       console.error('NLC polygon query timeout')
     } else {
       console.error('NLC polygon query error:', error)
+    }
+    // Return whatever we've collected so far
+    if (allFeatures.length > 0) {
+      return { type: 'FeatureCollection', features: allFeatures }
     }
     return empty
   }

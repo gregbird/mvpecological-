@@ -678,6 +678,20 @@ function buildReportContext(input: ReportContextInput): string {
             parts.push(`  Notes: ${f.notes}`)
           }
         }
+        // Extract AI summary from metadata
+        const raw = f.raw_data as Record<string, unknown> | null
+        const metadata = raw?.metadata as Record<string, unknown> | undefined
+        const aiSummary = metadata?.aiSummary || raw?.aiSummary
+        if (aiSummary) {
+          parts.push(`  AI Summary: ${String(aiSummary).substring(0, 400)}`)
+        }
+        // Extract deep research analysis
+        const deepResearch = (raw?.deepResearch || raw?.aquaticResearch) as
+          | Record<string, unknown>
+          | undefined
+        if (deepResearch?.aiAnalysis) {
+          parts.push(`  Deep Research: ${String(deepResearch.aiAnalysis).substring(0, 500)}`)
+        }
       }
     }
   } else {

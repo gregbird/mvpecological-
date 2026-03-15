@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react'
 import { toPng } from 'html-to-image'
 import type { MapStepName } from '@/lib/map-screenshots/types'
 
-const MAX_WIDTH = 1200
+const DEFAULT_MAX_WIDTH = 1200
 
 interface UseMapScreenshotOptions {
   containerRef: React.RefObject<HTMLDivElement | null>
@@ -13,7 +13,7 @@ interface UseMapScreenshotOptions {
 }
 
 interface UseMapScreenshotResult {
-  capture: () => Promise<string | null>
+  capture: (targetWidth?: number) => Promise<string | null>
   isCapturing: boolean
 }
 
@@ -48,65 +48,74 @@ export function useMapScreenshot({
 }: UseMapScreenshotOptions): UseMapScreenshotResult {
   const [isCapturing, setIsCapturing] = useState(false)
 
-  const capture = useCallback(async (): Promise<string | null> => {
-    const container = containerRef.current
-    if (!container || isCapturing) return null
+  const capture = useCallback(
+    async (targetWidth?: number): Promise<string | null> => {
+      const container = containerRef.current
+      if (!container || isCapturing) return null
 
-    setIsCapturing(true)
+      setIsCapturing(true)
 
-    try {
-      // Close any open popups by finding the Leaflet map instance
-      const mapContainer = container.querySelector('.leaflet-container') as HTMLElement | null
-      if (mapContainer) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const leafletMap = (mapContainer as any)._leaflet_map
-        if (leafletMap) {
-          leafletMap.closePopup()
+      try {
+        // Close any open popups by finding the Leaflet map instance
+        const mapContainer = container.querySelector('.leaflet-container') as HTMLElement | null
+        if (mapContainer) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const leafletMap = (mapContainer as any)._leaflet_map
+          if (leafletMap) {
+            leafletMap.closePopup()
+          }
         }
+
+        // Wait for tiles to finish loading
+        await new Promise<void>((resolve) => {
+          const checkTiles = () => {
+            const loadingTiles = container.querySelectorAll('.leaflet-tile-loading')
+            if (loadingTiles.length === 0) {
+              resolve()
+            } else {
+              setTimeout(checkTiles, 200)
+            }
+          }
+          checkTiles()
+        })
+
+        // Extra buffer for rendering
+        await new Promise((resolve) => setTimeout(resolve, 300))
+
+        // Use higher pixelRatio when target width exceeds container width
+        // so the output image matches the requested page dimensions
+        const containerWidth = container.offsetWidth
+        const desiredWidth = targetWidth || DEFAULT_MAX_WIDTH
+        const pixelRatio = Math.max(1, Math.ceil(desiredWidth / containerWidth))
+
+        const rawDataUrl = await toPng(container, {
+          pixelRatio,
+          cacheBust: true,
+          filter: (node: HTMLElement) => {
+            if (!(node instanceof HTMLElement)) return true
+            if (node.getAttribute?.('data-map-control') === 'true') return false
+            if (
+              node.classList?.contains('leaflet-control-zoom') ||
+              node.classList?.contains('leaflet-draw')
+            ) {
+              return false
+            }
+            return true
+          },
+        })
+
+        // Compress: resize to target width + JPEG quality 0.7
+        const compressed = await compressImage(rawDataUrl, desiredWidth)
+        return compressed
+      } catch (error) {
+        console.error('Map screenshot capture failed:', error)
+        return null
+      } finally {
+        setIsCapturing(false)
       }
-
-      // Wait for tiles to finish loading
-      await new Promise<void>((resolve) => {
-        const checkTiles = () => {
-          const loadingTiles = container.querySelectorAll('.leaflet-tile-loading')
-          if (loadingTiles.length === 0) {
-            resolve()
-          } else {
-            setTimeout(checkTiles, 200)
-          }
-        }
-        checkTiles()
-      })
-
-      // Extra buffer for rendering
-      await new Promise((resolve) => setTimeout(resolve, 300))
-
-      const rawDataUrl = await toPng(container, {
-        pixelRatio: 1,
-        cacheBust: true,
-        filter: (node: HTMLElement) => {
-          if (!(node instanceof HTMLElement)) return true
-          if (node.getAttribute?.('data-map-control') === 'true') return false
-          if (
-            node.classList?.contains('leaflet-control-zoom') ||
-            node.classList?.contains('leaflet-draw')
-          ) {
-            return false
-          }
-          return true
-        },
-      })
-
-      // Compress: resize to max 1200px width + JPEG quality 0.7
-      const compressed = await compressImage(rawDataUrl, MAX_WIDTH)
-      return compressed
-    } catch (error) {
-      console.error('Map screenshot capture failed:', error)
-      return null
-    } finally {
-      setIsCapturing(false)
-    }
-  }, [containerRef, isCapturing])
+    },
+    [containerRef, isCapturing]
+  )
 
   return { capture, isCapturing }
 }

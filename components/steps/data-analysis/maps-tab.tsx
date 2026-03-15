@@ -2,20 +2,37 @@
 
 import * as React from 'react'
 import dynamic from 'next/dynamic'
-import { Loader2, Camera, Layers, Sparkles, ChevronDown, ChevronRight } from 'lucide-react'
+import {
+  Loader2,
+  Camera,
+  Layers,
+  Sparkles,
+  ChevronDown,
+  ChevronRight,
+  RectangleHorizontal,
+  RectangleVertical,
+} from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-
+import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { IRELAND_CENTER } from '@/lib/config/map-constants'
 import { useToast } from '@/hooks/use-toast'
 import { useSavedFindings } from '@/hooks/queries/use-finding-hooks'
 import { useHabitats } from '@/hooks/queries/use-habitat-hooks'
 import { useTargetNotes } from '@/hooks/queries/use-target-note-hooks'
+import { useProjectObservations } from '@/hooks/queries/use-observation-hooks'
 import { useMapScreenshot } from '@/hooks/use-map-screenshot'
 import { saveScreenshot } from '@/lib/map-screenshots/storage'
 import { STEP_LABELS } from '@/lib/map-screenshots/types'
@@ -53,9 +70,35 @@ interface MapsTabProps {
 
 /** Legend item display */
 interface LegendEntry {
+  id: string
   label: string
   color: string
   type: 'line' | 'fill' | 'circle'
+}
+
+type PageSize = 'a5' | 'a4' | 'a3'
+type Orientation = 'landscape' | 'portrait'
+
+/** Map container dimensions in pixels for each page size + orientation */
+const PAGE_SIZE_CONFIG: Record<
+  PageSize,
+  { label: string; landscape: { w: number; h: number }; portrait: { w: number; h: number } }
+> = {
+  a5: {
+    label: 'A5',
+    landscape: { w: 840, h: 594 },
+    portrait: { w: 594, h: 840 },
+  },
+  a4: {
+    label: 'A4',
+    landscape: { w: 1190, h: 842 },
+    portrait: { w: 842, h: 1190 },
+  },
+  a3: {
+    label: 'A3',
+    landscape: { w: 1587, h: 1123 },
+    portrait: { w: 1123, h: 1587 },
+  },
 }
 
 const FINDING_TYPE_LEGEND: Record<string, { label: string; color: string }> = {
@@ -74,12 +117,20 @@ export function MapsTab({ projectId, userId, project }: MapsTabProps) {
   const { data: findings = [] } = useSavedFindings(projectId)
   const { data: habitats = [] } = useHabitats(projectId)
   const { data: targetNotes = [] } = useTargetNotes(projectId)
+  const { data: observations = [] } = useProjectObservations(projectId)
 
   // Layer visibility state
   const [visibleOverlays, setVisibleOverlays] = React.useState<Set<string>>(
-    () => new Set(['boundary', 'findings', 'habitats', 'target-notes'])
+    () => new Set(['boundary', 'findings', 'habitats', 'target-notes', 'observations'])
   )
   const [expandedGroups, setExpandedGroups] = React.useState<string[]>(['overlays'])
+
+  // Map layout state
+  const [pageSize, setPageSize] = React.useState<PageSize>('a4')
+  const [orientation, setOrientation] = React.useState<Orientation>('landscape')
+
+  // Legend selection state — track deselected items (all selected by default)
+  const [deselectedLegendIds, setDeselectedLegendIds] = React.useState<Set<string>>(new Set())
 
   // Screenshot state
   const { capture, isCapturing } = useMapScreenshot({
@@ -157,6 +208,23 @@ export function MapsTab({ projectId, userId, project }: MapsTabProps) {
       }))
   }, [targetNotes, visibleOverlays])
 
+  // Convert observations to GeoJSON FeatureCollection
+  const observationPoints: GeoJSON.FeatureCollection | undefined = React.useMemo(() => {
+    if (!visibleOverlays.has('observations')) return undefined
+    const features = observations
+      .filter((o) => o.location)
+      .map((o) => ({
+        type: 'Feature' as const,
+        geometry: o.location as GeoJSON.Point,
+        properties: {
+          id: o.id,
+          name: o.species_name_common || o.species_name_scientific,
+          isProtected: o.is_protected || false,
+        },
+      }))
+    return features.length > 0 ? { type: 'FeatureCollection', features } : undefined
+  }, [observations, visibleOverlays])
+
   // Toggle overlay visibility
   const toggleOverlay = (id: string) => {
     setVisibleOverlays((prev) => {
@@ -170,12 +238,12 @@ export function MapsTab({ projectId, userId, project }: MapsTabProps) {
     })
   }
 
-  // Build legend entries from active layers
+  // Build all possible legend entries from active layers
   const legendEntries: LegendEntry[] = React.useMemo(() => {
     const entries: LegendEntry[] = []
 
     if (visibleOverlays.has('boundary') && projectBoundary) {
-      entries.push({ label: 'Site Boundary', color: '#ef4444', type: 'line' })
+      entries.push({ id: 'boundary', label: 'Site Boundary', color: '#ef4444', type: 'line' })
     }
 
     if (visibleOverlays.has('habitats') && habitats.length > 0) {
@@ -184,6 +252,7 @@ export function MapsTab({ projectId, userId, project }: MapsTabProps) {
         const info = getHabitatByCode(code)
         if (info) {
           entries.push({
+            id: `habitat-${code}`,
             label: `${code} - ${info.name}`,
             color: info.color || '#22c55e',
             type: 'fill',
@@ -196,20 +265,79 @@ export function MapsTab({ projectId, userId, project }: MapsTabProps) {
       const types = new Set(findings.filter((f) => f.include_in_report).map((f) => f.data_type))
       types.forEach((type) => {
         const config = FINDING_TYPE_LEGEND[type] || FINDING_TYPE_LEGEND.other
-        entries.push({ label: config.label, color: config.color, type: 'circle' })
+        entries.push({
+          id: `finding-${type}`,
+          label: config.label,
+          color: config.color,
+          type: 'circle',
+        })
       })
     }
 
+    if (visibleOverlays.has('observations') && observations.length > 0) {
+      const protectedCount = observations.filter((o) => o.is_protected).length
+      if (protectedCount > 0) {
+        entries.push({
+          id: 'observations-protected',
+          label: `Protected Species (${protectedCount})`,
+          color: '#ef4444',
+          type: 'circle',
+        })
+      }
+      const unprotectedCount = observations.length - protectedCount
+      if (unprotectedCount > 0) {
+        entries.push({
+          id: 'observations-other',
+          label: `Other Species (${unprotectedCount})`,
+          color: '#3b82f6',
+          type: 'circle',
+        })
+      }
+    }
+
     if (visibleOverlays.has('target-notes') && targetNotes.length > 0) {
-      entries.push({ label: 'Target Notes', color: '#f59e0b', type: 'circle' })
+      entries.push({
+        id: 'target-notes',
+        label: 'Target Notes',
+        color: '#f59e0b',
+        type: 'circle',
+      })
     }
 
     return entries
-  }, [visibleOverlays, projectBoundary, habitats, findings, targetNotes])
+  }, [visibleOverlays, projectBoundary, habitats, findings, targetNotes, observations])
 
-  // Screenshot handlers
+  // Toggle legend item selection
+  const toggleLegendItem = (id: string) => {
+    setDeselectedLegendIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  // Selected legend entries for display (all selected unless explicitly deselected)
+  const displayedLegendEntries = legendEntries.filter((e) => !deselectedLegendIds.has(e.id))
+
+  // Map container style based on page size + orientation
+  const mapContainerStyle = React.useMemo(() => {
+    const config = PAGE_SIZE_CONFIG[pageSize]
+    const dims = config[orientation]
+    return {
+      aspectRatio: `${dims.w} / ${dims.h}`,
+      maxHeight: orientation === 'portrait' ? '70vh' : undefined,
+    }
+  }, [pageSize, orientation])
+
+  // Screenshot handlers — capture at configured page size dimensions
   const handleCapture = async () => {
-    const dataUrl = await capture()
+    const config = PAGE_SIZE_CONFIG[pageSize]
+    const targetDims = config[orientation]
+    const dataUrl = await capture(targetDims.w)
     if (dataUrl) {
       setPendingDataUrl(dataUrl)
       setScreenshotName(STEP_LABELS.data_analysis)
@@ -221,16 +349,14 @@ export function MapsTab({ projectId, userId, project }: MapsTabProps) {
     if (!pendingDataUrl || !screenshotName.trim()) return
     setIsSaving(true)
     try {
-      const container = mapContainerRef.current
+      const config = PAGE_SIZE_CONFIG[pageSize]
+      const targetDims = config[orientation]
       await saveScreenshot(
         projectId,
         pendingDataUrl,
         'data_analysis',
         screenshotName.trim(),
-        {
-          width: container?.offsetWidth || 0,
-          height: container?.offsetHeight || 0,
-        },
+        { width: targetDims.w, height: targetDims.h },
         userId
       )
       toast({ title: 'Screenshot saved' })
@@ -247,14 +373,14 @@ export function MapsTab({ projectId, userId, project }: MapsTabProps) {
 
   // AI Legend generation
   const handleGenerateAiLegend = async () => {
-    if (legendEntries.length === 0) {
-      toast({ title: 'No layers visible', description: 'Enable some layers first.' })
+    if (displayedLegendEntries.length === 0) {
+      toast({ title: 'No legend items selected', description: 'Select some legend items first.' })
       return
     }
 
     setIsGeneratingLegend(true)
     try {
-      const layerDescriptions = legendEntries.map((e) => e.label).join(', ')
+      const layerDescriptions = displayedLegendEntries.map((e) => e.label).join(', ')
       const response = await fetch('/api/ai/legend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -290,6 +416,7 @@ export function MapsTab({ projectId, userId, project }: MapsTabProps) {
       color: '#3b82f6',
     },
     { id: 'habitats', label: `Habitats (${habitats.length})`, color: '#22c55e' },
+    { id: 'observations', label: `Observations (${observations.length})`, color: '#8b5cf6' },
     { id: 'target-notes', label: `Target Notes (${targetNotes.length})`, color: '#f59e0b' },
   ]
 
@@ -297,6 +424,57 @@ export function MapsTab({ projectId, userId, project }: MapsTabProps) {
     <div className="flex h-full flex-col gap-4 p-4 md:flex-row">
       {/* Left Panel - Layer Controls & Legend */}
       <div className="flex shrink-0 flex-col gap-4 md:w-[300px]">
+        {/* Map Size & Orientation */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Map Output</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 p-3 pt-0">
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <label className="text-muted-foreground mb-1 block text-[10px] font-medium">
+                  Page Size
+                </label>
+                <Select value={pageSize} onValueChange={(v) => setPageSize(v as PageSize)}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="a5">A5</SelectItem>
+                    <SelectItem value="a4">A4</SelectItem>
+                    <SelectItem value="a3">A3</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-muted-foreground mb-1 block text-[10px] font-medium">
+                  Orientation
+                </label>
+                <div className="flex gap-1">
+                  <Button
+                    variant={orientation === 'landscape' ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => setOrientation('landscape')}
+                    title="Landscape"
+                  >
+                    <RectangleHorizontal className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={orientation === 'portrait' ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => setOrientation('portrait')}
+                    title="Portrait"
+                  >
+                    <RectangleVertical className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Layer Controls */}
         <Card>
           <CardHeader className="pb-2">
@@ -390,7 +568,7 @@ export function MapsTab({ projectId, userId, project }: MapsTabProps) {
           </CardContent>
         </Card>
 
-        {/* Legend */}
+        {/* Legend with selection */}
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
@@ -400,7 +578,7 @@ export function MapsTab({ projectId, userId, project }: MapsTabProps) {
                 size="sm"
                 className="h-7 text-xs"
                 onClick={handleGenerateAiLegend}
-                disabled={isGeneratingLegend || legendEntries.length === 0}
+                disabled={isGeneratingLegend || displayedLegendEntries.length === 0}
               >
                 {isGeneratingLegend ? (
                   <Loader2 className="mr-1 h-3 w-3 animate-spin" />
@@ -417,8 +595,14 @@ export function MapsTab({ projectId, userId, project }: MapsTabProps) {
             ) : (
               <ScrollArea className="max-h-48">
                 <div className="space-y-1.5">
-                  {legendEntries.map((entry, i) => (
-                    <div key={i} className="flex items-center gap-2">
+                  {legendEntries.map((entry) => (
+                    <div key={entry.id} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`legend-${entry.id}`}
+                        checked={!deselectedLegendIds.has(entry.id)}
+                        onCheckedChange={() => toggleLegendItem(entry.id)}
+                        className="h-3.5 w-3.5"
+                      />
                       {entry.type === 'line' ? (
                         <div className="h-0.5 w-4" style={{ backgroundColor: entry.color }} />
                       ) : entry.type === 'fill' ? (
@@ -435,7 +619,15 @@ export function MapsTab({ projectId, userId, project }: MapsTabProps) {
                           style={{ backgroundColor: entry.color }}
                         />
                       )}
-                      <span className="text-xs">{entry.label}</span>
+                      <label
+                        htmlFor={`legend-${entry.id}`}
+                        className={cn(
+                          'cursor-pointer text-xs',
+                          deselectedLegendIds.has(entry.id) && 'text-muted-foreground line-through'
+                        )}
+                      >
+                        {entry.label}
+                      </label>
                     </div>
                   ))}
                 </div>
@@ -468,11 +660,12 @@ export function MapsTab({ projectId, userId, project }: MapsTabProps) {
       {/* Right - Map & Screenshots */}
       <div className="flex min-h-0 flex-1 flex-col gap-4">
         {/* Map */}
-        <Card className="flex min-h-80 flex-1 flex-col md:min-h-0">
+        <Card className="flex flex-1 flex-col md:min-h-0">
           <CardContent className="flex min-h-0 flex-1 flex-col p-3">
             <div
               ref={mapContainerRef}
-              className="min-h-64 flex-1 overflow-hidden rounded-lg border"
+              className="w-full overflow-hidden rounded-lg border"
+              style={mapContainerStyle}
             >
               <DynamicProjectMap
                 className="h-full"
@@ -481,6 +674,7 @@ export function MapsTab({ projectId, userId, project }: MapsTabProps) {
                 boundary={visibleOverlays.has('boundary') ? projectBoundary : undefined}
                 bufferDistances={project.buffer_distances ?? undefined}
                 habitatPolygons={habitatGeoJson}
+                observationPoints={observationPoints}
                 targetNotes={targetNoteMarkers}
                 findings={mapFindings}
                 showControls={false}

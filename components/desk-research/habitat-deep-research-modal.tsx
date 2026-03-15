@@ -43,6 +43,18 @@ export function HabitatDeepResearchModal({
   const [error, setError] = React.useState<string | null>(null)
   const [isSaved, setIsSaved] = React.useState(false)
 
+  // Reset state when site changes
+  const prevSiteRef = React.useRef<string | null>(null)
+  React.useEffect(() => {
+    const currentCode = site?.fossittCode ?? null
+    if (currentCode !== prevSiteRef.current) {
+      prevSiteRef.current = currentCode
+      setAiAnalysis('')
+      setError(null)
+      setIsSaved(false)
+    }
+  }, [site?.fossittCode])
+
   // Auto-trigger analysis when modal opens
   React.useEffect(() => {
     if (open && site && !aiAnalysis && !isLoading) {
