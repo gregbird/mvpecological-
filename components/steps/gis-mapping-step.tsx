@@ -20,6 +20,7 @@ import dynamic from 'next/dynamic'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { useToast } from '@/hooks/use-toast'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,7 +34,6 @@ import {
 import { useUpdateProjectBoundary } from '@/hooks/queries/use-project-hooks'
 import { useCompleteWorkflowStep, useUpdateWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { getDefaultVisibleLayers } from '@/lib/config/dataset-layers'
-import { GISConnectionModal } from '@/components/gis'
 import { STANDARD_BUFFER_DISTANCES } from '@/lib/gis'
 import { MapCaptureButton } from '@/components/maps/map-capture-button'
 import type { Project, WorkflowStep } from '@/types/database'
@@ -70,25 +70,7 @@ interface GISMappingStepProps {
   onComplete?: () => void
 }
 
-// Buffer zone colors
-const BUFFER_COLORS: Record<number, { fill: string; stroke: string; name: string }> = {
-  0.5: { fill: '#ef4444', stroke: '#dc2626', name: 'Red' },
-  1: { fill: '#f97316', stroke: '#ea580c', name: 'Orange' },
-  2: { fill: '#eab308', stroke: '#ca8a04', name: 'Yellow' },
-  5: { fill: '#22c55e', stroke: '#16a34a', name: 'Green' },
-  10: { fill: '#3b82f6', stroke: '#2563eb', name: 'Blue' },
-  15: { fill: '#8b5cf6', stroke: '#7c3aed', name: 'Purple' },
-}
-
-function getBufferColor(distance: number): { fill: string; stroke: string; name: string } {
-  if (BUFFER_COLORS[distance]) return BUFFER_COLORS[distance]
-  const hue = (distance * 37) % 360
-  return {
-    fill: `hsl(${hue}, 70%, 50%)`,
-    stroke: `hsl(${hue}, 70%, 40%)`,
-    name: `Custom ${distance}km`,
-  }
-}
+import { getBufferColor } from '@/lib/config/map-constants'
 
 // GIS source options
 const gisSourceOptions = [
@@ -128,6 +110,7 @@ const gisSourceOptions = [
 
 export function GISMappingStep({ project, workflowStep, userId, onComplete }: GISMappingStepProps) {
   const { setMapFullscreen, refetchProject, refetchWorkflowSteps } = useProjectContext()
+  const { toast } = useToast()
 
   // Hooks
   const wizard = useGISWizard(project, workflowStep)
@@ -143,7 +126,6 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
   const updateBoundary = useUpdateProjectBoundary()
   const completeStep = useCompleteWorkflowStep()
   const updateWorkflowStep = useUpdateWorkflowStep()
-  const [showConnectionModal, setShowConnectionModal] = React.useState(false)
 
   // Track original boundary/buffer for detecting changes on save
   const originalBoundaryRef = React.useRef<string | null>(
@@ -243,6 +225,14 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
     if (result) {
       wizard.setHasUnsavedChanges(true)
       wizard.setCurrentStep('boundary')
+      toast({ title: 'File imported', description: 'Boundary loaded from file.' })
+    } else if (event.target.files?.length) {
+      toast({
+        variant: 'destructive',
+        title: 'Import failed',
+        description:
+          'Could not parse boundary from file. Ensure it is a valid GeoJSON or Shapefile.',
+      })
     }
   }
 
@@ -297,13 +287,26 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
         refetchProject()
         refetchWorkflowSteps()
       }
+      toast({ title: 'Saved', description: 'GIS configuration saved successfully.' })
     } catch (error) {
       console.error('[GISMappingStep] Save error:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Save failed',
+        description: 'Could not save the GIS configuration. Please try again.',
+      })
     }
   }
 
   const handleComplete = async () => {
-    if (!boundaryMgmt.boundary) return
+    if (!boundaryMgmt.boundary) {
+      toast({
+        variant: 'destructive',
+        title: 'No boundary',
+        description: 'Draw or upload a project boundary before completing this step.',
+      })
+      return
+    }
     if (wizard.hasUnsavedChanges) await handleSave()
 
     try {
@@ -315,13 +318,27 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
       onComplete?.()
     } catch (error) {
       console.error('[GISMappingStep] Complete step error:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not complete the step. Please try again.',
+      })
     }
   }
 
   const goNext = () => {
-    if (wizard.currentStep === 'source' && !boundaryMgmt.selectedSource) return
-    if (wizard.currentStep === 'boundary' && !boundaryMgmt.boundary) return
-    if (wizard.currentStep === 'buffers' && bufferConfig.enabledBuffers.length === 0) return
+    if (wizard.currentStep === 'source' && !boundaryMgmt.selectedSource) {
+      toast({ title: 'Select a source', description: 'Choose how to define your boundary.' })
+      return
+    }
+    if (wizard.currentStep === 'boundary' && !boundaryMgmt.boundary) {
+      toast({ title: 'No boundary', description: 'Draw or upload a boundary to continue.' })
+      return
+    }
+    if (wizard.currentStep === 'buffers' && bufferConfig.enabledBuffers.length === 0) {
+      toast({ title: 'No buffers', description: 'Select at least one buffer zone.' })
+      return
+    }
 
     // Auto-enable default data layers when entering the Layers step
     if (wizard.currentStep === 'buffers') {
@@ -363,6 +380,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
           locationInfo={boundaryMgmt.locationInfo}
           enabledBuffers={bufferConfig.enabledBuffers}
           visibleLayers={layers.visibleLayers}
+          workflowStatus={workflowStep.status}
           onEditClick={wizard.handleEditClick}
         />
 
@@ -879,18 +897,6 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
           )}
         </div>
       </div>
-
-      {/* GIS Connection Modal */}
-      <GISConnectionModal
-        open={showConnectionModal}
-        onOpenChange={setShowConnectionModal}
-        onSourceSelect={boundaryMgmt.setSelectedSource}
-        onBoundaryImport={(b) => {
-          boundaryMgmt.setBoundary(b)
-          wizard.setHasUnsavedChanges(true)
-          wizard.setCurrentStep('boundary')
-        }}
-      />
     </div>
   )
 }

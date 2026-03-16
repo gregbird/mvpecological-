@@ -528,7 +528,7 @@ const HABITAT_SURVEY_PROMPTS: Record<string, SectionPromptConfig> = {
   },
   methodology: {
     prompt: `Write the Methodology section (~400-500 words). Include:
-1. **Desk Study** — NPWS habitat data, CORINE land cover, Preliminary Habitat Inventory, historical mapping (OSI 6-inch, 25-inch)
+1. **Desk Study** — NPWS habitat data, National Land Cover 2018 (NLC), Preliminary Habitat Inventory, historical mapping (OSI 6-inch, 25-inch)
 2. **Field Survey** — Fossitt (2000) classification methodology, survey dates, mapping technique (GPS-based), ground-truthing of aerial photography
 3. **Vegetation Recording** — relevé plots (if applicable), DOMIN/DAFOR scale, quadrat methodology
 4. **Condition Assessment** — structure, function, typical species assessment criteria

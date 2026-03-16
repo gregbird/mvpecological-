@@ -102,6 +102,19 @@ OSI National Land Cover 2018 dataseti ArcGIS FeatureServer olarak mevcut. LEVEL_
 - [x] **4.4** Habitat tablosunu rapor appendix'ine ekle (PDF + HTML export)
 - [x] **4.5** Data Gathering wizard'ina "Habitat Data" substep eklendi (Step 2, Aquatic'ten sonra)
 
+**Ek Iyilestirmeler (15 Mart 2026):**
+
+- [x] **4.6** CORINE veri kaynagi tamamen kaldirildi, NLC 2018 tek kaynak olarak kullaniliyor
+- [x] **4.7** `finding_data_type` enum'una `'habitat'` eklendi — habitat finding'ler artik ayri tip olarak tanimlaniyor
+- [x] **4.8** Polygon highlight: 3 alanli yedekli eslestirme (nlc_id, nlc_label, fossitt_code) + secili olmayan polygon'lar tamamen gizleniyor
+- [x] **4.9** Polygon pagination: tum polygon'lar cekiliyordu (max 15K, onceden sadece ilk 2000)
+- [x] **4.10** Save akisi: otomatik AI summary tetikleme, DB'ye persist, deep research ayri kaydediliyor (raw_data.deepResearch)
+- [x] **4.11** Deep research: habitat tipine ozel prompt (singleHabitat flag), modal state sifirlama
+- [x] **4.12** Preliminary Habitat Inventory (Step 3 Baseline Report) artik NLC verisinden — CORINE kaldirildi
+- [x] **4.13** Rapor context builder'da tum tipler icin AI summary + deep research extract ediliyor
+- [x] **4.14** Aquatic features appendix export'a eklendi (PDF + HTML + Final Submission secenegi)
+- [x] **4.15** Overall AI Analysis workflow step metadata'ya persist ediliyor (sayfa yenilemede kaybolmuyor)
+
 ---
 
 ## 5. Isimlendirme ve Veri Dogrulugu (SAC Matching)

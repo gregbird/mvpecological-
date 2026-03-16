@@ -6,26 +6,8 @@ import { MapPin, Circle, Layers, Pencil } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DATASET_GROUPS } from '@/lib/config/dataset-layers'
+import { getBufferColor } from '@/lib/config/map-constants'
 import type { IrishLocationInfo } from '@/hooks/gis/use-boundary-management'
-
-// Buffer zone colors
-const BUFFER_COLORS: Record<number, { fill: string; stroke: string }> = {
-  0.5: { fill: '#ef4444', stroke: '#dc2626' },
-  1: { fill: '#f97316', stroke: '#ea580c' },
-  2: { fill: '#eab308', stroke: '#ca8a04' },
-  5: { fill: '#22c55e', stroke: '#16a34a' },
-  10: { fill: '#3b82f6', stroke: '#2563eb' },
-  15: { fill: '#8b5cf6', stroke: '#7c3aed' },
-}
-
-function getBufferColor(distance: number): { fill: string; stroke: string } {
-  if (BUFFER_COLORS[distance]) return BUFFER_COLORS[distance]
-  const hue = (distance * 37) % 360
-  return {
-    fill: `hsl(${hue}, 70%, 50%)`,
-    stroke: `hsl(${hue}, 70%, 40%)`,
-  }
-}
 
 interface PreviewPanelProps {
   boundaryInfo: {
@@ -39,6 +21,7 @@ interface PreviewPanelProps {
   locationInfo: IrishLocationInfo | null
   enabledBuffers: number[]
   visibleLayers: string[]
+  workflowStatus?: string
   onEditClick: () => void
 }
 
@@ -47,6 +30,7 @@ export function PreviewPanel({
   locationInfo,
   enabledBuffers,
   visibleLayers,
+  workflowStatus,
   onEditClick,
 }: PreviewPanelProps) {
   return (
@@ -58,8 +42,11 @@ export function PreviewPanel({
             <h2 className="text-lg font-semibold">GIS Mapping</h2>
             <p className="text-muted-foreground text-sm">Project boundary configuration</p>
           </div>
-          <Badge variant="default" className="bg-emerald-500">
-            Completed
+          <Badge
+            variant="default"
+            className={workflowStatus === 'approved' ? 'bg-emerald-500' : 'bg-amber-500'}
+          >
+            {workflowStatus === 'approved' ? 'Completed' : 'Needs Review'}
           </Badge>
         </div>
       </div>

@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { calculateAreaHectares } from '@/lib/supabase/queries/habitats'
 import { calculatePerimeter } from '@/lib/gis'
+import { getBufferColor } from '@/lib/config/map-constants'
 import type { Project } from '@/types/database'
 
 interface ProjectInfoSubStepProps {
@@ -15,22 +16,6 @@ interface ProjectInfoSubStepProps {
   bufferDistances: number[]
   savedFindingsCount: number
   onNext?: () => void
-}
-
-// Buffer zone colors
-const BUFFER_COLORS: Record<number, string> = {
-  0.5: '#ef4444',
-  1: '#f97316',
-  2: '#eab308',
-  5: '#22c55e',
-  10: '#3b82f6',
-  15: '#8b5cf6',
-}
-
-function getBufferColor(distance: number): string {
-  if (BUFFER_COLORS[distance]) return BUFFER_COLORS[distance]
-  const hue = (distance * 37) % 360
-  return `hsl(${hue}, 70%, 50%)`
 }
 
 export function ProjectInfoSubStep({
@@ -135,7 +120,7 @@ export function ProjectInfoSubStep({
                     <Badge key={d} variant="secondary" className="gap-1.5">
                       <span
                         className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: getBufferColor(d) }}
+                        style={{ backgroundColor: getBufferColor(d).fill }}
                       />
                       {d} km
                     </Badge>

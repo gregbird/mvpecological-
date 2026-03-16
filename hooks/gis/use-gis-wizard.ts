@@ -49,20 +49,22 @@ export function useGISWizard(project: Project, workflowStep: WorkflowStep) {
     if (currentStepIndex > 0) setCurrentStep(WIZARD_STEPS[currentStepIndex - 1].id)
   }, [currentStepIndex])
 
+  const editStartStep = hasSavedData ? 'boundary' : 'source'
+
   const handleEditClick = React.useCallback(() => {
     if (hasLaterStepsStarted) {
       setShowEditWarning(true)
     } else {
       setViewMode('wizard')
-      setCurrentStep('source')
+      setCurrentStep(editStartStep as WizardStep)
     }
-  }, [hasLaterStepsStarted])
+  }, [hasLaterStepsStarted, editStartStep])
 
   const confirmEdit = React.useCallback(() => {
     setShowEditWarning(false)
     setViewMode('wizard')
-    setCurrentStep('source')
-  }, [])
+    setCurrentStep(editStartStep as WizardStep)
+  }, [editStartStep])
 
   return {
     viewMode,

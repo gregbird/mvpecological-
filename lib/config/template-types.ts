@@ -407,7 +407,7 @@ export const HABITAT_SURVEY_DEFAULT_SECTIONS: ReportSectionDefinition[] = [
     title: '2. Methodology',
     aiPrompt: 'habitat survey methods, Fossitt classification',
     defaultTemplate:
-      'This section details: 2.1 Desk Study (NPWS habitat data, CORINE land cover, historical mapping), 2.2 Field Survey Methodology (Fossitt 2000 classification, survey dates, mapping technique), 2.3 Vegetation Recording (relevé plots if applicable, DOMIN/DAFOR scale), 2.4 Habitat Condition Assessment (structure, function, typical species). Include survey limitations and seasonal constraints.',
+      'This section details: 2.1 Desk Study (NPWS habitat data, National Land Cover 2018, historical mapping), 2.2 Field Survey Methodology (Fossitt 2000 classification, survey dates, mapping technique), 2.3 Vegetation Recording (relevé plots if applicable, DOMIN/DAFOR scale), 2.4 Habitat Condition Assessment (structure, function, typical species). Include survey limitations and seasonal constraints.',
   },
   {
     id: 'habitats',

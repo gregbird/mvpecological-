@@ -232,19 +232,11 @@ export async function getLocationFromBoundary(
     }
   }
 
-  const coords = boundary.geometry.coordinates[0]
-
-  // Calculate centroid
-  let sumLat = 0
-  let sumLng = 0
-
-  for (const coord of coords) {
-    sumLng += coord[0]
-    sumLat += coord[1]
-  }
-
-  const centerLat = sumLat / coords.length
-  const centerLng = sumLng / coords.length
+  // Use Turf.js centroid for accurate center point
+  const { default: centroid } = await import('@turf/centroid')
+  const center = centroid(boundary)
+  const centerLng = center.geometry.coordinates[0]
+  const centerLat = center.geometry.coordinates[1]
 
   return reverseGeocode(centerLat, centerLng)
 }

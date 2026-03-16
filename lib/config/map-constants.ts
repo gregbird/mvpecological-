@@ -190,3 +190,23 @@ export const FINDING_TYPE_COLORS: Record<string, string> = {
   catchment: '#8b5cf6', // Purple for catchments
   other: '#6b7280', // Gray for other
 }
+
+// Buffer zone colors shared across GIS mapping, preview, and project info
+export const BUFFER_COLORS: Record<number, { fill: string; stroke: string; name: string }> = {
+  0.5: { fill: '#ef4444', stroke: '#dc2626', name: 'Red' },
+  1: { fill: '#f97316', stroke: '#ea580c', name: 'Orange' },
+  2: { fill: '#eab308', stroke: '#ca8a04', name: 'Yellow' },
+  5: { fill: '#22c55e', stroke: '#16a34a', name: 'Green' },
+  10: { fill: '#3b82f6', stroke: '#2563eb', name: 'Blue' },
+  15: { fill: '#8b5cf6', stroke: '#7c3aed', name: 'Purple' },
+}
+
+export function getBufferColor(distance: number): { fill: string; stroke: string; name: string } {
+  if (BUFFER_COLORS[distance]) return BUFFER_COLORS[distance]
+  const hue = (distance * 37) % 360
+  return {
+    fill: `hsl(${hue}, 70%, 50%)`,
+    stroke: `hsl(${hue}, 70%, 40%)`,
+    name: `Custom ${distance}km`,
+  }
+}

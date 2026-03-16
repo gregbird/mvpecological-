@@ -772,10 +772,8 @@ Desk Research çıktısı Baseline Conditions Report olarak organize edilmeli. B
 
 - [x] **5.4.4** Habitat Inventory bileşeni
   - Dosya: `components/steps/desk-assessment/habitat-inventory-section.tsx`
-  - CORINE 2018 → FOSSITT mapping (EPA GeoServer)
-  - Proje sınırına turf.js ile kırpma, async chunk işleme
-  - Supabase cache katmanı (boundary hash ile)
-  - Harita görünümü + legend
+  - NLC 2018 → FOSSITT mapping (DB'deki `data_type: 'habitat'` finding'lerden okunuyor)
+  - CORINE veri kaynağı ve cache katmanı kaldırıldı (Mart 2026)
 
 - [x] **5.4.5** Hydrology & Connectivity bileşeni
   - Dosya: `components/steps/desk-assessment/aquatic-environment-section.tsx`
@@ -790,7 +788,7 @@ Desk Research çıktısı Baseline Conditions Report olarak organize edilmeli. B
 
 **Düzeltmeler (19 Şubat 2026):**
 
-- CORINE mapping hatası düzeltildi: Mixed forest `WD→WN`, Water courses `FL→FW`
+- ~~CORINE mapping hatası düzeltildi~~ (CORINE tamamen kaldırıldı, NLC 2018 kullanılıyor — Mart 2026)
 - Export'ta habitat bölümü boştu — callback prop ile düzeltildi
 - Export constraints mantığı UI ile eşitlendi
 - Species tablosunda Protected+Invasive her ikisi gösteriliyor

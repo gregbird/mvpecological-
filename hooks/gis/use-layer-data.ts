@@ -15,7 +15,6 @@ import {
   type EPACatchment,
 } from '@/lib/external-apis/epa'
 import { getDefaultVisibleLayers } from '@/lib/config/dataset-layers'
-import type { LayerMetadata } from '@/lib/config/layer-metadata'
 import type { Project } from '@/types/database'
 
 export interface LayerDataState {
@@ -65,10 +64,6 @@ export function useLayerData(project: Project) {
 
   // Track which categories show all items
   const [showAllItems, setShowAllItems] = React.useState<Set<string>>(new Set())
-
-  // Layer info modal state
-  const [layerInfoMetadata, setLayerInfoMetadata] = React.useState<LayerMetadata | null>(null)
-  const [layerInfoOpen, setLayerInfoOpen] = React.useState(false)
 
   // Cache flag to prevent re-fetching
   const layerDataFetchedRef = React.useRef(false)
@@ -133,53 +128,48 @@ export function useLayerData(project: Project) {
         maxLng: Math.max(...lngs) + bufferDegrees,
       }
 
-      // Fetch NPWS sites
-      setLayerDataLoading((prev) => ({ ...prev, npws: true }))
-      try {
-        const siteTypes: DesignatedSiteType[] = ['SAC', 'SPA', 'NHA', 'pNHA']
-        const sites = await queryDesignatedSites({
+      // Fetch all layer data in parallel
+      setLayerDataLoading({ npws: true, rivers: true, lakes: true, catchments: true })
+
+      const siteTypes: DesignatedSiteType[] = ['SAC', 'SPA', 'NHA', 'pNHA']
+
+      const [npwsResult, riversResult, lakesResult, catchmentsResult] = await Promise.allSettled([
+        queryDesignatedSites({
           bbox: { minX: bbox.minLng, minY: bbox.minLat, maxX: bbox.maxLng, maxY: bbox.maxLat },
           siteTypes,
-        })
-        setLayerData((prev) => ({ ...prev, npwsSites: sites }))
-      } catch (error) {
-        console.error('Error fetching NPWS sites:', error)
-      } finally {
-        setLayerDataLoading((prev) => ({ ...prev, npws: false }))
-      }
+        }),
+        searchRivers({ bbox, limit: 100 }),
+        searchLakes({ bbox, limit: 100 }),
+        searchCatchments({ bbox, limit: 50 }),
+      ])
 
-      // Fetch Rivers
-      setLayerDataLoading((prev) => ({ ...prev, rivers: true }))
-      try {
-        const rivers = await searchRivers({ bbox, limit: 100 })
-        setLayerData((prev) => ({ ...prev, rivers }))
-      } catch (error) {
-        console.error('Error fetching rivers:', error)
-      } finally {
-        setLayerDataLoading((prev) => ({ ...prev, rivers: false }))
+      if (npwsResult.status === 'fulfilled') {
+        setLayerData((prev) => ({ ...prev, npwsSites: npwsResult.value }))
+      } else {
+        console.error('Error fetching NPWS sites:', npwsResult.reason)
       }
+      setLayerDataLoading((prev) => ({ ...prev, npws: false }))
 
-      // Fetch Lakes
-      setLayerDataLoading((prev) => ({ ...prev, lakes: true }))
-      try {
-        const lakes = await searchLakes({ bbox, limit: 100 })
-        setLayerData((prev) => ({ ...prev, lakes }))
-      } catch (error) {
-        console.error('Error fetching lakes:', error)
-      } finally {
-        setLayerDataLoading((prev) => ({ ...prev, lakes: false }))
+      if (riversResult.status === 'fulfilled') {
+        setLayerData((prev) => ({ ...prev, rivers: riversResult.value }))
+      } else {
+        console.error('Error fetching rivers:', riversResult.reason)
       }
+      setLayerDataLoading((prev) => ({ ...prev, rivers: false }))
 
-      // Fetch Catchments
-      setLayerDataLoading((prev) => ({ ...prev, catchments: true }))
-      try {
-        const catchments = await searchCatchments({ bbox, limit: 50 })
-        setLayerData((prev) => ({ ...prev, catchments }))
-      } catch (error) {
-        console.error('Error fetching catchments:', error)
-      } finally {
-        setLayerDataLoading((prev) => ({ ...prev, catchments: false }))
+      if (lakesResult.status === 'fulfilled') {
+        setLayerData((prev) => ({ ...prev, lakes: lakesResult.value }))
+      } else {
+        console.error('Error fetching lakes:', lakesResult.reason)
       }
+      setLayerDataLoading((prev) => ({ ...prev, lakes: false }))
+
+      if (catchmentsResult.status === 'fulfilled') {
+        setLayerData((prev) => ({ ...prev, catchments: catchmentsResult.value }))
+      } else {
+        console.error('Error fetching catchments:', catchmentsResult.reason)
+      }
+      setLayerDataLoading((prev) => ({ ...prev, catchments: false }))
     },
     []
   )
@@ -198,10 +188,6 @@ export function useLayerData(project: Project) {
     ignoredItems,
     deletedItems,
     showAllItems,
-    layerInfoMetadata,
-    setLayerInfoMetadata,
-    layerInfoOpen,
-    setLayerInfoOpen,
     layerDataFetchedRef,
     handleLayerToggle,
     handleToggleIgnore,

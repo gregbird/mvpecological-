@@ -10,38 +10,9 @@ import {
 } from '@/lib/gis'
 import { calculateAreaHectares } from '@/lib/supabase/queries/habitats'
 import { calculatePerimeter } from '@/lib/gis'
+import { wgs84ToGridRef } from '@/lib/utils/grid-reference'
+import centroid from '@turf/centroid'
 import type { Project } from '@/types/database'
-
-// Irish Grid Reference conversion
-function toIrishGridRef(lat: number, lng: number): string {
-  const letters = [
-    ['V', 'W', 'X', 'Y', 'Z'],
-    ['Q', 'R', 'S', 'T', 'U'],
-    ['L', 'M', 'N', 'O', 'P'],
-    ['F', 'G', 'H', 'J', 'K'],
-    ['A', 'B', 'C', 'D', 'E'],
-  ]
-
-  const eastingBase = (lng + 10.5) * 100000
-  const northingBase = (lat - 51.4) * 111000
-
-  const e100k = Math.floor(eastingBase / 100000)
-  const n100k = Math.floor(northingBase / 100000)
-
-  if (e100k < 0 || e100k > 4 || n100k < 0 || n100k > 4) {
-    return 'Outside Ireland'
-  }
-
-  const letter = letters[4 - n100k]?.[e100k] || 'X'
-  const easting = Math.floor((eastingBase % 100000) / 100)
-    .toString()
-    .padStart(3, '0')
-  const northing = Math.floor((northingBase % 100000) / 100)
-    .toString()
-    .padStart(3, '0')
-
-  return `${letter} ${easting} ${northing}`
-}
 
 export type { IrishLocationInfo }
 
@@ -90,17 +61,23 @@ export function useBoundaryManagement(project: Project) {
     const coords = boundary.geometry.coordinates?.[0]
     if (!coords || coords.length < 3) return null
 
-    const lats = coords.map((c) => c[1])
-    const lngs = coords.map((c) => c[0])
-    const centerLat = lats.reduce((a, b) => a + b) / lats.length
-    const centerLng = lngs.reduce((a, b) => a + b) / lngs.length
+    // Use Turf.js centroid for accurate center point
+    const center = centroid(boundary)
+    const centerLng = center.geometry.coordinates[0]
+    const centerLat = center.geometry.coordinates[1]
 
     return {
       centerLat: centerLat.toFixed(6),
       centerLng: centerLng.toFixed(6),
       area: calculateAreaHectares(boundary.geometry).toFixed(2),
       perimeter: calculatePerimeter(boundary).toFixed(2),
-      gridRef: toIrishGridRef(centerLat, centerLng),
+      gridRef: (() => {
+        try {
+          return wgs84ToGridRef(centerLat, centerLng, 3, true)
+        } catch {
+          return 'Outside Ireland'
+        }
+      })(),
       pointCount: coords.length - 1,
     }
   }, [boundary])
