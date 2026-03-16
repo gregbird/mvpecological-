@@ -48,7 +48,34 @@ interface DeepResearchModalProps {
   projectId?: string
   userId?: string
   findingId?: string
-  onSaveAnalysis?: (data: { aiAnalysis: string; siteCode: string }) => void
+  onSaveAnalysis?: (data: {
+    aiAnalysis: string
+    siteCode: string
+    nbdcSpecies?: Array<{
+      scientificName: string
+      commonName?: string
+      isProtected?: boolean
+      isInvasive?: boolean
+      designations?: string
+    }>
+    scrapedInfo?: {
+      qualifyingInterests: string[]
+      statutoryInstrumentUrl: string | null
+    }
+    article17Habitats?: Array<{
+      habitatCode: string
+      habitatName: string
+      status?: string
+      trend?: string
+      priorityHabitat?: boolean
+    }>
+    conservationSummary?: {
+      total: number
+      favourable: number
+      unfavourableInadequate: number
+      unfavourableBad: number
+    }
+  }) => void
 }
 
 export function DeepResearchModal({
@@ -73,6 +100,13 @@ export function DeepResearchModal({
     hadPdfContent?: boolean
     hadWebContent?: boolean
     hadNbdcData?: boolean
+    nbdcSpecies?: Array<{
+      scientificName: string
+      commonName?: string
+      isProtected?: boolean
+      isInvasive?: boolean
+      designations?: string
+    }>
   }>({})
 
   // Scraped NPWS page data (for NHA/pNHA without Excel data)
@@ -152,6 +186,7 @@ export function DeepResearchModal({
           hadPdfContent: data.hadPdfContent,
           hadWebContent: data.hadWebContent,
           hadNbdcData: data.hadNbdcData,
+          nbdcSpecies: data.nbdcSpecies,
         })
         // Also update scraped info from AI response if not already fetched
         if (data.scrapedSiteInfo) {
@@ -265,7 +300,30 @@ export function DeepResearchModal({
 
       // Notify parent to update finding's raw_data with deep research
       if (aiSummary) {
-        onSaveAnalysis?.({ aiAnalysis: aiSummary, siteCode: site.siteCode })
+        onSaveAnalysis?.({
+          aiAnalysis: aiSummary,
+          siteCode: site.siteCode,
+          nbdcSpecies: aiMeta.nbdcSpecies,
+          scrapedInfo: scrapedInfo
+            ? {
+                qualifyingInterests: scrapedInfo.qualifyingInterests,
+                statutoryInstrumentUrl: scrapedInfo.statutoryInstrumentUrl,
+              }
+            : undefined,
+          article17Habitats: habitatsWithArticle17.map((h) => ({
+            habitatCode: h.habitatCode,
+            habitatName: h.habitatName,
+            status: h.article17?.status,
+            trend: h.article17?.trend,
+            priorityHabitat: h.article17?.priorityHabitat,
+          })),
+          conservationSummary: {
+            total: summary.total,
+            favourable: summary.favourable,
+            unfavourableInadequate: summary.unfavourableInadequate,
+            unfavourableBad: summary.unfavourableBad,
+          },
+        })
       }
     } catch (error) {
       console.error('Failed to save research:', error)

@@ -766,7 +766,6 @@ export function DataGatheringStep({
             project={project}
             bufferDistances={bufferDistances}
             savedFindingsCount={savedFindings.length}
-            onNext={goNext}
           />
         )}
 

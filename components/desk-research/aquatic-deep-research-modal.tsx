@@ -47,7 +47,20 @@ interface AquaticDeepResearchModalProps {
   userId: string
   findingId?: string | null
   existingAnalysis?: string
-  onSaveAnalysis?: (data: { aiAnalysis: string; waterBodyCode: string }) => void
+  onSaveAnalysis?: (data: {
+    aiAnalysis: string
+    waterBodyCode: string
+    riverDistance?: {
+      riverDistanceKm: number | null
+      downstreamPath?: Array<{
+        waterBodyName: string
+        waterBodyType: string
+        distanceKm: number
+        cumulativeKm: number
+      }>
+      sacReached?: { siteCode: string; distanceKm: number }
+    }
+  }) => void
 }
 
 export function AquaticDeepResearchModal({
@@ -151,6 +164,23 @@ export function AquaticDeepResearchModal({
         onSaveAnalysis?.({
           aiAnalysis: result.summary,
           waterBodyCode: site.waterBodyCode || site.waterBodyName,
+          riverDistance: result.riverDistance
+            ? {
+                riverDistanceKm: result.riverDistance.riverDistanceKm,
+                downstreamPath: result.riverDistance.downstreamPath as Array<{
+                  waterBodyName: string
+                  waterBodyType: string
+                  distanceKm: number
+                  cumulativeKm: number
+                }>,
+                sacReached: result.riverDistance.sacReached
+                  ? {
+                      siteCode: result.riverDistance.sacReached.siteCode,
+                      distanceKm: result.riverDistance.sacReached.distanceKm,
+                    }
+                  : undefined,
+              }
+            : undefined,
         })
       }
     } catch (error) {

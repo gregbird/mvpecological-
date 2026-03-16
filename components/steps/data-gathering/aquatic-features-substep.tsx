@@ -47,7 +47,20 @@ export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
 
   // Handle Deep Research save -> auto-save card if needed + update AI summary
   const handleDeepResearchSave = React.useCallback(
-    async (data: { aiAnalysis: string; waterBodyCode: string }) => {
+    async (data: {
+      aiAnalysis: string
+      waterBodyCode: string
+      riverDistance?: {
+        riverDistanceKm: number | null
+        downstreamPath?: Array<Record<string, unknown>>
+        sacReached?: { siteCode: string; distanceKm: number }
+      }
+    }) => {
+      const aquaticResearchPayload = {
+        aiAnalysis: data.aiAnalysis,
+        ...(data.riverDistance && { riverDistance: data.riverDistance }),
+      }
+
       const existingSaved = savedFindings.find(
         (f) =>
           (f.raw_data as Record<string, unknown>)?.siteCode === data.waterBodyCode &&
@@ -55,7 +68,6 @@ export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
       )
 
       if (existingSaved) {
-        // Card already saved — update with deep research data (not as aiSummary)
         try {
           const existingRawData = (existingSaved.raw_data as Record<string, unknown>) || {}
 
@@ -64,7 +76,7 @@ export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
             updates: {
               raw_data: {
                 ...existingRawData,
-                aquaticResearch: { aiAnalysis: data.aiAnalysis },
+                aquaticResearch: aquaticResearchPayload,
               } as unknown as Json,
             },
           })
@@ -72,7 +84,6 @@ export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
           console.error('Failed to update finding with aquatic research:', error)
         }
       } else if (deepResearchFinding) {
-        // Card not saved — create finding first with deep research data
         try {
           const payload = {
             project_id: project.id,
@@ -84,7 +95,7 @@ export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
               ...deepResearchFinding.rawData,
               siteCode: deepResearchFinding.metadata?.siteCode,
               metadata: deepResearchFinding.metadata,
-              aquaticResearch: { aiAnalysis: data.aiAnalysis },
+              aquaticResearch: aquaticResearchPayload,
             } as unknown as Json,
             location: deepResearchFinding.location as unknown as Json,
             is_saved: true,

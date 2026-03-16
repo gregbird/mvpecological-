@@ -48,13 +48,27 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
 
   // Handle Deep Research save -> auto-save card if needed + trigger short AI summary
   const handleDeepResearchSave = React.useCallback(
-    async (data: { aiAnalysis: string; siteCode: string }) => {
+    async (data: {
+      aiAnalysis: string
+      siteCode: string
+      nbdcSpecies?: Array<Record<string, unknown>>
+      scrapedInfo?: { qualifyingInterests: string[]; statutoryInstrumentUrl: string | null }
+      article17Habitats?: Array<Record<string, unknown>>
+      conservationSummary?: Record<string, number>
+    }) => {
+      const deepResearchPayload = {
+        aiAnalysis: data.aiAnalysis,
+        ...(data.nbdcSpecies && { nbdcSpecies: data.nbdcSpecies }),
+        ...(data.scrapedInfo && { scrapedInfo: data.scrapedInfo }),
+        ...(data.article17Habitats && { article17Habitats: data.article17Habitats }),
+        ...(data.conservationSummary && { conservationSummary: data.conservationSummary }),
+      }
+
       const existingSaved = savedFindings.find(
         (f) => (f.raw_data as Record<string, unknown>)?.siteCode === data.siteCode
       )
 
       if (existingSaved) {
-        // Card already saved — update with deep research data (not as aiSummary)
         try {
           const existingRawData = (existingSaved.raw_data as Record<string, unknown>) || {}
 
@@ -63,7 +77,7 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
             updates: {
               raw_data: {
                 ...existingRawData,
-                deepResearch: { aiAnalysis: data.aiAnalysis },
+                deepResearch: deepResearchPayload,
               } as unknown as Json,
             },
           })
@@ -71,7 +85,6 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
           console.error('Failed to update finding with deep research:', error)
         }
       } else if (deepResearchFinding) {
-        // Card not saved — create finding first with deep research data
         try {
           const payload = {
             project_id: project.id,
@@ -83,7 +96,7 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
               ...deepResearchFinding.rawData,
               siteCode: deepResearchFinding.metadata?.siteCode,
               metadata: deepResearchFinding.metadata,
-              deepResearch: { aiAnalysis: data.aiAnalysis },
+              deepResearch: deepResearchPayload,
             } as unknown as Json,
             location: deepResearchFinding.location as unknown as Json,
             is_saved: true,
