@@ -65,7 +65,8 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
       }
 
       const existingSaved = savedFindings.find(
-        (f) => (f.raw_data as Record<string, unknown>)?.siteCode === data.siteCode
+        (f) =>
+          (f.raw_data as Record<string, unknown>)?.siteCode === data.siteCode && f.source === 'npws'
       )
 
       if (existingSaved) {

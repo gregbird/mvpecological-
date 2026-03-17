@@ -66,6 +66,8 @@ export function useBoundaryManagement(project: Project) {
     const centerLng = center.geometry.coordinates[0]
     const centerLat = center.geometry.coordinates[1]
 
+    if (!isFinite(centerLat) || !isFinite(centerLng)) return null
+
     return {
       centerLat: centerLat.toFixed(6),
       centerLng: centerLng.toFixed(6),

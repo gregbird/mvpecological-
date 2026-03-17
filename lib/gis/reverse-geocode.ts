@@ -5,6 +5,8 @@
  * using OSM Nominatim API (free, no API key required)
  */
 
+import centroid from '@turf/centroid'
+
 export interface IrishLocationInfo {
   townland?: string
   electoral_division?: string
@@ -233,7 +235,6 @@ export async function getLocationFromBoundary(
   }
 
   // Use Turf.js centroid for accurate center point
-  const { default: centroid } = await import('@turf/centroid')
   const center = centroid(boundary)
   const centerLng = center.geometry.coordinates[0]
   const centerLat = center.geometry.coordinates[1]

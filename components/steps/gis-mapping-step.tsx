@@ -34,6 +34,7 @@ import {
 import { useUpdateProjectBoundary } from '@/hooks/queries/use-project-hooks'
 import { useCompleteWorkflowStep, useUpdateWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { getDefaultVisibleLayers } from '@/lib/config/dataset-layers'
+import { getBufferColor } from '@/lib/config/map-constants'
 import { STANDARD_BUFFER_DISTANCES } from '@/lib/gis'
 import { MapCaptureButton } from '@/components/maps/map-capture-button'
 import type { Project, WorkflowStep } from '@/types/database'
@@ -69,8 +70,6 @@ interface GISMappingStepProps {
   userId?: string
   onComplete?: () => void
 }
-
-import { getBufferColor } from '@/lib/config/map-constants'
 
 // GIS source options
 const gisSourceOptions = [
@@ -286,8 +285,8 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
         wizard.setHasUnsavedChanges(false)
         refetchProject()
         refetchWorkflowSteps()
+        toast({ title: 'Saved', description: 'GIS configuration saved successfully.' })
       }
-      toast({ title: 'Saved', description: 'GIS configuration saved successfully.' })
     } catch (error) {
       console.error('[GISMappingStep] Save error:', error)
       toast({
@@ -295,6 +294,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
         title: 'Save failed',
         description: 'Could not save the GIS configuration. Please try again.',
       })
+      throw error // Re-throw so handleComplete can abort
     }
   }
 
@@ -307,7 +307,11 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
       })
       return
     }
-    if (wizard.hasUnsavedChanges) await handleSave()
+    try {
+      if (wizard.hasUnsavedChanges) await handleSave()
+    } catch {
+      return // Save failed — don't proceed to complete
+    }
 
     try {
       await completeStep.mutateAsync({
