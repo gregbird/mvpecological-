@@ -32,9 +32,12 @@
 
 **Yapılacaklar:**
 
-- [ ] **2.1** Proje kurulumu sırasında birden fazla rapor türü seçimine izin ver (örn. AA Screening + EcIA aynı anda)
-- [ ] **2.2** Bir raporun birden fazla farklı anketten veri çekebilmesini sağla
-- [ ] **2.3** Raporlama aşamasında yeni rapor eklemeye izin ver
+- [x] **2.1** Proje kurulumu sırasında birden fazla rapor türü seçimine izin ver (örn. AA Screening + EcIA aynı anda)
+  > DB: `project_report_types` tablosu oluşturuldu (project↔report_type many-to-many). Migration: `20260317_multi_report_support.sql`. Quick Create ve Full Create formlarında tek Select yerine checkbox grubu (Assessment + Technical kategorileri). Proje listesinde çoklu badge ve filtre desteği. Backward compat: `projects.survey_type` korunuyor, `getEffectiveReportTypes()` fallback sağlıyor. Dosyalar: `quick-create-project-modal.tsx`, `projects/new/page.tsx`, `projects/page.tsx`, `lib/supabase/queries/project-report-types.ts`, `hooks/queries/use-project-report-types.ts`
+- [x] **2.2** Bir raporun birden fazla farklı anketten veri çekebilmesini sağla
+  > DB: `report_survey_links` tablosu oluşturuldu (report_type↔survey many-to-many). Boş = tüm survey'ler kullanılır (fallback). Query ve hook altyapısı hazır. Dosyalar: `lib/supabase/queries/report-survey-links.ts`, `hooks/queries/use-report-survey-links.ts`. Phase 4'te UI (survey link panel) eklenecek.
+- [x] **2.3** Raporlama aşamasında yeni rapor eklemeye izin ver
+  > Step 8/9/10'da `ReportTypeSelector` tab bar eklendi. Tab bar'da "+" butonu ile yeni rapor türü eklenebilir. Her rapor bağımsız draft/review/export döngüsüne sahip. `useActiveReportType` hook'u aktif rapor türünü yönetir. `useLatestReportByType` ve `useReportsByType` hook'ları rapor türüne göre veri çeker. Version numaraları rapor türüne göre bağımsız (PEA v1, EcIA v1). Dosyalar: `report-type-selector.tsx`, `use-active-report-type.ts`, `ai-draft-step.tsx`, `quality-review-step.tsx`, `final-submission-step.tsx`, `use-report-hooks.ts`, `reports.ts`
 - [ ] **2.4** Proje yöneticisi atama ve anket sorumluluğu dağıtma yapısını düzenle
 
 ---

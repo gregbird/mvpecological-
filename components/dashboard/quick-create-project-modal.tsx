@@ -9,6 +9,7 @@ import * as z from 'zod'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import {
   Form,
@@ -18,23 +19,21 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
+import { setProjectReportTypes } from '@/lib/supabase/queries/project-report-types'
+import { REPORT_TYPES } from '@/lib/config/template-types'
 
-import { SURVEY_TYPES as SURVEY_TYPE_DEFS } from '@/lib/config/template-types'
-
-const SURVEY_TYPES = SURVEY_TYPE_DEFS.map((s) => ({ value: s.id, label: s.label }))
+const ASSESSMENT_REPORTS = REPORT_TYPES.filter((r) =>
+  ['pea', 'ecia', 'aa_screening', 'aa_stage2', 'nia'].includes(r.id)
+)
+const TECHNICAL_REPORTS = REPORT_TYPES.filter((r) =>
+  ['bat_survey', 'bird_survey', 'habitat_survey', 'protected_species', 'other'].includes(r.id)
+)
 
 const quickCreateSchema = z.object({
   name: z.string().min(3, 'Project name must be at least 3 characters'),
-  surveyType: z.string().optional(),
+  reportTypes: z.array(z.string()).optional(),
   location: z.string().optional(),
 })
 
@@ -61,7 +60,7 @@ export function QuickCreateProjectModal({
     resolver: zodResolver(quickCreateSchema),
     defaultValues: {
       name: '',
-      surveyType: '',
+      reportTypes: [],
       location: '',
     },
   })
@@ -85,13 +84,15 @@ export function QuickCreateProjectModal({
     try {
       const supabase = createClient()
       const siteCode = generateSiteCode(data.name)
+      const selectedTypes = data.reportTypes ?? []
 
+      // Create project (survey_type = first selected type for backward compat)
       const { data: project, error } = await supabase
         .from('projects')
         .insert({
           name: data.name,
           site_code: siteCode,
-          survey_type: data.surveyType || null,
+          survey_type: selectedTypes[0] || null,
           county: data.location || null,
           organization_id: organizationId,
           created_by: userId,
@@ -101,6 +102,11 @@ export function QuickCreateProjectModal({
         .single()
 
       if (error) throw error
+
+      // Insert into project_report_types junction table
+      if (selectedTypes.length > 0) {
+        await setProjectReportTypes(project.id, selectedTypes)
+      }
 
       onOpenChange(false)
       form.reset()
@@ -135,7 +141,7 @@ export function QuickCreateProjectModal({
                   <FormLabel>Project Name *</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="e.g., Ballymore Wind Farm PEA"
+                      placeholder="e.g., Ballymore Wind Farm"
                       disabled={isLoading}
                       {...field}
                     />
@@ -147,28 +153,81 @@ export function QuickCreateProjectModal({
 
             <FormField
               control={form.control}
-              name="surveyType"
-              render={({ field }) => (
+              name="reportTypes"
+              render={() => (
                 <FormItem>
-                  <FormLabel>Report Type</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                    disabled={isLoading}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select report type (optional)" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {SURVEY_TYPES.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormLabel>Report Types</FormLabel>
+                  <p className="text-muted-foreground text-xs">
+                    Select one or more. You can add more later.
+                  </p>
+                  <div className="mt-2 space-y-3">
+                    <div>
+                      <p className="text-muted-foreground mb-1.5 text-xs font-medium tracking-wide uppercase">
+                        Assessment Reports
+                      </p>
+                      <div className="space-y-1.5">
+                        {ASSESSMENT_REPORTS.map((type) => (
+                          <FormField
+                            key={type.id}
+                            control={form.control}
+                            name="reportTypes"
+                            render={({ field }) => (
+                              <FormItem className="flex items-center gap-2 space-y-0">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value?.includes(type.id)}
+                                    onCheckedChange={(checked) => {
+                                      const current = field.value ?? []
+                                      field.onChange(
+                                        checked
+                                          ? [...current, type.id]
+                                          : current.filter((v) => v !== type.id)
+                                      )
+                                    }}
+                                    disabled={isLoading}
+                                  />
+                                </FormControl>
+                                <span className="text-sm">{type.name}</span>
+                              </FormItem>
+                            )}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground mb-1.5 text-xs font-medium tracking-wide uppercase">
+                        Technical Reports
+                      </p>
+                      <div className="space-y-1.5">
+                        {TECHNICAL_REPORTS.map((type) => (
+                          <FormField
+                            key={type.id}
+                            control={form.control}
+                            name="reportTypes"
+                            render={({ field }) => (
+                              <FormItem className="flex items-center gap-2 space-y-0">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value?.includes(type.id)}
+                                    onCheckedChange={(checked) => {
+                                      const current = field.value ?? []
+                                      field.onChange(
+                                        checked
+                                          ? [...current, type.id]
+                                          : current.filter((v) => v !== type.id)
+                                      )
+                                    }}
+                                    disabled={isLoading}
+                                  />
+                                </FormControl>
+                                <span className="text-sm">{type.name}</span>
+                              </FormItem>
+                            )}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}

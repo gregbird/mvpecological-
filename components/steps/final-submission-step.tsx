@@ -24,7 +24,10 @@ import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
 import { useRole } from '@/contexts/role-context'
-import { useLatestReport, useUpdateReport } from '@/hooks/queries/use-report-hooks'
+import { useLatestReportByType, useUpdateReport } from '@/hooks/queries/use-report-hooks'
+import { useActiveReportType } from '@/hooks/use-active-report-type'
+import { ReportTypeSelector } from '@/components/steps/report-type-selector'
+import { REPORT_TYPES } from '@/lib/config/template-types'
 import { useUpdateProject } from '@/hooks/queries/use-project-hooks'
 import { useHabitatStats } from '@/hooks/queries/use-habitat-hooks'
 import { useObservationStats } from '@/hooks/queries/use-observation-hooks'
@@ -69,6 +72,11 @@ export function FinalSubmissionStep({
 }: FinalSubmissionStepProps) {
   const { toast } = useToast()
   const { permissions } = useRole()
+  const {
+    activeType: reportType,
+    setActiveType: setReportType,
+    reportTypes,
+  } = useActiveReportType(project.id)
   const [exportFormat, setExportFormat] = React.useState('pdf')
   const [selectedAppendices, setSelectedAppendices] = React.useState<string[]>([
     'habitat_map',
@@ -81,7 +89,7 @@ export function FinalSubmissionStep({
   const [isSubmitting, setIsSubmitting] = React.useState(false)
 
   // React Query hooks
-  const { data: report, isLoading: loadingReport } = useLatestReport(project.id)
+  const { data: report, isLoading: loadingReport } = useLatestReportByType(project.id, reportType)
   const { data: habitatStats } = useHabitatStats(project.id)
   const { data: observationStats } = useObservationStats(project.id)
   const { data: savedFindings } = useSavedFindings(project.id)
@@ -92,10 +100,11 @@ export function FinalSubmissionStep({
   // Initialize form with project data
   React.useEffect(() => {
     if (project) {
-      setCoverPageTitle(`Preliminary Ecological Appraisal - ${project.name}`)
+      const typeName = REPORT_TYPES.find((r) => r.id === reportType)?.name || 'Ecological Report'
+      setCoverPageTitle(`${typeName} - ${project.name}`)
       setPreparedFor(project.client_id || '')
     }
-  }, [project])
+  }, [project, reportType])
 
   // Get report content
   const reportContent = report?.content as unknown as ReportContent | undefined
@@ -340,6 +349,18 @@ export function FinalSubmissionStep({
         </Badge>
       </div>
 
+      {/* Report Type Tabs */}
+      {reportTypes.length > 0 && (
+        <ReportTypeSelector
+          projectId={project.id}
+          reportTypes={reportTypes}
+          activeReportType={reportType}
+          onReportTypeChange={setReportType}
+          latestReports={report ? { [reportType]: report } : {}}
+          allowAdd={false}
+        />
+      )}
+
       {/* Instructions */}
       <Alert>
         <Info className="h-4 w-4" />
@@ -387,8 +408,7 @@ export function FinalSubmissionStep({
             <div>
               <p className="text-muted-foreground text-sm">Sections</p>
               <p className="font-medium">
-                {completedSections} /{' '}
-                {getReportSectionsForType(project.survey_type || 'pea').length}
+                {completedSections} / {getReportSectionsForType(reportType).length}
               </p>
             </div>
           </div>

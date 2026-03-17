@@ -44,6 +44,7 @@ interface ProjectWithProgress extends Project {
   isMember?: boolean
   dataSources?: string[]
   findingCount?: number
+  reportTypes?: string[]
 }
 
 const statusConfig = {
@@ -128,7 +129,8 @@ export default function ProjectsPage() {
           .select(
             `
             *,
-            client:clients(name)
+            client:clients(name),
+            report_types:project_report_types(report_type, display_order)
           `
           )
           .eq('organization_id', user.organization_id)
@@ -189,6 +191,20 @@ export default function ProjectsPage() {
           const currentStepData =
             sortedSteps.find((s) => s.status !== 'approved') || sortedSteps[sortedSteps.length - 1]
 
+          // Extract report types from join (fallback to survey_type)
+          const joinedTypes = (
+            project as unknown as {
+              report_types?: { report_type: string; display_order: number }[]
+            }
+          ).report_types
+          const rtList = joinedTypes?.length
+            ? joinedTypes
+                .sort((a, b) => a.display_order - b.display_order)
+                .map((r) => r.report_type)
+            : project.survey_type
+              ? [project.survey_type]
+              : []
+
           return {
             ...project,
             currentStep: Math.min(currentStepData?.step_number || 1, 10),
@@ -198,6 +214,7 @@ export default function ProjectsPage() {
             isMember: memberProjectIds.includes(project.id),
             dataSources: dataSourcesMap[project.id] || [],
             findingCount: dataSourcesMap[project.id]?.length || 0,
+            reportTypes: rtList,
           }
         })
 
@@ -221,7 +238,7 @@ export default function ProjectsPage() {
   }, [projects])
 
   const availableSurveyTypes = React.useMemo(() => {
-    const types = projects.map((p) => p.survey_type).filter(Boolean) as string[]
+    const types = projects.flatMap((p) => p.reportTypes ?? []).filter(Boolean)
     return [...new Set(types)].sort()
   }, [projects])
 
@@ -241,7 +258,9 @@ export default function ProjectsPage() {
 
     // Survey type filter
     if (filterSurveyType !== 'all') {
-      visibleProjects = visibleProjects.filter((p) => p.survey_type === filterSurveyType)
+      visibleProjects = visibleProjects.filter(
+        (p) => p.reportTypes?.includes(filterSurveyType) || p.survey_type === filterSurveyType
+      )
     }
 
     // County filter
@@ -258,6 +277,7 @@ export default function ProjectsPage() {
           project.client?.name?.toLowerCase().includes(query) ||
           project.site_code?.toLowerCase().includes(query) ||
           project.county?.toLowerCase().includes(query) ||
+          project.reportTypes?.some((t) => t.toLowerCase().includes(query)) ||
           project.survey_type?.toLowerCase().includes(query)
       )
     }
@@ -480,11 +500,17 @@ export default function ProjectsPage() {
                         <Badge variant="outline" className={cn('text-xs', status?.className)}>
                           {status?.label}
                         </Badge>
-                        {project.survey_type && (
-                          <Badge variant="outline" className="text-xs font-medium">
-                            {PROJECT_TYPE_LABELS[project.survey_type] || project.survey_type}
-                          </Badge>
-                        )}
+                        {(project.reportTypes ?? []).length > 0
+                          ? project.reportTypes!.map((rt) => (
+                              <Badge key={rt} variant="outline" className="text-xs font-medium">
+                                {PROJECT_TYPE_LABELS[rt] || rt}
+                              </Badge>
+                            ))
+                          : project.survey_type && (
+                              <Badge variant="outline" className="text-xs font-medium">
+                                {PROJECT_TYPE_LABELS[project.survey_type] || project.survey_type}
+                              </Badge>
+                            )}
                       </div>
 
                       {/* Row 2: project name */}

@@ -945,6 +945,38 @@ export type Database = {
           },
         ]
       }
+      project_report_types: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          project_id: string
+          report_type: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          project_id: string
+          report_type: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          project_id?: string
+          report_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'project_report_types_project_id_fkey'
+            columns: ['project_id']
+            isOneToOne: false
+            referencedRelation: 'projects'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       projects: {
         Row: {
           actual_end_date: string | null
@@ -1272,6 +1304,45 @@ export type Database = {
           },
           {
             foreignKeyName: 'releve_surveys_survey_id_fkey'
+            columns: ['survey_id']
+            isOneToOne: false
+            referencedRelation: 'surveys'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      report_survey_links: {
+        Row: {
+          created_at: string
+          id: string
+          project_id: string
+          report_type: string
+          survey_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          project_id: string
+          report_type: string
+          survey_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          project_id?: string
+          report_type?: string
+          survey_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'report_survey_links_project_id_fkey'
+            columns: ['project_id']
+            isOneToOne: false
+            referencedRelation: 'projects'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'report_survey_links_survey_id_fkey'
             columns: ['survey_id']
             isOneToOne: false
             referencedRelation: 'surveys'

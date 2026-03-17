@@ -5,24 +5,17 @@ import { Loader2, AlertTriangle, Bot, FileText } from 'lucide-react'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
 import {
-  useLatestReport,
   useCreateReport,
   useUpdateReport,
   useCreateReportVersion,
-  useReports,
+  useLatestReportByType,
+  useReportsByType,
 } from '@/hooks/queries/use-report-hooks'
-import { useUpdateProject } from '@/hooks/queries/use-project-hooks'
 import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
+import { useActiveReportType } from '@/hooks/use-active-report-type'
 import { useTemplateData } from '@/hooks/queries/use-template-data'
 import {
   PEA_REPORT_SECTIONS,
@@ -37,8 +30,8 @@ import { AIDraftTab } from '@/components/steps/ai-draft/ai-draft-tab'
 import { VersionCompareDialog } from '@/components/steps/ai-draft/version-compare-dialog'
 import { VersionViewDialog } from '@/components/steps/ai-draft/version-view-dialog'
 import { RestoreVersionDialog } from '@/components/steps/ai-draft/restore-version-dialog'
-import { ChangeReportTypeDialog } from '@/components/steps/ai-draft/change-report-type-dialog'
-import { REPORT_TYPES } from '@/lib/config/template-types'
+import { ReportTypeSelector } from '@/components/steps/report-type-selector'
+
 import type { Project, Report, WorkflowStep, Json } from '@/types/database'
 
 interface AIDraftStepProps {
@@ -50,7 +43,11 @@ interface AIDraftStepProps {
 
 export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDraftStepProps) {
   const { toast } = useToast()
-  const [reportType, setReportType] = React.useState(project.survey_type || 'pea')
+  const {
+    activeType: reportType,
+    setActiveType: setReportType,
+    reportTypes,
+  } = useActiveReportType(project.id)
   const [activeTab, setActiveTab] = React.useState('agent')
   const [generatingSection, setGeneratingSection] = React.useState<string | null>(null)
   const [sections, setSections] = React.useState<ReportSection[]>([])
@@ -61,90 +58,28 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
   const [compareReport, setCompareReport] = React.useState<Report | null>(null)
   const [viewReport, setViewReport] = React.useState<Report | null>(null)
   const [restoreReport, setRestoreReport] = React.useState<Report | null>(null)
-  const [pendingTypeChange, setPendingTypeChange] = React.useState<string | null>(null)
-  // Tracks which report type was set via explicit user switch — prevents template re-fill
-  const [switchedToType, setSwitchedToType] = React.useState<string | null>(null)
 
-  const { data: existingReport, isLoading: loadingReport } = useLatestReport(project.id)
-  const { data: allReports } = useReports(project.id)
+  const { data: existingReport, isLoading: loadingReport } = useLatestReportByType(
+    project.id,
+    reportType
+  )
+  const { data: allReports } = useReportsByType(project.id, reportType)
   const { templateData } = useTemplateData(project)
   const createReport = useCreateReport()
   const updateReport = useUpdateReport()
   const createVersion = useCreateReportVersion()
   const completeStep = useCompleteWorkflowStep()
-  const updateProject = useUpdateProject()
 
-  const handleReportTypeChange = (newType: string) => {
-    if (newType === reportType) return
-    const hasExistingContent = sections.some((s) => s.content)
-    if (hasExistingContent) {
-      setPendingTypeChange(newType)
-    } else {
-      applyReportTypeChange(newType)
-    }
-  }
-
-  const applyReportTypeChange = async (newType: string) => {
-    // Save current content as new version if there's existing content
-    const hasExistingContent = sections.some((s) => s.content)
-    if (hasExistingContent) {
-      const reportContent: ReportContent = {
-        sections,
-        metadata: {
-          generatedAt: new Date().toISOString(),
-          editedAt: new Date().toISOString(),
-          aiModel: 'gpt-4o',
-        },
-      }
-      const currentTypeName = REPORT_TYPES.find((t) => t.id === reportType)?.name ?? reportType
-      try {
-        await createVersion.mutateAsync({
-          projectId: project.id,
-          content: reportContent,
-          reportType: reportType,
-          generatedBy: userId,
-          versionName: `Pre-switch from ${currentTypeName}`,
-        })
-      } catch {
-        toast({
-          variant: 'destructive',
-          title: 'Error saving version',
-          description: 'Failed to save current content before switching type.',
-        })
-        return
-      }
-    }
-
-    // Update project survey_type in DB — mark as type change so useEffect gives empty sections
-    setSwitchedToType(newType)
-    setReportType(newType)
-    setPendingTypeChange(null)
-    try {
-      await updateProject.mutateAsync({
-        projectId: project.id,
-        updates: { survey_type: newType },
-      })
-    } catch {
-      // Local state already updated
-    }
-  }
+  // For report selector status badges — collect latest report per type
+  const latestReportPerType = React.useMemo(() => {
+    if (!allReports) return {}
+    // allReports is for current type only, we need all project reports for the selector
+    // The selector only uses the latestReports for badge display, so per-type queries suffice
+    return existingReport ? { [reportType]: existingReport } : {}
+  }, [existingReport, reportType, allReports])
 
   // Initialize sections from existing report, org template, or defaults
   React.useEffect(() => {
-    // When user explicitly switches report type, keep empty sections until they regenerate
-    if (switchedToType === reportType) {
-      setSections(
-        reportSectionDefs.map((s) => ({
-          id: s.id,
-          title: s.title,
-          content: '',
-          isEdited: false,
-          aiGenerated: false,
-        }))
-      )
-      return
-    }
-
     const existingMatchesType =
       existingReport?.report_type === reportType ||
       // Also accept if the existing report has no report_type (legacy)
@@ -275,14 +210,7 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
         }))
       )
     }
-  }, [
-    existingReport,
-    templateData,
-    reportType,
-    reportSectionDefs,
-    project.organization_id,
-    switchedToType,
-  ])
+  }, [existingReport, templateData, reportType, reportSectionDefs, project.organization_id])
 
   const generateSectionContent = async (sectionId: string) => {
     const section = reportSectionDefs.find((s) => s.id === sectionId)
@@ -388,9 +316,6 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
           generated_by: userId,
         })
       }
-
-      // Clear type-switch guard so future reloads work normally
-      setSwitchedToType(null)
 
       toast({
         title: 'Report saved',
@@ -541,36 +466,29 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
             Generate AI-assisted report draft based on collected data
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Select value={reportType} onValueChange={handleReportTypeChange}>
-            <SelectTrigger className="w-[260px]">
-              <SelectValue placeholder="Select report type" />
-            </SelectTrigger>
-            <SelectContent>
-              {REPORT_TYPES.map((type) => (
-                <SelectItem key={type.id} value={type.id}>
-                  {type.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Badge
-            variant={
-              isComplete
-                ? 'default'
-                : workflowStep.status === 'in_progress'
-                  ? 'secondary'
-                  : 'outline'
-            }
-          >
-            {isComplete
-              ? 'Completed'
-              : workflowStep.status === 'in_progress'
-                ? 'In Progress'
-                : 'Pending'}
-          </Badge>
-        </div>
+        <Badge
+          variant={
+            isComplete ? 'default' : workflowStep.status === 'in_progress' ? 'secondary' : 'outline'
+          }
+        >
+          {isComplete
+            ? 'Completed'
+            : workflowStep.status === 'in_progress'
+              ? 'In Progress'
+              : 'Pending'}
+        </Badge>
       </div>
+
+      {/* Report Type Tabs */}
+      {reportTypes.length > 0 && (
+        <ReportTypeSelector
+          projectId={project.id}
+          reportTypes={reportTypes}
+          activeReportType={reportType}
+          onReportTypeChange={setReportType}
+          latestReports={latestReportPerType}
+        />
+      )}
 
       {/* Revision requested banner */}
       {existingReport?.status === 'internal_review' && (
@@ -664,20 +582,6 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
         nextVersion={nextVersion}
         isPending={createVersion.isPending}
         onConfirm={handleRestoreVersion}
-      />
-
-      <ChangeReportTypeDialog
-        open={!!pendingTypeChange}
-        onOpenChange={(open) => !open && setPendingTypeChange(null)}
-        currentTypeName={REPORT_TYPES.find((t) => t.id === reportType)?.name ?? reportType}
-        newTypeName={
-          REPORT_TYPES.find((t) => t.id === pendingTypeChange)?.name ?? pendingTypeChange ?? ''
-        }
-        newSectionCount={pendingTypeChange ? getReportSectionsForType(pendingTypeChange).length : 0}
-        isPending={createVersion.isPending || updateProject.isPending}
-        onConfirm={() => {
-          if (pendingTypeChange) applyReportTypeChange(pendingTypeChange)
-        }}
       />
     </div>
   )

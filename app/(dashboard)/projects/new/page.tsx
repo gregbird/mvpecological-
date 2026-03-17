@@ -11,6 +11,7 @@ import * as z from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Select,
@@ -22,11 +23,20 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { useRole } from '@/contexts/role-context'
 import { createClient } from '@/lib/supabase/client'
+import { setProjectReportTypes } from '@/lib/supabase/queries/project-report-types'
+import { REPORT_TYPES } from '@/lib/config/template-types'
+
+const ASSESSMENT_REPORTS = REPORT_TYPES.filter((r) =>
+  ['pea', 'ecia', 'aa_screening', 'aa_stage2', 'nia'].includes(r.id)
+)
+const TECHNICAL_REPORTS = REPORT_TYPES.filter((r) =>
+  ['bat_survey', 'bird_survey', 'habitat_survey', 'protected_species', 'other'].includes(r.id)
+)
 
 const projectSchema = z.object({
   name: z.string().min(3, 'Project name must be at least 3 characters'),
   siteCode: z.string().optional(),
-  surveyType: z.string().optional(),
+  reportTypes: z.array(z.string()).optional(),
   clientId: z.string().optional(),
   expectedStartDate: z.string().optional(),
   expectedEndDate: z.string().optional(),
@@ -44,15 +54,12 @@ const mockClients = [
   { id: 'c5', name: 'Kerry County Council' },
 ]
 
-import { SURVEY_TYPES as SURVEY_TYPE_DEFS } from '@/lib/config/template-types'
-
-const surveyTypes = SURVEY_TYPE_DEFS.map((s) => ({ value: s.id, label: s.label }))
-
 export default function NewProjectPage() {
   const router = useRouter()
   const { toast } = useToast()
   const { user } = useRole()
   const [isLoading, setIsLoading] = React.useState(false)
+  const [selectedReportTypes, setSelectedReportTypes] = React.useState<string[]>([])
 
   const {
     register,
@@ -62,6 +69,14 @@ export default function NewProjectPage() {
   } = useForm<ProjectFormData>({
     resolver: zodResolver(projectSchema),
   })
+
+  const toggleReportType = (typeId: string) => {
+    setSelectedReportTypes((prev) => {
+      const next = prev.includes(typeId) ? prev.filter((t) => t !== typeId) : [...prev, typeId]
+      setValue('reportTypes', next)
+      return next
+    })
+  }
 
   const onSubmit = async (data: ProjectFormData) => {
     if (!user) {
@@ -76,17 +91,16 @@ export default function NewProjectPage() {
     setIsLoading(true)
     try {
       const supabase = createClient()
-
-      // Generate site code if not provided
       const siteCode = data.siteCode || generateSiteCode(data.name)
+      const types = data.reportTypes ?? []
 
-      // Create the project
+      // Create the project (survey_type = first selected for backward compat)
       const { data: project, error: projectError } = await supabase
         .from('projects')
         .insert({
           name: data.name,
           site_code: siteCode,
-          survey_type: data.surveyType || null,
+          survey_type: types[0] || null,
           expected_start_date: data.expectedStartDate || null,
           expected_end_date: data.expectedEndDate || null,
           budget_days: data.budgetDays ? parseInt(data.budgetDays) : null,
@@ -102,7 +116,10 @@ export default function NewProjectPage() {
         throw projectError
       }
 
-      // Workflow steps are automatically created by database trigger
+      // Insert into project_report_types junction table
+      if (types.length > 0) {
+        await setProjectReportTypes(project.id, types)
+      }
 
       router.push(`/projects/${project.id}`)
     } catch (err: unknown) {
@@ -161,7 +178,7 @@ export default function NewProjectPage() {
                 <Label htmlFor="name">Project Name *</Label>
                 <Input
                   id="name"
-                  placeholder="e.g., Ballymore Wind Farm EcIA"
+                  placeholder="e.g., Ballymore Wind Farm"
                   {...register('name')}
                   disabled={isLoading}
                   onBlur={(e) => {
@@ -188,25 +205,52 @@ export default function NewProjectPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="surveyType">Report Type</Label>
-                <Select
-                  onValueChange={(value) => setValue('surveyType', value)}
-                  disabled={isLoading}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select report type (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {surveyTypes.map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Report Types</Label>
                 <p className="text-muted-foreground text-xs">
-                  Can also be set later in the AI Draft step
+                  Select one or more. You can add more later during the reporting phase.
                 </p>
+                <div className="mt-2 space-y-3">
+                  <div>
+                    <p className="text-muted-foreground mb-1.5 text-xs font-medium tracking-wide uppercase">
+                      Assessment Reports
+                    </p>
+                    <div className="space-y-1.5">
+                      {ASSESSMENT_REPORTS.map((type) => (
+                        <div key={type.id} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`report-${type.id}`}
+                            checked={selectedReportTypes.includes(type.id)}
+                            onCheckedChange={() => toggleReportType(type.id)}
+                            disabled={isLoading}
+                          />
+                          <label htmlFor={`report-${type.id}`} className="text-sm">
+                            {type.name}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground mb-1.5 text-xs font-medium tracking-wide uppercase">
+                      Technical Reports
+                    </p>
+                    <div className="space-y-1.5">
+                      {TECHNICAL_REPORTS.map((type) => (
+                        <div key={type.id} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`report-${type.id}`}
+                            checked={selectedReportTypes.includes(type.id)}
+                            onCheckedChange={() => toggleReportType(type.id)}
+                            disabled={isLoading}
+                          />
+                          <label htmlFor={`report-${type.id}`} className="text-sm">
+                            {type.name}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -273,10 +317,10 @@ export default function NewProjectPage() {
               <div className="bg-muted/50 mt-6 rounded-lg border p-4">
                 <h4 className="mb-2 font-medium">What happens next?</h4>
                 <ul className="text-muted-foreground space-y-1 text-sm">
-                  <li>• 16 workflow steps will be created automatically</li>
-                  <li>• You&apos;ll be assigned as the project lead</li>
-                  <li>• You can define the site boundary in the map view</li>
-                  <li>• Desk research can begin immediately</li>
+                  <li>- 10 workflow steps will be created automatically</li>
+                  <li>- You&apos;ll be assigned as the project lead</li>
+                  <li>- You can define the site boundary in the map view</li>
+                  <li>- Desk research can begin immediately</li>
                 </ul>
               </div>
             </CardContent>

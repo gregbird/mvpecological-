@@ -12,6 +12,7 @@ import {
   getReportByVersion,
   updateReportVersionName,
 } from '@/lib/supabase/queries'
+import { getLatestReportByType, getReportsByType } from '@/lib/supabase/queries/reports'
 import type { ReportContent } from '@/lib/supabase/queries/reports'
 import type { InsertTables, UpdateTables } from '@/types/database'
 
@@ -126,5 +127,23 @@ export function useReportByVersion(projectId: string, version: number | null) {
     queryKey: ['report-version', projectId, version],
     queryFn: () => getReportByVersion(projectId, version!),
     enabled: !!projectId && version !== null,
+  })
+}
+
+// --- Multi-report hooks ---
+
+export function useLatestReportByType(projectId: string, reportType: string) {
+  return useQuery({
+    queryKey: ['latest-report', projectId, reportType],
+    queryFn: () => getLatestReportByType(projectId, reportType),
+    enabled: !!projectId && !!reportType,
+  })
+}
+
+export function useReportsByType(projectId: string, reportType: string) {
+  return useQuery({
+    queryKey: ['reports', projectId, reportType],
+    queryFn: () => getReportsByType(projectId, reportType),
+    enabled: !!projectId && !!reportType,
   })
 }
