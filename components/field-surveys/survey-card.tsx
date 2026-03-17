@@ -11,6 +11,7 @@ import {
   Play,
   CheckCircle2,
   ShieldCheck,
+  Users,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -72,6 +73,7 @@ interface SurveyCardProps {
   onStart?: (survey: Survey) => void
   onComplete?: (survey: Survey) => void
   onApprove?: (survey: Survey) => void
+  onAssignStaff?: (survey: Survey) => void
   isHighlighted?: boolean
 }
 
@@ -93,6 +95,7 @@ export function SurveyCard({
   onStart,
   onComplete,
   onApprove,
+  onAssignStaff,
   isHighlighted,
 }: SurveyCardProps) {
   const statusStyle = STATUS_STYLES[survey.status]
@@ -215,6 +218,17 @@ export function SurveyCard({
 
         {/* Action buttons */}
         <div className="flex w-full items-center gap-2">
+          {onAssignStaff && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={() => onAssignStaff(survey)}
+            >
+              <Users className="mr-1.5 h-3.5 w-3.5" />
+              Assign
+            </Button>
+          )}
           {onView && (
             <Button variant="outline" size="sm" className="flex-1" onClick={() => onView(survey)}>
               <Eye className="mr-1.5 h-3.5 w-3.5" />

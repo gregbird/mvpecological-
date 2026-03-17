@@ -168,6 +168,14 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient()
 
+    // Check if specific surveys are linked to this report type
+    const { data: linkedSurveyRows } = await supabase
+      .from('report_survey_links')
+      .select('survey_id')
+      .eq('project_id', projectId)
+      .eq('report_type', reportType)
+    const linkedSurveyIds = linkedSurveyRows?.map((r) => r.survey_id) ?? []
+
     // Fetch all project data in parallel
     const [
       projectResult,
@@ -254,10 +262,22 @@ export async function POST(request: NextRequest) {
 
     const project = projectResult.data as ProjectData
     const habitats = (habitatsResult.data || []) as HabitatData[]
-    const observations = (observationsResult.data || []) as ObservationData[]
+    const allObservations = (observationsResult.data || []) as ObservationData[]
     const findings = (findingsResult.data || []) as FindingData[]
-    const surveys = (surveysResult.data || []) as SurveyData[]
+    const allSurveys = (surveysResult.data || []) as SurveyData[]
     const targetNotes = (targetNotesResult.data || []) as TargetNoteData[]
+
+    // Filter surveys and observations by linked surveys (if links exist)
+    const surveys =
+      linkedSurveyIds.length > 0
+        ? allSurveys.filter((s) => linkedSurveyIds.includes((s as unknown as { id: string }).id))
+        : allSurveys
+    const observations =
+      linkedSurveyIds.length > 0
+        ? allObservations.filter((o) =>
+            linkedSurveyIds.includes((o as unknown as { survey_id: string }).survey_id)
+          )
+        : allObservations
     const deepResearch = (deepResearchResult.data || []) as unknown as DeepResearchData[]
     const aquaticResearch = (aquaticResearchResult.data || []) as unknown as AquaticResearchData[]
     const deskInsights = (workflowResult.data?.metadata as Record<string, unknown>)?.aiInsights as

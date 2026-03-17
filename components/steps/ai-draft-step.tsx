@@ -31,7 +31,7 @@ import { VersionCompareDialog } from '@/components/steps/ai-draft/version-compar
 import { VersionViewDialog } from '@/components/steps/ai-draft/version-view-dialog'
 import { RestoreVersionDialog } from '@/components/steps/ai-draft/restore-version-dialog'
 import { ReportTypeSelector } from '@/components/steps/report-type-selector'
-
+import { SurveyLinkPanel } from '@/components/steps/ai-draft/survey-link-panel'
 import type { Project, Report, WorkflowStep, Json } from '@/types/database'
 
 interface AIDraftStepProps {
@@ -489,6 +489,11 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
           latestReports={latestReportPerType}
         />
       )}
+
+      {/* Survey Data Sources */}
+      <div className="px-1 pb-1">
+        <SurveyLinkPanel projectId={project.id} reportType={reportType} />
+      </div>
 
       {/* Revision requested banner */}
       {existingReport?.status === 'internal_review' && (

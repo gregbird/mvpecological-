@@ -1622,6 +1622,52 @@ export type Database = {
           },
         ]
       }
+      survey_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          id: string
+          survey_id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          id?: string
+          survey_id: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          id?: string
+          survey_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'survey_assignments_survey_id_fkey'
+            columns: ['survey_id']
+            isOneToOne: false
+            referencedRelation: 'surveys'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'survey_assignments_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'survey_assignments_assigned_by_fkey'
+            columns: ['assigned_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       surveys: {
         Row: {
           created_at: string

@@ -37,8 +37,10 @@ import { useSavedFindings } from '@/hooks/queries/use-finding-hooks'
 import { SurveyCard, type Survey as SurveyCardType } from '@/components/field-surveys/survey-card'
 import { SurveyForm } from '@/components/field-surveys/survey-form'
 import { SurveyViewDialog } from '@/components/field-surveys/survey-view-dialog'
+import { SurveyAssignmentDialog } from '@/components/field-surveys/survey-assignment-dialog'
 import { PhotoGallery } from '@/components/field-surveys/photo-gallery'
 import { FIELD_SURVEY_TYPE_LABELS } from '@/lib/config/survey'
+import { useRole } from '@/contexts/role-context'
 import type { Project, WorkflowStep, Json } from '@/types/database'
 
 interface FieldSurveyStepProps {
@@ -55,9 +57,11 @@ export function FieldSurveyStep({
   onComplete,
 }: FieldSurveyStepProps) {
   const { toast } = useToast()
+  const { user: roleUser } = useRole()
   const [showSurveyForm, setShowSurveyForm] = React.useState(false)
   const [editingSurvey, setEditingSurvey] = React.useState<SurveyCardType | null>(null)
   const [viewingSurvey, setViewingSurvey] = React.useState<SurveyCardType | null>(null)
+  const [assigningSurvey, setAssigningSurvey] = React.useState<SurveyCardType | null>(null)
   const [activeTab, setActiveTab] = React.useState('all')
   const [topTab, setTopTab] = React.useState<'surveys' | 'photos'>('surveys')
   const [showFindings, setShowFindings] = React.useState(true)
@@ -380,6 +384,9 @@ export function FieldSurveyStep({
       })
     }
   }
+
+  // Can this user assign staff? (admin or PM only)
+  const canAssignStaff = roleUser?.role === 'admin' || roleUser?.role === 'project_manager'
 
   // Handle viewing a survey (read-only)
   const handleViewSurvey = (survey: SurveyCardType) => {

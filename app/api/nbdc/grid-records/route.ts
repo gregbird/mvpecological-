@@ -23,18 +23,26 @@ async function getNBDCSession(): Promise<{ cookies: string; xsrfToken: string } 
   try {
     const response = await fetch(`${NBDC_BASE_URL}/Map/Terrestrial`, {
       redirect: 'follow',
+      cache: 'no-store',
     })
 
-    const setCookieHeader = response.headers.get('set-cookie')
-    if (!setCookieHeader) return null
+    // Use getSetCookie() for proper multi-cookie parsing (Node.js 20+)
+    // Falls back to get('set-cookie') header splitting
+    const setCookies: string[] =
+      typeof response.headers.getSetCookie === 'function'
+        ? response.headers.getSetCookie()
+        : (response.headers.get('set-cookie') || '').split(/,(?=[^ ])/)
 
-    // Parse cookies from the header
-    const cookieParts = setCookieHeader.split(/,(?=[^ ])/)
+    if (setCookies.length === 0) {
+      console.error('[NBDC Session] No set-cookie headers received')
+      return null
+    }
+
     const cookieValues: string[] = []
     let xsrfToken = ''
 
-    for (const part of cookieParts) {
-      const nameValue = part.split(';')[0].trim()
+    for (const cookie of setCookies) {
+      const nameValue = cookie.split(';')[0].trim()
       if (nameValue.startsWith('XSRF-TOKEN=')) {
         xsrfToken = decodeURIComponent(nameValue.split('=').slice(1).join('='))
         cookieValues.push(nameValue)
@@ -46,7 +54,10 @@ async function getNBDCSession(): Promise<{ cookies: string; xsrfToken: string } 
       }
     }
 
-    if (!xsrfToken) return null
+    if (!xsrfToken) {
+      console.error('[NBDC Session] XSRF token not found in cookies')
+      return null
+    }
 
     return { cookies: cookieValues.join('; '), xsrfToken }
   } catch (error) {
@@ -73,6 +84,19 @@ async function generateAndParseReport(
   const yMax = yMin + resolution
 
   // Generate report via NBDC API
+  const reportBody = {
+    reportType: 1,
+    xMin,
+    yMin,
+    xMax,
+    yMax,
+    gridSquare: cleanRef,
+    resolution,
+    uid: `dulra-${cleanRef}-${Date.now()}`,
+    mapImageUrl: '',
+    overviewMapImageUrl: '',
+  }
+
   const reportResponse = await fetch(
     `${NBDC_BASE_URL}/api/services/app/reportService/GenerateReport`,
     {
@@ -83,35 +107,29 @@ async function generateAndParseReport(
         'X-Requested-With': 'XMLHttpRequest',
         Cookie: session.cookies,
       },
-      body: JSON.stringify({
-        reportType: 1,
-        xMin,
-        yMin,
-        xMax,
-        yMax,
-        gridSquare: cleanRef,
-        resolution,
-        uid: `dulra-${cleanRef}-${Date.now()}`,
-        mapImageUrl: '',
-        overviewMapImageUrl: '',
-      }),
+      body: JSON.stringify(reportBody),
+      cache: 'no-store',
     }
   )
 
   if (!reportResponse.ok) {
-    console.error(`[NBDC Report] GenerateReport failed for ${cleanRef}: ${reportResponse.status}`)
+    const errText = await reportResponse.text().catch(() => '')
+    console.error(
+      `[NBDC Report] GenerateReport failed for ${cleanRef}: ${reportResponse.status}`,
+      errText.substring(0, 200)
+    )
     return []
   }
 
   const reportData = await reportResponse.json()
   if (!reportData.success || !reportData.result?.reportUrl) {
-    console.error(`[NBDC Report] No report URL for ${cleanRef}`)
+    console.error(`[NBDC Report] No report URL for ${cleanRef}`, reportData.error)
     return []
   }
 
   // Download the XLSX file
   const xlsxUrl = reportData.result.reportUrl
-  const xlsxResponse = await fetch(encodeURI(xlsxUrl))
+  const xlsxResponse = await fetch(encodeURI(xlsxUrl), { cache: 'no-store' })
   if (!xlsxResponse.ok) {
     console.error(`[NBDC Report] Failed to download XLSX for ${cleanRef}: ${xlsxResponse.status}`)
     return []
@@ -157,7 +175,10 @@ export async function POST(request: NextRequest) {
     const { user: _authUser, error: authError } = await requireAuth()
     if (authError) return authError
 
-    const { gridReferences, resolution = 10000 } = await request.json()
+    const body = await request.json()
+    const { gridReferences, resolution = 10000 } = body
+
+    console.log('[NBDC Report] Request:', { gridReferences, resolution })
 
     if (!gridReferences || !Array.isArray(gridReferences) || gridReferences.length === 0) {
       return NextResponse.json({ error: 'gridReferences array is required' }, { status: 400 })
@@ -170,11 +191,13 @@ export async function POST(request: NextRequest) {
     // Get NBDC session (cookies + XSRF token)
     const session = await getNBDCSession()
     if (!session) {
+      console.error('[NBDC Report] Failed to get NBDC session')
       return NextResponse.json(
         { species: [], error: 'Failed to establish NBDC session' },
         { status: 502 }
       )
     }
+    console.log('[NBDC Report] Session acquired, processing', refs.length, 'grid squares')
 
     const allSpecies: NBDCReportSpecies[] = []
 
