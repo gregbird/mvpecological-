@@ -38,7 +38,8 @@
   > DB: `report_survey_links` tablosu oluşturuldu (report_type↔survey many-to-many). Boş = tüm survey'ler kullanılır (fallback). Query ve hook altyapısı hazır. Dosyalar: `lib/supabase/queries/report-survey-links.ts`, `hooks/queries/use-report-survey-links.ts`. Phase 4'te UI (survey link panel) eklenecek.
 - [x] **2.3** Raporlama aşamasında yeni rapor eklemeye izin ver
   > Step 8/9/10'da `ReportTypeSelector` tab bar eklendi. Tab bar'da "+" butonu ile yeni rapor türü eklenebilir. Her rapor bağımsız draft/review/export döngüsüne sahip. `useActiveReportType` hook'u aktif rapor türünü yönetir. `useLatestReportByType` ve `useReportsByType` hook'ları rapor türüne göre veri çeker. Version numaraları rapor türüne göre bağımsız (PEA v1, EcIA v1). Dosyalar: `report-type-selector.tsx`, `use-active-report-type.ts`, `ai-draft-step.tsx`, `quality-review-step.tsx`, `final-submission-step.tsx`, `use-report-hooks.ts`, `reports.ts`
-- [ ] **2.4** Proje yöneticisi atama ve anket sorumluluğu dağıtma yapısını düzenle
+- [x] **2.4** Proje yöneticisi atama ve anket sorumluluğu dağıtma yapısını düzenle
+  > DB: `survey_assignments` tablosu oluşturuldu (survey↔user many-to-many, assigned_by ile kim atadığını takip eder). Step 4 (Field Survey)'da her survey card'a "Assign" butonu eklendi — sadece Admin ve PM rolündeki kullanıcılar görebilir. Tıklanınca `SurveyAssignmentDialog` açılır: organizasyon üyeleri listelenir, atama/çıkarma yapılabilir. Dosyalar: `survey_assignments.ts`, `use-survey-assignment-hooks.ts`, `survey-assignment-dialog.tsx`, `survey-card.tsx`, `field-survey-step.tsx`
 
 ---
 

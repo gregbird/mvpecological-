@@ -207,50 +207,42 @@ export default function NewProjectPage() {
               <div className="space-y-2">
                 <Label>Report Types</Label>
                 <p className="text-muted-foreground text-xs">
-                  Select one or more. You can add more later during the reporting phase.
+                  Select one or more. You can add more later.
                 </p>
-                <div className="mt-2 space-y-3">
-                  <div>
-                    <p className="text-muted-foreground mb-1.5 text-xs font-medium tracking-wide uppercase">
-                      Assessment Reports
-                    </p>
-                    <div className="space-y-1.5">
-                      {ASSESSMENT_REPORTS.map((type) => (
-                        <div key={type.id} className="flex items-center gap-2">
-                          <Checkbox
-                            id={`report-${type.id}`}
-                            checked={selectedReportTypes.includes(type.id)}
-                            onCheckedChange={() => toggleReportType(type.id)}
-                            disabled={isLoading}
-                          />
-                          <label htmlFor={`report-${type.id}`} className="text-sm">
-                            {type.name}
-                          </label>
-                        </div>
-                      ))}
+                <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1">
+                  {ASSESSMENT_REPORTS.map((type) => (
+                    <div key={type.id} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`report-${type.id}`}
+                        checked={selectedReportTypes.includes(type.id)}
+                        onCheckedChange={() => toggleReportType(type.id)}
+                        disabled={isLoading}
+                      />
+                      <label htmlFor={`report-${type.id}`} className="text-sm leading-tight">
+                        {type.name}
+                      </label>
                     </div>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground mb-1.5 text-xs font-medium tracking-wide uppercase">
-                      Technical Reports
-                    </p>
-                    <div className="space-y-1.5">
-                      {TECHNICAL_REPORTS.map((type) => (
-                        <div key={type.id} className="flex items-center gap-2">
-                          <Checkbox
-                            id={`report-${type.id}`}
-                            checked={selectedReportTypes.includes(type.id)}
-                            onCheckedChange={() => toggleReportType(type.id)}
-                            disabled={isLoading}
-                          />
-                          <label htmlFor={`report-${type.id}`} className="text-sm">
-                            {type.name}
-                          </label>
-                        </div>
-                      ))}
+                  ))}
+                  {TECHNICAL_REPORTS.map((type) => (
+                    <div key={type.id} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`report-${type.id}`}
+                        checked={selectedReportTypes.includes(type.id)}
+                        onCheckedChange={() => toggleReportType(type.id)}
+                        disabled={isLoading}
+                      />
+                      <label htmlFor={`report-${type.id}`} className="text-sm leading-tight">
+                        {type.name}
+                      </label>
                     </div>
-                  </div>
+                  ))}
                 </div>
+                {selectedReportTypes.length > 0 && (
+                  <p className="text-xs text-emerald-600">
+                    {selectedReportTypes.length} report type
+                    {selectedReportTypes.length > 1 ? 's' : ''} selected
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">

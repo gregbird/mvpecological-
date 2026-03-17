@@ -275,18 +275,6 @@ export function QualityReviewStep({
     )
   }
 
-  if (!report) {
-    return (
-      <Alert variant="destructive">
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>No Report Found</AlertTitle>
-        <AlertDescription>
-          Please complete the AI Draft step to generate a report before reviewing.
-        </AlertDescription>
-      </Alert>
-    )
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -319,6 +307,19 @@ export function QualityReviewStep({
           allowAdd={false}
         />
       )}
+
+      {!report && !loadingReport && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>No Report Found</AlertTitle>
+          <AlertDescription>
+            Please complete the AI Draft step to generate a report for this report type before reviewing.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {!report ? null : (
+        <>
 
       {/* Instructions */}
       <Alert>

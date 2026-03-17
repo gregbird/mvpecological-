@@ -26,12 +26,25 @@ async function getNBDCSession(): Promise<{ cookies: string; xsrfToken: string } 
       cache: 'no-store',
     })
 
-    // Use getSetCookie() for proper multi-cookie parsing (Node.js 20+)
-    // Falls back to get('set-cookie') header splitting
-    const setCookies: string[] =
-      typeof response.headers.getSetCookie === 'function'
-        ? response.headers.getSetCookie()
-        : (response.headers.get('set-cookie') || '').split(/,(?=[^ ])/)
+    // Parse set-cookie headers — try multiple approaches for compatibility
+    // Next.js fetch may handle set-cookie differently than Node.js native fetch
+    let setCookies: string[] = []
+
+    // Approach 1: getSetCookie() (Node.js 20+)
+    if (typeof response.headers.getSetCookie === 'function') {
+      setCookies = response.headers.getSetCookie()
+    }
+
+    // Approach 2: raw header string splitting
+    if (setCookies.length === 0) {
+      const raw = response.headers.get('set-cookie') || ''
+      if (raw) {
+        // Split on comma followed by a cookie name (word=), avoiding splitting date strings
+        setCookies = raw.split(/,\s*(?=[A-Za-z_]+=)/)
+      }
+    }
+
+    console.log('[NBDC Session] Cookies found:', setCookies.length)
 
     if (setCookies.length === 0) {
       console.error('[NBDC Session] No set-cookie headers received')
@@ -55,10 +68,19 @@ async function getNBDCSession(): Promise<{ cookies: string; xsrfToken: string } 
     }
 
     if (!xsrfToken) {
-      console.error('[NBDC Session] XSRF token not found in cookies')
+      console.error(
+        '[NBDC Session] XSRF token not found. Raw header:',
+        setCookies[0]?.substring(0, 100)
+      )
       return null
     }
 
+    console.log(
+      '[NBDC Session] OK — XSRF length:',
+      xsrfToken.length,
+      'cookie parts:',
+      cookieValues.length
+    )
     return { cookies: cookieValues.join('; '), xsrfToken }
   } catch (error) {
     console.error('[NBDC Session] Failed to get session:', error)

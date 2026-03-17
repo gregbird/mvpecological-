@@ -160,73 +160,33 @@ export function QuickCreateProjectModal({
                   <p className="text-muted-foreground text-xs">
                     Select one or more. You can add more later.
                   </p>
-                  <div className="mt-2 space-y-3">
-                    <div>
-                      <p className="text-muted-foreground mb-1.5 text-xs font-medium tracking-wide uppercase">
-                        Assessment Reports
-                      </p>
-                      <div className="space-y-1.5">
-                        {ASSESSMENT_REPORTS.map((type) => (
-                          <FormField
-                            key={type.id}
-                            control={form.control}
-                            name="reportTypes"
-                            render={({ field }) => (
-                              <FormItem className="flex items-center gap-2 space-y-0">
-                                <FormControl>
-                                  <Checkbox
-                                    checked={field.value?.includes(type.id)}
-                                    onCheckedChange={(checked) => {
-                                      const current = field.value ?? []
-                                      field.onChange(
-                                        checked
-                                          ? [...current, type.id]
-                                          : current.filter((v) => v !== type.id)
-                                      )
-                                    }}
-                                    disabled={isLoading}
-                                  />
-                                </FormControl>
-                                <span className="text-sm">{type.name}</span>
-                              </FormItem>
-                            )}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground mb-1.5 text-xs font-medium tracking-wide uppercase">
-                        Technical Reports
-                      </p>
-                      <div className="space-y-1.5">
-                        {TECHNICAL_REPORTS.map((type) => (
-                          <FormField
-                            key={type.id}
-                            control={form.control}
-                            name="reportTypes"
-                            render={({ field }) => (
-                              <FormItem className="flex items-center gap-2 space-y-0">
-                                <FormControl>
-                                  <Checkbox
-                                    checked={field.value?.includes(type.id)}
-                                    onCheckedChange={(checked) => {
-                                      const current = field.value ?? []
-                                      field.onChange(
-                                        checked
-                                          ? [...current, type.id]
-                                          : current.filter((v) => v !== type.id)
-                                      )
-                                    }}
-                                    disabled={isLoading}
-                                  />
-                                </FormControl>
-                                <span className="text-sm">{type.name}</span>
-                              </FormItem>
-                            )}
-                          />
-                        ))}
-                      </div>
-                    </div>
+                  <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1">
+                    {[...ASSESSMENT_REPORTS, ...TECHNICAL_REPORTS].map((type) => (
+                      <FormField
+                        key={type.id}
+                        control={form.control}
+                        name="reportTypes"
+                        render={({ field }) => (
+                          <FormItem className="flex items-center gap-2 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value?.includes(type.id)}
+                                onCheckedChange={(checked) => {
+                                  const current = field.value ?? []
+                                  field.onChange(
+                                    checked
+                                      ? [...current, type.id]
+                                      : current.filter((v) => v !== type.id)
+                                  )
+                                }}
+                                disabled={isLoading}
+                              />
+                            </FormControl>
+                            <span className="text-xs leading-tight">{type.name}</span>
+                          </FormItem>
+                        )}
+                      />
+                    ))}
                   </div>
                   <FormMessage />
                 </FormItem>

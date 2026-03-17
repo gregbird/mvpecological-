@@ -668,7 +668,7 @@ export function FindingsList({
                 <p className="text-muted-foreground text-sm">No results match the current filter</p>
               </div>
             )}
-            {paginatedFindings.map((finding) => {
+            {paginatedFindings.map((finding, findingIdx) => {
               const saved = isFindingSaved(finding)
               const isSaving = savingIds?.has(finding.id) ?? false
               const isEpaFinding = finding.source === 'epa'
@@ -682,7 +682,7 @@ export function FindingsList({
 
               return (
                 <div
-                  key={finding.id}
+                  key={`${finding.id}-${findingIdx}`}
                   id={`finding-${finding.id}`}
                   className={`rounded-lg p-2.5 transition-colors ${
                     isSelected

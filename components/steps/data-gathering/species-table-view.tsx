@@ -56,11 +56,11 @@ export function SpeciesTableView({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {findings.map((finding) => {
+          {findings.map((finding, idx) => {
             const isSelected = selectedFindingId === finding.id
             return (
               <TableRow
-                key={finding.id}
+                key={`${finding.id}-${idx}`}
                 className={`cursor-pointer text-xs ${
                   isSelected ? 'bg-blue-50' : finding.metadata?.isProtected ? 'bg-red-50/40' : ''
                 }`}

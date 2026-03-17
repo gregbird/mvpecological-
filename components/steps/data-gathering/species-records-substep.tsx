@@ -382,10 +382,12 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
             }
           }
 
+          let speciesIdx = 0
           for (const [
             name,
             { totalCount, species, gridSquares, newestDate, datasets },
           ] of speciesMap) {
+            speciesIdx++
             const { scientificName, commonName } = parseSpeciesName(name)
             const { isProtected, isInvasive, isThreatened } = parseDesignation(species.designation)
 
@@ -400,7 +402,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
             }
 
             findings.push({
-              id: `nbdc-${scientificName.replace(/\s+/g, '-')}`,
+              id: `nbdc-${speciesIdx}-${name.replace(/[^a-zA-Z0-9]/g, '-').substring(0, 60)}`,
               source: 'nbdc',
               dataType: 'species_record',
               title: commonName || scientificName,

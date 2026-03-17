@@ -751,6 +751,7 @@ export function FieldSurveyStep({
                             onStart={handleStartSurvey}
                             onComplete={handleCompleteSurvey}
                             onApprove={handleApproveSurvey}
+                            onAssignStaff={canAssignStaff ? setAssigningSurvey : undefined}
                             isHighlighted={survey.id === highlightedSurveyId}
                           />
                         ))}
@@ -775,6 +776,7 @@ export function FieldSurveyStep({
                                 onEdit={handleOpenEditForm}
                                 onDelete={handleDeleteSurvey}
                                 onApprove={handleApproveSurvey}
+                                onAssignStaff={canAssignStaff ? setAssigningSurvey : undefined}
                                 isHighlighted={survey.id === highlightedSurveyId}
                               />
                             ))}
@@ -884,6 +886,20 @@ export function FieldSurveyStep({
                 setReleveEditOnOpen(false)
                 handleOpenEditForm(survey)
               }}
+            />
+          )}
+
+          {/* Survey Assignment Dialog */}
+          {assigningSurvey && (
+            <SurveyAssignmentDialog
+              open={!!assigningSurvey}
+              onOpenChange={(open) => !open && setAssigningSurvey(null)}
+              surveyId={assigningSurvey.id}
+              surveyLabel={
+                FIELD_SURVEY_TYPE_LABELS[assigningSurvey.surveyType] || assigningSurvey.surveyType
+              }
+              organizationId={project.organization_id}
+              assignedBy={userId}
             />
           )}
         </TabsContent>
