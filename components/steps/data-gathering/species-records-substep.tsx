@@ -8,16 +8,10 @@ import {
   SpeciesResearchModal,
   type SpeciesResearchData,
 } from '@/components/desk-research/species-research-modal'
-import { searchOccurrences } from '@/lib/external-apis/gbif'
-import {
-  enrichSpeciesFromNBDC,
-  searchRecordsByGridRefProxy,
-  type NBDCRecord,
-} from '@/lib/external-apis/nbdc'
+import { fetchNBDCGridReport, type NBDCGridReportSpecies } from '@/lib/external-apis/nbdc'
 import { searchFPOByGridRef, type FPORecord } from '@/lib/data/fpo-species'
 import { searchSpeciesByGridRef, type Article17Species } from '@/lib/data/article17-species'
-import { wgs84ToGridRef, wgs84ToItm, itmToGridRef } from '@/lib/utils/grid-reference'
-import { calculateDistanceFromBoundary } from '@/lib/gis/distance'
+import { wgs84ToItm, itmToGridRef } from '@/lib/utils/grid-reference'
 import { useCreateFinding, useUpdateFinding } from '@/hooks/queries/use-finding-hooks'
 import type { Project, DeskResearchFinding, Json } from '@/types/database'
 import type { FindingSource, FindingType } from '@/components/desk-research/finding-card'
@@ -36,6 +30,52 @@ interface SpeciesRecordsSubStepProps {
   onAutoSearchComplete?: (status: 'done' | 'error' | 'skipped') => void
 }
 
+/**
+ * Parse NBDC report species name: "Common Name (Scientific Name)" or just "Scientific Name"
+ */
+function parseSpeciesName(name: string): { scientificName: string; commonName?: string } {
+  const match = name.match(/^(.+?)\s*\(([^)]+)\)\s*$/)
+  if (match) {
+    return { commonName: match[1].trim(), scientificName: match[2].trim() }
+  }
+  return { scientificName: name.trim() }
+}
+
+/**
+ * Parse NBDC designation string to determine protection/invasive/threatened status
+ */
+function parseDesignation(designation: string | null): {
+  isProtected: boolean
+  isInvasive: boolean
+  isThreatened: boolean
+} {
+  if (!designation) return { isProtected: false, isInvasive: false, isThreatened: false }
+  const d = designation.toLowerCase()
+  return {
+    isProtected:
+      /wildlife act|habitats directive|birds directive|flora protection|protected|annex|bern convention|bonn convention|cites/.test(
+        d
+      ),
+    isInvasive: /invasive|ias regulation|third schedule/.test(d),
+    isThreatened:
+      /critically endangered|endangered|vulnerable|near threatened|red list|red data|threatened|amber list|red list/.test(
+        d
+      ),
+  }
+}
+
+/**
+ * Convert ITM (EPSG:2157) to approximate ING (EPSG:29903) coordinates.
+ * The Irish Grid reference system uses ING, not ITM.
+ * This approximation is accurate enough for grid square identification (~100m error).
+ */
+function itmToIng(itmEasting: number, itmNorthing: number) {
+  return {
+    easting: itmEasting - 400000,
+    northing: itmNorthing - 500000,
+  }
+}
+
 export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
   const { projectBoundary, projectCenter, savedFindings, project, userId } = props
   const createFinding = useCreateFinding()
@@ -50,13 +90,6 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
 
   // Ref to trigger short AI summary from the shell
   const aiSummaryTriggerRef = React.useRef<((finding: FindingDisplay) => void) | null>(null)
-
-  // Enrichment state
-  const [isEnriching, setIsEnriching] = React.useState(false)
-  const [enrichmentProgress, setEnrichmentProgress] = React.useState<{
-    current: number
-    total: number
-  } | null>(null)
 
   // Source filter — default to 'protected' (only show species with designation)
   const [sourceFilter, setSourceFilter] = React.useState<'all' | 'gbif' | 'nbdc' | 'protected'>(
@@ -75,90 +108,6 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
   React.useEffect(() => {
     sessionStorage.setItem(gridResolutionKey, gridResolution)
   }, [gridResolution, gridResolutionKey])
-
-  // Auto-enrich findings with NBDC data
-  const autoEnrich = async (
-    findings: FindingDisplay[],
-    setResults: React.Dispatch<React.SetStateAction<FindingDisplay[]>>
-  ) => {
-    setIsEnriching(true)
-    setEnrichmentProgress({ current: 0, total: findings.length })
-
-    const enriched = [...findings]
-
-    for (let i = 0; i < findings.length; i++) {
-      const finding = findings[i]
-      const scientificName = finding.metadata?.scientificName
-
-      setEnrichmentProgress({ current: i + 1, total: findings.length })
-
-      if (finding.metadata?.nbdcEnriched || !scientificName) continue
-
-      if (i > 0) {
-        await new Promise((resolve) => setTimeout(resolve, 150))
-      }
-
-      try {
-        const nbdcData = await enrichSpeciesFromNBDC(scientificName)
-
-        if (nbdcData) {
-          const contentParts = [finding.content]
-          if (nbdcData.designations) {
-            contentParts.push(`🛡️ ${nbdcData.designations}`)
-          }
-          if (nbdcData.totalRecordsInIreland > 0) {
-            contentParts.push(`📊 ${nbdcData.totalRecordsInIreland.toLocaleString()} Irish records`)
-          }
-
-          enriched[i] = {
-            ...finding,
-            title: nbdcData.commonName || finding.title,
-            content: contentParts.join(' '),
-            metadata: {
-              ...finding.metadata,
-              commonName: nbdcData.commonName || finding.metadata?.commonName,
-              isProtected: nbdcData.isProtected,
-              isInvasive: nbdcData.isInvasive,
-              isThreatened: nbdcData.isThreatened,
-              nbdcTaxonId: nbdcData.taxonId,
-              totalIrishRecords: nbdcData.totalRecordsInIreland,
-              gridSquares10km: nbdcData.gridSquares10km,
-              designations: nbdcData.designations || undefined,
-              taxonGroup: nbdcData.taxonGroup || undefined,
-              nbdcEnriched: true,
-              gbifUrl: finding.sourceUrl,
-              nbdcUrl: nbdcData.nbdcUrl,
-              newestRecordDate: nbdcData.newestRecordDate || finding.metadata?.newestRecordDate,
-            },
-            rawData: {
-              ...finding.rawData,
-              nbdcData,
-            },
-          }
-        }
-      } catch (error) {
-        console.warn(`Failed to enrich ${scientificName}:`, error)
-      }
-    }
-
-    setResults([...enriched])
-    setIsEnriching(false)
-    setEnrichmentProgress(null)
-
-    // Auto-generate AI summaries for designated/protected species
-    const designatedSpecies = enriched.filter(
-      (f) =>
-        (f.metadata?.isProtected || f.metadata?.designations) &&
-        !f.metadata?.aiSummary &&
-        !f.metadata?.aiSummaryLoading
-    )
-    if (designatedSpecies.length > 0 && aiSummaryTriggerRef.current) {
-      for (const species of designatedSpecies) {
-        aiSummaryTriggerRef.current(species)
-        await new Promise((resolve) => setTimeout(resolve, 500))
-      }
-    }
-  }
 
   // Handle species deep research
   const handleSpeciesDeepResearch = async (finding: FindingDisplay, sf: DeskResearchFinding[]) => {
@@ -261,7 +210,6 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
     )
 
     if (existingSaved) {
-      // Card already saved — update with deep research data (not as aiSummary)
       const existingRawData = (existingSaved.raw_data as Record<string, unknown>) || {}
 
       updateFinding
@@ -276,11 +224,10 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
         })
         .catch((err) => console.error('Failed to persist deep research to finding:', err))
     } else if (deepResearchFinding) {
-      // Card not saved — create finding first with deep research data
       try {
         const payload = {
           project_id: project.id,
-          source: (deepResearchFinding.metadata?.nbdcEnriched ? 'nbdc' : 'gbif') as 'nbdc' | 'gbif',
+          source: 'nbdc' as const,
           data_type: 'species_record' as const,
           title: deepResearchFinding.title,
           content: deepResearchFinding.content || null,
@@ -308,13 +255,11 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
     }
   }
 
-  // Count protected and invasive species (needs access to searchResults from shell)
-  // We pass these via findingsListExtraProps which gets updated via the config
+  // Count protected and invasive species
   const [currentSearchResults, setCurrentSearchResults] = React.useState<FindingDisplay[]>([])
 
   const protectedCount = currentSearchResults.filter((f) => f.metadata?.isProtected).length
   const invasiveCount = currentSearchResults.filter((f) => f.metadata?.isInvasive).length
-  const enrichedCount = currentSearchResults.filter((f) => f.metadata?.nbdcEnriched).length
 
   const config: SubstepShellConfig = React.useMemo(
     () => ({
@@ -323,39 +268,40 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       searchButtonLabel: 'Search Species',
       searchButtonColor: 'border-purple-300 text-purple-700 hover:bg-gray-50',
       emptyMessage: 'Search to find species',
-      cacheKeyPrefix: 'gbif',
+      cacheKeyPrefix: 'nbdc-report',
       stepName: 'species_records',
-      source: 'gbif',
-      sourceFilter: ['gbif', 'nbdc'],
-      isSearchDisabled: isEnriching,
+      source: 'nbdc',
+      sourceFilter: ['nbdc'],
 
-      // Search — primary source is NBDC grid reference, fallback to GBIF bbox
+      // Search — NBDC grid report API (generates XLSX per grid square)
       performSearch: async ({ bbox }) => {
         const findings: FindingDisplay[] = []
 
-        // Calculate ALL grid squares intersecting the project buffer bbox
+        // Calculate grid squares intersecting the project buffer bbox
         const gridRefsToSearch: string[] = []
         let gridRef1km: string | null = null
         let searchLabel = ''
 
-        // Grid step size in meters based on resolution
-        const stepSize = gridResolution === '10km' ? 10000 : gridResolution === '2km' ? 1000 : 1000
-        // Irish Grid precision: 1 = 10km, 2 = 1km
+        // Resolution parameters
+        const resolutionMeters =
+          gridResolution === '10km' ? 10000 : gridResolution === '2km' ? 2000 : 1000
+        const stepSize = gridResolution === '10km' ? 10000 : gridResolution === '2km' ? 2000 : 1000
         const precision: 1 | 2 = gridResolution === '10km' ? 1 : 2
-        // Max grid squares to search (avoid too many API calls)
-        const maxSquares = gridResolution === '10km' ? 20 : gridResolution === '2km' ? 40 : 30
+        const maxSquares = gridResolution === '10km' ? 20 : gridResolution === '2km' ? 10 : 15
 
         if (projectCenter) {
           try {
-            // Convert bbox corners to ITM
+            // Convert bbox corners to ING (Irish National Grid) via ITM offset
             const swItm = wgs84ToItm(bbox.minLat, bbox.minLng)
             const neItm = wgs84ToItm(bbox.maxLat, bbox.maxLng)
+            const swIng = itmToIng(swItm.easting, swItm.northing)
+            const neIng = itmToIng(neItm.easting, neItm.northing)
 
             // Floor to grid step boundaries
-            const minE = Math.floor(swItm.easting / stepSize) * stepSize
-            const minN = Math.floor(swItm.northing / stepSize) * stepSize
-            const maxE = Math.floor(neItm.easting / stepSize) * stepSize
-            const maxN = Math.floor(neItm.northing / stepSize) * stepSize
+            const minE = Math.floor(swIng.easting / stepSize) * stepSize
+            const minN = Math.floor(swIng.northing / stepSize) * stepSize
+            const maxE = Math.floor(neIng.easting / stepSize) * stepSize
+            const maxN = Math.floor(neIng.northing / stepSize) * stepSize
 
             // Iterate all grid squares in the bbox
             for (let e = minE; e <= maxE; e += stepSize) {
@@ -378,335 +324,241 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
                 ? gridRefsToSearch[0]
                 : `${gridRefsToSearch.length} ${gridResolution} squares`
 
-            gridRef1km = wgs84ToGridRef(projectCenter.lat, projectCenter.lng, 2, true)
+            // 1km grid ref for FPO/Article 17 lookup
+            const centerItm = wgs84ToItm(projectCenter.lat, projectCenter.lng)
+            const centerIng = itmToIng(centerItm.easting, centerItm.northing)
+            try {
+              gridRef1km = itmToGridRef(centerIng.easting, centerIng.northing, 2, true)
+            } catch {
+              // Outside grid
+            }
           } catch {
             // Project is outside Irish Grid
           }
         }
 
-        // --- NBDC Grid Reference Search (primary) ---
-        const nbdcRecords: NBDCRecord[] = []
+        // --- NBDC Grid Report Search ---
         if (gridRefsToSearch.length > 0) {
-          try {
-            // Fetch in batches of 5 to avoid overwhelming the API
-            const batchSize = 5
-            for (let i = 0; i < gridRefsToSearch.length; i += batchSize) {
-              const batch = gridRefsToSearch.slice(i, i + batchSize)
-              const results = await Promise.all(
-                batch.map((ref) => searchRecordsByGridRefProxy(ref, 2015))
-              )
-              nbdcRecords.push(...results.flat())
-              if (i + batchSize < gridRefsToSearch.length) {
-                await new Promise((resolve) => setTimeout(resolve, 200))
-              }
-            }
-          } catch {
-            // NBDC grid search failed, will fallback to GBIF
-          }
-        }
+          const cleanRefs = gridRefsToSearch.map((r) => r.replace(/\s+/g, ''))
+          const report = await fetchNBDCGridReport(cleanRefs, resolutionMeters)
 
-        if (nbdcRecords.length > 0) {
-          // Group NBDC records by species (LatinName)
-          const speciesGroups = new Map<string, { count: number; records: NBDCRecord[] }>()
-
-          for (const record of nbdcRecords) {
-            const key = record.LatinName || 'Unknown'
-            if (!speciesGroups.has(key)) {
-              speciesGroups.set(key, { count: 0, records: [] })
-            }
-            const group = speciesGroups.get(key)!
-            group.count += 1
-            group.records.push(record)
-          }
-
-          for (const [latinName, { count, records }] of speciesGroups) {
-            const firstRecord = records[0]
-
-            // Build location from records that have coordinates
-            const recordsWithCoords = records.filter((r) => r.Latitude && r.Longitude)
-            let locationGeometry: GeoJSON.Geometry | undefined
-            if (recordsWithCoords.length === 1) {
-              locationGeometry = {
-                type: 'Point',
-                coordinates: [recordsWithCoords[0].Longitude!, recordsWithCoords[0].Latitude!],
-              }
-            } else if (recordsWithCoords.length > 1) {
-              locationGeometry = {
-                type: 'GeometryCollection',
-                geometries: recordsWithCoords.map((r) => ({
-                  type: 'Point' as const,
-                  coordinates: [r.Longitude!, r.Latitude!],
-                })),
-              }
-            }
-
-            const distance = locationGeometry
-              ? calculateDistanceFromBoundary(locationGeometry, projectBoundary)
-              : undefined
-
-            // Newest date from records
-            const dates = records
-              .map((r) => r.Date || (r.Year ? `${r.Year}` : null))
-              .filter(Boolean)
-              .sort()
-              .reverse()
-            const newestDate = dates[0] || undefined
-
-            // Most common dataset name
-            const datasetCounts = new Map<string, number>()
-            for (const r of records) {
-              if (r.DatasetName) {
-                datasetCounts.set(r.DatasetName, (datasetCounts.get(r.DatasetName) || 0) + 1)
-              }
-            }
-            let mostCommonDataset: string | undefined
-            let maxDsCount = 0
-            for (const [name, cnt] of datasetCounts) {
-              if (cnt > maxDsCount) {
-                maxDsCount = cnt
-                mostCommonDataset = name
-              }
-            }
-
-            findings.push({
-              id: `nbdc-${latinName.replace(/\s+/g, '-')}`,
-              source: 'nbdc',
-              dataType: 'species_record',
-              title: firstRecord.CommonName || latinName,
-              content: `${count} record${count > 1 ? 's' : ''} in ${searchLabel}. Group: ${firstRecord.TaxonGroup || 'Unknown'}.`,
-              location: locationGeometry,
-              isSaved: false,
-              sourceUrl: `https://maps.biodiversityireland.ie`,
-              rawData: { recordCount: count, sampleRecords: records.slice(0, 5) },
-              metadata: {
-                scientificName: latinName,
-                commonName: firstRecord.CommonName || undefined,
-                taxonGroup: firstRecord.TaxonGroup || undefined,
-                recordCount: count,
-                distance,
-                datasetName: mostCommonDataset,
-                newestRecordDate: newestDate,
-                gridReference: firstRecord.GridReference || gridRefsToSearch[0] || undefined,
-                nbdcEnriched: false, // will be enriched in post-search
-              },
-            })
-          }
-        } else {
-          // --- GBIF Fallback (if NBDC grid search returned nothing) ---
-          const results = await searchOccurrences({
-            bbox: {
-              minLat: bbox.minLat,
-              maxLat: bbox.maxLat,
-              minLng: bbox.minLng,
-              maxLng: bbox.maxLng,
-            },
-            limit: 100,
-            year: `2015,${new Date().getFullYear()}`,
-          })
-
-          const speciesGroups = new Map<
+          // Group species by name (consolidate across multiple grid squares)
+          const speciesMap = new Map<
             string,
-            { count: number; records: typeof results.results }
+            {
+              totalCount: number
+              species: NBDCGridReportSpecies
+              gridSquares: Set<string>
+              newestDate: string | null
+              datasets: Map<string, number>
+            }
           >()
 
-          for (const record of results.results) {
-            const key = record.scientificName || 'Unknown'
-            if (!speciesGroups.has(key)) {
-              speciesGroups.set(key, { count: 0, records: [] })
+          for (const s of report.species) {
+            const key = s.speciesName
+            if (!speciesMap.has(key)) {
+              speciesMap.set(key, {
+                totalCount: 0,
+                species: s,
+                gridSquares: new Set(),
+                newestDate: null,
+                datasets: new Map(),
+              })
             }
-            const group = speciesGroups.get(key)!
-            group.count++
-            group.records.push(record)
+            const entry = speciesMap.get(key)!
+            entry.totalCount += s.recordCount
+            entry.gridSquares.add(s.gridSquare)
+
+            // Track newest date
+            if (s.dateOfLastRecord) {
+              if (!entry.newestDate || compareDates(s.dateOfLastRecord, entry.newestDate) > 0) {
+                entry.newestDate = s.dateOfLastRecord
+              }
+            }
+
+            // Track most common dataset
+            if (s.datasetTitle) {
+              entry.datasets.set(s.datasetTitle, (entry.datasets.get(s.datasetTitle) || 0) + 1)
+            }
           }
 
-          for (const [scientificName, { count, records }] of speciesGroups) {
-            const firstRecord = records[0]
+          for (const [
+            name,
+            { totalCount, species, gridSquares, newestDate, datasets },
+          ] of speciesMap) {
+            const { scientificName, commonName } = parseSpeciesName(name)
+            const { isProtected, isInvasive, isThreatened } = parseDesignation(species.designation)
 
-            let locationGeometry: GeoJSON.Geometry
-            if (count === 1) {
-              locationGeometry = {
-                type: 'Point',
-                coordinates: [firstRecord.decimalLongitude, firstRecord.decimalLatitude],
-              }
-            } else {
-              const geometries: GeoJSON.Point[] = records
-                .filter((r) => r.decimalLatitude && r.decimalLongitude)
-                .map((r) => ({
-                  type: 'Point' as const,
-                  coordinates: [r.decimalLongitude, r.decimalLatitude],
-                }))
-              locationGeometry = { type: 'GeometryCollection', geometries }
-            }
-
-            const distance = calculateDistanceFromBoundary(locationGeometry, projectBoundary)
-
-            const eventDates = records
-              .map((r) => r.eventDate)
-              .filter(Boolean)
-              .sort()
-              .reverse()
-            const newestEventDate = eventDates[0] || undefined
-
-            const datasetNames = records.map((r) => r.datasetName).filter(Boolean)
-            const datasetNameCounts = new Map<string, number>()
-            for (const name of datasetNames) {
-              datasetNameCounts.set(name!, (datasetNameCounts.get(name!) || 0) + 1)
-            }
+            // Most common dataset
             let mostCommonDataset: string | undefined
-            let maxCount = 0
-            for (const [name, cnt] of datasetNameCounts) {
-              if (cnt > maxCount) {
-                maxCount = cnt
-                mostCommonDataset = name
+            let maxDsCount = 0
+            for (const [dsName, cnt] of datasets) {
+              if (cnt > maxDsCount) {
+                maxDsCount = cnt
+                mostCommonDataset = dsName
               }
             }
 
             findings.push({
-              id: `gbif-${scientificName.replace(/\s+/g, '-')}`,
-              source: 'gbif',
+              id: `nbdc-${scientificName.replace(/\s+/g, '-')}`,
+              source: 'nbdc',
               dataType: 'species_record',
-              title: firstRecord.vernacularName || scientificName,
-              content: `${count} record${count > 1 ? 's' : ''} found. Family: ${firstRecord.family || 'Unknown'}.`,
-              location: locationGeometry,
+              title: commonName || scientificName,
+              content: `${totalCount} record${totalCount > 1 ? 's' : ''} in ${searchLabel}. Group: ${species.speciesGroup}.`,
               isSaved: false,
-              sourceUrl: firstRecord.speciesKey
-                ? `https://www.gbif.org/species/${firstRecord.speciesKey}`
-                : `https://www.gbif.org/occurrence/search?scientificName=${encodeURIComponent(scientificName)}`,
-              rawData: { recordCount: count, sampleRecords: records.slice(0, 3) },
+              sourceUrl: 'https://maps.biodiversityireland.ie',
+              rawData: {
+                recordCount: totalCount,
+                gridSquares: [...gridSquares],
+              },
               metadata: {
                 scientificName,
-                commonName: firstRecord.vernacularName,
-                recordCount: count,
-                distance,
-                gbifUrl: firstRecord.speciesKey
-                  ? `https://www.gbif.org/species/${firstRecord.speciesKey}`
-                  : undefined,
+                commonName,
+                taxonGroup: species.speciesGroup,
+                recordCount: totalCount,
                 datasetName: mostCommonDataset,
-                newestRecordDate: newestEventDate,
+                newestRecordDate: newestDate || undefined,
+                designations: species.designation || undefined,
+                isProtected,
+                isInvasive,
+                isThreatened,
+                nbdcEnriched: true,
+                gridReference: cleanRefs[0],
               },
             })
           }
         }
 
-        // --- FPO and Article 17 search (always runs) ---
-        if (projectCenter) {
-          const gridRef = gridRef1km
+        // --- FPO and Article 17 search (supplementary) ---
+        if (projectCenter && gridRef1km) {
+          // FPO
+          try {
+            const fpoResults = await searchFPOByGridRef(gridRef1km)
 
-          if (gridRef) {
-            // FPO
-            try {
-              const fpoResults = await searchFPOByGridRef(gridRef)
-
-              const fpoSpeciesGroups = new Map<string, { count: number; records: FPORecord[] }>()
-              for (const record of fpoResults) {
-                const key = record.latinName
-                if (!fpoSpeciesGroups.has(key)) {
-                  fpoSpeciesGroups.set(key, { count: 0, records: [] })
-                }
-                const group = fpoSpeciesGroups.get(key)!
-                group.count++
-                group.records.push(record)
+            const fpoSpeciesGroups = new Map<string, { count: number; records: FPORecord[] }>()
+            for (const record of fpoResults) {
+              const key = record.latinName
+              if (!fpoSpeciesGroups.has(key)) {
+                fpoSpeciesGroups.set(key, { count: 0, records: [] })
               }
-
-              for (const [latinName, { count, records }] of fpoSpeciesGroups) {
-                const firstRecord = records[0]
-                const locations = [...new Set(records.map((r) => r.locationName).filter(Boolean))]
-
-                // Skip if already found via NBDC
-                if (findings.some((f) => f.metadata?.scientificName === latinName)) continue
-
-                findings.push({
-                  id: `fpo-${latinName.replace(/\s+/g, '-')}`,
-                  source: 'fpo',
-                  dataType: 'species_record',
-                  title: `${firstRecord.commonName || latinName}`,
-                  content: `${count} FPO record${count > 1 ? 's' : ''} in hectad ${gridRef}. ${firstRecord.isSensitive ? '⚠️ Sensitive species.' : ''} ${locations.length > 0 ? `Recorded at: ${locations.slice(0, 2).join(', ')}${locations.length > 2 ? '...' : ''}` : ''}`,
-                  isSaved: false,
-                  sourceUrl: 'https://www.npws.ie/legislation/irish-law/flora-protection-order',
-                  rawData: { recordCount: count, sampleRecords: records.slice(0, 5) },
-                  metadata: {
-                    scientificName: latinName,
-                    commonName: firstRecord.commonName,
-                    recordCount: count,
-                    isProtected: true,
-                    designation: 'Flora Protection Order 2022',
-                    datasetName: 'Flora Protection Order 2022',
-                    newestRecordDate: records
-                      .map((r) => r.year)
-                      .filter(Boolean)
-                      .sort()
-                      .reverse()[0]
-                      ?.toString(),
-                  },
-                })
-              }
-            } catch (error) {
-              console.warn('FPO search error:', error)
+              const group = fpoSpeciesGroups.get(key)!
+              group.count++
+              group.records.push(record)
             }
 
-            // Article 17
-            try {
-              const annexSpecies = await searchSpeciesByGridRef(gridRef)
+            for (const [latinName, { count, records }] of fpoSpeciesGroups) {
+              const firstRecord = records[0]
+              const locations = [...new Set(records.map((r) => r.locationName).filter(Boolean))]
 
-              const commonNames: Record<string, string> = {
-                '1355': 'Otter',
-                '1357': 'Pine Marten',
-                '1334': 'Irish Hare',
-                '1303': 'Lesser Horseshoe Bat',
-                '1309': 'Common Pipistrelle',
-                '1314': "Daubenton's Bat",
-                '1106': 'Atlantic Salmon',
-                '1029': 'Freshwater Pearl Mussel',
-                '1065': 'Marsh Fritillary',
-                '1024': 'Kerry Slug',
-                '1213': 'Common Frog',
-                '1092': 'White-clawed Crayfish',
-              }
+              // Skip if already found via NBDC report
+              if (findings.some((f) => f.metadata?.scientificName === latinName)) continue
 
-              for (const species of annexSpecies) {
-                const commonName = commonNames[species.code] || ''
-                const displayName = commonName || species.scientificName
-
-                // Skip if already found via NBDC
-                if (findings.some((f) => f.metadata?.scientificName === species.scientificName))
-                  continue
-
-                findings.push({
-                  id: `art17-${species.code}`,
-                  source: 'npws',
-                  dataType: 'species_record',
-                  title: displayName,
-                  content: `Habitats Directive Annex species. Recorded in ${species.gridCount} grid squares across Ireland. Scientific name: ${species.scientificName}`,
-                  isSaved: false,
-                  sourceUrl: `https://www.npws.ie/protected-sites/sac`,
-                  rawData: {
-                    annexCode: species.code,
-                    hectads: species.hectads.slice(0, 10),
-                  },
-                  metadata: {
-                    scientificName: species.scientificName,
-                    commonName,
-                    recordCount: species.gridCount,
-                    isProtected: true,
-                    designation: 'Habitats Directive Annex II/IV/V',
-                    datasetName: 'Habitats Directive Reporting',
-                  },
-                })
-              }
-            } catch (error) {
-              console.warn('Article 17 search error:', error)
+              findings.push({
+                id: `fpo-${latinName.replace(/\s+/g, '-')}`,
+                source: 'fpo',
+                dataType: 'species_record',
+                title: `${firstRecord.commonName || latinName}`,
+                content: `${count} FPO record${count > 1 ? 's' : ''} in hectad ${gridRef1km}. ${firstRecord.isSensitive ? '⚠️ Sensitive species.' : ''} ${locations.length > 0 ? `Recorded at: ${locations.slice(0, 2).join(', ')}${locations.length > 2 ? '...' : ''}` : ''}`,
+                isSaved: false,
+                sourceUrl: 'https://www.npws.ie/legislation/irish-law/flora-protection-order',
+                rawData: { recordCount: count, sampleRecords: records.slice(0, 5) },
+                metadata: {
+                  scientificName: latinName,
+                  commonName: firstRecord.commonName,
+                  recordCount: count,
+                  isProtected: true,
+                  designation: 'Flora Protection Order 2022',
+                  datasetName: 'Flora Protection Order 2022',
+                  newestRecordDate: records
+                    .map((r) => r.year)
+                    .filter(Boolean)
+                    .sort()
+                    .reverse()[0]
+                    ?.toString(),
+                },
+              })
             }
+          } catch (error) {
+            console.warn('FPO search error:', error)
+          }
+
+          // Article 17
+          try {
+            const annexSpecies = await searchSpeciesByGridRef(gridRef1km)
+
+            const commonNames: Record<string, string> = {
+              '1355': 'Otter',
+              '1357': 'Pine Marten',
+              '1334': 'Irish Hare',
+              '1303': 'Lesser Horseshoe Bat',
+              '1309': 'Common Pipistrelle',
+              '1314': "Daubenton's Bat",
+              '1106': 'Atlantic Salmon',
+              '1029': 'Freshwater Pearl Mussel',
+              '1065': 'Marsh Fritillary',
+              '1024': 'Kerry Slug',
+              '1213': 'Common Frog',
+              '1092': 'White-clawed Crayfish',
+            }
+
+            for (const species of annexSpecies) {
+              const commonName = commonNames[species.code] || ''
+              const displayName = commonName || species.scientificName
+
+              // Skip if already found via NBDC report
+              if (findings.some((f) => f.metadata?.scientificName === species.scientificName))
+                continue
+
+              findings.push({
+                id: `art17-${species.code}`,
+                source: 'npws',
+                dataType: 'species_record',
+                title: displayName,
+                content: `Habitats Directive Annex species. Recorded in ${species.gridCount} grid squares across Ireland. Scientific name: ${species.scientificName}`,
+                isSaved: false,
+                sourceUrl: `https://www.npws.ie/protected-sites/sac`,
+                rawData: {
+                  annexCode: species.code,
+                  hectads: species.hectads.slice(0, 10),
+                },
+                metadata: {
+                  scientificName: species.scientificName,
+                  commonName,
+                  recordCount: species.gridCount,
+                  isProtected: true,
+                  designation: 'Habitats Directive Annex II/IV/V',
+                  datasetName: 'Habitats Directive Reporting',
+                },
+              })
+            }
+          } catch (error) {
+            console.warn('Article 17 search error:', error)
           }
         }
 
         return findings
       },
 
-      // Post-search: NBDC enrichment
-      onPostSearch: (findings, setResults) => {
-        // Track results for species counts
+      // Post-search: track results and trigger AI summaries for top designated species
+      onPostSearch: async (findings, _setResults) => {
         setCurrentSearchResults(findings)
-        return autoEnrich(findings, setResults)
+
+        // Auto-generate AI summaries for top 15 designated species
+        const designatedSpecies = findings
+          .filter(
+            (f) =>
+              (f.metadata?.isProtected || f.metadata?.designations) &&
+              !f.metadata?.aiSummary &&
+              !f.metadata?.aiSummaryLoading
+          )
+          .slice(0, 15)
+
+        if (designatedSpecies.length > 0 && aiSummaryTriggerRef.current) {
+          for (const species of designatedSpecies) {
+            aiSummaryTriggerRef.current(species)
+            await new Promise((resolve) => setTimeout(resolve, 500))
+          }
+        }
       },
 
       // Matching
@@ -718,10 +570,9 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
 
       // Save payload
       buildCreatePayload: (finding, { projectId, userId: uid }) => {
-        const source = finding.metadata?.nbdcEnriched ? 'nbdc' : 'gbif'
         return {
           project_id: projectId,
-          source: source as 'gbif' | 'nbdc',
+          source: 'nbdc' as const,
           data_type: 'species_record',
           title: finding.title,
           content: finding.content || null,
@@ -772,16 +623,8 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
           total: currentSearchResults.length,
           protected: protectedCount,
           invasive: invasiveCount,
-          enriched: enrichedCount,
+          enriched: currentSearchResults.length, // all are from NBDC report
         },
-        enrichmentStatus:
-          isEnriching && enrichmentProgress
-            ? {
-                isEnriching: true,
-                current: enrichmentProgress.current,
-                total: enrichmentProgress.total,
-              }
-            : null,
         sourceFilter,
         onSourceFilterChange: setSourceFilter,
       },
@@ -795,7 +638,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
         ),
       mapFindingsMapper: (f, sf) => ({
         id: f.id,
-        source: (f.metadata?.nbdcEnriched ? 'nbdc' : 'gbif') as FindingSource,
+        source: 'nbdc' as FindingSource,
         dataType: f.dataType as FindingType,
         title: f.title,
         content: f.content,
@@ -809,7 +652,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       }),
       mapSelectedMapper: (f) => ({
         id: f.id,
-        source: (f.metadata?.nbdcEnriched ? 'nbdc' : f.source) as FindingSource,
+        source: 'nbdc' as FindingSource,
         dataType: f.dataType as FindingType,
         title: f.title,
         content: f.content,
@@ -825,14 +668,11 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
     [
       projectBoundary,
       projectCenter,
-      isEnriching,
-      enrichmentProgress,
       sourceFilter,
       gridResolution,
       currentSearchResults.length,
       protectedCount,
       invasiveCount,
-      enrichedCount,
     ]
   )
 
@@ -877,4 +717,19 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       />
     </>
   )
+}
+
+/**
+ * Compare two date strings in DD/MM/YYYY or YYYY-MM-DD format.
+ * Returns positive if a > b, negative if a < b, 0 if equal.
+ */
+function compareDates(a: string, b: string): number {
+  const parseDate = (d: string): number => {
+    // DD/MM/YYYY format
+    const dmy = d.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+    if (dmy) return new Date(`${dmy[3]}-${dmy[2]}-${dmy[1]}`).getTime()
+    // YYYY-MM-DD or any parseable format
+    return new Date(d).getTime()
+  }
+  return parseDate(a) - parseDate(b)
 }

@@ -81,11 +81,12 @@ export async function getReport(reportId: string): Promise<Report | null> {
 // Create new report
 export async function createReport(report: InsertReport): Promise<Report | null> {
   const supabase = createClient()
-  // Get current max version for this project
+  // Get current max version for this project + report type
   const { data: existing } = await supabase
     .from('reports')
     .select('version')
     .eq('project_id', report.project_id)
+    .eq('report_type', report.report_type)
     .order('version', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -204,6 +205,47 @@ export async function getReportByVersion(
   }
 
   return data as Report
+}
+
+// Get latest report for a project filtered by report type
+export async function getLatestReportByType(
+  projectId: string,
+  reportType: string
+): Promise<Report | null> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('reports')
+    .select('*')
+    .eq('project_id', projectId)
+    .eq('report_type', reportType)
+    .order('version', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    console.error('Error fetching latest report by type:', error)
+    return null
+  }
+
+  return data as Report
+}
+
+// Get all report versions for a project filtered by report type
+export async function getReportsByType(projectId: string, reportType: string): Promise<Report[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('reports')
+    .select('*')
+    .eq('project_id', projectId)
+    .eq('report_type', reportType)
+    .order('version', { ascending: false })
+
+  if (error) {
+    console.error('Error fetching reports by type:', error)
+    return []
+  }
+
+  return (data ?? []) as Report[]
 }
 
 // Delete report

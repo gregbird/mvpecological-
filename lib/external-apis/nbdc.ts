@@ -437,6 +437,59 @@ export async function searchRecordsByGridRefProxy(
 }
 
 // ============================================================================
+// NBDC Grid Report API — species list from NBDC report generation
+// ============================================================================
+
+/**
+ * Species record from an NBDC grid report (parsed from XLSX)
+ */
+export interface NBDCGridReportSpecies {
+  gridSquare: string
+  speciesGroup: string
+  speciesName: string
+  recordCount: number
+  dateOfLastRecord: string | null
+  datasetTitle: string | null
+  designation: string | null
+}
+
+/**
+ * Fetch species records for multiple grid squares via NBDC report generation API.
+ * The server generates XLSX reports for each grid square and parses them.
+ *
+ * @param gridReferences - Array of Irish Grid references (e.g. ["O13", "O14"])
+ * @param resolution - Grid square size in meters: 10000, 2000, or 1000
+ * @returns Array of species records with designation info
+ */
+export async function fetchNBDCGridReport(
+  gridReferences: string[],
+  resolution: number = 10000
+): Promise<{
+  species: NBDCGridReportSpecies[]
+  gridSquaresSearched: number
+  totalRecords: number
+  designatedCount: number
+}> {
+  try {
+    const response = await fetch('/api/nbdc/grid-records', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gridReferences, resolution }),
+    })
+
+    if (!response.ok) {
+      console.warn(`[NBDC Report] Grid report failed: ${response.statusText}`)
+      return { species: [], gridSquaresSearched: 0, totalRecords: 0, designatedCount: 0 }
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error('[NBDC Report] Error fetching grid report:', error)
+    return { species: [], gridSquaresSearched: 0, totalRecords: 0, designatedCount: 0 }
+  }
+}
+
+// ============================================================================
 // NEW API: Species Enrichment from NBDC
 // These functions use the working NBDC endpoints to enrich GBIF data
 // ============================================================================
