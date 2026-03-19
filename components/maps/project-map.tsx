@@ -27,6 +27,7 @@ interface ProjectMapProps {
   bufferDistances?: number[] // Buffer zones in km to display
   habitatPolygons?: GeoJSON.FeatureCollection
   habitatSelectionKey?: string
+  gridOverlay?: GeoJSON.FeatureCollection
   observationPoints?: GeoJSON.FeatureCollection
   targetNotes?: TargetNoteMarker[]
   selectedTargetNote?: TargetNoteMarker | null
@@ -65,6 +66,7 @@ function MapComponent({
   mapRef,
   showBatRecords,
   iwebsVisibleLayers,
+  gridOverlay,
 }: {
   center: [number, number]
   zoom: number
@@ -72,6 +74,7 @@ function MapComponent({
   bufferDistances?: number[]
   habitatPolygons?: GeoJSON.FeatureCollection
   habitatSelectionKey?: string
+  gridOverlay?: GeoJSON.FeatureCollection
   observationPoints?: GeoJSON.FeatureCollection
   targetNotes?: TargetNoteMarker[]
   selectedTargetNote?: TargetNoteMarker | null
@@ -560,6 +563,31 @@ function MapComponent({
         />
       )}
 
+      {/* Grid Square Overlay — shows searched NBDC grid squares */}
+      {gridOverlay && gridOverlay.features.length > 0 && (
+        <GeoJSON
+          key={`grid-overlay-${gridOverlay.features.length}`}
+          data={gridOverlay}
+          style={(feature: GeoJSON.Feature | undefined) => ({
+            color: '#7c3aed',
+            weight: 1.5,
+            opacity: 0.7,
+            fillColor: '#7c3aed',
+            fillOpacity: feature?.properties?.fillOpacity ?? 0.08,
+            dashArray: '4 4',
+          })}
+          onEachFeature={(feature: GeoJSON.Feature, layer: L.Layer) => {
+            const props = feature.properties
+            if (props?.label) {
+              ;(layer as L.Path).bindTooltip(
+                `${props.label}${props.speciesCount ? ` · ${props.speciesCount} species` : ''}`,
+                { sticky: true, className: 'text-xs' }
+              )
+            }
+          }}
+        />
+      )}
+
       {/* Observation Points */}
       {observationPoints &&
         observationPoints.features.length > 0 &&
@@ -684,6 +712,7 @@ export function ProjectMap({
   bufferDistances,
   habitatPolygons,
   habitatSelectionKey,
+  gridOverlay,
   observationPoints,
   targetNotes,
   selectedTargetNote,
@@ -759,6 +788,7 @@ export function ProjectMap({
           bufferDistances={bufferDistances}
           habitatPolygons={habitatPolygons}
           habitatSelectionKey={habitatSelectionKey}
+          gridOverlay={gridOverlay}
           observationPoints={observationPoints}
           targetNotes={targetNotes}
           selectedTargetNote={selectedTargetNote}

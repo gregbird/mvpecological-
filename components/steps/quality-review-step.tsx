@@ -313,263 +313,266 @@ export function QualityReviewStep({
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>No Report Found</AlertTitle>
           <AlertDescription>
-            Please complete the AI Draft step to generate a report for this report type before reviewing.
+            Please complete the AI Draft step to generate a report for this report type before
+            reviewing.
           </AlertDescription>
         </Alert>
       )}
 
       {!report ? null : (
         <>
+          {/* Instructions */}
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertTitle>Quality Review Process</AlertTitle>
+            <AlertDescription>
+              Review the draft report against the quality checklist. Verify data completeness,
+              report quality, regulatory compliance, and formatting. Approve the report or request
+              revisions with specific comments.
+            </AlertDescription>
+          </Alert>
 
-      {/* Instructions */}
-      <Alert>
-        <Info className="h-4 w-4" />
-        <AlertTitle>Quality Review Process</AlertTitle>
-        <AlertDescription>
-          Review the draft report against the quality checklist. Verify data completeness, report
-          quality, regulatory compliance, and formatting. Approve the report or request revisions
-          with specific comments.
-        </AlertDescription>
-      </Alert>
-
-      {/* Report Status */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Report Status
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 sm:grid-cols-4">
-            <div>
-              <p className="text-muted-foreground text-sm">Report Type</p>
-              <p className="font-medium capitalize">{report.report_type.replace('_', ' ')}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-sm">Version</p>
-              <p className="font-medium">{report.version}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-sm">Status</p>
-              <Badge
-                variant={
-                  report.status === 'approved'
-                    ? 'default'
-                    : report.status === 'internal_review'
-                      ? 'destructive'
-                      : 'secondary'
-                }
-              >
-                {report.status.replace('_', ' ')}
-              </Badge>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-sm">Sections Complete</p>
-              <p className="font-medium">
-                {completedSections} / {totalSections}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Quality Checklist */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Quality Checklist</CardTitle>
-            <div className="flex items-center gap-2">
-              <Progress value={checklistProgress} className="w-32" />
-              <span className="text-muted-foreground text-sm">
-                {checkedCount}/{totalItems}
-              </span>
-            </div>
-          </div>
-          <CardDescription>
-            Review each item to ensure the report meets quality standards
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            {QUALITY_CHECKLIST.map((category) => (
-              <div key={category.id}>
-                <h4 className="mb-3 font-medium">{category.category}</h4>
-                <div className="space-y-3">
-                  {category.items.map((item) => (
-                    <div key={item.id} className="flex items-start gap-3">
-                      <Checkbox
-                        id={item.id}
-                        checked={checkedItems[item.id] || false}
-                        onCheckedChange={() => toggleChecklistItem(item.id)}
-                      />
-                      <Label
-                        htmlFor={item.id}
-                        className="cursor-pointer text-sm leading-tight font-normal"
-                      >
-                        {item.label}
-                      </Label>
-                    </div>
-                  ))}
+          {/* Report Status */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Report Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 sm:grid-cols-4">
+                <div>
+                  <p className="text-muted-foreground text-sm">Report Type</p>
+                  <p className="font-medium capitalize">{report.report_type.replace('_', ' ')}</p>
                 </div>
-                <Separator className="mt-4" />
+                <div>
+                  <p className="text-muted-foreground text-sm">Version</p>
+                  <p className="font-medium">{report.version}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-sm">Status</p>
+                  <Badge
+                    variant={
+                      report.status === 'approved'
+                        ? 'default'
+                        : report.status === 'internal_review'
+                          ? 'destructive'
+                          : 'secondary'
+                    }
+                  >
+                    {report.status.replace('_', ' ')}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-sm">Sections Complete</p>
+                  <p className="font-medium">
+                    {completedSections} / {totalSections}
+                  </p>
+                </div>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
 
-      {/* Data Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Data Summary</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 sm:grid-cols-4">
-            <div className="rounded-lg border p-3">
-              <p className="text-muted-foreground text-sm">Habitats Mapped</p>
-              <p className="text-2xl font-bold">{habitatStats?.total || 0}</p>
-              <p className="text-muted-foreground text-xs">
-                {(habitatStats?.totalArea || 0).toFixed(2)} ha total
-              </p>
-            </div>
-            <div className="rounded-lg border p-3">
-              <p className="text-muted-foreground text-sm">Species Observed</p>
-              <p className="text-2xl font-bold">{observationStats?.total || 0}</p>
-              <p className="text-muted-foreground text-xs">
-                {observationStats?.protected || 0} protected
-              </p>
-            </div>
-            <div className="rounded-lg border p-3">
-              <p className="text-muted-foreground text-sm">Desk Findings</p>
-              <p className="text-2xl font-bold">{findingsStats?.total || 0}</p>
-              <p className="text-muted-foreground text-xs">
-                {findingsStats?.bySource.length || 0} sources
-              </p>
-            </div>
-            <div className="rounded-lg border p-3">
-              <p className="text-muted-foreground text-sm">Report Sections</p>
-              <p className="text-2xl font-bold">{completedSections}</p>
-              <p className="text-muted-foreground text-xs">of {totalSections} total</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          {/* Quality Checklist */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Quality Checklist</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Progress value={checklistProgress} className="w-32" />
+                  <span className="text-muted-foreground text-sm">
+                    {checkedCount}/{totalItems}
+                  </span>
+                </div>
+              </div>
+              <CardDescription>
+                Review each item to ensure the report meets quality standards
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {QUALITY_CHECKLIST.map((category) => (
+                  <div key={category.id}>
+                    <h4 className="mb-3 font-medium">{category.category}</h4>
+                    <div className="space-y-3">
+                      {category.items.map((item) => (
+                        <div key={item.id} className="flex items-start gap-3">
+                          <Checkbox
+                            id={item.id}
+                            checked={checkedItems[item.id] || false}
+                            onCheckedChange={() => toggleChecklistItem(item.id)}
+                          />
+                          <Label
+                            htmlFor={item.id}
+                            className="cursor-pointer text-sm leading-tight font-normal"
+                          >
+                            {item.label}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                    <Separator className="mt-4" />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
-      {/* Review Comments */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5" />
-            Review Comments
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Textarea
-            placeholder="Enter review comments, notes, or revision requests..."
-            value={reviewComments}
-            onChange={(e) => setReviewComments(e.target.value)}
-            rows={4}
-          />
+          {/* Data Summary */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Data Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 sm:grid-cols-4">
+                <div className="rounded-lg border p-3">
+                  <p className="text-muted-foreground text-sm">Habitats Mapped</p>
+                  <p className="text-2xl font-bold">{habitatStats?.total || 0}</p>
+                  <p className="text-muted-foreground text-xs">
+                    {(habitatStats?.totalArea || 0).toFixed(2)} ha total
+                  </p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-muted-foreground text-sm">Species Observed</p>
+                  <p className="text-2xl font-bold">{observationStats?.total || 0}</p>
+                  <p className="text-muted-foreground text-xs">
+                    {observationStats?.protected || 0} protected
+                  </p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-muted-foreground text-sm">Desk Findings</p>
+                  <p className="text-2xl font-bold">{findingsStats?.total || 0}</p>
+                  <p className="text-muted-foreground text-xs">
+                    {findingsStats?.bySource.length || 0} sources
+                  </p>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <p className="text-muted-foreground text-sm">Report Sections</p>
+                  <p className="text-2xl font-bold">{completedSections}</p>
+                  <p className="text-muted-foreground text-xs">of {totalSections} total</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-          {permissions.canApproveReport ? (
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
-                onClick={handleReject}
-                disabled={isComplete || reviewDecision === 'approved'}
-              >
-                <XCircle className="mr-2 h-4 w-4" />
-                Request Revisions
-              </Button>
-              <Button
-                className="flex-1 bg-green-600 hover:bg-green-700"
-                onClick={handleApprove}
-                disabled={isComplete || reviewDecision === 'rejected'}
-              >
-                <CheckCircle2 className="mr-2 h-4 w-4" />
-                Approve Report
-              </Button>
-            </div>
-          ) : (
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertTitle>Approval Required</AlertTitle>
-              <AlertDescription>
-                Only administrators can approve or reject reports. Please wait for an admin to
-                review.
-              </AlertDescription>
-            </Alert>
-          )}
+          {/* Review Comments */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                Review Comments
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Textarea
+                placeholder="Enter review comments, notes, or revision requests..."
+                value={reviewComments}
+                onChange={(e) => setReviewComments(e.target.value)}
+                rows={4}
+              />
 
-          {reviewDecision && (
-            <Alert variant={reviewDecision === 'approved' ? 'default' : 'destructive'}>
-              {reviewDecision === 'approved' ? (
-                <>
-                  <CheckCircle2 className="h-4 w-4" />
-                  <AlertTitle>Report Approved</AlertTitle>
+              {permissions.canApproveReport ? (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
+                    onClick={handleReject}
+                    disabled={isComplete || reviewDecision === 'approved'}
+                  >
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Request Revisions
+                  </Button>
+                  <Button
+                    className="flex-1 bg-green-600 hover:bg-green-700"
+                    onClick={handleApprove}
+                    disabled={isComplete || reviewDecision === 'rejected'}
+                  >
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    Approve Report
+                  </Button>
+                </div>
+              ) : (
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>Approval Required</AlertTitle>
                   <AlertDescription>
-                    The report has been approved and is ready for final submission.
+                    Only administrators can approve or reject reports. Please wait for an admin to
+                    review.
                   </AlertDescription>
-                </>
-              ) : (
-                <>
-                  <XCircle className="h-4 w-4" />
-                  <AlertTitle>Revisions Requested</AlertTitle>
-                  <AlertDescription>
-                    The report has been sent back for revisions. Review comments have been saved.
-                  </AlertDescription>
-                </>
+                </Alert>
               )}
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
 
-      {/* Progress Panel */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Step Progress</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span>Checklist completed</span>
-              {checklistProgress === 100 ? (
-                <Check className="h-4 w-4 text-green-600" />
-              ) : (
-                <span className="text-muted-foreground">{Math.round(checklistProgress)}%</span>
+              {reviewDecision && (
+                <Alert variant={reviewDecision === 'approved' ? 'default' : 'destructive'}>
+                  {reviewDecision === 'approved' ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" />
+                      <AlertTitle>Report Approved</AlertTitle>
+                      <AlertDescription>
+                        The report has been approved and is ready for final submission.
+                      </AlertDescription>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="h-4 w-4" />
+                      <AlertTitle>Revisions Requested</AlertTitle>
+                      <AlertDescription>
+                        The report has been sent back for revisions. Review comments have been
+                        saved.
+                      </AlertDescription>
+                    </>
+                  )}
+                </Alert>
               )}
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span>Review decision</span>
-              {reviewDecision === 'approved' ? (
-                <Badge className="bg-green-600">Approved</Badge>
-              ) : reviewDecision === 'rejected' ? (
-                <Badge variant="destructive">Revisions Requested</Badge>
-              ) : (
-                <AlertCircle className="text-muted-foreground h-4 w-4" />
-              )}
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
-          <Progress value={isComplete ? 100 : reviewDecision === 'approved' ? 90 : 50} />
+          {/* Progress Panel */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Step Progress</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span>Checklist completed</span>
+                  {checklistProgress === 100 ? (
+                    <Check className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <span className="text-muted-foreground">{Math.round(checklistProgress)}%</span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Review decision</span>
+                  {reviewDecision === 'approved' ? (
+                    <Badge className="bg-green-600">Approved</Badge>
+                  ) : reviewDecision === 'rejected' ? (
+                    <Badge variant="destructive">Revisions Requested</Badge>
+                  ) : (
+                    <AlertCircle className="text-muted-foreground h-4 w-4" />
+                  )}
+                </div>
+              </div>
 
-          <Button
-            onClick={handleComplete}
-            disabled={!canComplete || completeStep.isPending}
-            className="w-full"
-          >
-            {completeStep.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Check className="mr-2 h-4 w-4" />
-            )}
-            {isComplete ? 'Completed' : 'Complete Step & Continue'}
-          </Button>
-        </CardContent>
-      </Card>
+              <Progress value={isComplete ? 100 : reviewDecision === 'approved' ? 90 : 50} />
+
+              <Button
+                onClick={handleComplete}
+                disabled={!canComplete || completeStep.isPending}
+                className="w-full"
+              >
+                {completeStep.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="mr-2 h-4 w-4" />
+                )}
+                {isComplete ? 'Completed' : 'Complete Step & Continue'}
+              </Button>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   )
 }

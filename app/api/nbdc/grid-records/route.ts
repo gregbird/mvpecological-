@@ -206,9 +206,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'gridReferences array is required' }, { status: 400 })
     }
 
-    // Limit to prevent excessive API calls
-    const maxRefs = resolution === 10000 ? 20 : resolution === 2000 ? 10 : 15
-    const refs = gridReferences.slice(0, maxRefs)
+    // Use all grid references — buffer determines the scope
+    const refs = gridReferences
 
     // Get NBDC session (cookies + XSRF token)
     const session = await getNBDCSession()

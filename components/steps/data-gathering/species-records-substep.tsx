@@ -11,7 +11,7 @@ import {
 import { fetchNBDCGridReport, type NBDCGridReportSpecies } from '@/lib/external-apis/nbdc'
 import { searchFPOByGridRef, type FPORecord } from '@/lib/data/fpo-species'
 import { searchSpeciesByGridRef, type Article17Species } from '@/lib/data/article17-species'
-import { wgs84ToItm, itmToGridRef } from '@/lib/utils/grid-reference'
+import { wgs84ToItm, itmToGridRef, gridRefToItm, itmToWgs84 } from '@/lib/utils/grid-reference'
 import { useCreateFinding, useUpdateFinding } from '@/hooks/queries/use-finding-hooks'
 import type { Project, DeskResearchFinding, Json } from '@/types/database'
 import type { FindingSource, FindingType } from '@/components/desk-research/finding-card'
@@ -108,6 +108,79 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
   React.useEffect(() => {
     sessionStorage.setItem(gridResolutionKey, gridResolution)
   }, [gridResolution, gridResolutionKey])
+
+  // Grid overlay for map — calculate immediately based on boundary + buffer + resolution
+  const gridOverlay = React.useMemo((): GeoJSON.FeatureCollection | undefined => {
+    if (!projectCenter || !projectBoundary) return undefined
+
+    const resolutionMeters =
+      gridResolution === '10km' ? 10000 : gridResolution === '2km' ? 2000 : 1000
+    const stepSize = resolutionMeters
+    const precision: 1 | 2 = gridResolution === '10km' ? 1 : 2
+
+    try {
+      // Use the largest buffer distance for grid calculation
+      const bufferKm = props.bufferDistances.length > 0 ? Math.max(...props.bufferDistances) : 2
+      // Approximate bbox from center + buffer
+      const latOffset = bufferKm / 111
+      const lngOffset = bufferKm / (111 * Math.cos((projectCenter.lat * Math.PI) / 180))
+      const bboxMinLat = projectCenter.lat - latOffset
+      const bboxMaxLat = projectCenter.lat + latOffset
+      const bboxMinLng = projectCenter.lng - lngOffset
+      const bboxMaxLng = projectCenter.lng + lngOffset
+
+      const swItm = wgs84ToItm(bboxMinLat, bboxMinLng)
+      const neItm = wgs84ToItm(bboxMaxLat, bboxMaxLng)
+      const swIng = itmToIng(swItm.easting, swItm.northing)
+      const neIng = itmToIng(neItm.easting, neItm.northing)
+
+      const minE = Math.floor(swIng.easting / stepSize) * stepSize
+      const minN = Math.floor(swIng.northing / stepSize) * stepSize
+      const maxE = Math.floor(neIng.easting / stepSize) * stepSize
+      const maxN = Math.floor(neIng.northing / stepSize) * stepSize
+
+      // Collect ALL grid squares that intersect the buffer bbox — no artificial limit
+      const selected: { ref: string; e: number; n: number }[] = []
+      for (let e = minE; e <= maxE; e += stepSize) {
+        for (let n = minN; n <= maxN; n += stepSize) {
+          try {
+            const ref = itmToGridRef(e, n, precision, true)
+            if (!selected.some((s) => s.ref === ref)) {
+              selected.push({ ref, e, n })
+            }
+          } catch {
+            // Outside Irish Grid
+          }
+        }
+      }
+
+      const features: GeoJSON.Feature[] = selected.map((sq) => {
+        const cleanRef = sq.ref.replace(/\s+/g, '')
+        const sw = itmToWgs84(sq.e + 400000, sq.n + 500000)
+        const ne = itmToWgs84(sq.e + resolutionMeters + 400000, sq.n + resolutionMeters + 500000)
+        return {
+          type: 'Feature' as const,
+          properties: { label: cleanRef },
+          geometry: {
+            type: 'Polygon' as const,
+            coordinates: [
+              [
+                [sw.lng, sw.lat],
+                [ne.lng, sw.lat],
+                [ne.lng, ne.lat],
+                [sw.lng, ne.lat],
+                [sw.lng, sw.lat],
+              ],
+            ],
+          },
+        }
+      })
+
+      return { type: 'FeatureCollection', features }
+    } catch {
+      return undefined
+    }
+  }, [projectCenter, projectBoundary, gridResolution, props.bufferDistances])
 
   // Handle species deep research
   const handleSpeciesDeepResearch = async (finding: FindingDisplay, sf: DeskResearchFinding[]) => {
@@ -272,6 +345,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       stepName: 'species_records',
       source: 'nbdc',
       sourceFilter: ['nbdc'],
+      gridOverlay,
 
       // Search — NBDC grid report API (generates XLSX per grid square)
       performSearch: async ({ bbox }) => {
@@ -285,9 +359,8 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
         // Resolution parameters
         const resolutionMeters =
           gridResolution === '10km' ? 10000 : gridResolution === '2km' ? 2000 : 1000
-        const stepSize = gridResolution === '10km' ? 10000 : gridResolution === '2km' ? 2000 : 1000
+        const stepSize = resolutionMeters
         const precision: 1 | 2 = gridResolution === '10km' ? 1 : 2
-        const maxSquares = gridResolution === '10km' ? 20 : gridResolution === '2km' ? 10 : 15
 
         if (projectCenter) {
           try {
@@ -303,10 +376,9 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
             const maxE = Math.floor(neIng.easting / stepSize) * stepSize
             const maxN = Math.floor(neIng.northing / stepSize) * stepSize
 
-            // Iterate all grid squares in the bbox
+            // Collect ALL grid squares that intersect the buffer bbox
             for (let e = minE; e <= maxE; e += stepSize) {
               for (let n = minN; n <= maxN; n += stepSize) {
-                if (gridRefsToSearch.length >= maxSquares) break
                 try {
                   const ref = itmToGridRef(e, n, precision, true)
                   if (!gridRefsToSearch.includes(ref)) {
@@ -316,7 +388,6 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
                   // Square outside Irish Grid
                 }
               }
-              if (gridRefsToSearch.length >= maxSquares) break
             }
 
             searchLabel =
@@ -672,6 +743,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       projectCenter,
       sourceFilter,
       gridResolution,
+      gridOverlay,
       currentSearchResults.length,
       protectedCount,
       invasiveCount,

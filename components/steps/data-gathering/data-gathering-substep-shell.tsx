@@ -144,6 +144,9 @@ export interface SubstepShellConfig {
   // Extra search disabled condition
   isSearchDisabled?: boolean
 
+  // Grid overlay for map (searched grid squares)
+  gridOverlay?: GeoJSON.FeatureCollection
+
   // Map findings customization
   mapFindingsMapper?: (finding: FindingDisplay, savedFindings: DeskResearchFinding[]) => MapFinding
   mapSelectedMapper?: (finding: FindingDisplay) => MapFinding
@@ -188,6 +191,9 @@ export function DataGatheringSubstepShell({
 
   // Map container ref for screenshot capture
   const mapContainerRef = React.useRef<HTMLDivElement>(null)
+
+  // View mode tracking (for grid overlay visibility — only show in card view)
+  const [listViewMode, setListViewMode] = React.useState<'cards' | 'table'>('table')
 
   // Site type filter for map sync
   const [activeSiteTypeFilter, setActiveSiteTypeFilter] = React.useState<string | null>(null)
@@ -628,6 +634,7 @@ export function DataGatheringSubstepShell({
               : {})}
             // Extra props (e.g. species header, enrichment, source filter)
             {...(config.findingsListExtraProps || {})}
+            onViewModeChange={setListViewMode}
           />
         </div>
       </div>
@@ -641,6 +648,7 @@ export function DataGatheringSubstepShell({
             zoom={11}
             boundary={projectBoundary}
             bufferDistances={bufferDistances}
+            gridOverlay={listViewMode === 'cards' ? config.gridOverlay : undefined}
             findings={(config.filterConfig || config.showDistanceFilter
               ? filteredResults
               : searchResults

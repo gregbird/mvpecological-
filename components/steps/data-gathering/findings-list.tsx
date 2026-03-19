@@ -132,6 +132,8 @@ interface FindingsListProps {
   // Distance/proximity filter
   distanceFilter?: 'all' | '0-1' | '1-5' | '5-10' | '10+'
   onDistanceFilterChange?: (filter: 'all' | '0-1' | '1-5' | '5-10' | '10+') => void
+  // View mode change callback (for grid overlay visibility)
+  onViewModeChange?: (mode: 'cards' | 'table') => void
 }
 
 // Source badge colors
@@ -205,9 +207,17 @@ export function FindingsList({
   distanceFilter,
   onDistanceFilterChange,
   onUpdateNote,
+  onViewModeChange,
 }: FindingsListProps) {
-  const [viewMode, setViewMode] = React.useState<'cards' | 'table'>(
+  const [viewMode, setViewModeInternal] = React.useState<'cards' | 'table'>(
     showSpeciesHeader ? 'table' : 'cards'
+  )
+  const setViewMode = React.useCallback(
+    (mode: 'cards' | 'table') => {
+      setViewModeInternal(mode)
+      onViewModeChange?.(mode)
+    },
+    [onViewModeChange]
   )
   const [sortBy, setSortBy] = React.useState<'distance' | 'title' | 'type'>('type')
   const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>('asc')
@@ -786,10 +796,19 @@ export function FindingsList({
 
                   {/* Species detail fields - shown for species records */}
                   {finding.dataType === 'species_record' && finding.metadata && (
-                    <div className="mt-1.5 space-y-0.5 text-[11px]">
+                    <div className="mt-1.5 space-y-1 text-[11px]">
                       {finding.metadata.scientificName && (
                         <div className="text-muted-foreground italic">
                           {finding.metadata.scientificName}
+                        </div>
+                      )}
+                      {finding.metadata.designations && (
+                        <div className="text-[10px] leading-tight font-medium text-red-600">
+                          {finding.metadata.designations
+                            .split('||')
+                            .map((d: string) => d.trim())
+                            .filter(Boolean)
+                            .join(' · ')}
                         </div>
                       )}
                       <div className="flex flex-wrap gap-x-3 gap-y-0.5">
@@ -798,23 +817,38 @@ export function FindingsList({
                             {finding.metadata.taxonGroup}
                           </span>
                         )}
-                        {finding.metadata.designations && (
-                          <span className="font-medium text-red-600">
-                            {finding.metadata.designations}
-                          </span>
-                        )}
                         {finding.metadata.recordCount && finding.metadata.recordCount > 0 && (
                           <span className="text-muted-foreground">
                             {finding.metadata.recordCount} records
                           </span>
                         )}
-                        {finding.metadata.totalIrishRecords &&
-                          finding.metadata.totalIrishRecords > 0 && (
-                            <span className="text-muted-foreground">
-                              {finding.metadata.totalIrishRecords.toLocaleString()} Irish records
-                            </span>
-                          )}
+                        {finding.metadata.newestRecordDate && (
+                          <span className="text-muted-foreground">
+                            Last: {finding.metadata.newestRecordDate}
+                          </span>
+                        )}
+                        {finding.metadata.datasetName && (
+                          <span className="text-muted-foreground max-w-[200px] truncate">
+                            {finding.metadata.datasetName}
+                          </span>
+                        )}
                       </div>
+                      {/* Grid squares info */}
+                      {(() => {
+                        const raw = finding.rawData as Record<string, unknown> | undefined
+                        const squares = raw?.gridSquares
+                        if (!Array.isArray(squares) || squares.length === 0) return null
+                        return (
+                          <div className="text-muted-foreground flex items-center gap-1 text-[10px]">
+                            <span className="inline-block h-2.5 w-2.5 rounded-sm border border-purple-300 bg-purple-50" />
+                            <span>
+                              Found in {squares.length} grid square
+                              {squares.length > 1 ? 's' : ''}
+                              {squares.length <= 4 && `: ${(squares as string[]).join(', ')}`}
+                            </span>
+                          </div>
+                        )
+                      })()}
                     </div>
                   )}
 
