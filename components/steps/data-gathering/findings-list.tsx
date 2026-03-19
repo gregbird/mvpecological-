@@ -127,8 +127,8 @@ interface FindingsListProps {
   showSpeciesHeader?: boolean
   speciesCounts?: { total: number; protected: number; invasive: number; enriched: number }
   enrichmentStatus?: { isEnriching: boolean; current: number; total: number } | null
-  sourceFilter?: 'all' | 'gbif' | 'nbdc' | 'protected'
-  onSourceFilterChange?: (filter: 'all' | 'gbif' | 'nbdc' | 'protected') => void
+  sourceFilter?: 'all' | 'protected' | 'invasive' | 'threatened'
+  onSourceFilterChange?: (filter: 'all' | 'protected' | 'invasive' | 'threatened') => void
   // Distance/proximity filter
   distanceFilter?: 'all' | '0-1' | '1-5' | '5-10' | '10+'
   onDistanceFilterChange?: (filter: 'all' | '0-1' | '1-5' | '5-10' | '10+') => void
@@ -303,12 +303,14 @@ export function FindingsList({
     if (showSavedOnly) {
       result = result.filter((f) => isFindingSaved(f))
     }
-    // Source filter (species records): only show protected/designated species
+    // Species filter: protected, invasive, threatened
     if (sourceFilter && sourceFilter !== 'all') {
       if (sourceFilter === 'protected') {
         result = result.filter((f) => f.metadata?.isProtected || f.metadata?.designations)
-      } else {
-        result = result.filter((f) => f.source === sourceFilter)
+      } else if (sourceFilter === 'invasive') {
+        result = result.filter((f) => f.metadata?.isInvasive)
+      } else if (sourceFilter === 'threatened') {
+        result = result.filter((f) => f.metadata?.isThreatened)
       }
     }
     if (distanceFilter && distanceFilter !== 'all') {
@@ -397,8 +399,8 @@ export function FindingsList({
     <div className="flex h-full flex-col">
       {/* Header with count and filters */}
       {showFilters && (
-        <div className="flex items-center justify-between gap-1.5 border-b px-3 py-2">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1 overflow-hidden">
+        <div className="space-y-1.5 border-b px-3 py-2">
+          <div className="flex items-center gap-1.5">
             {/* Species header: enrichment status + count + filter badges */}
             {showSpeciesHeader ? (
               <>
@@ -436,6 +438,7 @@ export function FindingsList({
                     onClick={() =>
                       onSourceFilterChange?.(sourceFilter === 'protected' ? 'all' : 'protected')
                     }
+                    title={`${speciesCounts!.protected} Protected species`}
                     className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
                       sourceFilter === 'protected'
                         ? 'bg-red-600 text-white'
@@ -448,9 +451,12 @@ export function FindingsList({
                 )}
                 {(speciesCounts?.invasive ?? 0) > 0 && (
                   <button
-                    onClick={() => onSourceFilterChange?.(sourceFilter === 'nbdc' ? 'all' : 'nbdc')}
+                    onClick={() =>
+                      onSourceFilterChange?.(sourceFilter === 'invasive' ? 'all' : 'invasive')
+                    }
+                    title={`${speciesCounts!.invasive} Invasive species`}
                     className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
-                      sourceFilter === 'nbdc'
+                      sourceFilter === 'invasive'
                         ? 'bg-orange-600 text-white'
                         : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
                     }`}
@@ -466,6 +472,7 @@ export function FindingsList({
                       setShowSavedOnly(next)
                       onSavedFilterChange?.(next)
                     }}
+                    title={`${savedCount} Saved species`}
                     className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
                       showSavedOnly
                         ? 'bg-emerald-600 text-white'
@@ -588,17 +595,17 @@ export function FindingsList({
               <Select
                 value={sourceFilter || 'all'}
                 onValueChange={(v) =>
-                  onSourceFilterChange(v as 'all' | 'gbif' | 'nbdc' | 'protected')
+                  onSourceFilterChange(v as 'all' | 'protected' | 'invasive' | 'threatened')
                 }
               >
                 <SelectTrigger className="h-7 w-auto min-w-[80px] border-0 bg-transparent px-1.5 text-xs shadow-none">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Sources</SelectItem>
-                  <SelectItem value="gbif">GBIF Only</SelectItem>
-                  <SelectItem value="nbdc">NBDC Enriched</SelectItem>
-                  <SelectItem value="protected">Protected</SelectItem>
+                  <SelectItem value="all">All Species</SelectItem>
+                  <SelectItem value="protected">Protected Only</SelectItem>
+                  <SelectItem value="invasive">Invasive Only</SelectItem>
+                  <SelectItem value="threatened">Threatened Only</SelectItem>
                 </SelectContent>
               </Select>
             )}
@@ -664,11 +671,18 @@ export function FindingsList({
 
       {/* Table view for species */}
       {showSpeciesHeader && viewMode === 'table' ? (
-        <SpeciesTableView
-          findings={filteredFindings}
-          onRowClick={onViewOnMap}
-          selectedFindingId={selectedFindingId}
-        />
+        <ScrollArea className="flex-1">
+          <SpeciesTableView
+            findings={filteredFindings}
+            savedFindings={savedFindings}
+            onRowClick={onViewOnMap}
+            selectedFindingId={selectedFindingId}
+            onSave={onSave}
+            onFetchAiSummary={onFetchAiSummary}
+            onDeepResearch={onDeepResearch}
+            savingIds={savingIds}
+          />
+        </ScrollArea>
       ) : (
         /* Findings list (card view) */
         <ScrollArea className="flex-1">

@@ -1,8 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Shield, Loader2 } from 'lucide-react'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { Shield, Loader2, Bookmark, BookmarkCheck, Sparkles, Search } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -12,16 +11,21 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import type { FindingDisplay } from './findings-list'
+import type { DeskResearchFinding } from '@/types/database'
 
 interface SpeciesTableViewProps {
   findings: FindingDisplay[]
+  savedFindings?: DeskResearchFinding[]
   onRowClick?: (finding: FindingDisplay) => void
   selectedFindingId?: string | null
+  onSave?: (finding: FindingDisplay) => void
+  onFetchAiSummary?: (finding: FindingDisplay) => void
+  onDeepResearch?: (finding: FindingDisplay) => void
+  savingIds?: Set<string>
 }
 
 function formatDate(dateStr?: string): string {
   if (!dateStr) return '—'
-  // Handle DD/MM/YYYY format from NBDC
   const dmy = dateStr.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
   if (dmy) {
     const d = new Date(`${dmy[3]}-${dmy[2]}-${dmy[1]}`)
@@ -37,7 +41,6 @@ function formatDate(dateStr?: string): string {
   }
 }
 
-/** Shorten long designation strings: take first 2 unique designation types */
 function shortDesignation(raw?: string): string | null {
   if (!raw) return null
   const parts = raw
@@ -50,8 +53,13 @@ function shortDesignation(raw?: string): string | null {
 
 export function SpeciesTableView({
   findings,
+  savedFindings = [],
   onRowClick,
   selectedFindingId,
+  onSave,
+  onFetchAiSummary,
+  onDeepResearch,
+  savingIds,
 }: SpeciesTableViewProps) {
   if (findings.length === 0) {
     return (
@@ -61,32 +69,33 @@ export function SpeciesTableView({
     )
   }
 
+  const isSaved = (finding: FindingDisplay) =>
+    savedFindings.some(
+      (sf) =>
+        (sf.raw_data as Record<string, unknown>)?.scientificName ===
+        finding.metadata?.scientificName
+    )
+
   return (
-    <ScrollArea className="h-[calc(100vh-320px)] min-h-[300px]">
+    <div>
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            <TableHead className="sticky top-0 z-10 w-[70px] bg-white px-1.5 text-[11px]">
-              Species Group
-            </TableHead>
-            <TableHead className="sticky top-0 z-10 min-w-[180px] bg-white px-1.5 text-[11px]">
+            <TableHead className="w-[70px] bg-white px-1.5 text-[11px]">Species Group</TableHead>
+            <TableHead className="min-w-[180px] bg-white px-1.5 text-[11px]">
               Species Name
             </TableHead>
-            <TableHead className="sticky top-0 z-10 w-[40px] bg-white px-1 text-right text-[11px]">
-              Records
-            </TableHead>
-            <TableHead className="sticky top-0 z-10 w-[72px] bg-white px-1.5 text-[11px]">
-              Last Record
-            </TableHead>
-            <TableHead className="sticky top-0 z-10 w-[110px] bg-white px-1.5 text-[11px]">
-              Dataset
-            </TableHead>
+            <TableHead className="w-[40px] bg-white px-1 text-right text-[11px]">Records</TableHead>
+            <TableHead className="w-[72px] bg-white px-1.5 text-[11px]">Last Record</TableHead>
+            <TableHead className="w-[110px] bg-white px-1.5 text-[11px]">Dataset</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {findings.map((finding, idx) => {
             const isSelected = selectedFindingId === finding.id
             const designation = shortDesignation(finding.metadata?.designations)
+            const saved = isSaved(finding)
+            const isSaving = savingIds?.has(finding.id) ?? false
 
             return (
               <TableRow
@@ -145,11 +154,61 @@ export function SpeciesTableView({
                     {finding.metadata?.datasetName || '—'}
                   </span>
                 </TableCell>
+                <TableCell className="px-1 py-1.5 align-top">
+                  <div
+                    className="flex items-center justify-center gap-1"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Save/unsave */}
+                    {onSave && (
+                      <button
+                        onClick={() => onSave(finding)}
+                        disabled={isSaving}
+                        className={`rounded p-0.5 transition-colors ${
+                          saved
+                            ? 'text-green-600 hover:text-green-700'
+                            : 'text-gray-400 hover:text-gray-600'
+                        }`}
+                        title={saved ? 'Saved' : 'Save finding'}
+                      >
+                        {isSaving ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : saved ? (
+                          <BookmarkCheck className="h-3.5 w-3.5" />
+                        ) : (
+                          <Bookmark className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    )}
+                    {/* AI Summary */}
+                    {onFetchAiSummary &&
+                      !finding.metadata?.aiSummary &&
+                      !finding.metadata?.aiSummaryLoading && (
+                        <button
+                          onClick={() => onFetchAiSummary(finding)}
+                          className="rounded p-0.5 text-purple-400 transition-colors hover:text-purple-600"
+                          title="Generate AI summary"
+                        >
+                          <Sparkles className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    {/* Deep Research */}
+                    {onDeepResearch && (
+                      <button
+                        onClick={() => onDeepResearch(finding)}
+                        className="rounded p-0.5 text-gray-400 transition-colors hover:text-gray-600"
+                        title="Deep Research"
+                      >
+                        <Search className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </TableCell>
               </TableRow>
             )
           })}
         </TableBody>
       </Table>
-    </ScrollArea>
+    </div>
   )
 }

@@ -92,9 +92,9 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
   const aiSummaryTriggerRef = React.useRef<((finding: FindingDisplay) => void) | null>(null)
 
   // Source filter — default to 'protected' (only show species with designation)
-  const [sourceFilter, setSourceFilter] = React.useState<'all' | 'gbif' | 'nbdc' | 'protected'>(
-    'protected'
-  )
+  const [sourceFilter, setSourceFilter] = React.useState<
+    'all' | 'protected' | 'invasive' | 'threatened'
+  >('protected')
 
   // Grid resolution for NBDC search: '10km' | '2km' | '1km'
   const gridResolutionKey = `species-grid-res-${project.id}`
@@ -341,10 +341,9 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       searchButtonLabel: 'Search Species',
       searchButtonColor: 'border-purple-300 text-purple-700 hover:bg-gray-50',
       emptyMessage: 'Search to find species',
-      cacheKeyPrefix: 'nbdc-report',
+      cacheKeyPrefix: `nbdc-report-${gridResolution}`,
       stepName: 'species_records',
       source: 'nbdc',
-      sourceFilter: ['nbdc'],
       gridOverlay,
 
       // Search — NBDC grid report API (generates XLSX per grid square)
@@ -687,7 +686,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       summarizeFilter: (f) => f.dataType === 'species_record' && !f.metadata?.aiSummary,
 
       // Distance/proximity filter
-      showDistanceFilter: true,
+      showDistanceFilter: false,
 
       // FindingsList extra props
       findingsListExtraProps: {

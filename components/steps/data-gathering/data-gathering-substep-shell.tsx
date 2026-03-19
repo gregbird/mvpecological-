@@ -306,9 +306,11 @@ export function DataGatheringSubstepShell({
         })
         await createFinding.mutateAsync(payload as Parameters<typeof createFinding.mutateAsync>[0])
 
-        // Auto-trigger AI summary generation after saving (fire-and-forget)
-        if (!finding.metadata?.aiSummary) {
-          handleFetchAiSummary(finding).catch(() => {})
+        // Auto-trigger AI summary generation after saving
+        if (!finding.metadata?.aiSummary && !finding.metadata?.aiSummaryLoading) {
+          handleFetchAiSummary(finding).catch((err) =>
+            console.error('[AI Summary] Auto-trigger failed:', err)
+          )
         }
       }
     } catch (error) {
