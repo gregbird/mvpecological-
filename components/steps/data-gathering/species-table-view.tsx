@@ -1,7 +1,15 @@
 'use client'
 
 import * as React from 'react'
-import { Shield, Loader2, Save, FlaskConical, Sparkles, MessageSquare } from 'lucide-react'
+import {
+  Shield,
+  Loader2,
+  Save,
+  FlaskConical,
+  Sparkles,
+  MessageSquare,
+  MessageSquareText,
+} from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -197,27 +205,42 @@ export function SpeciesTableView({
                               Deep Research
                             </button>
                           )}
-                          {saved && onUpdateNote && (
-                            <button
-                              className={`flex items-center gap-1 ${noteOpenId === finding.id ? 'text-amber-600' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
-                              onClick={() => {
-                                if (noteOpenId === finding.id) {
-                                  setNoteOpenId(null)
-                                } else {
-                                  const sf = savedFindings.find(
-                                    (s) =>
-                                      (s.raw_data as Record<string, unknown>)?.scientificName ===
-                                      finding.metadata?.scientificName
-                                  )
-                                  setNoteDraft(sf?.notes || '')
-                                  setNoteOpenId(finding.id)
-                                }
-                              }}
-                            >
-                              <MessageSquare className="h-3 w-3" />
-                              Note
-                            </button>
-                          )}
+                          {saved &&
+                            onUpdateNote &&
+                            (() => {
+                              const sf = savedFindings.find(
+                                (s) =>
+                                  (s.raw_data as Record<string, unknown>)?.scientificName ===
+                                  finding.metadata?.scientificName
+                              )
+                              const hasNote = !!sf?.notes
+                              return (
+                                <button
+                                  className={`flex items-center gap-1 ${
+                                    noteOpenId === finding.id
+                                      ? 'text-amber-600'
+                                      : hasNote
+                                        ? 'font-medium text-amber-600'
+                                        : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                                  }`}
+                                  onClick={() => {
+                                    if (noteOpenId === finding.id) {
+                                      setNoteOpenId(null)
+                                    } else {
+                                      setNoteDraft(sf?.notes || '')
+                                      setNoteOpenId(finding.id)
+                                    }
+                                  }}
+                                >
+                                  {hasNote ? (
+                                    <MessageSquareText className="h-3 w-3" />
+                                  ) : (
+                                    <MessageSquare className="h-3 w-3" />
+                                  )}
+                                  Note
+                                </button>
+                              )
+                            })()}
                         </div>
                       </div>
                     </div>
@@ -239,23 +262,17 @@ export function SpeciesTableView({
                 {/* Note editor row — spans full width */}
                 {noteOpenId === finding.id && onUpdateNote && (
                   <TableRow key={`note-${finding.id}-${idx}`} className="hover:bg-transparent">
-                    <TableCell colSpan={5} className="p-0">
-                      <div
-                        className="rounded-b-lg border-x border-b border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <textarea
+                    <TableCell colSpan={5} className="px-1.5 py-1">
+                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="text"
                           value={noteDraft}
                           onChange={(e) => setNoteDraft(e.target.value)}
-                          placeholder="Add a note about this finding..."
-                          rows={3}
-                          className="w-full resize-y rounded border border-amber-300 bg-white px-2.5 py-2 text-xs focus:ring-1 focus:ring-amber-400 focus:outline-none dark:border-amber-700 dark:bg-amber-950"
+                          placeholder="Add a note..."
+                          className="flex-1 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs focus:ring-1 focus:ring-amber-400 focus:outline-none dark:border-amber-700 dark:bg-amber-950"
                           autoFocus
-                        />
-                        <div className="mt-2 flex items-center gap-2">
-                          <button
-                            className="rounded bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600"
-                            onClick={() => {
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
                               const sf = savedFindings.find(
                                 (s) =>
                                   (s.raw_data as Record<string, unknown>)?.scientificName ===
@@ -265,17 +282,32 @@ export function SpeciesTableView({
                                 onUpdateNote(sf.id, noteDraft)
                                 setNoteOpenId(null)
                               }
-                            }}
-                          >
-                            Save
-                          </button>
-                          <button
-                            className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                            onClick={() => setNoteOpenId(null)}
-                          >
-                            Cancel
-                          </button>
-                        </div>
+                            }
+                            if (e.key === 'Escape') setNoteOpenId(null)
+                          }}
+                        />
+                        <button
+                          className="rounded bg-amber-500 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-amber-600"
+                          onClick={() => {
+                            const sf = savedFindings.find(
+                              (s) =>
+                                (s.raw_data as Record<string, unknown>)?.scientificName ===
+                                finding.metadata?.scientificName
+                            )
+                            if (sf) {
+                              onUpdateNote(sf.id, noteDraft)
+                              setNoteOpenId(null)
+                            }
+                          }}
+                        >
+                          Save
+                        </button>
+                        <button
+                          className="text-[11px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                          onClick={() => setNoteOpenId(null)}
+                        >
+                          Cancel
+                        </button>
                       </div>
                     </TableCell>
                   </TableRow>

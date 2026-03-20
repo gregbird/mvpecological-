@@ -13,6 +13,7 @@ import {
   MessageSquare,
   Save,
   Check,
+  CheckCheck,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
@@ -129,6 +130,7 @@ export function HabitatDataSubStep({
   const [loadingSummaries, setLoadingSummaries] = React.useState<Set<string>>(new Set())
   const [isOverallLoading, setIsOverallLoading] = React.useState(false)
   const [savingIds, setSavingIds] = React.useState<Set<string>>(new Set())
+  const [isSavingAll, setIsSavingAll] = React.useState(false)
 
   // Note editing
   const [editingNoteId, setEditingNoteId] = React.useState<string | null>(null)
@@ -497,6 +499,62 @@ export function HabitatDataSubStep({
     }
   }
 
+  // Save all unsaved habitats at once
+  const unsavedResults = results.filter((r) => !getSavedFinding(r.nlcId))
+  const allSaved = results.length > 0 && unsavedResults.length === 0
+
+  const handleSaveAll = async () => {
+    if (unsavedResults.length === 0) return
+    setIsSavingAll(true)
+    let savedCount = 0
+    try {
+      for (const r of unsavedResults) {
+        const pct = totalArea > 0 ? ((r.areaHectares / totalArea) * 100).toFixed(1) : '0'
+        await createFinding.mutateAsync({
+          project_id: project.id,
+          created_by: userId,
+          source: 'manual' as const,
+          data_type: 'habitat' as const,
+          include_in_report: true,
+          title: `${r.fossittCode} — ${r.fossittName}`,
+          content: aiSummaries[r.nlcId] || `${r.fossittName} (${r.areaHectares} ha, ${pct}% cover)`,
+          is_saved: true,
+          notes: notes[r.nlcId] || null,
+          raw_data: {
+            habitatFinding: true,
+            nlcId: r.nlcId,
+            nlcLabel: r.nlcLabel,
+            nlcLevel1: r.nlcLevel1,
+            fossittCode: r.fossittCode,
+            fossittName: r.fossittName,
+            areaHectares: r.areaHectares,
+            polygonCount: r.polygonCount,
+            percentCover: pct,
+            aiSummary: aiSummaries[r.nlcId] || null,
+            bufferKm: selectedBuffer,
+          } as unknown as Json,
+        })
+        savedCount++
+        // Trigger AI summary for each
+        if (!aiSummaries[r.nlcId]) {
+          fetchAiSummary(r)
+        }
+      }
+      toast({
+        title: 'All habitats saved',
+        description: `${savedCount} habitat${savedCount > 1 ? 's' : ''} saved to findings.`,
+      })
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: `Saved ${savedCount} of ${unsavedResults.length}. Some failed.`,
+      })
+    } finally {
+      setIsSavingAll(false)
+    }
+  }
+
   if (!projectBoundary) {
     return (
       <div className="flex h-full items-center justify-center p-8">
@@ -576,6 +634,22 @@ export function HabitatDataSubStep({
                   <span className="text-muted-foreground text-xs">
                     {totalArea.toLocaleString()} ha
                   </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSaveAll}
+                    disabled={isSavingAll || allSaved}
+                    className="h-7 gap-1 text-xs text-emerald-600"
+                  >
+                    {isSavingAll ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : allSaved ? (
+                      <Check className="h-3 w-3" />
+                    ) : (
+                      <CheckCheck className="h-3 w-3" />
+                    )}
+                    {isSavingAll ? 'Saving...' : allSaved ? 'All Saved' : 'Save All'}
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"

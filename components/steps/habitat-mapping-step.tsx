@@ -15,9 +15,11 @@ import {
   Pentagon,
   Eye,
   EyeOff,
+  Layers,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -50,7 +52,7 @@ import { calculateAreaHectares } from '@/lib/supabase/queries/habitats'
 import { IRELAND_CENTER } from '@/lib/config/map-constants'
 import { groupFindingsByType } from '@/lib/utils/group-findings-by-type'
 import { getHabitatByCode } from '@/lib/data/fossitt-codes'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import type {
   Project,
@@ -109,6 +111,20 @@ export function HabitatMappingStep({
     zoom: number
     key: string
   } | null>(null)
+
+  // Persist active tab in sessionStorage
+  const tabCacheKey = `habitat-mapping-tab-${project.id}`
+  const [activeTab, setActiveTab] = React.useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = sessionStorage.getItem(tabCacheKey)
+      if (cached === 'habitats' || cached === 'findings') return cached
+    }
+    return 'habitats'
+  })
+
+  React.useEffect(() => {
+    sessionStorage.setItem(tabCacheKey, activeTab)
+  }, [activeTab, tabCacheKey])
 
   // Visibility toggles for finding groups on the map
   const [visibleFindingGroups, setVisibleFindingGroups] = React.useState<Set<string>>(
@@ -471,7 +487,7 @@ export function HabitatMappingStep({
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 md:flex-row">
         {/* Left Panel - Tabbed Interface with Add Habitat button */}
         <Card className="flex shrink-0 flex-col md:w-[38%]">
-          <Tabs defaultValue="habitats" className="flex flex-1 flex-col">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-1 flex-col">
             <div className="flex items-center gap-2 px-3 pt-3">
               <TabsList className="grid w-auto shrink-0 grid-cols-2">
                 <TabsTrigger value="habitats" className="text-xs">
@@ -495,164 +511,196 @@ export function HabitatMappingStep({
               </Button>
             </div>
 
-            {/* Mapped Habitats Tab */}
-            <TabsContent value="habitats" className="mt-0 flex-1">
-              <CardContent className="h-64 p-3 md:h-full">
-                {habitats.length === 0 ? (
-                  <div className="text-muted-foreground flex h-full items-center justify-center text-center text-sm">
-                    No habitats mapped yet. Click &quot;Add Habitat&quot; or draw a polygon on the
-                    map below.
-                  </div>
-                ) : (
-                  <ScrollArea className="h-full">
-                    <div className="space-y-2 pr-3">
-                      {habitats.map((habitat) => (
-                        <HabitatListItem
-                          key={habitat.id}
-                          habitat={habitat}
-                          isSelected={selectedHabitat?.id === habitat.id}
-                          onSelect={() => setSelectedHabitat(habitat)}
-                          onEdit={() => {
-                            setEditingHabitat(habitat)
-                            setShowHabitatForm(true)
-                          }}
-                          onDelete={() => setDeletingHabitat(habitat)}
-                          disabled={false}
-                        />
-                      ))}
-                    </div>
-                  </ScrollArea>
+            {/* Keep both tabs mounted, toggle visibility via CSS */}
+            <div className="relative min-h-0 flex-1">
+              {/* Mapped Habitats Tab */}
+              <div
+                className={cn(
+                  'absolute inset-0',
+                  activeTab === 'habitats' ? 'visible z-10' : 'invisible z-0'
                 )}
-              </CardContent>
-            </TabsContent>
-
-            {/* Desk Research Findings Tab */}
-            <TabsContent value="findings" className="mt-0 flex-1">
-              <CardContent className="h-64 p-3 md:h-full">
-                {findingsLoading ? (
-                  <div className="flex h-full items-center justify-center">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                  </div>
-                ) : savedFindings.length === 0 ? (
-                  <div className="text-muted-foreground flex h-full items-center justify-center text-center text-sm">
-                    No saved findings from Data Gathering. Complete Step 2 first.
-                  </div>
-                ) : (
-                  <ScrollArea className="h-full">
-                    <div className="space-y-4 pr-3">
-                      {/* Designated Sites */}
-                      {findingsByType.designated_site.length > 0 && (
-                        <div>
-                          <div className="mb-2 flex items-center gap-2">
-                            <Shield className="text-primary h-4 w-4" />
-                            <span className="flex-1 text-sm font-medium">
-                              Designated Sites ({findingsByType.designated_site.length})
-                            </span>
-                            <button
-                              type="button"
-                              className="text-muted-foreground hover:text-foreground rounded p-0.5"
-                              onClick={() => toggleFindingGroup('designated_site')}
-                              title={
-                                visibleFindingGroups.has('designated_site')
-                                  ? 'Hide on map'
-                                  : 'Show on map'
-                              }
-                            >
-                              {visibleFindingGroups.has('designated_site') ? (
-                                <Eye className="h-3.5 w-3.5" />
-                              ) : (
-                                <EyeOff className="h-3.5 w-3.5" />
-                              )}
-                            </button>
-                          </div>
-                          <div className="space-y-1.5">
-                            {findingsByType.designated_site.map((finding) => (
-                              <FindingItem
-                                key={finding.id}
-                                finding={finding}
-                                onClick={() => handleFindingClick(finding)}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Species Records */}
-                      {findingsByType.species_record.length > 0 && (
-                        <div>
-                          <div className="mb-2 flex items-center gap-2">
-                            <TreePine className="text-primary h-4 w-4" />
-                            <span className="flex-1 text-sm font-medium">
-                              Species Records ({findingsByType.species_record.length})
-                            </span>
-                            <button
-                              type="button"
-                              className="text-muted-foreground hover:text-foreground rounded p-0.5"
-                              onClick={() => toggleFindingGroup('species_record')}
-                              title={
-                                visibleFindingGroups.has('species_record')
-                                  ? 'Hide on map'
-                                  : 'Show on map'
-                              }
-                            >
-                              {visibleFindingGroups.has('species_record') ? (
-                                <Eye className="h-3.5 w-3.5" />
-                              ) : (
-                                <EyeOff className="h-3.5 w-3.5" />
-                              )}
-                            </button>
-                          </div>
-                          <div className="space-y-1.5">
-                            {findingsByType.species_record.map((finding) => (
-                              <FindingItem
-                                key={finding.id}
-                                finding={finding}
-                                onClick={() => handleFindingClick(finding)}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Aquatic Features */}
-                      {findingsByType.aquatic.length > 0 && (
-                        <div>
-                          <div className="mb-2 flex items-center gap-2">
-                            <Fish className="text-primary h-4 w-4" />
-                            <span className="flex-1 text-sm font-medium">
-                              Aquatic Features ({findingsByType.aquatic.length})
-                            </span>
-                            <button
-                              type="button"
-                              className="text-muted-foreground hover:text-foreground rounded p-0.5"
-                              onClick={() => toggleFindingGroup('aquatic')}
-                              title={
-                                visibleFindingGroups.has('aquatic') ? 'Hide on map' : 'Show on map'
-                              }
-                            >
-                              {visibleFindingGroups.has('aquatic') ? (
-                                <Eye className="h-3.5 w-3.5" />
-                              ) : (
-                                <EyeOff className="h-3.5 w-3.5" />
-                              )}
-                            </button>
-                          </div>
-                          <div className="space-y-1.5">
-                            {findingsByType.aquatic.map((finding) => (
-                              <FindingItem
-                                key={finding.id}
-                                finding={finding}
-                                onClick={() => handleFindingClick(finding)}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      )}
+              >
+                <CardContent className="h-full p-3">
+                  {habitats.length === 0 ? (
+                    <div className="text-muted-foreground flex h-full items-center justify-center text-center text-sm">
+                      No habitats mapped yet. Click &quot;Add Habitat&quot; or draw a polygon on the
+                      map below.
                     </div>
-                  </ScrollArea>
+                  ) : (
+                    <ScrollArea className="h-full">
+                      <div className="space-y-2 pr-3">
+                        {habitats.map((habitat) => (
+                          <HabitatListItem
+                            key={habitat.id}
+                            habitat={habitat}
+                            isSelected={selectedHabitat?.id === habitat.id}
+                            onSelect={() => setSelectedHabitat(habitat)}
+                            onEdit={() => {
+                              setEditingHabitat(habitat)
+                              setShowHabitatForm(true)
+                            }}
+                            onDelete={() => setDeletingHabitat(habitat)}
+                            disabled={false}
+                          />
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  )}
+                </CardContent>
+              </div>
+
+              {/* Desk Research Findings Tab */}
+              <div
+                className={cn(
+                  'absolute inset-0',
+                  activeTab === 'findings' ? 'visible z-10' : 'invisible z-0'
                 )}
-              </CardContent>
-            </TabsContent>
+              >
+                <CardContent className="h-full p-3">
+                  {findingsLoading ? (
+                    <div className="flex h-full items-center justify-center">
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    </div>
+                  ) : savedFindings.length === 0 ? (
+                    <div className="text-muted-foreground flex h-full items-center justify-center text-center text-sm">
+                      No saved findings from Data Gathering. Complete Step 2 first.
+                    </div>
+                  ) : (
+                    <ScrollArea className="h-full">
+                      <div className="space-y-4 pr-3">
+                        {/* Designated Sites */}
+                        {findingsByType.designated_site.length > 0 && (
+                          <div>
+                            <div className="mb-2 flex items-center gap-2">
+                              <Shield className="text-primary h-4 w-4" />
+                              <span className="flex-1 text-sm font-medium">
+                                Designated Sites ({findingsByType.designated_site.length})
+                              </span>
+                              <button
+                                type="button"
+                                className="text-muted-foreground hover:text-foreground rounded p-0.5"
+                                onClick={() => toggleFindingGroup('designated_site')}
+                                title={
+                                  visibleFindingGroups.has('designated_site')
+                                    ? 'Hide on map'
+                                    : 'Show on map'
+                                }
+                              >
+                                {visibleFindingGroups.has('designated_site') ? (
+                                  <Eye className="h-3.5 w-3.5" />
+                                ) : (
+                                  <EyeOff className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            </div>
+                            <div className="space-y-1.5">
+                              {findingsByType.designated_site.map((finding) => (
+                                <FindingItem
+                                  key={finding.id}
+                                  finding={finding}
+                                  onClick={() => handleFindingClick(finding)}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Species Records */}
+                        {findingsByType.species_record.length > 0 && (
+                          <div>
+                            <div className="mb-2 flex items-center gap-2">
+                              <TreePine className="text-primary h-4 w-4" />
+                              <span className="flex-1 text-sm font-medium">
+                                Species Records ({findingsByType.species_record.length})
+                              </span>
+                              <button
+                                type="button"
+                                className="text-muted-foreground hover:text-foreground rounded p-0.5"
+                                onClick={() => toggleFindingGroup('species_record')}
+                                title={
+                                  visibleFindingGroups.has('species_record')
+                                    ? 'Hide on map'
+                                    : 'Show on map'
+                                }
+                              >
+                                {visibleFindingGroups.has('species_record') ? (
+                                  <Eye className="h-3.5 w-3.5" />
+                                ) : (
+                                  <EyeOff className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            </div>
+                            <div className="space-y-1.5">
+                              {findingsByType.species_record.map((finding) => (
+                                <FindingItem
+                                  key={finding.id}
+                                  finding={finding}
+                                  onClick={() => handleFindingClick(finding)}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Aquatic Features */}
+                        {findingsByType.aquatic.length > 0 && (
+                          <div>
+                            <div className="mb-2 flex items-center gap-2">
+                              <Fish className="text-primary h-4 w-4" />
+                              <span className="flex-1 text-sm font-medium">
+                                Aquatic Features ({findingsByType.aquatic.length})
+                              </span>
+                              <button
+                                type="button"
+                                className="text-muted-foreground hover:text-foreground rounded p-0.5"
+                                onClick={() => toggleFindingGroup('aquatic')}
+                                title={
+                                  visibleFindingGroups.has('aquatic')
+                                    ? 'Hide on map'
+                                    : 'Show on map'
+                                }
+                              >
+                                {visibleFindingGroups.has('aquatic') ? (
+                                  <Eye className="h-3.5 w-3.5" />
+                                ) : (
+                                  <EyeOff className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            </div>
+                            <div className="space-y-1.5">
+                              {findingsByType.aquatic.map((finding) => (
+                                <FindingItem
+                                  key={finding.id}
+                                  finding={finding}
+                                  onClick={() => handleFindingClick(finding)}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Habitats (NLC) */}
+                        {findingsByType.habitat.length > 0 && (
+                          <div>
+                            <div className="mb-2 flex items-center gap-2">
+                              <Layers className="text-primary h-4 w-4" />
+                              <span className="flex-1 text-sm font-medium">
+                                Habitats ({findingsByType.habitat.length})
+                              </span>
+                            </div>
+                            <div className="space-y-1.5">
+                              {findingsByType.habitat.map((finding) => (
+                                <FindingItem key={finding.id} finding={finding} />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </ScrollArea>
+                  )}
+                </CardContent>
+              </div>
+            </div>
           </Tabs>
         </Card>
 
