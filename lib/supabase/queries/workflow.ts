@@ -222,6 +222,34 @@ export async function submitForReview(
   return data as unknown as WorkflowStep
 }
 
+// Cascade needs_review to downstream dependent steps when an approved step is edited
+export async function cascadeNeedsReview(
+  projectId: string,
+  editedStepNumber: number,
+  allSteps: WorkflowStep[]
+): Promise<void> {
+  const { STEP_DEPENDENCIES } = await import('@/lib/config/workflow')
+  const dependents = STEP_DEPENDENCIES[editedStepNumber] || []
+  if (dependents.length === 0) return
+
+  const supabase = createClient()
+
+  // Only flag steps that are currently approved (don't touch pending/in_progress)
+  const stepsToFlag = allSteps.filter(
+    (s) => dependents.includes(s.step_number) && s.status === 'approved'
+  )
+
+  for (const step of stepsToFlag) {
+    await supabase
+      .from('workflow_steps')
+      .update({
+        status: 'needs_review',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', step.id)
+  }
+}
+
 // Calculate project progress
 export function calculateProgress(steps: WorkflowStep[]): number {
   if (steps.length === 0) return 0

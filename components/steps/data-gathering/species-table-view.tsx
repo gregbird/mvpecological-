@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Shield, Loader2, Bookmark, BookmarkCheck, Sparkles, Search } from 'lucide-react'
+import { Shield, Loader2, Save, FlaskConical, Sparkles, MessageSquare } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -21,6 +21,7 @@ interface SpeciesTableViewProps {
   onSave?: (finding: FindingDisplay) => void
   onFetchAiSummary?: (finding: FindingDisplay) => void
   onDeepResearch?: (finding: FindingDisplay) => void
+  onUpdateNote?: (findingId: string, notes: string) => void
   savingIds?: Set<string>
 }
 
@@ -59,6 +60,7 @@ export function SpeciesTableView({
   onSave,
   onFetchAiSummary,
   onDeepResearch,
+  onUpdateNote,
   savingIds,
 }: SpeciesTableViewProps) {
   if (findings.length === 0) {
@@ -110,7 +112,7 @@ export function SpeciesTableView({
                     {finding.metadata?.taxonGroup || '—'}
                   </span>
                 </TableCell>
-                <TableCell className="max-w-[280px] px-1.5 py-1.5 align-top">
+                <TableCell className="max-w-[320px] px-1.5 py-1.5 align-top">
                   <div className="flex items-start gap-1">
                     {finding.metadata?.isProtected && (
                       <Shield className="mt-0.5 h-3 w-3 shrink-0 text-red-500" />
@@ -123,13 +125,17 @@ export function SpeciesTableView({
                             ({finding.metadata.scientificName.split(' ').slice(0, 2).join(' ')})
                           </span>
                         )}
-                      {designation && (
-                        <div className="mt-0.5 line-clamp-1 text-[10px] leading-tight text-red-600">
-                          {designation}
+                      {finding.metadata?.designations && (
+                        <div className="mt-0.5 text-[10px] leading-tight text-red-600">
+                          {finding.metadata.designations
+                            .split('||')
+                            .map((d: string) => d.trim())
+                            .filter(Boolean)
+                            .join(' · ')}
                         </div>
                       )}
                       {finding.metadata?.aiSummary ? (
-                        <div className="text-muted-foreground mt-0.5 line-clamp-2 text-[10px] leading-snug">
+                        <div className="text-muted-foreground mt-0.5 text-[10px] leading-snug">
                           {finding.metadata.aiSummary}
                         </div>
                       ) : finding.metadata?.aiSummaryLoading ? (
@@ -138,6 +144,52 @@ export function SpeciesTableView({
                           Generating...
                         </div>
                       ) : null}
+                      {/* Actions */}
+                      <div
+                        className="mt-1 flex items-center gap-3 text-[11px]"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {onSave && (
+                          <button
+                            onClick={() => onSave(finding)}
+                            disabled={isSaving}
+                            className={`flex items-center gap-1 ${
+                              saved
+                                ? 'font-medium text-green-600 hover:text-green-700'
+                                : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                          >
+                            <Save className="h-3 w-3" />
+                            {isSaving ? 'Saving...' : saved ? 'Saved' : 'Save'}
+                          </button>
+                        )}
+                        {onFetchAiSummary &&
+                          !finding.metadata?.aiSummary &&
+                          !finding.metadata?.aiSummaryLoading && (
+                            <button
+                              onClick={() => onFetchAiSummary(finding)}
+                              className="flex items-center gap-1 text-purple-600 hover:underline"
+                            >
+                              <Sparkles className="h-3 w-3" />
+                              AI Summary
+                            </button>
+                          )}
+                        {onDeepResearch && (
+                          <button
+                            className="flex items-center gap-1 text-purple-600 hover:underline"
+                            onClick={() => onDeepResearch(finding)}
+                          >
+                            <FlaskConical className="h-3 w-3" />
+                            Deep Research
+                          </button>
+                        )}
+                        {saved && onUpdateNote && (
+                          <button className="flex items-center gap-1 text-gray-500 hover:text-gray-700">
+                            <MessageSquare className="h-3 w-3" />
+                            Note
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </TableCell>
@@ -153,56 +205,6 @@ export function SpeciesTableView({
                   <span className="text-muted-foreground line-clamp-2 text-[10px] leading-tight">
                     {finding.metadata?.datasetName || '—'}
                   </span>
-                </TableCell>
-                <TableCell className="px-1 py-1.5 align-top">
-                  <div
-                    className="flex items-center justify-center gap-1"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {/* Save/unsave */}
-                    {onSave && (
-                      <button
-                        onClick={() => onSave(finding)}
-                        disabled={isSaving}
-                        className={`rounded p-0.5 transition-colors ${
-                          saved
-                            ? 'text-green-600 hover:text-green-700'
-                            : 'text-gray-400 hover:text-gray-600'
-                        }`}
-                        title={saved ? 'Saved' : 'Save finding'}
-                      >
-                        {isSaving ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : saved ? (
-                          <BookmarkCheck className="h-3.5 w-3.5" />
-                        ) : (
-                          <Bookmark className="h-3.5 w-3.5" />
-                        )}
-                      </button>
-                    )}
-                    {/* AI Summary */}
-                    {onFetchAiSummary &&
-                      !finding.metadata?.aiSummary &&
-                      !finding.metadata?.aiSummaryLoading && (
-                        <button
-                          onClick={() => onFetchAiSummary(finding)}
-                          className="rounded p-0.5 text-purple-400 transition-colors hover:text-purple-600"
-                          title="Generate AI summary"
-                        >
-                          <Sparkles className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    {/* Deep Research */}
-                    {onDeepResearch && (
-                      <button
-                        onClick={() => onDeepResearch(finding)}
-                        className="rounded p-0.5 text-gray-400 transition-colors hover:text-gray-600"
-                        title="Deep Research"
-                      >
-                        <Search className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
                 </TableCell>
               </TableRow>
             )

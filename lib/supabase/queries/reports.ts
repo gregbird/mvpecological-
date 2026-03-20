@@ -186,18 +186,22 @@ export async function updateReportVersionName(
   return updateReport(reportId, { version_name: versionName })
 }
 
-// Get a specific report version for a project
+// Get a specific report version for a project (optionally filtered by report type)
 export async function getReportByVersion(
   projectId: string,
-  version: number
+  version: number,
+  reportType?: string
 ): Promise<Report | null> {
   const supabase = createClient()
-  const { data, error } = await supabase
+  let query = supabase
     .from('reports')
     .select('*')
     .eq('project_id', projectId)
     .eq('version', version)
-    .maybeSingle()
+  if (reportType) {
+    query = query.eq('report_type', reportType)
+  }
+  const { data, error } = await query.maybeSingle()
 
   if (error) {
     console.error('Error fetching report by version:', error)

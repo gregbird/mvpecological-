@@ -92,17 +92,14 @@ export function DataGatheringStep({
   const { setMapFullscreen, refetchWorkflowSteps } = useProjectContext()
   const { toast } = useToast()
 
-  // Check if step is completed
+  // Check if step is completed (used for auto-search guard, not for locking)
   const isStepCompleted =
     workflowStep.status === 'approved' || workflowStep.status === 'needs_review'
   // Cache key for wizard step
   const wizardStepCacheKey = `data-gathering-step-${project.id}`
 
-  // View mode: preview or wizard
-  const [viewMode, setViewMode] = React.useState<ViewMode>(() => {
-    if (isStepCompleted) return 'preview'
-    return 'wizard'
-  })
+  // View mode: preview or wizard (always start in wizard — no locking)
+  const [viewMode, setViewMode] = React.useState<ViewMode>('wizard')
 
   // Wizard state - restore from sessionStorage
   const [currentStep, setCurrentStep] = React.useState<WizardStep>(() => {

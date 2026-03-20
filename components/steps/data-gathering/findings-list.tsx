@@ -399,101 +399,30 @@ export function FindingsList({
     <div className="flex h-full flex-col">
       {/* Header with count and filters */}
       {showFilters && (
-        <div className="space-y-1.5 border-b px-3 py-2">
-          <div className="flex items-center gap-1.5">
-            {/* Species header: enrichment status + count + filter badges */}
-            {showSpeciesHeader ? (
-              <>
-                {enrichmentStatus?.isEnriching ? (
-                  <span className="flex shrink-0 items-center gap-1.5 text-xs font-medium">
-                    <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
-                    <span className="text-blue-600">
-                      NBDC {enrichmentStatus.current}/{enrichmentStatus.total}
-                    </span>
+        <div className="flex flex-wrap items-center gap-1.5 border-b px-3 py-2">
+          {/* Species header: enrichment status + count + filter badges */}
+          {showSpeciesHeader ? (
+            <>
+              {enrichmentStatus?.isEnriching ? (
+                <span className="flex shrink-0 items-center gap-1.5 text-xs font-medium">
+                  <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
+                  <span className="text-blue-600">
+                    NBDC {enrichmentStatus.current}/{enrichmentStatus.total}
                   </span>
-                ) : (
-                  <button
-                    className={`shrink-0 text-sm font-medium ${showSavedOnly || sourceFilter !== 'all' || (distanceFilter && distanceFilter !== 'all') ? 'text-blue-600 hover:underline' : ''}`}
-                    onClick={() => {
-                      if (
-                        showSavedOnly ||
-                        (sourceFilter && sourceFilter !== 'all') ||
-                        (distanceFilter && distanceFilter !== 'all')
-                      ) {
-                        setShowSavedOnly(false)
-                        onSavedFilterChange?.(false)
-                        onSourceFilterChange?.('all')
-                        onDistanceFilterChange?.('all')
-                      }
-                    }}
-                  >
-                    {filteredFindings.length !== sortedFindings.length
-                      ? `${filteredFindings.length} / ${sortedFindings.length}`
-                      : sortedFindings.length}{' '}
-                    results
-                  </button>
-                )}
-                {(speciesCounts?.protected ?? 0) > 0 && (
-                  <button
-                    onClick={() =>
-                      onSourceFilterChange?.(sourceFilter === 'protected' ? 'all' : 'protected')
-                    }
-                    title={`${speciesCounts!.protected} Protected species`}
-                    className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
-                      sourceFilter === 'protected'
-                        ? 'bg-red-600 text-white'
-                        : 'bg-red-100 text-red-700 hover:bg-red-200'
-                    }`}
-                  >
-                    <Shield className="h-2.5 w-2.5" />
-                    {speciesCounts!.protected}
-                  </button>
-                )}
-                {(speciesCounts?.invasive ?? 0) > 0 && (
-                  <button
-                    onClick={() =>
-                      onSourceFilterChange?.(sourceFilter === 'invasive' ? 'all' : 'invasive')
-                    }
-                    title={`${speciesCounts!.invasive} Invasive species`}
-                    className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
-                      sourceFilter === 'invasive'
-                        ? 'bg-orange-600 text-white'
-                        : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
-                    }`}
-                  >
-                    <AlertCircle className="h-2.5 w-2.5" />
-                    {speciesCounts!.invasive}
-                  </button>
-                )}
-                {savedCount > 0 && (
-                  <button
-                    onClick={() => {
-                      const next = !showSavedOnly
-                      setShowSavedOnly(next)
-                      onSavedFilterChange?.(next)
-                    }}
-                    title={`${savedCount} Saved species`}
-                    className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
-                      showSavedOnly
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                    }`}
-                  >
-                    <Check className="h-2.5 w-2.5" />
-                    {savedCount}
-                  </button>
-                )}
-              </>
-            ) : (
-              <>
+                </span>
+              ) : (
                 <button
-                  className={`shrink-0 text-sm font-medium ${activeSiteTypeFilter || showSavedOnly ? 'text-blue-600 hover:underline' : ''}`}
+                  className={`shrink-0 text-sm font-medium ${showSavedOnly || sourceFilter !== 'all' || (distanceFilter && distanceFilter !== 'all') ? 'text-blue-600 hover:underline' : ''}`}
                   onClick={() => {
-                    if (activeSiteTypeFilter || showSavedOnly) {
-                      setActiveSiteTypeFilter(null)
+                    if (
+                      showSavedOnly ||
+                      (sourceFilter && sourceFilter !== 'all') ||
+                      (distanceFilter && distanceFilter !== 'all')
+                    ) {
                       setShowSavedOnly(false)
-                      onSiteTypeFilterChange?.(null)
                       onSavedFilterChange?.(false)
+                      onSourceFilterChange?.('all')
+                      onDistanceFilterChange?.('all')
                     }
                   }}
                 >
@@ -502,170 +431,236 @@ export function FindingsList({
                     : sortedFindings.length}{' '}
                   results
                 </button>
-                {savedCount > 0 && (
-                  <button
-                    onClick={() => {
-                      const next = !showSavedOnly
-                      setShowSavedOnly(next)
-                      onSavedFilterChange?.(next)
-                    }}
-                    className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
-                      showSavedOnly
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                    }`}
-                  >
-                    <Check className="h-2.5 w-2.5" />
-                    Saved {savedCount}
-                  </button>
-                )}
-                {/* Site type filter buttons */}
-                {showSiteTypeFilter && siteTypeCounts && Object.keys(siteTypeCounts).length > 0 && (
-                  <>
-                    {(siteTypeFilterOrder || ['SAC', 'SPA', 'NHA', 'pNHA']).map((siteType) => {
-                      const count = siteTypeCounts[siteType]
-                      if (!count) return null
-                      const isActive = activeSiteTypeFilter === siteType
-                      const defaultColorMap: Record<string, { active: string; inactive: string }> =
-                        {
-                          SAC: {
-                            active: 'bg-emerald-600 text-white',
-                            inactive: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200',
-                          },
-                          SPA: {
-                            active: 'bg-sky-600 text-white',
-                            inactive: 'bg-sky-100 text-sky-700 hover:bg-sky-200',
-                          },
-                          NHA: {
-                            active: 'bg-amber-600 text-white',
-                            inactive: 'bg-amber-100 text-amber-700 hover:bg-amber-200',
-                          },
-                          pNHA: {
-                            active: 'bg-orange-600 text-white',
-                            inactive: 'bg-orange-100 text-orange-700 hover:bg-orange-200',
-                          },
-                        }
-                      const config = siteTypeFilterConfig || defaultColorMap
-                      const colors = config[siteType] || {
-                        active: 'bg-gray-600 text-white',
-                        inactive: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
-                      }
-                      return (
-                        <button
-                          key={siteType}
-                          onClick={() => {
-                            const newValue = isActive ? null : siteType
-                            setActiveSiteTypeFilter(newValue)
-                            onSiteTypeFilterChange?.(newValue)
-                          }}
-                          className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${isActive ? colors.active : colors.inactive}`}
-                        >
-                          {siteType} {count}
-                        </button>
-                      )
-                    })}
-                  </>
-                )}
-              </>
-            )}
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            {onSummarizeAll && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className={`h-7 px-2 text-xs ${isSummarizing ? 'text-red-600 hover:text-red-700' : 'text-purple-600 hover:text-purple-700'}`}
-                onClick={isSummarizing ? onStopSummarize : onSummarizeAll}
+              )}
+              {(speciesCounts?.protected ?? 0) > 0 && (
+                <button
+                  onClick={() =>
+                    onSourceFilterChange?.(sourceFilter === 'protected' ? 'all' : 'protected')
+                  }
+                  title={`${speciesCounts!.protected} Protected species`}
+                  className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
+                    sourceFilter === 'protected'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-red-100 text-red-700 hover:bg-red-200'
+                  }`}
+                >
+                  <Shield className="h-2.5 w-2.5" />
+                  {speciesCounts!.protected}
+                </button>
+              )}
+              {(speciesCounts?.invasive ?? 0) > 0 && (
+                <button
+                  onClick={() =>
+                    onSourceFilterChange?.(sourceFilter === 'invasive' ? 'all' : 'invasive')
+                  }
+                  title={`${speciesCounts!.invasive} Invasive species`}
+                  className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
+                    sourceFilter === 'invasive'
+                      ? 'bg-orange-600 text-white'
+                      : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                  }`}
+                >
+                  <AlertCircle className="h-2.5 w-2.5" />
+                  {speciesCounts!.invasive}
+                </button>
+              )}
+              {savedCount > 0 && (
+                <button
+                  onClick={() => {
+                    const next = !showSavedOnly
+                    setShowSavedOnly(next)
+                    onSavedFilterChange?.(next)
+                  }}
+                  title={`${savedCount} Saved species`}
+                  className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
+                    showSavedOnly
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                  }`}
+                >
+                  <Check className="h-2.5 w-2.5" />
+                  {savedCount}
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <button
+                className={`shrink-0 text-sm font-medium ${activeSiteTypeFilter || showSavedOnly ? 'text-blue-600 hover:underline' : ''}`}
+                onClick={() => {
+                  if (activeSiteTypeFilter || showSavedOnly) {
+                    setActiveSiteTypeFilter(null)
+                    setShowSavedOnly(false)
+                    onSiteTypeFilterChange?.(null)
+                    onSavedFilterChange?.(false)
+                  }
+                }}
               >
-                {isSummarizing ? (
-                  <>
-                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                    Stop
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="mr-1 h-3 w-3" />
-                    AI
-                  </>
-                )}
-              </Button>
-            )}
-            {/* Source filter dropdown for species */}
-            {onSourceFilterChange && (
-              <Select
-                value={sourceFilter || 'all'}
-                onValueChange={(v) =>
-                  onSourceFilterChange(v as 'all' | 'protected' | 'invasive' | 'threatened')
-                }
-              >
-                <SelectTrigger className="h-7 w-auto min-w-[80px] border-0 bg-transparent px-1.5 text-xs shadow-none">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Species</SelectItem>
-                  <SelectItem value="protected">Protected Only</SelectItem>
-                  <SelectItem value="invasive">Invasive Only</SelectItem>
-                  <SelectItem value="threatened">Threatened Only</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-            {/* Distance/proximity filter dropdown */}
-            {onDistanceFilterChange && (
-              <Select
-                value={distanceFilter || 'all'}
-                onValueChange={(v) =>
-                  onDistanceFilterChange(v as 'all' | '0-1' | '1-5' | '5-10' | '10+')
-                }
-              >
-                <SelectTrigger className="h-7 w-auto min-w-[70px] border-0 bg-transparent px-1.5 text-xs shadow-none">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Distances</SelectItem>
-                  <SelectItem value="0-1">&lt; 1 km</SelectItem>
-                  <SelectItem value="1-5">1–5 km</SelectItem>
-                  <SelectItem value="5-10">5–10 km</SelectItem>
-                  <SelectItem value="10+">10+ km</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-            <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+                {filteredFindings.length !== sortedFindings.length
+                  ? `${filteredFindings.length} / ${sortedFindings.length}`
+                  : sortedFindings.length}{' '}
+                results
+              </button>
+              {savedCount > 0 && (
+                <button
+                  onClick={() => {
+                    const next = !showSavedOnly
+                    setShowSavedOnly(next)
+                    onSavedFilterChange?.(next)
+                  }}
+                  className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
+                    showSavedOnly
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                  }`}
+                >
+                  <Check className="h-2.5 w-2.5" />
+                  Saved {savedCount}
+                </button>
+              )}
+              {/* Site type filter buttons */}
+              {showSiteTypeFilter && siteTypeCounts && Object.keys(siteTypeCounts).length > 0 && (
+                <>
+                  {(siteTypeFilterOrder || ['SAC', 'SPA', 'NHA', 'pNHA']).map((siteType) => {
+                    const count = siteTypeCounts[siteType]
+                    if (!count) return null
+                    const isActive = activeSiteTypeFilter === siteType
+                    const defaultColorMap: Record<string, { active: string; inactive: string }> = {
+                      SAC: {
+                        active: 'bg-emerald-600 text-white',
+                        inactive: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200',
+                      },
+                      SPA: {
+                        active: 'bg-sky-600 text-white',
+                        inactive: 'bg-sky-100 text-sky-700 hover:bg-sky-200',
+                      },
+                      NHA: {
+                        active: 'bg-amber-600 text-white',
+                        inactive: 'bg-amber-100 text-amber-700 hover:bg-amber-200',
+                      },
+                      pNHA: {
+                        active: 'bg-orange-600 text-white',
+                        inactive: 'bg-orange-100 text-orange-700 hover:bg-orange-200',
+                      },
+                    }
+                    const config = siteTypeFilterConfig || defaultColorMap
+                    const colors = config[siteType] || {
+                      active: 'bg-gray-600 text-white',
+                      inactive: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+                    }
+                    return (
+                      <button
+                        key={siteType}
+                        onClick={() => {
+                          const newValue = isActive ? null : siteType
+                          setActiveSiteTypeFilter(newValue)
+                          onSiteTypeFilterChange?.(newValue)
+                        }}
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${isActive ? colors.active : colors.inactive}`}
+                      >
+                        {siteType} {count}
+                      </button>
+                    )
+                  })}
+                </>
+              )}
+            </>
+          )}
+          {onSummarizeAll && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`h-7 px-2 text-xs ${isSummarizing ? 'text-red-600 hover:text-red-700' : 'text-purple-600 hover:text-purple-700'}`}
+              onClick={isSummarizing ? onStopSummarize : onSummarizeAll}
+            >
+              {isSummarizing ? (
+                <>
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  Stop
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-1 h-3 w-3" />
+                  AI
+                </>
+              )}
+            </Button>
+          )}
+          {/* Source filter dropdown for species */}
+          {onSourceFilterChange && (
+            <Select
+              value={sourceFilter || 'all'}
+              onValueChange={(v) =>
+                onSourceFilterChange(v as 'all' | 'protected' | 'invasive' | 'threatened')
+              }
+            >
               <SelectTrigger className="h-7 w-auto min-w-[80px] border-0 bg-transparent px-1.5 text-xs shadow-none">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="distance">Distance</SelectItem>
-                <SelectItem value="title">Title</SelectItem>
-                <SelectItem value="type">Type</SelectItem>
+                <SelectItem value="all">All Species</SelectItem>
+                <SelectItem value="protected">Protected Only</SelectItem>
+                <SelectItem value="invasive">Invasive Only</SelectItem>
+                <SelectItem value="threatened">Threatened Only</SelectItem>
               </SelectContent>
             </Select>
-            <button
-              className="text-muted-foreground hover:text-foreground p-0.5"
-              onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
-              title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+          )}
+          {/* Distance/proximity filter dropdown */}
+          {onDistanceFilterChange && (
+            <Select
+              value={distanceFilter || 'all'}
+              onValueChange={(v) =>
+                onDistanceFilterChange(v as 'all' | '0-1' | '1-5' | '5-10' | '10+')
+              }
             >
-              <ArrowUpDown className="h-3.5 w-3.5" />
-            </button>
-            {/* Card/Table view toggle (only for species) */}
-            {showSpeciesHeader && (
-              <div className="ml-1 flex items-center rounded-md border">
-                <button
-                  className={`p-1 ${viewMode === 'cards' ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
-                  onClick={() => setViewMode('cards')}
-                  title="Card view"
-                >
-                  <LayoutList className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  className={`p-1 ${viewMode === 'table' ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
-                  onClick={() => setViewMode('table')}
-                  title="Table view"
-                >
-                  <Table2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            )}
-          </div>
+              <SelectTrigger className="h-7 w-auto min-w-[70px] border-0 bg-transparent px-1.5 text-xs shadow-none">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Distances</SelectItem>
+                <SelectItem value="0-1">&lt; 1 km</SelectItem>
+                <SelectItem value="1-5">1–5 km</SelectItem>
+                <SelectItem value="5-10">5–10 km</SelectItem>
+                <SelectItem value="10+">10+ km</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+            <SelectTrigger className="h-7 w-auto min-w-[80px] border-0 bg-transparent px-1.5 text-xs shadow-none">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="distance">Distance</SelectItem>
+              <SelectItem value="title">Title</SelectItem>
+              <SelectItem value="type">Type</SelectItem>
+            </SelectContent>
+          </Select>
+          <button
+            className="text-muted-foreground hover:text-foreground p-0.5"
+            onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+            title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+          >
+            <ArrowUpDown className="h-3.5 w-3.5" />
+          </button>
+          {/* Card/Table view toggle (only for species) */}
+          {showSpeciesHeader && (
+            <div className="ml-1 flex items-center rounded-md border">
+              <button
+                className={`p-1 ${viewMode === 'cards' ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+                onClick={() => setViewMode('cards')}
+                title="Card view"
+              >
+                <LayoutList className="h-3.5 w-3.5" />
+              </button>
+              <button
+                className={`p-1 ${viewMode === 'table' ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+                onClick={() => setViewMode('table')}
+                title="Table view"
+              >
+                <Table2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -680,6 +675,7 @@ export function FindingsList({
             onSave={onSave}
             onFetchAiSummary={onFetchAiSummary}
             onDeepResearch={onDeepResearch}
+            onUpdateNote={onUpdateNote}
             savingIds={savingIds}
           />
         </ScrollArea>

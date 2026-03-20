@@ -524,7 +524,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                     <button
                       key={option.id}
                       onClick={() => !option.comingSoon && handleSourceSelect(option.id)}
-                      disabled={option.comingSoon || wizard.isComplete}
+                      disabled={option.comingSoon}
                       className={cn(
                         'relative flex flex-col items-center gap-3 rounded-xl border-2 p-6 transition-all',
                         option.comingSoon && 'cursor-not-allowed opacity-50',
@@ -560,7 +560,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                 accept=".geojson,.json,.shp,.zip"
                 className="hidden"
                 onChange={handleFileUpload}
-                disabled={boundaryMgmt.isProcessing || wizard.isComplete}
+                disabled={boundaryMgmt.isProcessing}
               />
             </div>
           </div>

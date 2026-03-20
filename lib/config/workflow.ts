@@ -169,6 +169,23 @@ export function getPhaseColorClasses(phaseId: string): {
 export const TOTAL_STEPS = 10
 
 /**
+ * Step dependency map — when a step is edited after approval,
+ * its direct downstream dependents should be flagged as needs_review.
+ */
+export const STEP_DEPENDENCIES: Record<number, number[]> = {
+  1: [2, 3], // GIS boundary → Data Gathering, Desk Assessment
+  2: [3], // Findings → Desk Assessment
+  3: [], // Desk Assessment has no direct downstream
+  4: [5, 6], // Surveys → Habitat Mapping, Target Notes
+  5: [7], // Habitats → Data Analysis
+  6: [7], // Target Notes → Data Analysis
+  7: [8], // Analysis → AI Draft
+  8: [9], // Draft → Quality Review
+  9: [10], // Review → Final Submission
+  10: [], // Final step has no downstream
+}
+
+/**
  * Role-based step access control
  * Defines which steps each user role can access.
  * Steps not listed are locked (hidden/disabled) for that role.

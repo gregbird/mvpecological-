@@ -29,7 +29,9 @@ interface ProjectContextType {
   isStepCompleted: (stepNumber: number) => boolean
   isStepActive: (stepNumber: number) => boolean
   isStepLocked: (stepNumber: number) => boolean
-  getStepStatus: (stepNumber: number) => 'completed' | 'active' | 'pending' | 'locked'
+  getStepStatus: (
+    stepNumber: number
+  ) => 'completed' | 'active' | 'pending' | 'locked' | 'needs_review'
 
   // Sidebar state
   isSidebarCollapsed: boolean
@@ -173,14 +175,23 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     [userRole]
   )
 
+  const isStepNeedsReview = React.useCallback(
+    (stepNumber: number) => {
+      const step = workflowSteps.find((s) => s.step_number === stepNumber)
+      return step?.status === 'needs_review'
+    },
+    [workflowSteps]
+  )
+
   const getStepStatus = React.useCallback(
-    (stepNumber: number): 'completed' | 'active' | 'pending' | 'locked' => {
+    (stepNumber: number): 'completed' | 'active' | 'pending' | 'locked' | 'needs_review' => {
+      if (isStepNeedsReview(stepNumber)) return 'needs_review'
       if (isStepCompleted(stepNumber)) return 'completed'
       if (isStepActive(stepNumber)) return 'active'
       if (isStepLocked(stepNumber)) return 'locked'
       return 'pending'
     },
-    [isStepCompleted, isStepActive, isStepLocked]
+    [isStepNeedsReview, isStepCompleted, isStepActive, isStepLocked]
   )
 
   const value: ProjectContextType = {

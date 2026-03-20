@@ -314,21 +314,14 @@ function MapComponentWithDraw({
           featureGroupRef.current?.addLayer(layer)
         })
 
-        // SIMPLE RULE: Only fit bounds ONCE per component lifecycle
-        // AND only if no saved view position was provided (center is at default)
+        // Fit bounds ONCE per component lifecycle when boundary exists
         const bounds = geoJsonLayer.getBounds()
 
-        // Check if center is at default position (IRELAND_CENTER = [53.1424, -7.6921])
-        // If center is NOT at default, user has a saved view position - respect it
-        const isDefaultCenter =
-          Math.abs(center[0] - 53.1424) < 0.0001 && Math.abs(center[1] - -7.6921) < 0.0001
-
-        if (bounds.isValid() && !hasFitToBoundaryRef.current && isDefaultCenter) {
+        if (bounds.isValid() && !hasFitToBoundaryRef.current) {
           hasFitToBoundaryRef.current = true
           isInternalMoveRef.current = true
           map.fitBounds(bounds, { padding: [50, 50] })
         } else {
-          // Mark as fit even if we didn't actually fit (to prevent future fits)
           hasFitToBoundaryRef.current = true
         }
       }

@@ -225,20 +225,13 @@ function MapComponent({
     // Uses hasFitToBoundaryRef from parent scope so it persists across re-renders
     React.useEffect(() => {
       if (boundary && map && !hasFitToBoundaryRef.current) {
-        // Check if center is at default position (user hasn't panned)
-        // IRELAND_CENTER = [53.1424, -7.6921]
-        const isDefaultCenter =
-          Math.abs(center[0] - 53.1424) < 0.0001 && Math.abs(center[1] - -7.6921) < 0.0001
-
-        // Only fit bounds if we haven't done it AND center is at default
-        if (isDefaultCenter) {
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          const L = require('leaflet')
-          const geoJsonLayer = L.geoJSON(boundary)
-          const bounds = geoJsonLayer.getBounds()
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const L = require('leaflet')
+        const geoJsonLayer = L.geoJSON(boundary)
+        const bounds = geoJsonLayer.getBounds()
+        if (bounds.isValid()) {
           map.fitBounds(bounds, { padding: [50, 50] })
         }
-        // Mark as done regardless of whether we actually fit
         hasFitToBoundaryRef.current = true
       }
     }, [boundary, map])

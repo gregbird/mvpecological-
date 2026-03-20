@@ -517,7 +517,7 @@ export function HabitatMappingStep({
                             setShowHabitatForm(true)
                           }}
                           onDelete={() => setDeletingHabitat(habitat)}
-                          disabled={workflowStep.status === 'approved'}
+                          disabled={false}
                         />
                       ))}
                     </div>

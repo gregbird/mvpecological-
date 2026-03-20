@@ -667,6 +667,7 @@ export function ProjectWorkflowSidebar() {
                         const isActive = status === 'active'
                         const isCompleted = status === 'completed'
                         const isLocked = status === 'locked'
+                        const isNeedsReview = status === 'needs_review'
 
                         return (
                           <button
@@ -678,10 +679,13 @@ export function ProjectWorkflowSidebar() {
                               isActive && cn(colors.bgLight, 'font-medium', colors.text),
                               isCompleted &&
                                 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                              isNeedsReview &&
+                                'bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/30 dark:text-amber-400 dark:hover:bg-amber-950/50',
                               isLocked && 'cursor-not-allowed opacity-40',
                               !isActive &&
                                 !isCompleted &&
                                 !isLocked &&
+                                !isNeedsReview &&
                                 'text-foreground hover:bg-muted'
                             )}
                           >
@@ -691,10 +695,13 @@ export function ProjectWorkflowSidebar() {
                                 isActive && cn(colors.bg, 'text-white'),
                                 isCompleted &&
                                   'bg-emerald-100 text-emerald-600 dark:bg-emerald-900 dark:text-emerald-400',
+                                isNeedsReview &&
+                                  'bg-amber-100 text-amber-600 dark:bg-amber-900 dark:text-amber-400',
                                 isLocked && 'bg-muted text-muted-foreground/50',
                                 !isActive &&
                                   !isCompleted &&
                                   !isLocked &&
+                                  !isNeedsReview &&
                                   'bg-muted text-muted-foreground'
                               )}
                             >
