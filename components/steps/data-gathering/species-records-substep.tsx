@@ -190,6 +190,25 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
     let article17Species: Article17Species[] | undefined
     let relatedSites: import('@/lib/data/npws-site-lookup').SiteWithSpecies[] | undefined
 
+    // Enrich with NBDC taxon details (Irish records, grid squares) on-demand
+    let totalIrishRecords = finding.metadata?.totalIrishRecords
+    let gridSquares10km = finding.metadata?.gridSquares10km
+    let nbdcUrl = finding.metadata?.nbdcUrl
+
+    if (!totalIrishRecords && scientificName) {
+      try {
+        const { enrichSpeciesFromNBDC } = await import('@/lib/external-apis/nbdc')
+        const nbdcData = await enrichSpeciesFromNBDC(scientificName)
+        if (nbdcData) {
+          totalIrishRecords = nbdcData.totalRecordsInIreland
+          gridSquares10km = nbdcData.gridSquares10km
+          nbdcUrl = nbdcData.nbdcUrl
+        }
+      } catch {
+        // NBDC enrichment failed — not critical
+      }
+    }
+
     try {
       const [art17Module, npwsModule] = await Promise.all([
         import('@/lib/data/article17-species'),
@@ -245,10 +264,10 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       isProtected: finding.metadata?.isProtected,
       isInvasive: finding.metadata?.isInvasive,
       isThreatened: finding.metadata?.isThreatened,
-      totalIrishRecords: finding.metadata?.totalIrishRecords,
-      gridSquares10km: finding.metadata?.gridSquares10km,
+      totalIrishRecords,
+      gridSquares10km,
       gbifUrl: finding.metadata?.gbifUrl || finding.sourceUrl,
-      nbdcUrl: finding.metadata?.nbdcUrl,
+      nbdcUrl,
       source: finding.source,
       fpoRecords,
       article17Species,
@@ -339,7 +358,8 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       title: 'Species Records',
       description: 'Search Biodiversity Ireland (NBDC) by grid reference for species records.',
       searchButtonLabel: 'Search Species',
-      searchButtonColor: 'border-purple-300 text-purple-700 hover:bg-gray-50',
+      searchButtonColor:
+        'border-purple-300 text-purple-700 hover:bg-gray-50 dark:hover:bg-gray-800',
       emptyMessage: 'Search to find species',
       cacheKeyPrefix: `nbdc-report-${gridResolution}`,
       stepName: 'species_records',
@@ -761,7 +781,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
               className={`rounded px-2 py-0.5 text-xs font-medium transition-colors ${
                 gridResolution === res
                   ? 'bg-purple-100 text-purple-700'
-                  : 'text-muted-foreground hover:bg-gray-100'
+                  : 'text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800'
               }`}
             >
               {res}

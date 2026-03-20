@@ -143,8 +143,8 @@ export function DynamicFieldRenderer({
                   type="button"
                   className={`rounded-full border px-3 py-1 text-xs transition-colors ${
                     selected
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                      : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                      ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
+                      : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:border-gray-600'
                   }`}
                   onClick={() => {
                     const current = Array.isArray(value) ? value : []

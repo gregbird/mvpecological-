@@ -124,7 +124,8 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
       title: 'Designated Sites (NPWS)',
       description: 'Search for SAC, SPA, NHA, and pNHA sites within the selected buffer zone.',
       searchButtonLabel: 'Search NPWS',
-      searchButtonColor: 'border-emerald-300 text-emerald-700 hover:bg-gray-50',
+      searchButtonColor:
+        'border-emerald-300 text-emerald-700 hover:bg-gray-50 dark:hover:bg-gray-800',
       emptyMessage: 'Search to find sites',
       cacheKeyPrefix: 'npws',
       stepName: 'designated_sites',

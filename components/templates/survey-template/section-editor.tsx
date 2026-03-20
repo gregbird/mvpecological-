@@ -64,7 +64,7 @@ export function SectionEditor({ section, onChange }: SectionEditorProps) {
             <ChevronRight className="h-4 w-4 text-gray-400" />
           )}
           <span className="text-sm font-medium">{section.title}</span>
-          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500 dark:bg-gray-800">
             {enabledFieldCount} field{enabledFieldCount !== 1 ? 's' : ''}
           </span>
         </div>

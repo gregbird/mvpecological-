@@ -111,7 +111,7 @@ function PlanCard({ plan }: { plan: CountyDevelopmentPlan }) {
               href={plan.biodiversityChapterUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100"
+              className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-400 dark:hover:bg-emerald-900"
             >
               <Leaf className="h-3 w-3" />
               {plan.biodiversityChapterName}
@@ -139,7 +139,7 @@ function PlanCard({ plan }: { plan: CountyDevelopmentPlan }) {
               href={plan.biodiversityActionPlanUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100"
+              className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-400 dark:hover:bg-emerald-900"
             >
               <ExternalLink className="h-3 w-3" />
               View Biodiversity Action Plans

@@ -63,6 +63,9 @@ export function SpeciesTableView({
   onUpdateNote,
   savingIds,
 }: SpeciesTableViewProps) {
+  const [noteOpenId, setNoteOpenId] = React.useState<string | null>(null)
+  const [noteDraft, setNoteDraft] = React.useState('')
+
   if (findings.length === 0) {
     return (
       <div className="flex h-32 items-center justify-center">
@@ -83,13 +86,17 @@ export function SpeciesTableView({
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            <TableHead className="w-[70px] bg-white px-1.5 text-[11px]">Species Group</TableHead>
-            <TableHead className="min-w-[180px] bg-white px-1.5 text-[11px]">
+            <TableHead className="bg-background w-[70px] px-1.5 text-[11px]">
+              Species Group
+            </TableHead>
+            <TableHead className="bg-background min-w-[180px] px-1.5 text-[11px]">
               Species Name
             </TableHead>
-            <TableHead className="w-[40px] bg-white px-1 text-right text-[11px]">Records</TableHead>
-            <TableHead className="w-[72px] bg-white px-1.5 text-[11px]">Last Record</TableHead>
-            <TableHead className="w-[110px] bg-white px-1.5 text-[11px]">Dataset</TableHead>
+            <TableHead className="bg-background w-[40px] px-1 text-right text-[11px]">
+              Records
+            </TableHead>
+            <TableHead className="bg-background w-[72px] px-1.5 text-[11px]">Last Record</TableHead>
+            <TableHead className="bg-background w-[110px] px-1.5 text-[11px]">Dataset</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -100,113 +107,180 @@ export function SpeciesTableView({
             const isSaving = savingIds?.has(finding.id) ?? false
 
             return (
-              <TableRow
-                key={`${finding.id}-${idx}`}
-                className={`cursor-pointer text-xs ${
-                  isSelected ? 'bg-blue-50' : finding.metadata?.isProtected ? 'bg-red-50/40' : ''
-                }`}
-                onClick={() => onRowClick?.(finding)}
-              >
-                <TableCell className="px-1.5 py-1.5 align-top">
-                  <span className="text-muted-foreground text-[11px] leading-tight">
-                    {finding.metadata?.taxonGroup || '—'}
-                  </span>
-                </TableCell>
-                <TableCell className="max-w-[320px] px-1.5 py-1.5 align-top">
-                  <div className="flex items-start gap-1">
-                    {finding.metadata?.isProtected && (
-                      <Shield className="mt-0.5 h-3 w-3 shrink-0 text-red-500" />
-                    )}
-                    <div className="min-w-0">
-                      <span className="text-[13px] leading-snug font-medium">{finding.title}</span>
-                      {finding.metadata?.scientificName &&
-                        finding.metadata.scientificName !== finding.title && (
-                          <span className="text-muted-foreground ml-1 text-[11px] italic">
-                            ({finding.metadata.scientificName.split(' ').slice(0, 2).join(' ')})
-                          </span>
-                        )}
-                      {finding.metadata?.designations && (
-                        <div className="mt-0.5 text-[10px] leading-tight text-red-600">
-                          {finding.metadata.designations
-                            .split('||')
-                            .map((d: string) => d.trim())
-                            .filter(Boolean)
-                            .join(' · ')}
-                        </div>
+              <React.Fragment key={`frag-${finding.id}-${idx}`}>
+                <TableRow
+                  key={`${finding.id}-${idx}`}
+                  className={`cursor-pointer text-xs ${
+                    isSelected
+                      ? 'bg-blue-50 dark:bg-blue-950'
+                      : finding.metadata?.isProtected
+                        ? 'bg-red-50/40 dark:bg-red-950/40'
+                        : ''
+                  }`}
+                  onClick={() => onRowClick?.(finding)}
+                >
+                  <TableCell className="px-1.5 py-1.5 align-top">
+                    <span className="text-muted-foreground text-[11px] leading-tight">
+                      {finding.metadata?.taxonGroup || '—'}
+                    </span>
+                  </TableCell>
+                  <TableCell className="max-w-[320px] px-1.5 py-1.5 align-top">
+                    <div className="flex items-start gap-1">
+                      {finding.metadata?.isProtected && (
+                        <Shield className="mt-0.5 h-3 w-3 shrink-0 text-red-500" />
                       )}
-                      {finding.metadata?.aiSummary ? (
-                        <div className="text-muted-foreground mt-0.5 text-[10px] leading-snug">
-                          {finding.metadata.aiSummary}
-                        </div>
-                      ) : finding.metadata?.aiSummaryLoading ? (
-                        <div className="mt-0.5 flex items-center gap-1 text-[10px] text-purple-600">
-                          <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                          Generating...
-                        </div>
-                      ) : null}
-                      {/* Actions */}
-                      <div
-                        className="mt-1 flex items-center gap-3 text-[11px]"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {onSave && (
-                          <button
-                            onClick={() => onSave(finding)}
-                            disabled={isSaving}
-                            className={`flex items-center gap-1 ${
-                              saved
-                                ? 'font-medium text-green-600 hover:text-green-700'
-                                : 'text-gray-500 hover:text-gray-700'
-                            }`}
-                          >
-                            <Save className="h-3 w-3" />
-                            {isSaving ? 'Saving...' : saved ? 'Saved' : 'Save'}
-                          </button>
+                      <div className="min-w-0">
+                        <span className="text-[13px] leading-snug font-medium">
+                          {finding.title}
+                        </span>
+                        {finding.metadata?.scientificName &&
+                          finding.metadata.scientificName !== finding.title && (
+                            <span className="text-muted-foreground ml-1 text-[11px] italic">
+                              ({finding.metadata.scientificName.split(' ').slice(0, 2).join(' ')})
+                            </span>
+                          )}
+                        {finding.metadata?.designations && (
+                          <div className="mt-0.5 text-[10px] leading-tight text-red-600">
+                            {finding.metadata.designations
+                              .split('||')
+                              .map((d: string) => d.trim())
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </div>
                         )}
-                        {onFetchAiSummary &&
-                          !finding.metadata?.aiSummary &&
-                          !finding.metadata?.aiSummaryLoading && (
+                        {finding.metadata?.aiSummary ? (
+                          <div className="text-muted-foreground mt-0.5 text-[10px] leading-snug">
+                            {finding.metadata.aiSummary}
+                          </div>
+                        ) : finding.metadata?.aiSummaryLoading ? (
+                          <div className="mt-0.5 flex items-center gap-1 text-[10px] text-purple-600">
+                            <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                            Generating...
+                          </div>
+                        ) : null}
+                        {/* Actions */}
+                        <div
+                          className="mt-1 flex items-center gap-3 text-[11px]"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {onSave && (
                             <button
-                              onClick={() => onFetchAiSummary(finding)}
-                              className="flex items-center gap-1 text-purple-600 hover:underline"
+                              onClick={() => onSave(finding)}
+                              disabled={isSaving}
+                              className={`flex items-center gap-1 ${
+                                saved
+                                  ? 'font-medium text-green-600 hover:text-green-700'
+                                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                              }`}
                             >
-                              <Sparkles className="h-3 w-3" />
-                              AI Summary
+                              <Save className="h-3 w-3" />
+                              {isSaving ? 'Saving...' : saved ? 'Saved' : 'Save'}
                             </button>
                           )}
-                        {onDeepResearch && (
-                          <button
-                            className="flex items-center gap-1 text-purple-600 hover:underline"
-                            onClick={() => onDeepResearch(finding)}
-                          >
-                            <FlaskConical className="h-3 w-3" />
-                            Deep Research
-                          </button>
-                        )}
-                        {saved && onUpdateNote && (
-                          <button className="flex items-center gap-1 text-gray-500 hover:text-gray-700">
-                            <MessageSquare className="h-3 w-3" />
-                            Note
-                          </button>
-                        )}
+                          {onFetchAiSummary &&
+                            !finding.metadata?.aiSummary &&
+                            !finding.metadata?.aiSummaryLoading && (
+                              <button
+                                onClick={() => onFetchAiSummary(finding)}
+                                className="flex items-center gap-1 text-purple-600 hover:underline"
+                              >
+                                <Sparkles className="h-3 w-3" />
+                                AI Summary
+                              </button>
+                            )}
+                          {onDeepResearch && (
+                            <button
+                              className="flex items-center gap-1 text-purple-600 hover:underline"
+                              onClick={() => onDeepResearch(finding)}
+                            >
+                              <FlaskConical className="h-3 w-3" />
+                              Deep Research
+                            </button>
+                          )}
+                          {saved && onUpdateNote && (
+                            <button
+                              className={`flex items-center gap-1 ${noteOpenId === finding.id ? 'text-amber-600' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                              onClick={() => {
+                                if (noteOpenId === finding.id) {
+                                  setNoteOpenId(null)
+                                } else {
+                                  const sf = savedFindings.find(
+                                    (s) =>
+                                      (s.raw_data as Record<string, unknown>)?.scientificName ===
+                                      finding.metadata?.scientificName
+                                  )
+                                  setNoteDraft(sf?.notes || '')
+                                  setNoteOpenId(finding.id)
+                                }
+                              }}
+                            >
+                              <MessageSquare className="h-3 w-3" />
+                              Note
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </TableCell>
-                <TableCell className="px-1 py-1.5 text-right align-top font-medium tabular-nums">
-                  {finding.metadata?.recordCount ?? '—'}
-                </TableCell>
-                <TableCell className="px-1.5 py-1.5 align-top">
-                  <span className="text-muted-foreground text-[11px]">
-                    {formatDate(finding.metadata?.newestRecordDate)}
-                  </span>
-                </TableCell>
-                <TableCell className="max-w-[120px] px-1.5 py-1.5 align-top">
-                  <span className="text-muted-foreground line-clamp-2 text-[10px] leading-tight">
-                    {finding.metadata?.datasetName || '—'}
-                  </span>
-                </TableCell>
-              </TableRow>
+                  </TableCell>
+                  <TableCell className="px-1 py-1.5 text-right align-top font-medium tabular-nums">
+                    {finding.metadata?.recordCount ?? '—'}
+                  </TableCell>
+                  <TableCell className="px-1.5 py-1.5 align-top">
+                    <span className="text-muted-foreground text-[11px]">
+                      {formatDate(finding.metadata?.newestRecordDate)}
+                    </span>
+                  </TableCell>
+                  <TableCell className="max-w-[120px] px-1.5 py-1.5 align-top">
+                    <span className="text-muted-foreground line-clamp-2 text-[10px] leading-tight">
+                      {finding.metadata?.datasetName || '—'}
+                    </span>
+                  </TableCell>
+                </TableRow>
+                {/* Note editor row — spans full width */}
+                {noteOpenId === finding.id && onUpdateNote && (
+                  <TableRow key={`note-${finding.id}-${idx}`} className="hover:bg-transparent">
+                    <TableCell colSpan={5} className="p-0">
+                      <div
+                        className="rounded-b-lg border-x border-b border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <textarea
+                          value={noteDraft}
+                          onChange={(e) => setNoteDraft(e.target.value)}
+                          placeholder="Add a note about this finding..."
+                          rows={3}
+                          className="w-full resize-y rounded border border-amber-300 bg-white px-2.5 py-2 text-xs focus:ring-1 focus:ring-amber-400 focus:outline-none dark:border-amber-700 dark:bg-amber-950"
+                          autoFocus
+                        />
+                        <div className="mt-2 flex items-center gap-2">
+                          <button
+                            className="rounded bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600"
+                            onClick={() => {
+                              const sf = savedFindings.find(
+                                (s) =>
+                                  (s.raw_data as Record<string, unknown>)?.scientificName ===
+                                  finding.metadata?.scientificName
+                              )
+                              if (sf) {
+                                onUpdateNote(sf.id, noteDraft)
+                                setNoteOpenId(null)
+                              }
+                            }}
+                          >
+                            Save
+                          </button>
+                          <button
+                            className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                            onClick={() => setNoteOpenId(null)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </React.Fragment>
             )
           })}
         </TableBody>

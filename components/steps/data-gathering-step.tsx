@@ -137,7 +137,8 @@ export function DataGatheringStep({
     sites: AutoSearchStatus
     species: AutoSearchStatus
     aquatic: AutoSearchStatus
-  }>({ triggered: false, sites: 'idle', species: 'idle', aquatic: 'idle' })
+    habitats: AutoSearchStatus
+  }>({ triggered: false, sites: 'idle', species: 'idle', aquatic: 'idle', habitats: 'idle' })
   const [showAutoSearchBanner, setShowAutoSearchBanner] = React.useState(false)
 
   // Data hooks
@@ -188,8 +189,15 @@ export function DataGatheringStep({
       sessionStorage.removeItem(`npws-search-${project.id}`)
       sessionStorage.removeItem(`gbif-search-${project.id}`)
       sessionStorage.removeItem(`epa-search-${project.id}`)
+      sessionStorage.removeItem(`nlc-habitat-${project.id}`)
       // Reset auto-search state so it re-triggers
-      setAutoSearchStatus({ triggered: false, sites: 'idle', species: 'idle', aquatic: 'idle' })
+      setAutoSearchStatus({
+        triggered: false,
+        sites: 'idle',
+        species: 'idle',
+        aquatic: 'idle',
+        habitats: 'idle',
+      })
     }
 
     sessionStorage.setItem(hashKey, boundaryHash)
@@ -210,9 +218,10 @@ export function DataGatheringStep({
     const hasSitesCache = !!sessionStorage.getItem(`npws-search-${project.id}`)
     const hasSpeciesCache = !!sessionStorage.getItem(`gbif-search-${project.id}`)
     const hasAquaticCache = !!sessionStorage.getItem(`epa-search-${project.id}`)
+    const hasHabitatCache = !!sessionStorage.getItem(`nlc-habitat-${project.id}`)
 
     // If all caches exist, no need to auto-search
-    if (hasSitesCache && hasSpeciesCache && hasAquaticCache) return
+    if (hasSitesCache && hasSpeciesCache && hasAquaticCache && hasHabitatCache) return
 
     // Trigger auto-search
     sessionStorage.setItem(autoSearchKey, 'true')
@@ -221,6 +230,7 @@ export function DataGatheringStep({
       sites: hasSitesCache ? 'skipped' : 'searching',
       species: hasSpeciesCache ? 'skipped' : 'searching',
       aquatic: hasAquaticCache ? 'skipped' : 'searching',
+      habitats: hasHabitatCache ? 'skipped' : 'searching',
     })
     setShowAutoSearchBanner(true)
   }, [projectBoundary, project.id, autoSearchStatus.triggered, isStepCompleted, viewMode])
@@ -228,11 +238,12 @@ export function DataGatheringStep({
   // Auto-hide banner 5 seconds after all searches complete
   React.useEffect(() => {
     if (!showAutoSearchBanner) return
-    const { sites, species, aquatic } = autoSearchStatus
+    const { sites, species, aquatic, habitats: habitatStatus } = autoSearchStatus
     const allDone =
       ['done', 'skipped', 'error'].includes(sites) &&
       ['done', 'skipped', 'error'].includes(species) &&
-      ['done', 'skipped', 'error'].includes(aquatic)
+      ['done', 'skipped', 'error'].includes(aquatic) &&
+      ['done', 'skipped', 'error'].includes(habitatStatus)
 
     if (!allDone) return
 
@@ -337,7 +348,7 @@ export function DataGatheringStep({
         </div>
 
         {/* Summary Panel */}
-        <div className="border-border w-96 overflow-y-auto border-l bg-white">
+        <div className="border-border bg-background w-96 overflow-y-auto border-l">
           {/* Header */}
           <div className="border-b p-6">
             <div className="flex items-center justify-between">
@@ -698,9 +709,9 @@ export function DataGatheringStep({
             <Database className="h-4 w-4 text-blue-600" />
             <span className="text-sm font-medium text-blue-800">
               {(() => {
-                const { sites, species, aquatic } = autoSearchStatus
-                const total = 3
-                const completed = [sites, species, aquatic].filter((s) =>
+                const { sites, species, aquatic, habitats: hStatus } = autoSearchStatus
+                const total = 4
+                const completed = [sites, species, aquatic, hStatus].filter((s) =>
                   ['done', 'skipped', 'error'].includes(s)
                 ).length
                 if (completed >= total) return 'Auto-search complete'
@@ -749,6 +760,20 @@ export function DataGatheringStep({
                   )}
                 />
                 <span className="text-xs text-blue-700">EPA</span>
+              </div>
+              {/* Habitat status */}
+              <div className="flex items-center gap-1">
+                <div
+                  className={cn(
+                    'h-2 w-2 rounded-full',
+                    autoSearchStatus.habitats === 'searching' && 'animate-pulse bg-blue-500',
+                    autoSearchStatus.habitats === 'done' && 'bg-emerald-500',
+                    autoSearchStatus.habitats === 'skipped' && 'bg-gray-400',
+                    autoSearchStatus.habitats === 'error' && 'bg-red-500',
+                    autoSearchStatus.habitats === 'idle' && 'bg-gray-300'
+                  )}
+                />
+                <span className="text-xs text-blue-700">NLC</span>
               </div>
             </div>
           </div>
@@ -844,8 +869,8 @@ export function DataGatheringStep({
           </div>
         )}
 
-        {/* Step 5: Habitat Data - NLC 2018 land cover - keep mounted once visited */}
-        {visitedSteps.has('habitats') && (
+        {/* Step 5: Habitat Data - NLC 2018 land cover - keep mounted once visited or during auto-search */}
+        {(visitedSteps.has('habitats') || autoSearchStatus.triggered) && (
           <div
             className={cn(
               'absolute inset-0',
@@ -863,6 +888,10 @@ export function DataGatheringStep({
               userId={userId}
               savedFindings={savedFindings}
               workflowStep={workflowStep}
+              autoSearchTrigger={autoSearchStatus.habitats === 'searching'}
+              onAutoSearchComplete={(status) =>
+                setAutoSearchStatus((prev) => ({ ...prev, habitats: status }))
+              }
             />
           </div>
         )}

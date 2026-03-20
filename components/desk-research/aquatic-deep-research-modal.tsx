@@ -421,7 +421,7 @@ export function AquaticDeepResearchModal({
       />
 
       {/* Data sources info */}
-      <Card className="bg-gray-50">
+      <Card className="bg-gray-50 dark:bg-gray-800">
         <CardContent className="pt-3 pb-3">
           <p className="text-muted-foreground text-[10px] font-medium">Data Sources:</p>
           <ul className="text-muted-foreground mt-1 space-y-0.5 text-[10px]">
@@ -503,7 +503,7 @@ export function AquaticDeepResearchModal({
       <ResourceLinkCard
         href="https://www.hydronet.ie"
         icon={
-          <div className="rounded-lg bg-gray-100 p-2">
+          <div className="rounded-lg bg-gray-100 p-2 dark:bg-gray-800">
             <Activity className="h-4 w-4 text-gray-600" />
           </div>
         }

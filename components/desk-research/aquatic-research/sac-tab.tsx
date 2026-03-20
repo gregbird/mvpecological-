@@ -80,7 +80,7 @@ export function SacTab({ bestMatch, linkedSACs, isLoading, riverDistance }: SacT
               {/* Other Species */}
               {bestMatch.allSpecies.length > bestMatch.aquaticSpecies.length && (
                 <div>
-                  <h4 className="mb-2 text-xs font-medium text-gray-700">
+                  <h4 className="mb-2 text-xs font-medium text-gray-700 dark:text-gray-300">
                     Other Qualifying Species
                   </h4>
                   <div className="flex flex-wrap gap-1">
@@ -148,7 +148,13 @@ function RiverDistanceCard({ riverDistance }: { riverDistance: RiverDistanceData
   const isWithinZoI = riverDistanceKm <= 15
 
   return (
-    <Card className={sacReached ? 'border-blue-200 bg-blue-50/50' : 'border-gray-200'}>
+    <Card
+      className={
+        sacReached
+          ? 'border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/30'
+          : 'border-border'
+      }
+    >
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-1.5 text-sm">

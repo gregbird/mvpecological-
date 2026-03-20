@@ -173,7 +173,9 @@ export function SurveyTemplateEditor({
           {!isReleve && templateFields && (
             <>
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-gray-700">Survey Sections & Fields</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Survey Sections & Fields
+                </p>
                 <Button variant="outline" size="sm" onClick={handleResetToDefaults}>
                   <RotateCcw className="mr-1 h-3.5 w-3.5" />
                   Reset to Dulra Standard

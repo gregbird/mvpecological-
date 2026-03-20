@@ -176,7 +176,7 @@ export function ReportTemplatesTab({ organizationId }: ReportTemplatesTabProps) 
 
         {/* Create New Template card */}
         <Card
-          className="flex cursor-pointer items-center justify-center border-dashed border-gray-300 transition-colors hover:border-emerald-400 hover:bg-emerald-50/50"
+          className="flex cursor-pointer items-center justify-center border-dashed border-gray-300 transition-colors hover:border-emerald-400 hover:bg-emerald-50/50 dark:border-gray-600 dark:hover:border-emerald-600 dark:hover:bg-emerald-950/30"
           onClick={() => setShowNewDialog(true)}
         >
           <CardContent className="flex flex-col items-center gap-2 py-8">

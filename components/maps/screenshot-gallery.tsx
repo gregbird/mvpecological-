@@ -90,7 +90,10 @@ export function ScreenshotGallery({ projectId, className }: ScreenshotGalleryPro
 
             {/* Overlay with info */}
             <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/70 to-transparent p-2">
-              <Badge variant="secondary" className="mb-1 bg-white/90 text-[10px] text-black">
+              <Badge
+                variant="secondary"
+                className="mb-1 bg-white/90 text-[10px] text-black dark:bg-black/70 dark:text-white"
+              >
                 {STEP_LABELS[screenshot.stepName as MapStepName] || screenshot.stepName}
               </Badge>
               <p className="text-[10px] text-white/80">

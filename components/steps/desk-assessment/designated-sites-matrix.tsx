@@ -39,10 +39,10 @@ interface SiteRow {
 }
 
 const SITE_TYPE_COLORS: Record<string, string> = {
-  SAC: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-  SPA: 'bg-blue-100 text-blue-800 border-blue-200',
-  NHA: 'bg-amber-100 text-amber-800 border-amber-200',
-  pNHA: 'bg-gray-100 text-gray-700 border-gray-200',
+  SAC: 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900 dark:text-emerald-200 dark:border-emerald-700',
+  SPA: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-700',
+  NHA: 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900 dark:text-amber-200 dark:border-amber-700',
+  pNHA: 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700',
 }
 
 function parseSiteRows(
@@ -136,7 +136,8 @@ function ZoneOfInfluenceCards({ sites }: { sites: SiteRow[] }) {
     zones.push({
       label: 'Distance N/A',
       count: unknownDistance.length,
-      color: 'bg-gray-50 border-gray-200 text-gray-700',
+      color:
+        'bg-gray-50 border-gray-200 text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300',
       iconColor: 'text-gray-400',
     })
   }
@@ -170,7 +171,7 @@ function CollapsibleQI({ items }: { items: string[] }) {
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-medium transition-colors hover:bg-gray-100"
+        className="text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-medium transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
       >
         {expanded ? (
           <>

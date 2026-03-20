@@ -274,13 +274,13 @@ export function ExportFindingsModal({
                     onClick={() => setSelectedFormat(format.value)}
                     className={`flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all ${
                       isSelected
-                        ? 'border-emerald-500 bg-emerald-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950'
+                        : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'
                     }`}
                   >
                     <div
                       className={`flex h-8 w-8 items-center justify-center rounded ${
-                        isSelected ? 'bg-emerald-500 text-white' : 'bg-gray-100'
+                        isSelected ? 'bg-emerald-500 text-white' : 'bg-gray-100 dark:bg-gray-800'
                       }`}
                     >
                       {isSelected ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}

@@ -469,7 +469,9 @@ export function SurveyForm({
             {/* Template-driven fields */}
             {effectiveTemplate && (
               <div className="space-y-3 border-t pt-4">
-                <p className="text-sm font-medium text-gray-700">Survey-Specific Fields</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Survey-Specific Fields
+                </p>
                 <TemplateSectionsRenderer
                   templateFields={effectiveTemplate}
                   values={templateFieldValues}
@@ -481,7 +483,9 @@ export function SurveyForm({
             {/* Photos (only when editing an existing survey) */}
             {initialData?.id && (
               <div className="space-y-2 border-t pt-4">
-                <p className="text-sm font-medium text-gray-700">Survey Photos</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Survey Photos
+                </p>
                 <PhotoUpload
                   projectId={projectId}
                   entityType="survey"

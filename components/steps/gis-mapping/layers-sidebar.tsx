@@ -93,7 +93,7 @@ export function LayersSidebar({
   onComplete,
 }: LayersSidebarProps) {
   return (
-    <div className="border-border flex w-80 shrink-0 flex-col overflow-hidden border-l bg-white">
+    <div className="border-border bg-background flex w-80 shrink-0 flex-col overflow-hidden border-l">
       {/* Header */}
       <div className="border-b px-3 py-2">
         <div className="flex items-center justify-between">
@@ -253,7 +253,7 @@ export function LayersSidebar({
           />
 
           {/* Geology & Terrain - Coming soon */}
-          <div className="rounded-lg border border-dashed bg-gray-50/50 p-3">
+          <div className="rounded-lg border border-dashed bg-gray-50/50 p-3 dark:bg-gray-800/50">
             <p className="text-muted-foreground text-center text-xs">
               Geology & Terrain layers coming soon
             </p>
@@ -262,7 +262,7 @@ export function LayersSidebar({
       </ScrollArea>
 
       {/* Footer with Save & Complete buttons */}
-      <div className="space-y-2 border-t bg-gray-50 p-3">
+      <div className="space-y-2 border-t bg-gray-50 p-3 dark:bg-gray-900">
         <Button
           onClick={onSave}
           disabled={!hasUnsavedChanges || isSaving}
@@ -369,7 +369,7 @@ function NPWSLayerSection({
         onOpenChange={(open) => onToggleExpand('npws', open)}
       >
         <CollapsibleTrigger asChild>
-          <div className="flex w-full min-w-0 cursor-pointer items-center justify-between p-2 hover:bg-gray-50">
+          <div className="flex w-full min-w-0 cursor-pointer items-center justify-between p-2 hover:bg-gray-50 dark:hover:bg-gray-800">
             <div className="flex min-w-0 items-center gap-2">
               <div
                 role="checkbox"
@@ -388,7 +388,9 @@ function NPWSLayerSection({
                 }}
                 className={cn(
                   'flex h-4 w-4 cursor-pointer items-center justify-center rounded border-2',
-                  anyEnabled ? 'border-emerald-500 bg-emerald-500' : 'border-gray-300'
+                  anyEnabled
+                    ? 'border-emerald-500 bg-emerald-500'
+                    : 'border-gray-300 dark:border-gray-600'
                 )}
               >
                 {anyEnabled && <Check className="h-3 w-3 text-white" />}
@@ -411,7 +413,7 @@ function NPWSLayerSection({
           </div>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="border-t bg-gray-50/50 p-2">
+          <div className="border-t bg-gray-50/50 p-2 dark:bg-gray-800/50">
             {/* Layer toggles */}
             <div className="mb-2 flex flex-wrap gap-1">
               {npwsLayers.map((layerId) => {
@@ -429,8 +431,8 @@ function NPWSLayerSection({
                     className={cn(
                       'flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors',
                       isEnabled
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-400'
+                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700'
                     )}
                   >
                     <span
@@ -464,7 +466,7 @@ function NPWSLayerSection({
                 {filteredSites.length > displayCount && (
                   <button
                     onClick={() => onToggleShowAll('npws')}
-                    className="text-muted-foreground sticky bottom-0 w-full bg-gray-50/90 py-1 text-center text-[10px] backdrop-blur-sm transition-colors hover:bg-gray-100 hover:text-gray-700"
+                    className="text-muted-foreground sticky bottom-0 w-full bg-gray-50/90 py-1 text-center text-[10px] backdrop-blur-sm transition-colors hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800/90 dark:hover:bg-gray-700 dark:hover:text-gray-300"
                   >
                     {isShowingAll
                       ? 'Show less'
@@ -520,7 +522,9 @@ function NPWSSiteRow({
       onClick={handleClick}
       className={cn(
         'group flex cursor-pointer items-start gap-1.5 rounded p-1.5 text-xs transition-colors',
-        isIgnored ? 'bg-gray-100 opacity-50' : 'bg-white hover:bg-gray-100'
+        isIgnored
+          ? 'bg-gray-100 opacity-50 dark:bg-gray-800'
+          : 'bg-background hover:bg-gray-100 dark:hover:bg-gray-800'
       )}
     >
       <span className="mt-1 h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: siteColor }} />
@@ -543,8 +547,8 @@ function NPWSSiteRow({
           className={cn(
             'rounded p-1 transition-colors',
             isIgnored
-              ? 'bg-amber-100 text-amber-600 hover:bg-amber-200'
-              : 'text-gray-400 hover:bg-gray-200 hover:text-amber-600'
+              ? 'bg-amber-100 text-amber-600 hover:bg-amber-200 dark:bg-amber-900 dark:text-amber-400 dark:hover:bg-amber-800'
+              : 'text-gray-400 hover:bg-gray-200 hover:text-amber-600 dark:hover:bg-gray-700'
           )}
           title={isIgnored ? 'Show on map' : 'Hide from map'}
         >
@@ -555,7 +559,7 @@ function NPWSSiteRow({
             e.stopPropagation()
             onDelete()
           }}
-          className="rounded p-1 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600"
+          className="rounded p-1 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900"
           title="Remove from list"
         >
           <X className="h-3 w-3" />

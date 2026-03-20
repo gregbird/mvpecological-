@@ -33,7 +33,8 @@ const STATUS_CONFIG: Record<string, { icon: React.ReactNode; badge: string; colo
   pending: {
     icon: <Clock className="h-4 w-4 text-gray-500" />,
     badge: 'Pending',
-    color: 'border-gray-200 bg-gray-50 text-gray-700',
+    color:
+      'border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300',
   },
   error: {
     icon: <AlertCircle className="h-4 w-4 text-red-600" />,
@@ -86,7 +87,7 @@ export function IndexedDocumentsList({ connectionId }: IndexedDocumentsListProps
                 <div key={doc.id} className="flex items-center gap-3 py-3">
                   {config.icon}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-gray-900">{doc.file_name}</p>
+                    <p className="text-foreground truncate text-sm font-medium">{doc.file_name}</p>
                     <p className="truncate text-xs text-gray-500">{doc.file_path}</p>
                   </div>
                   <Badge variant="outline" className={config.color}>

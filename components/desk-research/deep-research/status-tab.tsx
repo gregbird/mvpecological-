@@ -61,8 +61,10 @@ export function StatusTab({
                   <div className="text-lg font-bold text-red-700">{summary.unfavourableBad}</div>
                   <div className="text-[10px] text-red-600">Bad</div>
                 </div>
-                <div className="rounded bg-gray-50 p-2 text-center">
-                  <div className="text-lg font-bold text-gray-700">{summary.unknown}</div>
+                <div className="rounded bg-gray-50 p-2 text-center dark:bg-gray-800">
+                  <div className="text-lg font-bold text-gray-700 dark:text-gray-300">
+                    {summary.unknown}
+                  </div>
                   <div className="text-[10px] text-gray-600">Unknown</div>
                 </div>
               </div>

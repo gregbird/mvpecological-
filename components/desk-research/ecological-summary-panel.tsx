@@ -362,7 +362,7 @@ export function EcologicalSummaryPanel({
           placeholder="Edit the AI analysis in markdown..."
         />
       ) : parsedCategories.length > 0 ? (
-        <div className="space-y-6 rounded-lg border bg-gray-50 p-4">
+        <div className="space-y-6 rounded-lg border bg-gray-50 p-4 dark:bg-gray-800">
           {parsedCategories.map((category) => {
             const config = CATEGORY_CONFIG[category.title]
             const CategoryIcon = getCategoryIcon(category.title)
@@ -373,7 +373,7 @@ export function EcologicalSummaryPanel({
                   <div
                     className={cn(
                       'flex h-7 w-7 shrink-0 items-center justify-center rounded-full',
-                      config?.bgColor || 'bg-gray-100'
+                      config?.bgColor || 'bg-gray-100 dark:bg-gray-800'
                     )}
                   >
                     <CategoryIcon className={cn('h-3.5 w-3.5', config?.color || 'text-gray-600')} />
@@ -393,7 +393,7 @@ export function EcologicalSummaryPanel({
           })}
         </div>
       ) : (
-        <div className="prose prose-sm max-w-none overflow-x-auto rounded-lg border bg-gray-50 p-4">
+        <div className="prose prose-sm dark:prose-invert max-w-none overflow-x-auto rounded-lg border bg-gray-50 p-4 dark:bg-gray-800">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{insights}</ReactMarkdown>
         </div>
       )}

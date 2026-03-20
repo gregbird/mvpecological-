@@ -34,7 +34,7 @@ export function PreviewPanel({
   onEditClick,
 }: PreviewPanelProps) {
   return (
-    <div className="border-border w-96 overflow-y-auto border-l bg-white">
+    <div className="border-border bg-background w-96 overflow-y-auto border-l">
       {/* Header */}
       <div className="border-b p-6">
         <div className="flex items-center justify-between">

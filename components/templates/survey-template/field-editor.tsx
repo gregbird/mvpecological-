@@ -33,7 +33,7 @@ interface FieldEditorProps {
 
 export function FieldEditor({ field, onChange, onRemove, canRemove }: FieldEditorProps) {
   return (
-    <div className="flex items-center gap-2 rounded-md border border-gray-100 bg-gray-50 p-2">
+    <div className="flex items-center gap-2 rounded-md border border-gray-100 bg-gray-50 p-2 dark:border-gray-800 dark:bg-gray-800">
       <Input
         value={field.label}
         onChange={(e) => onChange({ ...field, label: e.target.value })}

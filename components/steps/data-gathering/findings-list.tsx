@@ -134,6 +134,9 @@ interface FindingsListProps {
   onDistanceFilterChange?: (filter: 'all' | '0-1' | '1-5' | '5-10' | '10+') => void
   // View mode change callback (for grid overlay visibility)
   onViewModeChange?: (mode: 'cards' | 'table') => void
+  // Save all filtered findings at once
+  onSaveAll?: (findings: FindingDisplay[]) => void
+  isSavingAll?: boolean
 }
 
 // Source badge colors
@@ -143,7 +146,7 @@ const SOURCE_COLORS: Record<string, string> = {
   nbdc: 'bg-blue-100 text-blue-700',
   epa: 'bg-cyan-100 text-cyan-700',
   fpo: 'bg-rose-100 text-rose-700',
-  manual: 'bg-gray-100 text-gray-700',
+  manual: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
   company_reports: 'bg-indigo-100 text-indigo-700',
 }
 
@@ -208,6 +211,8 @@ export function FindingsList({
   onDistanceFilterChange,
   onUpdateNote,
   onViewModeChange,
+  onSaveAll,
+  isSavingAll,
 }: FindingsListProps) {
   const [viewMode, setViewModeInternal] = React.useState<'cards' | 'table'>(
     showSpeciesHeader ? 'table' : 'cards'
@@ -482,6 +487,39 @@ export function FindingsList({
                   {savedCount}
                 </button>
               )}
+              {/* Save All button — saves all currently filtered (unsaved) findings */}
+              {onSaveAll && filteredFindings.length > 0 && (
+                <button
+                  onClick={() => {
+                    const unsaved = filteredFindings.filter(
+                      (f) =>
+                        !savedFindings.some(
+                          (sf) =>
+                            (sf.raw_data as Record<string, unknown>)?.scientificName ===
+                            f.metadata?.scientificName
+                        )
+                    )
+                    if (unsaved.length > 0) onSaveAll(unsaved)
+                  }}
+                  disabled={isSavingAll}
+                  className="flex shrink-0 items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-blue-700 transition-colors hover:bg-blue-200 disabled:opacity-50"
+                  title={`Save all ${filteredFindings.length} filtered results`}
+                >
+                  <Save className="h-2.5 w-2.5" />
+                  {isSavingAll
+                    ? 'Saving...'
+                    : `Save All (${
+                        filteredFindings.filter(
+                          (f) =>
+                            !savedFindings.some(
+                              (sf) =>
+                                (sf.raw_data as Record<string, unknown>)?.scientificName ===
+                                f.metadata?.scientificName
+                            )
+                        ).length
+                      })`}
+                </button>
+              )}
             </>
           ) : (
             <>
@@ -546,7 +584,8 @@ export function FindingsList({
                     const config = siteTypeFilterConfig || defaultColorMap
                     const colors = config[siteType] || {
                       active: 'bg-gray-600 text-white',
-                      inactive: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+                      inactive:
+                        'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700',
                     }
                     return (
                       <button
@@ -646,14 +685,14 @@ export function FindingsList({
           {showSpeciesHeader && (
             <div className="ml-1 flex items-center rounded-md border">
               <button
-                className={`p-1 ${viewMode === 'cards' ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+                className={`p-1 ${viewMode === 'cards' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                 onClick={() => setViewMode('cards')}
                 title="Card view"
               >
                 <LayoutList className="h-3.5 w-3.5" />
               </button>
               <button
-                className={`p-1 ${viewMode === 'table' ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+                className={`p-1 ${viewMode === 'table' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                 onClick={() => setViewMode('table')}
                 title="Table view"
               >
@@ -706,12 +745,12 @@ export function FindingsList({
                   id={`finding-${finding.id}`}
                   className={`rounded-lg p-2.5 transition-colors ${
                     isSelected
-                      ? 'border border-blue-400 bg-blue-50 ring-2 ring-blue-400'
+                      ? 'border border-blue-400 bg-blue-50 ring-2 ring-blue-400 dark:border-blue-500 dark:bg-blue-950'
                       : isHidden
-                        ? 'border border-gray-200 bg-gray-50 opacity-60'
+                        ? 'border border-gray-200 bg-gray-50 opacity-60 dark:border-gray-700 dark:bg-gray-800'
                         : saved
-                          ? 'border-t border-r border-b border-l-4 border-gray-200 border-l-emerald-500 bg-emerald-50/60'
-                          : 'border hover:bg-gray-50'
+                          ? 'border-t border-r border-b border-l-4 border-gray-200 border-l-emerald-500 bg-emerald-50/60 dark:border-gray-700 dark:border-l-emerald-500 dark:bg-emerald-950/40'
+                          : 'border hover:bg-gray-50 dark:hover:bg-gray-800'
                   }`}
                 >
                   {/* Title + actions row */}
@@ -736,7 +775,7 @@ export function FindingsList({
                         <Button
                           variant="ghost"
                           size="sm"
-                          className={`h-7 w-7 p-0 ${isHidden ? 'text-gray-400' : 'text-gray-600 hover:text-gray-900'}`}
+                          className={`h-7 w-7 p-0 ${isHidden ? 'text-gray-400' : 'hover:text-foreground text-gray-600'}`}
                           onClick={() => onToggleVisibility(finding.id)}
                           title={isHidden ? 'Show on map' : 'Hide from map'}
                         >
@@ -752,7 +791,7 @@ export function FindingsList({
                         className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
                           saved
                             ? 'text-emerald-600 hover:text-emerald-700'
-                            : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                            : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300'
                         }`}
                         disabled={isSaving}
                         onClick={() => onSave({ ...finding, isSaved: !saved })}
@@ -1083,7 +1122,7 @@ export function FindingsList({
                           Save
                         </button>
                         <button
-                          className="flex h-6 items-center gap-1 rounded px-2 text-[11px] text-gray-500 hover:text-gray-700"
+                          className="flex h-6 items-center gap-1 rounded px-2 text-[11px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                           onClick={() => setOpenNoteId(null)}
                         >
                           <X className="h-3 w-3" />

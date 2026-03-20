@@ -129,7 +129,7 @@ export function WfdTab({ wfdData, isLoading, result }: WfdTabProps) {
                     return (
                       <div
                         key={idx}
-                        className="flex items-center justify-between rounded bg-gray-50 px-3 py-2 text-sm"
+                        className="flex items-center justify-between rounded bg-gray-50 px-3 py-2 text-sm dark:bg-gray-800"
                       >
                         <span className="font-medium">{t.ParameterName}</span>
                         <div className="flex items-center gap-1">

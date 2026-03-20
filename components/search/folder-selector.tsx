@@ -121,7 +121,7 @@ export function FolderSelector({ connectionId }: FolderSelectorProps) {
     return fileEntries.map((entry) => (
       <div key={entry.path}>
         <div
-          className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-gray-50"
+          className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800"
           style={{ paddingLeft: `${depth * 24 + 12}px` }}
         >
           {entry.isFolder ? (
@@ -135,7 +135,9 @@ export function FolderSelector({ connectionId }: FolderSelectorProps) {
                 <ChevronRight className="h-4 w-4 text-gray-400" />
               )}
               <Folder className="h-4 w-4 text-yellow-500" />
-              <span className="text-sm font-medium text-gray-700">{entry.name}</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {entry.name}
+              </span>
             </button>
           ) : (
             <>
@@ -144,7 +146,7 @@ export function FolderSelector({ connectionId }: FolderSelectorProps) {
                 onCheckedChange={() => toggleFile(entry.path)}
               />
               <FileText className="h-4 w-4 text-blue-500" />
-              <span className="flex-1 text-sm text-gray-700">{entry.name}</span>
+              <span className="flex-1 text-sm text-gray-700 dark:text-gray-300">{entry.name}</span>
               <span className="text-xs text-gray-400">{formatSize(entry.size)}</span>
             </>
           )}
@@ -196,7 +198,7 @@ export function FolderSelector({ connectionId }: FolderSelectorProps) {
             No PDF or DOCX files found in your Dropbox
           </div>
         ) : (
-          <div className="max-h-96 overflow-y-auto rounded-lg border border-gray-200">
+          <div className="border-border max-h-96 overflow-y-auto rounded-lg border">
             {renderEntries(entries)}
           </div>
         )}

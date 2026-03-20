@@ -71,6 +71,8 @@ interface HabitatDataSubStepProps {
   userId: string
   savedFindings: DeskResearchFinding[]
   workflowStep?: WorkflowStep
+  autoSearchTrigger?: boolean
+  onAutoSearchComplete?: (status: 'done' | 'error') => void
 }
 
 export interface HabitatResult {
@@ -94,6 +96,8 @@ export function HabitatDataSubStep({
   userId,
   savedFindings,
   workflowStep,
+  autoSearchTrigger,
+  onAutoSearchComplete,
 }: HabitatDataSubStepProps) {
   const { toast } = useToast()
   const createFinding = useCreateFinding()
@@ -196,6 +200,70 @@ export function HabitatDataSubStep({
       return () => clearTimeout(timer)
     }
   }, [isActive])
+
+  // Auto-search: triggered by parent data-gathering-step
+  const autoSearchTriggeredRef = React.useRef(false)
+  React.useEffect(() => {
+    if (!autoSearchTrigger || autoSearchTriggeredRef.current) return
+    if (!projectBoundary) {
+      onAutoSearchComplete?.('error')
+      return
+    }
+    // Already have cached results — skip
+    if (results.length > 0) {
+      onAutoSearchComplete?.('done')
+      return
+    }
+    autoSearchTriggeredRef.current = true
+
+    const bbox = getBoundingBox(projectBoundary, projectCenter, selectedBuffer)
+    if (!bbox) {
+      onAutoSearchComplete?.('error')
+      return
+    }
+
+    setIsSearching(true)
+    const bboxParams = {
+      bbox: { minLat: bbox.minLat, maxLat: bbox.maxLat, minLng: bbox.minLng, maxLng: bbox.maxLng },
+    }
+
+    Promise.all([searchNlcLandCover(bboxParams), fetchNlcPolygons(bboxParams)])
+      .then(([aggregated, polygons]) => {
+        if (aggregated.length === 0) {
+          onAutoSearchComplete?.('done')
+          return
+        }
+        const mapped: HabitatResult[] = aggregated.map((h: AggregatedHabitat) => {
+          const fossitt = mapNlcToFossitt(h.nlcId)
+          return {
+            nlcId: h.nlcId,
+            nlcLabel: h.nlcLabel,
+            nlcLevel1: h.nlcLevel1,
+            fossittCode: fossitt?.fossittCode || '\u2014',
+            fossittName: fossitt?.fossittName || h.nlcLabel,
+            areaHectares: h.areaHectares,
+            polygonCount: h.polygonCount,
+          }
+        })
+        setResults(mapped)
+        setHabitatPolygons(polygons)
+        hasFetchedRef.current = true
+        onAutoSearchComplete?.('done')
+      })
+      .catch(() => {
+        onAutoSearchComplete?.('error')
+      })
+      .finally(() => {
+        setIsSearching(false)
+      })
+  }, [
+    autoSearchTrigger,
+    projectBoundary,
+    projectCenter,
+    selectedBuffer,
+    results.length,
+    onAutoSearchComplete,
+  ])
 
   React.useEffect(() => {
     const total = results.reduce((sum, r) => sum + r.areaHectares, 0)
@@ -472,7 +540,7 @@ export function HabitatDataSubStep({
               variant="outline"
               onClick={performSearch}
               disabled={isSearching}
-              className="flex-1 border-green-300 text-green-700 hover:bg-gray-50"
+              className="flex-1 border-green-300 text-green-700 hover:bg-gray-50 dark:hover:bg-gray-800"
             >
               {isSearching ? (
                 <>
@@ -544,10 +612,10 @@ export function HabitatDataSubStep({
                         key={r.nlcId}
                         className={`cursor-pointer rounded-lg p-2.5 transition-colors ${
                           isSelected
-                            ? 'border border-blue-400 bg-blue-50 ring-2 ring-blue-400'
+                            ? 'border border-blue-400 bg-blue-50 ring-2 ring-blue-400 dark:border-blue-500 dark:bg-blue-950'
                             : isSaved
-                              ? 'border-t border-r border-b border-l-4 border-gray-200 border-l-emerald-500 bg-emerald-50/60'
-                              : 'border hover:bg-gray-50'
+                              ? 'border-t border-r border-b border-l-4 border-gray-200 border-l-emerald-500 bg-emerald-50/60 dark:border-gray-700 dark:border-l-emerald-500 dark:bg-emerald-950/40'
+                              : 'border hover:bg-gray-50 dark:hover:bg-gray-800'
                         }`}
                         onClick={() => handleRowClick(r)}
                       >
@@ -568,7 +636,7 @@ export function HabitatDataSubStep({
                             className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors ${
                               isSaved
                                 ? 'text-emerald-600 hover:text-emerald-700'
-                                : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                                : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300'
                             }`}
                             disabled={isSaving}
                             onClick={(e) => {
@@ -687,7 +755,7 @@ export function HabitatDataSubStep({
                                 Save
                               </button>
                               <button
-                                className="flex h-6 items-center gap-1 rounded px-2 text-[11px] text-gray-500 hover:text-gray-700"
+                                className="flex h-6 items-center gap-1 rounded px-2 text-[11px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   setEditingNoteId(null)
@@ -749,7 +817,7 @@ export function HabitatDataSubStep({
       )}
 
       {(!showMap || !isActive) && (
-        <div className="flex flex-1 items-center justify-center bg-gray-50">
+        <div className="flex flex-1 items-center justify-center bg-gray-50 dark:bg-gray-900">
           <Button variant="outline" onClick={onToggleMap}>
             <Eye className="mr-2 h-4 w-4" />
             Show Map

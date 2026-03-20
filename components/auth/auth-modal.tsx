@@ -420,7 +420,7 @@ function RegisterForm({
             <button
               type="button"
               onClick={() => setStep(1)}
-              className="mb-2 flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+              className="mb-2 flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
             >
               <ArrowLeft className="h-4 w-4" />
               Back

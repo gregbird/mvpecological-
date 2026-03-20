@@ -122,7 +122,7 @@ export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
       titleIcon: <Droplets className="h-4 w-4 text-cyan-500" />,
       description: 'Search for rivers, lakes, and catchments within the selected buffer zone.',
       searchButtonLabel: 'Search EPA',
-      searchButtonColor: 'border-cyan-300 text-cyan-700 hover:bg-gray-50',
+      searchButtonColor: 'border-cyan-300 text-cyan-700 hover:bg-gray-50 dark:hover:bg-gray-800',
       emptyMessage: 'Search to find features',
       cacheKeyPrefix: 'epa',
       stepName: 'aquatic_features',

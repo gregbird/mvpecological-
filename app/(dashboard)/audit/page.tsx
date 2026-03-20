@@ -404,13 +404,13 @@ export default function AuditPage() {
   }, [actionFilter, tableFilter, userFilter])
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 lg:p-8">
+    <div className="min-h-screen bg-gray-50 p-6 lg:p-8 dark:bg-gray-900">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <History className="h-8 w-8 text-gray-700" />
+          <History className="h-8 w-8 text-gray-700 dark:text-gray-300" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Audit Trail</h1>
+            <h1 className="text-foreground text-2xl font-bold">Audit Trail</h1>
             <p className="text-gray-600">Track all changes and activities across the platform</p>
           </div>
         </div>
@@ -426,10 +426,10 @@ export default function AuditPage() {
       </div>
 
       {/* Filters */}
-      <div className="mb-6 rounded-xl border border-gray-200 bg-white p-5">
+      <div className="border-border bg-card mb-6 rounded-xl border p-5">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Filter by Action
             </label>
             <Select value={actionFilter} onValueChange={setActionFilter}>
@@ -446,7 +446,7 @@ export default function AuditPage() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Filter by Table
             </label>
             <Select value={tableFilter} onValueChange={setTableFilter}>
@@ -465,7 +465,9 @@ export default function AuditPage() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Filter by User</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Filter by User
+            </label>
             <Select value={userFilter} onValueChange={setUserFilter}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="All" />
@@ -484,7 +486,7 @@ export default function AuditPage() {
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+      <div className="border-border bg-card overflow-hidden rounded-xl border">
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
@@ -498,7 +500,7 @@ export default function AuditPage() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50/50">
+                <tr className="border-b border-gray-100 bg-gray-50/50 dark:border-gray-800 dark:bg-gray-800/50">
                   <th className="px-5 py-3.5 text-left text-xs font-semibold tracking-wider text-gray-500 uppercase">
                     Date & Time
                   </th>
@@ -534,7 +536,7 @@ export default function AuditPage() {
                   return (
                     <tr
                       key={entry.id}
-                      className="cursor-pointer transition-colors hover:bg-gray-50/50"
+                      className="cursor-pointer transition-colors hover:bg-gray-50/50 dark:hover:bg-gray-800/50"
                       onClick={() => setSelectedEntry(entry)}
                     >
                       <td className="px-5 py-4 text-sm whitespace-nowrap text-gray-600">
@@ -551,7 +553,7 @@ export default function AuditPage() {
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <div className="text-sm font-medium text-gray-900">{userName}</div>
+                            <div className="text-foreground text-sm font-medium">{userName}</div>
                             {entry.profile?.email && (
                               <div className="text-xs text-gray-400">{entry.profile.email}</div>
                             )}
@@ -566,7 +568,9 @@ export default function AuditPage() {
                           {actionStyle.label}
                         </Badge>
                       </td>
-                      <td className="px-5 py-4 text-sm text-gray-700">{tableLabel}</td>
+                      <td className="px-5 py-4 text-sm text-gray-700 dark:text-gray-300">
+                        {tableLabel}
+                      </td>
                       <td className="max-w-xs px-5 py-4 text-sm text-gray-600">{details}</td>
                       <td className="px-5 py-4">
                         <Button
@@ -597,7 +601,7 @@ export default function AuditPage() {
         )}
 
         {/* Footer with pagination */}
-        <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50/50 px-5 py-3">
+        <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50/50 px-5 py-3 dark:border-gray-800 dark:bg-gray-800/50">
           <p className="text-sm text-gray-500">
             {totalCount > 0
               ? `Showing ${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, totalCount)} of ${totalCount.toLocaleString()} entries`

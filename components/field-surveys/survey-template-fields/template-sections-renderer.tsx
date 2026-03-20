@@ -102,7 +102,7 @@ function CollapsibleSection({ title, children }: { title: string; children: Reac
         ) : (
           <ChevronRight className="h-4 w-4 text-gray-400" />
         )}
-        <span className="text-sm font-medium text-gray-700">{title}</span>
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{title}</span>
       </button>
       {open && <div className="border-t px-3 py-3">{children}</div>}
     </div>

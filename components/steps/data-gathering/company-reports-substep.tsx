@@ -93,7 +93,7 @@ function ResultCard({
         <div className="mb-2 flex items-start justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <FileText className="h-4 w-4 shrink-0 text-blue-500" />
-            <span className="text-sm font-medium text-gray-900">{result.file_name}</span>
+            <span className="text-foreground text-sm font-medium">{result.file_name}</span>
             <ExtensionBadge extension={result.file_extension} />
             {result.total_chunks != null && result.total_chunks > 1 && (
               <Badge variant="secondary" className="text-xs">
@@ -250,11 +250,11 @@ export function CompanyReportsSubStep({ project, userId, isActive }: CompanyRepo
   if (hasDocuments === false) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
           <BookOpen className="h-8 w-8 text-gray-400" />
         </div>
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">No Documents Indexed</h3>
+          <h3 className="text-foreground text-lg font-semibold">No Documents Indexed</h3>
           <p className="mt-1 text-sm text-gray-600">
             Your organization has not connected a document library yet. Ask your administrator to
             connect Dropbox from the Search page.
@@ -286,7 +286,7 @@ export function CompanyReportsSubStep({ project, userId, isActive }: CompanyRepo
         <div className="flex items-center gap-2">
           <FileText className="h-5 w-5 text-purple-600" />
           <div>
-            <h3 className="font-semibold text-gray-900">Company Reports</h3>
+            <h3 className="text-foreground font-semibold">Company Reports</h3>
             <p className="text-xs text-gray-500">
               Search your organization&apos;s indexed document library
             </p>
@@ -341,7 +341,7 @@ export function CompanyReportsSubStep({ project, userId, isActive }: CompanyRepo
                 </div>
               ) : aiAnswer ? (
                 <>
-                  <p className="text-xs leading-relaxed whitespace-pre-wrap text-gray-700">
+                  <p className="text-xs leading-relaxed whitespace-pre-wrap text-gray-700 dark:text-gray-300">
                     {aiAnswer.answer}
                   </p>
                   {aiAnswer.sources.length > 0 && (

@@ -136,8 +136,8 @@ export function ProjectDetailModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] max-w-200 gap-0 overflow-y-auto p-0">
         {/* Header */}
-        <div className="border-b border-gray-100 px-8 pt-8 pb-5">
-          <DialogTitle className="pr-8 text-2xl font-bold text-gray-900">
+        <div className="border-border border-b px-8 pt-8 pb-5">
+          <DialogTitle className="text-foreground pr-8 text-2xl font-bold">
             {project.name}
           </DialogTitle>
           <DialogDescription className="mt-2 text-sm text-gray-500">
@@ -160,16 +160,16 @@ export function ProjectDetailModal({
             {phaseData.map((phase) => {
               const PhaseIcon = PHASE_ICONS[phase.id] || phase.icon
               return (
-                <div key={phase.id} className="rounded-lg border border-gray-200 px-5 py-4">
+                <div key={phase.id} className="border-border rounded-lg border px-5 py-4">
                   <div className="mb-1.5 flex items-center gap-2.5">
                     <PhaseIcon className="h-5 w-5 text-gray-500" />
-                    <span className="text-sm font-semibold text-gray-900">{phase.label}</span>
+                    <span className="text-foreground text-sm font-semibold">{phase.label}</span>
                   </div>
                   <p className="mb-4 text-sm text-gray-500">
                     {phase.completed} of {phase.total} completed
                   </p>
                   <div className="flex items-center gap-3">
-                    <div className="h-1.5 flex-1 rounded-full bg-gray-100">
+                    <div className="h-1.5 flex-1 rounded-full bg-gray-100 dark:bg-gray-800">
                       <div
                         className="h-1.5 rounded-full bg-blue-500 transition-all"
                         style={{ width: `${phase.percentage}%` }}
@@ -192,12 +192,12 @@ export function ProjectDetailModal({
                 <AccordionItem
                   key={phase.id}
                   value={phase.id}
-                  className="border-b border-gray-200 last:border-b-0"
+                  className="border-border border-b last:border-b-0"
                 >
                   <AccordionTrigger className="py-4 hover:no-underline">
                     <div className="flex items-center gap-2.5">
                       <PhaseIcon className="h-5 w-5 text-gray-500" />
-                      <span className="text-[15px] font-medium text-gray-900">
+                      <span className="text-foreground text-[15px] font-medium">
                         {phase.label} Steps
                       </span>
                     </div>
@@ -221,13 +221,13 @@ export function ProjectDetailModal({
                         return (
                           <div
                             key={configStep.number}
-                            className="flex items-start gap-4 rounded-lg border border-gray-200 px-5 py-4"
+                            className="border-border flex items-start gap-4 rounded-lg border px-5 py-4"
                           >
                             <div className="mt-1">
                               <StatusIcon status={status} />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="font-semibold text-gray-900">{configStep.label}</p>
+                              <p className="text-foreground font-semibold">{configStep.label}</p>
                               <p className="mt-0.5 text-sm text-gray-500">
                                 {configStep.description}
                               </p>
@@ -268,8 +268,10 @@ export function ProjectDetailModal({
           </Accordion>
 
           {/* Status Legend */}
-          <div className="border-t border-gray-200 pt-5">
-            <p className="mb-3 text-sm font-medium text-gray-700">Status Legend</p>
+          <div className="border-border border-t pt-5">
+            <p className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+              Status Legend
+            </p>
             <div className="flex flex-wrap items-center gap-5">
               {[
                 { status: 'pending', label: 'Not Started' },

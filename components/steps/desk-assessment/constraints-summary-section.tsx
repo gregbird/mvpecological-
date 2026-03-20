@@ -36,11 +36,16 @@ const DATA_TYPE_LABELS: Record<string, string> = {
 }
 
 const DATA_TYPE_COLORS: Record<string, string> = {
-  designated_site: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-  species_record: 'bg-purple-100 text-purple-800 border-purple-200',
-  water_quality: 'bg-blue-100 text-blue-800 border-blue-200',
-  catchment: 'bg-teal-100 text-teal-800 border-teal-200',
-  other: 'bg-gray-100 text-gray-700 border-gray-200',
+  designated_site:
+    'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900 dark:text-emerald-200 dark:border-emerald-700',
+  species_record:
+    'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900 dark:text-purple-200 dark:border-purple-700',
+  water_quality:
+    'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-700',
+  catchment:
+    'bg-teal-100 text-teal-800 border-teal-200 dark:bg-teal-900 dark:text-teal-200 dark:border-teal-700',
+  other:
+    'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700',
 }
 
 function extractConstraints(findings: DeskResearchFinding[]): ConstraintItem[] {
@@ -130,28 +135,32 @@ function SummaryCards({ findings }: { findings: DeskResearchFinding[] }) {
     {
       label: 'Designated Sites',
       count: designatedSites,
-      color: 'bg-emerald-50 border-emerald-200 text-emerald-800',
+      color:
+        'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950 dark:border-emerald-700 dark:text-emerald-200',
       iconColor: 'text-emerald-500',
       icon: Shield,
     },
     {
       label: 'Species Records',
       count: speciesRecords,
-      color: 'bg-purple-50 border-purple-200 text-purple-800',
+      color:
+        'bg-purple-50 border-purple-200 text-purple-800 dark:bg-purple-950 dark:border-purple-700 dark:text-purple-200',
       iconColor: 'text-purple-500',
       icon: Bug,
     },
     {
       label: 'Protected Species',
       count: protectedSpecies,
-      color: 'bg-red-50 border-red-200 text-red-800',
+      color:
+        'bg-red-50 border-red-200 text-red-800 dark:bg-red-950 dark:border-red-700 dark:text-red-200',
       iconColor: 'text-red-500',
       icon: AlertTriangle,
     },
     {
       label: 'Aquatic Features',
       count: aquaticFeatures,
-      color: 'bg-blue-50 border-blue-200 text-blue-800',
+      color:
+        'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-200',
       iconColor: 'text-blue-500',
       icon: Droplets,
     },

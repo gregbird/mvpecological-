@@ -78,8 +78,11 @@ export function DropboxConnectionCard({ connection }: DropboxConnectionCardProps
                   desc: 'Dulra only reads selected files — nothing is modified or deleted',
                 },
               ].map((f) => (
-                <div key={f.title} className="rounded-lg border border-gray-100 bg-gray-50 p-4">
-                  <h4 className="text-sm font-semibold text-gray-900">{f.title}</h4>
+                <div
+                  key={f.title}
+                  className="rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-800"
+                >
+                  <h4 className="text-foreground text-sm font-semibold">{f.title}</h4>
                   <p className="mt-1 text-xs text-gray-500">{f.desc}</p>
                 </div>
               ))}
@@ -117,7 +120,7 @@ export function DropboxConnectionCard({ connection }: DropboxConnectionCardProps
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-gray-900">Dropbox</h3>
+                <h3 className="text-foreground font-semibold">Dropbox</h3>
                 <Badge
                   variant="outline"
                   className="gap-1 border-green-200 bg-green-50 text-green-700"
@@ -179,14 +182,14 @@ export function DropboxConnectionCard({ connection }: DropboxConnectionCardProps
           <div className="flex gap-6 text-sm text-gray-500">
             <span>
               Connected:{' '}
-              <span className="font-medium text-gray-700">
+              <span className="font-medium text-gray-700 dark:text-gray-300">
                 {new Date(connection.created_at).toLocaleDateString()}
               </span>
             </span>
             {connection.last_synced_at && (
               <span>
                 Last synced:{' '}
-                <span className="font-medium text-gray-700">
+                <span className="font-medium text-gray-700 dark:text-gray-300">
                   {new Date(connection.last_synced_at).toLocaleDateString()}
                 </span>
               </span>

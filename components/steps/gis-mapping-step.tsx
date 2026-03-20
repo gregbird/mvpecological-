@@ -465,7 +465,8 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                       'flex items-center justify-center rounded-full border-2 transition-all',
                       wizard.isMapMode ? 'h-7 w-7' : 'h-10 w-10',
                       isActive && 'border-emerald-500 bg-emerald-500 text-white',
-                      isPast && 'border-emerald-500 bg-emerald-50 text-emerald-600',
+                      isPast &&
+                        'border-emerald-500 bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400',
                       !isActive && !isPast && 'border-gray-300 text-gray-400'
                     )}
                   >
@@ -492,7 +493,9 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                     className={cn(
                       'h-0.5',
                       wizard.isMapMode ? 'w-6' : 'mx-2 flex-1',
-                      index < wizard.currentStepIndex ? 'bg-emerald-500' : 'bg-gray-200'
+                      index < wizard.currentStepIndex
+                        ? 'bg-emerald-500'
+                        : 'bg-gray-200 dark:bg-gray-700'
                     )}
                   />
                 )}
@@ -529,7 +532,8 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                         'relative flex flex-col items-center gap-3 rounded-xl border-2 p-6 transition-all',
                         option.comingSoon && 'cursor-not-allowed opacity-50',
                         !option.comingSoon && 'hover:border-emerald-400 hover:shadow-lg',
-                        isSelected && 'border-emerald-500 bg-emerald-50 shadow-lg'
+                        isSelected &&
+                          'border-emerald-500 bg-emerald-50 shadow-lg dark:bg-emerald-950'
                       )}
                     >
                       {option.comingSoon && (
@@ -648,8 +652,8 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                       className={cn(
                         'flex w-full items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
                         isEnabled
-                          ? 'border-gray-400 bg-gray-50'
-                          : 'border-gray-200 hover:border-gray-300'
+                          ? 'border-gray-400 bg-gray-50 dark:border-gray-500 dark:bg-gray-800'
+                          : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'
                       )}
                     >
                       <div
@@ -687,8 +691,8 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                         className={cn(
                           'flex flex-1 items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
                           isEnabled
-                            ? 'border-gray-400 bg-gray-50'
-                            : 'border-gray-200 hover:border-gray-300'
+                            ? 'border-gray-400 bg-gray-50 dark:border-gray-500 dark:bg-gray-800'
+                            : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'
                         )}
                       >
                         <div
@@ -768,7 +772,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
               </div>
 
               {/* Selected summary */}
-              <div className="mt-6 rounded-lg bg-gray-50 p-3">
+              <div className="mt-6 rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Selected Buffers</span>
                   <span className="text-muted-foreground text-sm">

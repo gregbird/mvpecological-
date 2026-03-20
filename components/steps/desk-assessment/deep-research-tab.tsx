@@ -39,7 +39,7 @@ const DynamicProjectMap = dynamic(
 
 function MapSkeleton() {
   return (
-    <div className="flex h-full items-center justify-center bg-gray-100">
+    <div className="flex h-full items-center justify-center bg-gray-100 dark:bg-gray-800">
       <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
     </div>
   )
@@ -163,7 +163,7 @@ function SiteCard({ site }: { site: DeepResearchResult }) {
     <Card className="overflow-hidden">
       <button
         type="button"
-        className="flex w-full items-start gap-3 p-3 text-left hover:bg-gray-50"
+        className="flex w-full items-start gap-3 p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800"
         onClick={() => setExpanded(!expanded)}
       >
         <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-100">
@@ -171,7 +171,7 @@ function SiteCard({ site }: { site: DeepResearchResult }) {
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <p className="truncate text-sm font-semibold text-gray-900">{site.site_name}</p>
+            <p className="text-foreground truncate text-sm font-semibold">{site.site_name}</p>
             <SiteTypeBadge type={site.site_type} />
           </div>
           <p className="text-xs text-gray-500">
@@ -196,7 +196,7 @@ function SiteCard({ site }: { site: DeepResearchResult }) {
           {/* Habitats */}
           {habitats.length > 0 && (
             <div className="mt-2">
-              <h4 className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-gray-700">
+              <h4 className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
                 <Leaf className="h-3.5 w-3.5 text-green-600" />
                 Habitats ({habitats.length})
               </h4>
@@ -204,7 +204,7 @@ function SiteCard({ site }: { site: DeepResearchResult }) {
                 {habitats.map((h, i) => (
                   <div
                     key={i}
-                    className="flex items-center justify-between rounded bg-gray-50 px-2 py-1 text-xs"
+                    className="flex items-center justify-between rounded bg-gray-50 px-2 py-1 text-xs dark:bg-gray-800"
                   >
                     <span className="text-gray-800">
                       {h.habitatCode && (
@@ -251,7 +251,7 @@ function SiteCard({ site }: { site: DeepResearchResult }) {
           {/* Species / Qualifying Interests */}
           {(annexSpecies.length > 0 || birdSpecies.length > 0) && (
             <div className="mt-2">
-              <h4 className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-gray-700">
+              <h4 className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
                 <Bird className="h-3.5 w-3.5 text-indigo-600" />
                 {birdSpecies.length > 0
                   ? 'Bird Special Conservation Interests'
@@ -262,7 +262,7 @@ function SiteCard({ site }: { site: DeepResearchResult }) {
                 {annexSpecies.map((s, i) => (
                   <div
                     key={`sp-${i}`}
-                    className="flex items-center justify-between rounded bg-gray-50 px-2 py-1 text-xs"
+                    className="flex items-center justify-between rounded bg-gray-50 px-2 py-1 text-xs dark:bg-gray-800"
                   >
                     <span className="text-gray-800 italic">{s.name}</span>
                     {s.code && (
@@ -273,7 +273,7 @@ function SiteCard({ site }: { site: DeepResearchResult }) {
                 {birdSpecies.map((s, i) => (
                   <div
                     key={`bird-${i}`}
-                    className="flex items-center justify-between rounded bg-gray-50 px-2 py-1 text-xs"
+                    className="flex items-center justify-between rounded bg-gray-50 px-2 py-1 text-xs dark:bg-gray-800"
                   >
                     <span className="text-gray-800">{s.name}</span>
                     {s.code && (
@@ -288,7 +288,7 @@ function SiteCard({ site }: { site: DeepResearchResult }) {
           {/* Conservation Summary */}
           {totalConservation > 0 && (
             <div className="mt-2">
-              <h4 className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-gray-700">
+              <h4 className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
                 <Shield className="h-3.5 w-3.5 text-blue-600" />
                 Conservation Status
               </h4>
@@ -348,7 +348,7 @@ function SiteCard({ site }: { site: DeepResearchResult }) {
           {/* Threats & Pressures */}
           {((threats.threats?.length || 0) > 0 || (threats.pressures?.length || 0) > 0) && (
             <div className="mt-2">
-              <h4 className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-gray-700">
+              <h4 className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
                 <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
                 Threats & Pressures
               </h4>
@@ -378,11 +378,11 @@ function SiteCard({ site }: { site: DeepResearchResult }) {
           {/* AI Analysis */}
           {site.ai_analysis && (
             <div className="mt-2">
-              <h4 className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-gray-700">
+              <h4 className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
                 <Bug className="h-3.5 w-3.5 text-purple-600" />
                 AI Analysis
               </h4>
-              <div className="prose prose-xs max-w-none rounded-lg bg-gray-50 p-2.5 text-xs">
+              <div className="prose prose-xs dark:prose-invert max-w-none rounded-lg bg-gray-50 p-2.5 text-xs dark:bg-gray-800">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{site.ai_analysis}</ReactMarkdown>
               </div>
             </div>
@@ -391,7 +391,7 @@ function SiteCard({ site }: { site: DeepResearchResult }) {
           {/* NPWS Documents */}
           {npwsData && (npwsData.sscoUrl || npwsData.siUrl) && (
             <div className="mt-2">
-              <h4 className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-gray-700">
+              <h4 className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
                 <FileText className="h-3.5 w-3.5 text-gray-600" />
                 NPWS Documents
               </h4>
@@ -412,7 +412,7 @@ function SiteCard({ site }: { site: DeepResearchResult }) {
                     href={npwsData.siUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
+                    className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                   >
                     <ExternalLink className="h-3 w-3" />
                     Statutory Instrument
@@ -603,9 +603,9 @@ export function DeepResearchTab({ projectId, project, findings }: DeepResearchTa
           />
         </div>
         {/* Empty state panel */}
-        <div className="border-border flex w-[420px] flex-col items-center justify-center border-l bg-white p-6 text-center">
+        <div className="border-border bg-background flex w-[420px] flex-col items-center justify-center border-l p-6 text-center">
           <MapPin className="mb-3 h-12 w-12 text-gray-300" />
-          <h3 className="font-semibold text-gray-700">No Deep Research Yet</h3>
+          <h3 className="font-semibold text-gray-700 dark:text-gray-300">No Deep Research Yet</h3>
           <p className="text-muted-foreground mt-1 max-w-sm text-sm">
             {unresearchedSites.length > 0
               ? `${unresearchedSites.length} designated sites available for research.`
@@ -657,7 +657,7 @@ export function DeepResearchTab({ projectId, project, findings }: DeepResearchTa
       </div>
 
       {/* Right: Deep Research Panel */}
-      <div className="border-border flex w-[420px] flex-col border-l bg-white">
+      <div className="border-border bg-background flex w-[420px] flex-col border-l">
         <div className="flex items-center justify-between border-b px-4 py-3">
           <div>
             <h3 className="text-sm font-semibold">Deep Research</h3>

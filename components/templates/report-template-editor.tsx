@@ -137,7 +137,9 @@ export function ReportTemplateEditor({
           {useCustom && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-gray-700">Report Sections</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Report Sections
+                </p>
                 <Button variant="outline" size="sm" onClick={handleResetToDefault}>
                   <RotateCcw className="mr-1 h-3.5 w-3.5" />
                   Reset to Dulra Standard

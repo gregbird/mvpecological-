@@ -76,13 +76,13 @@ interface ReviewExportSubStepProps {
 
 // Source badge colors
 const SOURCE_COLORS: Record<string, string> = {
-  npws: 'bg-emerald-100 text-emerald-700',
-  gbif: 'bg-purple-100 text-purple-700',
-  nbdc: 'bg-blue-100 text-blue-700',
-  epa: 'bg-cyan-100 text-cyan-700',
-  catchments: 'bg-cyan-100 text-cyan-700',
-  manual: 'bg-gray-100 text-gray-700',
-  company_reports: 'bg-indigo-100 text-indigo-700',
+  npws: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300',
+  gbif: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
+  nbdc: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
+  epa: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300',
+  catchments: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300',
+  manual: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+  company_reports: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300',
 }
 
 // Data type badge colors
@@ -338,7 +338,7 @@ export function ReviewExportSubStep({
   return (
     <div className="flex h-full">
       {/* Left Panel - Summary (60%) */}
-      <div className="flex w-[60%] shrink-0 flex-col border-r bg-white">
+      <div className="bg-background flex w-[60%] shrink-0 flex-col border-r">
         {/* Header */}
         <div className="border-b p-4">
           <h3 className="text-lg font-semibold">Review & Export</h3>
@@ -350,22 +350,22 @@ export function ReviewExportSubStep({
           <div className="space-y-4 p-4">
             {/* Quick Stats */}
             <div className="grid grid-cols-4 gap-2">
-              <div className="rounded-lg border bg-emerald-50 p-3 text-center">
+              <div className="rounded-lg border bg-emerald-50 p-3 text-center dark:bg-emerald-950">
                 <MapPin className="mx-auto mb-1 h-5 w-5 text-emerald-600" />
                 <div className="text-xl font-bold text-emerald-700">{designatedSitesCount}</div>
                 <div className="text-[10px] text-emerald-600">Designated Sites</div>
               </div>
-              <div className="rounded-lg border bg-purple-50 p-3 text-center">
+              <div className="rounded-lg border bg-purple-50 p-3 text-center dark:bg-purple-950">
                 <Bug className="mx-auto mb-1 h-5 w-5 text-purple-600" />
                 <div className="text-xl font-bold text-purple-700">{speciesRecordsCount}</div>
                 <div className="text-[10px] text-purple-600">Species Records</div>
               </div>
-              <div className="rounded-lg border bg-cyan-50 p-3 text-center">
+              <div className="rounded-lg border bg-cyan-50 p-3 text-center dark:bg-cyan-950">
                 <Waves className="mx-auto mb-1 h-5 w-5 text-cyan-600" />
                 <div className="text-xl font-bold text-cyan-700">{waterFeaturesCount}</div>
                 <div className="text-[10px] text-cyan-600">Aquatic Features</div>
               </div>
-              <div className="rounded-lg border bg-red-50 p-3 text-center">
+              <div className="rounded-lg border bg-red-50 p-3 text-center dark:bg-red-950">
                 <Shield className="mx-auto mb-1 h-5 w-5 text-red-600" />
                 <div className="text-xl font-bold text-red-700">{protectedCount}</div>
                 <div className="text-[10px] text-red-600">Protected</div>
@@ -456,7 +456,7 @@ export function ReviewExportSubStep({
                     return (
                       <div
                         key={finding.id}
-                        className="cursor-pointer rounded-lg border bg-gray-50 text-sm transition-colors hover:bg-gray-100"
+                        className="cursor-pointer rounded-lg border bg-gray-50 text-sm transition-colors hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700"
                         onClick={() => setExpandedFindingId(isExpanded ? null : finding.id)}
                       >
                         <div className="flex items-start gap-3 p-3">
@@ -482,7 +482,7 @@ export function ReviewExportSubStep({
                             <div className="flex flex-wrap items-center gap-1">
                               {/* Data type badge */}
                               <Badge
-                                className={`text-[9px] ${DATA_TYPE_COLORS[finding.data_type] || 'bg-gray-100 text-gray-600'}`}
+                                className={`text-[9px] ${DATA_TYPE_COLORS[finding.data_type] || 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
                               >
                                 {finding.data_type.replace('_', ' ')}
                               </Badge>
@@ -493,7 +493,7 @@ export function ReviewExportSubStep({
                               {/* Site type badge */}
                               {siteType && (
                                 <Badge
-                                  className={`text-[9px] ${SITE_TYPE_COLORS[siteType] || 'bg-gray-100 text-gray-600'}`}
+                                  className={`text-[9px] ${SITE_TYPE_COLORS[siteType] || 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
                                 >
                                   {siteType}
                                 </Badge>
@@ -557,7 +557,7 @@ export function ReviewExportSubStep({
                           <div className="space-y-0 border-t">
                             {/* Full content */}
                             {finding.content && (
-                              <div className="border-b bg-white p-3">
+                              <div className="bg-background border-b p-3">
                                 <div className="mb-1 text-[10px] font-medium text-gray-500 uppercase">
                                   Description
                                 </div>
@@ -638,7 +638,7 @@ export function ReviewExportSubStep({
                                       Save
                                     </button>
                                     <button
-                                      className="flex h-6 items-center gap-1 rounded px-2 text-[11px] text-gray-500 hover:text-gray-700"
+                                      className="flex h-6 items-center gap-1 rounded px-2 text-[11px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                                       onClick={() => setEditingNoteId(null)}
                                     >
                                       <X className="h-3 w-3" />
@@ -731,7 +731,10 @@ export function ReviewExportSubStep({
               ) : (
                 <div className="space-y-1.5">
                   {targetNotes.map((note) => (
-                    <div key={note.id} className="rounded-lg border bg-gray-50 p-2.5">
+                    <div
+                      key={note.id}
+                      className="rounded-lg border bg-gray-50 p-2.5 dark:bg-gray-800"
+                    >
                       <div className="flex items-center gap-2">
                         <span className="flex-1 text-sm font-medium">{note.title}</span>
                         <div className="flex items-center gap-1">
@@ -814,7 +817,7 @@ export function ReviewExportSubStep({
         </ScrollArea>
 
         {/* Complete Button - Fixed at bottom */}
-        <div className="border-t bg-white p-4">
+        <div className="bg-background border-t p-4">
           <Button
             onClick={onComplete}
             disabled={!canComplete || isCompleting}

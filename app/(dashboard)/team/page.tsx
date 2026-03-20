@@ -282,19 +282,19 @@ export default function TeamPage() {
   const getRoleBadgeColor = (role: UserRole) => {
     switch (role) {
       case 'admin':
-        return 'bg-emerald-100 text-emerald-700'
+        return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300'
       case 'project_manager':
-        return 'bg-purple-100 text-purple-700'
+        return 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
       case 'ecologist':
-        return 'bg-blue-100 text-blue-700'
+        return 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
       case 'junior':
-        return 'bg-cyan-100 text-cyan-700'
+        return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300'
       case 'third_party':
-        return 'bg-orange-100 text-orange-700'
+        return 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300'
       case 'client':
-        return 'bg-gray-100 text-gray-700'
+        return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
       default:
-        return 'bg-gray-100 text-gray-700'
+        return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
     }
   }
 
@@ -308,11 +308,11 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="h-full bg-gray-50 p-4 sm:p-6 lg:p-8">
+    <div className="h-full bg-gray-50 p-4 sm:p-6 lg:p-8 dark:bg-gray-900">
       {/* Header */}
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Team Members</h1>
+          <h1 className="text-foreground text-2xl font-bold">Team Members</h1>
           <p className="mt-1 text-gray-600">
             Manage your organization&apos;s team members and invitations
           </p>
@@ -330,7 +330,7 @@ export default function TeamPage() {
       {isDialogOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center">
           <div className="fixed inset-0 bg-black/50" onClick={handleCloseDialog} />
-          <div className="relative z-10 mx-4 w-full max-w-md rounded-lg border bg-white p-6 shadow-xl">
+          <div className="bg-background relative z-10 mx-4 w-full max-w-md rounded-lg border p-6 shadow-xl">
             <button
               onClick={handleCloseDialog}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
@@ -340,12 +340,14 @@ export default function TeamPage() {
 
             {inviteLink ? (
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Invitation Created</h2>
+                <h2 className="text-foreground text-lg font-semibold">Invitation Created</h2>
                 <p className="mt-1 text-sm text-gray-500">
                   Share this link with the team member. It expires in 7 days.
                 </p>
-                <div className="mt-4 overflow-hidden rounded-md border bg-gray-50 px-3 py-2">
-                  <p className="truncate font-mono text-xs text-gray-700">{inviteLink}</p>
+                <div className="mt-4 overflow-hidden rounded-md border bg-gray-50 px-3 py-2 dark:bg-gray-800">
+                  <p className="truncate font-mono text-xs text-gray-700 dark:text-gray-300">
+                    {inviteLink}
+                  </p>
                 </div>
                 <div className="mt-4 flex flex-col gap-2">
                   <Button
@@ -365,7 +367,7 @@ export default function TeamPage() {
               </div>
             ) : (
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Invite Team Member</h2>
+                <h2 className="text-foreground text-lg font-semibold">Invite Team Member</h2>
                 <p className="mt-1 text-sm text-gray-500">
                   Create an invitation link to share with a new team member.
                 </p>
@@ -393,7 +395,7 @@ export default function TeamPage() {
                       id="role"
                       value={selectedRole}
                       onChange={(e) => setValue('role', e.target.value as InviteFormData['role'])}
-                      className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      className="border-border bg-background flex h-10 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     >
                       {TEAM_ROLES.map((r) => (
                         <option key={r.value} value={r.value}>
@@ -450,7 +452,7 @@ export default function TeamPage() {
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-gray-900">{member.full_name}</p>
+                      <p className="text-foreground truncate font-medium">{member.full_name}</p>
                       <p className="truncate text-sm text-gray-500">{member.email}</p>
                     </div>
                   </div>
@@ -510,11 +512,11 @@ export default function TeamPage() {
                   className="flex items-center justify-between rounded-lg border border-dashed p-3"
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
                       <Clock className="h-5 w-5 text-gray-400" />
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-gray-900">{invite.email}</p>
+                      <p className="text-foreground truncate font-medium">{invite.email}</p>
                       <p className="text-sm text-gray-500">
                         Expires {new Date(invite.expires_at).toLocaleDateString()}
                       </p>

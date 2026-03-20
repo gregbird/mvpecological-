@@ -78,7 +78,7 @@ const RELEVANCE_CONFIG: Record<
   none: {
     label: 'None',
     color: 'text-gray-600',
-    bgColor: 'bg-gray-100 border-gray-200',
+    bgColor: 'bg-gray-100 border-gray-200 dark:bg-gray-800 dark:border-gray-700',
     description: 'Not applicable to this project',
   },
 }
@@ -786,7 +786,9 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
 
           <div className="space-y-4">
             {selectedFinding?.content && (
-              <div className="rounded-lg bg-gray-50 p-3 text-sm">{selectedFinding.content}</div>
+              <div className="rounded-lg bg-gray-50 p-3 text-sm dark:bg-gray-800">
+                {selectedFinding.content}
+              </div>
             )}
 
             <div className="space-y-2">
@@ -809,7 +811,7 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
                               'ring-green-500': key === 'low',
                               'ring-gray-400': key === 'none',
                             })
-                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:hover:border-gray-600 dark:hover:bg-gray-800'
                       )}
                     >
                       <div

@@ -70,21 +70,24 @@ function SummaryCards({ species }: { species: SpeciesRow[] }) {
     {
       label: 'Total Species',
       count: totalSpecies,
-      color: 'bg-blue-50 border-blue-200 text-blue-800',
+      color:
+        'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-200',
       iconColor: 'text-blue-500',
       icon: Bug,
     },
     {
       label: 'Protected',
       count: protectedSpecies,
-      color: 'bg-emerald-50 border-emerald-200 text-emerald-800',
+      color:
+        'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950 dark:border-emerald-700 dark:text-emerald-200',
       iconColor: 'text-emerald-500',
       icon: Shield,
     },
     {
       label: 'Invasive',
       count: invasiveSpecies,
-      color: 'bg-red-50 border-red-200 text-red-800',
+      color:
+        'bg-red-50 border-red-200 text-red-800 dark:bg-red-950 dark:border-red-700 dark:text-red-200',
       iconColor: 'text-red-500',
       icon: AlertTriangle,
     },
@@ -108,13 +111,16 @@ function SummaryCards({ species }: { species: SpeciesRow[] }) {
 }
 
 const SOURCE_COLORS: Record<string, string> = {
-  nbdc: 'bg-purple-100 text-purple-800 border-purple-200',
-  gbif: 'bg-sky-100 text-sky-800 border-sky-200',
-  npws: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-  manual: 'bg-gray-100 text-gray-700 border-gray-200',
-  epa: 'bg-blue-100 text-blue-800 border-blue-200',
-  catchments: 'bg-teal-100 text-teal-800 border-teal-200',
-  company_reports: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+  nbdc: 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900 dark:text-purple-200 dark:border-purple-700',
+  gbif: 'bg-sky-100 text-sky-800 border-sky-200 dark:bg-sky-900 dark:text-sky-200 dark:border-sky-700',
+  npws: 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900 dark:text-emerald-200 dark:border-emerald-700',
+  manual:
+    'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700',
+  epa: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-700',
+  catchments:
+    'bg-teal-100 text-teal-800 border-teal-200 dark:bg-teal-900 dark:text-teal-200 dark:border-teal-700',
+  company_reports:
+    'bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-900 dark:text-indigo-200 dark:border-indigo-700',
 }
 
 const RED_LIST_COLORS: Record<string, string> = {

@@ -378,10 +378,10 @@ export default function DashboardPage() {
     {
       label: isAdmin ? 'Total Projects' : 'My Projects',
       value: stats.totalProjects,
-      valueColor: 'text-gray-900',
+      valueColor: 'text-gray-900 dark:text-gray-100',
       icon: FileText,
       color: 'text-blue-500',
-      iconBg: 'bg-blue-50',
+      iconBg: 'bg-blue-50 dark:bg-blue-950',
       border: 'border-l-blue-400',
     },
     {
@@ -390,7 +390,7 @@ export default function DashboardPage() {
       valueColor: 'text-blue-600',
       icon: Clock,
       color: 'text-blue-500',
-      iconBg: 'bg-blue-50',
+      iconBg: 'bg-blue-50 dark:bg-blue-950',
       border: 'border-l-blue-400',
     },
     {
@@ -399,7 +399,7 @@ export default function DashboardPage() {
       valueColor: 'text-orange-500',
       icon: AlertCircle,
       color: 'text-orange-400',
-      iconBg: 'bg-orange-50',
+      iconBg: 'bg-orange-50 dark:bg-orange-950',
       border: 'border-l-orange-400',
     },
     {
@@ -408,7 +408,7 @@ export default function DashboardPage() {
       valueColor: 'text-green-600',
       icon: CheckCircle,
       color: 'text-green-500',
-      iconBg: 'bg-green-50',
+      iconBg: 'bg-green-50 dark:bg-green-950',
       border: 'border-l-green-400',
     },
   ]

@@ -35,21 +35,24 @@ function SummaryCards({ habitats, totalArea }: { habitats: HabitatRow[]; totalAr
     {
       label: 'Habitat Types',
       value: habitats.length.toString(),
-      color: 'bg-emerald-50 border-emerald-200 text-emerald-800',
+      color:
+        'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950 dark:border-emerald-700 dark:text-emerald-200',
       iconColor: 'text-emerald-500',
       icon: Layers,
     },
     {
       label: 'Total Area',
       value: `${totalArea.toFixed(0)} ha`,
-      color: 'bg-green-50 border-green-200 text-green-800',
+      color:
+        'bg-green-50 border-green-200 text-green-800 dark:bg-green-950 dark:border-green-700 dark:text-green-200',
       iconColor: 'text-green-500',
       icon: MapPin,
     },
     {
       label: 'Data Source',
       value: 'NLC 2018',
-      color: 'bg-blue-50 border-blue-200 text-blue-800',
+      color:
+        'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-200',
       iconColor: 'text-blue-500',
       icon: TreePine,
     },

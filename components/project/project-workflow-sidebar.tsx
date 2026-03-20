@@ -280,32 +280,32 @@ export function ProjectWorkflowSidebar() {
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'lead':
-        return 'bg-emerald-100 text-emerald-700'
+        return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300'
       case 'member':
-        return 'bg-blue-100 text-blue-700'
+        return 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
       case 'reviewer':
-        return 'bg-amber-100 text-amber-700'
+        return 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300'
       case 'viewer':
-        return 'bg-gray-100 text-gray-700'
+        return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
       default:
-        return 'bg-gray-100 text-gray-700'
+        return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
     }
   }
 
   const getUserRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'admin':
-        return 'bg-emerald-100 text-emerald-700'
+        return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300'
       case 'project_manager':
-        return 'bg-purple-100 text-purple-700'
+        return 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
       case 'ecologist':
-        return 'bg-blue-100 text-blue-700'
+        return 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
       case 'junior':
-        return 'bg-cyan-100 text-cyan-700'
+        return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300'
       case 'third_party':
-        return 'bg-orange-100 text-orange-700'
+        return 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300'
       default:
-        return 'bg-gray-100 text-gray-700'
+        return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
     }
   }
 
@@ -774,7 +774,7 @@ export function ProjectWorkflowSidebar() {
           <div className="flex-1 space-y-6 overflow-y-auto px-1 pr-3">
             {/* Current Team Members */}
             <div>
-              <h4 className="mb-3 text-sm font-medium text-gray-700">
+              <h4 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
                 Assigned Members ({teamMembers.length})
               </h4>
               {isLoadingTeam ? (
@@ -791,7 +791,7 @@ export function ProjectWorkflowSidebar() {
                   {teamMembers.map((member) => (
                     <div
                       key={member.id}
-                      className="flex items-center justify-between rounded-lg border bg-white p-3"
+                      className="bg-card flex items-center justify-between rounded-lg border p-3"
                     >
                       <div className="flex items-center gap-3">
                         <Avatar className="h-10 w-10">
@@ -830,7 +830,9 @@ export function ProjectWorkflowSidebar() {
 
             {/* Add Team Members Section */}
             <div>
-              <h4 className="mb-3 text-sm font-medium text-gray-700">Add Members to Project</h4>
+              <h4 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+                Add Members to Project
+              </h4>
 
               {/* Search and Filter */}
               <div className="mb-4 flex gap-3">
@@ -885,7 +887,7 @@ export function ProjectWorkflowSidebar() {
                     .map((member) => (
                       <div
                         key={member.id}
-                        className="flex items-center justify-between rounded-lg border border-dashed p-3 transition-colors hover:bg-gray-50"
+                        className="flex items-center justify-between rounded-lg border border-dashed p-3 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800"
                       >
                         <div className="flex items-center gap-3">
                           <Avatar className="h-10 w-10">

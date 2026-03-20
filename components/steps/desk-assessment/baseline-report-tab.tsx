@@ -233,7 +233,7 @@ export function BaselineReportTab({ savedFindings, project }: BaselineReportTabP
             {excludedFindings.map((f) => (
               <div
                 key={f.id}
-                className="flex items-center justify-between rounded-md border bg-white px-3 py-2"
+                className="bg-card flex items-center justify-between rounded-md border px-3 py-2"
               >
                 <div className="mr-3 min-w-0 flex-1">
                   <span className="text-sm font-medium">{f.title}</span>

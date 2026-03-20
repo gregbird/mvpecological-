@@ -295,7 +295,9 @@ export function SurveyViewDialog({
           <>
             <Separator />
             <div className="space-y-3">
-              <p className="text-sm font-medium text-gray-700">Survey-Specific Data</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Survey-Specific Data
+              </p>
               <TemplateSectionsRenderer
                 templateFields={templateDef}
                 values={templateFieldValues}

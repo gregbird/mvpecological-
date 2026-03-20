@@ -30,13 +30,13 @@ export default function TemplatesPage() {
   const organizationId = user?.organization_id
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 lg:p-8">
+    <div className="min-h-screen bg-gray-50 p-6 lg:p-8 dark:bg-gray-900">
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-3">
           <FileText className="h-7 w-7 text-emerald-600" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Surveys & Reports</h1>
+            <h1 className="text-foreground text-2xl font-bold">Surveys & Reports</h1>
             <p className="mt-1 text-gray-600">
               Manage your organization&apos;s survey and report templates
             </p>
@@ -51,7 +51,7 @@ export default function TemplatesPage() {
         </div>
       ) : (
         <Tabs defaultValue="survey-templates" className="space-y-6">
-          <TabsList className="bg-white">
+          <TabsList className="bg-background">
             <TabsTrigger value="survey-templates">Survey Templates</TabsTrigger>
             <TabsTrigger value="report-templates">Report Templates</TabsTrigger>
           </TabsList>

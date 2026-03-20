@@ -62,23 +62,23 @@ export function ProjectInfoSubStep({
     <div className="flex h-full flex-col items-center justify-center p-8">
       <div className="w-full max-w-xl space-y-8">
         {/* Compact Summary */}
-        <div className="divide-y rounded-lg border bg-white shadow-sm">
+        <div className="bg-card divide-y rounded-lg border shadow-sm">
           {/* Location Row */}
           <div className="flex items-center gap-3 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
               <MapPin className="h-5 w-5 text-blue-600" />
             </div>
             <div className="flex-1">
               <div className="text-muted-foreground text-sm">Project Location</div>
               <div className="font-medium">{locationString}</div>
               {hasLocationInfo && project.grid_reference && (
-                <code className="mt-1 inline-block rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                <code className="mt-1 inline-block rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-800">
                   {project.grid_reference}
                 </code>
               )}
             </div>
             {!hasLocationInfo && project.grid_reference && (
-              <code className="rounded bg-gray-100 px-2 py-1 text-xs">
+              <code className="rounded bg-gray-100 px-2 py-1 text-xs dark:bg-gray-800">
                 {project.grid_reference}
               </code>
             )}
@@ -87,7 +87,7 @@ export function ProjectInfoSubStep({
           {/* Site Area Row */}
           {boundaryStats && (
             <div className="flex items-center gap-3 p-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900">
                 <Maximize2 className="h-5 w-5 text-purple-600" />
               </div>
               <div className="flex-1">
@@ -105,7 +105,7 @@ export function ProjectInfoSubStep({
 
           {/* Buffer Zones Row */}
           <div className="flex items-center gap-3 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
               <Circle className="h-5 w-5 text-green-600" />
             </div>
             <div className="flex-1">
@@ -128,7 +128,7 @@ export function ProjectInfoSubStep({
 
           {/* Progress indicator if has findings */}
           {savedFindingsCount > 0 && (
-            <div className="flex items-center gap-2 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            <div className="flex items-center gap-2 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
               <CheckCircle2 className="h-4 w-4" />
               {savedFindingsCount} finding{savedFindingsCount !== 1 ? 's' : ''} saved
             </div>

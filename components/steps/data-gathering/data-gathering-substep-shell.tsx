@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Search, Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { Search, Loader2, Eye, EyeOff, AlertCircle, Grid3X3 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
 import { Button } from '@/components/ui/button'
@@ -192,8 +192,10 @@ export function DataGatheringSubstepShell({
   // Map container ref for screenshot capture
   const mapContainerRef = React.useRef<HTMLDivElement>(null)
 
-  // View mode tracking (for grid overlay visibility — only show in card view)
+  // View mode tracking
   const [listViewMode, setListViewMode] = React.useState<'cards' | 'table'>('table')
+  // Grid overlay toggle (default off)
+  const [showGridOverlay, setShowGridOverlay] = React.useState(false)
 
   // Site type filter for map sync
   const [activeSiteTypeFilter, setActiveSiteTypeFilter] = React.useState<string | null>(null)
@@ -326,6 +328,46 @@ export function DataGatheringSubstepShell({
         next.delete(finding.id)
         return next
       })
+    }
+  }
+
+  // ── Handle Save All ─────────────────────────────────────────────────────
+  const [isSavingAll, setIsSavingAll] = React.useState(false)
+
+  const handleSaveAll = async (findings: FindingDisplay[]) => {
+    setIsSavingAll(true)
+    let savedCount = 0
+    const savedFindings: FindingDisplay[] = []
+    try {
+      for (const finding of findings) {
+        try {
+          const payload = config.buildCreatePayload(finding, {
+            projectId: project.id,
+            userId,
+          })
+          await createFinding.mutateAsync(
+            payload as Parameters<typeof createFinding.mutateAsync>[0]
+          )
+          savedCount++
+          savedFindings.push(finding)
+        } catch {
+          // Skip individual failures
+        }
+      }
+      toast({
+        title: `Saved ${savedCount} species`,
+        description: `${savedCount} of ${findings.length} species records saved. Generating AI summaries...`,
+      })
+
+      // Auto-trigger AI summaries for all saved findings (fire-and-forget)
+      for (const finding of savedFindings) {
+        if (!finding.metadata?.aiSummary && !finding.metadata?.aiSummaryLoading) {
+          handleFetchAiSummary(finding).catch(() => {})
+          await new Promise((resolve) => setTimeout(resolve, 300))
+        }
+      }
+    } finally {
+      setIsSavingAll(false)
     }
   }
 
@@ -637,6 +679,8 @@ export function DataGatheringSubstepShell({
             // Extra props (e.g. species header, enrichment, source filter)
             {...(config.findingsListExtraProps || {})}
             onViewModeChange={setListViewMode}
+            onSaveAll={handleSaveAll}
+            isSavingAll={isSavingAll}
           />
         </div>
       </div>
@@ -650,7 +694,7 @@ export function DataGatheringSubstepShell({
             zoom={11}
             boundary={projectBoundary}
             bufferDistances={bufferDistances}
-            gridOverlay={listViewMode === 'cards' ? config.gridOverlay : undefined}
+            gridOverlay={showGridOverlay ? config.gridOverlay : undefined}
             findings={(config.filterConfig || config.showDistanceFilter
               ? filteredResults
               : searchResults
@@ -666,16 +710,19 @@ export function DataGatheringSubstepShell({
             onMapClick={() => setSelectedFinding(null)}
           />
 
-          <Button
-            variant="secondary"
-            size="sm"
-            className="absolute top-4 right-4 z-1000"
-            onClick={onToggleMap}
-            data-map-control="true"
-          >
-            <EyeOff className="mr-1 h-4 w-4" />
-            Hide Map
-          </Button>
+          {config.gridOverlay && (
+            <div className="absolute top-4 right-4 z-1000" data-map-control="true">
+              <Button
+                variant="secondary"
+                size="sm"
+                className={`shadow-md ${showGridOverlay ? 'bg-purple-100 text-purple-700' : ''}`}
+                onClick={() => setShowGridOverlay((prev) => !prev)}
+              >
+                <Grid3X3 className="mr-1 h-4 w-4" />
+                {showGridOverlay ? 'Hide Grid' : 'Show Grid'}
+              </Button>
+            </div>
+          )}
 
           <MapCaptureButton
             containerRef={mapContainerRef}
@@ -688,7 +735,7 @@ export function DataGatheringSubstepShell({
       )}
 
       {!showMap && (
-        <div className="flex flex-1 items-center justify-center bg-gray-50">
+        <div className="flex flex-1 items-center justify-center bg-gray-50 dark:bg-gray-900">
           <Button variant="outline" onClick={onToggleMap}>
             <Eye className="mr-2 h-4 w-4" />
             Show Map

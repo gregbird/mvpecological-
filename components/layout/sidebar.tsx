@@ -153,16 +153,16 @@ export function Sidebar() {
   // Loading state
   if (isLoading) {
     return (
-      <aside className="flex h-screen w-70 flex-col items-center justify-center border-r border-gray-200 bg-white">
+      <aside className="border-border bg-background flex h-screen w-70 flex-col items-center justify-center border-r">
         <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
       </aside>
     )
   }
 
   return (
-    <aside className="flex h-screen w-70 flex-col border-r border-gray-200 bg-white">
+    <aside className="border-border bg-background flex h-screen w-70 flex-col border-r">
       {/* Logo */}
-      <div className="flex h-16 items-center gap-2 border-b border-gray-100 px-5">
+      <div className="border-border flex h-16 items-center gap-2 border-b px-5">
         <Link href="/dashboard" className="flex items-center">
           <img src="/dulra-logo.jpg" alt="Dulra" className="h-7" />
         </Link>
@@ -176,8 +176,8 @@ export function Sidebar() {
           className={cn(
             'mb-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
             pathname === '/dashboard'
-              ? 'bg-emerald-50 text-emerald-700'
-              : 'text-gray-700 hover:bg-gray-50'
+              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
+              : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'
           )}
         >
           <LayoutDashboard className="h-5 w-5" />
@@ -190,8 +190,8 @@ export function Sidebar() {
           className={cn(
             'mb-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
             pathname === '/projects' || isInProject
-              ? 'bg-emerald-50 text-emerald-700'
-              : 'text-gray-700 hover:bg-gray-50'
+              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
+              : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'
           )}
         >
           <FolderKanban className="h-5 w-5" />
@@ -216,8 +216,8 @@ export function Sidebar() {
                   className={cn(
                     'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                     isCurrentPhase
-                      ? 'bg-emerald-50 text-emerald-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100'
                   )}
                 >
                   <PhaseIcon
@@ -238,7 +238,7 @@ export function Sidebar() {
 
                 {/* Phase Steps */}
                 {isExpanded && (
-                  <div className="mt-1 ml-4 space-y-0.5 border-l-2 border-gray-100 pl-4">
+                  <div className="border-border mt-1 ml-4 space-y-0.5 border-l-2 pl-4">
                     {phase.steps.map((step) => {
                       const isCompleted = step.number < currentStep
                       const isCurrent = step.number === currentStep
@@ -254,8 +254,10 @@ export function Sidebar() {
                           }
                           className={cn(
                             'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors',
-                            isCurrent && 'bg-emerald-50 font-medium text-emerald-700',
-                            isCompleted && 'text-gray-500 hover:bg-gray-50 hover:text-gray-700',
+                            isCurrent &&
+                              'bg-emerald-50 font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400',
+                            isCompleted &&
+                              'text-gray-500 hover:bg-gray-50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-300',
                             isLocked && 'cursor-not-allowed text-gray-400'
                           )}
                           onClick={(e) => (isLocked || !isInProject) && e.preventDefault()}
@@ -264,8 +266,10 @@ export function Sidebar() {
                             className={cn(
                               'flex h-5 w-5 items-center justify-center rounded-full text-xs font-medium',
                               isCurrent && 'bg-emerald-500 text-white',
-                              isCompleted && 'bg-emerald-100 text-emerald-600',
-                              isLocked && 'bg-gray-100 text-gray-400'
+                              isCompleted &&
+                                'bg-emerald-100 text-emerald-600 dark:bg-emerald-900 dark:text-emerald-400',
+                              isLocked &&
+                                'bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500'
                             )}
                           >
                             {isCompleted ? '✓' : step.number}
@@ -283,7 +287,7 @@ export function Sidebar() {
 
         {/* Admin Menu Items */}
         {visibleAdminItems.length > 0 && (
-          <div className="mt-6 border-t border-gray-100 pt-4">
+          <div className="border-border mt-6 border-t pt-4">
             <div className="mb-2 px-3 text-xs font-medium tracking-wider text-gray-400 uppercase">
               Admin
             </div>
@@ -298,8 +302,8 @@ export function Sidebar() {
                     className={cn(
                       'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                       isActive
-                        ? 'bg-emerald-50 text-emerald-700'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100'
                     )}
                   >
                     <Icon className="h-5 w-5" />
@@ -313,25 +317,25 @@ export function Sidebar() {
       </ScrollArea>
 
       {/* User Section */}
-      <div className="border-t border-gray-100 p-3">
+      <div className="border-border border-t p-3">
         <div className="flex items-center gap-3 rounded-lg px-2 py-2">
           <Avatar className="h-10 w-10">
-            <AvatarFallback className="bg-emerald-100 text-sm font-medium text-emerald-700">
+            <AvatarFallback className="bg-emerald-100 text-sm font-medium text-emerald-700 dark:bg-emerald-900 dark:text-emerald-400">
               {initials}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-gray-900">
+            <p className="text-foreground truncate text-sm font-medium">
               {user?.full_name || 'User'}
             </p>
-            <p className="text-xs text-gray-500 capitalize">{user?.role || 'ecologist'}</p>
+            <p className="text-muted-foreground text-xs capitalize">{user?.role || 'ecologist'}</p>
           </div>
         </div>
 
         <button
           onClick={handleSignOut}
           disabled={isSigningOut}
-          className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+          className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-950"
         >
           {isSigningOut ? (
             <Loader2 className="h-4 w-4 animate-spin" />

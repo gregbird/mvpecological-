@@ -63,14 +63,14 @@ export default function SearchPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 lg:p-8">
+    <div className="min-h-screen bg-gray-50 p-6 lg:p-8 dark:bg-gray-900">
       <div className="mb-8">
         <div className="flex items-center gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#0061FE]">
             <DropboxIcon className="h-6 w-6 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Document Search</h1>
+            <h1 className="text-foreground text-2xl font-bold">Document Search</h1>
             <p className="mt-1 text-gray-600">
               Connect your Dropbox to index ecological reports and search across your firm&apos;s
               document library
@@ -86,7 +86,7 @@ export default function SearchPage() {
         </div>
       ) : (
         <Tabs defaultValue={connection ? 'documents' : 'connection'} className="space-y-6">
-          <TabsList className="bg-white">
+          <TabsList className="bg-background">
             <TabsTrigger value="connection" className="gap-1.5">
               <DropboxIcon className="h-3.5 w-3.5" />
               Connection

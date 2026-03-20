@@ -76,8 +76,8 @@ export function getStatusDisplay(status: ConservationStatus): {
     },
     XX: {
       label: 'Unknown',
-      color: 'text-gray-700',
-      bgColor: 'bg-gray-100',
+      color: 'text-gray-700 dark:text-gray-300',
+      bgColor: 'bg-gray-100 dark:bg-gray-800',
       description: 'Insufficient data to assess conservation status.',
     },
   }

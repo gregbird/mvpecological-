@@ -62,10 +62,10 @@ function SearchResultCard({
   const displayText = expanded ? result.content : result.content.slice(0, PREVIEW_LEN)
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 transition-colors hover:border-emerald-200">
+    <div className="border-border bg-card rounded-lg border p-4 transition-colors hover:border-emerald-200">
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <FileText className="h-4 w-4 text-blue-500" />
-        <span className="text-sm font-medium text-gray-900">{result.file_name}</span>
+        <span className="text-foreground text-sm font-medium">{result.file_name}</span>
         <ExtensionBadge extension={result.file_extension} />
         {result.total_chunks != null && result.total_chunks > 1 && (
           <Badge variant="secondary" className="text-xs">
@@ -184,7 +184,7 @@ export function DocumentSearch({ organizationId }: DocumentSearchProps) {
               </div>
             ) : aiAnswer ? (
               <>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap text-gray-700">
+                <p className="text-sm leading-relaxed whitespace-pre-wrap text-gray-700 dark:text-gray-300">
                   {aiAnswer.answer}
                 </p>
                 {aiAnswer.sources.length > 0 && (

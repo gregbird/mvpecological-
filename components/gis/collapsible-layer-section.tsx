@@ -90,7 +90,7 @@ export function CollapsibleLayerSection<T>({
     <div className="mb-2 rounded-lg border">
       <Collapsible open={isExpanded} onOpenChange={onToggleExpand}>
         <CollapsibleTrigger asChild>
-          <div className="flex w-full cursor-pointer items-center justify-between p-2 hover:bg-gray-50">
+          <div className="flex w-full cursor-pointer items-center justify-between p-2 hover:bg-gray-50 dark:hover:bg-gray-800">
             <div className="flex items-center gap-2">
               <div
                 role="checkbox"
@@ -109,7 +109,9 @@ export function CollapsibleLayerSection<T>({
                 }}
                 className={cn(
                   'flex h-4 w-4 cursor-pointer items-center justify-center rounded border-2',
-                  isVisible ? 'border-emerald-500 bg-emerald-500' : 'border-gray-300'
+                  isVisible
+                    ? 'border-emerald-500 bg-emerald-500'
+                    : 'border-gray-300 dark:border-gray-600'
                 )}
               >
                 {isVisible && <Check className="h-3 w-3 text-white" />}
@@ -133,7 +135,7 @@ export function CollapsibleLayerSection<T>({
           </div>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="border-t bg-gray-50/50 p-2">
+          <div className="border-t bg-gray-50/50 p-2 dark:bg-gray-800/50">
             {filteredItems.length > 0 ? (
               <div className="max-h-64 space-y-1 overflow-x-hidden overflow-y-auto">
                 {itemsToShow.map((item, idx) => {
@@ -154,7 +156,9 @@ export function CollapsibleLayerSection<T>({
                       }}
                       className={cn(
                         'group flex cursor-pointer items-start gap-1.5 rounded p-1.5 text-xs transition-colors',
-                        isIgnored ? 'bg-gray-100 opacity-50' : 'bg-white hover:bg-gray-100'
+                        isIgnored
+                          ? 'bg-gray-100 opacity-50 dark:bg-gray-800'
+                          : 'bg-background hover:bg-gray-100 dark:hover:bg-gray-800'
                       )}
                     >
                       <span
@@ -183,8 +187,8 @@ export function CollapsibleLayerSection<T>({
                           className={cn(
                             'rounded p-1 transition-colors',
                             isIgnored
-                              ? 'bg-amber-100 text-amber-600 hover:bg-amber-200'
-                              : 'text-gray-400 hover:bg-gray-200 hover:text-amber-600'
+                              ? 'bg-amber-100 text-amber-600 hover:bg-amber-200 dark:bg-amber-900 dark:text-amber-400 dark:hover:bg-amber-800'
+                              : 'text-gray-400 hover:bg-gray-200 hover:text-amber-600 dark:hover:bg-gray-700'
                           )}
                           title={isIgnored ? 'Show on map' : 'Hide from map'}
                         >
@@ -195,7 +199,7 @@ export function CollapsibleLayerSection<T>({
                             e.stopPropagation()
                             onDelete(itemKey)
                           }}
-                          className="rounded p-1 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600"
+                          className="rounded p-1 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900"
                           title="Remove from list"
                         >
                           <X className="h-3 w-3" />
@@ -207,7 +211,7 @@ export function CollapsibleLayerSection<T>({
                 {filteredItems.length > DISPLAY_COUNT && (
                   <button
                     onClick={onToggleShowAll}
-                    className="text-muted-foreground sticky bottom-0 w-full bg-gray-50/90 py-1 text-center text-[10px] backdrop-blur-sm transition-colors hover:bg-gray-100 hover:text-gray-700"
+                    className="text-muted-foreground sticky bottom-0 w-full bg-gray-50/90 py-1 text-center text-[10px] backdrop-blur-sm transition-colors hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800/90 dark:hover:bg-gray-700 dark:hover:text-gray-300"
                   >
                     {showAll
                       ? 'Show less'
