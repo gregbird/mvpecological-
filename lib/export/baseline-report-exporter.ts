@@ -1,3 +1,9 @@
+export interface MapImage {
+  stepName: string
+  label: string
+  dataUrl: string
+}
+
 export interface BaselineExportData {
   projectName: string
   siteCode: string
@@ -35,6 +41,27 @@ export interface BaselineExportData {
     source: string
     constraint: string
   }[]
+  mapImages?: MapImage[]
+}
+
+/** Map step names to report section numbers */
+const STEP_TO_SECTION: Record<string, number> = {
+  gis_mapping: 0, // shown as "Site Overview" before sections
+  designated_sites: 1,
+  species_records: 2,
+  aquatic_features: 4,
+  data_analysis: 5,
+}
+
+function renderMapImages(images: MapImage[], stepName: string): string {
+  const filtered = images.filter((img) => img.stepName === stepName)
+  if (filtered.length === 0) return ''
+  return `<div class="map-images">${filtered
+    .map(
+      (img) =>
+        `<figure class="map-figure"><img src="${img.dataUrl}" alt="${escapeHtml(img.label)}" /><figcaption>${escapeHtml(img.label)}</figcaption></figure>`
+    )
+    .join('\n')}</div>`
 }
 
 function renderTable(headers: string[], rows: string[][]): string {
@@ -50,6 +77,8 @@ function renderTable(headers: string[], rows: string[][]): string {
  * Users can open in a browser and print to PDF.
  */
 export function generateBaselineReportHtml(data: BaselineExportData): string {
+  const maps = data.mapImages ?? []
+
   const designatedSitesTable =
     data.designatedSites.length > 0
       ? renderTable(
@@ -102,6 +131,22 @@ export function generateBaselineReportHtml(data: BaselineExportData): string {
         )
       : '<p class="empty">No constraints identified.</p>'
 
+  // Site overview maps (from GIS mapping step)
+  const siteOverviewMaps = renderMapImages(maps, 'gis_mapping')
+
+  // Collect any maps not assigned to a specific section
+  const assignedSteps = new Set(Object.keys(STEP_TO_SECTION))
+  const unassignedMaps = maps.filter((m) => !assignedSteps.has(m.stepName))
+  const unassignedHtml =
+    unassignedMaps.length > 0
+      ? `<div class="map-images">${unassignedMaps
+          .map(
+            (img) =>
+              `<figure class="map-figure"><img src="${img.dataUrl}" alt="${escapeHtml(img.label)}" /><figcaption>${escapeHtml(img.label)}</figcaption></figure>`
+          )
+          .join('\n')}</div>`
+      : ''
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -120,11 +165,16 @@ export function generateBaselineReportHtml(data: BaselineExportData): string {
   tr:nth-child(even) { background: #f9fafb; }
   .empty { color: #9ca3af; font-size: 13px; font-style: italic; padding: 16px 0; }
   .note { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 12px 16px; font-size: 12px; color: #1e40af; margin-top: 8px; }
+  .map-images { margin: 16px 0; }
+  .map-figure { margin: 12px 0; text-align: center; }
+  .map-figure img { max-width: 100%; height: auto; border: 1px solid #e5e7eb; border-radius: 6px; }
+  .map-figure figcaption { font-size: 12px; color: #666; margin-top: 6px; font-style: italic; }
   @media print {
     body { padding: 0; max-width: none; }
     h2 { page-break-after: avoid; }
     table { page-break-inside: auto; }
     tr { page-break-inside: avoid; }
+    .map-figure { page-break-inside: avoid; }
   }
 </style>
 </head>
@@ -134,10 +184,14 @@ export function generateBaselineReportHtml(data: BaselineExportData): string {
   <strong>${escapeHtml(data.projectName)}</strong> | Site Code: ${escapeHtml(data.siteCode)} | ${escapeHtml(data.date)}
 </div>
 
+${siteOverviewMaps}
+
 <h2>1. Designated Sites</h2>
+${renderMapImages(maps, 'designated_sites')}
 ${designatedSitesTable}
 
 <h2>2. Species Records</h2>
+${renderMapImages(maps, 'species_records')}
 ${speciesTable}
 
 <h2>3. Preliminary Habitat Inventory</h2>
@@ -145,13 +199,17 @@ ${habitatTable}
 <div class="note">Based on National Land Cover 2018 (NLC). Requires field verification using FOSSITT Level 3 classification.</div>
 
 <h2>4. Aquatic Environment</h2>
+${renderMapImages(maps, 'aquatic_features')}
 ${waterBodiesTable}
 
 <h2>5. Constraints Summary</h2>
 ${constraintsTable}
 
+${renderMapImages(maps, 'data_analysis')}
+${unassignedHtml}
+
 <div class="note" style="margin-top: 32px;">
-  Interactive maps are available in the Dulra platform. Use your browser's Print function (Ctrl+P / Cmd+P) to save as PDF.
+  Use your browser's Print function (Ctrl+P / Cmd+P) to save as PDF.
 </div>
 </body>
 </html>`

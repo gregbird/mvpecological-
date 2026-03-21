@@ -98,8 +98,8 @@ export function DataGatheringStep({
   // Cache key for wizard step
   const wizardStepCacheKey = `data-gathering-step-${project.id}`
 
-  // View mode: preview or wizard (always start in wizard — no locking)
-  const [viewMode, setViewMode] = React.useState<ViewMode>('wizard')
+  // View mode: preview or wizard — start in preview when step is completed
+  const [viewMode, setViewMode] = React.useState<ViewMode>(isStepCompleted ? 'preview' : 'wizard')
 
   // Wizard state - restore from sessionStorage
   const [currentStep, setCurrentStep] = React.useState<WizardStep>(() => {
@@ -145,7 +145,7 @@ export function DataGatheringStep({
   const { data: savedFindings = [] } = useSavedFindings(project.id)
   const { data: findingsStats } = useFindingsStats(project.id)
   const { data: targetNotes = [] } = useTargetNotes(project.id)
-  const { data: habitats = [] } = useHabitats(project.id)
+  useHabitats(project.id) // pre-fetch for downstream steps
   const completeStep = useCompleteWorkflowStep()
 
   // Expanded state for Findings by Type rows
@@ -332,18 +332,30 @@ export function DataGatheringStep({
           <ProjectMap
             className="h-full"
             center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
-            zoom={12}
+            zoom={4}
             boundary={projectBoundary}
             bufferDistances={bufferDistances}
-            findings={savedFindings.map((f) => ({
-              id: f.id,
-              source: f.source,
-              dataType: f.data_type,
-              title: f.title,
-              content: f.content || undefined,
-              location: f.location as GeoJSON.Geometry | undefined,
-              isSaved: true,
-            }))}
+            findings={savedFindings
+              .filter((f) => {
+                const raw = f.raw_data as Record<string, unknown> | null
+                return f.location != null || raw?.geometry != null
+              })
+              .map((f) => {
+                const raw = f.raw_data as Record<string, unknown> | null
+                // Prefer raw_data.geometry (GeoJSON) over location column (WKB binary)
+                const geometry =
+                  (raw?.geometry as GeoJSON.Geometry) ||
+                  (f.location as GeoJSON.Geometry | undefined)
+                return {
+                  id: f.id,
+                  source: f.source,
+                  dataType: f.data_type,
+                  title: f.title,
+                  content: f.content || undefined,
+                  location: geometry,
+                  isSaved: true,
+                }
+              })}
           />
         </div>
 
@@ -385,56 +397,55 @@ export function DataGatheringStep({
             <div className="rounded-lg border">
               <h4 className="border-b px-4 py-3 font-medium">Findings by Type</h4>
               <div className="divide-y">
-                {/* Habitats row */}
-                {habitats.length > 0 &&
-                  (() => {
-                    const isOpen = expandedType === 'habitats'
-                    const uniqueCodes = Array.from(
-                      new Set(habitats.map((h) => h.fossitt_code).filter(Boolean))
-                    )
-                    return (
-                      <div>
-                        <button
-                          className="hover:bg-muted/50 flex w-full items-center justify-between px-4 py-2.5 text-sm transition-colors"
-                          onClick={() => setExpandedType(isOpen ? null : 'habitats')}
-                        >
-                          <div className="flex items-center gap-2">
-                            <Layers className="h-3.5 w-3.5 text-emerald-600" />
-                            <span className="text-muted-foreground">Habitats</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary">{uniqueCodes.length}</Badge>
-                            <ChevronDown
-                              className={cn(
-                                'text-muted-foreground h-3.5 w-3.5 transition-transform',
-                                isOpen && 'rotate-180'
-                              )}
-                            />
-                          </div>
-                        </button>
-                        {isOpen && (
-                          <div className="bg-muted/30 space-y-1 border-t px-4 py-2">
-                            {uniqueCodes.map((code) => {
-                              const h = habitats.find((x) => x.fossitt_code === code)
-                              return (
-                                <div
-                                  key={code}
-                                  className="flex items-center justify-between py-0.5 text-xs"
-                                >
-                                  <span className="text-muted-foreground truncate">
-                                    {h?.fossitt_name || code}
-                                  </span>
+                {/* Habitats row (from saved habitat findings) */}
+                {(() => {
+                  const items = savedFindings.filter((f) => f.data_type === 'habitat')
+                  if (items.length === 0) return null
+                  const isOpen = expandedType === 'habitats'
+                  return (
+                    <div>
+                      <button
+                        className="hover:bg-muted/50 flex w-full items-center justify-between px-4 py-2.5 text-sm transition-colors"
+                        onClick={() => setExpandedType(isOpen ? null : 'habitats')}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Layers className="h-3.5 w-3.5 text-emerald-600" />
+                          <span className="text-muted-foreground">Habitats</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary">{items.length}</Badge>
+                          <ChevronDown
+                            className={cn(
+                              'text-muted-foreground h-3.5 w-3.5 transition-transform',
+                              isOpen && 'rotate-180'
+                            )}
+                          />
+                        </div>
+                      </button>
+                      {isOpen && (
+                        <div className="bg-muted/30 space-y-1 border-t px-4 py-2">
+                          {items.map((f) => {
+                            const raw = f.raw_data as Record<string, unknown> | null
+                            const fossittCode = (raw?.fossittCode as string) || ''
+                            return (
+                              <div
+                                key={f.id}
+                                className="flex items-center justify-between py-0.5 text-xs"
+                              >
+                                <span className="text-muted-foreground truncate">{f.title}</span>
+                                {fossittCode && (
                                   <Badge variant="outline" className="ml-2 shrink-0 text-xs">
-                                    {code}
+                                    {fossittCode}
                                   </Badge>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })()}
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
 
                 {/* Designated Sites row */}
                 {(() => {

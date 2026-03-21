@@ -20,7 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 // --- Shared markdown renderer for AI analysis text ---
 export function MarkdownContent({ text }: { text: string }) {
   return (
-    <div className="prose prose-sm max-w-none">
+    <div className="prose prose-sm dark:prose-invert max-w-none">
       <ReactMarkdown
         components={{
           h1: ({ children }) => <h4 className="mt-3 mb-1 text-sm font-semibold">{children}</h4>,

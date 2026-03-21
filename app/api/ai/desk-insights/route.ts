@@ -156,7 +156,7 @@ Rules:
           { role: 'user', content: prompt },
         ],
         temperature: 0.3,
-        max_tokens: 4000,
+        max_tokens: 8000,
       }),
     })
 
@@ -242,7 +242,10 @@ function buildContext(input: ContextInput): string {
   // Group findings by type
   const designatedSites = input.findings.filter((f) => f.data_type === 'designated_site')
   const speciesRecords = input.findings.filter((f) => f.data_type === 'species_record')
-  const aquaticFeatures = input.findings.filter((f) => f.data_type === 'water_quality')
+  const aquaticFeatures = input.findings.filter(
+    (f) => f.data_type === 'water_quality' || f.data_type === 'catchment'
+  )
+  const companyReports = input.findings.filter((f) => f.data_type === 'company_report')
 
   // === DESIGNATED SITES ===
   parts.push('## DESIGNATED SITES')
@@ -414,7 +417,7 @@ function buildContext(input: ContextInput): string {
 
   if (otherSpecies.length > 0) {
     parts.push('### Other Species Records')
-    for (const species of otherSpecies.slice(0, 10)) {
+    for (const species of otherSpecies) {
       const assessment = parseAssessment(species.notes)
       const rawData = species.raw_data as Record<string, unknown> as RawData
       const otherMeta = rawData?.metadata as Record<string, unknown> | undefined
@@ -431,9 +434,6 @@ function buildContext(input: ContextInput): string {
         const summary = deepResearch.aiAnalysis.substring(0, 300)
         parts.push(`  Deep Research: ${summary}...`)
       }
-    }
-    if (otherSpecies.length > 10) {
-      parts.push(`- ... and ${otherSpecies.length - 10} more species`)
     }
     parts.push('')
   }
@@ -568,17 +568,35 @@ function buildContext(input: ContextInput): string {
     }
   }
 
+  // === COMPANY REPORTS ===
+  if (companyReports.length > 0) {
+    parts.push('## COMPANY REPORTS & DOCUMENTS')
+    parts.push(`Total: ${companyReports.length} relevant document excerpts`)
+    parts.push('')
+
+    for (const report of companyReports) {
+      const raw = report.raw_data as Record<string, unknown> | null
+      parts.push(`### ${report.title}`)
+      if (raw?.fileName) parts.push(`- File: ${String(raw.fileName)}`)
+      if (report.content) {
+        parts.push(`- Content: ${report.content.substring(0, 500)}`)
+      }
+      if (report.notes) parts.push(`- Ecologist Notes: ${report.notes}`)
+      parts.push('')
+    }
+  }
+
   return parts.join('\n')
 }
 
 function buildPrompt(context: string): string {
-  return `You are writing a desk study ecological summary for a PEA report in Ireland. Analyze the following data and produce a structured summary in exactly 4 categories.
+  return `You are writing a desk study ecological summary for a PEA report in Ireland. Analyze the following data and produce a comprehensive structured summary.
 
 ${context}
 
 ---
 
-Write the summary using EXACTLY this structure with these 4 markdown headings. Each category should contain bullet points summarizing the key findings, followed by a 1-2 sentence assessment paragraph.
+Write the summary using the following markdown headings. Each category should list ALL findings as bullet points, followed by a 1-2 sentence assessment paragraph. Only include categories that have data.
 
 ## Designated Areas
 
@@ -589,36 +607,43 @@ Write the summary using EXACTLY this structure with these 4 markdown headings. E
 
 ## Habitats
 
-- **[Habitat type or land cover]** — [Description of habitat context, condition if known, relevance to project]
-- [Identify likely habitat types based on designated site qualifying interests and species records]
-- [Note any Annex I habitats that may be present based on the data]
+- **[FOSSITT Code] [Habitat Name]** — [Area in hectares, % cover]. [Ecological significance and survey recommendations]
+- [List ALL habitat types from the data with their FOSSITT codes]
+- [Note any Annex I habitats that may be present]
 
 [1-2 sentence assessment: summarize habitat sensitivity and survey needs]
 
 ## Species
 
-- **[Common Name]** (*[Scientific Name]*) — [Conservation status: e.g., Annex II/IV, Wildlife Acts, Red List]. [Distance] km. [Number of records if available]
-- [Group protected/notable species first, then other records]
-- [Include birds, mammals, amphibians, invertebrates, and flora separately if data exists]
+- **[Common Name]** (*[Scientific Name]*) — [Conservation status: e.g., Annex II/IV, Wildlife Acts, Red List]. [Number of records]. [Taxon group]
+- [List ALL species from the data — group by taxon: birds, mammals, amphibians, invertebrates, flora]
+- [Protected/notable species first within each group]
 
-[1-2 sentence assessment: summarize protected species concerns and targeted survey requirements]
+[1-2 sentence assessment: summarize protected species concerns and targeted survey requirements with optimal timing]
 
 ## Aquatic Features
 
-- **[Water Body Name]** ([EPA Code]) — [Type: River/Lake/Transitional]. WFD Status: [Status]. [Distance] km. [Risk level if known]
+- **[Water Body Name]** ([EPA Code]) — [Type: River/Lake/Transitional/Catchment]. WFD Status: [Status]. [Risk level if known]
 - [Include status trends, linked SACs, and key pressures where available]
 
 [1-2 sentence assessment: summarize water quality concerns and hydrological connectivity to designated sites]
 
+## Document Review
+
+- **[Document/File Name]** — [Key findings or relevant excerpts from company reports and indexed documents]
+
+[1-2 sentence assessment: summarize how existing company reports inform the current assessment]
+
 ---
 
 RULES:
-- Use EXACTLY the 4 heading names above: "Designated Areas", "Habitats", "Species", "Aquatic Features"
 - Each heading must start with "## " (h2 markdown)
+- CRITICAL: Include EVERY species, site, habitat, and water body from the provided data — do NOT summarize, group, or skip any records. Each record must be its own bullet point
+- Only include a category heading if data exists for it — omit empty categories entirely
 - Base ALL conclusions on provided data only — do not invent species, sites, or habitats
-- Reference site codes, distances, and conservation status throughout
+- Reference site codes, FOSSITT codes, distances, and conservation status throughout
 - Use ecologist assessment notes and AI summaries to inform analysis
 - Each bullet should be concise (1-2 lines max)
 - Bold the primary name/title in each bullet
-- If no data exists for a category, write "No [category] data available from desk study" as a single bullet`
+- For species: always include the scientific name in italics, taxon group, record count, and conservation designations`
 }

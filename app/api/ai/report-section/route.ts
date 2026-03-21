@@ -808,7 +808,7 @@ function buildReportContext(input: ReportContextInput): string {
   // 9. Desk insights (Step 3 AI analysis)
   if (input.deskInsights) {
     parts.push('# DESK ASSESSMENT AI INSIGHTS (from Step 3)')
-    parts.push(input.deskInsights.substring(0, 2000))
+    parts.push(input.deskInsights)
     parts.push('')
   }
 

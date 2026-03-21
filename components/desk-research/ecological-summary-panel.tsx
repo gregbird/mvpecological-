@@ -15,6 +15,8 @@ import {
   Download,
   Brain,
   Loader2,
+  FileText,
+  Trees,
 } from 'lucide-react'
 import { jsPDF } from 'jspdf'
 
@@ -38,6 +40,7 @@ const CATEGORY_CONFIG: Record<string, { icon: string; color: string; bgColor: st
   Habitats: { icon: 'trees', color: 'text-green-600', bgColor: 'bg-green-100' },
   Species: { icon: 'bug', color: 'text-purple-600', bgColor: 'bg-purple-100' },
   'Aquatic Features': { icon: 'droplets', color: 'text-blue-600', bgColor: 'bg-blue-100' },
+  'Document Review': { icon: 'file-text', color: 'text-indigo-600', bgColor: 'bg-indigo-100' },
 }
 
 function parseInsightsIntoCategories(markdown: string): ParsedCategory[] {
@@ -62,10 +65,14 @@ function getCategoryIcon(title: string) {
   switch (title) {
     case 'Designated Areas':
       return MapPin
+    case 'Habitats':
+      return Trees
     case 'Species':
       return Bug
     case 'Aquatic Features':
       return Droplets
+    case 'Document Review':
+      return FileText
     default:
       return Sparkles
   }
@@ -385,7 +392,7 @@ export function EcologicalSummaryPanel({
                     </Badge>
                   )}
                 </div>
-                <div className="prose prose-sm max-w-none pl-9">
+                <div className="prose prose-sm dark:prose-invert max-w-none pl-9">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{category.content}</ReactMarkdown>
                 </div>
               </div>

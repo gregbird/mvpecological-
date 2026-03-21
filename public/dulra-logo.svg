@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 155" fill="currentColor" fill-rule="evenodd">
+  <!-- d: bowl + ascender stem -->
+  <path d="M100 14A14 14 0 0 0 72 14L72 60A50 50 0 1 0 72 150L72 155 100 155ZM50 83A22 22 0 1 1 50 127 22 22 0 1 1 50 83Z"/>
+  <!-- u: two strokes + semicircular bottom -->
+  <path d="M108 69A14 14 0 0 0 136 69L136 105A22 22 0 0 1 180 105L180 69A14 14 0 0 0 208 69L208 105A50 50 0 0 1 108 105Z"/>
+  <!-- l: tall vertical stroke -->
+  <path d="M216 155L216 14A14 14 0 0 0 244 14L244 155Z"/>
+  <!-- r: stem + curved arm -->
+  <path d="M252 155L252 63 280 63A42 42 0 0 1 322 105A14 14 0 0 1 294 105A14 14 0 0 0 280 91L280 155Z"/>
+  <!-- a: bowl + short stem (no ascender) -->
+  <path d="M444 55L444 155 416 155 416 150A50 50 0 1 1 416 60L416 55ZM394 83A22 22 0 1 1 394 127 22 22 0 1 1 394 83Z"/>
+</svg>

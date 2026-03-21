@@ -20,7 +20,10 @@ import { ConstraintsSummarySection } from './constraints-summary-section'
 import {
   generateBaselineReportHtml,
   type BaselineExportData,
+  type MapImage,
 } from '@/lib/export/baseline-report-exporter'
+import { getAllScreenshots } from '@/lib/map-screenshots/storage'
+import { fetchImageAsBase64 } from '@/lib/export/image-utils'
 import type { DeskResearchFinding, Project } from '@/types/database'
 
 interface HabitatRow {
@@ -80,137 +83,166 @@ export function BaselineReportTab({ savedFindings, project }: BaselineReportTabP
     [toggleSaved, toast]
   )
 
-  const handleExport = React.useCallback(() => {
-    const designatedSites = savedFindings
-      .filter((f) => f.data_type === 'designated_site')
-      .map((f) => {
-        const raw = f.raw_data as Record<string, unknown> | null
-        return {
-          name: f.title,
-          code: (raw?.SITE_CODE as string) || '',
-          type: (raw?.DESIGNATION as string) || '',
-          area: raw?.AREA_HA ? `${(raw.AREA_HA as number).toFixed(0)} ha` : '',
-          distance: f.distance_from_boundary_km?.toFixed(1) ?? '—',
-        }
-      })
+  const [isExporting, setIsExporting] = React.useState(false)
 
-    const speciesRecords = savedFindings
-      .filter((f) => f.data_type === 'species_record')
-      .map((f) => {
+  const handleExport = React.useCallback(async () => {
+    setIsExporting(true)
+    try {
+      const designatedSites = savedFindings
+        .filter((f) => f.data_type === 'designated_site')
+        .map((f) => {
+          const raw = f.raw_data as Record<string, unknown> | null
+          return {
+            name: f.title,
+            code: (raw?.SITE_CODE as string) || '',
+            type: (raw?.DESIGNATION as string) || '',
+            area: raw?.AREA_HA ? `${(raw.AREA_HA as number).toFixed(0)} ha` : '',
+            distance: f.distance_from_boundary_km?.toFixed(1) ?? '—',
+          }
+        })
+
+      const speciesRecords = savedFindings
+        .filter((f) => f.data_type === 'species_record')
+        .map((f) => {
+          const raw = f.raw_data as Record<string, unknown> | null
+          const metadata = raw?.metadata as Record<string, unknown> | null
+          return {
+            name: f.title,
+            taxon: (metadata?.taxonGroup as string) || 'Unknown',
+            source: f.source,
+            protected: f.is_protected || (metadata?.isProtected as boolean) || false,
+            records: (metadata?.recordCount as number) || 1,
+          }
+        })
+
+      const waterBodies = savedFindings
+        .filter((f) => f.data_type === 'water_quality' || f.data_type === 'catchment')
+        .map((f) => {
+          const raw = f.raw_data as Record<string, unknown> | null
+          const metadata = raw?.metadata as Record<string, unknown> | null
+          const siteType = (metadata?.siteType as string) || ''
+          let type = 'River'
+          if (siteType.toLowerCase().includes('lake')) type = 'Lake'
+          else if (siteType.toLowerCase().includes('transitional')) type = 'Transitional'
+          else if (f.data_type === 'catchment') type = 'Catchment'
+          return {
+            name: f.title,
+            type,
+            wfdStatus: (raw?.WFD_Status as string) || '—',
+            distance: f.distance_from_boundary_km?.toFixed(1) ?? '—',
+          }
+        })
+
+      // Use same logic as extractConstraints() in constraints-summary-section
+      const constraints: BaselineExportData['constraints'] = []
+      for (const f of savedFindings) {
         const raw = f.raw_data as Record<string, unknown> | null
         const metadata = raw?.metadata as Record<string, unknown> | null
-        return {
-          name: f.title,
-          taxon: (metadata?.taxonGroup as string) || 'Unknown',
-          source: f.source,
-          protected: f.is_protected || (metadata?.isProtected as boolean) || false,
-          records: (metadata?.recordCount as number) || 1,
+
+        if (f.data_type === 'designated_site') {
+          const distance = f.distance_from_boundary_km ?? (metadata?.distance as number) ?? null
+          if (distance != null && distance <= 2) {
+            constraints.push({
+              finding: f.title,
+              type: 'Designated Site',
+              source: f.source,
+              constraint: `Within ${distance.toFixed(1)} km of site boundary`,
+            })
+          } else if (distance == null || distance === 0) {
+            constraints.push({
+              finding: f.title,
+              type: 'Designated Site',
+              source: f.source,
+              constraint: 'Overlaps or adjacent to site boundary',
+            })
+          }
         }
-      })
 
-    const waterBodies = savedFindings
-      .filter((f) => f.data_type === 'water_quality' || f.data_type === 'catchment')
-      .map((f) => {
-        const raw = f.raw_data as Record<string, unknown> | null
-        const metadata = raw?.metadata as Record<string, unknown> | null
-        const siteType = (metadata?.siteType as string) || ''
-        let type = 'River'
-        if (siteType.toLowerCase().includes('lake')) type = 'Lake'
-        else if (siteType.toLowerCase().includes('transitional')) type = 'Transitional'
-        else if (f.data_type === 'catchment') type = 'Catchment'
-        return {
-          name: f.title,
-          type,
-          wfdStatus: (raw?.WFD_Status as string) || '—',
-          distance: f.distance_from_boundary_km?.toFixed(1) ?? '—',
-        }
-      })
-
-    // Use same logic as extractConstraints() in constraints-summary-section
-    const constraints: BaselineExportData['constraints'] = []
-    for (const f of savedFindings) {
-      const raw = f.raw_data as Record<string, unknown> | null
-      const metadata = raw?.metadata as Record<string, unknown> | null
-
-      if (f.data_type === 'designated_site') {
-        const distance = f.distance_from_boundary_km ?? (metadata?.distance as number) ?? null
-        if (distance != null && distance <= 2) {
+        if (f.data_type === 'species_record' && (f.is_protected || metadata?.isProtected)) {
           constraints.push({
             finding: f.title,
-            type: 'Designated Site',
+            type: 'Species Record',
             source: f.source,
-            constraint: `Within ${distance.toFixed(1)} km of site boundary`,
+            constraint: 'Protected species — Wildlife Acts / Habitats Directive',
           })
-        } else if (distance == null || distance === 0) {
+        }
+
+        if (f.data_type === 'species_record' && metadata?.isInvasive) {
           constraints.push({
             finding: f.title,
-            type: 'Designated Site',
+            type: 'Species Record',
             source: f.source,
-            constraint: 'Overlaps or adjacent to site boundary',
+            constraint: 'Invasive species — management measures required',
           })
+        }
+
+        if (f.data_type === 'water_quality') {
+          const wfdStatus = (raw?.WFD_Status as string) || ''
+          if (['Poor', 'Bad', 'Moderate'].includes(wfdStatus)) {
+            constraints.push({
+              finding: f.title,
+              type: 'Water Quality',
+              source: f.source,
+              constraint: `WFD Status: ${wfdStatus} — water quality constraint`,
+            })
+          }
         }
       }
 
-      if (f.data_type === 'species_record' && (f.is_protected || metadata?.isProtected)) {
-        constraints.push({
-          finding: f.title,
-          type: 'Species Record',
-          source: f.source,
-          constraint: 'Protected species — Wildlife Acts / Habitats Directive',
-        })
-      }
-
-      if (f.data_type === 'species_record' && metadata?.isInvasive) {
-        constraints.push({
-          finding: f.title,
-          type: 'Species Record',
-          source: f.source,
-          constraint: 'Invasive species — management measures required',
-        })
-      }
-
-      if (f.data_type === 'water_quality') {
-        const wfdStatus = (raw?.WFD_Status as string) || ''
-        if (['Poor', 'Bad', 'Moderate'].includes(wfdStatus)) {
-          constraints.push({
-            finding: f.title,
-            type: 'Water Quality',
-            source: f.source,
-            constraint: `WFD Status: ${wfdStatus} — water quality constraint`,
+      // Fetch map screenshots and convert to base64 for embedding
+      let mapImages: MapImage[] = []
+      try {
+        const screenshots = await getAllScreenshots(project.id)
+        const results = await Promise.all(
+          screenshots.map(async (ss) => {
+            if (!ss.url) return null
+            const img = await fetchImageAsBase64(ss.url)
+            if (!img) return null
+            return {
+              stepName: ss.stepName,
+              label: ss.label,
+              dataUrl: `data:image/jpeg;base64,${img.base64}`,
+            }
           })
-        }
+        )
+        mapImages = results.filter((r): r is MapImage => r !== null)
+      } catch {
+        // Screenshots are non-critical — export tables even if images fail
       }
+
+      const data: BaselineExportData = {
+        projectName: project.name,
+        siteCode: project.site_code || project.id.slice(0, 8),
+        date: new Date().toLocaleDateString('en-IE', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        }),
+        designatedSites,
+        speciesRecords,
+        habitatTypes: habitatRows.map((h) => ({
+          fossittCode: h.fossittCode,
+          name: h.fossittName,
+          nlcLabel: h.nlcLabel,
+          areaHa: h.areaHa,
+          percentage: h.percentage,
+        })),
+        waterBodies,
+        constraints,
+        mapImages,
+      }
+
+      const html = generateBaselineReportHtml(data)
+      const blob = new Blob([html], { type: 'text/html' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${(project.site_code || project.name).replace(/\s+/g, '_')}_baseline_report.html`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setIsExporting(false)
     }
-
-    const data: BaselineExportData = {
-      projectName: project.name,
-      siteCode: project.site_code || project.id.slice(0, 8),
-      date: new Date().toLocaleDateString('en-IE', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      }),
-      designatedSites,
-      speciesRecords,
-      habitatTypes: habitatRows.map((h) => ({
-        fossittCode: h.fossittCode,
-        name: h.fossittName,
-        nlcLabel: h.nlcLabel,
-        areaHa: h.areaHa,
-        percentage: h.percentage,
-      })),
-      waterBodies,
-      constraints,
-    }
-
-    const html = generateBaselineReportHtml(data)
-    const blob = new Blob([html], { type: 'text/html' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${(project.site_code || project.name).replace(/\s+/g, '_')}_baseline_report.html`
-    a.click()
-    URL.revokeObjectURL(url)
   }, [savedFindings, project, habitatRows])
 
   if (isLoadingDeep || isLoadingAquatic) {
@@ -278,9 +310,13 @@ export function BaselineReportTab({ savedFindings, project }: BaselineReportTabP
                 />
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={handleExport}>
-              <Download className="mr-2 h-4 w-4" />
-              Export HTML
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting}>
+              {isExporting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              {isExporting ? 'Exporting...' : 'Export HTML'}
             </Button>
           </div>
         </div>

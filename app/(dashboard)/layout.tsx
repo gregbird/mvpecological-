@@ -25,6 +25,7 @@ import { Input } from '@/components/ui/input'
 import { useRole, type RolePermissions } from '@/contexts/role-context'
 import { ThemeToggle } from '@/components/layout/theme-toggle'
 import { createClient } from '@/lib/supabase/client'
+import { DulraLogo } from '@/components/ui/dulra-logo'
 
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, permission: null },
@@ -108,7 +109,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <header className="border-border bg-card flex h-14 items-center justify-between border-b px-4">
             <div className="flex items-center gap-3">
               <Link href="/dashboard" className="flex items-center">
-                <img src="/dulra-logo.jpg" alt="Dulra" className="h-6" />
+                <img src="/dulra-logo.jpg" alt="Dulra" className="h-6 dark:invert" />
               </Link>
             </div>
 
@@ -154,7 +155,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Logo */}
         <div className="border-border flex h-16 items-center justify-between border-b px-6">
           <Link href="/dashboard" className="flex items-center">
-            <img src="/dulra-logo.jpg" alt="Dulra" className="h-7" />
+            <img src="/dulra-logo.jpg" alt="Dulra" className="h-7 dark:invert" />
           </Link>
           <button
             onClick={() => setSidebarOpen(false)}

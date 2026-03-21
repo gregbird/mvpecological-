@@ -13,6 +13,8 @@ import {
   ChevronDown,
   ExternalLink,
   FileText,
+  Droplets,
+  Layers,
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -24,8 +26,10 @@ import { Card } from '@/components/ui/card'
 import {
   useProjectDeepResearch,
   useSaveDeepResearch,
+  useProjectAquaticResearch,
   type DeepResearchResult,
 } from '@/hooks/queries/use-deep-research-hooks'
+import type { AquaticResearchResult } from '@/lib/supabase/queries/aquatic-research'
 import type { DeskResearchFinding as MapFinding } from '@/components/desk-research/finding-card'
 import { getNPWSSiteData } from '@/lib/data/npws-site-lookup'
 import { getArticle17Data, getHabitatsSummary } from '@/lib/data/article17-habitats'
@@ -427,10 +431,210 @@ function SiteCard({ site }: { site: DeepResearchResult }) {
   )
 }
 
+function AquaticCard({ result }: { result: AquaticResearchResult }) {
+  const [expanded, setExpanded] = React.useState(false)
+
+  const statusColor: Record<string, string> = {
+    Good: 'text-green-600',
+    Moderate: 'text-amber-600',
+    Poor: 'text-orange-600',
+    Bad: 'text-red-600',
+    High: 'text-green-600',
+  }
+
+  return (
+    <Card className="overflow-hidden">
+      <button
+        type="button"
+        className="flex w-full items-start gap-3 p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-100">
+          <Droplets className="h-3.5 w-3.5 text-cyan-600" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="text-foreground truncate text-sm font-semibold">
+              {result.water_body_name}
+            </p>
+            <Badge variant="outline" className="text-[10px]">
+              {result.water_body_type}
+            </Badge>
+          </div>
+          <p className="text-xs text-gray-500">
+            {result.water_body_code}
+            {result.current_status && (
+              <span className={cn('ml-1.5 font-medium', statusColor[result.current_status] || '')}>
+                · {result.current_status}
+              </span>
+            )}
+            {result.catchment_name && ` · ${result.catchment_name}`}
+          </p>
+        </div>
+        <ChevronDown
+          className={cn(
+            'mt-1 h-4 w-4 shrink-0 text-gray-400 transition-transform',
+            expanded && 'rotate-180'
+          )}
+        />
+      </button>
+
+      {expanded && (
+        <div className="border-t px-3 pb-3">
+          {/* Linked SAC */}
+          {result.linked_sac_name && (
+            <div className="mt-2">
+              <h4 className="mb-1 text-xs font-semibold text-gray-700 dark:text-gray-300">
+                Linked SAC
+              </h4>
+              <p className="text-xs text-gray-600">
+                {result.linked_sac_name} ({result.linked_sac_code})
+              </p>
+            </div>
+          )}
+
+          {/* Failures */}
+          {result.failures.length > 0 && (
+            <div className="mt-2">
+              <h4 className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
+                <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
+                Failures ({result.failures.length})
+              </h4>
+              <div className="flex flex-wrap gap-1">
+                {result.failures.map((f, i) => (
+                  <Badge
+                    key={i}
+                    variant="outline"
+                    className="border-red-200 bg-red-50 text-[10px] text-red-600"
+                  >
+                    {f.Name}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* AI Analysis */}
+          {result.ai_analysis && (
+            <div className="mt-2">
+              <h4 className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
+                <Bug className="h-3.5 w-3.5 text-purple-600" />
+                AI Analysis
+              </h4>
+              <div className="prose prose-xs dark:prose-invert max-w-none rounded-lg bg-gray-50 p-2.5 text-xs dark:bg-gray-800">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.ai_analysis}</ReactMarkdown>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
+  )
+}
+
+function FindingResearchCard({
+  finding,
+  type,
+}: {
+  finding: DbFinding
+  type: 'species' | 'habitat'
+}) {
+  const [expanded, setExpanded] = React.useState(false)
+  const raw = finding.raw_data as Record<string, unknown>
+  const deepResearch = raw.deepResearch as Record<string, unknown>
+  const aiAnalysis = deepResearch.aiAnalysis as string
+
+  const Icon = type === 'species' ? Bug : Layers
+  const iconColor = type === 'species' ? 'text-amber-600' : 'text-green-600'
+  const bgColor = type === 'species' ? 'bg-amber-100' : 'bg-green-100'
+
+  // Extract extra info
+  const fossittCode = type === 'habitat' ? (raw.fossittCode as string) : null
+  const areaHa = type === 'habitat' ? (raw.areaHectares as number) : null
+
+  return (
+    <Card className="overflow-hidden">
+      <button
+        type="button"
+        className="flex w-full items-start gap-3 p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div
+          className={cn(
+            'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full',
+            bgColor
+          )}
+        >
+          <Icon className={cn('h-3.5 w-3.5', iconColor)} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-foreground truncate text-sm font-semibold">{finding.title}</p>
+          <p className="text-xs text-gray-500">
+            {fossittCode && <span className="mr-1.5 font-mono font-medium">{fossittCode}</span>}
+            {areaHa != null && `${areaHa} ha`}
+            {!expanded && aiAnalysis && (
+              <span className="text-muted-foreground">
+                {' '}
+                · {aiAnalysis.slice(0, 80)}
+                {aiAnalysis.length > 80 ? '…' : ''}
+              </span>
+            )}
+          </p>
+        </div>
+        <ChevronDown
+          className={cn(
+            'mt-1 h-4 w-4 shrink-0 text-gray-400 transition-transform',
+            expanded && 'rotate-180'
+          )}
+        />
+      </button>
+
+      {expanded && aiAnalysis && (
+        <div className="border-t px-3 pb-3">
+          <div className="prose prose-xs dark:prose-invert mt-2 max-w-none rounded-lg bg-gray-50 p-2.5 text-xs dark:bg-gray-800">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{aiAnalysis}</ReactMarkdown>
+          </div>
+        </div>
+      )}
+    </Card>
+  )
+}
+
 export function DeepResearchTab({ projectId, project, findings }: DeepResearchTabProps) {
   const { data: researchResults = [], isLoading } = useProjectDeepResearch(projectId)
+  const { data: aquaticResults = [], isLoading: aquaticLoading } =
+    useProjectAquaticResearch(projectId)
   const saveResearch = useSaveDeepResearch()
   const { toast } = useToast()
+
+  // Species findings with deep research
+  const speciesWithResearch = React.useMemo(
+    () =>
+      findings.filter((f) => {
+        if (f.data_type !== 'species_record') return false
+        const raw = f.raw_data as Record<string, unknown> | null
+        return !!(raw?.deepResearch as Record<string, unknown> | undefined)?.aiAnalysis
+      }),
+    [findings]
+  )
+
+  // Habitat findings with deep research
+  const habitatsWithResearch = React.useMemo(
+    () =>
+      findings.filter((f) => {
+        if (f.data_type !== 'habitat') return false
+        const raw = f.raw_data as Record<string, unknown> | null
+        return !!(raw?.deepResearch as Record<string, unknown> | undefined)?.aiAnalysis
+      }),
+    [findings]
+  )
+
+  // Total researched count across all types
+  const totalResearched =
+    researchResults.length +
+    aquaticResults.length +
+    speciesWithResearch.length +
+    habitatsWithResearch.length
   const [batchProgress, setBatchProgress] = React.useState<{
     running: boolean
     current: number
@@ -581,7 +785,7 @@ export function DeepResearchTab({ projectId, project, findings }: DeepResearchTa
     })
   }, [unresearchedSites, projectId, saveResearch, toast])
 
-  if (isLoading) {
+  if (isLoading || aquaticLoading) {
     return (
       <div className="flex h-full items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
@@ -589,7 +793,7 @@ export function DeepResearchTab({ projectId, project, findings }: DeepResearchTa
     )
   }
 
-  if (researchResults.length === 0) {
+  if (totalResearched === 0) {
     return (
       <div className="flex h-full">
         {/* Map side */}
@@ -662,10 +866,10 @@ export function DeepResearchTab({ projectId, project, findings }: DeepResearchTa
           <div>
             <h3 className="text-sm font-semibold">Deep Research</h3>
             <p className="text-muted-foreground text-xs">
-              {researchResults.length} site{researchResults.length !== 1 ? 's' : ''} researched
+              {totalResearched} item{totalResearched !== 1 ? 's' : ''} researched
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             {unresearchedSites.length > 0 && (
               <Button
                 size="sm"
@@ -689,12 +893,78 @@ export function DeepResearchTab({ projectId, project, findings }: DeepResearchTa
                 {byType[type].length} {type}
               </Badge>
             ))}
+            {aquaticResults.length > 0 && (
+              <Badge variant="outline" className="text-[10px]">
+                {aquaticResults.length} Aquatic
+              </Badge>
+            )}
+            {speciesWithResearch.length > 0 && (
+              <Badge variant="outline" className="text-[10px]">
+                {speciesWithResearch.length} Species
+              </Badge>
+            )}
+            {habitatsWithResearch.length > 0 && (
+              <Badge variant="outline" className="text-[10px]">
+                {habitatsWithResearch.length} Habitat
+              </Badge>
+            )}
           </div>
         </div>
 
         <div className="flex-1 space-y-2 overflow-y-auto p-3">
+          {/* Designated Sites */}
           {sortedTypes.map((type) =>
             byType[type].map((site) => <SiteCard key={site.id} site={site} />)
+          )}
+
+          {/* Aquatic Research */}
+          {aquaticResults.length > 0 && (
+            <>
+              {researchResults.length > 0 && (
+                <div className="flex items-center gap-2 pt-2">
+                  <Droplets className="h-3.5 w-3.5 text-cyan-600" />
+                  <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                    Aquatic Features ({aquaticResults.length})
+                  </span>
+                  <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+                </div>
+              )}
+              {aquaticResults.map((ar) => (
+                <AquaticCard key={ar.id} result={ar} />
+              ))}
+            </>
+          )}
+
+          {/* Species Deep Research */}
+          {speciesWithResearch.length > 0 && (
+            <>
+              <div className="flex items-center gap-2 pt-2">
+                <Bug className="h-3.5 w-3.5 text-amber-600" />
+                <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                  Species ({speciesWithResearch.length})
+                </span>
+                <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+              </div>
+              {speciesWithResearch.map((f) => (
+                <FindingResearchCard key={f.id} finding={f} type="species" />
+              ))}
+            </>
+          )}
+
+          {/* Habitat Deep Research */}
+          {habitatsWithResearch.length > 0 && (
+            <>
+              <div className="flex items-center gap-2 pt-2">
+                <Layers className="h-3.5 w-3.5 text-green-600" />
+                <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                  Habitats ({habitatsWithResearch.length})
+                </span>
+                <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+              </div>
+              {habitatsWithResearch.map((f) => (
+                <FindingResearchCard key={f.id} finding={f} type="habitat" />
+              ))}
+            </>
           )}
         </div>
       </div>

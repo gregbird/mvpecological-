@@ -164,8 +164,8 @@ export function HabitatInventorySection({ findings, onHabitatData }: HabitatInve
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {habitats.map((h) => (
-                  <TableRow key={h.fossittCode}>
+                {habitats.map((h, idx) => (
+                  <TableRow key={`${h.fossittCode}-${idx}`}>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <span

@@ -217,7 +217,7 @@ export function SurveyCard({
         )}
 
         {/* Action buttons */}
-        <div className="flex w-full items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-1.5">
           {onAssignStaff && (
             <Button
               variant="outline"

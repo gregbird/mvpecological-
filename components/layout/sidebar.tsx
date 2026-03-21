@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { useRole, type RolePermissions } from '@/contexts/role-context'
+import { DulraLogo } from '@/components/ui/dulra-logo'
 import { createClient } from '@/lib/supabase/client'
 
 // Admin-only menu items
@@ -164,7 +165,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className="border-border flex h-16 items-center gap-2 border-b px-5">
         <Link href="/dashboard" className="flex items-center">
-          <img src="/dulra-logo.jpg" alt="Dulra" className="h-7" />
+          <img src="/dulra-logo.jpg" alt="Dulra" className="h-7 dark:invert" />
         </Link>
       </div>
 

@@ -139,13 +139,15 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       const maxE = Math.floor(neIng.easting / stepSize) * stepSize
       const maxN = Math.floor(neIng.northing / stepSize) * stepSize
 
-      // Collect ALL grid squares that intersect the buffer bbox — no artificial limit
+      // Collect ALL grid squares that intersect the buffer bbox
       const selected: { ref: string; e: number; n: number }[] = []
+      const seenRefs = new Set<string>()
       for (let e = minE; e <= maxE; e += stepSize) {
         for (let n = minN; n <= maxN; n += stepSize) {
           try {
             const ref = itmToGridRef(e, n, precision, true)
-            if (!selected.some((s) => s.ref === ref)) {
+            if (!seenRefs.has(ref)) {
+              seenRefs.add(ref)
               selected.push({ ref, e, n })
             }
           } catch {
@@ -396,11 +398,13 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
             const maxN = Math.floor(neIng.northing / stepSize) * stepSize
 
             // Collect ALL grid squares that intersect the buffer bbox
+            const seenSearchRefs = new Set<string>()
             for (let e = minE; e <= maxE; e += stepSize) {
               for (let n = minN; n <= maxN; n += stepSize) {
                 try {
                   const ref = itmToGridRef(e, n, precision, true)
-                  if (!gridRefsToSearch.includes(ref)) {
+                  if (!seenSearchRefs.has(ref)) {
+                    seenSearchRefs.add(ref)
                     gridRefsToSearch.push(ref)
                   }
                 } catch {
@@ -458,6 +462,11 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
             const entry = speciesMap.get(key)!
             entry.totalCount += s.recordCount
             entry.gridSquares.add(s.gridSquare)
+
+            // Merge designation — take the first non-null designation found
+            if (s.designation && !entry.species.designation) {
+              entry.species = { ...entry.species, designation: s.designation }
+            }
 
             // Track newest date
             if (s.dateOfLastRecord) {
