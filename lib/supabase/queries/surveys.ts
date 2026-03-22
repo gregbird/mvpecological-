@@ -138,6 +138,28 @@ export async function getSurveyStats(projectId: string): Promise<{
   }
 }
 
+// Get all visits in a survey group, ordered by visit_number
+export async function getSurveyGroup(visitGroupId: string): Promise<SurveyWithSurveyor[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('surveys')
+    .select(
+      `
+      *,
+      surveyor:profiles!surveys_surveyor_id_fkey(id, full_name, email)
+    `
+    )
+    .eq('visit_group_id', visitGroupId)
+    .order('visit_number', { ascending: true })
+
+  if (error) {
+    console.error('Error fetching survey group:', error)
+    return []
+  }
+
+  return (data ?? []) as unknown as SurveyWithSurveyor[]
+}
+
 // Weather data type
 export interface WeatherData {
   temperature?: number

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   getProjectSurveys,
   getSurvey,
+  getSurveyGroup,
   createSurvey,
   updateSurvey,
   deleteSurvey,
@@ -35,6 +36,14 @@ export function useSurveyStats(projectId: string) {
   })
 }
 
+export function useSurveyGroup(visitGroupId: string | null) {
+  return useQuery({
+    queryKey: ['survey-group', visitGroupId],
+    queryFn: () => getSurveyGroup(visitGroupId!),
+    enabled: !!visitGroupId,
+  })
+}
+
 export function useCreateSurvey() {
   const queryClient = useQueryClient()
 
@@ -44,6 +53,7 @@ export function useCreateSurvey() {
       if (data) {
         queryClient.invalidateQueries({ queryKey: ['surveys'] })
         queryClient.invalidateQueries({ queryKey: ['survey-stats'] })
+        queryClient.invalidateQueries({ queryKey: ['survey-group'] })
       }
     },
   })
@@ -60,6 +70,7 @@ export function useUpdateSurvey() {
         queryClient.invalidateQueries({ queryKey: ['survey', variables.surveyId] })
         queryClient.invalidateQueries({ queryKey: ['surveys'] })
         queryClient.invalidateQueries({ queryKey: ['survey-stats'] })
+        queryClient.invalidateQueries({ queryKey: ['survey-group'] })
       }
     },
   })
@@ -73,6 +84,7 @@ export function useDeleteSurvey() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['surveys'] })
       queryClient.invalidateQueries({ queryKey: ['survey-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['survey-group'] })
     },
   })
 }

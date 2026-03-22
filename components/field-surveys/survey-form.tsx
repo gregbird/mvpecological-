@@ -81,6 +81,12 @@ interface SurveyFormProps {
   initialData?: Partial<Survey>
   projectId: string
   organizationId?: string
+  /** When adding a visit to an existing group */
+  addVisitMode?: {
+    visitGroupId: string
+    surveyType: SurveyType
+    visitNumber: number
+  }
 }
 
 const SURVEY_TYPES: { value: SurveyType; label: string }[] = [
@@ -103,6 +109,7 @@ export function SurveyForm({
   initialData,
   projectId,
   organizationId,
+  addVisitMode,
 }: SurveyFormProps) {
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [teamMembers, setTeamMembers] = React.useState<Profile[]>([])
@@ -141,7 +148,7 @@ export function SurveyForm({
   const form = useForm<SurveyFormValues>({
     resolver: zodResolver(surveyFormSchema),
     defaultValues: {
-      surveyType: initialData?.surveyType || 'walkover',
+      surveyType: addVisitMode?.surveyType || initialData?.surveyType || 'walkover',
       surveyDate: initialData?.surveyDate ? new Date(initialData.surveyDate) : new Date(),
       surveyorId: initialData?.surveyor?.id || '',
       expectedSurveyCount:
@@ -158,7 +165,7 @@ export function SurveyForm({
   React.useEffect(() => {
     if (open) {
       form.reset({
-        surveyType: initialData?.surveyType || 'walkover',
+        surveyType: addVisitMode?.surveyType || initialData?.surveyType || 'walkover',
         surveyDate: initialData?.surveyDate ? new Date(initialData.surveyDate) : new Date(),
         surveyorId: initialData?.surveyor?.id || '',
         expectedSurveyCount:
@@ -170,7 +177,7 @@ export function SurveyForm({
         notes: initialData?.notes || '',
       })
     }
-  }, [open, initialData, form])
+  }, [open, initialData, form, addVisitMode])
 
   const selectedSurveyType = form.watch('surveyType')
   const orgId = organizationId ?? user?.organization_id
@@ -301,6 +308,8 @@ export function SurveyForm({
         weather: weatherData,
         notes: values.notes || undefined,
         status: initialData?.status || 'planned',
+        visitGroupId: addVisitMode?.visitGroupId,
+        visitNumber: addVisitMode?.visitNumber,
       })
 
       onOpenChange(false)
@@ -317,11 +326,19 @@ export function SurveyForm({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{initialData?.id ? 'Edit Survey' : 'Plan New Survey'}</DialogTitle>
+          <DialogTitle>
+            {addVisitMode
+              ? `Add Visit ${addVisitMode.visitNumber}`
+              : initialData?.id
+                ? 'Edit Survey'
+                : 'Plan New Survey'}
+          </DialogTitle>
           <DialogDescription>
-            {initialData?.id
-              ? 'Update the survey details below.'
-              : 'Enter the details for the new field survey.'}
+            {addVisitMode
+              ? `Adding a new visit to this ${SURVEY_TYPES.find((t) => t.value === addVisitMode.surveyType)?.label ?? 'survey'} group.`
+              : initialData?.id
+                ? 'Update the survey details below.'
+                : 'Enter the details for the new field survey.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -335,7 +352,11 @@ export function SurveyForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Survey Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                      disabled={!!addVisitMode}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select type" />
@@ -349,6 +370,11 @@ export function SurveyForm({
                         ))}
                       </SelectContent>
                     </Select>
+                    {addVisitMode && (
+                      <FormDescription>
+                        Survey type is inherited from the visit group.
+                      </FormDescription>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -429,19 +455,29 @@ export function SurveyForm({
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="expectedSurveyCount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Number of Surveys Expected</FormLabel>
-                    <FormControl>
-                      <Input type="number" min="1" placeholder="e.g., 3" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {addVisitMode ? (
+                <FormItem>
+                  <FormLabel>Visit Number</FormLabel>
+                  <FormControl>
+                    <Input type="number" value={addVisitMode.visitNumber} disabled />
+                  </FormControl>
+                  <FormDescription>Auto-assigned based on existing visits.</FormDescription>
+                </FormItem>
+              ) : (
+                <FormField
+                  control={form.control}
+                  name="expectedSurveyCount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Number of Surveys Expected</FormLabel>
+                      <FormControl>
+                        <Input type="number" min="1" placeholder="e.g., 3" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
 
             {/* Notes */}

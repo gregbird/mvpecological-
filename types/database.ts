@@ -1683,6 +1683,8 @@ export type Database = {
           surveyor_id: string
           sync_status: Database['public']['Enums']['sync_status']
           updated_at: string
+          visit_group_id: string | null
+          visit_number: number | null
           weather: Json | null
         }
         Insert: {
@@ -1699,6 +1701,8 @@ export type Database = {
           surveyor_id: string
           sync_status?: Database['public']['Enums']['sync_status']
           updated_at?: string
+          visit_group_id?: string | null
+          visit_number?: number | null
           weather?: Json | null
         }
         Update: {
@@ -1715,6 +1719,8 @@ export type Database = {
           surveyor_id?: string
           sync_status?: Database['public']['Enums']['sync_status']
           updated_at?: string
+          visit_group_id?: string | null
+          visit_number?: number | null
           weather?: Json | null
         }
         Relationships: [

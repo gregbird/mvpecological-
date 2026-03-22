@@ -146,6 +146,8 @@ export interface SubstepShellConfig {
 
   // Grid overlay for map (searched grid squares)
   gridOverlay?: GeoJSON.FeatureCollection
+  /** Compute grid overlay based on selected buffer — takes priority over static gridOverlay */
+  computeGridOverlay?: (bufferKm: number) => GeoJSON.FeatureCollection | undefined
 
   // Map findings customization
   mapFindingsMapper?: (finding: FindingDisplay, savedFindings: DeskResearchFinding[]) => MapFinding
@@ -194,8 +196,8 @@ export function DataGatheringSubstepShell({
 
   // View mode tracking
   const [listViewMode, setListViewMode] = React.useState<'cards' | 'table'>('table')
-  // Grid overlay toggle (default off)
-  const [showGridOverlay, setShowGridOverlay] = React.useState(false)
+  // Grid overlay toggle (default on when grid overlay is available)
+  const [showGridOverlay, setShowGridOverlay] = React.useState(true)
 
   // Site type filter for map sync
   const [activeSiteTypeFilter, setActiveSiteTypeFilter] = React.useState<string | null>(null)
@@ -693,8 +695,12 @@ export function DataGatheringSubstepShell({
             center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
             zoom={11}
             boundary={projectBoundary}
-            bufferDistances={bufferDistances}
-            gridOverlay={showGridOverlay ? config.gridOverlay : undefined}
+            bufferDistances={[selectedBuffer]}
+            gridOverlay={
+              showGridOverlay
+                ? (config.computeGridOverlay?.(selectedBuffer) ?? config.gridOverlay)
+                : undefined
+            }
             findings={(config.filterConfig || config.showDistanceFilter
               ? filteredResults
               : searchResults
@@ -710,7 +716,7 @@ export function DataGatheringSubstepShell({
             onMapClick={() => setSelectedFinding(null)}
           />
 
-          {config.gridOverlay && (
+          {(config.gridOverlay || config.computeGridOverlay) && (
             <div className="absolute top-4 right-4 z-1000" data-map-control="true">
               <Button
                 variant="secondary"

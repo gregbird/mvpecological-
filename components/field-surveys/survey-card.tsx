@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   ShieldCheck,
   Users,
+  Plus,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -63,6 +64,9 @@ export interface Survey {
   }
   observationCount?: number
   habitatCount?: number
+  visitGroupId?: string | null
+  visitNumber?: number | null
+  totalVisitsInGroup?: number
 }
 
 interface SurveyCardProps {
@@ -74,7 +78,10 @@ interface SurveyCardProps {
   onComplete?: (survey: Survey) => void
   onApprove?: (survey: Survey) => void
   onAssignStaff?: (survey: Survey) => void
+  onAddVisit?: (survey: Survey) => void
   isHighlighted?: boolean
+  /** When true, the approve button is disabled (not all group visits completed) */
+  groupApproveDisabled?: boolean
 }
 
 const STATUS_STYLES: Record<
@@ -96,7 +103,9 @@ export function SurveyCard({
   onComplete,
   onApprove,
   onAssignStaff,
+  onAddVisit,
   isHighlighted,
+  groupApproveDisabled,
 }: SurveyCardProps) {
   const statusStyle = STATUS_STYLES[survey.status]
   const surveyTypeLabel = FIELD_SURVEY_TYPE_LABELS[survey.surveyType]
@@ -124,6 +133,11 @@ export function SurveyCard({
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant={statusStyle.variant}>{statusStyle.label}</Badge>
               <span className="text-sm font-medium">{surveyTypeLabel}</span>
+              {survey.visitNumber != null && survey.totalVisitsInGroup != null && (
+                <Badge variant="outline" className="text-xs">
+                  Visit {survey.visitNumber}/{survey.totalVisitsInGroup}
+                </Badge>
+              )}
             </div>
             <div className="text-muted-foreground mt-2 flex items-center gap-4 text-sm">
               <div className="flex items-center gap-1">
@@ -210,9 +224,26 @@ export function SurveyCard({
             size="sm"
             className="w-full bg-purple-600 hover:bg-purple-700"
             onClick={() => onApprove(survey)}
+            disabled={groupApproveDisabled}
+            title={
+              groupApproveDisabled ? 'All visits must be completed before approving' : undefined
+            }
           >
             <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
             Approve
+          </Button>
+        )}
+
+        {/* Add Visit button for grouped surveys */}
+        {onAddVisit && survey.status !== 'approved' && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950"
+            onClick={() => onAddVisit(survey)}
+          >
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Add Visit
           </Button>
         )}
 
