@@ -369,6 +369,7 @@ export function AquaticEnvironmentSection({
                 <BaselineMap
                   habitatPolygons={aquaticFeatureCollection}
                   boundary={boundary}
+                  bufferDistances={[2, 5]}
                   showControls={false}
                 />
               </div>

@@ -131,10 +131,10 @@ Placeholder'lar: `{{project_name}}`, `{{location_description}}`, `{{site_code}}`
 ### AI Bölüm Üretimi
 
 **Dosya:** `app/api/ai/report-section/route.ts`
-
+d
 - GPT-4o kullanır (yüksek kalite)
-- Her bölüm için özel CIEEM prompt'ları (introduction, methodology, results, constraints, discussion, appendices)
-- Tüm proje verilerini context olarak gönderir (findings, habitats, observations, surveys, target notes, deep research, aquatic research, desk insights)
+- Her bölüm için özel CIEEM prompt'ları (introduction, methodology, resualts, constraints, discussion, appendices)
+- Tüm proje verilerini context olarak gönderir (findings, habitat s, observations, surveys, target notes, deep research, aquatic research, desk insights)
 - Ekolojist opinion'ı varsa prompt'a dahil eder
 - Results bölümü için 4000 token, diğerleri 2000 token
 

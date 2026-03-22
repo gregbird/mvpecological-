@@ -300,7 +300,39 @@ export function DesignatedSitesMatrix({
   onRemoveFinding,
 }: DesignatedSitesMatrixProps) {
   const sites = React.useMemo(() => parseSiteRows(findings, deepResearch), [findings, deepResearch])
-  const mapFindings = React.useMemo(() => toMapFindings(findings, 'designated_site'), [findings])
+  const mapFindings = React.useMemo(() => {
+    // First try normal toMapFindings (uses f.location)
+    const withLocation = toMapFindings(findings, 'designated_site')
+    if (withLocation.length > 0) return withLocation
+
+    // Fallback: extract geometry from raw_data for older findings
+    return findings
+      .filter((f) => f.data_type === 'designated_site')
+      .filter((f) => {
+        const raw = f.raw_data as Record<string, unknown> | null
+        return raw?.geometry != null || (raw?.ssco as Record<string, unknown>)?.geometry != null
+      })
+      .map((f) => {
+        const raw = f.raw_data as Record<string, unknown> | null
+        const geometry =
+          (raw?.geometry as GeoJSON.Geometry) ??
+          ((raw?.ssco as Record<string, unknown>)?.geometry as GeoJSON.Geometry)
+        const metadata = raw?.metadata as Record<string, unknown> | null
+        return {
+          id: f.id,
+          source: f.source as 'npws',
+          dataType: 'designated_site' as const,
+          title: f.title,
+          location: geometry,
+          isSaved: true,
+          metadata: {
+            siteCode: metadata?.siteCode as string | undefined,
+            siteType: metadata?.siteType as string | undefined,
+            distance: f.distance_from_boundary_km ?? undefined,
+          },
+        }
+      })
+  }, [findings])
   const hasLocationData = mapFindings.length > 0
 
   const statutory = sites.filter((s) => s.isStatutory)
@@ -330,6 +362,7 @@ export function DesignatedSitesMatrix({
           <BaselineMap
             findings={hasLocationData ? mapFindings : undefined}
             boundary={boundary}
+            bufferDistances={[2, 5, 15]}
             showControls={false}
           />
         </div>

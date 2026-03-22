@@ -15,6 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { getFindingSourceUrl } from '@/lib/utils/finding-source-url'
+import { gridRefToItm, itmToWgs84 } from '@/lib/utils/grid-reference'
 import { toMapFindings, BaselineMap } from './baseline-map-utils'
 import type { DeskResearchFinding } from '@/types/database'
 
@@ -131,6 +132,60 @@ const RED_LIST_COLORS: Record<string, string> = {
   'Least Concern': 'bg-green-100 text-green-800 border-green-200',
 }
 
+/** Build grid square polygons from species findings metadata */
+function buildGridSquarePolygons(
+  findings: DeskResearchFinding[]
+): GeoJSON.FeatureCollection | null {
+  const gridRefs = new Set<string>()
+  for (const f of findings) {
+    if (f.data_type !== 'species_record') continue
+    const raw = f.raw_data as Record<string, unknown> | null
+    const squares = raw?.gridSquares as string[] | undefined
+    if (squares) {
+      for (const sq of squares) gridRefs.add(sq.replace(/\s+/g, '').toUpperCase())
+    }
+    const metadata = raw?.metadata as Record<string, unknown> | null
+    const singleRef = metadata?.gridReference as string | undefined
+    if (singleRef) gridRefs.add(singleRef.replace(/\s+/g, '').toUpperCase())
+  }
+  if (gridRefs.size === 0) return null
+
+  const features: GeoJSON.Feature[] = []
+  for (const ref of gridRefs) {
+    try {
+      const itm = gridRefToItm(ref)
+      // Determine resolution from ref length: letter + 2 digits = 10km, +4 = 1km, etc.
+      const digits = ref.length - 1
+      const resolution = digits <= 2 ? 10000 : digits <= 4 ? 1000 : 100
+      const sw = itmToWgs84(itm.easting, itm.northing)
+      const ne = itmToWgs84(itm.easting + resolution, itm.northing + resolution)
+      features.push({
+        type: 'Feature',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [
+            [
+              [sw.lng, sw.lat],
+              [ne.lng, sw.lat],
+              [ne.lng, ne.lat],
+              [sw.lng, ne.lat],
+              [sw.lng, sw.lat],
+            ],
+          ],
+        },
+        properties: {
+          fossitt_name: `Grid: ${ref}`,
+          fossitt_code: ref,
+          color: '#8b5cf6',
+        },
+      })
+    } catch {
+      // skip invalid grid refs
+    }
+  }
+  return features.length > 0 ? { type: 'FeatureCollection', features } : null
+}
+
 export function SpeciesRecordsSection({
   findings,
   boundary,
@@ -138,7 +193,9 @@ export function SpeciesRecordsSection({
 }: SpeciesRecordsSectionProps) {
   const species = React.useMemo(() => parseSpeciesRows(findings), [findings])
   const mapFindings = React.useMemo(() => toMapFindings(findings, 'species_record'), [findings])
+  const gridPolygons = React.useMemo(() => buildGridSquarePolygons(findings), [findings])
   const hasLocationData = mapFindings.length > 0
+  const hasGridData = gridPolygons != null
 
   if (species.length === 0) {
     return (
@@ -271,13 +328,15 @@ export function SpeciesRecordsSection({
         </Card>
 
         {/* Map beside table */}
-        {(hasLocationData || !!boundary) && (
+        {(hasLocationData || hasGridData || !!boundary) && (
           <Card className="flex max-h-[420px] flex-col overflow-hidden [&_.leaflet-control-attribution]:hidden">
             <CardContent className="flex min-h-0 flex-1 p-0">
               <div className="h-full min-h-[250px] w-full">
                 <BaselineMap
                   findings={hasLocationData ? mapFindings : undefined}
+                  gridOverlay={gridPolygons ?? undefined}
                   boundary={boundary}
+                  bufferDistances={[2, 5, 15]}
                   showControls={false}
                 />
               </div>

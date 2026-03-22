@@ -225,6 +225,7 @@ export function HabitatInventorySection({
                 <BaselineMap
                   habitatPolygons={habitatPolygons ?? undefined}
                   boundary={boundary}
+                  bufferDistances={[2, 5]}
                   showControls={false}
                 />
               </div>

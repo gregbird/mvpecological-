@@ -448,6 +448,21 @@ export function HabitatDataSubStep({
       return raw?.nlcId === nlcId && raw?.habitatFinding === true
     })
 
+  /** Extract merged geometry for a habitat from the polygon collection */
+  const getHabitatGeometry = (nlcId: string): GeoJSON.Geometry | null => {
+    if (!habitatPolygons) return null
+    const matching = habitatPolygons.features.filter((f) => {
+      const p = f.properties
+      return p?.nlc_id && String(p.nlc_id).trim() === nlcId
+    })
+    if (matching.length === 0) return null
+    if (matching.length === 1) return matching[0].geometry
+    return {
+      type: 'GeometryCollection',
+      geometries: matching.map((f) => f.geometry),
+    }
+  }
+
   // Save a habitat finding to DB
   const handleSave = async (r: HabitatResult) => {
     setSavingIds((prev) => new Set(prev).add(r.nlcId))
@@ -458,6 +473,7 @@ export function HabitatDataSubStep({
         toast({ title: 'Removed', description: `${r.fossittCode} removed from findings.` })
       } else {
         const pct = totalArea > 0 ? ((r.areaHectares / totalArea) * 100).toFixed(1) : '0'
+        const geometry = getHabitatGeometry(r.nlcId)
         await createFinding.mutateAsync({
           project_id: project.id,
           created_by: userId,
@@ -468,6 +484,7 @@ export function HabitatDataSubStep({
           content: aiSummaries[r.nlcId] || `${r.fossittName} (${r.areaHectares} ha, ${pct}% cover)`,
           is_saved: true,
           notes: notes[r.nlcId] || null,
+          location: geometry as unknown as Json,
           raw_data: {
             habitatFinding: true,
             nlcId: r.nlcId,
@@ -510,6 +527,7 @@ export function HabitatDataSubStep({
     try {
       for (const r of unsavedResults) {
         const pct = totalArea > 0 ? ((r.areaHectares / totalArea) * 100).toFixed(1) : '0'
+        const geometry = getHabitatGeometry(r.nlcId)
         await createFinding.mutateAsync({
           project_id: project.id,
           created_by: userId,
@@ -520,6 +538,7 @@ export function HabitatDataSubStep({
           content: aiSummaries[r.nlcId] || `${r.fossittName} (${r.areaHectares} ha, ${pct}% cover)`,
           is_saved: true,
           notes: notes[r.nlcId] || null,
+          location: geometry as unknown as Json,
           raw_data: {
             habitatFinding: true,
             nlcId: r.nlcId,

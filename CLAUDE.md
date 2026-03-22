@@ -35,6 +35,20 @@ npm run type-check       # TypeScript type checking
 - **Run `npm run lint` after every change** — zero warnings is the target
 - **Run `npm run build` before marking a feature complete**
 
+### Dark Mode (Tailwind v4)
+
+- **`@custom-variant dark` in `globals.css`** — without this, `dark:` prefix binds to `@media (prefers-color-scheme)` instead of `.dark` class
+- **Structural backgrounds: use CSS variables** — `bg-background`, `bg-card`, `text-foreground`, `border-border` (auto-adapts)
+- **Specific colors: add `dark:` variant** — e.g. `bg-emerald-50 dark:bg-emerald-950`
+- **Never use `bg-white`** — use `bg-background` or `bg-card` instead
+- **Markdown content: always add `dark:prose-invert`** alongside `prose`
+
+### AI Analysis Data Flow
+
+- **Step 3 Ecological Summary** → `api/ai/desk-insights` — takes all saved findings (designated_site, species_record, water_quality, catchment, habitat, company_report) + deep research + aquatic research
+- **Summary persists** to workflow step metadata as `aiInsights`
+- **Step 8 AI Draft** → `api/ai/report-section` uses `deskInsights` from metadata as context for report generation
+
 ### Component Patterns
 
 - **Forms: always use React Hook Form + Zod** — `useForm({ resolver: zodResolver(schema) })` with shadcn `<Form>/<FormField>/<FormMessage>`
