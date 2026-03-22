@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { ChevronDown, ChevronUp, MapPin, Shield, FileWarning, ExternalLink, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, MapPin, Shield, ExternalLink, X } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -335,9 +335,6 @@ export function DesignatedSitesMatrix({
   }, [findings])
   const hasLocationData = mapFindings.length > 0
 
-  const statutory = sites.filter((s) => s.isStatutory)
-  const nonStatutory = sites.filter((s) => !s.isStatutory)
-
   if (sites.length === 0) {
     return (
       <Card>
@@ -380,31 +377,16 @@ export function DesignatedSitesMatrix({
         <ZoneOfInfluenceCards sites={sites} />
       </div>
 
-      {/* Statutory Sites — table + map side by side */}
-      {statutory.length > 0 && (
-        <div className="grid auto-rows-fr grid-cols-1 gap-4 xl:grid-cols-2">
-          <SitesTable
-            sites={statutory}
-            title="Statutory Designated Sites"
-            icon={<Shield className="h-5 w-5 text-emerald-600" />}
-            onRemoveFinding={onRemoveFinding}
-          />
-          {mapCard}
-        </div>
-      )}
-
-      {/* Non-Statutory Sites — table + map side by side */}
-      {nonStatutory.length > 0 && (
-        <div className="grid auto-rows-fr grid-cols-1 gap-4 xl:grid-cols-2">
-          <SitesTable
-            sites={nonStatutory}
-            title="Non-Statutory Designated Sites"
-            icon={<FileWarning className="h-5 w-5 text-gray-500" />}
-            onRemoveFinding={onRemoveFinding}
-          />
-          {mapCard}
-        </div>
-      )}
+      {/* Designated Sites — table + map side by side */}
+      <div className="grid auto-rows-fr grid-cols-1 gap-4 xl:grid-cols-2">
+        <SitesTable
+          sites={sites}
+          title="Designated Sites"
+          icon={<Shield className="h-5 w-5 text-emerald-600" />}
+          onRemoveFinding={onRemoveFinding}
+        />
+        {mapCard}
+      </div>
     </div>
   )
 }

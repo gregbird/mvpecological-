@@ -345,6 +345,7 @@ export function BaselineReportTab({ savedFindings, project }: BaselineReportTabP
           findings={savedFindings}
           boundary={boundary}
           onHabitatData={setHabitatRows}
+          onRemoveFinding={handleRemoveFinding}
         />
       </section>
 

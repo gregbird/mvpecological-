@@ -15,7 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { getFindingSourceUrl } from '@/lib/utils/finding-source-url'
-import { gridRefToItm, itmToWgs84 } from '@/lib/utils/grid-reference'
+import { wgs84ToItm, itmToWgs84, itmToGridRef } from '@/lib/utils/grid-reference'
 import { toMapFindings, BaselineMap } from './baseline-map-utils'
 import type { DeskResearchFinding } from '@/types/database'
 
@@ -132,39 +132,52 @@ const RED_LIST_COLORS: Record<string, string> = {
   'Least Concern': 'bg-green-100 text-green-800 border-green-200',
 }
 
-/** Build grid square polygons from species findings metadata */
-function buildGridSquarePolygons(
-  findings: DeskResearchFinding[]
-): GeoJSON.FeatureCollection | null {
-  const gridRefs = new Set<string>()
-  for (const f of findings) {
-    if (f.data_type !== 'species_record') continue
-    const raw = f.raw_data as Record<string, unknown> | null
-    const squares = raw?.gridSquares as string[] | undefined
-    if (squares) {
-      for (const sq of squares) gridRefs.add(sq.replace(/\s+/g, '').toUpperCase())
-    }
-    const metadata = raw?.metadata as Record<string, unknown> | null
-    const singleRef = metadata?.gridReference as string | undefined
-    if (singleRef) gridRefs.add(singleRef.replace(/\s+/g, '').toUpperCase())
-  }
-  if (gridRefs.size === 0) return null
+/** ITM → Irish National Grid (ING) offset */
+function itmToIng(itmEasting: number, itmNorthing: number) {
+  return { easting: itmEasting - 400000, northing: itmNorthing - 500000 }
+}
 
-  const features: GeoJSON.Feature[] = []
-  for (const ref of gridRefs) {
-    try {
-      const ing = gridRefToItm(ref)
-      // Determine resolution from ref length: letter + 2 digits = 10km, +4 = 1km, etc.
-      const digits = ref.length - 1
-      const resolution = digits <= 2 ? 10000 : digits <= 4 ? 1000 : 100
-      // gridRefToItm returns ING coordinates (0-500k), but itmToWgs84 expects ITM (+400k/+500k offset)
-      const sw = itmToWgs84(ing.easting + 400000, ing.northing + 500000)
-      const ne = itmToWgs84(ing.easting + resolution + 400000, ing.northing + resolution + 500000)
-      features.push({
-        type: 'Feature',
-        geometry: {
-          type: 'Polygon',
-          coordinates: [
+/** Build 2km grid overlay from project boundary + buffer (matches data-gathering view) */
+function buildBoundaryGridOverlay(
+  boundary: GeoJSON.Feature<GeoJSON.Polygon> | undefined,
+  bufferKm: number
+): GeoJSON.FeatureCollection | null {
+  if (!boundary) return null
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const turf = require('@turf/turf')
+    const bufferPoly = turf.buffer(boundary, bufferKm, { units: 'kilometers' })
+    const [minLng, minLat, maxLng, maxLat] = turf.bbox(bufferPoly) as [
+      number,
+      number,
+      number,
+      number,
+    ]
+
+    const resolutionMeters = 2000 // 2km grid
+    const swItm = wgs84ToItm(minLat, minLng)
+    const neItm = wgs84ToItm(maxLat, maxLng)
+    const swIng = itmToIng(swItm.easting, swItm.northing)
+    const neIng = itmToIng(neItm.easting, neItm.northing)
+
+    const minE = Math.floor(swIng.easting / resolutionMeters) * resolutionMeters
+    const minN = Math.floor(swIng.northing / resolutionMeters) * resolutionMeters
+    const maxE = Math.floor(neIng.easting / resolutionMeters) * resolutionMeters
+    const maxN = Math.floor(neIng.northing / resolutionMeters) * resolutionMeters
+
+    const features: GeoJSON.Feature[] = []
+    const seenRefs = new Set<string>()
+    for (let e = minE; e <= maxE; e += resolutionMeters) {
+      for (let n = minN; n <= maxN; n += resolutionMeters) {
+        try {
+          const ref = itmToGridRef(e, n, 2, true)
+          if (seenRefs.has(ref)) continue
+          seenRefs.add(ref)
+
+          const sw = itmToWgs84(e + 400000, n + 500000)
+          const ne = itmToWgs84(e + resolutionMeters + 400000, n + resolutionMeters + 500000)
+          const gridPoly = turf.polygon([
             [
               [sw.lng, sw.lat],
               [ne.lng, sw.lat],
@@ -172,20 +185,25 @@ function buildGridSquarePolygons(
               [sw.lng, ne.lat],
               [sw.lng, sw.lat],
             ],
-          ],
-        },
-        properties: {
-          label: ref,
-          fossitt_name: `Grid: ${ref}`,
-          fossitt_code: ref,
-          color: '#8b5cf6',
-        },
-      })
-    } catch {
-      // skip invalid grid refs
+          ])
+
+          if (!turf.booleanIntersects(gridPoly, bufferPoly)) continue
+
+          features.push({
+            type: 'Feature',
+            properties: { label: ref.replace(/\s+/g, '') },
+            geometry: gridPoly.geometry,
+          })
+        } catch {
+          // Outside Irish Grid
+        }
+      }
     }
+
+    return features.length > 0 ? { type: 'FeatureCollection', features } : null
+  } catch {
+    return null
   }
-  return features.length > 0 ? { type: 'FeatureCollection', features } : null
 }
 
 export function SpeciesRecordsSection({
@@ -195,7 +213,7 @@ export function SpeciesRecordsSection({
 }: SpeciesRecordsSectionProps) {
   const species = React.useMemo(() => parseSpeciesRows(findings), [findings])
   const mapFindings = React.useMemo(() => toMapFindings(findings, 'species_record'), [findings])
-  const gridPolygons = React.useMemo(() => buildGridSquarePolygons(findings), [findings])
+  const gridPolygons = React.useMemo(() => buildBoundaryGridOverlay(boundary, 2), [boundary])
   const hasLocationData = mapFindings.length > 0
   const hasGridData = gridPolygons != null
 

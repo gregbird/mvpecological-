@@ -79,7 +79,7 @@ function SearchResultCard({
           </Badge>
         )}
       </div>
-      <p className="text-sm leading-relaxed text-gray-600">
+      <p className="text-muted-foreground text-sm leading-relaxed">
         {highlightMatch(displayText, searchQuery)}
         {isLong && !expanded && '...'}
       </p>
@@ -160,35 +160,37 @@ export function DocumentSearch({ organizationId }: DocumentSearchProps) {
         </div>
 
         {debouncedQuery.length > 0 && debouncedQuery.length < 3 && (
-          <p className="text-sm text-gray-500">Type at least 3 characters to search</p>
+          <p className="text-muted-foreground text-sm">Type at least 3 characters to search</p>
         )}
 
         {!isLoading && debouncedQuery.length >= 3 && results.length === 0 && (
-          <div className="py-8 text-center text-sm text-gray-500">
-            <Search className="mx-auto mb-2 h-8 w-8 text-gray-300" />
+          <div className="text-muted-foreground py-8 text-center text-sm">
+            <Search className="text-muted-foreground/50 mx-auto mb-2 h-8 w-8" />
             No results found for &quot;{debouncedQuery}&quot;
           </div>
         )}
 
         {/* AI Answer */}
         {debouncedQuery.length >= 3 && (aiLoading || aiAnswer) && (
-          <div className="rounded-lg border border-purple-200 bg-purple-50/50 p-4">
+          <div className="rounded-lg border border-purple-200 bg-purple-50/50 p-4 dark:border-purple-800 dark:bg-purple-950/50">
             <div className="mb-1 flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-purple-600" />
-              <span className="text-sm font-medium text-purple-900">AI Answer</span>
+              <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              <span className="text-sm font-medium text-purple-900 dark:text-purple-200">
+                AI Answer
+              </span>
             </div>
             {aiLoading ? (
-              <div className="flex items-center gap-2 text-sm text-purple-600">
+              <div className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400">
                 <Loader2 className="h-3 w-3 animate-spin" />
                 Analyzing documents...
               </div>
             ) : aiAnswer ? (
               <>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap text-gray-700 dark:text-gray-300">
+                <p className="text-foreground text-sm leading-relaxed whitespace-pre-wrap">
                   {aiAnswer.answer}
                 </p>
                 {aiAnswer.sources.length > 0 && (
-                  <p className="mt-2 text-xs text-purple-500">
+                  <p className="mt-2 text-xs text-purple-500 dark:text-purple-400">
                     Sources:{' '}
                     {aiAnswer.sources.map((s) => `${s.fileName} (§${s.section})`).join(', ')}
                   </p>
@@ -200,7 +202,7 @@ export function DocumentSearch({ organizationId }: DocumentSearchProps) {
 
         {results.length > 0 && (
           <div className="space-y-3">
-            <p className="text-sm text-gray-600">
+            <p className="text-muted-foreground text-sm">
               {results.length} result{results.length !== 1 ? 's' : ''} found
             </p>
             {results.map((result) => (

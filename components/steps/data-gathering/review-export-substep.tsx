@@ -37,6 +37,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { TargetNoteForm } from './target-note-form'
+import { useToast } from '@/hooks/use-toast'
 import { useUpdateFinding } from '@/hooks/queries/use-finding-hooks'
 import type { Project, DeskResearchFinding } from '@/types/database'
 import type { TargetNoteWithCreator } from '@/lib/supabase/queries/target-notes'
@@ -139,6 +140,7 @@ export function ReviewExportSubStep({
   const [editingNoteId, setEditingNoteId] = React.useState<string | null>(null)
   const [noteDrafts, setNoteDrafts] = React.useState<Record<string, string>>({})
   const [savingNoteIds, setSavingNoteIds] = React.useState<Set<string>>(new Set())
+  const { toast } = useToast()
   const updateFinding = useUpdateFinding()
 
   // Helper to get AI summary from raw_data (inline summary only)
@@ -175,17 +177,31 @@ export function ReviewExportSubStep({
     return (metadata?.siteType as string) || null
   }
 
-  // Count findings with AI summaries or deep research
-  const aiSummaryCount = savedFindings.filter((f) => getAISummary(f) !== null).length
-  const deepResearchCount = savedFindings.filter((f) => getDeepResearch(f) !== null).length
-
-  // Stats calculations
-  const designatedSitesCount = savedFindings.filter((f) => f.data_type === 'designated_site').length
-  const speciesRecordsCount = savedFindings.filter((f) => f.data_type === 'species_record').length
-  const waterFeaturesCount = savedFindings.filter(
-    (f) => f.data_type === 'water_quality' || f.data_type === 'catchment'
-  ).length
-  const protectedCount = savedFindings.filter((f) => f.is_protected).length
+  // Stats calculations (single pass)
+  const stats = React.useMemo(() => {
+    let aiSummary = 0
+    let deepResearch = 0
+    let designatedSites = 0
+    let speciesRecords = 0
+    let waterFeatures = 0
+    let protectedItems = 0
+    for (const f of savedFindings) {
+      if (getAISummary(f) !== null) aiSummary++
+      if (getDeepResearch(f) !== null) deepResearch++
+      if (f.data_type === 'designated_site') designatedSites++
+      if (f.data_type === 'species_record') speciesRecords++
+      if (f.data_type === 'water_quality' || f.data_type === 'catchment') waterFeatures++
+      if (f.is_protected) protectedItems++
+    }
+    return {
+      aiSummary,
+      deepResearch,
+      designatedSites,
+      speciesRecords,
+      waterFeatures,
+      protectedItems,
+    }
+  }, [savedFindings])
 
   // Group findings by source
   const findingsBySource = React.useMemo(() => {
@@ -199,16 +215,22 @@ export function ReviewExportSubStep({
     return groups
   }, [savedFindings])
 
+  // CSV-safe escape: double quotes inside, collapse newlines
+  const csvEscape = (val: string) => val.replace(/"/g, '""').replace(/[\r\n]+/g, ' ')
+
   // Export functions
   const exportAsCSV = () => {
     const headers = [
       'Title',
+      'Scientific Name',
       'Source',
       'Type',
+      'Taxon Group',
       'Site Type',
       'Distance (km)',
       'Protected',
       'Red List Status',
+      'Designations',
       'Content',
       'Notes',
       'AI Summary',
@@ -218,24 +240,33 @@ export function ReviewExportSubStep({
       const aiSummary = getAISummary(f)
       const deepResearch = getDeepResearch(f)
       const siteType = getSiteType(f)
+      const rawData = f.raw_data as Record<string, unknown> | null
+      const metadata = rawData?.metadata as Record<string, unknown> | undefined
       return [
         f.title,
+        (metadata?.scientificName as string) || '',
         f.source.toUpperCase(),
-        f.data_type.replace('_', ' '),
+        f.data_type.replace(/_/g, ' '),
+        (metadata?.taxonGroup as string) || '',
         siteType || '',
         f.distance_from_boundary_km?.toFixed(2) || '',
         f.is_protected ? 'Yes' : 'No',
         f.red_list_status || '',
+        (metadata?.designations as string) || '',
         f.content || '',
         f.notes || '',
-        aiSummary ? aiSummary.replace(/"/g, '""').replace(/\n/g, ' ') : '',
-        deepResearch ? deepResearch.replace(/"/g, '""').replace(/\n/g, ' ') : '',
+        aiSummary || '',
+        deepResearch || '',
       ]
     })
 
-    const csv = [headers.join(','), ...rows.map((r) => r.map((c) => `"${c}"`).join(','))].join('\n')
+    const csv = [
+      headers.join(','),
+      ...rows.map((r) => r.map((c) => `"${csvEscape(c)}"`).join(',')),
+    ].join('\n')
 
-    const blob = new Blob([csv], { type: 'text/csv' })
+    // UTF-8 BOM for Excel compatibility
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -245,30 +276,38 @@ export function ReviewExportSubStep({
   }
 
   const exportAsGeoJSON = () => {
-    const features = savedFindings
-      .filter((f) => f.location)
-      .map((f) => {
-        const aiSummary = getAISummary(f)
-        const deepResearch = getDeepResearch(f)
-        const siteType = getSiteType(f)
-        return {
-          type: 'Feature' as const,
-          geometry: f.location as GeoJSON.Geometry,
-          properties: {
-            id: f.id,
-            title: f.title,
-            source: f.source,
-            dataType: f.data_type,
-            siteType: siteType || undefined,
-            distance_km: f.distance_from_boundary_km,
-            isProtected: f.is_protected,
-            redListStatus: f.red_list_status,
-            content: f.content,
-            aiSummary: aiSummary || undefined,
-            deepResearch: deepResearch || undefined,
-          },
-        }
+    const withLocation = savedFindings.filter((f) => f.location)
+    const excluded = savedFindings.length - withLocation.length
+
+    const features = withLocation.map((f) => {
+      const aiSummary = getAISummary(f)
+      const deepResearch = getDeepResearch(f)
+      const siteType = getSiteType(f)
+      return {
+        type: 'Feature' as const,
+        geometry: f.location as GeoJSON.Geometry,
+        properties: {
+          id: f.id,
+          title: f.title,
+          source: f.source,
+          dataType: f.data_type,
+          siteType: siteType || undefined,
+          distance_km: f.distance_from_boundary_km,
+          isProtected: f.is_protected,
+          redListStatus: f.red_list_status,
+          content: f.content,
+          aiSummary: aiSummary || undefined,
+          deepResearch: deepResearch || undefined,
+        },
+      }
+    })
+
+    if (excluded > 0) {
+      toast({
+        title: 'GeoJSON exported',
+        description: `${features.length} findings with location data exported. ${excluded} findings without coordinates were excluded.`,
       })
+    }
 
     const geojson: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
@@ -352,32 +391,44 @@ export function ReviewExportSubStep({
             <div className="grid grid-cols-4 gap-2">
               <div className="rounded-lg border bg-emerald-50 p-3 text-center dark:bg-emerald-950">
                 <MapPin className="mx-auto mb-1 h-5 w-5 text-emerald-600" />
-                <div className="text-xl font-bold text-emerald-700">{designatedSitesCount}</div>
-                <div className="text-[10px] text-emerald-600">Designated Sites</div>
+                <div className="text-xl font-bold text-emerald-700 dark:text-emerald-400">
+                  {stats.designatedSites}
+                </div>
+                <div className="text-[10px] text-emerald-600 dark:text-emerald-500">
+                  Designated Sites
+                </div>
               </div>
               <div className="rounded-lg border bg-purple-50 p-3 text-center dark:bg-purple-950">
-                <Bug className="mx-auto mb-1 h-5 w-5 text-purple-600" />
-                <div className="text-xl font-bold text-purple-700">{speciesRecordsCount}</div>
-                <div className="text-[10px] text-purple-600">Species Records</div>
+                <Bug className="mx-auto mb-1 h-5 w-5 text-purple-600 dark:text-purple-400" />
+                <div className="text-xl font-bold text-purple-700 dark:text-purple-400">
+                  {stats.speciesRecords}
+                </div>
+                <div className="text-[10px] text-purple-600 dark:text-purple-500">
+                  Species Records
+                </div>
               </div>
               <div className="rounded-lg border bg-cyan-50 p-3 text-center dark:bg-cyan-950">
-                <Waves className="mx-auto mb-1 h-5 w-5 text-cyan-600" />
-                <div className="text-xl font-bold text-cyan-700">{waterFeaturesCount}</div>
-                <div className="text-[10px] text-cyan-600">Aquatic Features</div>
+                <Waves className="mx-auto mb-1 h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+                <div className="text-xl font-bold text-cyan-700 dark:text-cyan-400">
+                  {stats.waterFeatures}
+                </div>
+                <div className="text-[10px] text-cyan-600 dark:text-cyan-500">Aquatic Features</div>
               </div>
               <div className="rounded-lg border bg-red-50 p-3 text-center dark:bg-red-950">
-                <Shield className="mx-auto mb-1 h-5 w-5 text-red-600" />
-                <div className="text-xl font-bold text-red-700">{protectedCount}</div>
+                <Shield className="mx-auto mb-1 h-5 w-5 text-red-600 dark:text-red-400" />
+                <div className="text-xl font-bold text-red-700 dark:text-red-400">
+                  {stats.protectedItems}
+                </div>
                 <div className="text-[10px] text-red-600">Protected</div>
               </div>
             </div>
 
             {/* Protected Species Warning */}
-            {protectedCount > 0 && (
-              <Alert className="border-red-200 bg-red-50">
+            {stats.protectedItems > 0 && (
+              <Alert className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950">
                 <Shield className="h-4 w-4 text-red-600" />
-                <AlertDescription className="text-red-700">
-                  <strong>{protectedCount}</strong> protected species/sites found — ensure
+                <AlertDescription className="text-red-700 dark:text-red-300">
+                  <strong>{stats.protectedItems}</strong> protected species/sites found — ensure
                   mitigation measures are addressed in the assessment.
                 </AlertDescription>
               </Alert>
@@ -401,19 +452,22 @@ export function ReviewExportSubStep({
               <div className="rounded-lg border p-3">
                 <h4 className="mb-2 text-sm font-medium">AI Enrichment</h4>
                 <div className="flex flex-wrap gap-1.5">
-                  {aiSummaryCount > 0 && (
+                  {stats.aiSummary > 0 && (
                     <Badge variant="secondary" className="gap-1">
                       <Sparkles className="h-3 w-3" />
-                      {aiSummaryCount} AI Summaries
+                      {stats.aiSummary} AI Summaries
                     </Badge>
                   )}
-                  {deepResearchCount > 0 && (
-                    <Badge variant="secondary" className="gap-1 bg-indigo-100 text-indigo-700">
+                  {stats.deepResearch > 0 && (
+                    <Badge
+                      variant="secondary"
+                      className="gap-1 bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300"
+                    >
                       <BookOpen className="h-3 w-3" />
-                      {deepResearchCount} Deep Research
+                      {stats.deepResearch} Deep Research
                     </Badge>
                   )}
-                  {aiSummaryCount === 0 && deepResearchCount === 0 && (
+                  {stats.aiSummary === 0 && stats.deepResearch === 0 && (
                     <span className="text-muted-foreground text-sm">No AI data</span>
                   )}
                 </div>
@@ -568,11 +622,11 @@ export function ReviewExportSubStep({
                             )}
                             {/* Note section */}
                             <div
-                              className="border-b bg-amber-50 p-3"
+                              className="border-b bg-amber-50 p-3 dark:bg-amber-950"
                               onClick={(e) => e.stopPropagation()}
                             >
                               <div className="mb-1.5 flex items-center justify-between">
-                                <div className="flex items-center gap-1 text-[10px] font-medium text-amber-700">
+                                <div className="flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-400">
                                   <MessageSquare className="h-3 w-3" />
                                   Note on: {finding.title}
                                 </div>
@@ -595,7 +649,7 @@ export function ReviewExportSubStep({
                                 <div className="space-y-1.5">
                                   <textarea
                                     autoFocus
-                                    className="w-full rounded border border-amber-300 bg-white p-2 text-[11px] leading-relaxed text-amber-900 placeholder:text-amber-400 focus:border-amber-400 focus:ring-1 focus:ring-amber-300 focus:outline-none"
+                                    className="bg-background w-full rounded border border-amber-300 p-2 text-[11px] leading-relaxed text-amber-900 placeholder:text-amber-400 focus:border-amber-400 focus:ring-1 focus:ring-amber-300 focus:outline-none dark:border-amber-700 dark:text-amber-200 dark:placeholder:text-amber-600"
                                     rows={3}
                                     placeholder="Add a note about this finding..."
                                     value={noteDrafts[finding.id] ?? ''}
@@ -647,7 +701,7 @@ export function ReviewExportSubStep({
                                   </div>
                                 </div>
                               ) : finding.notes ? (
-                                <p className="text-xs leading-relaxed text-amber-800">
+                                <p className="text-xs leading-relaxed text-amber-800 dark:text-amber-300">
                                   {finding.notes}
                                 </p>
                               ) : (
@@ -659,8 +713,8 @@ export function ReviewExportSubStep({
                             </div>
                             {/* AI Summary section */}
                             {aiSummary && (
-                              <div className="bg-purple-50 p-3">
-                                <div className="mb-1 flex items-center gap-1 text-[10px] font-medium text-purple-700">
+                              <div className="bg-purple-50 p-3 dark:bg-purple-950">
+                                <div className="mb-1 flex items-center gap-1 text-[10px] font-medium text-purple-700 dark:text-purple-400">
                                   <Sparkles className="h-3 w-3" />
                                   AI Summary
                                 </div>
@@ -672,9 +726,9 @@ export function ReviewExportSubStep({
                             {/* Deep Research section */}
                             {deepResearch && (
                               <div
-                                className={`bg-indigo-50 p-3 ${aiSummary ? 'border-t border-indigo-100' : ''}`}
+                                className={`bg-indigo-50 p-3 dark:bg-indigo-950 ${aiSummary ? 'border-t border-indigo-100 dark:border-indigo-800' : ''}`}
                               >
-                                <div className="mb-1 flex items-center gap-1 text-[10px] font-medium text-indigo-700">
+                                <div className="mb-1 flex items-center gap-1 text-[10px] font-medium text-indigo-700 dark:text-indigo-400">
                                   <BookOpen className="h-3 w-3" />
                                   Deep Research
                                 </div>

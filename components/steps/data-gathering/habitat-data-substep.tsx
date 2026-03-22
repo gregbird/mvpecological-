@@ -891,7 +891,7 @@ export function HabitatDataSubStep({
             center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
             zoom={11}
             boundary={projectBoundary}
-            bufferDistances={bufferDistances}
+            bufferDistances={[selectedBuffer]}
             habitatPolygons={styledPolygons}
             habitatSelectionKey={`${selectedHabitat?.nlcId || 'all'}-v${styleVersion}`}
             findings={[]}

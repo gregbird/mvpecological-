@@ -162,23 +162,37 @@ export function useSubstepSearch(
     }
   }, [isActive])
 
-  // --- Restore location data from savedFindings when cache is missing geometries ---
+  // --- Restore location data when cache is missing geometries ---
+  // Priority: savedFindings full geometry > locationCenter as Point fallback
   React.useEffect(() => {
-    if (searchResults.length === 0 || savedFindings.length === 0) return
+    if (searchResults.length === 0) return
     const needsRestore = searchResults.some((r) => !r.location)
     if (!needsRestore) return
 
     setSearchResults((prev) =>
       prev.map((result) => {
         if (result.location) return result
-        const match = savedFindings.find((sf) => matchPredicate(sf, result))
-        if (match?.location) {
-          return { ...result, location: match.location as GeoJSON.Geometry }
+        // Try to restore full geometry from saved findings
+        if (savedFindings.length > 0) {
+          const match = savedFindings.find((sf) => matchPredicate(sf, result))
+          if (match?.location) {
+            return { ...result, location: match.location as GeoJSON.Geometry }
+          }
+        }
+        // Fallback: convert cached locationCenter to Point geometry
+        const lc = (result as unknown as Record<string, unknown>).locationCenter as
+          | number[]
+          | undefined
+        if (lc && lc.length >= 2) {
+          return {
+            ...result,
+            location: { type: 'Point' as const, coordinates: lc } as GeoJSON.Point,
+          }
         }
         return result
       })
     )
-  }, [savedFindings])
+  }, [savedFindings, searchResults.length])
 
   // --- Sync notes from savedFindings into searchResults when notes change ---
   React.useEffect(() => {
@@ -203,15 +217,46 @@ export function useSubstepSearch(
     if (cacheTimerRef.current) clearTimeout(cacheTimerRef.current)
     cacheTimerRef.current = setTimeout(() => {
       try {
-        // Strip rawData and location to reduce storage size
-        const cacheableResults = searchResults.map(({ rawData: _rawData, location, ...rest }) => ({
-          ...rest,
-          locationCenter: location
-            ? location.type === 'Point'
-              ? location.coordinates
-              : undefined
-            : undefined,
-        }))
+        // Strip rawData and large geometry to reduce storage size.
+        // For non-Point geometries (LineString, Polygon), compute a centroid
+        // so map markers can still be placed when restoring from cache.
+        const cacheableResults = searchResults.map(({ rawData: _rawData, location, ...rest }) => {
+          let center: number[] | undefined
+          if (location) {
+            if (location.type === 'Point') {
+              center = location.coordinates as number[]
+            } else {
+              // Compute centroid from bbox of all coordinates
+              try {
+                const coords: number[][] = []
+                const extractCoords = (g: GeoJSON.Geometry) => {
+                  if ('coordinates' in g) {
+                    const flat = JSON.stringify(g.coordinates)
+                    const nums = flat.match(/-?\d+\.?\d*/g)
+                    if (nums && nums.length >= 2) {
+                      for (let i = 0; i < nums.length - 1; i += 2) {
+                        coords.push([parseFloat(nums[i]), parseFloat(nums[i + 1])])
+                      }
+                    }
+                  }
+                  if (g.type === 'GeometryCollection') {
+                    for (const sub of (g as GeoJSON.GeometryCollection).geometries)
+                      extractCoords(sub)
+                  }
+                }
+                extractCoords(location)
+                if (coords.length > 0) {
+                  const sumLng = coords.reduce((s, c) => s + c[0], 0)
+                  const sumLat = coords.reduce((s, c) => s + c[1], 0)
+                  center = [sumLng / coords.length, sumLat / coords.length]
+                }
+              } catch {
+                // Skip centroid calculation
+              }
+            }
+          }
+          return { ...rest, locationCenter: center }
+        })
         sessionStorage.setItem(cacheKey, JSON.stringify(cacheableResults))
       } catch (e) {
         console.warn('Failed to cache search results:', e)

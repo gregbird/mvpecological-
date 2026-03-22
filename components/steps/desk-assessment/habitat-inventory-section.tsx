@@ -1,9 +1,10 @@
 'use client'
 
 import * as React from 'react'
-import { Info, Layers, MapPin, TreePine } from 'lucide-react'
+import { Info, Layers, MapPin, TreePine, X } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -18,6 +19,7 @@ import { BaselineMap } from './baseline-map-utils'
 import type { DeskResearchFinding } from '@/types/database'
 
 export interface HabitatRow {
+  findingId: string
   fossittCode: string
   fossittName: string
   color: string
@@ -30,6 +32,7 @@ interface HabitatInventorySectionProps {
   findings: DeskResearchFinding[]
   boundary?: GeoJSON.Feature<GeoJSON.Polygon>
   onHabitatData?: (habitats: HabitatRow[]) => void
+  onRemoveFinding?: (findingId: string) => void
 }
 
 function SummaryCards({ habitats, totalArea }: { habitats: HabitatRow[]; totalArea: number }) {
@@ -81,7 +84,10 @@ export function HabitatInventorySection({
   findings,
   boundary,
   onHabitatData,
+  onRemoveFinding,
 }: HabitatInventorySectionProps) {
+  const [selectedCode, setSelectedCode] = React.useState<string | null>(null)
+
   const habitatFindings = React.useMemo(
     () => findings.filter((f) => f.data_type === 'habitat'),
     [findings]
@@ -105,6 +111,7 @@ export function HabitatInventorySection({
         const habitat = getHabitatByCode(fossittCode)
 
         return {
+          findingId: f.id,
           fossittCode,
           fossittName,
           color: habitat?.color || '#22c55e',
@@ -165,6 +172,26 @@ export function HabitatInventorySection({
     return { type: 'FeatureCollection', features }
   }, [habitatFindings])
 
+  const styledPolygons = React.useMemo<GeoJSON.FeatureCollection | null>(() => {
+    if (!habitatPolygons) return null
+    if (!selectedCode) return habitatPolygons
+
+    return {
+      type: 'FeatureCollection',
+      features: habitatPolygons.features.map((f) => {
+        const code = String(f.properties?.fossitt_code ?? '')
+        const isMatch = code === selectedCode
+        return {
+          ...f,
+          properties: {
+            ...f.properties,
+            fillOpacity: isMatch ? 0.85 : 0.05,
+          },
+        }
+      }),
+    }
+  }, [habitatPolygons, selectedCode])
+
   const showMap = !!habitatPolygons || !!boundary
 
   return (
@@ -192,26 +219,53 @@ export function HabitatInventorySection({
                     <TableHead className="w-[200px]">NLC Label</TableHead>
                     <TableHead className="w-[100px] text-right">Area (ha)</TableHead>
                     <TableHead className="w-[80px] text-right">%</TableHead>
+                    {onRemoveFinding && <TableHead className="w-[50px]" />}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {habitats.map((h, idx) => (
-                    <TableRow key={`${h.fossittCode}-${idx}`}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="inline-block h-3 w-3 shrink-0 rounded-full"
-                            style={{ backgroundColor: h.color }}
-                          />
-                          <span className="font-mono text-sm font-medium">{h.fossittCode}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-medium">{h.fossittName}</TableCell>
-                      <TableCell className="text-muted-foreground text-sm">{h.nlcLabel}</TableCell>
-                      <TableCell className="text-right">{h.areaHa.toFixed(1)}</TableCell>
-                      <TableCell className="text-right">{h.percentage.toFixed(1)}%</TableCell>
-                    </TableRow>
-                  ))}
+                  {habitats.map((h, idx) => {
+                    const isSelected = selectedCode === h.fossittCode
+                    return (
+                      <TableRow
+                        key={`${h.fossittCode}-${idx}`}
+                        className={`cursor-pointer transition-colors ${isSelected ? 'bg-blue-50 dark:bg-blue-950' : ''}`}
+                        onClick={() =>
+                          setSelectedCode((prev) => (prev === h.fossittCode ? null : h.fossittCode))
+                        }
+                      >
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="inline-block h-3 w-3 shrink-0 rounded-full"
+                              style={{ backgroundColor: h.color }}
+                            />
+                            <span className="font-mono text-sm font-medium">{h.fossittCode}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-medium">{h.fossittName}</TableCell>
+                        <TableCell className="text-muted-foreground text-sm">
+                          {h.nlcLabel}
+                        </TableCell>
+                        <TableCell className="text-right">{h.areaHa.toFixed(1)}</TableCell>
+                        <TableCell className="text-right">{h.percentage.toFixed(1)}%</TableCell>
+                        {onRemoveFinding && (
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-gray-400 hover:text-red-600"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onRemoveFinding(h.findingId)
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    )
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -223,7 +277,8 @@ export function HabitatInventorySection({
             <CardContent className="flex min-h-0 flex-1 p-0">
               <div className="h-full min-h-[250px] w-full">
                 <BaselineMap
-                  habitatPolygons={habitatPolygons ?? undefined}
+                  habitatPolygons={styledPolygons ?? undefined}
+                  habitatSelectionKey={selectedCode || 'all'}
                   boundary={boundary}
                   bufferDistances={[2, 5]}
                   showControls={false}

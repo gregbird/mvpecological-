@@ -362,24 +362,17 @@ export function AquaticEnvironmentSection({
         </Card>
 
         {/* Map beside table */}
-        {aquaticFeatureCollection ? (
+        {(aquaticFeatureCollection || boundary) && (
           <Card className="flex max-h-[420px] flex-col overflow-hidden [&_.leaflet-control-attribution]:hidden">
             <CardContent className="flex min-h-0 flex-1 p-0">
               <div className="h-full min-h-[250px] w-full">
                 <BaselineMap
-                  habitatPolygons={aquaticFeatureCollection}
+                  habitatPolygons={aquaticFeatureCollection ?? undefined}
                   boundary={boundary}
                   bufferDistances={[2, 5]}
                   showControls={false}
                 />
               </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="flex flex-col">
-            <CardContent className="text-muted-foreground flex flex-1 flex-col items-center justify-center gap-2 py-8 text-center text-sm">
-              <Droplets className="h-8 w-8 text-gray-300" />
-              <p>No location data available for water bodies.</p>
             </CardContent>
           </Card>
         )}

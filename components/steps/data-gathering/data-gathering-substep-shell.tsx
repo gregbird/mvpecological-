@@ -199,13 +199,6 @@ export function DataGatheringSubstepShell({
   // Grid overlay toggle (default on when grid overlay is available)
   const [showGridOverlay, setShowGridOverlay] = React.useState(true)
 
-  // Memoize computed grid overlay to avoid recalculating on every render
-  const computedGridOverlay = React.useMemo(
-    () => config.computeGridOverlay?.(selectedBuffer ?? bufferDistances[0] ?? 2),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [config.computeGridOverlay, selectedBuffer]
-  )
-
   // Site type filter for map sync
   const [activeSiteTypeFilter, setActiveSiteTypeFilter] = React.useState<string | null>(null)
 
@@ -251,6 +244,13 @@ export function DataGatheringSubstepShell({
       sourceFilter: config.sourceFilter ?? [config.source],
     },
     bufferDistances[0] || 2
+  )
+
+  // Memoize computed grid overlay to avoid recalculating on every render
+  const computedGridOverlay = React.useMemo(
+    () => config.computeGridOverlay?.(selectedBuffer),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [config.computeGridOverlay, selectedBuffer]
   )
 
   // ── Perform search ──────────────────────────────────────────────────────
@@ -703,11 +703,7 @@ export function DataGatheringSubstepShell({
             zoom={11}
             boundary={projectBoundary}
             bufferDistances={[selectedBuffer]}
-            gridOverlay={
-              showGridOverlay
-                ? (config.computeGridOverlay?.(selectedBuffer) ?? config.gridOverlay)
-                : undefined
-            }
+            gridOverlay={showGridOverlay ? (computedGridOverlay ?? config.gridOverlay) : undefined}
             findings={(config.filterConfig || config.showDistanceFilter
               ? filteredResults
               : searchResults
@@ -723,27 +719,27 @@ export function DataGatheringSubstepShell({
             onMapClick={() => setSelectedFinding(null)}
           />
 
-          {(config.gridOverlay || config.computeGridOverlay) && (
-            <div className="absolute top-4 right-4 z-1000" data-map-control="true">
+          <div className="absolute top-4 right-4 z-1000 flex items-center gap-2">
+            {(config.gridOverlay || config.computeGridOverlay) && (
               <Button
                 variant="secondary"
                 size="sm"
                 className={`shadow-md ${showGridOverlay ? 'bg-purple-100 text-purple-700' : ''}`}
                 onClick={() => setShowGridOverlay((prev) => !prev)}
+                data-map-control="true"
               >
                 <Grid3X3 className="mr-1 h-4 w-4" />
                 {showGridOverlay ? 'Hide Grid' : 'Show Grid'}
               </Button>
-            </div>
-          )}
-
-          <MapCaptureButton
-            containerRef={mapContainerRef}
-            projectId={project.id}
-            stepName={config.stepName}
-            userId={userId}
-            className="absolute top-14 right-4 z-1000 shadow-md"
-          />
+            )}
+            <MapCaptureButton
+              containerRef={mapContainerRef}
+              projectId={project.id}
+              stepName={config.stepName}
+              userId={userId}
+              className="shadow-md"
+            />
+          </div>
         </div>
       )}
 

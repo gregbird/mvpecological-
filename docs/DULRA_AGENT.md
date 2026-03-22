@@ -129,6 +129,11 @@ Step 8: AI Draft Generation
 Placeholder'lar: `{{project_name}}`, `{{location_description}}`, `{{site_code}}`, `{{grid_reference}}`, `{{desk_sources_summary}}`, `{{survey_details}}`, `{{designated_sites_table}}`, `{{habitat_table}}`, `{{flora_summary}}`, `{{fauna_summary}}`, `{{constraints_table}}`
 
 ### AI Bölüm Üretimi
+Ecem Selamlar, Pazarlamasına başlayacağımız bir ürünümüz var. Sizin tarafınızda süreci nasıl işletiyorsunuz, fiyatlandırmanız nasıl oluyor?
+
+
+
+
 
 **Dosya:** `app/api/ai/report-section/route.ts`
 d

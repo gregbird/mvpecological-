@@ -1,9 +1,19 @@
 'use client'
 
 import * as React from 'react'
-import { Shield, Bug, Droplets, MapPin, AlertTriangle, ClipboardList } from 'lucide-react'
+import {
+  Shield,
+  Bug,
+  Droplets,
+  MapPin,
+  AlertTriangle,
+  ClipboardList,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -267,8 +277,13 @@ function RecommendedSurveys({ findings }: { findings: DeskResearchFinding[] }) {
   )
 }
 
+const COLLAPSED_LIMIT = 5
+
 export function ConstraintsSummarySection({ findings }: ConstraintsSummarySectionProps) {
   const constraints = React.useMemo(() => extractConstraints(findings), [findings])
+  const [expanded, setExpanded] = React.useState(false)
+  const visibleConstraints = expanded ? constraints : constraints.slice(0, COLLAPSED_LIMIT)
+  const hasMore = constraints.length > COLLAPSED_LIMIT
 
   if (findings.length === 0) {
     return (
@@ -322,7 +337,7 @@ export function ConstraintsSummarySection({ findings }: ConstraintsSummarySectio
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {constraints.map((c, i) => (
+                  {visibleConstraints.map((c, i) => (
                     <TableRow key={`${c.id}-${i}`}>
                       <TableCell className="font-medium">{c.title}</TableCell>
                       <TableCell>
@@ -339,6 +354,27 @@ export function ConstraintsSummarySection({ findings }: ConstraintsSummarySectio
                 </TableBody>
               </Table>
             </div>
+            {hasMore && (
+              <div className="border-t px-4 py-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setExpanded(!expanded)}
+                >
+                  {expanded ? (
+                    <>
+                      Show less <ChevronUp className="ml-1 h-4 w-4" />
+                    </>
+                  ) : (
+                    <>
+                      Show all {constraints.length} constraints{' '}
+                      <ChevronDown className="ml-1 h-4 w-4" />
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
