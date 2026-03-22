@@ -153,12 +153,13 @@ function buildGridSquarePolygons(
   const features: GeoJSON.Feature[] = []
   for (const ref of gridRefs) {
     try {
-      const itm = gridRefToItm(ref)
+      const ing = gridRefToItm(ref)
       // Determine resolution from ref length: letter + 2 digits = 10km, +4 = 1km, etc.
       const digits = ref.length - 1
       const resolution = digits <= 2 ? 10000 : digits <= 4 ? 1000 : 100
-      const sw = itmToWgs84(itm.easting, itm.northing)
-      const ne = itmToWgs84(itm.easting + resolution, itm.northing + resolution)
+      // gridRefToItm returns ING coordinates (0-500k), but itmToWgs84 expects ITM (+400k/+500k offset)
+      const sw = itmToWgs84(ing.easting + 400000, ing.northing + 500000)
+      const ne = itmToWgs84(ing.easting + resolution + 400000, ing.northing + resolution + 500000)
       features.push({
         type: 'Feature',
         geometry: {
@@ -174,6 +175,7 @@ function buildGridSquarePolygons(
           ],
         },
         properties: {
+          label: ref,
           fossitt_name: `Grid: ${ref}`,
           fossitt_code: ref,
           color: '#8b5cf6',

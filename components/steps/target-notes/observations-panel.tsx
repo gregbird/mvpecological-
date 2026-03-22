@@ -35,6 +35,8 @@ interface Survey {
   id: string
   survey_type: string
   survey_date: string
+  visit_group_id?: string | null
+  visit_number?: number | null
 }
 
 interface ObservationsPanelProps {
@@ -92,7 +94,9 @@ export function ObservationsPanel({
             <SelectItem value="all">All surveys</SelectItem>
             {surveys.map((survey) => (
               <SelectItem key={survey.id} value={survey.id}>
-                {survey.survey_type} - {new Date(survey.survey_date).toLocaleDateString()}
+                {survey.survey_type}
+                {survey.visit_number != null ? ` - Visit ${survey.visit_number}` : ''} -{' '}
+                {new Date(survey.survey_date).toLocaleDateString()}
               </SelectItem>
             ))}
           </SelectContent>

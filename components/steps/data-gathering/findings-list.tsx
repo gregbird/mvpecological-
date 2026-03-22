@@ -19,6 +19,7 @@ import {
   Check,
   Save,
   AlertCircle,
+  AlertTriangle,
   MessageSquare,
   X,
   LayoutList,
@@ -125,7 +126,13 @@ interface FindingsListProps {
   onSavedFilterChange?: (showSavedOnly: boolean) => void
   // Species-specific header props
   showSpeciesHeader?: boolean
-  speciesCounts?: { total: number; protected: number; invasive: number; enriched: number }
+  speciesCounts?: {
+    total: number
+    protected: number
+    invasive: number
+    threatened?: number
+    enriched: number
+  }
   enrichmentStatus?: { isEnriching: boolean; current: number; total: number } | null
   sourceFilter?: 'all' | 'protected' | 'invasive' | 'threatened'
   onSourceFilterChange?: (filter: 'all' | 'protected' | 'invasive' | 'threatened') => void
@@ -467,6 +474,22 @@ export function FindingsList({
                 >
                   <AlertCircle className="h-2.5 w-2.5" />
                   {speciesCounts!.invasive}
+                </button>
+              )}
+              {(speciesCounts?.threatened ?? 0) > 0 && (
+                <button
+                  onClick={() =>
+                    onSourceFilterChange?.(sourceFilter === 'threatened' ? 'all' : 'threatened')
+                  }
+                  title={`${speciesCounts!.threatened} Threatened species`}
+                  className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
+                    sourceFilter === 'threatened'
+                      ? 'bg-amber-600 text-white'
+                      : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                  }`}
+                >
+                  <AlertTriangle className="h-2.5 w-2.5" />
+                  {speciesCounts!.threatened}
                 </button>
               )}
               {savedCount > 0 && (

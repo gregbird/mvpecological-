@@ -11,7 +11,7 @@ import {
 import { fetchNBDCGridReport, type NBDCGridReportSpecies } from '@/lib/external-apis/nbdc'
 import { searchFPOByGridRef, type FPORecord } from '@/lib/data/fpo-species'
 import { searchSpeciesByGridRef, type Article17Species } from '@/lib/data/article17-species'
-import { wgs84ToItm, itmToGridRef, gridRefToItm, itmToWgs84 } from '@/lib/utils/grid-reference'
+import { wgs84ToItm, itmToGridRef, itmToWgs84 } from '@/lib/utils/grid-reference'
 import { getBoundingBox } from '@/lib/gis/bounding-box'
 import { useCreateFinding, useUpdateFinding } from '@/hooks/queries/use-finding-hooks'
 import type { Project, DeskResearchFinding, Json } from '@/types/database'
@@ -59,7 +59,7 @@ function parseDesignation(designation: string | null): {
       ),
     isInvasive: /invasive|ias regulation|third schedule/.test(d),
     isThreatened:
-      /critically endangered|endangered|vulnerable|near threatened|red list|red data|threatened|amber list|red list/.test(
+      /critically endangered|endangered|vulnerable|near threatened|red list|red data|threatened|amber list/.test(
         d
       ),
   }
@@ -353,11 +353,20 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
     }
   }
 
-  // Count protected and invasive species
+  // Count protected, invasive, and threatened species (single pass)
   const [currentSearchResults, setCurrentSearchResults] = React.useState<FindingDisplay[]>([])
 
-  const protectedCount = currentSearchResults.filter((f) => f.metadata?.isProtected).length
-  const invasiveCount = currentSearchResults.filter((f) => f.metadata?.isInvasive).length
+  const { protectedCount, invasiveCount, threatenedCount } = React.useMemo(() => {
+    let prot = 0
+    let inv = 0
+    let thr = 0
+    for (const f of currentSearchResults) {
+      if (f.metadata?.isProtected || f.metadata?.designations) prot++
+      if (f.metadata?.isInvasive) inv++
+      if (f.metadata?.isThreatened) thr++
+    }
+    return { protectedCount: prot, invasiveCount: inv, threatenedCount: thr }
+  }, [currentSearchResults])
 
   const config: SubstepShellConfig = React.useMemo(
     () => ({
@@ -610,7 +619,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
               })
             }
           } catch (error) {
-            console.warn('FPO search error:', error)
+            // FPO search is supplementary — skip silently on failure
           }
 
           // Article 17
@@ -663,7 +672,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
               })
             }
           } catch (error) {
-            console.warn('Article 17 search error:', error)
+            // Article 17 lookup is supplementary — skip silently on failure
           }
         }
 
@@ -754,6 +763,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
           total: currentSearchResults.length,
           protected: protectedCount,
           invasive: invasiveCount,
+          threatened: threatenedCount,
           enriched: currentSearchResults.length, // all are from NBDC report
         },
         sourceFilter,
@@ -805,6 +815,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       currentSearchResults.length,
       protectedCount,
       invasiveCount,
+      threatenedCount,
     ]
   )
 

@@ -11,6 +11,7 @@ import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ReleveSurveyForm } from './releve-survey-form'
 import { useReleveSurveyBySurveyId } from '@/hooks/queries/use-releve-hooks'
+import { useSurveyGroup } from '@/hooks/queries/use-survey-hooks'
 import { TemplateSectionsRenderer } from './survey-template-fields/template-sections-renderer'
 import { getDefaultFieldsForType } from '@/lib/config/survey-field-definitions'
 import { PhotoUpload } from '@/components/ui/photo-upload'
@@ -29,6 +30,8 @@ interface SurveyViewDialogProps {
   onEdit?: (survey: Survey) => void
   /** Open the relevé form in edit mode immediately */
   initialEditMode?: boolean
+  /** Callback to navigate to a different visit in the same group */
+  onNavigateVisit?: (survey: Survey) => void
 }
 
 const STATUS_STYLES: Record<
@@ -70,11 +73,17 @@ export function SurveyViewDialog({
   projectName,
   onEdit,
   initialEditMode = false,
+  onNavigateVisit,
 }: SurveyViewDialogProps) {
   const statusStyle = STATUS_STYLES[survey.status]
   const isReleve = survey.surveyType === 'releve_survey'
   const [releveEditing, setReleveEditing] = React.useState(false)
   const [surveyPhotos, setSurveyPhotos] = React.useState<string[]>([])
+
+  // Fetch other visits in the same group (if any)
+  const { data: groupVisits } = useSurveyGroup(
+    open && survey.visitGroupId ? survey.visitGroupId : null
+  )
 
   // Open in edit mode when requested (e.g. Edit button on relevé survey card)
   React.useEffect(() => {
@@ -256,6 +265,43 @@ export function SurveyViewDialog({
           </div>
         </DialogHeader>
 
+        {/* Visit navigation for grouped surveys */}
+        {groupVisits && groupVisits.length > 1 && onNavigateVisit && (
+          <div className="flex items-center gap-1 rounded-md border p-1">
+            {groupVisits.map((visit) => (
+              <Button
+                key={visit.id}
+                variant={visit.id === survey.id ? 'default' : 'ghost'}
+                size="sm"
+                className="flex-1 text-xs"
+                onClick={() => {
+                  if (visit.id !== survey.id) {
+                    onNavigateVisit({
+                      id: visit.id,
+                      surveyType: visit.survey_type as Survey['surveyType'],
+                      surveyDate: visit.survey_date,
+                      startTime: visit.start_time || undefined,
+                      endTime: visit.end_time || undefined,
+                      status: visit.status as Survey['status'],
+                      weather: visit.weather as Survey['weather'],
+                      notes: visit.notes || undefined,
+                      surveyor: {
+                        id: visit.surveyor?.id || '',
+                        name: visit.surveyor?.full_name || 'Unknown',
+                      },
+                      visitGroupId: visit.visit_group_id,
+                      visitNumber: visit.visit_number,
+                      totalVisitsInGroup: groupVisits.length,
+                    })
+                  }
+                }}
+              >
+                Visit {visit.visit_number}
+              </Button>
+            ))}
+          </div>
+        )}
+
         <div className="space-y-1">
           <InfoRow
             icon={FileText}
@@ -304,6 +350,43 @@ export function SurveyViewDialog({
                 onChange={() => {}}
                 readOnly
               />
+            </div>
+          </>
+        )}
+
+        {/* Previous visit data (for grouped surveys) */}
+        {groupVisits && groupVisits.length > 1 && survey.visitNumber && survey.visitNumber > 1 && (
+          <>
+            <Separator />
+            <div className="space-y-2">
+              <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                Previous Visit Data
+              </p>
+              <div className="space-y-2 rounded-md border p-3">
+                {groupVisits
+                  .filter(
+                    (v) =>
+                      v.visit_number != null &&
+                      survey.visitNumber != null &&
+                      v.visit_number < survey.visitNumber
+                  )
+                  .map((prevVisit) => (
+                    <div key={prevVisit.id} className="text-sm">
+                      <span className="font-medium">Visit {prevVisit.visit_number}</span>
+                      <span className="text-muted-foreground ml-2">
+                        {formatDate(prevVisit.survey_date)}
+                      </span>
+                      <span className="text-muted-foreground ml-2">
+                        — {prevVisit.surveyor?.full_name || 'Unknown'}
+                      </span>
+                      {prevVisit.notes && (
+                        <p className="text-muted-foreground mt-1 line-clamp-2 text-xs">
+                          {prevVisit.notes}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+              </div>
             </div>
           </>
         )}

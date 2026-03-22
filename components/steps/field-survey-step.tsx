@@ -34,12 +34,18 @@ import {
 } from '@/hooks/queries/use-survey-hooks'
 import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { useSavedFindings } from '@/hooks/queries/use-finding-hooks'
-import { SurveyCard, type Survey as SurveyCardType } from '@/components/field-surveys/survey-card'
+import {
+  SurveyCard,
+  type Survey as SurveyCardType,
+  type SurveyType,
+} from '@/components/field-surveys/survey-card'
 import { SurveyForm } from '@/components/field-surveys/survey-form'
 import { SurveyViewDialog } from '@/components/field-surveys/survey-view-dialog'
 import { SurveyAssignmentDialog } from '@/components/field-surveys/survey-assignment-dialog'
 import { PhotoGallery } from '@/components/field-surveys/photo-gallery'
 import { FIELD_SURVEY_TYPE_LABELS } from '@/lib/config/survey'
+import { groupSurveysByVisit, getNextVisitNumber } from '@/lib/utils/survey-groups'
+import type { SurveyWithSurveyor } from '@/lib/supabase/queries/surveys'
 import { useRole } from '@/contexts/role-context'
 import type { Project, WorkflowStep, Json } from '@/types/database'
 
@@ -67,6 +73,11 @@ export function FieldSurveyStep({
   const [showFindings, setShowFindings] = React.useState(true)
   const [highlightedSurveyId, setHighlightedSurveyId] = React.useState<string | null>(null)
   const [releveEditOnOpen, setReleveEditOnOpen] = React.useState(false)
+  const [addVisitMode, setAddVisitMode] = React.useState<{
+    visitGroupId: string
+    surveyType: SurveyType
+    visitNumber: number
+  } | null>(null)
   const surveyListRef = React.useRef<HTMLDivElement>(null)
 
   // React Query hooks
@@ -192,6 +203,17 @@ export function FieldSurveyStep({
     }
   }, [savedFindings])
 
+  // Compute visit group counts for badge display
+  const visitGroupCounts = React.useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const s of surveys) {
+      if (s.visit_group_id) {
+        counts.set(s.visit_group_id, (counts.get(s.visit_group_id) || 0) + 1)
+      }
+    }
+    return counts
+  }, [surveys])
+
   // Convert database surveys to card format
   const surveysAsCards = React.useMemo(() => {
     return surveys.map(
@@ -212,9 +234,18 @@ export function FieldSurveyStep({
           name: s.surveyor?.full_name || 'Unknown',
           avatarUrl: undefined,
         },
+        visitGroupId: s.visit_group_id,
+        visitNumber: s.visit_number,
+        totalVisitsInGroup: s.visit_group_id ? visitGroupCounts.get(s.visit_group_id) : undefined,
       })
     )
-  }, [surveys, userId])
+  }, [surveys, userId, visitGroupCounts])
+
+  // Group surveys by visit_group_id
+  const { groups: surveyGroups, standalone: standaloneSurveys } = React.useMemo(
+    () => groupSurveysByVisit(surveys as SurveyWithSurveyor[]),
+    [surveys]
+  )
 
   // Group surveys by status
   const surveysByStatus = React.useMemo(() => {
@@ -243,14 +274,19 @@ export function FieldSurveyStep({
         status: 'planned',
         weather: (data.weather as unknown as Json) || null,
         notes: data.notes || null,
+        visit_group_id: data.visitGroupId || null,
+        visit_number: data.visitNumber || null,
       })
 
       toast({
-        title: 'Survey created',
-        description: 'New survey has been scheduled.',
+        title: data.visitGroupId ? 'Visit added' : 'Survey created',
+        description: data.visitGroupId
+          ? `Visit ${data.visitNumber} has been added to the group.`
+          : 'New survey has been scheduled.',
       })
 
       setShowSurveyForm(false)
+      setAddVisitMode(null)
       setActiveTab('all')
 
       // Highlight and scroll to newly created survey
@@ -382,6 +418,48 @@ export function FieldSurveyStep({
         title: 'Error approving survey',
         description: 'Failed to approve the survey.',
       })
+    }
+  }
+
+  // Handle adding a visit to an existing survey or creating a new visit group
+  const handleAddVisit = (survey: SurveyCardType) => {
+    const groupId = survey.visitGroupId || survey.id // Use survey.id as the group if no group yet
+    const nextVisitNumber = getNextVisitNumber(
+      surveys as SurveyWithSurveyor[],
+      survey.visitGroupId || ''
+    )
+
+    // If this survey doesn't have a group yet, assign one first
+    if (!survey.visitGroupId) {
+      // Set the current survey as visit 1 in the new group (using its own id as group id)
+      updateSurvey.mutate(
+        {
+          surveyId: survey.id,
+          updates: {
+            visit_group_id: survey.id,
+            visit_number: 1,
+          },
+        },
+        {
+          onSuccess: () => {
+            setAddVisitMode({
+              visitGroupId: survey.id,
+              surveyType: survey.surveyType,
+              visitNumber: 2,
+            })
+            setEditingSurvey(null)
+            setShowSurveyForm(true)
+          },
+        }
+      )
+    } else {
+      setAddVisitMode({
+        visitGroupId: groupId,
+        surveyType: survey.surveyType,
+        visitNumber: nextVisitNumber,
+      })
+      setEditingSurvey(null)
+      setShowSurveyForm(true)
     }
   }
 
@@ -740,21 +818,82 @@ export function FieldSurveyStep({
 
                   <TabsContent value="all" className="mt-4">
                     <ScrollArea className="h-100">
-                      <div className="grid gap-4 pr-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {surveysAsCards.map((survey) => (
-                          <SurveyCard
-                            key={survey.id}
-                            survey={survey}
-                            onView={handleViewSurvey}
-                            onEdit={handleOpenEditForm}
-                            onDelete={handleDeleteSurvey}
-                            onStart={handleStartSurvey}
-                            onComplete={handleCompleteSurvey}
-                            onApprove={handleApproveSurvey}
-                            onAssignStaff={canAssignStaff ? setAssigningSurvey : undefined}
-                            isHighlighted={survey.id === highlightedSurveyId}
-                          />
-                        ))}
+                      <div className="space-y-4 pr-4">
+                        {/* Visit Groups */}
+                        {surveyGroups.map((group) => {
+                          const groupCards = surveysAsCards.filter(
+                            (s) => s.visitGroupId === group.visitGroupId
+                          )
+                          const typeLabel =
+                            FIELD_SURVEY_TYPE_LABELS[group.surveyType] || group.surveyType
+                          return (
+                            <Collapsible key={group.visitGroupId} defaultOpen>
+                              <div className="bg-card rounded-lg border">
+                                <CollapsibleTrigger asChild>
+                                  <div className="flex cursor-pointer items-center justify-between p-3">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm font-semibold">{typeLabel}</span>
+                                      <Badge variant="outline" className="text-xs">
+                                        {group.completedVisits}/{group.totalVisits} visits
+                                      </Badge>
+                                      {group.canComplete && (
+                                        <Badge variant="default" className="bg-green-600 text-xs">
+                                          All Complete
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <ChevronDown className="h-4 w-4" />
+                                  </div>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent>
+                                  <div className="grid gap-3 border-t p-3 sm:grid-cols-2 lg:grid-cols-3">
+                                    {groupCards.map((survey) => (
+                                      <SurveyCard
+                                        key={survey.id}
+                                        survey={survey}
+                                        onView={handleViewSurvey}
+                                        onEdit={handleOpenEditForm}
+                                        onDelete={handleDeleteSurvey}
+                                        onStart={handleStartSurvey}
+                                        onComplete={handleCompleteSurvey}
+                                        onApprove={handleApproveSurvey}
+                                        onAssignStaff={
+                                          canAssignStaff ? setAssigningSurvey : undefined
+                                        }
+                                        onAddVisit={handleAddVisit}
+                                        isHighlighted={survey.id === highlightedSurveyId}
+                                        groupApproveDisabled={!group.canComplete}
+                                      />
+                                    ))}
+                                  </div>
+                                </CollapsibleContent>
+                              </div>
+                            </Collapsible>
+                          )
+                        })}
+
+                        {/* Standalone surveys (no visit group) */}
+                        {standaloneSurveys.length > 0 && (
+                          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            {surveysAsCards
+                              .filter((s) => !s.visitGroupId)
+                              .map((survey) => (
+                                <SurveyCard
+                                  key={survey.id}
+                                  survey={survey}
+                                  onView={handleViewSurvey}
+                                  onEdit={handleOpenEditForm}
+                                  onDelete={handleDeleteSurvey}
+                                  onStart={handleStartSurvey}
+                                  onComplete={handleCompleteSurvey}
+                                  onApprove={handleApproveSurvey}
+                                  onAssignStaff={canAssignStaff ? setAssigningSurvey : undefined}
+                                  onAddVisit={handleAddVisit}
+                                  isHighlighted={survey.id === highlightedSurveyId}
+                                />
+                              ))}
+                          </div>
+                        )}
                       </div>
                     </ScrollArea>
                   </TabsContent>
@@ -775,8 +914,11 @@ export function FieldSurveyStep({
                                 onView={handleViewSurvey}
                                 onEdit={handleOpenEditForm}
                                 onDelete={handleDeleteSurvey}
+                                onStart={handleStartSurvey}
+                                onComplete={handleCompleteSurvey}
                                 onApprove={handleApproveSurvey}
                                 onAssignStaff={canAssignStaff ? setAssigningSurvey : undefined}
+                                onAddVisit={handleAddVisit}
                                 isHighlighted={survey.id === highlightedSurveyId}
                               />
                             ))}
@@ -845,7 +987,10 @@ export function FieldSurveyStep({
             open={showSurveyForm}
             onOpenChange={(open) => {
               setShowSurveyForm(open)
-              if (!open) setEditingSurvey(null)
+              if (!open) {
+                setEditingSurvey(null)
+                setAddVisitMode(null)
+              }
             }}
             onSubmit={editingSurvey ? handleEditSurvey : handleCreateSurvey}
             initialData={
@@ -865,6 +1010,7 @@ export function FieldSurveyStep({
             }
             projectId={project.id}
             organizationId={project.organization_id ?? undefined}
+            addVisitMode={addVisitMode ?? undefined}
           />
 
           {/* Survey View Dialog */}
@@ -886,6 +1032,7 @@ export function FieldSurveyStep({
                 setReleveEditOnOpen(false)
                 handleOpenEditForm(survey)
               }}
+              onNavigateVisit={(survey) => setViewingSurvey(survey)}
             />
           )}
 

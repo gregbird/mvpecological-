@@ -253,8 +253,9 @@ export function wgs84ToGridRef(
  * Convert Irish Grid Reference to WGS84 coordinates
  */
 export function gridRefToWgs84(gridRef: string): { lat: number; lng: number } {
-  const itm = gridRefToItm(gridRef)
-  return itmToWgs84(itm.easting, itm.northing)
+  // gridRefToItm returns ING coordinates (0-500k), convert to ITM (+400k/+500k offset)
+  const ing = gridRefToItm(gridRef)
+  return itmToWgs84(ing.easting + 400000, ing.northing + 500000)
 }
 
 /**

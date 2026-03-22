@@ -540,7 +540,11 @@ export function SurveyForm({
               </Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {initialData?.id ? 'Update Survey' : 'Create Survey'}
+                {addVisitMode
+                  ? `Add Visit ${addVisitMode.visitNumber}`
+                  : initialData?.id
+                    ? 'Update Survey'
+                    : 'Create Survey'}
               </Button>
             </div>
           </form>

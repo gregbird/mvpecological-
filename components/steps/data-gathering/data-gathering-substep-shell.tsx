@@ -199,6 +199,13 @@ export function DataGatheringSubstepShell({
   // Grid overlay toggle (default on when grid overlay is available)
   const [showGridOverlay, setShowGridOverlay] = React.useState(true)
 
+  // Memoize computed grid overlay to avoid recalculating on every render
+  const computedGridOverlay = React.useMemo(
+    () => config.computeGridOverlay?.(selectedBuffer ?? bufferDistances[0] ?? 2),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [config.computeGridOverlay, selectedBuffer]
+  )
+
   // Site type filter for map sync
   const [activeSiteTypeFilter, setActiveSiteTypeFilter] = React.useState<string | null>(null)
 
