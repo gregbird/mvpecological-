@@ -288,6 +288,14 @@ export function ConstraintsSummarySection({ findings }: ConstraintsSummarySectio
 
   return (
     <div className="space-y-6">
+      <div className="bg-muted/50 rounded-lg border px-4 py-3">
+        <p className="text-muted-foreground text-sm">
+          Ecological constraints are factors that may require additional surveys, mitigation
+          measures, or regulatory compliance during project development. These are automatically
+          identified from the desk study data.
+        </p>
+      </div>
+
       <SummaryCards findings={findings} />
 
       {/* Key Ecological Constraints */}

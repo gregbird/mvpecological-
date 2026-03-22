@@ -322,11 +322,16 @@ export function DesignatedSitesMatrix({
     )
   }
 
-  const mapCard = hasLocationData ? (
+  const showMap = hasLocationData || !!boundary
+  const mapCard = showMap ? (
     <Card className="flex max-h-[420px] flex-col overflow-hidden [&_.leaflet-control-attribution]:hidden">
       <CardContent className="flex min-h-0 flex-1 p-0">
         <div className="h-full min-h-[250px] w-full">
-          <BaselineMap findings={mapFindings} boundary={boundary} showControls={false} />
+          <BaselineMap
+            findings={hasLocationData ? mapFindings : undefined}
+            boundary={boundary}
+            showControls={false}
+          />
         </div>
       </CardContent>
     </Card>

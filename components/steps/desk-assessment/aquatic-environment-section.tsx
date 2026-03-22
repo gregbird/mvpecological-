@@ -303,13 +303,12 @@ export function AquaticEnvironmentSection({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[200px]">Name</TableHead>
-                    <TableHead className="w-[90px]">Type</TableHead>
-                    <TableHead className="w-[120px]">WFD Status</TableHead>
-                    <TableHead className="w-[150px]">Catchment</TableHead>
-                    <TableHead className="w-[100px] text-right">Distance (km)</TableHead>
-                    <TableHead className="w-[100px] text-right">Size</TableHead>
-                    {onRemoveFinding && <TableHead className="w-[50px]" />}
+                    <TableHead>Name</TableHead>
+                    <TableHead className="w-[70px]">Type</TableHead>
+                    <TableHead className="w-[90px]">WFD Status</TableHead>
+                    <TableHead className="w-[80px] text-right">Distance (km)</TableHead>
+                    <TableHead className="w-[60px] text-right">Size</TableHead>
+                    {onRemoveFinding && <TableHead className="w-[40px]" />}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -337,9 +336,6 @@ export function AquaticEnvironmentSection({
                       </TableCell>
                       <TableCell>
                         <WFDStatusBadge status={wb.wfdStatus} />
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {wb.catchment || <span className="text-muted-foreground text-xs">—</span>}
                       </TableCell>
                       <TableCell className="text-right">
                         {wb.distance != null ? wb.distance.toFixed(1) : '—'}

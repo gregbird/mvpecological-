@@ -41,6 +41,7 @@ interface ProjectMapProps {
   onMapReady?: () => void
   editable?: boolean
   showControls?: boolean
+  skipFitBounds?: boolean
 }
 
 // The actual map component that uses react-leaflet
@@ -67,6 +68,7 @@ function MapComponent({
   showBatRecords,
   iwebsVisibleLayers,
   gridOverlay,
+  skipFitBounds,
 }: {
   center: [number, number]
   zoom: number
@@ -90,6 +92,7 @@ function MapComponent({
   mapRef: React.MutableRefObject<LeafletMap | null>
   showBatRecords?: boolean
   iwebsVisibleLayers?: string[]
+  skipFitBounds?: boolean
 }) {
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- react-leaflet must be client-side only
   const rl = require('react-leaflet')
@@ -224,7 +227,7 @@ function MapComponent({
     // Fit to boundary on initial load ONLY
     // Uses hasFitToBoundaryRef from parent scope so it persists across re-renders
     React.useEffect(() => {
-      if (boundary && map && !hasFitToBoundaryRef.current) {
+      if (boundary && map && !hasFitToBoundaryRef.current && !skipFitBounds) {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const L = require('leaflet')
         const geoJsonLayer = L.geoJSON(boundary)
@@ -717,6 +720,7 @@ export function ProjectMap({
   onMapClick,
   onMapReady,
   showControls = true,
+  skipFitBounds = false,
 }: ProjectMapProps) {
   const [mapLoaded, setMapLoaded] = React.useState(false)
   const [currentStyle, setCurrentStyle] = React.useState<MapStyle>('satellite')
@@ -797,6 +801,7 @@ export function ProjectMap({
           mapRef={mapRef}
           showBatRecords={showBatRecords}
           iwebsVisibleLayers={iwebsVisibleLayers}
+          skipFitBounds={skipFitBounds}
         />
       </div>
 

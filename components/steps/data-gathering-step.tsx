@@ -308,7 +308,8 @@ export function DataGatheringStep({
     setCurrentStep('info')
   }
 
-  const isComplete = workflowStep.status === 'approved'
+  // In wizard mode (editing), always allow re-completion
+  const isComplete = viewMode === 'preview' && workflowStep.status === 'approved'
   const isMapMode = currentStep !== 'info' && currentStep !== 'reports' && currentStep !== 'review'
 
   // Track visited substeps so we keep them mounted (preserves searchResults + map state)
@@ -331,8 +332,9 @@ export function DataGatheringStep({
         <div className="flex-1">
           <ProjectMap
             className="h-full"
-            center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
-            zoom={4}
+            center={IRELAND_CENTER}
+            zoom={7}
+            skipFitBounds
             boundary={projectBoundary}
             bufferDistances={bufferDistances}
             findings={savedFindings

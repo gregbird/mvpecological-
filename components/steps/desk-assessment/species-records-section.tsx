@@ -271,20 +271,19 @@ export function SpeciesRecordsSection({
         </Card>
 
         {/* Map beside table */}
-        <Card className="flex max-h-[420px] flex-col overflow-hidden [&_.leaflet-control-attribution]:hidden">
-          <CardContent className="flex min-h-0 flex-1 p-0">
-            {hasLocationData ? (
+        {(hasLocationData || !!boundary) && (
+          <Card className="flex max-h-[420px] flex-col overflow-hidden [&_.leaflet-control-attribution]:hidden">
+            <CardContent className="flex min-h-0 flex-1 p-0">
               <div className="h-full min-h-[250px] w-full">
-                <BaselineMap findings={mapFindings} boundary={boundary} showControls={false} />
+                <BaselineMap
+                  findings={hasLocationData ? mapFindings : undefined}
+                  boundary={boundary}
+                  showControls={false}
+                />
               </div>
-            ) : (
-              <div className="text-muted-foreground flex w-full flex-col items-center justify-center gap-2 py-8 text-center text-sm">
-                <Bug className="h-8 w-8 text-gray-300" />
-                <p>No location data available for species records.</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   )
