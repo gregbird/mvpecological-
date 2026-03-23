@@ -541,6 +541,7 @@ function FindingResearchCard({
 }) {
   const [expanded, setExpanded] = React.useState(false)
   const raw = finding.raw_data as Record<string, unknown>
+  const metadata = raw.metadata as Record<string, unknown> | undefined
   const deepResearch = raw.deepResearch as Record<string, unknown>
   const aiAnalysis = deepResearch.aiAnalysis as string
 
@@ -548,9 +549,30 @@ function FindingResearchCard({
   const iconColor = type === 'species' ? 'text-amber-600' : 'text-green-600'
   const bgColor = type === 'species' ? 'bg-amber-100' : 'bg-green-100'
 
-  // Extract extra info
+  // Species-specific data
+  const scientificName = type === 'species' ? (raw.scientificName as string) : null
+  const designations = type === 'species' ? (metadata?.designations as string) : null
+  const isProtected = type === 'species' && !!(finding.is_protected || metadata?.isProtected)
+  const isInvasive = type === 'species' && !!metadata?.isInvasive
+  const relatedSites = deepResearch.relatedSites as
+    | Array<{ name: string; code: string }>
+    | undefined
+  const article17 = deepResearch.article17Species as
+    | Array<{ scientificName: string; status?: string; trend?: string }>
+    | undefined
+
+  // Habitat-specific data
   const fossittCode = type === 'habitat' ? (raw.fossittCode as string) : null
   const areaHa = type === 'habitat' ? (raw.areaHectares as number) : null
+
+  // Summary line for collapsed state
+  const summaryParts: string[] = []
+  if (scientificName && scientificName !== finding.title) summaryParts.push(scientificName)
+  if (isProtected) summaryParts.push('Protected')
+  if (isInvasive) summaryParts.push('Invasive')
+  if (relatedSites && relatedSites.length > 0)
+    summaryParts.push(`${relatedSites.length} related sites`)
+  if (article17 && article17.length > 0) summaryParts.push('Article 17')
 
   return (
     <Card className="overflow-hidden">
@@ -568,16 +590,40 @@ function FindingResearchCard({
           <Icon className={cn('h-3.5 w-3.5', iconColor)} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-foreground truncate text-sm font-semibold">{finding.title}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-foreground truncate text-sm font-semibold">{finding.title}</p>
+            {isProtected && (
+              <Badge
+                variant="outline"
+                className="border-emerald-200 bg-emerald-50 text-[10px] text-emerald-700"
+              >
+                Protected
+              </Badge>
+            )}
+            {isInvasive && (
+              <Badge
+                variant="outline"
+                className="border-red-200 bg-red-50 text-[10px] text-red-700"
+              >
+                Invasive
+              </Badge>
+            )}
+          </div>
           <p className="text-xs text-gray-500">
+            {scientificName && scientificName !== finding.title && (
+              <span className="mr-1.5 italic">{scientificName}</span>
+            )}
             {fossittCode && <span className="mr-1.5 font-mono font-medium">{fossittCode}</span>}
             {areaHa != null && `${areaHa} ha`}
-            {!expanded && aiAnalysis && (
+            {!expanded && summaryParts.length === 0 && aiAnalysis && (
               <span className="text-muted-foreground">
-                {' '}
-                · {aiAnalysis.slice(0, 80)}
+                {' · '}
+                {aiAnalysis.slice(0, 80)}
                 {aiAnalysis.length > 80 ? '…' : ''}
               </span>
+            )}
+            {!expanded && summaryParts.length > 0 && (
+              <span className="text-muted-foreground"> · {summaryParts.join(' · ')}</span>
             )}
           </p>
         </div>
@@ -589,11 +635,96 @@ function FindingResearchCard({
         />
       </button>
 
-      {expanded && aiAnalysis && (
+      {expanded && (
         <div className="border-t px-3 pb-3">
-          <div className="prose prose-xs dark:prose-invert mt-2 max-w-none rounded-lg bg-gray-50 p-2.5 text-xs dark:bg-gray-800">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{aiAnalysis}</ReactMarkdown>
-          </div>
+          {/* Designations */}
+          {designations && (
+            <div className="mt-2">
+              <h4 className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
+                <Shield className="h-3.5 w-3.5 text-emerald-600" />
+                Designations
+              </h4>
+              <div className="flex flex-wrap gap-1">
+                {designations.split('||').map((d, i) => (
+                  <Badge key={i} variant="outline" className="text-[10px]">
+                    {d.trim()}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Article 17 Species */}
+          {article17 && article17.length > 0 && (
+            <div className="mt-2">
+              <h4 className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
+                <Leaf className="h-3.5 w-3.5 text-green-600" />
+                Article 17 Assessment
+              </h4>
+              <div className="space-y-1">
+                {article17.map((sp, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between rounded bg-gray-50 px-2 py-1 text-xs dark:bg-gray-800"
+                  >
+                    <span className="text-gray-800 italic dark:text-gray-200">
+                      {sp.scientificName}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {sp.status && (
+                        <span
+                          className={cn('text-[10px] font-medium', {
+                            'text-green-600': sp.status === 'Favourable',
+                            'text-amber-600':
+                              sp.status === 'Inadequate' || sp.status === 'Unfavourable',
+                            'text-red-600': sp.status === 'Bad',
+                          })}
+                        >
+                          {sp.status}
+                        </span>
+                      )}
+                      {sp.trend && <span className="text-[10px] text-gray-500">{sp.trend}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Related NPWS Sites */}
+          {relatedSites && relatedSites.length > 0 && (
+            <div className="mt-2">
+              <h4 className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
+                <MapPin className="h-3.5 w-3.5 text-emerald-600" />
+                Related Designated Sites ({relatedSites.length})
+              </h4>
+              <div className="flex flex-wrap gap-1">
+                {relatedSites.slice(0, 10).map((s, i) => (
+                  <Badge key={i} variant="outline" className="text-[10px]">
+                    {s.name}
+                  </Badge>
+                ))}
+                {relatedSites.length > 10 && (
+                  <Badge variant="outline" className="text-[10px] text-gray-500">
+                    +{relatedSites.length - 10} more
+                  </Badge>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* AI Analysis */}
+          {aiAnalysis && (
+            <div className="mt-2">
+              <h4 className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
+                <Bug className="h-3.5 w-3.5 text-purple-600" />
+                AI Analysis
+              </h4>
+              <div className="prose prose-xs dark:prose-invert max-w-none rounded-lg bg-gray-50 p-2.5 text-xs dark:bg-gray-800">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{aiAnalysis}</ReactMarkdown>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </Card>
@@ -797,7 +928,7 @@ export function DeepResearchTab({ projectId, project, findings }: DeepResearchTa
     return (
       <div className="flex h-full">
         {/* Map side */}
-        <div className="flex-1">
+        <div className="w-[40%] min-w-[300px]">
           <DynamicProjectMap
             boundary={boundary}
             bufferDistances={bufferDistances}
@@ -807,7 +938,7 @@ export function DeepResearchTab({ projectId, project, findings }: DeepResearchTa
           />
         </div>
         {/* Empty state panel */}
-        <div className="border-border bg-background flex w-[420px] flex-col items-center justify-center border-l p-6 text-center">
+        <div className="border-border bg-background flex min-w-0 flex-1 flex-col items-center justify-center border-l p-6 text-center">
           <MapPin className="mb-3 h-12 w-12 text-gray-300" />
           <h3 className="font-semibold text-gray-700 dark:text-gray-300">No Deep Research Yet</h3>
           <p className="text-muted-foreground mt-1 max-w-sm text-sm">
@@ -850,7 +981,7 @@ export function DeepResearchTab({ projectId, project, findings }: DeepResearchTa
   return (
     <div className="flex h-full">
       {/* Left: Map */}
-      <div className="flex-1">
+      <div className="w-1/2 min-w-[300px]">
         <DynamicProjectMap
           boundary={boundary}
           bufferDistances={bufferDistances}
@@ -861,7 +992,7 @@ export function DeepResearchTab({ projectId, project, findings }: DeepResearchTa
       </div>
 
       {/* Right: Deep Research Panel */}
-      <div className="border-border bg-background flex w-[420px] flex-col border-l">
+      <div className="border-border bg-background flex min-w-0 flex-1 flex-col border-l">
         <div className="flex items-center justify-between border-b px-4 py-3">
           <div>
             <h3 className="text-sm font-semibold">Deep Research</h3>
