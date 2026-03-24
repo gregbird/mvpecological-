@@ -132,11 +132,36 @@ export function SurveyViewDialog({
     }
   }
 
-  // Parse template field values from weather JSONB
+  // Parse template field values from weather JSONB and form_data
   const templateFieldValues: Record<string, FieldValue> = (() => {
-    if (!survey.weather || typeof survey.weather !== 'object') return {}
-    const weather = survey.weather as Record<string, unknown>
-    return (weather.templateFields as Record<string, FieldValue>) ?? {}
+    const values: Record<string, FieldValue> = {}
+
+    // Web format: weather.templateFields
+    if (survey.weather && typeof survey.weather === 'object') {
+      const weather = survey.weather as Record<string, unknown>
+      const tf = weather.templateFields as Record<string, FieldValue> | undefined
+      if (tf) Object.assign(values, tf)
+
+      // Mobile format: weather keys directly (snake_case)
+      for (const [k, v] of Object.entries(weather)) {
+        if (k !== 'templateFields' && k !== 'expectedSurveyCount' && v != null && v !== '') {
+          values[k] = v as FieldValue
+        }
+      }
+    }
+
+    // Mobile format: form_data sections
+    const rawSurvey = survey as unknown as Record<string, unknown>
+    const formData = rawSurvey.form_data as Record<string, Record<string, FieldValue>> | undefined
+    if (formData && typeof formData === 'object') {
+      for (const sectionValues of Object.values(formData)) {
+        if (sectionValues && typeof sectionValues === 'object') {
+          Object.assign(values, sectionValues)
+        }
+      }
+    }
+
+    return values
   })()
 
   const hasTemplateData = Object.keys(templateFieldValues).length > 0

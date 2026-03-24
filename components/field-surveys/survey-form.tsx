@@ -223,16 +223,38 @@ export function SurveyForm({
     return saved ?? getDefaultFieldsForType(selectedSurveyType)
   }, [orgTemplate, selectedSurveyType, activeSurveyTypes])
 
-  // Initialize template field values from existing survey weather data
+  // Initialize template field values from existing survey weather data and form_data
   React.useEffect(() => {
+    const values: Record<string, FieldValue> = {}
+
+    // Web format: weather.templateFields
     if (initialData?.weather && typeof initialData.weather === 'object') {
       const weather = initialData.weather as Record<string, unknown>
-      const saved = (weather.templateFields as Record<string, FieldValue>) ?? {}
-      setTemplateFieldValues(saved)
-    } else {
-      setTemplateFieldValues({})
+      const tf = (weather.templateFields as Record<string, FieldValue>) ?? {}
+      Object.assign(values, tf)
+
+      // Mobile format: weather keys directly (snake_case)
+      for (const [k, v] of Object.entries(weather)) {
+        if (k !== 'templateFields' && k !== 'expectedSurveyCount' && v != null && v !== '') {
+          values[k] = v as FieldValue
+        }
+      }
     }
-  }, [initialData?.weather])
+
+    // Mobile format: form_data sections
+    const formData = (initialData as Record<string, unknown>)?.form_data as
+      | Record<string, Record<string, FieldValue>>
+      | undefined
+    if (formData && typeof formData === 'object') {
+      for (const sectionValues of Object.values(formData)) {
+        if (sectionValues && typeof sectionValues === 'object') {
+          Object.assign(values, sectionValues)
+        }
+      }
+    }
+
+    setTemplateFieldValues(values)
+  }, [initialData?.weather, initialData])
 
   // Reset template field values when survey type changes (only for new surveys)
   React.useEffect(() => {

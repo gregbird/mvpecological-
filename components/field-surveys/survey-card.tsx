@@ -38,9 +38,13 @@ export type SurveyType =
 
 export interface WeatherData {
   temperature?: number
+  temperature_c?: number
   windSpeed?: number
+  wind_speed_kmh?: number
   windDirection?: string
+  wind_direction?: string
   cloudCover?: number
+  cloud_cover_pct?: number
   precipitation?: string
   visibility?: string
   expectedSurveyCount?: number
@@ -55,6 +59,7 @@ export interface Survey {
   endTime?: string
   status: SurveyStatus
   weather?: WeatherData
+  form_data?: Record<string, Record<string, unknown>> | null
   expectedSurveyCount?: number
   notes?: string
   surveyor: {

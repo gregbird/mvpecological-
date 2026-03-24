@@ -502,9 +502,12 @@ function buildReportContext(input: ReportContextInput): string {
       }
       if (weather) {
         const weatherParts: string[] = []
-        if (weather.temperature != null) weatherParts.push(`${weather.temperature}°C`)
-        if (weather.windSpeed != null) weatherParts.push(`wind ${weather.windSpeed} km/h`)
-        if (weather.cloudCover != null) weatherParts.push(`cloud ${weather.cloudCover}%`)
+        const temp = weather.temperature ?? weather.temperature_c
+        const wind = weather.windSpeed ?? weather.wind_speed_kmh
+        const cloud = weather.cloudCover ?? weather.cloud_cover_pct
+        if (temp != null) weatherParts.push(`${temp}°C`)
+        if (wind != null) weatherParts.push(`wind ${wind} km/h`)
+        if (cloud != null) weatherParts.push(`cloud ${cloud}%`)
         if (weather.precipitation) weatherParts.push(`${weather.precipitation}`)
         if (weatherParts.length > 0) parts.push(`  Weather: ${weatherParts.join(', ')}`)
 

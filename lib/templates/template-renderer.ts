@@ -212,9 +212,12 @@ function buildSurveyDetails(surveys: Survey[]): string {
     const weather = s.weather as Record<string, unknown> | null
     if (weather) {
       const wp: string[] = []
-      if (weather.temperature != null) wp.push(`${weather.temperature}°C`)
-      if (weather.windSpeed != null) wp.push(`wind ${weather.windSpeed} km/h`)
-      if (weather.cloudCover != null) wp.push(`cloud cover ${weather.cloudCover}%`)
+      const temp = weather.temperature ?? weather.temperature_c
+      const wind = weather.windSpeed ?? weather.wind_speed_kmh
+      const cloud = weather.cloudCover ?? weather.cloud_cover_pct
+      if (temp != null) wp.push(`${temp}°C`)
+      if (wind != null) wp.push(`wind ${wind} km/h`)
+      if (cloud != null) wp.push(`cloud cover ${cloud}%`)
       if (weather.precipitation) wp.push(`${weather.precipitation}`)
       if (wp.length > 0) {
         parts.push(`  - Weather conditions: ${wp.join(', ')}`)

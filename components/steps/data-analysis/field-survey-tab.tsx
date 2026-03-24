@@ -95,10 +95,10 @@ export function FieldSurveyTab({ projectId }: FieldSurveyTabProps) {
                           month: 'short',
                           year: 'numeric',
                         })}
-                        {typeof weather?.temperature === 'number' &&
-                          ` \u00B7 ${weather.temperature}\u00B0C`}
-                        {typeof weather?.windSpeed === 'number' &&
-                          ` \u00B7 Wind ${weather.windSpeed} km/h`}
+                        {typeof (weather?.temperature ?? weather?.temperature_c) === 'number' &&
+                          ` \u00B7 ${weather?.temperature ?? weather?.temperature_c}\u00B0C`}
+                        {typeof (weather?.windSpeed ?? weather?.wind_speed_kmh) === 'number' &&
+                          ` \u00B7 Wind ${weather?.windSpeed ?? weather?.wind_speed_kmh} km/h`}
                       </div>
                       {survey.notes && (
                         <p className="text-muted-foreground mt-1 line-clamp-1 text-xs italic">

@@ -25,6 +25,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { useToast } from '@/hooks/use-toast'
+import { getDefaultFieldsForType } from '@/lib/config/survey-field-definitions'
 import {
   useSurveys,
   useSurveyStats,
@@ -225,6 +226,7 @@ export function FieldSurveyStep({
         endTime: s.end_time || undefined,
         status: s.status as SurveyCardType['status'],
         weather: s.weather as SurveyCardType['weather'],
+        form_data: s.form_data as SurveyCardType['form_data'],
         expectedSurveyCount: (s.weather as Record<string, unknown> | null)?.expectedSurveyCount as
           | number
           | undefined,
@@ -312,6 +314,27 @@ export function FieldSurveyStep({
     if (!editingSurvey) return
 
     try {
+      // Build form_data from templateFields grouped by section
+      const weatherObj = data.weather as Record<string, unknown> | undefined
+      const templateFields = weatherObj?.templateFields as Record<string, unknown> | undefined
+      const templateDef = getDefaultFieldsForType(data.surveyType || editingSurvey.surveyType)
+      let formData: Record<string, Record<string, unknown>> | undefined
+      if (templateFields && templateDef) {
+        formData = {}
+        for (const section of templateDef.sections) {
+          if (section.id === 'weather') continue
+          const sectionData: Record<string, unknown> = {}
+          for (const field of section.fields) {
+            if (templateFields[field.key] != null && templateFields[field.key] !== '') {
+              sectionData[field.key] = templateFields[field.key]
+            }
+          }
+          if (Object.keys(sectionData).length > 0) {
+            formData[section.id] = sectionData
+          }
+        }
+      }
+
       await updateSurvey.mutateAsync({
         surveyId: editingSurvey.id,
         updates: {
@@ -320,6 +343,7 @@ export function FieldSurveyStep({
           start_time: data.startTime || null,
           end_time: data.endTime || null,
           weather: (data.weather as unknown as Json) || null,
+          form_data: formData ? (formData as unknown as Json) : undefined,
           notes: data.notes || null,
         },
       })
@@ -1004,6 +1028,7 @@ export function FieldSurveyStep({
                     surveyor: editingSurvey.surveyor,
                     expectedSurveyCount: editingSurvey.expectedSurveyCount,
                     weather: editingSurvey.weather,
+                    form_data: editingSurvey.form_data,
                     notes: editingSurvey.notes,
                   }
                 : undefined

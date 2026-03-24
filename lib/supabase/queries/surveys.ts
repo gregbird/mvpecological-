@@ -160,14 +160,30 @@ export async function getSurveyGroup(visitGroupId: string): Promise<SurveyWithSu
   return (data ?? []) as unknown as SurveyWithSurveyor[]
 }
 
-// Weather data type
+// Weather data type (supports both camelCase web keys and snake_case mobile/template keys)
 export interface WeatherData {
   temperature?: number
+  temperature_c?: number
   windSpeed?: number
+  wind_speed_kmh?: number
   windDirection?: string
+  wind_direction?: string
   cloudCover?: number
+  cloud_cover_pct?: number
   precipitation?: string
   visibility?: string
+}
+
+// Normalize weather data — returns consistent values regardless of key format
+export function normalizeWeather(w: WeatherData) {
+  return {
+    temperature: w.temperature ?? w.temperature_c,
+    windSpeed: w.windSpeed ?? w.wind_speed_kmh,
+    windDirection: w.windDirection ?? w.wind_direction,
+    cloudCover: w.cloudCover ?? w.cloud_cover_pct,
+    precipitation: w.precipitation,
+    visibility: w.visibility,
+  }
 }
 
 // Update survey weather

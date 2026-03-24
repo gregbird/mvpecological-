@@ -1686,10 +1686,12 @@ export type Database = {
           visit_group_id: string | null
           visit_number: number | null
           weather: Json | null
+          form_data: Json | null
         }
         Insert: {
           created_at?: string
           end_time?: string | null
+          form_data?: Json | null
           id?: string
           local_id?: string | null
           notes?: string | null
@@ -1708,6 +1710,7 @@ export type Database = {
         Update: {
           created_at?: string
           end_time?: string | null
+          form_data?: Json | null
           id?: string
           local_id?: string | null
           notes?: string | null
