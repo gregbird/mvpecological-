@@ -538,6 +538,7 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
           <div className="border-muted h-full rounded-lg border">
             <AIDraftTab
               project={project}
+              reportType={reportType}
               sectionDefs={reportSectionDefs}
               sections={sections}
               generatingSection={generatingSection}

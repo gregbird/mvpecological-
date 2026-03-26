@@ -26,6 +26,8 @@ interface SurveyAssignmentDialogProps {
   surveyLabel: string
   organizationId: string
   assignedBy: string
+  /** The primary surveyor (from surveys.surveyor_id) — shown as lead, cannot be removed */
+  leadSurveyorId?: string
 }
 
 export function SurveyAssignmentDialog({
@@ -35,6 +37,7 @@ export function SurveyAssignmentDialog({
   surveyLabel,
   organizationId,
   assignedBy,
+  leadSurveyorId,
 }: SurveyAssignmentDialogProps) {
   const [teamMembers, setTeamMembers] = React.useState<TeamMember[]>([])
   const [loadingMembers, setLoadingMembers] = React.useState(false)
@@ -89,30 +92,39 @@ export function SurveyAssignmentDialog({
               Assigned
             </p>
             <div className="space-y-1">
-              {assignedMembers.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center justify-between rounded-md border px-3 py-1.5"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">{member.full_name || 'Unknown'}</span>
-                    {member.role && (
-                      <Badge variant="outline" className="text-[10px]">
-                        {member.role}
-                      </Badge>
+              {assignedMembers.map((member) => {
+                const isLead = member.id === leadSurveyorId
+                return (
+                  <div
+                    key={member.id}
+                    className="flex items-center justify-between rounded-md border px-3 py-1.5"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">{member.full_name || 'Unknown'}</span>
+                      {isLead ? (
+                        <Badge className="bg-blue-100 text-[10px] text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                          Lead
+                        </Badge>
+                      ) : member.role ? (
+                        <Badge variant="outline" className="text-[10px]">
+                          {member.role}
+                        </Badge>
+                      ) : null}
+                    </div>
+                    {!isLead && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                        onClick={() => handleRemove(member.id)}
+                        disabled={removeAssignment.isPending}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
                     )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                    onClick={() => handleRemove(member.id)}
-                    disabled={removeAssignment.isPending}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         )}

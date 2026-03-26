@@ -130,8 +130,6 @@ Placeholder'lar: `{{project_name}}`, `{{location_description}}`, `{{site_code}}`
 
 ### AI Bölüm Üretimi
 
-Ecem Selamlar, Pazarlamasına başlayacağımız bir ürünümüz var. Sizin tarafınızda süreci nasıl işletiyorsunuz, fiyatlandırmanız nasıl oluyor?
-
 **Dosya:** `app/api/ai/report-section/route.ts`
 d
 

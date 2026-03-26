@@ -9,12 +9,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { useReports, useUpdateVersionName } from '@/hooks/queries/use-report-hooks'
+import { useReportsByType, useUpdateVersionName } from '@/hooks/queries/use-report-hooks'
 import type { Report } from '@/types/database'
 import type { ReportContent } from '@/lib/supabase/queries/reports'
 
 interface VersionHistoryPanelProps {
   projectId: string
+  reportType: string
   currentReportId: string | null
   onViewVersion: (report: Report) => void
   onCompareVersion: (report: Report) => void
@@ -31,12 +32,13 @@ const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'dest
 
 export function VersionHistoryPanel({
   projectId,
+  reportType,
   currentReportId,
   onViewVersion,
   onCompareVersion,
   onRestoreVersion,
 }: VersionHistoryPanelProps) {
-  const { data: allReports, isLoading } = useReports(projectId)
+  const { data: allReports, isLoading } = useReportsByType(projectId, reportType)
   const updateVersionName = useUpdateVersionName()
   const [editingId, setEditingId] = React.useState<string | null>(null)
   const [editValue, setEditValue] = React.useState('')

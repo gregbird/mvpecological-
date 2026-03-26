@@ -35,6 +35,7 @@ import {
 } from '@/hooks/queries/use-survey-hooks'
 import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { useSavedFindings } from '@/hooks/queries/use-finding-hooks'
+import { assignSurveyStaff } from '@/lib/supabase/queries/survey-assignments'
 import {
   SurveyCard,
   type Survey as SurveyCardType,
@@ -279,6 +280,13 @@ export function FieldSurveyStep({
         visit_group_id: data.visitGroupId || null,
         visit_number: data.visitNumber || null,
       })
+
+      // Auto-assign surveyor to survey_assignments
+      if (newSurvey?.id && data.surveyor?.id) {
+        assignSurveyStaff(newSurvey.id, data.surveyor.id, userId).catch(() => {
+          // Non-critical: assignment sync is best-effort
+        })
+      }
 
       toast({
         title: data.visitGroupId ? 'Visit added' : 'Survey created',
@@ -884,12 +892,25 @@ export function FieldSurveyStep({
                                         onAssignStaff={
                                           canAssignStaff ? setAssigningSurvey : undefined
                                         }
-                                        onAddVisit={handleAddVisit}
                                         isHighlighted={survey.id === highlightedSurveyId}
                                         groupApproveDisabled={!group.canComplete}
                                       />
                                     ))}
                                   </div>
+                                  {/* Add Visit button — group level (hidden only if all approved) */}
+                                  {!groupCards.every((s) => s.status === 'approved') && (
+                                    <div className="border-t px-3 py-2">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="w-full border-dashed"
+                                        onClick={() => handleAddVisit(groupCards[0])}
+                                      >
+                                        <Plus className="mr-1.5 h-3.5 w-3.5" />
+                                        Add Visit
+                                      </Button>
+                                    </div>
+                                  )}
                                 </CollapsibleContent>
                               </div>
                             </Collapsible>
@@ -931,21 +952,23 @@ export function FieldSurveyStep({
                           </div>
                         ) : (
                           <div className="grid gap-4 pr-4 sm:grid-cols-2 lg:grid-cols-3">
-                            {statusSurveys.map((survey) => (
-                              <SurveyCard
-                                key={survey.id}
-                                survey={survey}
-                                onView={handleViewSurvey}
-                                onEdit={handleOpenEditForm}
-                                onDelete={handleDeleteSurvey}
-                                onStart={handleStartSurvey}
-                                onComplete={handleCompleteSurvey}
-                                onApprove={handleApproveSurvey}
-                                onAssignStaff={canAssignStaff ? setAssigningSurvey : undefined}
-                                onAddVisit={handleAddVisit}
-                                isHighlighted={survey.id === highlightedSurveyId}
-                              />
-                            ))}
+                            {[...statusSurveys]
+                              .sort((a, b) => (a.visitNumber ?? 0) - (b.visitNumber ?? 0))
+                              .map((survey) => (
+                                <SurveyCard
+                                  key={survey.id}
+                                  survey={survey}
+                                  onView={handleViewSurvey}
+                                  onEdit={handleOpenEditForm}
+                                  onDelete={handleDeleteSurvey}
+                                  onStart={handleStartSurvey}
+                                  onComplete={handleCompleteSurvey}
+                                  onApprove={handleApproveSurvey}
+                                  onAssignStaff={canAssignStaff ? setAssigningSurvey : undefined}
+                                  onAddVisit={handleAddVisit}
+                                  isHighlighted={survey.id === highlightedSurveyId}
+                                />
+                              ))}
                           </div>
                         )}
                       </ScrollArea>
@@ -1072,6 +1095,7 @@ export function FieldSurveyStep({
               }
               organizationId={project.organization_id}
               assignedBy={userId}
+              leadSurveyorId={assigningSurvey.surveyor.id}
             />
           )}
         </TabsContent>

@@ -17,6 +17,7 @@ interface SectionDef {
 
 interface AIDraftTabProps {
   project: Project
+  reportType: string
   sectionDefs: SectionDef[]
   sections: ReportSection[]
   generatingSection: string | null
@@ -42,6 +43,7 @@ interface AIDraftTabProps {
 
 export function AIDraftTab({
   project,
+  reportType,
   sectionDefs,
   sections,
   generatingSection,
@@ -81,6 +83,7 @@ export function AIDraftTab({
         <div className="px-4 pt-3">
           <VersionHistoryPanel
             projectId={project.id}
+            reportType={reportType}
             currentReportId={existingReport?.id ?? null}
             onViewVersion={onViewVersion}
             onCompareVersion={onCompareVersion}

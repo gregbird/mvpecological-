@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   ShieldCheck,
   Users,
+  MoreHorizontal,
   Plus,
 } from 'lucide-react'
 
@@ -19,6 +20,13 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { FIELD_SURVEY_TYPE_LABELS } from '@/lib/config/survey'
 
@@ -83,6 +91,7 @@ interface SurveyCardProps {
   onComplete?: (survey: Survey) => void
   onApprove?: (survey: Survey) => void
   onAssignStaff?: (survey: Survey) => void
+  /** Add a visit — shown in dropdown for standalone surveys */
   onAddVisit?: (survey: Survey) => void
   isHighlighted?: boolean
   /** When true, the approve button is disabled (not all group visits completed) */
@@ -91,12 +100,24 @@ interface SurveyCardProps {
 
 const STATUS_STYLES: Record<
   SurveyStatus,
-  { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }
+  {
+    label: string
+    variant: 'default' | 'secondary' | 'outline' | 'destructive'
+    className?: string
+  }
 > = {
   planned: { label: 'Planned', variant: 'outline' },
-  in_progress: { label: 'In Progress', variant: 'secondary' },
-  completed: { label: 'Completed', variant: 'default' },
-  approved: { label: 'Approved', variant: 'default' },
+  in_progress: {
+    label: 'In Progress',
+    variant: 'default',
+    className: 'bg-blue-600 hover:bg-blue-700',
+  },
+  completed: {
+    label: 'Completed',
+    variant: 'default',
+    className: 'bg-amber-500 hover:bg-amber-600 text-white',
+  },
+  approved: { label: 'Approved', variant: 'default', className: 'bg-green-600 hover:bg-green-700' },
 }
 
 export function SurveyCard({
@@ -239,60 +260,53 @@ export function SurveyCard({
           </Button>
         )}
 
-        {/* Add Visit button for grouped surveys */}
-        {onAddVisit && survey.status !== 'approved' && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950"
-            onClick={() => onAddVisit(survey)}
-          >
-            <Plus className="mr-1.5 h-3.5 w-3.5" />
-            Add Visit
-          </Button>
-        )}
-
-        {/* Action buttons */}
-        <div className="flex w-full flex-wrap items-center gap-1.5">
-          {onAssignStaff && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1"
-              onClick={() => onAssignStaff(survey)}
-            >
-              <Users className="mr-1.5 h-3.5 w-3.5" />
-              Assign
-            </Button>
-          )}
+        {/* View + overflow menu */}
+        <div className="flex w-full items-center gap-1.5">
           {onView && (
             <Button variant="outline" size="sm" className="flex-1" onClick={() => onView(survey)}>
               <Eye className="mr-1.5 h-3.5 w-3.5" />
               View
             </Button>
           )}
-          {onEdit && survey.status !== 'approved' && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1 border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-950"
-              onClick={() => onEdit(survey)}
-            >
-              <Pencil className="mr-1.5 h-3.5 w-3.5" />
-              Edit
-            </Button>
-          )}
-          {onDelete && survey.status !== 'approved' && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950"
-              onClick={() => onDelete(survey)}
-            >
-              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-              Delete
-            </Button>
-          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {onEdit && survey.status !== 'approved' && (
+                <DropdownMenuItem onClick={() => onEdit(survey)}>
+                  <Pencil className="mr-2 h-3.5 w-3.5" />
+                  Edit
+                </DropdownMenuItem>
+              )}
+              {onAddVisit && survey.status !== 'approved' && (
+                <DropdownMenuItem onClick={() => onAddVisit(survey)}>
+                  <Plus className="mr-2 h-3.5 w-3.5" />
+                  Add Visit
+                </DropdownMenuItem>
+              )}
+              {onAssignStaff && (
+                <DropdownMenuItem onClick={() => onAssignStaff(survey)}>
+                  <Users className="mr-2 h-3.5 w-3.5" />
+                  Assign Staff
+                </DropdownMenuItem>
+              )}
+              {onDelete && survey.status !== 'approved' && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-red-600 focus:text-red-600"
+                    onClick={() => onDelete(survey)}
+                  >
+                    <Trash2 className="mr-2 h-3.5 w-3.5" />
+                    Delete
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </CardFooter>
     </Card>
