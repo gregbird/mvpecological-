@@ -28,10 +28,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { IRELAND_CENTER } from '@/lib/config/map-constants'
+import { Badge } from '@/components/ui/badge'
+import { ChevronDown } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useHabitats, useHabitatStats, useUpdateHabitat } from '@/hooks/queries/use-habitat-hooks'
+import { useSavedFindings } from '@/hooks/queries/use-finding-hooks'
 import { HabitatEditDialog } from '@/components/steps/data-analysis/habitat-edit-dialog'
+import { getHabitatByCode } from '@/lib/data/fossitt-codes'
 import type { HabitatPolygon, Project } from '@/types/database'
 
 const DynamicProjectMap = dynamic(
@@ -64,8 +69,29 @@ export function HabitatTab({ projectId, siteCode, project }: HabitatTabProps) {
   const { toast } = useToast()
   const { data: habitats = [] } = useHabitats(projectId)
   const { data: habitatStats } = useHabitatStats(projectId)
+  const { data: savedFindings = [] } = useSavedFindings(projectId)
   const updateHabitat = useUpdateHabitat()
   const [editingHabitat, setEditingHabitat] = React.useState<HabitatPolygon | null>(null)
+
+  // Desk research habitat findings (NLC 2018 from Step 2)
+  const deskHabitats = React.useMemo(() => {
+    return savedFindings
+      .filter((f) => f.data_type === 'habitat')
+      .map((f) => {
+        const raw = f.raw_data as Record<string, unknown> | null
+        const fossittCode = String(raw?.fossittCode ?? '—')
+        const info = getHabitatByCode(fossittCode)
+        return {
+          id: f.id,
+          fossittCode,
+          fossittName: String(raw?.fossittName ?? f.title),
+          nlcLabel: String(raw?.nlcLabel ?? ''),
+          areaHa: Number(raw?.areaHectares) || 0,
+          color: info?.color || '#22c55e',
+        }
+      })
+      .sort((a, b) => b.areaHa - a.areaHa)
+  }, [savedFindings])
 
   const habitatChartData = React.useMemo(() => {
     if (!habitatStats?.byFossittCode) return []
@@ -94,23 +120,42 @@ export function HabitatTab({ projectId, siteCode, project }: HabitatTabProps) {
       }
     : undefined
 
-  const habitatFeatureCollection: GeoJSON.FeatureCollection = React.useMemo(
-    () => ({
-      type: 'FeatureCollection',
-      features: habitats
-        .filter((h) => h.boundary && h.include_in_report)
-        .map((h) => ({
+  // Combine field-verified habitats + desk research habitat polygons for map
+  const habitatFeatureCollection: GeoJSON.FeatureCollection = React.useMemo(() => {
+    const fieldFeatures = habitats
+      .filter((h) => h.boundary && h.include_in_report)
+      .map((h) => ({
+        type: 'Feature' as const,
+        properties: {
+          fossitt_code: h.fossitt_code,
+          fossitt_name: h.fossitt_name,
+          condition: h.condition,
+        },
+        geometry: h.boundary as GeoJSON.Polygon,
+      }))
+
+    const deskFeatures = savedFindings
+      .filter((f) => f.data_type === 'habitat' && f.location != null)
+      .map((f) => {
+        const raw = f.raw_data as Record<string, unknown> | null
+        const fossittCode = String(raw?.fossittCode ?? '')
+        const info = getHabitatByCode(fossittCode)
+        return {
           type: 'Feature' as const,
           properties: {
-            fossitt_code: h.fossitt_code,
-            fossitt_name: h.fossitt_name,
-            condition: h.condition,
+            fossitt_code: fossittCode,
+            fossitt_name: String(raw?.fossittName ?? f.title),
+            condition: info ? 'desk' : undefined,
           },
-          geometry: h.boundary as GeoJSON.Polygon,
-        })),
-    }),
-    [habitats]
-  )
+          geometry: f.location as GeoJSON.Geometry,
+        }
+      })
+
+    return {
+      type: 'FeatureCollection',
+      features: [...fieldFeatures, ...deskFeatures],
+    }
+  }, [habitats, savedFindings])
 
   const handleExportCSV = () => {
     const filename = `${siteCode || projectId}_habitats.csv`
@@ -165,7 +210,75 @@ export function HabitatTab({ projectId, siteCode, project }: HabitatTabProps) {
         </CardContent>
       </Card>
 
-      {/* Charts */}
+      {/* Desktop Habitat Assessment (NLC 2018 from Step 2) — collapsible */}
+      {deskHabitats.length > 0 && (
+        <Collapsible>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="hover:bg-muted/50 cursor-pointer pb-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-base">Desktop Habitat Assessment</CardTitle>
+                    <Badge variant="outline" className="text-xs">
+                      NLC 2018
+                    </Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      {deskHabitats.length} habitats
+                    </Badge>
+                  </div>
+                  <ChevronDown className="text-muted-foreground h-4 w-4 transition-transform [[data-state=open]_&]:rotate-180" />
+                </div>
+                <p className="text-muted-foreground text-xs">
+                  Click to expand — Habitat data from National Land Cover 2018 (Desk Research, Step
+                  2)
+                </p>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0">
+                <UITable>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>FOSSITT Code</TableHead>
+                      <TableHead>Habitat</TableHead>
+                      <TableHead>NLC Label</TableHead>
+                      <TableHead className="text-right">Area (ha)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {deskHabitats.map((h) => (
+                      <TableRow key={h.id}>
+                        <TableCell>
+                          <span className="flex items-center gap-1.5">
+                            <span
+                              className="inline-block h-3 w-3 rounded-sm"
+                              style={{ backgroundColor: h.color }}
+                            />
+                            <span className="font-mono text-xs">{h.fossittCode}</span>
+                          </span>
+                        </TableCell>
+                        <TableCell className="max-w-48 truncate text-sm">{h.fossittName}</TableCell>
+                        <TableCell className="text-muted-foreground max-w-40 truncate text-xs">
+                          {h.nlcLabel}
+                        </TableCell>
+                        <TableCell className="text-right">{h.areaHa.toFixed(2)}</TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="font-medium">
+                      <TableCell colSpan={3}>Total</TableCell>
+                      <TableCell className="text-right">
+                        {deskHabitats.reduce((sum, h) => sum + h.areaHa, 0).toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </UITable>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      )}
+
+      {/* Field-Verified Habitat Charts */}
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Bar Chart */}
         <Card>
@@ -252,7 +365,12 @@ export function HabitatTab({ projectId, siteCode, project }: HabitatTabProps) {
       {/* Habitat Detail Table */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Habitat Details</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-base">Field-Verified Habitat Details</CardTitle>
+            <Badge variant="outline" className="text-xs">
+              Step 5
+            </Badge>
+          </div>
         </CardHeader>
         <CardContent>
           <UITable>
