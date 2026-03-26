@@ -161,7 +161,7 @@ export default function DashboardPage() {
   const [quickCreateOpen, setQuickCreateOpen] = React.useState(false)
   const router = useRouter()
 
-  const isAdmin = user?.role === 'admin'
+  const canViewAll = permissions.canViewAllProjects
 
   // Fetch dashboard data
   React.useEffect(() => {
@@ -176,7 +176,7 @@ export default function DashboardPage() {
 
         // For non-admin users, get their assigned project IDs first
         let assignedProjectIds: string[] = []
-        if (!isAdmin) {
+        if (!canViewAll) {
           const { data: memberships } = await supabase
             .from('project_members')
             .select('project_id')
@@ -193,9 +193,9 @@ export default function DashboardPage() {
           .order('updated_at', { ascending: false })
 
         // For non-admin users, filter to only assigned projects
-        if (!isAdmin && assignedProjectIds.length > 0) {
+        if (!canViewAll && assignedProjectIds.length > 0) {
           projectsQuery = projectsQuery.in('id', assignedProjectIds)
-        } else if (!isAdmin && assignedProjectIds.length === 0) {
+        } else if (!canViewAll && assignedProjectIds.length === 0) {
           // No assigned projects
           setStats({
             totalProjects: 0,
@@ -371,12 +371,12 @@ export default function DashboardPage() {
     if (!isRoleLoading) {
       fetchDashboardData()
     }
-  }, [user, isRoleLoading, isAdmin])
+  }, [user, isRoleLoading, canViewAll])
 
   // Stats cards
   const statsCards = [
     {
-      label: isAdmin ? 'Total Projects' : 'My Projects',
+      label: canViewAll ? 'Total Projects' : 'My Projects',
       value: stats.totalProjects,
       valueColor: 'text-gray-900 dark:text-gray-100',
       icon: FileText,
@@ -449,7 +449,7 @@ export default function DashboardPage() {
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-foreground text-2xl font-bold">
-            {isAdmin ? 'Dashboard' : 'My Dashboard'}
+            {canViewAll ? 'Dashboard' : 'My Dashboard'}
           </h1>
           <p className="text-muted-foreground mt-1">Welcome back, {user?.full_name || 'User'}</p>
         </div>
@@ -602,7 +602,7 @@ export default function DashboardPage() {
                 <p className="text-muted-foreground">
                   {searchQuery
                     ? 'No projects match your search.'
-                    : isAdmin
+                    : canViewAll
                       ? 'No projects yet. Create your first project to get started.'
                       : 'No projects assigned to you yet.'}
                 </p>
@@ -662,7 +662,7 @@ export default function DashboardPage() {
                     <div
                       key={project.id}
                       onClick={() => {
-                        if (isAdmin) {
+                        if (canViewAll) {
                           setSelectedProject(project)
                         } else {
                           router.push(`/projects/${project.id}?step=${project.currentStep}`)
@@ -737,7 +737,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Project Detail Modal */}
-      {isAdmin && (
+      {canViewAll && (
         <ProjectDetailModal
           project={selectedProject}
           workflowSteps={selectedProject ? workflowStepsMap[selectedProject.id] || [] : []}
@@ -760,7 +760,7 @@ export default function DashboardPage() {
       )}
 
       {/* Quick Actions for Assessor */}
-      {!isAdmin && allProjects.length > 0 && (
+      {!canViewAll && allProjects.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>

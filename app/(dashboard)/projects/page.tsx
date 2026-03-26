@@ -246,8 +246,8 @@ export default function ProjectsPage() {
   const filteredProjects = React.useMemo(() => {
     let visibleProjects = projects
 
-    // For non-admin users, filter to only show projects they created or are assigned to
-    if (user?.role !== 'admin') {
+    // For users without canViewAllProjects, filter to only show projects they created or are assigned to
+    if (!permissions.canViewAllProjects) {
       visibleProjects = projects.filter((p) => p.created_by === user?.id || p.isMember)
     }
 
