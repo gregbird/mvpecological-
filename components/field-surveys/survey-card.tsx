@@ -157,7 +157,9 @@ export function SurveyCard({
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant={statusStyle.variant}>{statusStyle.label}</Badge>
+              <Badge variant={statusStyle.variant} className={statusStyle.className}>
+                {statusStyle.label}
+              </Badge>
               <span className="text-sm font-medium">{surveyTypeLabel}</span>
               {survey.visitNumber != null && survey.totalVisitsInGroup != null && (
                 <Badge variant="outline" className="text-xs">
@@ -230,7 +232,11 @@ export function SurveyCard({
       <CardFooter className="flex-col gap-2 pt-0">
         {/* Status transition button */}
         {survey.status === 'planned' && onStart && (
-          <Button size="sm" className="w-full" onClick={() => onStart(survey)}>
+          <Button
+            size="sm"
+            className="w-full bg-blue-600 hover:bg-blue-700"
+            onClick={() => onStart(survey)}
+          >
             <Play className="mr-1.5 h-3.5 w-3.5" />
             Start Survey
           </Button>
@@ -238,7 +244,7 @@ export function SurveyCard({
         {survey.status === 'in_progress' && onComplete && (
           <Button
             size="sm"
-            className="w-full bg-green-600 hover:bg-green-700"
+            className="w-full bg-amber-500 text-white hover:bg-amber-600"
             onClick={() => onComplete(survey)}
           >
             <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
@@ -248,7 +254,7 @@ export function SurveyCard({
         {survey.status === 'completed' && onApprove && (
           <Button
             size="sm"
-            className="w-full bg-purple-600 hover:bg-purple-700"
+            className="w-full bg-green-600 hover:bg-green-700"
             onClick={() => onApprove(survey)}
             disabled={groupApproveDisabled}
             title={

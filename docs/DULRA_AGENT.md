@@ -132,7 +132,7 @@ Placeholder'lar: `{{project_name}}`, `{{location_description}}`, `{{site_code}}`
 
 **Dosya:** `app/api/ai/report-section/route.ts`
 d
-
+ sdf  
 - GPT-4o kullanır (yüksek kalite)
 - Her bölüm için özel CIEEM prompt'ları (introduction, methodology, resualts, constraints, discussion, appendices)
 - Tüm proje verilerini context olarak gönderir (findings, habitat s, observations, surveys, target notes, deep research, aquatic research, desk insights)

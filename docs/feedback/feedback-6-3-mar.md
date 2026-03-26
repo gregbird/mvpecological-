@@ -41,6 +41,8 @@
   > Step 8/9/10'da `ReportTypeSelector` tab bar eklendi. Tab bar'da "+" butonu ile yeni rapor türü eklenebilir. Her rapor bağımsız draft/review/export döngüsüne sahip. `useActiveReportType` hook'u aktif rapor türünü yönetir. `useLatestReportByType` ve `useReportsByType` hook'ları rapor türüne göre veri çeker. Version numaraları rapor türüne göre bağımsız (PEA v1, EcIA v1). Dosyalar: `report-type-selector.tsx`, `use-active-report-type.ts`, `ai-draft-step.tsx`, `quality-review-step.tsx`, `final-submission-step.tsx`, `use-report-hooks.ts`, `reports.ts`
 - [x] **2.4** Proje yöneticisi atama ve anket sorumluluğu dağıtma yapısını düzenle
   > DB: `survey_assignments` tablosu oluşturuldu (survey↔user many-to-many, assigned_by ile kim atadığını takip eder). Step 4 (Field Survey)'da her survey card'a "Assign" butonu eklendi — sadece Admin ve PM rolündeki kullanıcılar görebilir. Tıklanınca `SurveyAssignmentDialog` açılır: organizasyon üyeleri listelenir, atama/çıkarma yapılabilir. Dosyalar: `survey_assignments.ts`, `use-survey-assignment-hooks.ts`, `survey-assignment-dialog.tsx`, `survey-card.tsx`, `field-survey-step.tsx`
+  >
+  > **Güncelleme (26 Mart 2026):** Survey oluşturulduğunda surveyor otomatik olarak `survey_assignments`'a ekleniyor (best-effort). Assign dialog'da lead surveyor "Lead" badge'i ile gösterilir ve silinemez. Diğer ekip üyeleri normal şekilde eklenip kaldırılabilir. Butonlar dropdown menüye taşındı (Edit, Assign Staff, Delete → "..." menüde). `leadSurveyorId` prop'u eklendi.
 
 ---
 
@@ -50,9 +52,12 @@
 
 **Yapılacaklar:**
 
-- [ ] **3.1** Anket sonuçlarını (habitat, vejetasyon verileri) ilgili raporla ilişkilendir ve rapor içinde görüntüle
-- [ ] **3.2** Tek bir anketin birden fazla ziyaret/kayıt/tarih içerebilmesini destekle (bire-çok ilişkisi)
-- [ ] **3.3** Rapor ve anket tanımlarını netleştir — farklı veri çıktılarını yönetecek yapıyı oluştur
+- [x] **3.1** Anket sonuçlarını (habitat, vejetasyon verileri) ilgili raporla ilişkilendir ve rapor içinde görüntüle
+  > `report_survey_links` tablosu ile her rapor hangi survey'lerden veri çektiğini belirleyebiliyor. Boş bırakılırsa tüm survey'ler kullanılır (fallback). Step 8 AI Draft rapor oluştururken bağlı survey'lerin verilerini (species_observations, habitat_polygons, target_notes) kontekst olarak kullanıyor. Dosyalar: `lib/supabase/queries/report-survey-links.ts`, `hooks/queries/use-report-survey-links.ts`, `ai-draft-step.tsx`
+- [x] **3.2** Tek bir anketin birden fazla ziyaret/kayıt/tarih içerebilmesini destekle (bire-çok ilişkisi)
+  > **Multi-visit survey desteği (26 Mart 2026):** `surveys` tablosuna `visit_group_id` (UUID) ve `visit_number` (INT) kolonları eklendi. Aynı `visit_group_id`'ye sahip survey kayıtları bir grubun visit'leri oluyor. Mevcut FK'lar (species_observations.survey_id, habitat_polygons.survey_id) değişmedi — her visit kendi survey_id'sine sahip, geriye uyumlu. Grup başlığı collapsible section olarak gösterilir ("Bat Survey — 2/3 visits"). "Add Visit" butonu grup başlığında ve kartların "..." menüsünde mevcut. Migration: `20260322_add_survey_visits.sql`. Dosyalar: `lib/utils/survey-groups.ts`, `survey-card.tsx`, `field-survey-step.tsx`, `survey-form.tsx`
+- [x] **3.3** Rapor ve anket tanımlarını netleştir — farklı veri çıktılarını yönetecek yapıyı oluştur
+  > Rapor türleri `project_report_types` ile yönetilir (PEA, EcIA, AA Screening, NIS). Her rapor `report_survey_links` ile hangi survey'leri kullandığını tanımlar. Survey'ler visit grupları ile çoklu ziyareti destekler. Visit bazlı species/habitat/target_note verileri survey_id FK ile bağlı — rapor oluşturulurken bu veriler otomatik derlenir.
 
 ---
 
@@ -62,8 +67,10 @@
 
 **Yapılacaklar:**
 
-- [ ] **4.1** Çok günlü anketlerde önceki günün verilerine erişim sağla (ekolojist yeni gün başlatsa bile eski veriyi görebilmeli)
-- [ ] **4.2** Anket kaydını ancak tüm ilişkili saha çalışması (birden fazla gün, quadrat kayıtları dahil) tamamlandıktan sonra "tamamlandı" olarak işaretlemeye izin ver
+- [x] **4.1** Çok günlü anketlerde önceki günün verilerine erişim sağla (ekolojist yeni gün başlatsa bile eski veriyi görebilmeli)
+  > **Multi-visit survey (26 Mart 2026):** Survey View Dialog'da visit navigasyon barı eklendi (Visit 1 | Visit 2 | Visit 3 butonları). Farklı visit'e tıklanınca o visit'in detayları yüklenir. Visit 2 veya sonrası görüntülendiğinde "Previous Visit Data" bölümü önceki visit'lerin tarih, surveyor ve notes bilgisini gösterir. `useSurveyGroup()` hook'u grubun tüm visit'lerini çeker. Dosyalar: `survey-view-dialog.tsx`, `hooks/queries/use-survey-hooks.ts`, `lib/supabase/queries/surveys.ts`
+- [x] **4.2** Anket kaydını ancak tüm ilişkili saha çalışması (birden fazla gün, quadrat kayıtları dahil) tamamlandıktan sonra "tamamlandı" olarak işaretlemeye izin ver
+  > **Grup tamamlanma kuralı (26 Mart 2026):** Visit grubundaki tüm visit'ler `completed` olmadan Approve butonu disabled — tooltip: "All visits must be completed before approving". `canCompleteSurveyGroup()` fonksiyonu `visits.every(v => v.status === 'completed' || v.status === 'approved')` kontrolü yapar. Standalone survey'lerde (visit_group_id NULL) mevcut davranış aynen korunur. Dosyalar: `lib/utils/survey-groups.ts`, `survey-card.tsx` (groupApproveDisabled prop), `field-survey-step.tsx`
 
 ---
 

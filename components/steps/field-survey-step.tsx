@@ -44,6 +44,7 @@ import {
 import { SurveyForm } from '@/components/field-surveys/survey-form'
 import { SurveyViewDialog } from '@/components/field-surveys/survey-view-dialog'
 import { SurveyAssignmentDialog } from '@/components/field-surveys/survey-assignment-dialog'
+import { SurveyConfirmDialog } from '@/components/field-surveys/survey-confirm-dialog'
 import { PhotoGallery } from '@/components/field-surveys/photo-gallery'
 import { FIELD_SURVEY_TYPE_LABELS } from '@/lib/config/survey'
 import { groupSurveysByVisit, getNextVisitNumber } from '@/lib/utils/survey-groups'
@@ -79,6 +80,10 @@ export function FieldSurveyStep({
     visitGroupId: string
     surveyType: SurveyType
     visitNumber: number
+  } | null>(null)
+  const [confirmAction, setConfirmAction] = React.useState<{
+    survey: SurveyCardType
+    action: 'complete' | 'approve'
   } | null>(null)
   const surveyListRef = React.useRef<HTMLDivElement>(null)
 
@@ -411,45 +416,43 @@ export function FieldSurveyStep({
     }
   }
 
-  // Handle completing a survey (in_progress → completed)
-  const handleCompleteSurvey = async (survey: SurveyCardType) => {
-    try {
-      await updateSurvey.mutateAsync({
-        surveyId: survey.id,
-        updates: { status: 'completed' },
-      })
-
-      toast({
-        title: 'Survey completed',
-        description: 'Survey has been marked as completed.',
-      })
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error completing survey',
-        description: 'Failed to complete the survey.',
-      })
-    }
+  // Open confirm dialog before completing
+  const handleCompleteSurvey = (survey: SurveyCardType) => {
+    setConfirmAction({ survey, action: 'complete' })
   }
 
-  // Handle approving a survey (completed → approved)
-  const handleApproveSurvey = async (survey: SurveyCardType) => {
+  // Open confirm dialog before approving
+  const handleApproveSurvey = (survey: SurveyCardType) => {
+    setConfirmAction({ survey, action: 'approve' })
+  }
+
+  // Actually execute the status change after confirmation
+  const executeStatusChange = async () => {
+    if (!confirmAction) return
+    const { survey, action } = confirmAction
+    const newStatus = action === 'complete' ? 'completed' : 'approved'
+
     try {
       await updateSurvey.mutateAsync({
         surveyId: survey.id,
-        updates: { status: 'approved' },
+        updates: { status: newStatus },
       })
 
       toast({
-        title: 'Survey approved',
-        description: 'Survey has been approved.',
+        title: action === 'complete' ? 'Survey completed' : 'Survey approved',
+        description:
+          action === 'complete'
+            ? 'Survey has been marked as completed.'
+            : 'Survey has been approved.',
       })
     } catch {
       toast({
         variant: 'destructive',
-        title: 'Error approving survey',
-        description: 'Failed to approve the survey.',
+        title: `Error ${action === 'complete' ? 'completing' : 'approving'} survey`,
+        description: `Failed to ${action} the survey.`,
       })
+    } finally {
+      setConfirmAction(null)
     }
   }
 
@@ -979,55 +982,30 @@ export function FieldSurveyStep({
             </Card>
           )}
 
-          {/* Progress Panel */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Step Progress</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span>Surveys scheduled</span>
-                  {surveysAsCards.length > 0 ? (
-                    <span className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-green-600" />
-                      <span className="text-muted-foreground">{surveysAsCards.length} surveys</span>
-                    </span>
-                  ) : (
-                    <AlertCircle className="text-muted-foreground h-4 w-4" />
-                  )}
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span>Planned surveys</span>
-                  {hasPlannedSurveys ? (
-                    <span className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-green-600" />
-                      <span className="text-muted-foreground">
-                        {surveyStats?.planned || surveysByStatus.planned.length} planned
-                      </span>
-                    </span>
-                  ) : (
-                    <AlertCircle className="text-muted-foreground h-4 w-4" />
-                  )}
-                </div>
-              </div>
-
-              <Progress value={isComplete ? 100 : surveysAsCards.length > 0 ? 75 : 25} />
-
-              <Button
-                onClick={handleComplete}
-                disabled={!canComplete || completeStep.isPending}
-                className="w-full"
-              >
-                {completeStep.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Check className="mr-2 h-4 w-4" />
-                )}
-                {isComplete ? 'Completed' : 'Complete Step & Continue'}
-              </Button>
-            </CardContent>
-          </Card>
+          {/* Progress Panel — compact */}
+          <div className="flex items-center gap-4 rounded-lg border p-3">
+            <div className="flex flex-1 items-center gap-3">
+              <Progress
+                value={isComplete ? 100 : surveysAsCards.length > 0 ? 75 : 25}
+                className="h-2 flex-1"
+              />
+              <span className="text-muted-foreground shrink-0 text-xs">
+                {surveysAsCards.length} survey{surveysAsCards.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+            <Button
+              size="sm"
+              onClick={handleComplete}
+              disabled={!canComplete || completeStep.isPending}
+            >
+              {completeStep.isPending ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Check className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              {isComplete ? 'Completed' : 'Complete Step'}
+            </Button>
+          </div>
 
           {/* Survey Form Dialog */}
           <SurveyForm
@@ -1096,6 +1074,16 @@ export function FieldSurveyStep({
               organizationId={project.organization_id}
               assignedBy={userId}
               leadSurveyorId={assigningSurvey.surveyor.id}
+            />
+          )}
+          {/* Survey Confirm Dialog (Complete/Approve) */}
+          {confirmAction && (
+            <SurveyConfirmDialog
+              open={!!confirmAction}
+              onOpenChange={(open) => !open && setConfirmAction(null)}
+              surveyId={confirmAction.survey.id}
+              action={confirmAction.action}
+              onConfirm={executeStatusChange}
             />
           )}
         </TabsContent>

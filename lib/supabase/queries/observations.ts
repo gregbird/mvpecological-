@@ -21,6 +21,22 @@ export async function getSurveyObservations(surveyId: string): Promise<SpeciesOb
   return (data ?? []) as SpeciesObservation[]
 }
 
+// Get observation count for a survey (lightweight)
+export async function getSurveyObservationCount(surveyId: string): Promise<number> {
+  const supabase = createClient()
+  const { count, error } = await supabase
+    .from('species_observations')
+    .select('*', { count: 'exact', head: true })
+    .eq('survey_id', surveyId)
+
+  if (error) {
+    console.error('Error counting observations:', error)
+    return 0
+  }
+
+  return count ?? 0
+}
+
 // Get all observations for a project (across all surveys)
 export async function getProjectObservations(projectId: string): Promise<SpeciesObservation[]> {
   const supabase = createClient()

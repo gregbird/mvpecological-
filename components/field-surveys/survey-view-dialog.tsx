@@ -36,12 +36,24 @@ interface SurveyViewDialogProps {
 
 const STATUS_STYLES: Record<
   SurveyStatus,
-  { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }
+  {
+    label: string
+    variant: 'default' | 'secondary' | 'outline' | 'destructive'
+    className?: string
+  }
 > = {
   planned: { label: 'Planned', variant: 'outline' },
-  in_progress: { label: 'In Progress', variant: 'secondary' },
-  completed: { label: 'Completed', variant: 'default' },
-  approved: { label: 'Approved', variant: 'default' },
+  in_progress: {
+    label: 'In Progress',
+    variant: 'default',
+    className: 'bg-blue-600 hover:bg-blue-700',
+  },
+  completed: {
+    label: 'Completed',
+    variant: 'default',
+    className: 'bg-amber-500 hover:bg-amber-600 text-white',
+  },
+  approved: { label: 'Approved', variant: 'default', className: 'bg-green-600 hover:bg-green-700' },
 }
 
 function InfoRow({
@@ -196,7 +208,9 @@ export function SurveyViewDialog({
               <DialogTitle className="text-lg">
                 {releveEditing ? 'Edit Relevé Survey' : 'Relevé Survey Details'}
               </DialogTitle>
-              <Badge variant={statusStyle.variant}>{statusStyle.label}</Badge>
+              <Badge variant={statusStyle.variant} className={statusStyle.className}>
+                {statusStyle.label}
+              </Badge>
               {!releveEditing && survey.status !== 'approved' && releveData && (
                 <Button
                   variant="outline"
@@ -286,7 +300,9 @@ export function SurveyViewDialog({
         <DialogHeader>
           <div className="flex items-center gap-2">
             <DialogTitle className="text-lg">Survey Details</DialogTitle>
-            <Badge variant={statusStyle.variant}>{statusStyle.label}</Badge>
+            <Badge variant={statusStyle.variant} className={statusStyle.className}>
+              {statusStyle.label}
+            </Badge>
           </div>
         </DialogHeader>
 
