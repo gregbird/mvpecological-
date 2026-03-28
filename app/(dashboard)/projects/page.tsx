@@ -123,8 +123,19 @@ export default function ProjectsPage() {
       try {
         const supabase = createClient()
 
-        // Fetch projects for the user's organization
-        const { data: projectsData, error: projectsError } = await supabase
+        // For non-admin/PM users, get their assigned project IDs first
+        let memberProjectIds: string[] = []
+        if (!permissions.canViewAllProjects) {
+          const { data: membershipData } = await supabase
+            .from('project_members')
+            .select('project_id')
+            .eq('user_id', user.id)
+
+          memberProjectIds = membershipData?.map((m) => m.project_id) || []
+        }
+
+        // Fetch projects — filter at query level for non-admin users
+        let projectsQuery = supabase
           .from('projects')
           .select(
             `
@@ -136,15 +147,19 @@ export default function ProjectsPage() {
           .eq('organization_id', user.organization_id)
           .order('updated_at', { ascending: false })
 
+        if (!permissions.canViewAllProjects) {
+          if (memberProjectIds.length > 0) {
+            projectsQuery = projectsQuery.in('id', memberProjectIds)
+          } else {
+            setProjects([])
+            setIsLoading(false)
+            return
+          }
+        }
+
+        const { data: projectsData, error: projectsError } = await projectsQuery
+
         if (projectsError) throw projectsError
-
-        // Fetch project memberships for the current user (for non-admin filtering)
-        const { data: membershipData } = await supabase
-          .from('project_members')
-          .select('project_id')
-          .eq('user_id', user.id)
-
-        const memberProjectIds = membershipData?.map((m) => m.project_id) || []
 
         // Fetch workflow steps for all projects to calculate progress
         const projectIds = projectsData?.map((p) => p.id) || []

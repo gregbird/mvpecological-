@@ -397,11 +397,13 @@ export default function TeamPage() {
                       onChange={(e) => setValue('role', e.target.value as InviteFormData['role'])}
                       className="border-border bg-background flex h-10 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     >
-                      {TEAM_ROLES.map((r) => (
-                        <option key={r.value} value={r.value}>
-                          {r.label} — {r.description}
-                        </option>
-                      ))}
+                      {TEAM_ROLES.filter((r) => user?.role === 'admin' || r.value !== 'admin').map(
+                        (r) => (
+                          <option key={r.value} value={r.value}>
+                            {r.label} — {r.description}
+                          </option>
+                        )
+                      )}
                     </select>
                     {errors.role && <p className="text-sm text-red-600">{errors.role.message}</p>}
                   </div>
@@ -460,24 +462,25 @@ export default function TeamPage() {
                     <Badge className={getRoleBadgeColor(member.role)}>
                       {getRoleLabel(member.role)}
                     </Badge>
-                    {member.id !== user?.id && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            className="text-red-600"
-                            onClick={() => handleRemoveMember(member.id, member.full_name)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Remove
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
+                    {member.id !== user?.id &&
+                      !(user?.role === 'project_manager' && member.role === 'admin') && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              className="text-red-600"
+                              onClick={() => handleRemoveMember(member.id, member.full_name)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Remove
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                   </div>
                 </div>
               ))}

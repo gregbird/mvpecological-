@@ -73,7 +73,7 @@ import {
 export function ProjectWorkflowSidebar() {
   const router = useRouter()
   const { toast } = useToast()
-  const { permissions } = useRole()
+  const { user: roleUser, permissions } = useRole()
   const deleteProject = useDeleteProject()
   const {
     project,
@@ -813,14 +813,19 @@ export function ProjectWorkflowSidebar() {
                       </div>
                       <div className="flex items-center gap-3">
                         <Badge className={getRoleBadgeColor(member.role)}>{member.role}</Badge>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
-                          onClick={() => handleRemoveMember(member.id)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+                        {permissions.canManageTeam &&
+                          !(
+                            roleUser?.role === 'project_manager' && member.profile.role === 'admin'
+                          ) && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
+                              onClick={() => handleRemoveMember(member.id)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
                       </div>
                     </div>
                   ))}

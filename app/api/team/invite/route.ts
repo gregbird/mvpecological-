@@ -53,6 +53,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Organization mismatch' }, { status: 403 })
     }
 
+    // Project managers cannot assign admin role
+    if (currentProfile.role === 'project_manager' && role === 'admin') {
+      return NextResponse.json(
+        { error: 'Project managers cannot invite admin users' },
+        { status: 403 }
+      )
+    }
+
     // Check if user already exists in this organization
     const { data: existingProfile } = await serverClient
       .from('profiles')

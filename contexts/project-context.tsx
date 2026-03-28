@@ -2,11 +2,13 @@
 
 import * as React from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
 import { useProject } from '@/hooks/queries/use-project-hooks'
 import { useWorkflowSteps, useProjectProgress } from '@/hooks/queries/use-workflow-hooks'
 import type { Project, WorkflowStep } from '@/types/database'
 import { TOTAL_STEPS, canRoleAccessStep } from '@/lib/config/workflow'
 import { useRole } from '@/contexts/role-context'
+import { createClient } from '@/lib/supabase/client'
 
 interface ProjectContextType {
   // Project data
@@ -86,13 +88,31 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     }, 300)
   }, [])
 
+  // Check if user is a member of this project (non-admin/PM only)
+  const canViewAllProjects = user?.role === 'admin' || user?.role === 'project_manager'
+  const { data: isMember, isLoading: loadingMembership } = useQuery({
+    queryKey: ['project-membership', projectId, user?.id],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('project_members')
+        .select('id')
+        .eq('project_id', projectId)
+        .eq('user_id', user!.id)
+        .maybeSingle()
+      return !!data
+    },
+    enabled: !!projectId && !!user?.id && !canViewAllProjects,
+  })
+
   // Fetch project and workflow data from Supabase
+  const membershipResolved = canViewAllProjects || isMember === true
   const {
     data: project,
     isLoading: loadingProject,
     error: projectError,
     refetch: refetchProject,
-  } = useProject(projectId)
+  } = useProject(membershipResolved ? projectId : '')
 
   const {
     data: workflowSteps = [],
@@ -109,8 +129,11 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     return Math.round((completedSteps / TOTAL_STEPS) * 100)
   }, [supabaseProgress, workflowSteps])
 
-  const isLoading = loadingProject || loadingSteps
-  const error = projectError
+  const isLoading = loadingProject || loadingSteps || loadingMembership
+  const error =
+    !canViewAllProjects && isMember === false
+      ? new Error('You are not a member of this project')
+      : projectError
 
   // Determine current step number
   const currentStepNumber = React.useMemo(() => {

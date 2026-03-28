@@ -141,3 +141,27 @@
 - [x] **5.8** Manage Team (proje içi) dialogundaki rol seçenekleri eski sistemden kalmaydı (`surveyor`, `analyst`) → `lead`, `member`, `reviewer`, `viewer` olarak güncellendi. `project_member_role` enum'una `member` eklendi, mevcut `surveyor`/`analyst` kayıtları `member`'a migrate edildi.
 - [x] **5.9** Manage Team dialogunda kişilerin org rolü (Ecologist, PM, Junior vb.) görünmüyordu → Hem assigned hem available listesinde ismin yanına org role badge'i eklendi.
 - [x] **5.10** `assessor` rolü deprecated edildi → DB'deki 3 assessor kullanıcı `ecologist`'e migrate edildi. UI'da assessor seçeneği hiçbir yerde gösterilmiyor. `Record<UserRole>` zorunlu olan yerlerde ecologist'e yönlendiren fallback'lar bırakıldı (DB enum'unda değer kaldığı için type-safety gereği).
+
+---
+
+## 6. Rol & Yetkilendirme Güvenlik Düzeltmeleri (29 Mart 2026)
+
+- [x] **6.1** PM Admin Rolünde Kullanıcı Oluşturabiliyordu → Artık max. PM rolünde kullanıcı oluşturabiliyor (davet edebiliyor). Backend'de (`invite/route.ts`) PM + admin role kontrolü eklendi, UI'da admin seçeneği PM'den gizlendi. Kullanılmayan `create-member` endpoint'i silindi.
+- [x] **6.2** Projeden Üye Çıkarmada Hiç Rol Kontrolü Yoktu → Remove butonu sadece `canManageTeam` yetkisi olanlara gösteriliyor. PM ise admin kullanıcıları projeden çıkaramıyor (buton gizleniyor).
+- [x] **6.3** Team Sayfasında PM, Admin'in Yanında Remove Butonu Görüyordu → PM giriş yaptığında admin kullanıcının yanında da Remove butonu görünüyordu. API 403 döndürse de butonun görünmesi kötü UX ve yanlış beklenti yaratıyordu. Düzeltildi — artık kendini ve kendinden üst rolleri silemiyor.
+- [x] **6.4** Projects Sayfası Tüm Projeleri Client'a Gönderiyordu [Güvenlik Açığı] → Backend düzeltmesi, Dashboard sayfasıyla aynı pattern uygulandı: non-admin kullanıcılar için önce `project_members`'dan atanan proje ID'leri çekilip, sorgu `.in('id', memberProjectIds)` ile query seviyesinde filtreleniyor. Mevcut client-side filtre de çift koruma olarak korundu.
+- [x] **6.5** Projeye atanmamış kullanıcılar projenin URL'sini girerek projeye erişebiliyordu [Güvenlik Açığı] → Düzeltildi, `project-context.tsx`'te üyelik kontrolü eklendi — sadece mevcut üyeler erişebiliyor.
+- [x] **6.6** RLS Policy'leri yeni rolleri hesaba katmıyordu → Mevcut RLS'ler organizasyon bazlı çalışıyordu ama rol ayrımı yoktu (junior bile proje silebilirdi). 5 kritik policy güncellendi:
+  - `projects` DELETE → sadece admin
+  - `projects` INSERT → admin + PM
+  - `project_members` INSERT → admin + PM
+  - `project_members` DELETE → admin + PM
+  - `invites` INSERT → admin + PM
+- [x] **6.7** Orta seviye RLS policy'leri de rol kontrolüne alındı:
+  - `projects` UPDATE → proje üyesi + admin/PM
+  - `project_members` UPDATE → admin + PM
+  - `report_templates` INSERT/UPDATE/DELETE → admin + PM
+  - `survey_templates` INSERT/UPDATE/DELETE → admin + PM
+  - `survey_assignments` INSERT/DELETE → admin + PM
+  - `project_report_types` INSERT/UPDATE/DELETE → admin + PM
+  - `report_survey_links` INSERT/UPDATE/DELETE → admin + PM
