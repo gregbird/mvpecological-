@@ -38,12 +38,45 @@
 
 **Turkce:** NLC habitat verileri data gathering sirasinda otomatik kaydedilmeli ve Desk Assessment'ta gosterilmeli. Site siniri icindeki habitatlar en onemli (Preliminary Habitat Inventory). Sinir disinda 100m icindeki habitatlar da gosterilmeli. NLC'den donen FOSSITT koduna gore habitatlar haritada renklendirilebilmeli.
 
+**Referans:** Heritage Council — _Habitat Survey Guidelines_ (Draft No.2, April 2005), Appendix 6: Standard Habitat Colour Coding.
+Dosya: `docs/link/HeritageCouncilHabitatSymbologyRecommendations (1).pdf`
+
+FOSSITT koduna gore standart renk eslestirmesi (Heritage Council):
+
+| Kategori                         | FOSSITT Kodlari           | Bilgisayar Rengi  | Kalem Rengi                     |
+| -------------------------------- | ------------------------- | ----------------- | ------------------------------- |
+| Freshwater (Goller)              | FL1–FL8                   | Sky blue          | Light blue (1283)               |
+| Freshwater (Akarsular)           | FW1–FW2                   | Indigo / Sky blue | Blue (1274) / Light blue (1283) |
+| Freshwater (Kanallar, Hendekler) | FW3–FW4                   | Indigo            | Blue (1274)                     |
+| Freshwater (Kaynaklar)           | FP1–FP2                   | Sky blue          | Light blue (1283)               |
+| Freshwater (Bataklik)            | FS1–FS2                   | Indigo            | Blue (1274)                     |
+| Grassland & Marsh                | GA1–GA2, GS1–GS4, GM1     | Yellow            | Yellow (1279)                   |
+| Heath & Dense Bracken            | HH1–HH4, HD1              | Brown             | Brown (1273)                    |
+| Peatlands                        | PB1–PB5, PF1–PF3          | Violet            | Purple (1282)                   |
+| Woodland (Dogal)                 | WN1–WN7                   | Green             | Green (1278)                    |
+| Woodland (Karisik)               | WD1–WD5                   | Bright green      | Light green (1284)              |
+| Woodland (Scrub, Immature)       | WS1–WS5                   | Green             | Green (1278)                    |
+| Hedgerows                        | WL1                       | Green             | Green (1278)                    |
+| Treelines                        | WL2                       | Brown             | Brown                           |
+| Exposed Rock                     | ER1–ER4, EU1–EU2, ED1–ED5 | Red               | Scarlet red (1297)              |
+| Cultivated & Built Land          | BC1–BC4, BL1–BL3          | Grey (50%)        | Light grey (1290)               |
+| Coastland (Kayalik)              | CS1–CS3                   | Orange            | Orange (1295)                   |
+| Coastland (Gelgit)               | CW1–CW2, CM1–CM2          | Orange            | Orange (1295)                   |
+| Coastland (Kumsal)               | CB1, CD1–CD6              | Tan               | Flesh (1287)                    |
+| Coastland (Yapay)                | CC1–CC2                   | —                 | —                               |
+| Littoral Rock                    | LR1–LR5                   | Pink              | Pink (1288)                     |
+| Littoral Sediments               | LS1–LS5                   | Gold              | Canary yellow (1294)            |
+| Sublittoral Rock                 | SR1–SR6                   | Pink              | Pink (1288)                     |
+| Sublittoral Sediments            | SS1–SS8                   | Gold              | Canary yellow (1294)            |
+| Marine Water Body                | MW1–MW4                   | Lavender          | Lavender (1293)                 |
+
 **Yapilacilar:**
 
 - [ ] **3.1** Site siniri icindeki NLC habitat verilerini data gathering sirasinda otomatik kaydet
 - [ ] **3.2** Kaydedilen habitatlari Desk Assessment (Step 3) "Preliminary Habitat Inventory" bolumunde goster
 - [ ] **3.3** Site siniri disinda 100m (0.1km) icindeki habitatlari da goster
-- [ ] **3.4** FOSSITT koduna gore habitat poligonlarini haritada renkli/etiketli goster
+- [ ] **3.4** FOSSITT koduna gore habitat poligonlarini haritada Heritage Council standart renk kodlamasiyla goster (yukaridaki tablo referans)
+- [ ] **3.5** Her habitat poligonuna FOSSITT kodu + adi etiket olarak ekle
 
 ---
 
@@ -104,12 +137,48 @@
 
 **Test dosyasi:** Google Drive link mevcut (Greg'den)
 
+### Cizim Araclari Detaylari
+
+**6a. Snapping (Yapisma) — "GIS'in Miknatisi"**
+Kullanici bir feature'a yakin tikladiginda imleç otomatik olarak belirli bir noktaya (vertex, kenar veya uc nokta) atlar. Insan hatasini ortadan kaldirir.
+
+- **Point Snapping:** Nokta feature'a yapisma
+- **Vertex Snapping:** Cizgi/poligonun kose veya ara noktalarina yapisma
+- **Edge Snapping:** Cizgi veya sinirin herhangi bir yerine yapisma
+
+**6b. Tracing (Izleme) — "Lideri Takip Et"**
+Mevcut bir feature'in tam seklini takip eden yeni feature olusturma. Karmasik bir nehir kenari veya parsel sinirinda tek tek her bukumu tiklamak yerine, bir kez tiklanir ve arac yolu otomatik izler.
+
+- **Faydasi:** Yan yana iki poligonun tam ayni siniri paylasmasi garanti edilir — bosluk veya cakisma olmaz.
+
+**6c. Clipping (Kirpma) — "Kurabiye Kaliplama"**
+Bir feature'in baska bir feature tarafindan sekillendirilmesi gerektiginde kullanilir:
+
+- **Clip (Overlay araci):** Bir katmani "kurabiye kalıbi" olarak kullanip diger katmandan veri cikartma
+- **Clip (Duzenleme komutu):** Cakisan poligonlarda, alttaki feature'in cakisan kismini atarak verilerin "planar" olmasini (iki feature'in ayni alanda bulunmamasi) saglama
+
+**6d. Vertex Management (Kose Noktasi Yonetimi) — "Geometrinin DNA'si"**
+Her vektor feature, cizgilerle baglanan koordinat noktalari serisidir. Bu noktalar = vertex'ler. Bunlari yonetmek, sekilleri ince ayarlamanin yoludur.
+
+- **Vertex ekleme/silme:** Bir egriyi yeniden sekillendirme veya tirtiksiz bir kenari sadlestirme
+- **Vertex tasima:** Tum nesneyi hareket ettirmeden belirli bir kosenin konumunu degistirme
+- **Vertex ozellikleri:** Z-degerleri (yukseklik) veya M-degerleri (lineer olcum) her bir vertex icin ayri ayri yonetilebilir
+
+### Karsilastirma Tablosu
+
+| Arac            | Temel Amac                    | Gercek Dunya Benzetmesi                                |
+| --------------- | ----------------------------- | ------------------------------------------------------ |
+| Snapping        | Baglanti ve hassasiyet        | Iki parcayi hizalamak icin miknatıs kullanma           |
+| Tracing         | Sinirlar boyunca tutarlilik   | Harita cizgisini kopyalamak icin kopya kagidi kullanma |
+| Clipping        | Istenmeyen cakismayi kaldirma | Kurabiye kalıbi veya makas kullanma                    |
+| Vertex Yonetimi | Yapiyi ince ayarlama          | Tel kafes modelde eklemi ayarlama                      |
+
 **Yapilacilar:**
 
-- [ ] **6.1** Snapping (yapisma) araci ekle
-- [ ] **6.2** Tracing (izleme) araci ekle
-- [ ] **6.3** Clipping (kirpma) araci ekle
-- [ ] **6.4** Vertex management (kose noktasi duzenleme) araci ekle
+- [ ] **6.1** Snapping (yapisma) araci ekle — point, vertex ve edge snapping destegi
+- [ ] **6.2** Tracing (izleme) araci ekle — mevcut feature sinirini otomatik takip
+- [ ] **6.3** Clipping (kirpma) araci ekle — overlay ve edit clip modlari
+- [ ] **6.4** Vertex management (kose noktasi duzenleme) araci ekle — ekleme, silme, tasima
 - [ ] **6.5** Eksiksiz shapefile export (.shp, .shx, .dbf, .prj)
 - [ ] **6.6** Test: Greg'in sagladigi shapefile ile test et
 

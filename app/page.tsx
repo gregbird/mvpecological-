@@ -99,13 +99,13 @@ function HeroSection({ onScrollDown }: { onScrollDown: () => void }) {
     <section
       id="hero"
       ref={ref}
-      className="relative flex h-screen snap-start snap-always items-center justify-center overflow-hidden bg-white dark:bg-gray-950"
+      className="bg-background relative flex h-screen snap-start snap-always items-center justify-center overflow-hidden"
     >
       {/* Background */}
       <div className="absolute inset-0 -z-10">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(34,197,94,0.15),rgba(255,255,255,0))]" />
-        <div className="absolute top-20 -left-40 h-96 w-96 rounded-full bg-green-200/30 blur-3xl" />
-        <div className="absolute -right-40 bottom-20 h-96 w-96 rounded-full bg-emerald-200/30 blur-3xl" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(34,197,94,0.15),transparent)]" />
+        <div className="absolute top-20 -left-40 h-96 w-96 rounded-full bg-green-200/20 blur-3xl dark:bg-green-900/20" />
+        <div className="absolute -right-40 bottom-20 h-96 w-96 rounded-full bg-emerald-200/20 blur-3xl dark:bg-emerald-900/20" />
       </div>
 
       {/* Header */}
@@ -116,7 +116,7 @@ function HeroSection({ onScrollDown }: { onScrollDown: () => void }) {
           </div>
           <div className="flex items-center gap-3">
             <Link href="/login">
-              <Button variant="ghost" className="text-gray-600">
+              <Button variant="ghost" className="text-gray-600 dark:text-gray-300">
                 Sign In
               </Button>
             </Link>
@@ -136,7 +136,7 @@ function HeroSection({ onScrollDown }: { onScrollDown: () => void }) {
             initial={{ opacity: 0, y: 20 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.6 }}
-            className="mb-6 inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700"
+            className="mb-6 inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700 dark:border-green-800 dark:bg-green-950/50 dark:text-green-400"
           >
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75" />
@@ -149,7 +149,7 @@ function HeroSection({ onScrollDown }: { onScrollDown: () => void }) {
             initial={{ opacity: 0, y: 30 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="mb-6 text-5xl leading-tight font-bold tracking-tight text-gray-900 md:text-6xl lg:text-7xl dark:text-white"
+            className="text-foreground mb-6 text-5xl leading-tight font-bold tracking-tight md:text-6xl lg:text-7xl"
           >
             Ecological Projects,{' '}
             <span className="bg-linear-to-r from-green-600 via-emerald-500 to-teal-500 bg-clip-text text-transparent">
@@ -161,10 +161,10 @@ function HeroSection({ onScrollDown }: { onScrollDown: () => void }) {
             initial={{ opacity: 0, y: 30 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="mx-auto mb-10 max-w-2xl text-lg text-gray-600 md:text-xl dark:text-gray-400"
+            className="text-muted-foreground mx-auto mb-10 max-w-2xl text-lg md:text-xl"
           >
             From Desk Research to Automated Reporting.{' '}
-            <span className="font-semibold text-gray-900 dark:text-white">Reduce time by 30%.</span>
+            <span className="text-foreground font-semibold">Reduce time by 30%.</span>
           </motion.p>
 
           <motion.div
@@ -185,7 +185,7 @@ function HeroSection({ onScrollDown }: { onScrollDown: () => void }) {
             <Button
               size="lg"
               variant="outline"
-              className="h-14 rounded-xl border-gray-300 px-8 text-base font-semibold"
+              className="h-14 rounded-xl border-gray-300 px-8 text-base font-semibold dark:border-gray-700 dark:text-gray-200"
             >
               Watch Demo
             </Button>
@@ -195,7 +195,7 @@ function HeroSection({ onScrollDown }: { onScrollDown: () => void }) {
             initial={{ opacity: 0 }}
             animate={isInView ? { opacity: 1 } : {}}
             transition={{ duration: 0.6, delay: 0.4 }}
-            className="mt-12 flex flex-wrap items-center justify-center gap-6 text-sm text-gray-500"
+            className="mt-12 flex flex-wrap items-center justify-center gap-6 text-sm text-gray-500 dark:text-gray-400"
           >
             {['14-day free trial', 'No credit card', 'GDPR compliant'].map((text) => (
               <div key={text} className="flex items-center gap-2">
@@ -213,7 +213,7 @@ function HeroSection({ onScrollDown }: { onScrollDown: () => void }) {
         animate={{ opacity: 1 }}
         transition={{ delay: 1, duration: 0.6 }}
         onClick={onScrollDown}
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 text-gray-400 hover:text-gray-600"
+        className="text-muted-foreground hover:text-foreground absolute bottom-8 left-1/2 -translate-x-1/2"
       >
         <motion.div
           animate={{ y: [0, 8, 0] }}
@@ -268,7 +268,7 @@ function FeaturesSection() {
     <section
       id="features"
       ref={ref}
-      className="flex min-h-screen snap-start snap-always flex-col justify-center bg-gray-50 py-20 dark:bg-gray-900"
+      className="bg-muted flex min-h-screen snap-start snap-always flex-col justify-center py-20"
     >
       <div className="container mx-auto px-6">
         {/* Section Header */}
@@ -282,10 +282,10 @@ function FeaturesSection() {
             <Zap className="h-4 w-4" />
             Features
           </div>
-          <h2 className="mb-4 text-3xl font-bold text-gray-900 md:text-4xl lg:text-5xl dark:text-white">
+          <h2 className="text-foreground mb-4 text-3xl font-bold md:text-4xl lg:text-5xl">
             Everything you need
           </h2>
-          <p className="mx-auto max-w-xl text-gray-600 dark:text-gray-400">
+          <p className="text-muted-foreground mx-auto max-w-xl">
             From project planning to final reports, Dulra covers every step.
           </p>
         </motion.div>
@@ -303,7 +303,7 @@ function FeaturesSection() {
                 ease: [0.25, 0.4, 0.25, 1],
               }}
               whileHover={{ y: -8, transition: { duration: 0.2 } }}
-              className="group rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition-shadow duration-300 hover:shadow-xl dark:border-gray-800 dark:bg-gray-950"
+              className="group border-border bg-card rounded-2xl border p-6 shadow-sm transition-shadow duration-300 hover:shadow-xl"
             >
               <motion.div
                 initial={{ opacity: 0, scale: 0.5 }}
@@ -317,10 +317,8 @@ function FeaturesSection() {
               >
                 <feature.icon className="h-6 w-6" />
               </motion.div>
-              <h3 className="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
-                {feature.title}
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">{feature.description}</p>
+              <h3 className="text-foreground mb-2 text-lg font-semibold">{feature.title}</h3>
+              <p className="text-muted-foreground text-sm">{feature.description}</p>
             </motion.div>
           ))}
         </div>
@@ -337,8 +335,8 @@ function FeaturesSection() {
               <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400">
                 <stat.icon className="h-6 w-6" />
               </div>
-              <div className="text-3xl font-bold text-gray-900 dark:text-white">{stat.value}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">{stat.label}</div>
+              <div className="text-foreground text-3xl font-bold">{stat.value}</div>
+              <div className="text-muted-foreground text-sm">{stat.label}</div>
             </div>
           ))}
         </motion.div>
@@ -374,7 +372,7 @@ function TestimonialsSection() {
     <section
       id="testimonials"
       ref={ref}
-      className="flex min-h-screen snap-start snap-always flex-col justify-center bg-white py-20 dark:bg-gray-950"
+      className="bg-background flex min-h-screen snap-start snap-always flex-col justify-center py-20"
     >
       <div className="container mx-auto px-6">
         <motion.div
@@ -387,7 +385,7 @@ function TestimonialsSection() {
             <Star className="h-4 w-4" />
             Testimonials
           </div>
-          <h2 className="mb-4 text-3xl font-bold text-gray-900 md:text-4xl lg:text-5xl dark:text-white">
+          <h2 className="text-foreground mb-4 text-3xl font-bold md:text-4xl lg:text-5xl">
             Loved by ecologists
           </h2>
         </motion.div>
@@ -413,7 +411,7 @@ function TestimonialsSection() {
                 boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
                 transition: { duration: 0.2 },
               }}
-              className="rounded-2xl border border-gray-200 bg-gray-50 p-6 dark:border-gray-800 dark:bg-gray-900"
+              className="border-border bg-card rounded-2xl border p-6"
             >
               <div className="mb-4 flex gap-1">
                 {[...Array(5)].map((_, j) => (
@@ -435,7 +433,7 @@ function TestimonialsSection() {
                 initial={{ opacity: 0 }}
                 animate={isInView ? { opacity: 1 } : {}}
                 transition={{ duration: 0.5, delay: i * 0.2 + 0.4 }}
-                className="mb-6 text-gray-600 dark:text-gray-400"
+                className="text-muted-foreground mb-6"
               >
                 &ldquo;{testimonial.quote}&rdquo;
               </motion.p>
@@ -444,10 +442,8 @@ function TestimonialsSection() {
                 animate={isInView ? { opacity: 1, y: 0 } : {}}
                 transition={{ duration: 0.4, delay: i * 0.2 + 0.6 }}
               >
-                <div className="font-semibold text-gray-900 dark:text-white">
-                  {testimonial.author}
-                </div>
-                <div className="text-sm text-gray-500">{testimonial.role}</div>
+                <div className="text-foreground font-semibold">{testimonial.author}</div>
+                <div className="text-muted-foreground text-sm">{testimonial.role}</div>
               </motion.div>
             </motion.div>
           ))}
