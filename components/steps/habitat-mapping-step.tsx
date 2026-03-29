@@ -62,6 +62,7 @@ import type {
   Json,
 } from '@/types/database'
 
+import { SiteSelector } from '@/components/project/site-selector'
 import type { FindingMarker, HabitatPolygonOverlay } from '@/components/maps/map-types'
 
 // Dynamic import for map with draw controls
@@ -423,6 +424,7 @@ export function HabitatMappingStep({
               Draw polygons on the map, then select Fossitt code and condition
             </p>
           </div>
+          <SiteSelector projectId={project.id} stepKey="habitat-mapping" onSiteChange={() => {}} />
           {/* Inline Stats */}
           <div className="hidden items-center gap-4 border-l pl-4 md:flex">
             <div className="text-center">

@@ -55,6 +55,9 @@ export {
   transformCollectionToWGS84,
 } from './coordinate-transform'
 
+// Polygon operations
+export { clipPolygon, polygonsOverlap, getOverlapArea } from './polygon-operations'
+
 // Reverse geocoding
 export {
   reverseGeocode,

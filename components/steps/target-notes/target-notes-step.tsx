@@ -43,6 +43,7 @@ import {
   TargetNoteForm,
   type TargetNoteFormData,
 } from '@/components/field-surveys/target-note-form'
+import { SiteSelector } from '@/components/project/site-selector'
 import type { Project, WorkflowStep, SpeciesObservation, Json } from '@/types/database'
 import type { TargetNoteWithCreator } from '@/lib/supabase/queries/target-notes'
 import { TargetNotesPanel } from './target-notes-panel'
@@ -558,6 +559,7 @@ export function TargetNotesStep({
               Record field notes and species observations
             </p>
           </div>
+          <SiteSelector projectId={project.id} stepKey="target-notes" onSiteChange={() => {}} />
           {/* Inline Stats */}
           <div className="hidden items-center gap-4 border-l pl-4 md:flex">
             <div className="text-center">

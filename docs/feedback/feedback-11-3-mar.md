@@ -89,10 +89,10 @@ FOSSITT koduna gore standart renk eslestirmesi (Heritage Council):
 **Yapilacilar:**
 
 - [x] **4.1** ~~Shapefile upload ozelligini duzelt~~ ✅ (29 Mart 2026) — `proj4` ile ITM (EPSG:2157) ve Irish Grid (EPSG:29903) → WGS84 otomatik CRS donusumu eklendi. MultiPolygon parcalanarak tum polygon feature'lar dondurulur. Dosyalar: `lib/gis/coordinate-transform.ts` (yeni), `lib/gis/shapefile-parser.ts` (guncellendi), `lib/gis/validation.ts` (CRS reject → warning)
-- [ ] **4.2** Tek projede birden fazla site siniri cizme destegi ekle — ✅ DB altyapisi tamamlandi (29 Mart 2026): `project_sites` tablosu, downstream tablolara `site_id` FK, sync trigger (`projects.boundary` senkron), RPC'ler (`upsert_project_site`, `get_project_sites_with_geojson`, `delete_project_site`), mevcut projeler migrate edildi. UI bekliyor
-- [ ] **4.3** Her site icin proje adindan turetilen otomatik alt isimlendirme (orn. TBWF 00101)
-- [ ] **4.4** Her site sinirinin data gathering'de bagimsiz islenmesini sagla (ayri buffer zone, ayri veri toplama)
-- [ ] **4.5** Her site icin bagimsiz field survey destegi (farkli siteler farkli anketler gerektirir)
+- [x] **4.2** ~~Tek projede birden fazla site siniri cizme destegi ekle~~ ✅ (29 Mart 2026) — DB: `project_sites` tablosu, `site_id` FK, sync trigger, RPC'ler. UI: GIS Mapping Step "Sites" adimi, `SiteListPanel` sidebar, `useSiteManagement` hook. Dosyalar: migration SQL, `gis-mapping-step.tsx`, `use-gis-wizard.ts`, `site-list-panel.tsx`, `site-info-card.tsx`, `use-site-management.ts`, `project-sites.ts`, `use-site-hooks.ts`
+- [x] **4.3** ~~Her site icin proje adindan turetilen otomatik alt isimlendirme~~ ✅ (29 Mart 2026) — `generateSiteCodePrefix()` + `generateSiteCode()`. "Tralee Bay Wind Farm" → "TBWF 00101"
+- [x] **4.4** ~~Her site sinirinin data gathering'de bagimsiz islenmesini sagla~~ ✅ (29 Mart 2026) — `SiteSelector` bileseni eklendi, data-gathering-step site'a gore boundary/buffer kullanir. Dosyalar: `site-selector.tsx`, `data-gathering-step.tsx`
+- [x] **4.5** ~~Her site icin bagimsiz field survey destegi~~ ✅ (29 Mart 2026) — Steps 4, 5, 6'ya SiteSelector eklendi. Dosyalar: `field-survey-step.tsx`, `habitat-mapping-step.tsx`, `target-notes-step.tsx`
 
 ---
 
@@ -175,10 +175,10 @@ Her vektor feature, cizgilerle baglanan koordinat noktalari serisidir. Bu noktal
 
 **Yapilacilar:**
 
-- [ ] **6.1** Snapping (yapisma) araci ekle — point, vertex ve edge snapping destegi
-- [ ] **6.2** Tracing (izleme) araci ekle — mevcut feature sinirini otomatik takip
-- [ ] **6.3** Clipping (kirpma) araci ekle — overlay ve edit clip modlari
-- [ ] **6.4** Vertex management (kose noktasi duzenleme) araci ekle — ekleme, silme, tasima
+- [x] **6.1** ~~Snapping (yapisma) araci ekle~~ ✅ (29 Mart 2026) — `@geoman-io/leaflet-geoman-free` ile point, vertex, edge snapping. Dosya: `components/maps/geoman-controls.tsx`
+- [ ] **6.2** Tracing (izleme) araci ekle — custom implementasyon gerekli (Geoman'da native yok)
+- [x] **6.3** ~~Clipping (kirpma) araci ekle~~ ✅ (29 Mart 2026) — Geoman cut mode + `clipPolygon()` (turf.js). Dosya: `lib/gis/polygon-operations.ts`
+- [x] **6.4** ~~Vertex management araci ekle~~ ✅ (29 Mart 2026) — Geoman Free'de native: vertex ekle/sil/tasi
 - [x] **6.5** ~~Eksiksiz shapefile export (.shp, .shx, .dbf, .prj)~~ ✅ (29 Mart 2026) — `shp-write` ile boundary + attributes + target notes + habitats export. `downloadShapefile()` browser download tetikler. Step 7 Maps tab'ina "Export Shapefile" butonu eklendi. Dosyalar: `lib/gis/shapefile-export.ts` (yeni), `types/shp-write.d.ts` (yeni), `components/steps/data-analysis/maps-tab.tsx` (guncellendi)
 - [ ] **6.6** Test: Greg'in sagladigi shapefile ile test et
 

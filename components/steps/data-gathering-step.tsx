@@ -28,6 +28,8 @@ import { useTargetNotes } from '@/hooks/queries/use-target-note-hooks'
 import { useHabitats } from '@/hooks/queries/use-habitat-hooks'
 import { IRELAND_CENTER } from '@/lib/config/map-constants'
 import { useProjectContext } from '@/contexts/project-context'
+import { SiteSelector } from '@/components/project/site-selector'
+import type { ProjectSiteWithGeoJSON } from '@/lib/supabase/queries/project-sites'
 import type { Project, WorkflowStep } from '@/types/database'
 
 // Sub-step components
@@ -151,17 +153,20 @@ export function DataGatheringStep({
   // Expanded state for Findings by Type rows
   const [expandedType, setExpandedType] = React.useState<string | null>(null)
 
-  // Project boundary and center
-  const projectBoundary = project.boundary as GeoJSON.Feature<GeoJSON.Polygon> | undefined
-  const projectCenter = project.center_point
-    ? {
-        lat: (project.center_point as GeoJSON.Point).coordinates[1],
-        lng: (project.center_point as GeoJSON.Point).coordinates[0],
-      }
-    : undefined
+  // Site-aware boundary: use selected site's boundary if multi-site, else project boundary
+  const [selectedSite, setSelectedSite] = React.useState<ProjectSiteWithGeoJSON | null>(null)
+  const projectBoundary = (selectedSite?.boundary ?? project.boundary) as
+    | GeoJSON.Feature<GeoJSON.Polygon>
+    | undefined
+  const projectCenter = (() => {
+    const cp = selectedSite?.center_point ?? (project.center_point as GeoJSON.Point | null)
+    if (!cp) return undefined
+    return { lat: cp.coordinates[1], lng: cp.coordinates[0] }
+  })()
 
-  // Buffer distances from GIS step
-  const bufferDistances = (project.buffer_distances as number[] | null) ?? [2, 5]
+  // Buffer distances: use site-specific if available, else project-level
+  const bufferDistances = (selectedSite?.buffer_distances as number[] | null) ??
+    (project.buffer_distances as number[] | null) ?? [2, 5]
 
   // Compute a simple boundary hash to detect GIS changes
   const boundaryHash = React.useMemo(() => {
@@ -636,11 +641,19 @@ export function DataGatheringStep({
         {/* Full header for non-map steps */}
         {!isMapMode && (
           <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold">Data Gathering</h2>
-              <p className="text-muted-foreground text-sm">
-                Search external databases for ecological data
-              </p>
+            <div className="flex items-center gap-3">
+              <div>
+                <h2 className="text-lg font-semibold">Data Gathering</h2>
+                <p className="text-muted-foreground text-sm">
+                  Search external databases for ecological data
+                </p>
+              </div>
+              <SiteSelector
+                projectId={project.id}
+                stepKey="data-gathering"
+                onSiteChange={setSelectedSite}
+                showAllOption
+              />
             </div>
             <div className="flex items-center gap-2">
               <Badge variant={isComplete ? 'default' : 'secondary'}>

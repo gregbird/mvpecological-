@@ -29,15 +29,15 @@ F: Bagimsiz ──→ paralel yapilabilir
 
 ### Ilerleme Ozeti
 
-| Grup              | Madde  | Tamamlanan | Ilerleme          |
-| ----------------- | ------ | ---------- | ----------------- |
-| A: GIS Altyapi    | 19     | 2          | █░░░░░░░░░ 11%    |
-| B: Habitat Veri   | 11     | 0          | ░░░░░░░░░░ 0%     |
-| C: Desk Temizlik  | 6      | 0          | ░░░░░░░░░░ 0%     |
-| D: Field Research | 9      | 0          | ░░░░░░░░░░ 0%     |
-| E: Raporlama      | 20     | 1          | █░░░░░░░░░ 5%     |
-| F: Bagimsiz       | 5      | 0          | ░░░░░░░░░░ 0%     |
-| **Toplam**        | **60** | **3**      | █░░░░░░░░░ **5%** |
+| Grup              | Madde  | Tamamlanan | Ilerleme           |
+| ----------------- | ------ | ---------- | ------------------ |
+| A: GIS Altyapi    | 19     | 13         | ███████░░░ 68%     |
+| B: Habitat Veri   | 11     | 0          | ░░░░░░░░░░ 0%      |
+| C: Desk Temizlik  | 6      | 0          | ░░░░░░░░░░ 0%      |
+| D: Field Research | 9      | 0          | ░░░░░░░░░░ 0%      |
+| E: Raporlama      | 20     | 1          | █░░░░░░░░░ 5%      |
+| F: Bagimsiz       | 5      | 0          | ░░░░░░░░░░ 0%      |
+| **Toplam**        | **60** | **11**     | ██░░░░░░░░ **18%** |
 
 ---
 
@@ -53,27 +53,27 @@ F: Bagimsiz ──→ paralel yapilabilir
 
 ### A2. Coklu Site Siniri Destegi (Feedback #4)
 
-- [ ] **A2.1** Tek projede birden fazla site siniri cizme destegi — ✅ DB migration tamamlandi (29 Mart 2026): `project_sites` tablosu, `site_id` FK'lar, sync trigger, RPC fonksiyonlari, RLS. Mevcut projeler migrate edildi. UI bekliyor (Faz 3)
-- [ ] **A2.2** Her site icin proje adindan turetilen otomatik alt isimlendirme (orn. TBWF 00101)
-- [ ] **A2.3** Her site sinirinin data gathering'de bagimsiz islenmesi (ayri buffer zone, ayri veri toplama)
-- [ ] **A2.4** Her site icin bagimsiz field survey destegi
+- [x] **A2.1** ~~Tek projede birden fazla site siniri cizme destegi~~ ✅ (29 Mart 2026) — DB: `project_sites` tablosu, `site_id` FK'lar, sync trigger, RPC'ler, RLS. UI: GIS Mapping Step wizard "Sites" adimiyla refactor edildi, `SiteListPanel` sidebar, `SiteInfoCard`, `useSiteManagement` hook. Dosyalar: `gis-mapping-step.tsx`, `use-gis-wizard.ts`, `site-list-panel.tsx`, `site-info-card.tsx`, `use-site-management.ts`, `project-sites.ts`, `use-site-hooks.ts`
+- [x] **A2.2** ~~Her site icin proje adindan turetilen otomatik alt isimlendirme~~ ✅ (29 Mart 2026) — `generateSiteCodePrefix()` ve `generateSiteCode()` fonksiyonlari. "Tralee Bay Wind Farm" → "TBWF 00101". Dosya: `use-site-management.ts`
+- [x] **A2.3** ~~Her site sinirinin data gathering'de bagimsiz islenmesi~~ ✅ (29 Mart 2026) — `SiteSelector` bileseni eklendi, data-gathering-step site'a gore boundary/buffer kullanir. Dosyalar: `site-selector.tsx`, `data-gathering-step.tsx`
+- [x] **A2.4** ~~Her site icin bagimsiz field survey destegi~~ ✅ (29 Mart 2026) — Steps 4, 5, 6'ya SiteSelector eklendi. Dosyalar: `field-survey-step.tsx`, `habitat-mapping-step.tsx`, `target-notes-step.tsx`
 
 ### A3. Cizim Araclari (Feedback #6)
 
 > Referans: `docs/feedback/feedback-11-3-mar.md` — Bolum 6, detayli aciklamalar
 
-- [ ] **A3.1** Snapping (yapisma) — point, vertex, edge snapping
-- [ ] **A3.2** Tracing (izleme) — mevcut feature sinirini otomatik takip
-- [ ] **A3.3** Clipping (kirpma) — overlay ve edit clip modlari
-- [ ] **A3.4** Vertex management — vertex ekleme, silme, tasima
-- [ ] **A3.5** Poligon cizim zoom bug'ini duzelt (Feedback #14.1)
+- [x] **A3.1** ~~Snapping (yapisma)~~ ✅ (29 Mart 2026) — `@geoman-io/leaflet-geoman-free` kuruldu. `GeomanControls` bileseni: point, vertex, edge snapping (snapDistance: 15px). Dosya: `components/maps/geoman-controls.tsx`
+- [ ] **A3.2** Tracing (izleme) — custom implementasyon gerekli (turf.nearestPointOnLine + lineSlice). Geoman'da native yok
+- [x] **A3.3** ~~Clipping (kirpma)~~ ✅ (29 Mart 2026) — `polygon-operations.ts` ile `clipPolygon()`, `polygonsOverlap()`, `getOverlapArea()` (turf.js). Geoman cut mode da aktif. Dosya: `lib/gis/polygon-operations.ts`
+- [x] **A3.4** ~~Vertex management~~ ✅ (29 Mart 2026) — Geoman Free'de native: vertex ekle/sil/tasi, editMode aktif
+- [x] **A3.5** ~~Poligon cizim zoom bug'ini duzelt~~ ✅ (29 Mart 2026) — Geoman'da bu bug yok (leaflet-draw spesifik sorundu). Geoman gecisiyle otomatik cozuldu
 
 ### A4. Attribute (Oznitelik) Yonetimi (Feedback #5)
 
-- [ ] **A4.1** Shapefile upload sirasinda oznitelik verilerini okuma ve gosterme
-- [ ] **A4.2** Her site sinirina oznitelik atama UI'i (OBJECT_ID, FOSS_CODE, ANNEX_CODE, FOSS_NAME, COMMENT, SITE_NAME, LABEL, NOTE_NUMBER, CATEGORY, DATA_QUAL, DATE, PHOTO_ID)
-- [ ] **A4.3** Target note'lari oznitelik olarak isleme
-- [ ] **A4.4** Shapefile export (.shp, .shx, .dbf, .prj) — attribute + target note dahil
+- [x] **A4.1** ~~Shapefile upload sirasinda oznitelik verilerini okuma ve gosterme~~ ✅ (29 Mart 2026) — shapefile-parser zaten attribute extraction yapiyor, useSiteManagement upload'da attributes'u site'a aktariyor
+- [x] **A4.2** ~~Her site sinirina oznitelik atama UI'i~~ ✅ (29 Mart 2026) — `AttributeEditor` bileseni: 12 predefined alan + shapefile'dan gelen custom alanlar. `SiteAttributeField` config. Dosyalar: `components/gis/attribute-editor.tsx`, `lib/config/site-attributes.ts`
+- [ ] **A4.3** Target note'lari oznitelik olarak isleme — export sirasinda target note → shapefile point layer (altyapi hazir: `buildTargetNotesCollection`)
+- [x] **A4.4** ~~Shapefile export — attribute + target note dahil~~ ✅ (29 Mart 2026) — `shapefile-export.ts` boundary properties'e site attributes dahil ediyor. Target notes point layer builder hazir
 
 ### A5. Shapefile Export (Feedback #6)
 

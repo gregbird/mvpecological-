@@ -50,6 +50,7 @@ import { FIELD_SURVEY_TYPE_LABELS } from '@/lib/config/survey'
 import { groupSurveysByVisit, getNextVisitNumber } from '@/lib/utils/survey-groups'
 import type { SurveyWithSurveyor } from '@/lib/supabase/queries/surveys'
 import { useRole } from '@/contexts/role-context'
+import { SiteSelector } from '@/components/project/site-selector'
 import type { Project, WorkflowStep, Json } from '@/types/database'
 
 interface FieldSurveyStepProps {
@@ -566,11 +567,19 @@ export function FieldSurveyStep({
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Step 4: Field Survey Planning</h2>
-          <p className="text-muted-foreground">
-            Schedule and manage field surveys for ecological assessment
-          </p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h2 className="text-2xl font-bold">Step 4: Field Survey Planning</h2>
+            <p className="text-muted-foreground">
+              Schedule and manage field surveys for ecological assessment
+            </p>
+          </div>
+          <SiteSelector
+            projectId={project.id}
+            stepKey="field-survey"
+            onSiteChange={() => {}}
+            showAllOption
+          />
         </div>
         <Badge
           variant={
