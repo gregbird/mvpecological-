@@ -43,13 +43,16 @@ import { useProjectContext } from '@/contexts/project-context'
 // Hooks
 import { useGISWizard, WIZARD_STEPS } from '@/hooks/gis/use-gis-wizard'
 import { useBoundaryManagement } from '@/hooks/gis/use-boundary-management'
+import { useSiteManagement } from '@/hooks/gis/use-site-management'
 import { useBufferConfiguration } from '@/hooks/gis/use-buffer-configuration'
 import { useLayerData } from '@/hooks/gis/use-layer-data'
 import { useMapViewPersistence } from '@/hooks/gis/use-map-view-persistence'
+import { useProjectSites, useUpsertSite } from '@/hooks/queries/use-site-hooks'
 
 // Components
 import { PreviewPanel } from './gis-mapping/preview-panel'
 import { LayersSidebar } from './gis-mapping/layers-sidebar'
+import { SiteListPanel } from './gis-mapping/site-list-panel'
 
 // Dynamic import for map
 const ProjectMapWithDraw = dynamic(
@@ -113,6 +116,9 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
 
   // Hooks
   const wizard = useGISWizard(project, workflowStep)
+  const { data: existingSites = [] } = useProjectSites(project.id)
+  const siteMgmt = useSiteManagement(project, existingSites)
+  // Keep boundaryMgmt for backward compat (preview mode, legacy code paths)
   const boundaryMgmt = useBoundaryManagement(project)
   const bufferConfig = useBufferConfiguration(project)
   const layers = useLayerData(project)
@@ -123,6 +129,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
 
   // Mutations
   const updateBoundary = useUpdateProjectBoundary()
+  const upsertSite = useUpsertSite()
   const completeStep = useCompleteWorkflowStep()
   const updateWorkflowStep = useUpdateWorkflowStep()
 
@@ -142,7 +149,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
   React.useEffect(() => {
     const isMapStep =
       wizard.viewMode === 'preview' ||
-      wizard.currentStep === 'boundary' ||
+      wizard.currentStep === 'sites' ||
       wizard.currentStep === 'buffers' ||
       wizard.currentStep === 'layers'
     setMapFullscreen(isMapStep)
@@ -151,31 +158,25 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
     }
   }, [wizard.viewMode, wizard.currentStep, setMapFullscreen])
 
+  // Active site boundary for buffer/layer operations
+  const activeBoundary = siteMgmt.activeSite?.boundary ?? boundaryMgmt.boundary
+
   // Generate buffer zones when boundary or enabled buffers change
   React.useEffect(() => {
-    bufferConfig.regenerateBufferZones(boundaryMgmt.boundary)
-  }, [boundaryMgmt.boundary, bufferConfig.enabledBuffers, bufferConfig.regenerateBufferZones])
+    bufferConfig.regenerateBufferZones(activeBoundary)
+  }, [activeBoundary, bufferConfig.enabledBuffers, bufferConfig.regenerateBufferZones])
 
   // Reset layer cache when boundary changes
   React.useEffect(() => {
     layers.resetLayerCache()
-  }, [boundaryMgmt.boundary, layers.resetLayerCache])
+  }, [activeBoundary, layers.resetLayerCache])
 
   // Trigger data fetch when layers step is active
   React.useEffect(() => {
-    if (
-      wizard.currentStep === 'layers' &&
-      boundaryMgmt.boundary &&
-      !layers.layerDataFetchedRef.current
-    ) {
-      layers.fetchLayerData(boundaryMgmt.boundary, bufferConfig.enabledBuffers)
+    if (wizard.currentStep === 'layers' && activeBoundary && !layers.layerDataFetchedRef.current) {
+      layers.fetchLayerData(activeBoundary, bufferConfig.enabledBuffers)
     }
-  }, [
-    wizard.currentStep,
-    boundaryMgmt.boundary,
-    bufferConfig.enabledBuffers,
-    layers.fetchLayerData,
-  ])
+  }, [wizard.currentStep, activeBoundary, bufferConfig.enabledBuffers, layers.fetchLayerData])
 
   // Computed buffer colors
   const bufferColors = React.useMemo(
@@ -205,25 +206,28 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
   // Handlers
   const handleSourceSelect = (source: string) => {
     if (source === 'upload') {
-      boundaryMgmt.fileInputRef.current?.click()
+      siteMgmt.fileInputRef.current?.click()
       return
     }
     if (source === 'manual') {
-      boundaryMgmt.setSelectedSource('manual')
-      wizard.setCurrentStep('boundary')
+      // Ensure at least one site exists for drawing
+      if (siteMgmt.sites.length === 0) siteMgmt.addSite()
+      wizard.setCurrentStep('sites')
     }
   }
 
   const handleBoundaryChange = (features: GeoJSON.FeatureCollection) => {
-    const changed = boundaryMgmt.handleBoundaryChange(features)
+    const changed = siteMgmt.handleBoundaryChange(features)
     if (changed) wizard.setHasUnsavedChanges(true)
   }
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const result = await boundaryMgmt.handleFileUpload(event)
+    // Ensure at least one site exists before upload
+    if (siteMgmt.sites.length === 0) siteMgmt.addSite()
+    const result = await siteMgmt.handleFileUpload(event)
     if (result) {
       wizard.setHasUnsavedChanges(true)
-      wizard.setCurrentStep('boundary')
+      wizard.setCurrentStep('sites')
       toast({ title: 'File imported', description: 'Boundary loaded from file.' })
     } else if (event.target.files?.length) {
       toast({
@@ -241,52 +245,86 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
   }
 
   const handleSave = async () => {
-    if (!boundaryMgmt.boundary || !boundaryMgmt.boundaryInfo) return
-
-    try {
-      const result = await updateBoundary.mutateAsync({
-        projectId: project.id,
-        boundary: boundaryMgmt.boundary,
-        centerPoint: {
-          type: 'Point',
-          coordinates: [
-            parseFloat(boundaryMgmt.boundaryInfo.centerLng),
-            parseFloat(boundaryMgmt.boundaryInfo.centerLat),
-          ],
-        },
-        gridReference: boundaryMgmt.boundaryInfo.gridRef,
-        bufferDistances: bufferConfig.enabledBuffers,
-        visibleLayers: layers.visibleLayers,
-        townland: boundaryMgmt.locationInfo?.townland || undefined,
-        county: boundaryMgmt.locationInfo?.county || undefined,
-        province: boundaryMgmt.locationInfo?.province || undefined,
-      })
-
-      if (result) {
-        const newBoundaryKey = JSON.stringify(boundaryMgmt.boundary.geometry?.coordinates)
-        const newBuffersKey = JSON.stringify(bufferConfig.enabledBuffers)
-        const boundaryChanged = newBoundaryKey !== originalBoundaryRef.current
-        const buffersChanged = newBuffersKey !== originalBuffersRef.current
-
-        if ((boundaryChanged || buffersChanged) && wizard.allWorkflowSteps) {
-          const laterSteps = wizard.allWorkflowSteps.filter(
-            (s) => s.step_number > 1 && (s.status === 'approved' || s.status === 'in_progress')
-          )
-          for (const step of laterSteps) {
-            await updateWorkflowStep.mutateAsync({
-              stepId: step.id,
-              updates: { status: 'needs_review' },
-            })
-          }
-        }
-
-        originalBoundaryRef.current = newBoundaryKey
-        originalBuffersRef.current = newBuffersKey
+    const dirtySites = siteMgmt.sites.filter((s) => s.isDirty)
+    // Fallback: if no sites managed yet, use legacy single-boundary save
+    if (dirtySites.length === 0 && boundaryMgmt.boundary && boundaryMgmt.boundaryInfo) {
+      try {
+        await updateBoundary.mutateAsync({
+          projectId: project.id,
+          boundary: boundaryMgmt.boundary,
+          centerPoint: {
+            type: 'Point',
+            coordinates: [
+              parseFloat(boundaryMgmt.boundaryInfo.centerLng),
+              parseFloat(boundaryMgmt.boundaryInfo.centerLat),
+            ],
+          },
+          gridReference: boundaryMgmt.boundaryInfo.gridRef,
+          bufferDistances: bufferConfig.enabledBuffers,
+          visibleLayers: layers.visibleLayers,
+          townland: boundaryMgmt.locationInfo?.townland || undefined,
+          county: boundaryMgmt.locationInfo?.county || undefined,
+          province: boundaryMgmt.locationInfo?.province || undefined,
+        })
         wizard.setHasUnsavedChanges(false)
         refetchProject()
         refetchWorkflowSteps()
         toast({ title: 'Saved', description: 'GIS configuration saved successfully.' })
+        return
+      } catch (error) {
+        console.error('[GISMappingStep] Legacy save error:', error)
+        toast({ variant: 'destructive', title: 'Save failed' })
+        throw error
       }
+    }
+
+    // Multi-site save: upsert each dirty site
+    try {
+      for (const site of dirtySites) {
+        if (!site.boundary) continue
+        await upsertSite.mutateAsync({
+          projectId: project.id,
+          siteCode: site.siteCode,
+          siteName: site.siteName ?? undefined,
+          sortOrder: site.sortOrder,
+          boundary: site.boundary,
+          centerPoint: site.centerPoint ?? undefined,
+          gridReference: siteMgmt.boundaryInfo?.gridRef,
+          county: siteMgmt.locationInfo?.county,
+          townland: siteMgmt.locationInfo?.townland,
+          province: siteMgmt.locationInfo?.province,
+          bufferDistances: bufferConfig.enabledBuffers,
+          visibleLayers: layers.visibleLayers,
+          attributes: site.attributes,
+        })
+      }
+
+      // Check if downstream steps need review
+      const newBoundaryKey = JSON.stringify(
+        siteMgmt.sites.map((s) => s.boundary?.geometry?.coordinates)
+      )
+      const boundaryChanged = newBoundaryKey !== originalBoundaryRef.current
+      const newBuffersKey = JSON.stringify(bufferConfig.enabledBuffers)
+      const buffersChanged = newBuffersKey !== originalBuffersRef.current
+
+      if ((boundaryChanged || buffersChanged) && wizard.allWorkflowSteps) {
+        const laterSteps = wizard.allWorkflowSteps.filter(
+          (s) => s.step_number > 1 && (s.status === 'approved' || s.status === 'in_progress')
+        )
+        for (const step of laterSteps) {
+          await updateWorkflowStep.mutateAsync({
+            stepId: step.id,
+            updates: { status: 'needs_review' },
+          })
+        }
+      }
+
+      originalBoundaryRef.current = newBoundaryKey
+      originalBuffersRef.current = newBuffersKey
+      wizard.setHasUnsavedChanges(false)
+      refetchProject()
+      refetchWorkflowSteps()
+      toast({ title: 'Saved', description: 'GIS configuration saved successfully.' })
     } catch (error) {
       console.error('[GISMappingStep] Save error:', error)
       toast({
@@ -294,12 +332,13 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
         title: 'Save failed',
         description: 'Could not save the GIS configuration. Please try again.',
       })
-      throw error // Re-throw so handleComplete can abort
+      throw error
     }
   }
 
   const handleComplete = async () => {
-    if (!boundaryMgmt.boundary) {
+    const hasAnyBoundary = siteMgmt.sites.some((s) => s.boundary) || !!boundaryMgmt.boundary
+    if (!hasAnyBoundary) {
       toast({
         variant: 'destructive',
         title: 'No boundary',
@@ -331,12 +370,12 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
   }
 
   const goNext = () => {
-    if (wizard.currentStep === 'source' && !boundaryMgmt.selectedSource) {
+    if (wizard.currentStep === 'source' && siteMgmt.sites.length === 0) {
       toast({ title: 'Select a source', description: 'Choose how to define your boundary.' })
       return
     }
-    if (wizard.currentStep === 'boundary' && !boundaryMgmt.boundary) {
-      toast({ title: 'No boundary', description: 'Draw or upload a boundary to continue.' })
+    if (wizard.currentStep === 'sites' && !siteMgmt.sites.some((s) => s.boundary)) {
+      toast({ title: 'No boundary', description: 'Draw or upload at least one site boundary.' })
       return
     }
     if (wizard.currentStep === 'buffers' && bufferConfig.enabledBuffers.length === 0) {
@@ -438,15 +477,23 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
           )}
         >
           {WIZARD_STEPS.map((step, index) => {
-            const icons = { source: Globe, boundary: MapPin, buffers: Circle, layers: Layers }
-            const Icon = icons[step.id]
+            const icons: Record<string, typeof Globe> = {
+              source: Globe,
+              sites: MapPin,
+              boundary: MapPin,
+              buffers: Circle,
+              layers: Layers,
+            }
+            const Icon = icons[step.id] ?? Globe
             const isActive = step.id === wizard.currentStep
             const isPast = index < wizard.currentStepIndex
+            const hasSites = siteMgmt.sites.length > 0
+            const hasAnySiteBoundary = siteMgmt.sites.some((s) => s.boundary)
             const isClickable =
               isPast ||
               (index === wizard.currentStepIndex + 1 &&
-                (wizard.currentStep !== 'source' || boundaryMgmt.selectedSource) &&
-                (wizard.currentStep !== 'boundary' || boundaryMgmt.boundary))
+                (wizard.currentStep !== 'source' || hasSites) &&
+                (wizard.currentStep !== 'sites' || hasAnySiteBoundary))
 
             return (
               <React.Fragment key={step.id}>
@@ -559,56 +606,48 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
               </div>
 
               <input
-                ref={boundaryMgmt.fileInputRef}
+                ref={siteMgmt.fileInputRef}
                 type="file"
                 accept=".geojson,.json,.shp,.zip"
                 className="hidden"
                 onChange={handleFileUpload}
-                disabled={boundaryMgmt.isProcessing}
+                disabled={siteMgmt.isProcessing}
               />
             </div>
           </div>
         )}
 
-        {/* Step 2: Boundary Drawing */}
-        {wizard.currentStep === 'boundary' && (
-          <div className="relative h-full">
-            <ProjectMapWithDraw
-              className="h-full"
-              center={mapView.mapCenter}
-              zoom={mapView.mapZoom}
-              boundary={boundaryMgmt.boundary ?? undefined}
-              onBoundaryChange={handleBoundaryChange}
-              onViewChange={mapView.handleViewChange}
-              editable={true}
-              showLayersControl={true}
-              visibleLayers={[]}
-              baseMapStyle={mapView.baseMapStyle}
-              onBaseMapStyleChange={mapView.setBaseMapStyle}
-              flyToLocation={mapView.flyToLocation}
-            />
+        {/* Step 2: Sites (Multi-site boundary management) */}
+        {wizard.currentStep === 'sites' && (
+          <div className="flex h-full">
+            <div className="flex-1">
+              <ProjectMapWithDraw
+                className="h-full"
+                center={mapView.mapCenter}
+                zoom={mapView.mapZoom}
+                boundary={siteMgmt.activeSite?.boundary ?? undefined}
+                onBoundaryChange={handleBoundaryChange}
+                onViewChange={mapView.handleViewChange}
+                editable={true}
+                showLayersControl={true}
+                visibleLayers={[]}
+                baseMapStyle={mapView.baseMapStyle}
+                onBaseMapStyleChange={mapView.setBaseMapStyle}
+                flyToLocation={mapView.flyToLocation}
+              />
+            </div>
 
-            {boundaryMgmt.boundary && boundaryMgmt.boundaryInfo && (
-              <div className="bg-card/95 absolute bottom-4 left-4 z-1000 rounded-lg border p-4 shadow-lg backdrop-blur">
-                <h4 className="mb-2 font-semibold">Boundary Info</h4>
-                <dl className="space-y-1 text-sm">
-                  {boundaryMgmt.locationInfo?.county && (
-                    <div className="flex justify-between gap-4">
-                      <dt className="text-muted-foreground">County</dt>
-                      <dd className="font-medium">Co. {boundaryMgmt.locationInfo.county}</dd>
-                    </div>
-                  )}
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground">Area</dt>
-                    <dd className="font-medium">{boundaryMgmt.boundaryInfo.area} ha</dd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground">Grid Ref</dt>
-                    <dd className="font-mono text-xs">{boundaryMgmt.boundaryInfo.gridRef}</dd>
-                  </div>
-                </dl>
-              </div>
-            )}
+            <SiteListPanel
+              sites={siteMgmt.sites}
+              activeSiteIndex={siteMgmt.activeSiteIndex}
+              onSelectSite={siteMgmt.setActiveSiteIndex}
+              onAddSite={siteMgmt.addSite}
+              onRemoveSite={siteMgmt.removeSite}
+              onRenameSite={(index, code) => siteMgmt.updateSite(index, { siteCode: code })}
+              boundaryInfo={siteMgmt.boundaryInfo}
+              locationInfo={siteMgmt.locationInfo}
+              isLoadingLocation={siteMgmt.isLoadingLocation}
+            />
           </div>
         )}
 
@@ -620,7 +659,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                 className="h-full"
                 center={mapView.mapCenter}
                 zoom={mapView.mapZoom}
-                boundary={boundaryMgmt.boundary ?? undefined}
+                boundary={activeBoundary ?? undefined}
                 bufferZones={bufferConfig.bufferZones}
                 bufferColors={bufferColors}
                 onViewChange={mapView.handleViewChange}
@@ -820,7 +859,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                 className="h-full"
                 center={mapView.mapCenter}
                 zoom={mapView.mapZoom}
-                boundary={boundaryMgmt.boundary ?? undefined}
+                boundary={activeBoundary ?? undefined}
                 bufferZones={bufferConfig.bufferZones}
                 bufferColors={bufferColors}
                 onViewChange={mapView.handleViewChange}
@@ -854,9 +893,9 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
               ignoredItems={layers.ignoredItems}
               deletedItems={layers.deletedItems}
               showAllItems={layers.showAllItems}
-              isSaving={updateBoundary.isPending}
+              isSaving={updateBoundary.isPending || upsertSite.isPending}
               isCompleting={completeStep.isPending}
-              canComplete={!!boundaryMgmt.boundary}
+              canComplete={siteMgmt.sites.some((s) => s.boundary) || !!boundaryMgmt.boundary}
               hasUnsavedChanges={wizard.hasUnsavedChanges}
               onLayerToggle={layers.handleLayerToggle}
               onToggleIgnore={layers.handleToggleIgnore}

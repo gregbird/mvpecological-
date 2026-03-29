@@ -53,7 +53,7 @@ export function TargetNotesPanel({
   projectCenter,
 }: TargetNotesPanelProps) {
   return (
-    <div className="grid h-full gap-4 lg:grid-cols-2">
+    <div className="grid min-h-0 grid-rows-[1fr] gap-4 lg:grid-cols-2">
       {/* Map */}
       <Card className="flex min-h-0 flex-col">
         <CardHeader className="py-3">

@@ -71,7 +71,7 @@ export function ObservationsPanel({
   projectCenter,
 }: ObservationsPanelProps) {
   return (
-    <>
+    <div className="flex h-full flex-col">
       {surveys.length === 0 ? (
         <Alert variant="destructive" className="mb-4">
           <AlertCircle className="h-4 w-4" />
@@ -104,7 +104,7 @@ export function ObservationsPanel({
       </div>
 
       {/* Observations Content - Full Height Grid */}
-      <div className="grid h-full gap-4 lg:grid-cols-2">
+      <div className="grid min-h-0 flex-1 grid-rows-[1fr] gap-4 lg:grid-cols-2">
         {/* Map */}
         <Card className="flex min-h-0 flex-col">
           <CardHeader className="py-3">
@@ -208,6 +208,6 @@ export function ObservationsPanel({
           </CardContent>
         </Card>
       </div>
-    </>
+    </div>
   )
 }

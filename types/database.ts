@@ -332,6 +332,7 @@ export type Database = {
           raw_data: Json | null
           red_list_status: string | null
           relevance_level: string | null
+          site_id: string | null
           source: Database['public']['Enums']['data_source']
           title: string
           updated_at: string
@@ -352,6 +353,7 @@ export type Database = {
           raw_data?: Json | null
           red_list_status?: string | null
           relevance_level?: string | null
+          site_id?: string | null
           source: Database['public']['Enums']['data_source']
           title: string
           updated_at?: string
@@ -372,6 +374,7 @@ export type Database = {
           raw_data?: Json | null
           red_list_status?: string | null
           relevance_level?: string | null
+          site_id?: string | null
           source?: Database['public']['Enums']['data_source']
           title?: string
           updated_at?: string
@@ -389,6 +392,13 @@ export type Database = {
             columns: ['project_id']
             isOneToOne: false
             referencedRelation: 'projects'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'desk_research_findings_site_id_fkey'
+            columns: ['site_id']
+            isOneToOne: false
+            referencedRelation: 'project_sites'
             referencedColumns: ['id']
           },
         ]
@@ -512,6 +522,7 @@ export type Database = {
           notes: string | null
           photos: string[] | null
           project_id: string
+          site_id: string | null
           survey_id: string | null
           survey_method: string | null
           threats: string[] | null
@@ -532,6 +543,7 @@ export type Database = {
           notes?: string | null
           photos?: string[] | null
           project_id: string
+          site_id?: string | null
           survey_id?: string | null
           survey_method?: string | null
           threats?: string[] | null
@@ -552,6 +564,7 @@ export type Database = {
           notes?: string | null
           photos?: string[] | null
           project_id?: string
+          site_id?: string | null
           survey_id?: string | null
           survey_method?: string | null
           threats?: string[] | null
@@ -563,6 +576,13 @@ export type Database = {
             columns: ['project_id']
             isOneToOne: false
             referencedRelation: 'projects'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'habitat_polygons_site_id_fkey'
+            columns: ['site_id']
+            isOneToOne: false
+            referencedRelation: 'project_sites'
             referencedColumns: ['id']
           },
           {
@@ -784,6 +804,7 @@ export type Database = {
           tags: string[] | null
           taken_at: string | null
           target_note_id: string | null
+          watermarked_path: string | null
         }
         Insert: {
           caption?: string | null
@@ -800,6 +821,7 @@ export type Database = {
           tags?: string[] | null
           taken_at?: string | null
           target_note_id?: string | null
+          watermarked_path?: string | null
         }
         Update: {
           caption?: string | null
@@ -816,6 +838,7 @@ export type Database = {
           tags?: string[] | null
           taken_at?: string | null
           target_note_id?: string | null
+          watermarked_path?: string | null
         }
         Relationships: [
           {
@@ -861,6 +884,45 @@ export type Database = {
             referencedColumns: ['id']
           },
         ]
+      }
+      poc_records: {
+        Row: {
+          count: number
+          created_at: string | null
+          id: string
+          latitude: number | null
+          longitude: number | null
+          notes: string | null
+          photo_url: string | null
+          species_name: string
+          sync_status: string | null
+          synced_at: string | null
+        }
+        Insert: {
+          count: number
+          created_at?: string | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          notes?: string | null
+          photo_url?: string | null
+          species_name: string
+          sync_status?: string | null
+          synced_at?: string | null
+        }
+        Update: {
+          count?: number
+          created_at?: string | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          notes?: string | null
+          photo_url?: string | null
+          species_name?: string
+          sync_status?: string | null
+          synced_at?: string | null
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -970,6 +1032,71 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: 'project_report_types_project_id_fkey'
+            columns: ['project_id']
+            isOneToOne: false
+            referencedRelation: 'projects'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      project_sites: {
+        Row: {
+          attributes: Json | null
+          boundary: unknown
+          buffer_distances: number[] | null
+          center_point: unknown
+          county: string | null
+          created_at: string
+          grid_reference: string | null
+          id: string
+          project_id: string
+          province: string | null
+          site_code: string
+          site_name: string | null
+          sort_order: number
+          townland: string | null
+          updated_at: string
+          visible_layers: string[] | null
+        }
+        Insert: {
+          attributes?: Json | null
+          boundary?: unknown
+          buffer_distances?: number[] | null
+          center_point?: unknown
+          county?: string | null
+          created_at?: string
+          grid_reference?: string | null
+          id?: string
+          project_id: string
+          province?: string | null
+          site_code: string
+          site_name?: string | null
+          sort_order?: number
+          townland?: string | null
+          updated_at?: string
+          visible_layers?: string[] | null
+        }
+        Update: {
+          attributes?: Json | null
+          boundary?: unknown
+          buffer_distances?: number[] | null
+          center_point?: unknown
+          county?: string | null
+          created_at?: string
+          grid_reference?: string | null
+          id?: string
+          project_id?: string
+          province?: string | null
+          site_code?: string
+          site_name?: string | null
+          sort_order?: number
+          townland?: string | null
+          updated_at?: string
+          visible_layers?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'project_sites_project_id_fkey'
             columns: ['project_id']
             isOneToOne: false
             referencedRelation: 'projects'
@@ -1575,6 +1702,52 @@ export type Database = {
           },
         ]
       }
+      survey_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          id: string
+          survey_id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          id?: string
+          survey_id: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          id?: string
+          survey_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'survey_assignments_assigned_by_fkey'
+            columns: ['assigned_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'survey_assignments_survey_id_fkey'
+            columns: ['survey_id']
+            isOneToOne: false
+            referencedRelation: 'surveys'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'survey_assignments_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       survey_templates: {
         Row: {
           created_at: string
@@ -1622,60 +1795,16 @@ export type Database = {
           },
         ]
       }
-      survey_assignments: {
-        Row: {
-          assigned_at: string
-          assigned_by: string | null
-          id: string
-          survey_id: string
-          user_id: string
-        }
-        Insert: {
-          assigned_at?: string
-          assigned_by?: string | null
-          id?: string
-          survey_id: string
-          user_id: string
-        }
-        Update: {
-          assigned_at?: string
-          assigned_by?: string | null
-          id?: string
-          survey_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'survey_assignments_survey_id_fkey'
-            columns: ['survey_id']
-            isOneToOne: false
-            referencedRelation: 'surveys'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'survey_assignments_user_id_fkey'
-            columns: ['user_id']
-            isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-          {
-            foreignKeyName: 'survey_assignments_assigned_by_fkey'
-            columns: ['assigned_by']
-            isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
-          },
-        ]
-      }
       surveys: {
         Row: {
           created_at: string
           end_time: string | null
+          form_data: Json | null
           id: string
           local_id: string | null
           notes: string | null
           project_id: string
+          site_id: string | null
           start_time: string | null
           status: Database['public']['Enums']['survey_status']
           survey_date: string
@@ -1686,7 +1815,6 @@ export type Database = {
           visit_group_id: string | null
           visit_number: number | null
           weather: Json | null
-          form_data: Json | null
         }
         Insert: {
           created_at?: string
@@ -1696,6 +1824,7 @@ export type Database = {
           local_id?: string | null
           notes?: string | null
           project_id: string
+          site_id?: string | null
           start_time?: string | null
           status?: Database['public']['Enums']['survey_status']
           survey_date: string
@@ -1715,6 +1844,7 @@ export type Database = {
           local_id?: string | null
           notes?: string | null
           project_id?: string
+          site_id?: string | null
           start_time?: string | null
           status?: Database['public']['Enums']['survey_status']
           survey_date?: string
@@ -1732,6 +1862,13 @@ export type Database = {
             columns: ['project_id']
             isOneToOne: false
             referencedRelation: 'projects'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'surveys_site_id_fkey'
+            columns: ['site_id']
+            isOneToOne: false
+            referencedRelation: 'project_sites'
             referencedColumns: ['id']
           },
           {
@@ -1757,6 +1894,7 @@ export type Database = {
           photos: string[] | null
           priority: string | null
           project_id: string
+          site_id: string | null
           survey_id: string | null
           title: string
           updated_at: string | null
@@ -1776,6 +1914,7 @@ export type Database = {
           photos?: string[] | null
           priority?: string | null
           project_id: string
+          site_id?: string | null
           survey_id?: string | null
           title: string
           updated_at?: string | null
@@ -1795,6 +1934,7 @@ export type Database = {
           photos?: string[] | null
           priority?: string | null
           project_id?: string
+          site_id?: string | null
           survey_id?: string | null
           title?: string
           updated_at?: string | null
@@ -1821,6 +1961,13 @@ export type Database = {
             columns: ['project_id']
             isOneToOne: false
             referencedRelation: 'projects'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'target_notes_site_id_fkey'
+            columns: ['site_id']
+            isOneToOne: false
+            referencedRelation: 'project_sites'
             referencedColumns: ['id']
           },
           {
@@ -2088,6 +2235,7 @@ export type Database = {
             }
             Returns: string
           }
+      delete_project_site: { Args: { p_site_id: string }; Returns: boolean }
       disablelongtransactions: { Args: never; Returns: string }
       dropgeometrycolumn:
         | {
@@ -2247,12 +2395,16 @@ export type Database = {
         Returns: {
           email: string
           expires_at: string
-          full_name: string | null
+          full_name: string
           id: string
           organization_id: string
           organization_name: string
           role: Database['public']['Enums']['user_role']
         }[]
+      }
+      get_project_sites_with_geojson: {
+        Args: { p_project_id: string }
+        Returns: Json
       }
       get_project_with_geojson: {
         Args: { p_project_id: string }
@@ -2976,6 +3128,24 @@ export type Database = {
         }
         Returns: string
       }
+      upsert_project_site: {
+        Args: {
+          p_attributes?: Json
+          p_boundary?: Json
+          p_buffer_distances?: number[]
+          p_center_point?: Json
+          p_county?: string
+          p_grid_reference?: string
+          p_project_id: string
+          p_province?: string
+          p_site_code: string
+          p_site_name?: string
+          p_sort_order?: number
+          p_townland?: string
+          p_visible_layers?: string[]
+        }
+        Returns: string
+      }
     }
     Enums: {
       audit_action: 'INSERT' | 'UPDATE' | 'DELETE'
@@ -2986,9 +3156,9 @@ export type Database = {
         | 'species_record'
         | 'water_quality'
         | 'catchment'
-        | 'habitat'
         | 'other'
         | 'company_report'
+        | 'habitat'
       health_status: 'on_track' | 'at_risk' | 'overdue'
       project_member_role: 'lead' | 'surveyor' | 'analyst' | 'reviewer' | 'viewer' | 'member'
       project_phase: 'desk_research' | 'field_research' | 'reporting'
@@ -2998,12 +3168,12 @@ export type Database = {
       sync_status: 'synced' | 'pending' | 'conflict'
       user_role:
         | 'admin'
+        | 'assessor'
+        | 'client'
         | 'project_manager'
         | 'ecologist'
-        | 'assessor'
         | 'junior'
         | 'third_party'
-        | 'client'
       workflow_status: 'pending' | 'in_progress' | 'needs_review' | 'approved' | 'blocked'
     }
     CompositeTypes: {
@@ -3146,9 +3316,9 @@ export const Constants = {
         'species_record',
         'water_quality',
         'catchment',
-        'habitat',
         'other',
         'company_report',
+        'habitat',
       ],
       health_status: ['on_track', 'at_risk', 'overdue'],
       project_member_role: ['lead', 'surveyor', 'analyst', 'reviewer', 'viewer', 'member'],
@@ -3159,12 +3329,12 @@ export const Constants = {
       sync_status: ['synced', 'pending', 'conflict'],
       user_role: [
         'admin',
+        'assessor',
+        'client',
         'project_manager',
         'ecologist',
-        'assessor',
         'junior',
         'third_party',
-        'client',
       ],
       workflow_status: ['pending', 'in_progress', 'needs_review', 'approved', 'blocked'],
     },
@@ -3246,7 +3416,6 @@ export type BaselineReportCacheInsert =
 export type BaselineReportCacheUpdate =
   Database['public']['Tables']['baseline_report_cache']['Update']
 
-// New table aliases
 export type DropboxConnection = Database['public']['Tables']['dropbox_connections']['Row']
 export type DropboxConnectionInsert = Database['public']['Tables']['dropbox_connections']['Insert']
 export type DropboxConnectionUpdate = Database['public']['Tables']['dropbox_connections']['Update']
@@ -3258,6 +3427,11 @@ export type IndexedDocumentUpdate = Database['public']['Tables']['indexed_docume
 export type DocumentChunk = Database['public']['Tables']['document_chunks']['Row']
 export type DocumentChunkInsert = Database['public']['Tables']['document_chunks']['Insert']
 export type DocumentChunkUpdate = Database['public']['Tables']['document_chunks']['Update']
+
+// New: Project Sites (multi-site support)
+export type ProjectSite = Database['public']['Tables']['project_sites']['Row']
+export type ProjectSiteInsert = Database['public']['Tables']['project_sites']['Insert']
+export type ProjectSiteUpdate = Database['public']['Tables']['project_sites']['Update']
 
 // ─── Enum type aliases ──────────────────────────────────────────────
 export type UserRole = Database['public']['Enums']['user_role']

@@ -1,10 +1,10 @@
 # Feedback 11/3 — Yapilacaklar Listesi
 
 > **Kaynak:** Greg Birdthistle — 11 Mart 2026
-> **Durum:** Devam ediyor (Faz 1 tamamlandi)
+> **Durum:** Devam ediyor (Faz 1 + Faz 2 + Faz 3 tamamlandi)
 > **Toplam:** 60 madde, 6 grup
 
---- 
+---
 
 ## Icindekiler
 
@@ -53,7 +53,7 @@ F: Bagimsiz ──→ paralel yapilabilir
 
 ### A2. Coklu Site Siniri Destegi (Feedback #4)
 
-- [ ] **A2.1** Tek projede birden fazla site siniri cizme destegi — DB migration + UI
+- [ ] **A2.1** Tek projede birden fazla site siniri cizme destegi — ✅ DB migration tamamlandi (29 Mart 2026): `project_sites` tablosu, `site_id` FK'lar, sync trigger, RPC fonksiyonlari, RLS. Mevcut projeler migrate edildi. UI bekliyor (Faz 3)
 - [ ] **A2.2** Her site icin proje adindan turetilen otomatik alt isimlendirme (orn. TBWF 00101)
 - [ ] **A2.3** Her site sinirinin data gathering'de bagimsiz islenmesi (ayri buffer zone, ayri veri toplama)
 - [ ] **A2.4** Her site icin bagimsiz field survey destegi

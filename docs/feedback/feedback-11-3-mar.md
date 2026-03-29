@@ -89,7 +89,7 @@ FOSSITT koduna gore standart renk eslestirmesi (Heritage Council):
 **Yapilacilar:**
 
 - [x] **4.1** ~~Shapefile upload ozelligini duzelt~~ ✅ (29 Mart 2026) — `proj4` ile ITM (EPSG:2157) ve Irish Grid (EPSG:29903) → WGS84 otomatik CRS donusumu eklendi. MultiPolygon parcalanarak tum polygon feature'lar dondurulur. Dosyalar: `lib/gis/coordinate-transform.ts` (yeni), `lib/gis/shapefile-parser.ts` (guncellendi), `lib/gis/validation.ts` (CRS reject → warning)
-- [ ] **4.2** Tek projede birden fazla site siniri cizme destegi ekle
+- [ ] **4.2** Tek projede birden fazla site siniri cizme destegi ekle — ✅ DB altyapisi tamamlandi (29 Mart 2026): `project_sites` tablosu, downstream tablolara `site_id` FK, sync trigger (`projects.boundary` senkron), RPC'ler (`upsert_project_site`, `get_project_sites_with_geojson`, `delete_project_site`), mevcut projeler migrate edildi. UI bekliyor
 - [ ] **4.3** Her site icin proje adindan turetilen otomatik alt isimlendirme (orn. TBWF 00101)
 - [ ] **4.4** Her site sinirinin data gathering'de bagimsiz islenmesini sagla (ayri buffer zone, ayri veri toplama)
 - [ ] **4.5** Her site icin bagimsiz field survey destegi (farkli siteler farkli anketler gerektirir)

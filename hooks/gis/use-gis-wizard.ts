@@ -4,12 +4,12 @@ import * as React from 'react'
 import type { Project, WorkflowStep } from '@/types/database'
 import { useWorkflowSteps } from '@/hooks/queries/use-workflow-hooks'
 
-export type WizardStep = 'source' | 'boundary' | 'buffers' | 'layers'
+export type WizardStep = 'source' | 'boundary' | 'sites' | 'buffers' | 'layers'
 export type ViewMode = 'preview' | 'wizard'
 
 export const WIZARD_STEPS: { id: WizardStep; label: string }[] = [
   { id: 'source', label: 'Source' },
-  { id: 'boundary', label: 'Boundary' },
+  { id: 'sites', label: 'Sites' },
   { id: 'buffers', label: 'Buffers' },
   { id: 'layers', label: 'Layers' },
 ]
@@ -25,7 +25,7 @@ export function useGISWizard(project: Project, workflowStep: WorkflowStep) {
   })
 
   const [currentStep, setCurrentStep] = React.useState<WizardStep>(() => {
-    if (project.boundary) return 'boundary'
+    if (project.boundary) return 'sites'
     return 'source'
   })
 
@@ -39,6 +39,8 @@ export function useGISWizard(project: Project, workflowStep: WorkflowStep) {
   const canGoNext = currentStepIndex < WIZARD_STEPS.length - 1
   const isComplete = workflowStep.status === 'approved'
   const isMapMode = currentStep !== 'source'
+  // Legacy alias for code that still references 'boundary'
+  const isSitesStep = currentStep === 'sites'
 
   const hasLaterStepsStarted = React.useMemo(() => {
     if (!allWorkflowSteps) return false
@@ -49,7 +51,7 @@ export function useGISWizard(project: Project, workflowStep: WorkflowStep) {
     if (currentStepIndex > 0) setCurrentStep(WIZARD_STEPS[currentStepIndex - 1].id)
   }, [currentStepIndex])
 
-  const editStartStep = hasSavedData ? 'boundary' : 'source'
+  const editStartStep = hasSavedData ? 'sites' : 'source'
 
   const handleEditClick = React.useCallback(() => {
     if (hasLaterStepsStarted) {
@@ -87,5 +89,6 @@ export function useGISWizard(project: Project, workflowStep: WorkflowStep) {
     goBack,
     handleEditClick,
     confirmEdit,
+    isSitesStep,
   }
 }
