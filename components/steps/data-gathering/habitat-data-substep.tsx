@@ -50,6 +50,11 @@ import {
 import { useUpdateWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import type { Project, DeskResearchFinding, WorkflowStep, Json } from '@/types/database'
 
+/** Narrow cast for Supabase Json columns — avoids `as Json` double casts */
+function toJson(value: Record<string, unknown> | GeoJSON.Geometry | null): Json {
+  return value as Json
+}
+
 const ProjectMap = dynamic(
   () => import('@/components/maps/project-map').then((mod) => mod.ProjectMap),
   {
@@ -140,6 +145,14 @@ export function HabitatDataSubStep({
   // Deep research modal
   const [deepResearchSite, setDeepResearchSite] = React.useState<HabitatResult | null>(null)
   const [isDeepResearchOpen, setIsDeepResearchOpen] = React.useState(false)
+
+  // Refs for latest values — prevents stale closures in auto-save effect
+  const savedFindingsRef = React.useRef(savedFindings)
+  savedFindingsRef.current = savedFindings
+  const projectBoundaryRef = React.useRef(projectBoundary)
+  projectBoundaryRef.current = projectBoundary
+  const selectedBufferRef = React.useRef(selectedBuffer)
+  selectedBufferRef.current = selectedBuffer
 
   // Style polygons for map highlight — 3-field fallback matching
   const styledPolygons = React.useMemo((): GeoJSON.FeatureCollection | undefined => {
@@ -273,12 +286,15 @@ export function HabitatDataSubStep({
     setTotalArea(Math.round(total * 100) / 100)
   }, [results])
 
-  // Check if a habitat is already saved in DB
-  const getSavedFinding = (nlcId: string): DeskResearchFinding | undefined =>
-    savedFindings.find((f) => {
-      const raw = f.raw_data as Record<string, unknown> | null
-      return raw?.nlcId === nlcId && raw?.habitatFinding === true
-    })
+  // Check if a habitat is already saved in DB — uses ref for latest data
+  const getSavedFinding = React.useCallback(
+    (nlcId: string): DeskResearchFinding | undefined =>
+      savedFindingsRef.current.find((f) => {
+        const raw = f.raw_data as Record<string, unknown> | null
+        return raw?.nlcId === nlcId && raw?.habitatFinding === true
+      }),
+    []
+  )
 
   /** Extract merged geometry for a habitat from the polygon collection */
   const getHabitatGeometry = (nlcId: string): GeoJSON.Geometry | null => {
@@ -315,15 +331,19 @@ export function HabitatDataSubStep({
     setIsSavingAll(true)
 
     const total = results.reduce((sum, r) => sum + r.areaHectares, 0)
+    // Capture current ref values for the async operation
+    const currentBoundary = projectBoundaryRef.current
+    const currentBuffer = selectedBufferRef.current
 
     const saveSequentially = async () => {
       let count = 0
+      const failed: string[] = []
       for (const r of unsaved) {
         const pct = total > 0 ? ((r.areaHectares / total) * 100).toFixed(1) : '0'
         const geometry = getHabitatGeometry(r.nlcId)
         const distKm = calculateDistanceFromBoundary(
           geometry ?? undefined,
-          projectBoundary ?? undefined
+          currentBoundary ?? undefined
         )
         try {
           await createFinding.mutateAsync({
@@ -336,9 +356,9 @@ export function HabitatDataSubStep({
             content: `${r.fossittName} (${r.areaHectares} ha, ${pct}% cover)`,
             is_saved: true,
             notes: null,
-            location: geometry as unknown as Json,
+            location: toJson(geometry),
             distance_from_boundary_km: distKm ?? null,
-            raw_data: {
+            raw_data: toJson({
               habitatFinding: true,
               nlcId: r.nlcId,
               nlcLabel: r.nlcLabel,
@@ -349,20 +369,21 @@ export function HabitatDataSubStep({
               polygonCount: r.polygonCount,
               percentCover: pct,
               aiSummary: null,
-              bufferKm: selectedBuffer,
+              bufferKm: currentBuffer,
               distance_from_boundary_km: distKm ?? null,
-            } as unknown as Json,
+            }),
           })
           count++
         } catch {
-          // Continue saving remaining habitats
+          failed.push(r.fossittCode)
         }
       }
       if (count > 0) {
-        toast({
-          title: 'Habitats auto-saved',
-          description: `${count} habitat${count > 1 ? 's' : ''} automatically saved to findings.`,
-        })
+        const desc =
+          failed.length > 0
+            ? `${count} saved, ${failed.length} failed (${failed.join(', ')})`
+            : `${count} habitat${count > 1 ? 's' : ''} automatically saved to findings.`
+        toast({ title: 'Habitats auto-saved', description: desc })
       }
       setIsSavingAll(false)
     }
@@ -386,6 +407,7 @@ export function HabitatDataSubStep({
     setResults([])
     setHabitatPolygons(null)
     hasFetchedRef.current = true
+    autoSaveTriggeredRef.current = false
 
     const bboxParams = {
       bbox: { minLat: bbox.minLat, maxLat: bbox.maxLat, minLng: bbox.minLng, maxLng: bbox.maxLng },
@@ -464,7 +486,7 @@ export function HabitatDataSubStep({
             findingId: existing.id,
             updates: {
               content: data.summary,
-              raw_data: { ...existingRaw, aiSummary: data.summary } as unknown as Json,
+              raw_data: { ...existingRaw, aiSummary: data.summary } as Json,
             },
           })
         }
@@ -510,7 +532,7 @@ export function HabitatDataSubStep({
                 ...existingMeta,
                 habitatOverallAnalysis: data.analysis,
                 habitatOverallAnalysisUpdatedAt: new Date().toISOString(),
-              } as unknown as Json,
+              } as Json,
             },
           })
         }
@@ -565,7 +587,7 @@ export function HabitatDataSubStep({
           content: aiSummaries[r.nlcId] || `${r.fossittName} (${r.areaHectares} ha, ${pct}% cover)`,
           is_saved: true,
           notes: notes[r.nlcId] || null,
-          location: geometry as unknown as Json,
+          location: toJson(geometry),
           distance_from_boundary_km: distKm ?? null,
           raw_data: {
             habitatFinding: true,
@@ -580,7 +602,7 @@ export function HabitatDataSubStep({
             aiSummary: aiSummaries[r.nlcId] || null,
             bufferKm: selectedBuffer,
             distance_from_boundary_km: distKm ?? null,
-          } as unknown as Json,
+          } as Json,
         })
         toast({ title: 'Saved', description: `${r.fossittCode} saved to findings.` })
         // Auto-trigger AI summary if not already generated
@@ -621,7 +643,7 @@ export function HabitatDataSubStep({
           content: aiSummaries[r.nlcId] || `${r.fossittName} (${r.areaHectares} ha, ${pct}% cover)`,
           is_saved: true,
           notes: notes[r.nlcId] || null,
-          location: geometry as unknown as Json,
+          location: toJson(geometry),
           raw_data: {
             habitatFinding: true,
             nlcId: r.nlcId,
@@ -634,7 +656,7 @@ export function HabitatDataSubStep({
             percentCover: pct,
             aiSummary: aiSummaries[r.nlcId] || null,
             bufferKm: selectedBuffer,
-          } as unknown as Json,
+          } as Json,
         })
         savedCount++
         // Trigger AI summary for each
@@ -1035,7 +1057,7 @@ export function HabitatDataSubStep({
                   raw_data: {
                     ...existingRaw,
                     deepResearch: { aiAnalysis: data.aiAnalysis },
-                  } as unknown as Json,
+                  } as Json,
                 },
               })
             } else {
@@ -1065,7 +1087,7 @@ export function HabitatDataSubStep({
                   aiSummary: aiSummaries[r.nlcId] || null,
                   bufferKm: selectedBuffer,
                   deepResearch: { aiAnalysis: data.aiAnalysis },
-                } as unknown as Json,
+                } as Json,
               })
             }
             // Auto-trigger short AI summary if not already generated

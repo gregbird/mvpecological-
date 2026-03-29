@@ -71,6 +71,7 @@
     "html-to-image": "^1.11.13",
     "js-cookie": "^3.0.5",
     "jspdf": "^4.1.0",
+    "jszip": "^3.10.1",
     "leaflet": "^1.9.4",
     "leaflet-draw": "^1.0.4",
     "lucide-react": "^0.563.0",

@@ -95,6 +95,10 @@ function HabitatTable({
   onRemoveFinding?: (findingId: string) => void
 }) {
   if (habitats.length === 0) return null
+
+  // Compute percentage relative to this group's total area (not all habitats)
+  const groupTotal = habitats.reduce((sum, h) => sum + h.areaHa, 0)
+
   return (
     <div className="overflow-x-auto">
       <Table>
@@ -104,13 +108,16 @@ function HabitatTable({
             <TableHead className="w-[180px]">Habitat Name</TableHead>
             <TableHead className="w-[200px]">NLC Label</TableHead>
             <TableHead className="w-[100px] text-right">Area (ha)</TableHead>
-            <TableHead className="w-[80px] text-right">%</TableHead>
+            <TableHead className="w-[80px] text-right" title="Relative share within this group">
+              %
+            </TableHead>
             {onRemoveFinding && <TableHead className="w-[50px]" />}
           </TableRow>
         </TableHeader>
         <TableBody>
           {habitats.map((h, idx) => {
             const isSelected = selectedCode === h.fossittCode
+            const groupPct = groupTotal > 0 ? (h.areaHa / groupTotal) * 100 : 0
             return (
               <TableRow
                 key={`${h.fossittCode}-${idx}`}
@@ -129,7 +136,7 @@ function HabitatTable({
                 <TableCell className="font-medium">{h.fossittName}</TableCell>
                 <TableCell className="text-muted-foreground text-sm">{h.nlcLabel}</TableCell>
                 <TableCell className="text-right">{h.areaHa.toFixed(1)}</TableCell>
-                <TableCell className="text-right">{h.percentage.toFixed(1)}%</TableCell>
+                <TableCell className="text-right">{groupPct.toFixed(1)}%</TableCell>
                 {onRemoveFinding && (
                   <TableCell>
                     <Button
@@ -207,31 +214,6 @@ export function HabitatInventorySection({
     return { habitats: rows, totalArea: total }
   }, [habitatFindings])
 
-  // Notify parent (used for export)
-  const onHabitatDataRef = React.useRef(onHabitatData)
-  onHabitatDataRef.current = onHabitatData
-  React.useEffect(() => {
-    if (habitats.length > 0) {
-      onHabitatDataRef.current?.(habitats)
-    }
-  }, [habitats])
-
-  if (habitats.length === 0) {
-    return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center gap-3 py-12">
-          <TreePine className="h-12 w-12 text-gray-300" />
-          <div className="text-center">
-            <h4 className="font-semibold">No Habitat Data Available</h4>
-            <p className="text-muted-foreground mt-1 text-sm">
-              Save habitat findings in Data Gathering (Step 2) to see them here.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
   const habitatPolygons = React.useMemo<GeoJSON.FeatureCollection | null>(() => {
     const withLocation = habitatFindings.filter((f) => f.location != null)
     if (withLocation.length === 0) return null
@@ -274,12 +256,44 @@ export function HabitatInventorySection({
     }
   }, [habitatPolygons, selectedCode])
 
-  // Split habitats into within boundary (distance = 0 or null) and adjacent (0 < distance <= 0.1km)
-  const withinBoundary = habitats.filter((h) => h.distanceKm === null || h.distanceKm === 0)
+  // Notify parent (used for export)
+  const onHabitatDataRef = React.useRef(onHabitatData)
+  onHabitatDataRef.current = onHabitatData
+  React.useEffect(() => {
+    if (habitats.length > 0) {
+      onHabitatDataRef.current?.(habitats)
+    }
+  }, [habitats])
+
+  if (habitats.length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center gap-3 py-12">
+          <TreePine className="h-12 w-12 text-gray-300" />
+          <div className="text-center">
+            <h4 className="font-semibold">No Habitat Data Available</h4>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Save habitat findings in Data Gathering (Step 2) to see them here.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Within boundary: distance computed and < 10m (epsilon for float comparison)
+  // Null distance = not computed — shown in a separate "Unknown distance" bucket if needed
+  const WITHIN_EPSILON_KM = 0.01
+  const withinBoundary = habitats.filter(
+    (h) => h.distanceKm != null && h.distanceKm < WITHIN_EPSILON_KM
+  )
   const adjacent = habitats.filter(
-    (h) => h.distanceKm != null && h.distanceKm > 0 && h.distanceKm <= 0.1
+    (h) => h.distanceKm != null && h.distanceKm >= WITHIN_EPSILON_KM && h.distanceKm <= 0.1
   )
   const beyondAdjacent = habitats.filter((h) => h.distanceKm != null && h.distanceKm > 0.1)
+  const unknownDistance = habitats.filter((h) => h.distanceKm === null)
+  // Merge unknown distance habitats into "within boundary" for display (most likely within)
+  const withinDisplay = [...withinBoundary, ...unknownDistance]
 
   const showMap = !!habitatPolygons || !!boundary
 
@@ -296,13 +310,13 @@ export function HabitatInventorySection({
                 <Layers className="h-5 w-5 text-emerald-600" />
                 Within Site Boundary
                 <Badge variant="secondary" className="ml-auto">
-                  {withinBoundary.length}
+                  {withinDisplay.length}
                 </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="min-h-0 flex-1 overflow-y-auto p-0">
               <HabitatTable
-                habitats={withinBoundary}
+                habitats={withinDisplay}
                 selectedCode={selectedCode}
                 onSelect={setSelectedCode}
                 onRemoveFinding={onRemoveFinding}

@@ -346,7 +346,11 @@ export function BaselineReportTab({ savedFindings, project }: BaselineReportTabP
           boundary={boundary}
           onHabitatData={setHabitatRows}
           onRemoveFinding={handleRemoveFinding}
-          npwsVisibleLayers={(project.visible_layers as string[] | null) ?? undefined}
+          npwsVisibleLayers={
+            Array.isArray(project.visible_layers)
+              ? project.visible_layers.filter((v): v is string => typeof v === 'string')
+              : undefined
+          }
         />
       </section>
 

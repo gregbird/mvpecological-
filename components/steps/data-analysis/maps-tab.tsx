@@ -150,6 +150,9 @@ export function MapsTab({ projectId, userId, project }: MapsTabProps) {
   const [aiLegend, setAiLegend] = React.useState<string | null>(null)
   const [isGeneratingLegend, setIsGeneratingLegend] = React.useState(false)
 
+  // Shapefile export state
+  const [isExportingShapefile, setIsExportingShapefile] = React.useState(false)
+
   // Project data
   const projectBoundary = project.boundary as GeoJSON.Feature<GeoJSON.Polygon> | undefined
   const projectCenter = project.center_point
@@ -662,12 +665,14 @@ export function MapsTab({ projectId, userId, project }: MapsTabProps) {
         <Button
           variant="outline"
           className="w-full"
+          disabled={isExportingShapefile}
           onClick={async () => {
             const projectBoundary = project.boundary as GeoJSON.Feature<GeoJSON.Polygon> | undefined
             if (!projectBoundary) {
               toast({ title: 'No boundary', description: 'No project boundary to export.' })
               return
             }
+            setIsExportingShapefile(true)
             try {
               await downloadShapefile({
                 projectName: project.name,
@@ -689,6 +694,14 @@ export function MapsTab({ projectId, userId, project }: MapsTabProps) {
                     description: (tn.description as string) ?? '',
                     date: tn.created_at?.split('T')[0] ?? '',
                   })),
+                habitats: habitats
+                  .filter((h) => h.boundary != null)
+                  .map((h) => ({
+                    geometry: h.boundary as GeoJSON.Polygon,
+                    fossittCode: h.fossitt_code ?? undefined,
+                    fossittName: h.fossitt_name ?? undefined,
+                    condition: h.condition ?? undefined,
+                  })),
               })
               toast({ title: 'Shapefile exported' })
             } catch (err) {
@@ -698,11 +711,17 @@ export function MapsTab({ projectId, userId, project }: MapsTabProps) {
                 description: err instanceof Error ? err.message : 'Unknown error',
                 variant: 'destructive',
               })
+            } finally {
+              setIsExportingShapefile(false)
             }
           }}
         >
-          <Download className="mr-2 h-4 w-4" />
-          Export Shapefile
+          {isExportingShapefile ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="mr-2 h-4 w-4" />
+          )}
+          {isExportingShapefile ? 'Exporting...' : 'Export Shapefile'}
         </Button>
       </div>
 
@@ -727,7 +746,11 @@ export function MapsTab({ projectId, userId, project }: MapsTabProps) {
                 targetNotes={targetNoteMarkers}
                 findings={mapFindings}
                 showControls={false}
-                npwsVisibleLayers={(project.visible_layers as string[] | null) ?? undefined}
+                npwsVisibleLayers={
+                  Array.isArray(project.visible_layers)
+                    ? project.visible_layers.filter((v): v is string => typeof v === 'string')
+                    : undefined
+                }
               />
             </div>
           </CardContent>

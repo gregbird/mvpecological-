@@ -3,9 +3,11 @@
  *
  * Exports project boundaries, habitat polygons, and target notes
  * as a complete shapefile package (.shp, .shx, .dbf, .prj).
+ * Multiple layers are combined into a single zip with separate folders.
  */
 
 import { zip } from 'shp-write'
+import JSZip from 'jszip'
 
 interface BoundaryExportData {
   boundary: GeoJSON.Feature<GeoJSON.Polygon>
@@ -107,7 +109,7 @@ function buildHabitatCollection(habitats: HabitatExportData[]): GeoJSON.FeatureC
   }
 }
 
-async function generateZip(
+async function generateLayerBlob(
   collection: GeoJSON.FeatureCollection,
   folder: string,
   filename: string
@@ -121,21 +123,66 @@ async function generateZip(
 }
 
 /**
+ * Merge contents of multiple shp-write zip blobs into a single combined zip.
+ * Each layer gets its own folder inside the output.
+ */
+async function mergeZipBlobs(layers: { name: string; blob: Blob }[]): Promise<Blob> {
+  const combined = new JSZip()
+
+  for (const layer of layers) {
+    const layerZip = await JSZip.loadAsync(layer.blob)
+    const folder = combined.folder(layer.name)
+    if (!folder) continue
+
+    const entries = Object.entries(layerZip.files)
+    for (const [path, file] of entries) {
+      if (file.dir) continue
+      // Extract just the filename (strip any nested folder from shp-write)
+      const basename = path.split('/').pop() || path
+      const content = await file.async('arraybuffer')
+      folder.file(basename, content)
+    }
+  }
+
+  return combined.generateAsync({ type: 'blob', compression: 'DEFLATE' })
+}
+
+/**
  * Export project data as shapefile(s) and trigger download.
- * Generates separate shapefiles for boundaries, target notes, and habitats.
+ * Generates separate shapefiles for boundaries, target notes, and habitats,
+ * combined into a single zip with separate folders per layer.
  */
 export async function exportProjectShapefile(options: ShapefileExportOptions): Promise<Blob> {
-  const { boundaries, projectName } = options
+  const { boundaries, targetNotes, habitats, projectName } = options
   const safeName = projectName.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 50)
 
-  // For now, export boundaries as the primary shapefile.
-  // Target notes and habitats can be added as separate layers in the same zip
-  // once we confirm shp-write supports multiple layers (it doesn't natively —
-  // each call to zip() produces one shapefile set).
-  // For multi-layer export we would need to use JSZip to combine them.
+  const layers: { name: string; blob: Blob }[] = []
 
+  // Always include boundaries
   const boundaryCollection = buildBoundaryCollection(boundaries)
-  return generateZip(boundaryCollection, safeName, 'boundaries')
+  const boundaryBlob = await generateLayerBlob(boundaryCollection, safeName, 'boundaries')
+  layers.push({ name: 'boundaries', blob: boundaryBlob })
+
+  // Include target notes if available
+  if (targetNotes && targetNotes.length > 0) {
+    const notesCollection = buildTargetNotesCollection(targetNotes)
+    const notesBlob = await generateLayerBlob(notesCollection, safeName, 'target_notes')
+    layers.push({ name: 'target_notes', blob: notesBlob })
+  }
+
+  // Include habitats if available
+  if (habitats && habitats.length > 0) {
+    const habitatCollection = buildHabitatCollection(habitats)
+    const habitatBlob = await generateLayerBlob(habitatCollection, safeName, 'habitats')
+    layers.push({ name: 'habitats', blob: habitatBlob })
+  }
+
+  // Single layer — return directly, multi-layer — merge into combined zip
+  if (layers.length === 1) {
+    return layers[0].blob
+  }
+
+  return mergeZipBlobs(layers)
 }
 
 /**
@@ -156,4 +203,4 @@ export async function downloadShapefile(options: ShapefileExportOptions): Promis
 }
 
 // Re-export builder functions for direct use (e.g., multi-layer custom export)
-export { buildBoundaryCollection, buildTargetNotesCollection, buildHabitatCollection, generateZip }
+export { buildBoundaryCollection, buildTargetNotesCollection, buildHabitatCollection }
