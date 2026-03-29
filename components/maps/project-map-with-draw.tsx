@@ -390,6 +390,13 @@ function MapComponentWithDraw({
     const newFeatures = [geoJSON]
     setDrawnFeatures(newFeatures)
 
+    // Mark this boundary as already loaded so LoadExistingBoundary doesn't
+    // clear the featureGroup and re-add it (which causes visual glitch + zoom jump)
+    const geom = geoJSON.geometry
+    if (geom && 'coordinates' in geom) {
+      lastLoadedBoundaryRef.current = JSON.stringify(geom.coordinates)
+    }
+
     onBoundaryChange?.({
       type: 'FeatureCollection',
       features: newFeatures,
@@ -835,10 +842,18 @@ export function ProjectMapWithDraw({
     handleZoomChange,
   } = useAdministrativeBoundaries(zoom)
 
-  // NPWS layer overlay
+  // All boundaries: active + others (for per-site layer queries)
+  const allBoundaries = React.useMemo(() => {
+    const bounds = [boundary, ...(otherBoundaries ?? [])].filter(
+      Boolean
+    ) as GeoJSON.Feature<GeoJSON.Polygon>[]
+    return bounds
+  }, [boundary, otherBoundaries])
+
+  // NPWS layer overlay — queries per-site, merges results
   const { sites: npwsSitesRaw, isLoading: npwsLoading } = useNPWSLayers(
     mapInstance,
-    boundary ?? null,
+    allBoundaries.length > 0 ? allBoundaries : boundary ? [boundary] : [],
     visibleLayers,
     npwsSearchRadius,
     ignoredItems,
@@ -854,10 +869,10 @@ export function ProjectMapWithDraw({
     })
   }, [npwsSitesRaw, ignoredItems, deletedItems])
 
-  // EPA layer overlay (rivers, lakes, catchments) - fetched within buffer zone
+  // EPA layer overlay — queries per-site, merges results
   const { counts: epaCounts, isLoading: epaLoading } = useEPALayers(
     mapInstance,
-    boundary ?? null,
+    allBoundaries.length > 0 ? allBoundaries : boundary ? [boundary] : [],
     visibleLayers,
     npwsSearchRadius,
     ignoredItems,

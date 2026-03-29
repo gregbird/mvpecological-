@@ -9,6 +9,7 @@ import {
   type NPWSDesignatedSite,
   type DesignatedSiteType,
 } from '@/lib/external-apis/npws'
+import { batchAsync } from '@/lib/utils/batch-async'
 /**
  * Get the direct NPWS URL for a specific site
  * Format: https://www.npws.ie/protected-sites/{type}/{sitecode}
@@ -215,10 +216,11 @@ export function NPWSLayerOverlay({
   return null
 }
 
-// Hook for using NPWS layer state
+// Hook for using NPWS layer state.
+// Accepts an array of boundaries — queries each separately, deduplicates results.
 export function useNPWSLayers(
   map: L.Map | null,
-  boundary: GeoJSON.Feature<GeoJSON.Polygon> | null,
+  boundaries: GeoJSON.Feature<GeoJSON.Polygon>[],
   visibleLayers: string[],
   searchRadius = 5,
   ignoredItems: Set<string> = new Set(),
@@ -230,8 +232,7 @@ export function useNPWSLayers(
   const [isLoading, setIsLoading] = React.useState(false)
 
   // Track previous values to prevent unnecessary re-fetches
-  const prevBoundaryRef = React.useRef<string | null>(null)
-  const prevSiteTypesRef = React.useRef<string>('')
+  const prevKeyRef = React.useRef<string>('')
 
   // Sync external sites when provided
   React.useEffect(() => {
@@ -252,20 +253,16 @@ export function useNPWSLayers(
     return types
   }, [visibleLayers])
 
-  // Calculate bounding box from boundary with buffer
+  // Calculate bounding box from a single boundary with buffer
   const getBoundingBox = React.useCallback(
     (feature: GeoJSON.Feature<GeoJSON.Polygon>) => {
-      // Safety check for valid geometry
-      if (!feature?.geometry?.coordinates?.[0]) {
-        return null
-      }
+      if (!feature?.geometry?.coordinates?.[0]) return null
 
       const coords = feature.geometry.coordinates[0]
       let minLng = Infinity,
         maxLng = -Infinity,
         minLat = Infinity,
         maxLat = -Infinity
-
       for (const coord of coords) {
         minLng = Math.min(minLng, coord[0])
         maxLng = Math.max(maxLng, coord[0])
@@ -273,8 +270,7 @@ export function useNPWSLayers(
         maxLat = Math.max(maxLat, coord[1])
       }
 
-      // Add buffer (approximate degrees for km)
-      const bufferDeg = searchRadius / 111 // ~111km per degree
+      const bufferDeg = searchRadius / 111
       return {
         minX: minLng - bufferDeg,
         minY: minLat - bufferDeg,
@@ -285,28 +281,21 @@ export function useNPWSLayers(
     [searchRadius]
   )
 
-  // Fetch NPWS sites (skipped when externalSites provided)
+  // Fetch NPWS sites per-boundary, deduplicate (skipped when externalSites provided)
   React.useEffect(() => {
-    // Skip internal fetch when using external data
     if (externalSites && externalSites.length > 0) return
 
-    // Create stable keys for comparison
-    const boundaryKey = boundary?.geometry?.coordinates?.[0]
-      ? JSON.stringify(boundary.geometry.coordinates[0].slice(0, 3)) // First 3 coords for stability
-      : null
-    const siteTypesKey = activeSiteTypes.sort().join(',')
+    // Stable key from first 3 coords of each boundary
+    const boundaryKey = boundaries
+      .map((b) => JSON.stringify(b.geometry.coordinates[0]?.slice(0, 3)))
+      .join('|')
+    const siteTypesKey = [...activeSiteTypes].sort().join(',')
+    const fullKey = `${boundaryKey}::${siteTypesKey}`
 
-    // Skip if nothing changed
-    if (boundaryKey === prevBoundaryRef.current && siteTypesKey === prevSiteTypesRef.current) {
-      return
-    }
+    if (fullKey === prevKeyRef.current) return
+    prevKeyRef.current = fullKey
 
-    // Update refs
-    prevBoundaryRef.current = boundaryKey
-    prevSiteTypesRef.current = siteTypesKey
-
-    if (!boundaryKey || activeSiteTypes.length === 0) {
-      // Only clear if not already empty to prevent infinite loops
+    if (boundaries.length === 0 || activeSiteTypes.length === 0) {
       setSites((prev) => (prev.length === 0 ? prev : []))
       return
     }
@@ -314,16 +303,28 @@ export function useNPWSLayers(
     const fetchSites = async () => {
       setIsLoading(true)
       try {
-        const bbox = getBoundingBox(boundary!)
-        if (!bbox) {
-          setSites((prev) => (prev.length === 0 ? prev : []))
-          return
-        }
-        const fetchedSites = await queryDesignatedSites({
-          bbox,
-          siteTypes: activeSiteTypes,
+        // Query each boundary with concurrency limit (max 3 at a time)
+        const tasks = boundaries.map((boundary) => async () => {
+          const bbox = getBoundingBox(boundary)
+          if (!bbox) return [] as NPWSDesignatedSite[]
+          return queryDesignatedSites({ bbox, siteTypes: activeSiteTypes })
         })
-        setSites(fetchedSites)
+        const results = await batchAsync(tasks, 3)
+
+        // Merge and deduplicate by SITECODE
+        const seen = new Set<string>()
+        const merged: NPWSDesignatedSite[] = []
+        for (const result of results) {
+          if (result.status !== 'fulfilled') continue
+          for (const site of result.value) {
+            const key = `${site.SITE_TYPE}-${site.SITECODE}`
+            if (!seen.has(key)) {
+              seen.add(key)
+              merged.push(site)
+            }
+          }
+        }
+        setSites(merged)
       } catch (error) {
         console.error('Error fetching NPWS sites:', error)
         setSites((prev) => (prev.length === 0 ? prev : []))
@@ -333,7 +334,7 @@ export function useNPWSLayers(
     }
 
     fetchSites()
-  }, [boundary, activeSiteTypes, getBoundingBox, externalSites])
+  }, [boundaries, activeSiteTypes, getBoundingBox, externalSites])
 
   // Render effect
   React.useEffect(() => {

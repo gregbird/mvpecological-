@@ -183,17 +183,27 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
     bufferConfig.regenerateBufferZones,
   ])
 
-  // Reset layer cache when boundary changes
+  // Reset layer cache when sites change
   React.useEffect(() => {
     layers.resetLayerCache()
-  }, [activeBoundary, layers.resetLayerCache])
+  }, [allSiteBoundaries, activeBoundary, layers.resetLayerCache])
 
-  // Trigger data fetch when layers step is active
+  // Trigger data fetch when layers step is active — use ALL site boundaries
   React.useEffect(() => {
-    if (wizard.currentStep === 'layers' && activeBoundary && !layers.layerDataFetchedRef.current) {
-      layers.fetchLayerData(activeBoundary, bufferConfig.enabledBuffers)
+    if (wizard.currentStep === 'layers' && !layers.layerDataFetchedRef.current) {
+      const boundaries =
+        allSiteBoundaries.length > 0 ? allSiteBoundaries : activeBoundary ? [activeBoundary] : null
+      if (boundaries && boundaries.length > 0) {
+        layers.fetchLayerData(boundaries, bufferConfig.enabledBuffers)
+      }
     }
-  }, [wizard.currentStep, activeBoundary, bufferConfig.enabledBuffers, layers.fetchLayerData])
+  }, [
+    wizard.currentStep,
+    allSiteBoundaries,
+    activeBoundary,
+    bufferConfig.enabledBuffers,
+    layers.fetchLayerData,
+  ])
 
   // Boundaries of non-active sites (shown dimmed on map)
   const otherBoundaries = React.useMemo(

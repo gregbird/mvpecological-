@@ -15,6 +15,7 @@ import {
   type EPACatchment,
 } from '@/lib/external-apis/epa'
 import { getDefaultVisibleLayers } from '@/lib/config/dataset-layers'
+import { batchAsync } from '@/lib/utils/batch-async'
 import type { Project } from '@/types/database'
 
 export interface LayerDataState {
@@ -109,67 +110,104 @@ export function useLayerData(project: Project) {
     })
   }, [])
 
-  // Fetch layer data for all categories
+  // Fetch layer data for all categories.
+  // Queries each boundary separately in parallel, then deduplicates results.
   const fetchLayerData = React.useCallback(
-    async (boundary: GeoJSON.Feature<GeoJSON.Polygon>, enabledBuffers: number[]) => {
+    async (
+      boundaryOrBoundaries: GeoJSON.Feature<GeoJSON.Polygon> | GeoJSON.Feature<GeoJSON.Polygon>[],
+      enabledBuffers: number[]
+    ) => {
       if (layerDataFetchedRef.current) return
       layerDataFetchedRef.current = true
 
-      const coords = boundary.geometry.coordinates[0]
-      const lats = coords.map((c) => c[1])
-      const lngs = coords.map((c) => c[0])
+      const boundaries = Array.isArray(boundaryOrBoundaries)
+        ? boundaryOrBoundaries
+        : [boundaryOrBoundaries]
+
       const maxBuffer = enabledBuffers.length > 0 ? Math.max(...enabledBuffers) : 5
       const bufferDegrees = maxBuffer / 111
 
-      const bbox = {
-        minLat: Math.min(...lats) - bufferDegrees,
-        maxLat: Math.max(...lats) + bufferDegrees,
-        minLng: Math.min(...lngs) - bufferDegrees,
-        maxLng: Math.max(...lngs) + bufferDegrees,
-      }
-
-      // Fetch all layer data in parallel
       setLayerDataLoading({ npws: true, rivers: true, lakes: true, catchments: true })
 
       const siteTypes: DesignatedSiteType[] = ['SAC', 'SPA', 'NHA', 'pNHA']
 
-      const [npwsResult, riversResult, lakesResult, catchmentsResult] = await Promise.allSettled([
-        queryDesignatedSites({
-          bbox: { minX: bbox.minLng, minY: bbox.minLat, maxX: bbox.maxLng, maxY: bbox.maxLat },
-          siteTypes,
-        }),
-        searchRivers({ bbox, limit: 100 }),
-        searchLakes({ bbox, limit: 100 }),
-        searchCatchments({ bbox, limit: 50 }),
-      ])
+      try {
+        // Query each boundary with concurrency limit (max 3 at a time)
+        const tasks = boundaries.map((boundary) => async () => {
+          const coords = boundary.geometry.coordinates[0]
+          const lats = coords.map((c) => c[1])
+          const lngs = coords.map((c) => c[0])
+          const bbox = {
+            minLat: Math.min(...lats) - bufferDegrees,
+            maxLat: Math.max(...lats) + bufferDegrees,
+            minLng: Math.min(...lngs) - bufferDegrees,
+            maxLng: Math.max(...lngs) + bufferDegrees,
+          }
 
-      if (npwsResult.status === 'fulfilled') {
-        setLayerData((prev) => ({ ...prev, npwsSites: npwsResult.value }))
-      } else {
-        console.error('Error fetching NPWS sites:', npwsResult.reason)
-      }
-      setLayerDataLoading((prev) => ({ ...prev, npws: false }))
+          return Promise.allSettled([
+            queryDesignatedSites({
+              bbox: { minX: bbox.minLng, minY: bbox.minLat, maxX: bbox.maxLng, maxY: bbox.maxLat },
+              siteTypes,
+            }),
+            searchRivers({ bbox, limit: 100 }),
+            searchLakes({ bbox, limit: 100 }),
+            searchCatchments({ bbox, limit: 50 }),
+          ])
+        })
+        const perSiteResults = await batchAsync(tasks, 3)
 
-      if (riversResult.status === 'fulfilled') {
-        setLayerData((prev) => ({ ...prev, rivers: riversResult.value }))
-      } else {
-        console.error('Error fetching rivers:', riversResult.reason)
-      }
-      setLayerDataLoading((prev) => ({ ...prev, rivers: false }))
+        // Merge and deduplicate across all sites
+        const seenNpws = new Set<string>()
+        const seenRivers = new Set<string>()
+        const seenLakes = new Set<string>()
+        const seenCatchments = new Set<string>()
+        const merged: LayerDataState = { npwsSites: [], rivers: [], lakes: [], catchments: [] }
 
-      if (lakesResult.status === 'fulfilled') {
-        setLayerData((prev) => ({ ...prev, lakes: lakesResult.value }))
-      } else {
-        console.error('Error fetching lakes:', lakesResult.reason)
-      }
-      setLayerDataLoading((prev) => ({ ...prev, lakes: false }))
+        for (const siteResult of perSiteResults) {
+          if (siteResult.status !== 'fulfilled') continue
+          const [npws, rivers, lakes, catchments] = siteResult.value
 
-      if (catchmentsResult.status === 'fulfilled') {
-        setLayerData((prev) => ({ ...prev, catchments: catchmentsResult.value }))
-      } else {
-        console.error('Error fetching catchments:', catchmentsResult.reason)
+          if (npws.status === 'fulfilled') {
+            for (const s of npws.value) {
+              const key = `${s.SITE_TYPE}-${s.SITECODE}`
+              if (!seenNpws.has(key)) {
+                seenNpws.add(key)
+                merged.npwsSites.push(s)
+              }
+            }
+          }
+          if (rivers.status === 'fulfilled') {
+            for (const r of rivers.value) {
+              if (r.RiverCode && !seenRivers.has(r.RiverCode)) {
+                seenRivers.add(r.RiverCode)
+                merged.rivers.push(r)
+              }
+            }
+          }
+          if (lakes.status === 'fulfilled') {
+            for (const l of lakes.value) {
+              if (l.LakeCode && !seenLakes.has(l.LakeCode)) {
+                seenLakes.add(l.LakeCode)
+                merged.lakes.push(l)
+              }
+            }
+          }
+          if (catchments.status === 'fulfilled') {
+            for (const c of catchments.value) {
+              if (c.CatchmentId && !seenCatchments.has(c.CatchmentId)) {
+                seenCatchments.add(c.CatchmentId)
+                merged.catchments.push(c)
+              }
+            }
+          }
+        }
+
+        setLayerData(merged)
+      } catch (error) {
+        console.error('Error fetching layer data:', error)
+      } finally {
+        setLayerDataLoading({ npws: false, rivers: false, lakes: false, catchments: false })
       }
-      setLayerDataLoading((prev) => ({ ...prev, catchments: false }))
     },
     []
   )

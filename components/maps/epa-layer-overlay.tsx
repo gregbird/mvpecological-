@@ -11,6 +11,7 @@ import {
   type EPALake,
   type EPACatchment,
 } from '@/lib/external-apis/epa'
+import { batchAsync } from '@/lib/utils/batch-async'
 import { getLayerMetadata } from '@/lib/config/layer-metadata'
 
 /**
@@ -45,9 +46,13 @@ export interface EPALayerData {
 /**
  * Hook for fetching and rendering EPA layers within buffer zone
  */
+/**
+ * Hook for fetching and rendering EPA layers within buffer zone.
+ * Accepts an array of boundaries — queries each separately, deduplicates results.
+ */
 export function useEPALayers(
   map: L.Map | null,
-  boundary: GeoJSON.Feature<GeoJSON.Polygon> | null,
+  boundaries: GeoJSON.Feature<GeoJSON.Polygon>[],
   visibleLayers: string[],
   searchRadius = 5,
   ignoredItems: Set<string> = new Set(),
@@ -60,6 +65,7 @@ export function useEPALayers(
   })
   const [isLoading, setIsLoading] = React.useState(false)
   const layersRef = React.useRef<L.Layer[]>([])
+  const prevKeyRef = React.useRef<string>('')
 
   // Get active EPA layer types from visible layers - use stable string key
   const activeTypesKey = React.useMemo(() => {
@@ -78,27 +84,22 @@ export function useEPALayers(
     return activeTypesKey.split(',') as ('rivers' | 'lakes' | 'catchments')[]
   }, [activeTypesKey])
 
-  // Calculate bounding box from boundary with buffer
+  // Calculate bounding box from a single boundary with buffer
   const getBoundingBox = React.useCallback(
     (feature: GeoJSON.Feature<GeoJSON.Polygon>) => {
-      if (!feature?.geometry?.coordinates?.[0]) {
-        return null
-      }
+      if (!feature?.geometry?.coordinates?.[0]) return null
       const coords = feature.geometry.coordinates[0]
       let minLng = Infinity,
         maxLng = -Infinity,
         minLat = Infinity,
         maxLat = -Infinity
-
       for (const coord of coords) {
         minLng = Math.min(minLng, coord[0])
         maxLng = Math.max(maxLng, coord[0])
         minLat = Math.min(minLat, coord[1])
         maxLat = Math.max(maxLat, coord[1])
       }
-
-      // Add buffer (approximate degrees for km)
-      const bufferDeg = searchRadius / 111 // ~111km per degree
+      const bufferDeg = searchRadius / 111
       return {
         minLng: minLng - bufferDeg,
         minLat: minLat - bufferDeg,
@@ -109,14 +110,20 @@ export function useEPALayers(
     [searchRadius]
   )
 
-  // Fetch EPA data when boundary or active layers change
+  // Fetch EPA data per-boundary, deduplicate
   React.useEffect(() => {
-    if (!boundary || activeTypes.length === 0) {
-      // Only reset if data is not already empty to avoid infinite loop
+    const boundaryKey = boundaries
+      .map((b) => JSON.stringify(b.geometry.coordinates[0]?.slice(0, 3)))
+      .join('|')
+    const fullKey = `${boundaryKey}::${activeTypesKey}`
+
+    if (fullKey === prevKeyRef.current) return
+    prevKeyRef.current = fullKey
+
+    if (boundaries.length === 0 || activeTypes.length === 0) {
       setData((prev) => {
-        if (prev.rivers.length === 0 && prev.lakes.length === 0 && prev.catchments.length === 0) {
+        if (prev.rivers.length === 0 && prev.lakes.length === 0 && prev.catchments.length === 0)
           return prev
-        }
         return { rivers: [], lakes: [], catchments: [] }
       })
       return
@@ -125,30 +132,63 @@ export function useEPALayers(
     const fetchData = async () => {
       setIsLoading(true)
       try {
-        const bbox = getBoundingBox(boundary)
-        if (!bbox) return
-        const bboxParams = {
-          bbox: {
-            minLat: bbox.minLat,
-            maxLat: bbox.maxLat,
-            minLng: bbox.minLng,
-            maxLng: bbox.maxLng,
-          },
-          limit: 100,
+        // Query each boundary with concurrency limit (max 3 at a time)
+        const tasks = boundaries.map((boundary) => async () => {
+          const bbox = getBoundingBox(boundary)
+          if (!bbox)
+            return {
+              rivers: [] as EPARiver[],
+              lakes: [] as EPALake[],
+              catchments: [] as EPACatchment[],
+            }
+          const bboxParams = {
+            bbox: {
+              minLat: bbox.minLat,
+              maxLat: bbox.maxLat,
+              minLng: bbox.minLng,
+              maxLng: bbox.maxLng,
+            },
+            limit: 100,
+          }
+          const [rivers, lakes, catchments] = await Promise.all([
+            activeTypes.includes('rivers') ? searchRivers(bboxParams) : Promise.resolve([]),
+            activeTypes.includes('lakes') ? searchLakes(bboxParams) : Promise.resolve([]),
+            activeTypes.includes('catchments') ? searchCatchments(bboxParams) : Promise.resolve([]),
+          ])
+          return { rivers, lakes, catchments }
+        })
+        const perSiteResults = await batchAsync(tasks, 3)
+
+        // Merge and deduplicate
+        const seenRivers = new Set<string>()
+        const seenLakes = new Set<string>()
+        const seenCatchments = new Set<string>()
+        const merged: EPALayerData = { rivers: [], lakes: [], catchments: [] }
+
+        for (const result of perSiteResults) {
+          if (result.status !== 'fulfilled') continue
+          const { rivers, lakes, catchments } = result.value
+          for (const r of rivers) {
+            if (r.RiverCode && !seenRivers.has(r.RiverCode)) {
+              seenRivers.add(r.RiverCode)
+              merged.rivers.push(r)
+            }
+          }
+          for (const l of lakes) {
+            if (l.LakeCode && !seenLakes.has(l.LakeCode)) {
+              seenLakes.add(l.LakeCode)
+              merged.lakes.push(l)
+            }
+          }
+          for (const c of catchments) {
+            if (c.CatchmentId && !seenCatchments.has(c.CatchmentId)) {
+              seenCatchments.add(c.CatchmentId)
+              merged.catchments.push(c)
+            }
+          }
         }
 
-        // Fetch only active types in parallel
-        const results = await Promise.all([
-          activeTypes.includes('rivers') ? searchRivers(bboxParams) : Promise.resolve([]),
-          activeTypes.includes('lakes') ? searchLakes(bboxParams) : Promise.resolve([]),
-          activeTypes.includes('catchments') ? searchCatchments(bboxParams) : Promise.resolve([]),
-        ])
-
-        setData({
-          rivers: results[0],
-          lakes: results[1],
-          catchments: results[2],
-        })
+        setData(merged)
       } catch (error) {
         console.error('Error fetching EPA data:', error)
         setData({ rivers: [], lakes: [], catchments: [] })
@@ -158,7 +198,7 @@ export function useEPALayers(
     }
 
     fetchData()
-  }, [boundary, activeTypesKey, getBoundingBox])
+  }, [boundaries, activeTypesKey, getBoundingBox, activeTypes])
 
   // Render layers on map
   React.useEffect(() => {

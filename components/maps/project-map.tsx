@@ -340,7 +340,7 @@ function MapComponent({
     useIWebsLayers(map, boundary ?? null, iwebsVisibleLayers ?? [])
 
     // NPWS designated site overlays — fetch and render SAC/SPA/NHA/pNHA polygons
-    useNPWSLayers(map, boundary ?? null, npwsVisibleLayers ?? [])
+    useNPWSLayers(map, boundary ? [boundary] : [], npwsVisibleLayers ?? [])
 
     return null
   }
