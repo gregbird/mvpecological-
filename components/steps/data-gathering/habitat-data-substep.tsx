@@ -170,7 +170,7 @@ export function HabitatDataSubStep({
           ...f,
           properties: {
             ...f.properties,
-            fillOpacity: !selectedHabitat ? 0.2 : isMatch ? 0.85 : 0.05,
+            fillOpacity: !selectedHabitat ? 0.35 : isMatch ? 0.85 : 0.05,
           },
         }
       }),
@@ -271,6 +271,98 @@ export function HabitatDataSubStep({
     const total = results.reduce((sum, r) => sum + r.areaHectares, 0)
     setTotalArea(Math.round(total * 100) / 100)
   }, [results])
+
+  // Check if a habitat is already saved in DB
+  const getSavedFinding = (nlcId: string): DeskResearchFinding | undefined =>
+    savedFindings.find((f) => {
+      const raw = f.raw_data as Record<string, unknown> | null
+      return raw?.nlcId === nlcId && raw?.habitatFinding === true
+    })
+
+  /** Extract merged geometry for a habitat from the polygon collection */
+  const getHabitatGeometry = (nlcId: string): GeoJSON.Geometry | null => {
+    if (!habitatPolygons) return null
+    const matching = habitatPolygons.features.filter((f) => {
+      const p = f.properties
+      return p?.nlc_id && String(p.nlc_id).trim() === nlcId
+    })
+    if (matching.length === 0) return null
+    if (matching.length === 1) return matching[0].geometry
+    return {
+      type: 'GeometryCollection',
+      geometries: matching.map((f) => f.geometry),
+    }
+  }
+
+  // Auto-save: when search completes and results + polygons are ready, save all unsaved habitats
+  const autoSaveTriggeredRef = React.useRef(false)
+  React.useEffect(() => {
+    if (
+      results.length === 0 ||
+      !habitatPolygons ||
+      habitatPolygons.features.length === 0 ||
+      isSearching ||
+      isSavingAll ||
+      autoSaveTriggeredRef.current
+    )
+      return
+
+    const unsaved = results.filter((r) => !getSavedFinding(r.nlcId))
+    if (unsaved.length === 0) return
+
+    autoSaveTriggeredRef.current = true
+    setIsSavingAll(true)
+
+    const total = results.reduce((sum, r) => sum + r.areaHectares, 0)
+
+    const saveSequentially = async () => {
+      let count = 0
+      for (const r of unsaved) {
+        const pct = total > 0 ? ((r.areaHectares / total) * 100).toFixed(1) : '0'
+        const geometry = getHabitatGeometry(r.nlcId)
+        try {
+          await createFinding.mutateAsync({
+            project_id: project.id,
+            created_by: userId,
+            source: 'manual' as const,
+            data_type: 'habitat' as const,
+            include_in_report: true,
+            title: `${r.fossittCode} — ${r.fossittName}`,
+            content: `${r.fossittName} (${r.areaHectares} ha, ${pct}% cover)`,
+            is_saved: true,
+            notes: null,
+            location: geometry as unknown as Json,
+            raw_data: {
+              habitatFinding: true,
+              nlcId: r.nlcId,
+              nlcLabel: r.nlcLabel,
+              nlcLevel1: r.nlcLevel1,
+              fossittCode: r.fossittCode,
+              fossittName: r.fossittName,
+              areaHectares: r.areaHectares,
+              polygonCount: r.polygonCount,
+              percentCover: pct,
+              aiSummary: null,
+              bufferKm: selectedBuffer,
+            } as unknown as Json,
+          })
+          count++
+        } catch {
+          // Continue saving remaining habitats
+        }
+      }
+      if (count > 0) {
+        toast({
+          title: 'Habitats auto-saved',
+          description: `${count} habitat${count > 1 ? 's' : ''} automatically saved to findings.`,
+        })
+      }
+      setIsSavingAll(false)
+    }
+
+    saveSequentially()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [results, habitatPolygons, isSearching])
 
   const performSearch = async () => {
     const bbox = getBoundingBox(projectBoundary, projectCenter, selectedBuffer)
@@ -441,28 +533,6 @@ export function HabitatDataSubStep({
     setStyleVersion((v) => v + 1)
   }
 
-  // Check if a habitat is already saved in DB
-  const getSavedFinding = (nlcId: string): DeskResearchFinding | undefined =>
-    savedFindings.find((f) => {
-      const raw = f.raw_data as Record<string, unknown> | null
-      return raw?.nlcId === nlcId && raw?.habitatFinding === true
-    })
-
-  /** Extract merged geometry for a habitat from the polygon collection */
-  const getHabitatGeometry = (nlcId: string): GeoJSON.Geometry | null => {
-    if (!habitatPolygons) return null
-    const matching = habitatPolygons.features.filter((f) => {
-      const p = f.properties
-      return p?.nlc_id && String(p.nlc_id).trim() === nlcId
-    })
-    if (matching.length === 0) return null
-    if (matching.length === 1) return matching[0].geometry
-    return {
-      type: 'GeometryCollection',
-      geometries: matching.map((f) => f.geometry),
-    }
-  }
-
   // Save a habitat finding to DB
   const handleSave = async (r: HabitatResult) => {
     setSavingIds((prev) => new Set(prev).add(r.nlcId))
@@ -606,11 +676,15 @@ export function HabitatDataSubStep({
                 <SelectValue placeholder="Buffer" />
               </SelectTrigger>
               <SelectContent>
-                {(bufferDistances.length > 0 ? bufferDistances : [2, 5]).map((d) => (
-                  <SelectItem key={d} value={d.toString()}>
-                    {d} km
-                  </SelectItem>
-                ))}
+                <SelectItem value="0">Boundary only</SelectItem>
+                <SelectItem value="0.1">100m</SelectItem>
+                {(bufferDistances.length > 0 ? bufferDistances : [2, 5])
+                  .filter((d) => d !== 0 && d !== 0.1)
+                  .map((d) => (
+                    <SelectItem key={d} value={d.toString()}>
+                      {d} km
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
             <Button

@@ -112,7 +112,7 @@ function HeroSection({ onScrollDown }: { onScrollDown: () => void }) {
       <header className="absolute top-0 right-0 left-0 z-40">
         <div className="container mx-auto flex items-center justify-between px-6 py-6">
           <div className="flex items-center">
-            <img src="/dulra-logo.jpg" alt="Dulra" className="h-8" />
+            <img src="/dulra-logo.jpg" alt="Dulra" className="h-8 dark:invert" />
           </div>
           <div className="flex items-center gap-3">
             <Link href="/login">

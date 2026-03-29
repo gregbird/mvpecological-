@@ -792,7 +792,7 @@ export function FindingsList({
                         </h4>
                       </div>
                     </div>
-                    <div className="flex shrink-0 items-center gap-1">
+                    <div className="relative z-10 flex shrink-0 items-center gap-1">
                       {/* Visibility toggle */}
                       {onToggleVisibility && (
                         <Button
@@ -809,15 +809,18 @@ export function FindingsList({
                           )}
                         </Button>
                       )}
-                      {/* Save button */}
+                      {/* Save button — relative z-10 prevents ScrollArea scrollbar overlap */}
                       <button
-                        className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
+                        className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
                           saved
                             ? 'text-emerald-600 hover:text-emerald-700'
                             : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300'
                         }`}
                         disabled={isSaving}
-                        onClick={() => onSave({ ...finding, isSaved: !saved })}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onSave({ ...finding, isSaved: !saved })
+                        }}
                         title={saved ? 'Remove from saved' : 'Save finding'}
                       >
                         {isSaving ? (

@@ -9,11 +9,20 @@
  */
 
 import shp from 'shpjs'
-import { validateBoundary, detectCRS, type ValidationResult } from './validation'
+import {
+  validateBoundary,
+  detectCRS,
+  getBoundingBox,
+  EPSG_CODES,
+  type ValidationResult,
+} from './validation'
+import { transformFeatureToWGS84, transformCollectionToWGS84 } from './coordinate-transform'
 
 export interface ShapefileParseResult {
   success: boolean
   feature: GeoJSON.Feature<GeoJSON.Polygon> | null
+  /** All polygon features from the shapefile (for multi-site support) */
+  features: GeoJSON.Feature<GeoJSON.Polygon>[]
   featureCollection: GeoJSON.FeatureCollection | null
   validation: ValidationResult | null
   error: string | null
@@ -24,6 +33,7 @@ export interface ShapefileParseResult {
     hasAttributes: boolean
     attributes: string[]
     detectedCRS: number | null
+    transformedFromCRS: number | null
   }
 }
 
@@ -34,27 +44,31 @@ export interface ShapefileParseResult {
 export async function parseShapefile(file: File): Promise<ShapefileParseResult> {
   const warnings: string[] = []
 
+  const emptyResult = (error: string): ShapefileParseResult => ({
+    success: false,
+    feature: null,
+    features: [],
+    featureCollection: null,
+    validation: null,
+    error,
+    warnings,
+    metadata: {
+      featureCount: 0,
+      geometryType: null,
+      hasAttributes: false,
+      attributes: [],
+      detectedCRS: null,
+      transformedFromCRS: null,
+    },
+  })
+
   try {
-    // Check file extension
     const fileName = file.name.toLowerCase()
 
     if (!fileName.endsWith('.zip') && !fileName.endsWith('.shp')) {
-      return {
-        success: false,
-        feature: null,
-        featureCollection: null,
-        validation: null,
-        error:
-          'Please upload a .zip file containing the shapefile components (.shp, .shx, .dbf, .prj)',
-        warnings: [],
-        metadata: {
-          featureCount: 0,
-          geometryType: null,
-          hasAttributes: false,
-          attributes: [],
-          detectedCRS: null,
-        },
-      }
+      return emptyResult(
+        'Please upload a .zip file containing the shapefile components (.shp, .shx, .dbf, .prj)'
+      )
     }
 
     if (fileName.endsWith('.shp')) {
@@ -63,81 +77,51 @@ export async function parseShapefile(file: File): Promise<ShapefileParseResult> 
       )
     }
 
-    // Read file as ArrayBuffer
     const arrayBuffer = await file.arrayBuffer()
 
-    // Parse shapefile
     let geojson: GeoJSON.FeatureCollection | GeoJSON.FeatureCollection[]
-
     try {
       geojson = await shp(arrayBuffer)
     } catch (parseError) {
       console.error('Shapefile parse error:', parseError)
-      return {
-        success: false,
-        feature: null,
-        featureCollection: null,
-        validation: null,
-        error: `Failed to parse shapefile: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`,
-        warnings,
-        metadata: {
-          featureCount: 0,
-          geometryType: null,
-          hasAttributes: false,
-          attributes: [],
-          detectedCRS: null,
-        },
-      }
+      return emptyResult(
+        `Failed to parse shapefile: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`
+      )
     }
 
     // Handle multiple layers in zip
     let featureCollection: GeoJSON.FeatureCollection
 
     if (Array.isArray(geojson)) {
-      if (geojson.length === 0) {
-        return {
-          success: false,
-          feature: null,
-          featureCollection: null,
-          validation: null,
-          error: 'Shapefile contains no layers',
-          warnings,
-          metadata: {
-            featureCount: 0,
-            geometryType: null,
-            hasAttributes: false,
-            attributes: [],
-            detectedCRS: null,
-          },
-        }
-      }
-
+      if (geojson.length === 0) return emptyResult('Shapefile contains no layers')
       if (geojson.length > 1) {
         warnings.push(`Shapefile contains ${geojson.length} layers. Using the first layer.`)
       }
-
       featureCollection = geojson[0]
     } else {
       featureCollection = geojson
     }
 
-    // Check if we have features
     if (!featureCollection.features || featureCollection.features.length === 0) {
-      return {
-        success: false,
-        feature: null,
-        featureCollection: null,
-        validation: null,
-        error: 'Shapefile contains no features',
-        warnings,
-        metadata: {
-          featureCount: 0,
-          geometryType: null,
-          hasAttributes: false,
-          attributes: [],
-          detectedCRS: null,
-        },
-      }
+      return emptyResult('Shapefile contains no features')
+    }
+
+    // Detect CRS from raw coordinates before any transformation
+    const firstFeatureWithGeom = featureCollection.features.find((f) => f.geometry)
+    if (!firstFeatureWithGeom?.geometry) {
+      return emptyResult('No features with geometry found')
+    }
+
+    const rawBounds = getBoundingBox(firstFeatureWithGeom.geometry)
+    const detectedCRS = rawBounds ? detectCRS(rawBounds) : EPSG_CODES.WGS84
+    let transformedFromCRS: number | null = null
+
+    // Transform coordinates if not WGS84
+    if (detectedCRS !== EPSG_CODES.WGS84) {
+      const crsName = detectedCRS === EPSG_CODES.ITM ? 'ITM (EPSG:2157)' : 'Irish Grid (EPSG:29903)'
+      warnings.push(`Coordinates detected as ${crsName}. Automatically transforming to WGS84.`)
+      featureCollection = transformCollectionToWGS84(featureCollection, detectedCRS)
+      transformedFromCRS = detectedCRS
     }
 
     // Find polygon features
@@ -149,68 +133,71 @@ export async function parseShapefile(file: File): Promise<ShapefileParseResult> 
       const geometryTypes = [
         ...new Set(featureCollection.features.map((f) => f.geometry?.type).filter(Boolean)),
       ]
-
       return {
-        success: false,
-        feature: null,
-        featureCollection: null,
-        validation: null,
-        error: `No polygon features found. Shapefile contains: ${geometryTypes.join(', ') || 'unknown geometry types'}`,
-        warnings,
+        ...emptyResult(
+          `No polygon features found. Shapefile contains: ${geometryTypes.join(', ') || 'unknown geometry types'}`
+        ),
         metadata: {
           featureCount: featureCollection.features.length,
-          geometryType: geometryTypes[0] || null,
+          geometryType: (geometryTypes[0] as string) || null,
           hasAttributes: false,
           attributes: [],
-          detectedCRS: null,
+          detectedCRS,
+          transformedFromCRS,
         },
       }
     }
 
-    if (polygonFeatures.length > 1) {
+    // Convert all features to Polygon (split MultiPolygon into individual Polygons)
+    const allPolygons: GeoJSON.Feature<GeoJSON.Polygon>[] = []
+
+    for (const pf of polygonFeatures) {
+      const feat = pf as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>
+      if (feat.geometry.type === 'MultiPolygon') {
+        for (const coords of feat.geometry.coordinates) {
+          allPolygons.push({
+            type: 'Feature',
+            geometry: { type: 'Polygon', coordinates: coords },
+            properties: { ...feat.properties },
+          })
+        }
+        if (feat.geometry.coordinates.length > 1) {
+          warnings.push(
+            `MultiPolygon with ${feat.geometry.coordinates.length} parts split into individual polygons.`
+          )
+        }
+      } else {
+        allPolygons.push(feat as GeoJSON.Feature<GeoJSON.Polygon>)
+      }
+    }
+
+    if (allPolygons.length > 1) {
       warnings.push(
-        `Shapefile contains ${polygonFeatures.length} polygon features. Using the first one as the project boundary.`
+        `Shapefile contains ${allPolygons.length} polygon features. First one used as primary boundary.`
       )
     }
 
-    // Get the first polygon feature
-    let feature = polygonFeatures[0] as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>
+    const primaryFeature = allPolygons[0]
 
-    // Convert MultiPolygon to Polygon if needed
-    if (feature.geometry.type === 'MultiPolygon') {
-      warnings.push('Converting MultiPolygon to Polygon (using first polygon)')
-      feature = {
-        type: 'Feature',
-        geometry: {
-          type: 'Polygon',
-          coordinates: feature.geometry.coordinates[0],
-        },
-        properties: feature.properties,
-      } as GeoJSON.Feature<GeoJSON.Polygon>
+    // Extract attribute names from all features
+    const attributeSet = new Set<string>()
+    for (const p of allPolygons) {
+      if (p.properties) {
+        for (const key of Object.keys(p.properties)) {
+          attributeSet.add(key)
+        }
+      }
     }
+    const attributes = [...attributeSet]
 
-    // Extract attribute names
-    const attributes = feature.properties ? Object.keys(feature.properties) : []
-
-    // Validate the boundary
-    const validation = validateBoundary(feature as GeoJSON.Feature<GeoJSON.Polygon>)
-
-    // Add validation warnings
+    // Validate the primary boundary
+    const validation = validateBoundary(primaryFeature)
     warnings.push(...validation.warnings)
-
-    // Get detected CRS from validation
-    const coords = feature.geometry.coordinates[0] as [number, number][]
-    const bounds = {
-      minLat: Math.min(...coords.map((c) => c[1])),
-      maxLat: Math.max(...coords.map((c) => c[1])),
-      minLng: Math.min(...coords.map((c) => c[0])),
-      maxLng: Math.max(...coords.map((c) => c[0])),
-    }
-    const detectedCRS = detectCRS(bounds)
 
     return {
       success: validation.valid,
-      feature: validation.valid ? (feature as GeoJSON.Feature<GeoJSON.Polygon>) : null,
+      feature: validation.valid ? primaryFeature : null,
+      features: validation.valid ? allPolygons : [],
       featureCollection,
       validation,
       error: validation.valid ? null : validation.errors.join('. '),
@@ -221,24 +208,15 @@ export async function parseShapefile(file: File): Promise<ShapefileParseResult> 
         hasAttributes: attributes.length > 0,
         attributes,
         detectedCRS,
+        transformedFromCRS,
       },
     }
   } catch (error) {
     console.error('Shapefile processing error:', error)
     return {
-      success: false,
-      feature: null,
-      featureCollection: null,
-      validation: null,
-      error: `Error processing shapefile: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      warnings,
-      metadata: {
-        featureCount: 0,
-        geometryType: null,
-        hasAttributes: false,
-        attributes: [],
-        detectedCRS: null,
-      },
+      ...emptyResult(
+        `Error processing shapefile: ${error instanceof Error ? error.message : 'Unknown error'}`
+      ),
     }
   }
 }

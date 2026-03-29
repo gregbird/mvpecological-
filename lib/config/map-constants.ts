@@ -182,6 +182,23 @@ export const TILE_LAYERS: Record<MapStyle, TileLayerConfig> = {
   },
 }
 
+/**
+ * Heritage Council Standard Habitat Colour Coding (Appendix 6)
+ * Source: Heritage Council — Habitat Survey Guidelines (Draft No.2, April 2005)
+ * Keys are FOSSITT Level 1 codes
+ */
+export const HERITAGE_COUNCIL_COLORS = {
+  F: '#87CEEB', // Freshwater — Sky blue
+  G: '#FFD700', // Grassland and Marsh — Yellow
+  H: '#8B4513', // Heath and Dense Bracken — Brown
+  P: '#9B59B6', // Peatlands — Violet/Purple
+  W: '#228B22', // Woodland and Scrub — Green (native), Bright green (mixed)
+  E: '#DC2626', // Exposed Rock and Disturbed Ground — Red
+  B: '#808080', // Cultivated and Built Land — Grey (50%)
+  C: '#FF8C00', // Coastland — Orange
+  M: '#B57EDC', // Marine — Lavender
+} as const
+
 // Finding type colors (used for map markers by data type)
 export const FINDING_TYPE_COLORS: Record<string, string> = {
   designated_site: '#22c55e', // Green for protected sites

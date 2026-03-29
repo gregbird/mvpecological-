@@ -159,10 +159,9 @@ export function validateBoundary(feature: GeoJSON.Feature<GeoJSON.Geometry>): Va
   const detectedCRS = detectCRS(bounds)
 
   if (detectedCRS !== EPSG_CODES.WGS84) {
-    errors.push(
-      `Coordinates appear to be in EPSG:${detectedCRS} format. Please convert to WGS84 (EPSG:4326) before uploading.`
+    warnings.push(
+      `Coordinates appear to be in EPSG:${detectedCRS} format. They should be transformed to WGS84 before use.`
     )
-    return { valid: false, errors, warnings }
   }
 
   // Check Ireland bounds

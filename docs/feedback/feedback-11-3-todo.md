@@ -1,0 +1,228 @@
+# Feedback 11/3 — Yapilacaklar Listesi
+
+> **Kaynak:** Greg Birdthistle — 11 Mart 2026
+> **Durum:** Devam ediyor (Faz 1 tamamlandi)
+> **Toplam:** 60 madde, 6 grup
+
+--- 
+
+## Icindekiler
+
+- [Grup A: GIS Altyapi](#grup-a-gis-altyapi) — Shapefile, coklu site, cizim araclari, attribute (19 madde)
+- [Grup B: Habitat Veri Akisi](#grup-b-habitat-veri-akisi) — Katman kaydetme, NLC, buffer, etiketler (11 madde)
+- [Grup C: Desk Research Temizlik](#grup-c-desk-research-temizlik) — Planning policy kaldir, desk assessment birlestir (6 madde)
+- [Grup D: Field Research Yeniden Yapi](#grup-d-field-research-yeniden-yapi) — Survey planlama, field research tab yapisi (9 madde)
+- [Grup E: Raporlama Zinciri](#grup-e-raporlama-zinciri) — Data analysis, AI draft, quality review, final submission (20 madde)
+- [Grup F: Bagimsiz](#grup-f-bagimsiz) — Bug fix, branding, kullanici kilavuzu (5 madde)
+
+### Bagimlilik Akisi
+
+```
+A: GIS Altyapi ──────────┐
+                          ├──→ D: Field Research ──→ E: Raporlama Zinciri
+B: Habitat Veri Akisi ───┘                                ↑
+                                                           │
+C: Desk Temizlik ─────────────────────────────────────────┘
+
+F: Bagimsiz ──→ paralel yapilabilir
+```
+
+### Ilerleme Ozeti
+
+| Grup              | Madde  | Tamamlanan | Ilerleme          |
+| ----------------- | ------ | ---------- | ----------------- |
+| A: GIS Altyapi    | 19     | 2          | █░░░░░░░░░ 11%    |
+| B: Habitat Veri   | 11     | 0          | ░░░░░░░░░░ 0%     |
+| C: Desk Temizlik  | 6      | 0          | ░░░░░░░░░░ 0%     |
+| D: Field Research | 9      | 0          | ░░░░░░░░░░ 0%     |
+| E: Raporlama      | 20     | 1          | █░░░░░░░░░ 5%     |
+| F: Bagimsiz       | 5      | 0          | ░░░░░░░░░░ 0%     |
+| **Toplam**        | **60** | **3**      | █░░░░░░░░░ **5%** |
+
+---
+
+## Grup A: GIS Altyapi
+
+> **Oncelik:** 🔴 Kritik — diger gruplarin temeli
+> **Bagimlilik:** Yok (ilk baslanacak)
+> **Feedback maddeleri:** #4, #5, #6, #14.1
+
+### A1. Shapefile Upload (Feedback #4)
+
+- [x] **A1.1** ~~Shapefile upload sorununu test et ve tani~~ ✅ (29 Mart 2026) — `proj4` ile ITM/Irish Grid → WGS84 otomatik CRS donusumu eklendi. MultiPolygon parcalanir, tum polygon'lar dondurulur. Dosyalar: `lib/gis/coordinate-transform.ts`, `lib/gis/shapefile-parser.ts`, `lib/gis/validation.ts`
+
+### A2. Coklu Site Siniri Destegi (Feedback #4)
+
+- [ ] **A2.1** Tek projede birden fazla site siniri cizme destegi — DB migration + UI
+- [ ] **A2.2** Her site icin proje adindan turetilen otomatik alt isimlendirme (orn. TBWF 00101)
+- [ ] **A2.3** Her site sinirinin data gathering'de bagimsiz islenmesi (ayri buffer zone, ayri veri toplama)
+- [ ] **A2.4** Her site icin bagimsiz field survey destegi
+
+### A3. Cizim Araclari (Feedback #6)
+
+> Referans: `docs/feedback/feedback-11-3-mar.md` — Bolum 6, detayli aciklamalar
+
+- [ ] **A3.1** Snapping (yapisma) — point, vertex, edge snapping
+- [ ] **A3.2** Tracing (izleme) — mevcut feature sinirini otomatik takip
+- [ ] **A3.3** Clipping (kirpma) — overlay ve edit clip modlari
+- [ ] **A3.4** Vertex management — vertex ekleme, silme, tasima
+- [ ] **A3.5** Poligon cizim zoom bug'ini duzelt (Feedback #14.1)
+
+### A4. Attribute (Oznitelik) Yonetimi (Feedback #5)
+
+- [ ] **A4.1** Shapefile upload sirasinda oznitelik verilerini okuma ve gosterme
+- [ ] **A4.2** Her site sinirina oznitelik atama UI'i (OBJECT_ID, FOSS_CODE, ANNEX_CODE, FOSS_NAME, COMMENT, SITE_NAME, LABEL, NOTE_NUMBER, CATEGORY, DATA_QUAL, DATE, PHOTO_ID)
+- [ ] **A4.3** Target note'lari oznitelik olarak isleme
+- [ ] **A4.4** Shapefile export (.shp, .shx, .dbf, .prj) — attribute + target note dahil
+
+### A5. Shapefile Export (Feedback #6)
+
+- [x] **A5.1** ~~Eksiksiz shapefile export (.shp, .shx, .dbf, .prj)~~ ✅ (29 Mart 2026) — `shp-write` ile boundary + attributes export. Step 7 Maps tab'ina "Export Shapefile" butonu eklendi. Dosyalar: `lib/gis/shapefile-export.ts`, `types/shp-write.d.ts`, `maps-tab.tsx`
+- [ ] **A5.2** Greg'in sagladigi shapefile ile test
+
+---
+
+## Grup B: Habitat Veri Akisi
+
+> **Oncelik:** 🔴 Yuksek — habitat verisi field research ve raporlamaya akar
+> **Bagimlilik:** Yok (A ile paralel baslanabilir)
+> **Feedback maddeleri:** #2, #3, #14.2, #14.3, #14.4
+
+### B1. Katman Kaydetme (Feedback #2)
+
+- [ ] **B1.1** Kullanicinin sectigi harita katmanlarini kaydetme ozelligi (persist)
+- [ ] **B1.2** Kaydedilen katman haritasini Desk Assessment (Step 3) gorunumune ekle
+- [ ] **B1.3** Kaydedilen katman haritasini Data Analysis (Step 7) gorunumune ekle
+
+### B2. NLC Habitat Otomatik Kaydetme (Feedback #3)
+
+> Referans: Heritage Council — _Habitat Survey Guidelines_ Appendix 6
+> Dosya: `docs/link/HeritageCouncilHabitatSymbologyRecommendations (1).pdf`
+
+- [ ] **B2.1** Site siniri icindeki NLC habitat verilerini data gathering sirasinda otomatik kaydet
+- [ ] **B2.2** Kaydedilen habitatlari Desk Assessment "Preliminary Habitat Inventory" bolumunde goster
+- [ ] **B2.3** Site siniri disinda 100m icindeki habitatlari da goster
+- [ ] **B2.4** FOSSITT koduna gore habitat poligonlarini Heritage Council standart renk kodlamasiyla goster
+- [ ] **B2.5** Her habitat poligonuna FOSSITT kodu + adi etiket olarak ekle
+
+### B3. UX Bug Fix'ler (Feedback #14.2, #14.3, #14.4)
+
+- [ ] **B3.1** Scroll ile kesisen kaydetme sorununu duzelt (su ozellikleri kaydetme)
+- [ ] **B3.2** Habitat arama buffer'ina 100m (0.1km) secenegini ekle — Step 1'de buffer zaten ozellestirilebilir (0.1-50km), sorun habitat substep dropdown'inin sadece Step 1'deki buffer'lari listelemesi. Greg site sinirindaki/hemen yakinindaki habitatlari istiyor
+- [ ] **B3.3** Habitat poligonlarina gorsel etiket ekle (Street/Satellite view'da gorulur)
+
+---
+
+## Grup C: Desk Research Temizlik
+
+> **Oncelik:** 🟡 Orta — kucuk, hizli yapilabilir
+> **Bagimlilik:** Yok (paralel baslanabilir)
+> **Feedback maddeleri:** #1, #7
+
+### C1. Planning Policy Kaldirma (Feedback #1)
+
+- [ ] **C1.1** Planning policy substep'ini Data Gathering'den kaldir
+- [ ] **C1.2** Statik data dosyasini (`lib/data/county-development-plans.ts`) ve component'i (`planning-policy-substep.tsx`) temizle — API endpoint yok
+
+### C2. Desk Assessment Birlestirme + Export (Feedback #7)
+
+- [ ] **C2.1** Baseline report ve ecological summary'i tek sayfa gorunumunde birlestir
+- [ ] **C2.2** Birlestirilen sayfayi HTML, PDF ve Word formatlarinda export et
+- [ ] **C2.3** Export'a tum ilgili haritalari dahil et
+- [ ] **C2.4** AI analiz ciktisindan "Survey Recommendation" bolumunu kaldir
+
+---
+
+## Grup D: Field Research Yeniden Yapi
+
+> **Oncelik:** 🟡 Yuksek — A ve B'nin ciktilarina bagimli
+> **Bagimlilik:** A (coklu site) + B (habitat verisi) tamamlanmali
+> **Feedback maddeleri:** #8, #9
+
+### D1. Field Survey Planlama Duzenlemeleri (Feedback #8)
+
+- [ ] **D1.1** "Survey Targets from Desk Research" bolumunu Step 4'ten kaldir
+- [ ] **D1.2** Survey Schedule'dan "state the survey" secenegini kaldir
+- [ ] **D1.3** Survey olusturulurken otomatik doldur: site name, releve code (REL 101+), recorder = atanan ekolog
+- [ ] **D1.4** Survey Schedule'dan "Approved" statusunu kaldir
+- [ ] **D1.5** Coklu site projelerinde survey'i ilgili site'a bagla — ⚠️ **A2 (coklu site destegi) tamamlanmadan yapilamaz**
+
+### D2. Field Research Yapi Degisikligi (Feedback #9)
+
+- [ ] **D2.1** Field Research bolumunu ardisik asamali tab yapisiyla guncelle (data gathering gibi tab bar)
+- [ ] **D2.2** Habitat Mapping'i Field Survey alt kategorisi olarak yeniden yapilandir
+- [ ] **D2.3** Data gathering stage 5'ten habitat verisini otomatik cek ve duzenlenebilir yap
+- [ ] **D2.4** Target Notes'u Field Survey alt kategorisi olarak yeniden yapilandir
+
+---
+
+## Grup E: Raporlama Zinciri
+
+> **Oncelik:** 🟡 Yuksek — sirali bagimlilik var (10 → 11 → 12 → 13)
+> **Bagimlilik:** C (desk temizlik) + D (field research) tamamlanmali
+> **Feedback maddeleri:** #10, #11, #12, #13
+
+### E1. Data Analysis Tab Yeniden Yapilandir (Feedback #10)
+
+- [ ] **E1.1** GIS Mapping ve Data Gathering tab'larini kaldir
+- [ ] **E1.2** Desk Assessment tab — baseline report + tum analizler, "Add to Report" ve "Create a Summary" butonlari
+- [ ] **E1.3** Field Survey tab — saha verisi + tamamlanmis survey template
+- [ ] **E1.4** Habitats tab — guncellenmis habitat mapping verisi
+- [ ] **E1.5** Target Notes tab — tum target note listesi
+- [ ] **E1.6** Harita lejantini guncelle/iyilestir — legend zaten var (`maps-tab.tsx`: interactive checkboxlar, katman toggle, AI legend), Greg'in istegi farkli bir gosterim olabilir
+
+### E2. AI Draft Fix + Autosave (Feedback #11)
+
+- [ ] **E2.1** Kaydetme sirasinda rapor metninin degismesi sorununu duzelt
+- [ ] **E2.2** AI metin dilini Irlanda Ingilizcesi (en-IE) olarak ayarla
+- [ ] **E2.3** Autosave ozelligi ekle
+- [x] **E2.4** ~~Versiyon kontrolu~~ — **MEVCUT**: `version-history-panel.tsx` ile view/compare/restore calisiyor. Greg'e gosterip onay al
+- [ ] **E2.5** Appendix'e data gathering'den toplanan tum link ve kaynaklari ekle
+
+### E3. Quality Review Yeni Akis (Feedback #12)
+
+- [ ] **E3.1** Mevcut checkbox akisini kaldir
+- [ ] **E3.2** Raporu inceleyiciye tam gorunur yap (appendix dahil)
+- [ ] **E3.3** Bolum bazli not ekleme ozelligi
+- [ ] **E3.4** Genel not ekleme ozelligi
+- [ ] **E3.5** Inceleme imza/onay mekanizmasi ekle
+- [ ] **E3.6** AI tarafindan olusturulan metni her bolumde pembe ile vurgula
+
+### E4. Final Submission (Feedback #13)
+
+- [ ] **E4.1** Her harita icin oznitelikli shapefile export
+- [ ] **E4.2** Field survey verilerini CSV formatinda export
+- [ ] **E4.3** Her survey icin AI ozet rapor olusturma
+
+---
+
+## Grup F: Bagimsiz
+
+> **Oncelik:** 🟢 Dusuk — herhangi bir zamanda yapilabilir
+> **Bagimlilik:** Yok
+> **Feedback maddeleri:** #14.5, #15, #16
+
+### F1. Bug Fix (Feedback #14.5)
+
+- [ ] **F1.1** Company Reports sorununu test et ve tani — kod calisiyor (`company-reports-substep.tsx`: Dropbox hybrid search + OpenAI AI answer), sorun muhtemelen Dropbox indexing yapilanmamasi veya API key sorunu
+
+### F2. Branding (Feedback #15)
+
+- [ ] **F2.1** Branding kilavuzunu Greg'den al
+- [ ] **F2.2** Renk paletini guncelle (CSS variables / Tailwind theme)
+- [ ] **F2.3** Font'lari guncelle
+
+### F3. Kullanici Kilavuzu (Feedback #16)
+
+- [ ] **F3.1** Online kullanici dokumantasyonu/kilavuzu olustur
+- [ ] **F3.2** Her adim icin kullanilan veri kaynaklarini dokumante et
+
+---
+
+## Referanslar
+
+| Dosya                                                              | Icerik                                            |
+| ------------------------------------------------------------------ | ------------------------------------------------- |
+| `docs/feedback/feedback-11-3-mar.md`                               | Tam feedback cevirisi ve detaylar                 |
+| `docs/link/HeritageCouncilHabitatSymbologyRecommendations (1).pdf` | FOSSITT habitat renk kodlamasi (Heritage Council) |
+| Greg'in Google Drive'i                                             | Test shapefile + branding kilavuzu                |

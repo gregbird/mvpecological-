@@ -38,6 +38,23 @@ export {
   type BufferResult,
 } from './buffer'
 
+// Shapefile export
+export {
+  exportProjectShapefile,
+  downloadShapefile,
+  buildBoundaryCollection,
+  buildTargetNotesCollection,
+  buildHabitatCollection,
+  type ShapefileExportOptions,
+} from './shapefile-export'
+
+// Coordinate transformation
+export {
+  transformPoint,
+  transformFeatureToWGS84,
+  transformCollectionToWGS84,
+} from './coordinate-transform'
+
 // Reverse geocoding
 export {
   reverseGeocode,

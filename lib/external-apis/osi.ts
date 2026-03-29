@@ -123,17 +123,18 @@ export async function searchNlcLandCover(params: NlcSearchParams): Promise<Aggre
 }
 
 import { mapNlcToFossitt } from '@/lib/data/nlc-to-fossitt'
+import { HERITAGE_COUNCIL_COLORS } from '@/lib/config/map-constants'
 
-/** Color per NLC Level 1 category for map display */
+/** Color per NLC Level 1 category — Heritage Council standard (Appendix 6) */
 export const NLC_LEVEL1_COLORS: Record<string, string> = {
-  'ARTIFICIAL SURFACES': '#e74c3c',
-  'CULTIVATED LAND': '#f39c12',
-  'FOREST, WOODLAND AND SCRUB': '#27ae60',
-  'GRASSLAND, SALTMARSH and SWAMP': '#84cc16',
-  PEATLAND: '#8e44ad',
-  'HEATH and BRACKEN': '#a0522d',
-  WATERBODIES: '#2980b9',
-  'EXPOSED SURFACES': '#95a5a6',
+  'ARTIFICIAL SURFACES': HERITAGE_COUNCIL_COLORS.E, // Red (Exposed Rock / Disturbed Ground)
+  'CULTIVATED LAND': HERITAGE_COUNCIL_COLORS.B, // Grey
+  'FOREST, WOODLAND AND SCRUB': HERITAGE_COUNCIL_COLORS.W, // Green
+  'GRASSLAND, SALTMARSH and SWAMP': HERITAGE_COUNCIL_COLORS.G, // Yellow
+  PEATLAND: HERITAGE_COUNCIL_COLORS.P, // Violet/Purple
+  'HEATH and BRACKEN': HERITAGE_COUNCIL_COLORS.H, // Brown
+  WATERBODIES: HERITAGE_COUNCIL_COLORS.F, // Sky blue
+  'EXPOSED SURFACES': HERITAGE_COUNCIL_COLORS.E, // Red
 }
 
 /**
@@ -217,19 +218,24 @@ export async function fetchNlcPolygons(
 
     if (allFeatures.length === 0) return empty
 
-    // Enrich properties with Fossitt mapping and color for map styling
+    // Enrich properties with Fossitt mapping and Heritage Council color for map styling
     for (const feature of allFeatures) {
       const props = feature.properties ?? {}
       const level1 = String(props.LEVEL_1_VALUE || '')
       const nlcId = String(props.LEVEL_2_ID || '')
       const fossitt = mapNlcToFossitt(nlcId)
+      const fossittCode = fossitt?.fossittCode || ''
+      // Resolve color: FOSSITT code lookup → NLC Level 1 fallback
+      const fossittColor = fossittCode
+        ? HERITAGE_COUNCIL_COLORS[fossittCode[0] as keyof typeof HERITAGE_COUNCIL_COLORS]
+        : undefined
       feature.properties = {
         ...props,
-        color: NLC_LEVEL1_COLORS[level1] || '#22c55e',
+        color: fossittColor || NLC_LEVEL1_COLORS[level1] || '#808080',
         nlc_id: nlcId,
         nlc_label: String(props.LEVEL_2_VALUE || ''),
         nlc_level1: level1,
-        fossitt_code: fossitt?.fossittCode || nlcId,
+        fossitt_code: fossittCode || nlcId,
         fossitt_name: fossitt?.fossittName || String(props.LEVEL_2_VALUE || ''),
         area_hectares: Math.round((Number(props.AREA || 0) / 10000) * 100) / 100,
       }

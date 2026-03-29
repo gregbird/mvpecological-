@@ -532,14 +532,15 @@ function MapComponent({
           data={habitatPolygons}
           style={(feature: GeoJSON.Feature | undefined) => {
             const props = feature?.properties
-            const fill = (props?.fillOpacity as number) ?? 0.2
+            const fill = (props?.fillOpacity as number) ?? 0.35
             const isHighlighted = fill > 0.5
             const isFaded = fill < 0.1
+            const habitatColor = (props?.color as string) || '#808080'
             return {
-              color: isHighlighted ? '#1e293b' : (props?.color as string) || '#22c55e',
-              weight: isHighlighted ? 1 : isFaded ? 0 : 0.3,
-              opacity: isFaded ? 0 : 1,
-              fillColor: (props?.color as string) || '#22c55e',
+              color: isHighlighted ? '#000000' : '#1e293b',
+              weight: isHighlighted ? 2.5 : isFaded ? 0 : 1.5,
+              opacity: isFaded ? 0 : 0.8,
+              fillColor: habitatColor,
               fillOpacity: fill,
             }
           }}

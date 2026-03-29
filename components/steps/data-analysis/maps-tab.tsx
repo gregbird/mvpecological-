@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import {
   Loader2,
   Camera,
+  Download,
   Layers,
   Sparkles,
   ChevronDown,
@@ -38,6 +39,7 @@ import { saveScreenshot } from '@/lib/map-screenshots/storage'
 import { STEP_LABELS } from '@/lib/map-screenshots/types'
 import { ScreenshotGallery } from '@/components/maps/screenshot-gallery'
 import { DATASET_GROUPS, getGroupColorClasses } from '@/lib/config/dataset-layers'
+import { downloadShapefile } from '@/lib/gis/shapefile-export'
 import { getHabitatByCode } from '@/lib/data/fossitt-codes'
 import {
   Dialog,
@@ -654,6 +656,43 @@ export function MapsTab({ projectId, userId, project }: MapsTabProps) {
             <Camera className="mr-2 h-4 w-4" />
           )}
           Capture Screenshot
+        </Button>
+
+        {/* Shapefile Export */}
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={async () => {
+            const projectBoundary = project.boundary as GeoJSON.Feature<GeoJSON.Polygon> | undefined
+            if (!projectBoundary) {
+              toast({ title: 'No boundary', description: 'No project boundary to export.' })
+              return
+            }
+            try {
+              await downloadShapefile({
+                projectName: project.name,
+                boundaries: [
+                  {
+                    boundary: projectBoundary,
+                    siteName: project.name,
+                    county: project.county ?? undefined,
+                    gridReference: project.grid_reference ?? undefined,
+                  },
+                ],
+              })
+              toast({ title: 'Shapefile exported' })
+            } catch (err) {
+              console.error('Shapefile export error:', err)
+              toast({
+                title: 'Export failed',
+                description: err instanceof Error ? err.message : 'Unknown error',
+                variant: 'destructive',
+              })
+            }
+          }}
+        >
+          <Download className="mr-2 h-4 w-4" />
+          Export Shapefile
         </Button>
       </div>
 
