@@ -2,6 +2,8 @@
 
 import * as React from 'react'
 import { createBuffer, STANDARD_BUFFER_DISTANCES } from '@/lib/gis'
+import union from '@turf/union'
+import type { Feature, FeatureCollection, Polygon, MultiPolygon } from 'geojson'
 import type { Project } from '@/types/database'
 
 export function useBufferConfiguration(project: Project) {
@@ -21,20 +23,64 @@ export function useBufferConfiguration(project: Project) {
     Map<number, GeoJSON.Feature<GeoJSON.Polygon>>
   >(new Map())
 
-  // Generate buffer zones when boundary or enabled buffers change
+  // Generate buffer zones for one or more boundaries.
+  // For multiple boundaries, individual buffers at each distance are merged via turf.union.
   const regenerateBufferZones = React.useCallback(
-    (boundary: GeoJSON.Feature<GeoJSON.Polygon> | null) => {
-      if (!boundary) {
+    (
+      boundaryOrBoundaries:
+        | GeoJSON.Feature<GeoJSON.Polygon>
+        | GeoJSON.Feature<GeoJSON.Polygon>[]
+        | null
+    ) => {
+      if (!boundaryOrBoundaries) {
         setBufferZones(new Map())
         return
       }
+
+      const boundaries = Array.isArray(boundaryOrBoundaries)
+        ? boundaryOrBoundaries
+        : [boundaryOrBoundaries]
+
+      if (boundaries.length === 0) {
+        setBufferZones(new Map())
+        return
+      }
+
       const newBuffers = new Map<number, GeoJSON.Feature<GeoJSON.Polygon>>()
+
       for (const distance of enabledBuffers) {
-        const buffered = createBuffer(boundary, distance, 'kilometers')
-        if (buffered) {
-          newBuffers.set(distance, buffered)
+        // Create buffer for each boundary
+        const individualBuffers: Feature<Polygon>[] = []
+        for (const boundary of boundaries) {
+          const buffered = createBuffer(boundary, distance, 'kilometers')
+          if (buffered) individualBuffers.push(buffered)
+        }
+
+        if (individualBuffers.length === 0) continue
+
+        if (individualBuffers.length === 1) {
+          newBuffers.set(distance, individualBuffers[0])
+        } else {
+          // Merge all buffers at this distance into one feature via FeatureCollection
+          try {
+            const fc: FeatureCollection<Polygon | MultiPolygon> = {
+              type: 'FeatureCollection',
+              features: individualBuffers,
+            }
+            const merged = union(fc)
+            if (merged) {
+              // Cast — map component expects Polygon but union can return MultiPolygon
+              newBuffers.set(distance, merged as GeoJSON.Feature<GeoJSON.Polygon>)
+            } else {
+              newBuffers.set(distance, individualBuffers[0])
+            }
+          } catch {
+            // If union fails, fall back to first buffer
+            newBuffers.set(distance, individualBuffers[0])
+          }
         }
       }
+
       setBufferZones(newBuffers)
     },
     [enabledBuffers]

@@ -13,6 +13,7 @@ export type { MapStyle } from '@/lib/config/map-constants'
 import type { MapStyle } from '@/lib/config/map-constants'
 import type { DeskResearchFinding } from '@/components/desk-research/finding-card'
 import { useIWebsLayers } from '@/components/maps/iwebs-layer-overlay'
+import { useNPWSLayers } from '@/components/maps/npws-layer-overlay'
 export type { MapLayer, TargetNoteMarker } from '@/components/maps/map-types'
 import type { MapLayer, TargetNoteMarker } from '@/components/maps/map-types'
 import { TARGET_NOTE_COLORS, BUFFER_COLORS } from '@/components/maps/map-types'
@@ -42,6 +43,8 @@ interface ProjectMapProps {
   editable?: boolean
   showControls?: boolean
   skipFitBounds?: boolean
+  /** NPWS designated site layers to show (e.g. ['sac', 'spa', 'nha', 'pnha']) */
+  npwsVisibleLayers?: string[]
 }
 
 // The actual map component that uses react-leaflet
@@ -69,6 +72,7 @@ function MapComponent({
   iwebsVisibleLayers,
   gridOverlay,
   skipFitBounds,
+  npwsVisibleLayers,
 }: {
   center: [number, number]
   zoom: number
@@ -93,6 +97,7 @@ function MapComponent({
   showBatRecords?: boolean
   iwebsVisibleLayers?: string[]
   skipFitBounds?: boolean
+  npwsVisibleLayers?: string[]
 }) {
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- react-leaflet must be client-side only
   const rl = require('react-leaflet')
@@ -334,6 +339,9 @@ function MapComponent({
     // I-WEBS layers — fetch and render BirdWatch Ireland wetland bird survey data
     useIWebsLayers(map, boundary ?? null, iwebsVisibleLayers ?? [])
 
+    // NPWS designated site overlays — fetch and render SAC/SPA/NHA/pNHA polygons
+    useNPWSLayers(map, boundary ?? null, npwsVisibleLayers ?? [])
+
     return null
   }
 
@@ -555,6 +563,14 @@ function MapComponent({
                     ${props.area_hectares ? `<div style="font-size:13px;margin-top:4px">Area: ${props.area_hectares} ha</div>` : ''}
                   </div>
                 `)
+              // Permanent FOSSITT label on polygon surface (visible at zoom 13+)
+              if (props.fossitt_code && props.fossitt_code !== '—') {
+                ;(layer as L.GeoJSON).bindTooltip(props.fossitt_code, {
+                  permanent: true,
+                  direction: 'center',
+                  className: 'habitat-fossitt-label',
+                })
+              }
             }
           }}
         />
@@ -722,6 +738,7 @@ export function ProjectMap({
   onMapReady,
   showControls = true,
   skipFitBounds = false,
+  npwsVisibleLayers,
 }: ProjectMapProps) {
   const [mapLoaded, setMapLoaded] = React.useState(false)
   const [currentStyle, setCurrentStyle] = React.useState<MapStyle>('satellite')
@@ -803,6 +820,7 @@ export function ProjectMap({
           showBatRecords={showBatRecords}
           iwebsVisibleLayers={iwebsVisibleLayers}
           skipFitBounds={skipFitBounds}
+          npwsVisibleLayers={npwsVisibleLayers}
         />
       </div>
 

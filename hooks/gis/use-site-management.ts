@@ -205,7 +205,8 @@ export function useSiteManagement(project: Project, existingSites: ProjectSiteWi
     [activeSiteIndex]
   )
 
-  // Update active site's boundary from map drawing
+  // Update active site's boundary from map drawing.
+  // If the active site already has a boundary, create a new site instead.
   const handleBoundaryChange = React.useCallback(
     (features: GeoJSON.FeatureCollection) => {
       if (features.features.length > 0) {
@@ -216,19 +217,41 @@ export function useSiteManagement(project: Project, existingSites: ProjectSiteWi
         ) {
           const poly = feature as GeoJSON.Feature<GeoJSON.Polygon>
           const center = centroid(poly)
+          const active = sites[activeSiteIndex]
 
-          setSites((prev) =>
-            prev.map((s, i) =>
-              i === activeSiteIndex
-                ? {
-                    ...s,
-                    boundary: poly,
-                    centerPoint: center.geometry,
-                    isDirty: true,
-                  }
-                : s
+          if (!active?.boundary) {
+            // Active site has no boundary → assign to it
+            setSites((prev) =>
+              prev.map((s, i) =>
+                i === activeSiteIndex
+                  ? { ...s, boundary: poly, centerPoint: center.geometry, isDirty: true }
+                  : s
+              )
             )
-          )
+          } else {
+            // Active site already has a boundary → create new site
+            const existingCodes = sites.map((s) => s.siteCode)
+            const newCode = generateSiteCode(codePrefix, existingCodes)
+            const newSite: SiteState = {
+              siteCode: newCode,
+              siteName: null,
+              sortOrder: sites.length,
+              boundary: poly,
+              centerPoint: center.geometry,
+              gridReference: null,
+              county: null,
+              townland: null,
+              province: null,
+              bufferDistances: [2, 5],
+              visibleLayers: [],
+              attributes: {},
+              isNew: true,
+              isDirty: true,
+            }
+            setSites((prev) => [...prev, newSite])
+            setActiveSiteIndex(sites.length) // switch to newly created site
+          }
+
           return true
         }
       } else {
@@ -241,7 +264,7 @@ export function useSiteManagement(project: Project, existingSites: ProjectSiteWi
       }
       return false
     },
-    [activeSiteIndex]
+    [activeSiteIndex, sites, codePrefix]
   )
 
   // Handle file upload — can create multiple sites from multi-polygon shapefiles

@@ -679,6 +679,16 @@ export function MapsTab({ projectId, userId, project }: MapsTabProps) {
                     gridReference: project.grid_reference ?? undefined,
                   },
                 ],
+                targetNotes: targetNotes
+                  .filter((tn) => tn.location && (tn.location as GeoJSON.Point).coordinates)
+                  .map((tn, i) => ({
+                    coordinates: (tn.location as GeoJSON.Point).coordinates as [number, number],
+                    noteNumber: `N${i + 1}`,
+                    category: (tn.category as string) ?? '',
+                    label: (tn.title as string) ?? `N${i + 1}`,
+                    description: (tn.description as string) ?? '',
+                    date: tn.created_at?.split('T')[0] ?? '',
+                  })),
               })
               toast({ title: 'Shapefile exported' })
             } catch (err) {
@@ -717,6 +727,7 @@ export function MapsTab({ projectId, userId, project }: MapsTabProps) {
                 targetNotes={targetNoteMarkers}
                 findings={mapFindings}
                 showControls={false}
+                npwsVisibleLayers={(project.visible_layers as string[] | null) ?? undefined}
               />
             </div>
           </CardContent>

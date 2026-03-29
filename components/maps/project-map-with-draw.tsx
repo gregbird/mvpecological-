@@ -56,6 +56,8 @@ interface ProjectMapWithDrawProps {
   npwsSiteCount?: number
   /** Fly to a specific location with animation - [lat, lng, zoom] */
   flyToLocation?: { center: [number, number]; zoom: number; key: string }
+  /** Other site boundaries to display as non-editable dimmed overlays */
+  otherBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   /** Desk research findings to display as markers on the map */
   findings?: FindingMarker[]
   /** Callback when a finding marker is clicked */
@@ -106,6 +108,7 @@ function MapComponentWithDraw({
   currentZoom = 7,
   onZoomChange,
   flyToLocation,
+  otherBoundaries = [],
   findings = [],
   onFindingClick,
   habitatPolygons = [],
@@ -136,6 +139,7 @@ function MapComponentWithDraw({
     bounds?: { west: number; south: number; east: number; north: number }
   ) => void
   flyToLocation?: { center: [number, number]; zoom: number; key: string }
+  otherBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   findings?: FindingMarker[]
   onFindingClick?: (finding: FindingMarker) => void
   habitatPolygons?: HabitatPolygonOverlay[]
@@ -314,14 +318,18 @@ function MapComponentWithDraw({
           featureGroupRef.current?.addLayer(layer)
         })
 
-        // Fit bounds ONCE per component lifecycle when boundary exists
+        // Fly to boundary bounds whenever boundary changes
         const bounds = geoJsonLayer.getBounds()
 
-        if (bounds.isValid() && !hasFitToBoundaryRef.current) {
-          hasFitToBoundaryRef.current = true
+        if (bounds.isValid()) {
           isInternalMoveRef.current = true
-          map.fitBounds(bounds, { padding: [50, 50] })
-        } else {
+          if (hasFitToBoundaryRef.current) {
+            // Subsequent boundary changes: animate with flyToBounds
+            map.flyToBounds(bounds, { padding: [50, 50], duration: 0.6 })
+          } else {
+            // First load: instant fitBounds (no animation)
+            map.fitBounds(bounds, { padding: [50, 50] })
+          }
           hasFitToBoundaryRef.current = true
         }
       }
@@ -583,6 +591,21 @@ function MapComponentWithDraw({
         />
       )}
 
+      {/* Other site boundaries (inactive sites — dimmed, non-interactive) */}
+      {otherBoundaries.map((feat, idx) => (
+        <GeoJSON
+          key={`other-boundary-${idx}-${feat.geometry.coordinates[0]?.[0]?.[0]}`}
+          data={feat}
+          style={() => ({
+            color: '#94a3b8',
+            weight: 2,
+            fillColor: '#94a3b8',
+            fillOpacity: 0.08,
+            dashArray: '6, 4',
+          })}
+        />
+      ))}
+
       {/* Render buffer zones (larger first so smaller ones appear on top) */}
       {bufferZonesArray.map(([distance, bufferFeature]) => (
         <GeoJSON
@@ -770,6 +793,7 @@ export function ProjectMapWithDraw({
   deletedItems = new Set(),
   npwsSiteCount,
   flyToLocation,
+  otherBoundaries = [],
   findings = [],
   onFindingClick,
   habitatPolygons = [],
@@ -920,6 +944,7 @@ export function ProjectMapWithDraw({
           currentZoom={currentZoom}
           onZoomChange={handleZoomChange}
           flyToLocation={flyToLocation}
+          otherBoundaries={otherBoundaries}
           findings={findings}
           onFindingClick={onFindingClick}
           habitatPolygons={habitatPolygons}

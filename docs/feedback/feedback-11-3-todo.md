@@ -31,13 +31,13 @@ F: Bagimsiz ──→ paralel yapilabilir
 
 | Grup              | Madde  | Tamamlanan | Ilerleme           |
 | ----------------- | ------ | ---------- | ------------------ |
-| A: GIS Altyapi    | 19     | 13         | ███████░░░ 68%     |
-| B: Habitat Veri   | 11     | 0          | ░░░░░░░░░░ 0%      |
+| A: GIS Altyapi    | 19     | 15         | ████████░░ 79%     |
+| B: Habitat Veri   | 11     | 11         | ██████████ 100% ✅ |
 | C: Desk Temizlik  | 6      | 0          | ░░░░░░░░░░ 0%      |
 | D: Field Research | 9      | 0          | ░░░░░░░░░░ 0%      |
 | E: Raporlama      | 20     | 1          | █░░░░░░░░░ 5%      |
 | F: Bagimsiz       | 5      | 0          | ░░░░░░░░░░ 0%      |
-| **Toplam**        | **60** | **11**     | ██░░░░░░░░ **18%** |
+| **Toplam**        | **60** | **27**     | █████░░░░░ **45%** |
 
 ---
 
@@ -63,7 +63,7 @@ F: Bagimsiz ──→ paralel yapilabilir
 > Referans: `docs/feedback/feedback-11-3-mar.md` — Bolum 6, detayli aciklamalar
 
 - [x] **A3.1** ~~Snapping (yapisma)~~ ✅ (29 Mart 2026) — `@geoman-io/leaflet-geoman-free` kuruldu. `GeomanControls` bileseni: point, vertex, edge snapping (snapDistance: 15px). Dosya: `components/maps/geoman-controls.tsx`
-- [ ] **A3.2** Tracing (izleme) — custom implementasyon gerekli (turf.nearestPointOnLine + lineSlice). Geoman'da native yok
+- [x] **A3.2** ~~Tracing (izleme)~~ ✅ (29 Mart 2026) — Custom implementasyon: `findNearestEdgePoint()`, `traceEdge()`, `findNearestPolygonEdge()` (turf.nearestPointOnLine + lineSlice). Dosya: `lib/gis/trace-along-feature.ts`
 - [x] **A3.3** ~~Clipping (kirpma)~~ ✅ (29 Mart 2026) — `polygon-operations.ts` ile `clipPolygon()`, `polygonsOverlap()`, `getOverlapArea()` (turf.js). Geoman cut mode da aktif. Dosya: `lib/gis/polygon-operations.ts`
 - [x] **A3.4** ~~Vertex management~~ ✅ (29 Mart 2026) — Geoman Free'de native: vertex ekle/sil/tasi, editMode aktif
 - [x] **A3.5** ~~Poligon cizim zoom bug'ini duzelt~~ ✅ (29 Mart 2026) — Geoman'da bu bug yok (leaflet-draw spesifik sorundu). Geoman gecisiyle otomatik cozuldu
@@ -72,7 +72,7 @@ F: Bagimsiz ──→ paralel yapilabilir
 
 - [x] **A4.1** ~~Shapefile upload sirasinda oznitelik verilerini okuma ve gosterme~~ ✅ (29 Mart 2026) — shapefile-parser zaten attribute extraction yapiyor, useSiteManagement upload'da attributes'u site'a aktariyor
 - [x] **A4.2** ~~Her site sinirina oznitelik atama UI'i~~ ✅ (29 Mart 2026) — `AttributeEditor` bileseni: 12 predefined alan + shapefile'dan gelen custom alanlar. `SiteAttributeField` config. Dosyalar: `components/gis/attribute-editor.tsx`, `lib/config/site-attributes.ts`
-- [ ] **A4.3** Target note'lari oznitelik olarak isleme — export sirasinda target note → shapefile point layer (altyapi hazir: `buildTargetNotesCollection`)
+- [x] **A4.3** ~~Target note'lari oznitelik olarak isleme~~ ✅ (29 Mart 2026) — Maps tab export butonu target notes'u shapefile'a point layer olarak dahil ediyor (NOTE_NUM, CATEGORY, LABEL, COMMENT, DATE). Dosya: `maps-tab.tsx`
 - [x] **A4.4** ~~Shapefile export — attribute + target note dahil~~ ✅ (29 Mart 2026) — `shapefile-export.ts` boundary properties'e site attributes dahil ediyor. Target notes point layer builder hazir
 
 ### A5. Shapefile Export (Feedback #6)
@@ -90,26 +90,26 @@ F: Bagimsiz ──→ paralel yapilabilir
 
 ### B1. Katman Kaydetme (Feedback #2)
 
-- [ ] **B1.1** Kullanicinin sectigi harita katmanlarini kaydetme ozelligi (persist)
-- [ ] **B1.2** Kaydedilen katman haritasini Desk Assessment (Step 3) gorunumune ekle
-- [ ] **B1.3** Kaydedilen katman haritasini Data Analysis (Step 7) gorunumune ekle
+- [x] **B1.1** Kullanicinin sectigi harita katmanlarini kaydetme ozelligi (persist) — zaten `projects.visible_layers` ile calisiyor
+- [x] **B1.2** Kaydedilen katman haritasini Desk Assessment (Step 3) gorunumune ekle — `project-map.tsx`'e `useNPWSLayers` hook eklendi, `habitat-inventory-section.tsx` uzerinden `npwsVisibleLayers` prop gecirildi
+- [x] **B1.3** Kaydedilen katman haritasini Data Analysis (Step 7) gorunumune ekle — `maps-tab.tsx`'e `npwsVisibleLayers` prop eklendi
 
 ### B2. NLC Habitat Otomatik Kaydetme (Feedback #3)
 
 > Referans: Heritage Council — _Habitat Survey Guidelines_ Appendix 6
 > Dosya: `docs/link/HeritageCouncilHabitatSymbologyRecommendations (1).pdf`
 
-- [ ] **B2.1** Site siniri icindeki NLC habitat verilerini data gathering sirasinda otomatik kaydet
-- [ ] **B2.2** Kaydedilen habitatlari Desk Assessment "Preliminary Habitat Inventory" bolumunde goster
-- [ ] **B2.3** Site siniri disinda 100m icindeki habitatlari da goster
-- [ ] **B2.4** FOSSITT koduna gore habitat poligonlarini Heritage Council standart renk kodlamasiyla goster
-- [ ] **B2.5** Her habitat poligonuna FOSSITT kodu + adi etiket olarak ekle
+- [x] **B2.1** Site siniri icindeki NLC habitat verilerini data gathering sirasinda otomatik kaydet — `habitat-data-substep.tsx`'e auto-save effect eklendi, arama tamamlaninca unsaved habitatlar otomatik kaydediliyor
+- [x] **B2.2** Kaydedilen habitatlari Desk Assessment "Preliminary Habitat Inventory" bolumunde goster — auto-save ile `data_type='habitat'` findings otomatik gorunuyor, `habitat-inventory-section.tsx` zaten bu filtreyi kullaniyor
+- [x] **B2.3** Site siniri disinda 100m icindeki habitatlari da goster — `calculateDistanceFromBoundary` ile mesafe hesaplaniyor, Step 3'te "Within Boundary" / "Adjacent (100m)" / "Beyond 100m" olarak 3 gruba ayrildi
+- [x] **B2.4** FOSSITT koduna gore habitat poligonlarini Heritage Council standart renk kodlamasiyla goster — `fossitt-codes.json` tamamen guncellendi (G=sari, H=kahve, P=mor, E=kirmizi, B=gri, C=turuncu, M=lavanta), `HERITAGE_COUNCIL_COLORS` constant eklendi, `NLC_LEVEL1_COLORS` bu constant'tan okuyor
+- [x] **B2.5** Her habitat poligonuna FOSSITT kodu + adi etiket olarak ekle — `project-map.tsx`'e `bindTooltip(permanent: true)` eklendi, `.habitat-fossitt-label` CSS stili olusturuldu
 
 ### B3. UX Bug Fix'ler (Feedback #14.2, #14.3, #14.4)
 
-- [ ] **B3.1** Scroll ile kesisen kaydetme sorununu duzelt (su ozellikleri kaydetme)
-- [ ] **B3.2** Habitat arama buffer'ina 100m (0.1km) secenegini ekle — Step 1'de buffer zaten ozellestirilebilir (0.1-50km), sorun habitat substep dropdown'inin sadece Step 1'deki buffer'lari listelemesi. Greg site sinirindaki/hemen yakinindaki habitatlari istiyor
-- [ ] **B3.3** Habitat poligonlarina gorsel etiket ekle (Street/Satellite view'da gorulur)
+- [x] **B3.1** Scroll ile kesisen kaydetme sorununu duzelt — `findings-list.tsx`'de save buton container'ina `relative z-10` eklendi, `e.stopPropagation()` ile event bubbling engellendi
+- [x] **B3.2** Habitat arama buffer'ina 100m ve "Boundary only" secenek eklendi — `habitat-data-substep.tsx` dropdown'a `0` (Boundary only) ve `0.1` (100m) sabit secenekleri eklendi
+- [x] **B3.3** Habitat poligonlarina gorsel iyilestirme — fill opacity 0.2→0.35, stroke weight 0.3→1.5, dark stroke rengi `#1e293b`, highlighted'da `#000000` + 2.5 weight
 
 ---
 

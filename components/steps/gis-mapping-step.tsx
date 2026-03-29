@@ -161,10 +161,27 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
   // Active site boundary for buffer/layer operations
   const activeBoundary = siteMgmt.activeSite?.boundary ?? boundaryMgmt.boundary
 
-  // Generate buffer zones when boundary or enabled buffers change
+  // All site boundaries (for buffer generation across all sites)
+  const allSiteBoundaries = React.useMemo(
+    () => siteMgmt.sites.filter((s) => s.boundary).map((s) => s.boundary!),
+    [siteMgmt.sites]
+  )
+
+  // Generate buffer zones for ALL site boundaries
   React.useEffect(() => {
-    bufferConfig.regenerateBufferZones(activeBoundary)
-  }, [activeBoundary, bufferConfig.enabledBuffers, bufferConfig.regenerateBufferZones])
+    if (allSiteBoundaries.length > 0) {
+      bufferConfig.regenerateBufferZones(allSiteBoundaries)
+    } else if (activeBoundary) {
+      bufferConfig.regenerateBufferZones(activeBoundary)
+    } else {
+      bufferConfig.regenerateBufferZones(null)
+    }
+  }, [
+    allSiteBoundaries,
+    activeBoundary,
+    bufferConfig.enabledBuffers,
+    bufferConfig.regenerateBufferZones,
+  ])
 
   // Reset layer cache when boundary changes
   React.useEffect(() => {
@@ -177,6 +194,15 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
       layers.fetchLayerData(activeBoundary, bufferConfig.enabledBuffers)
     }
   }, [wizard.currentStep, activeBoundary, bufferConfig.enabledBuffers, layers.fetchLayerData])
+
+  // Boundaries of non-active sites (shown dimmed on map)
+  const otherBoundaries = React.useMemo(
+    () =>
+      siteMgmt.sites
+        .filter((s, i) => i !== siteMgmt.activeSiteIndex && s.boundary)
+        .map((s) => s.boundary!),
+    [siteMgmt.sites, siteMgmt.activeSiteIndex]
+  )
 
   // Computed buffer colors
   const bufferColors = React.useMemo(
@@ -626,6 +652,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                 center={mapView.mapCenter}
                 zoom={mapView.mapZoom}
                 boundary={siteMgmt.activeSite?.boundary ?? undefined}
+                otherBoundaries={otherBoundaries}
                 onBoundaryChange={handleBoundaryChange}
                 onViewChange={mapView.handleViewChange}
                 editable={true}
@@ -641,7 +668,6 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
               sites={siteMgmt.sites}
               activeSiteIndex={siteMgmt.activeSiteIndex}
               onSelectSite={siteMgmt.setActiveSiteIndex}
-              onAddSite={siteMgmt.addSite}
               onRemoveSite={siteMgmt.removeSite}
               onRenameSite={(index, code) => siteMgmt.updateSite(index, { siteCode: code })}
               boundaryInfo={siteMgmt.boundaryInfo}
@@ -660,6 +686,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                 center={mapView.mapCenter}
                 zoom={mapView.mapZoom}
                 boundary={activeBoundary ?? undefined}
+                otherBoundaries={otherBoundaries}
                 bufferZones={bufferConfig.bufferZones}
                 bufferColors={bufferColors}
                 onViewChange={mapView.handleViewChange}
@@ -860,6 +887,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                 center={mapView.mapCenter}
                 zoom={mapView.mapZoom}
                 boundary={activeBoundary ?? undefined}
+                otherBoundaries={otherBoundaries}
                 bufferZones={bufferConfig.bufferZones}
                 bufferColors={bufferColors}
                 onViewChange={mapView.handleViewChange}

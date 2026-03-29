@@ -26,6 +26,7 @@ export interface HabitatRow {
   nlcLabel: string
   areaHa: number
   percentage: number
+  distanceKm: number | null
 }
 
 interface HabitatInventorySectionProps {
@@ -33,6 +34,8 @@ interface HabitatInventorySectionProps {
   boundary?: GeoJSON.Feature<GeoJSON.Polygon>
   onHabitatData?: (habitats: HabitatRow[]) => void
   onRemoveFinding?: (findingId: string) => void
+  /** NPWS layer IDs saved from GIS step (e.g. ['sac', 'spa']) */
+  npwsVisibleLayers?: string[]
 }
 
 function SummaryCards({ habitats, totalArea }: { habitats: HabitatRow[]; totalArea: number }) {
@@ -80,11 +83,83 @@ function SummaryCards({ habitats, totalArea }: { habitats: HabitatRow[]; totalAr
   )
 }
 
+function HabitatTable({
+  habitats,
+  selectedCode,
+  onSelect,
+  onRemoveFinding,
+}: {
+  habitats: HabitatRow[]
+  selectedCode: string | null
+  onSelect: (code: string | null) => void
+  onRemoveFinding?: (findingId: string) => void
+}) {
+  if (habitats.length === 0) return null
+  return (
+    <div className="overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[100px]">FOSSITT Code</TableHead>
+            <TableHead className="w-[180px]">Habitat Name</TableHead>
+            <TableHead className="w-[200px]">NLC Label</TableHead>
+            <TableHead className="w-[100px] text-right">Area (ha)</TableHead>
+            <TableHead className="w-[80px] text-right">%</TableHead>
+            {onRemoveFinding && <TableHead className="w-[50px]" />}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {habitats.map((h, idx) => {
+            const isSelected = selectedCode === h.fossittCode
+            return (
+              <TableRow
+                key={`${h.fossittCode}-${idx}`}
+                className={`cursor-pointer transition-colors ${isSelected ? 'bg-blue-50 dark:bg-blue-950' : ''}`}
+                onClick={() => onSelect(selectedCode === h.fossittCode ? null : h.fossittCode)}
+              >
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="inline-block h-3 w-3 shrink-0 rounded-full"
+                      style={{ backgroundColor: h.color }}
+                    />
+                    <span className="font-mono text-sm font-medium">{h.fossittCode}</span>
+                  </div>
+                </TableCell>
+                <TableCell className="font-medium">{h.fossittName}</TableCell>
+                <TableCell className="text-muted-foreground text-sm">{h.nlcLabel}</TableCell>
+                <TableCell className="text-right">{h.areaHa.toFixed(1)}</TableCell>
+                <TableCell className="text-right">{h.percentage.toFixed(1)}%</TableCell>
+                {onRemoveFinding && (
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-gray-400 hover:text-red-600"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onRemoveFinding(h.findingId)
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                )}
+              </TableRow>
+            )
+          })}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
+
 export function HabitatInventorySection({
   findings,
   boundary,
   onHabitatData,
   onRemoveFinding,
+  npwsVisibleLayers,
 }: HabitatInventorySectionProps) {
   const [selectedCode, setSelectedCode] = React.useState<string | null>(null)
 
@@ -109,15 +184,22 @@ export function HabitatInventorySection({
         const nlcLabel = String(raw?.nlcLabel ?? '')
         const areaHa = Number(raw?.areaHectares) || 0
         const habitat = getHabitatByCode(fossittCode)
+        const distanceKm =
+          raw?.distance_from_boundary_km != null
+            ? Number(raw.distance_from_boundary_km)
+            : f.distance_from_boundary_km != null
+              ? Number(f.distance_from_boundary_km)
+              : null
 
         return {
           findingId: f.id,
           fossittCode,
           fossittName,
-          color: habitat?.color || '#22c55e',
+          color: habitat?.color || '#808080',
           nlcLabel,
           areaHa,
           percentage: total > 0 ? (areaHa / total) * 100 : 0,
+          distanceKm,
         }
       })
       .sort((a, b) => b.areaHa - a.areaHa)
@@ -192,6 +274,13 @@ export function HabitatInventorySection({
     }
   }, [habitatPolygons, selectedCode])
 
+  // Split habitats into within boundary (distance = 0 or null) and adjacent (0 < distance <= 0.1km)
+  const withinBoundary = habitats.filter((h) => h.distanceKm === null || h.distanceKm === 0)
+  const adjacent = habitats.filter(
+    (h) => h.distanceKm != null && h.distanceKm > 0 && h.distanceKm <= 0.1
+  )
+  const beyondAdjacent = habitats.filter((h) => h.distanceKm != null && h.distanceKm > 0.1)
+
   const showMap = !!habitatPolygons || !!boundary
 
   return (
@@ -199,78 +288,77 @@ export function HabitatInventorySection({
       <SummaryCards habitats={habitats} totalArea={totalArea} />
 
       <div className={`grid auto-rows-fr grid-cols-1 gap-4 ${showMap ? 'xl:grid-cols-2' : ''}`}>
-        <Card className="flex max-h-[420px] flex-col">
-          <CardHeader className="shrink-0 pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Layers className="h-5 w-5 text-emerald-600" />
-              Preliminary Habitat Types
-              <Badge variant="secondary" className="ml-auto">
-                {habitats.length}
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="min-h-0 flex-1 overflow-y-auto p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[100px]">FOSSITT Code</TableHead>
-                    <TableHead className="w-[180px]">Habitat Name</TableHead>
-                    <TableHead className="w-[200px]">NLC Label</TableHead>
-                    <TableHead className="w-[100px] text-right">Area (ha)</TableHead>
-                    <TableHead className="w-[80px] text-right">%</TableHead>
-                    {onRemoveFinding && <TableHead className="w-[50px]" />}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {habitats.map((h, idx) => {
-                    const isSelected = selectedCode === h.fossittCode
-                    return (
-                      <TableRow
-                        key={`${h.fossittCode}-${idx}`}
-                        className={`cursor-pointer transition-colors ${isSelected ? 'bg-blue-50 dark:bg-blue-950' : ''}`}
-                        onClick={() =>
-                          setSelectedCode((prev) => (prev === h.fossittCode ? null : h.fossittCode))
-                        }
-                      >
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <span
-                              className="inline-block h-3 w-3 shrink-0 rounded-full"
-                              style={{ backgroundColor: h.color }}
-                            />
-                            <span className="font-mono text-sm font-medium">{h.fossittCode}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-medium">{h.fossittName}</TableCell>
-                        <TableCell className="text-muted-foreground text-sm">
-                          {h.nlcLabel}
-                        </TableCell>
-                        <TableCell className="text-right">{h.areaHa.toFixed(1)}</TableCell>
-                        <TableCell className="text-right">{h.percentage.toFixed(1)}%</TableCell>
-                        {onRemoveFinding && (
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-gray-400 hover:text-red-600"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                onRemoveFinding(h.findingId)
-                              }}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="flex max-h-[520px] flex-col gap-4 overflow-y-auto">
+          {/* Primary: Habitats within site boundary */}
+          <Card className="flex flex-col">
+            <CardHeader className="shrink-0 pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Layers className="h-5 w-5 text-emerald-600" />
+                Within Site Boundary
+                <Badge variant="secondary" className="ml-auto">
+                  {withinBoundary.length}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="min-h-0 flex-1 overflow-y-auto p-0">
+              <HabitatTable
+                habitats={withinBoundary}
+                selectedCode={selectedCode}
+                onSelect={setSelectedCode}
+                onRemoveFinding={onRemoveFinding}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Adjacent: Habitats within 100m of boundary */}
+          {adjacent.length > 0 && (
+            <Card className="flex flex-col">
+              <CardHeader className="shrink-0 pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <MapPin className="h-5 w-5 text-amber-600" />
+                  Adjacent (within 100m)
+                  <Badge
+                    variant="outline"
+                    className="ml-auto border-amber-300 text-amber-700 dark:border-amber-600 dark:text-amber-400"
+                  >
+                    {adjacent.length}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="min-h-0 flex-1 overflow-y-auto p-0">
+                <HabitatTable
+                  habitats={adjacent}
+                  selectedCode={selectedCode}
+                  onSelect={setSelectedCode}
+                  onRemoveFinding={onRemoveFinding}
+                />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Beyond 100m */}
+          {beyondAdjacent.length > 0 && (
+            <Card className="flex flex-col">
+              <CardHeader className="shrink-0 pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <MapPin className="h-5 w-5 text-gray-500" />
+                  Beyond 100m
+                  <Badge variant="outline" className="ml-auto">
+                    {beyondAdjacent.length}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="min-h-0 flex-1 overflow-y-auto p-0">
+                <HabitatTable
+                  habitats={beyondAdjacent}
+                  selectedCode={selectedCode}
+                  onSelect={setSelectedCode}
+                  onRemoveFinding={onRemoveFinding}
+                />
+              </CardContent>
+            </Card>
+          )}
+        </div>
 
         {showMap && (
           <Card className="flex max-h-[420px] flex-col overflow-hidden [&_.leaflet-control-attribution]:hidden">
@@ -282,6 +370,7 @@ export function HabitatInventorySection({
                   boundary={boundary}
                   bufferDistances={[2, 5]}
                   showControls={false}
+                  npwsVisibleLayers={npwsVisibleLayers}
                 />
               </div>
             </CardContent>

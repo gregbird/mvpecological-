@@ -58,6 +58,9 @@ export {
 // Polygon operations
 export { clipPolygon, polygonsOverlap, getOverlapArea } from './polygon-operations'
 
+// Trace along feature
+export { findNearestEdgePoint, traceEdge, findNearestPolygonEdge } from './trace-along-feature'
+
 // Reverse geocoding
 export {
   reverseGeocode,

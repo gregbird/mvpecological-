@@ -26,9 +26,9 @@
 
 **Yapilacilar:**
 
-- [ ] **2.1** Harita katmanlarini kaydetme ozelligi ekle (kullanicinin sectigi katmanlar persist edilsin)
-- [ ] **2.2** Kaydedilen katman haritasini Desk Assessment (Step 3) gorunumune ekle
-- [ ] **2.3** Kaydedilen katman haritasini Data Analysis (Step 7) gorunumune ekle
+- [x] **2.1** Harita katmanlarini kaydetme ozelligi ekle (kullanicinin sectigi katmanlar persist edilsin) — zaten `projects.visible_layers` ile calisiyor
+- [x] **2.2** Kaydedilen katman haritasini Desk Assessment (Step 3) gorunumune ekle
+- [x] **2.3** Kaydedilen katman haritasini Data Analysis (Step 7) gorunumune ekle
 
 ---
 
@@ -72,11 +72,11 @@ FOSSITT koduna gore standart renk eslestirmesi (Heritage Council):
 
 **Yapilacilar:**
 
-- [ ] **3.1** Site siniri icindeki NLC habitat verilerini data gathering sirasinda otomatik kaydet
-- [ ] **3.2** Kaydedilen habitatlari Desk Assessment (Step 3) "Preliminary Habitat Inventory" bolumunde goster
-- [ ] **3.3** Site siniri disinda 100m (0.1km) icindeki habitatlari da goster
-- [ ] **3.4** FOSSITT koduna gore habitat poligonlarini haritada Heritage Council standart renk kodlamasiyla goster (yukaridaki tablo referans)
-- [ ] **3.5** Her habitat poligonuna FOSSITT kodu + adi etiket olarak ekle
+- [x] **3.1** Site siniri icindeki NLC habitat verilerini data gathering sirasinda otomatik kaydet
+- [x] **3.2** Kaydedilen habitatlari Desk Assessment (Step 3) "Preliminary Habitat Inventory" bolumunde goster
+- [x] **3.3** Site siniri disinda 100m (0.1km) icindeki habitatlari da goster
+- [x] **3.4** FOSSITT koduna gore habitat poligonlarini haritada Heritage Council standart renk kodlamasiyla goster (yukaridaki tablo referans)
+- [x] **3.5** Her habitat poligonuna FOSSITT kodu + adi etiket olarak ekle
 
 ---
 
@@ -176,7 +176,7 @@ Her vektor feature, cizgilerle baglanan koordinat noktalari serisidir. Bu noktal
 **Yapilacilar:**
 
 - [x] **6.1** ~~Snapping (yapisma) araci ekle~~ ✅ (29 Mart 2026) — `@geoman-io/leaflet-geoman-free` ile point, vertex, edge snapping. Dosya: `components/maps/geoman-controls.tsx`
-- [ ] **6.2** Tracing (izleme) araci ekle — custom implementasyon gerekli (Geoman'da native yok)
+- [x] **6.2** ~~Tracing (izleme) araci ekle~~ ✅ (29 Mart 2026) — Custom: `findNearestEdgePoint()`, `traceEdge()`, `findNearestPolygonEdge()`. Dosya: `lib/gis/trace-along-feature.ts`
 - [x] **6.3** ~~Clipping (kirpma) araci ekle~~ ✅ (29 Mart 2026) — Geoman cut mode + `clipPolygon()` (turf.js). Dosya: `lib/gis/polygon-operations.ts`
 - [x] **6.4** ~~Vertex management araci ekle~~ ✅ (29 Mart 2026) — Geoman Free'de native: vertex ekle/sil/tasi
 - [x] **6.5** ~~Eksiksiz shapefile export (.shp, .shx, .dbf, .prj)~~ ✅ (29 Mart 2026) — `shp-write` ile boundary + attributes + target notes + habitats export. `downloadShapefile()` browser download tetikler. Step 7 Maps tab'ina "Export Shapefile" butonu eklendi. Dosyalar: `lib/gis/shapefile-export.ts` (yeni), `types/shp-write.d.ts` (yeni), `components/steps/data-analysis/maps-tab.tsx` (guncellendi)
@@ -325,19 +325,19 @@ Poligon cizme islemi ozellikle zoom in/out yaparken takiliyor ve cogu zaman tama
 
 Su ozellikleri (gol vb.) kaydederken scroll sorunu — scroll cizgisi ustunde baska bir ozellik zaten kaydedilmisse alttakileri kaydedememe.
 
-- [ ] **14.2.1** Scroll ile kesisen kaydetme sorununu duzelt
+- [x] **14.2.1** Scroll ile kesisen kaydetme sorununu duzelt
 
 ### 14.3 Habitat Buffer Ozellestirme
 
 Sabit 1km yerine habitat veri buffer'ini ozellestirme istegi (orn. site siniriyla cakisma veya 100m icinde). Site'a yakin veya bitisik habitatlar genellikle en onemli.
 
-- [ ] **14.3.1** Habitat buffer mesafesini ozellestirilebilir yap (1km yerine kullanici secimi)
+- [x] **14.3.1** Habitat buffer mesafesini ozellestirilebilir yap (1km yerine kullanici secimi) — "Boundary only" ve "100m" secenekleri eklendi
 
 ### 14.4 Poligon Etiketleri
 
 Habitat poligonlari Street View veya Satellite View'da zor goruluyor. Poligonlara etiket eklenmesi oneriliyor.
 
-- [ ] **14.4.1** Habitat poligonlarina gorsel etiket ekle
+- [x] **14.4.1** Habitat poligonlarina gorsel etiket ekle — FOSSITT kodu kalici tooltip + polygon gorunurlugu iyilestirildi
 
 ### 14.5 Company Reports Calismiyor
 

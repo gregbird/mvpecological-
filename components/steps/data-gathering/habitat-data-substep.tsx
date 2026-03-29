@@ -39,6 +39,7 @@ import {
 import { mapNlcToFossitt } from '@/lib/data/nlc-to-fossitt'
 import { useSessionStorage } from '@/hooks/shared/use-session-storage'
 import { IRELAND_CENTER } from '@/lib/config/map-constants'
+import { calculateDistanceFromBoundary } from '@/lib/gis/distance'
 import { MarkdownContent } from '@/components/desk-research/deep-research-shell'
 import { HabitatDeepResearchModal } from '@/components/desk-research/habitat-deep-research-modal'
 import {
@@ -320,6 +321,10 @@ export function HabitatDataSubStep({
       for (const r of unsaved) {
         const pct = total > 0 ? ((r.areaHectares / total) * 100).toFixed(1) : '0'
         const geometry = getHabitatGeometry(r.nlcId)
+        const distKm = calculateDistanceFromBoundary(
+          geometry ?? undefined,
+          projectBoundary ?? undefined
+        )
         try {
           await createFinding.mutateAsync({
             project_id: project.id,
@@ -332,6 +337,7 @@ export function HabitatDataSubStep({
             is_saved: true,
             notes: null,
             location: geometry as unknown as Json,
+            distance_from_boundary_km: distKm ?? null,
             raw_data: {
               habitatFinding: true,
               nlcId: r.nlcId,
@@ -344,6 +350,7 @@ export function HabitatDataSubStep({
               percentCover: pct,
               aiSummary: null,
               bufferKm: selectedBuffer,
+              distance_from_boundary_km: distKm ?? null,
             } as unknown as Json,
           })
           count++
@@ -544,6 +551,10 @@ export function HabitatDataSubStep({
       } else {
         const pct = totalArea > 0 ? ((r.areaHectares / totalArea) * 100).toFixed(1) : '0'
         const geometry = getHabitatGeometry(r.nlcId)
+        const distKm = calculateDistanceFromBoundary(
+          geometry ?? undefined,
+          projectBoundary ?? undefined
+        )
         await createFinding.mutateAsync({
           project_id: project.id,
           created_by: userId,
@@ -555,6 +566,7 @@ export function HabitatDataSubStep({
           is_saved: true,
           notes: notes[r.nlcId] || null,
           location: geometry as unknown as Json,
+          distance_from_boundary_km: distKm ?? null,
           raw_data: {
             habitatFinding: true,
             nlcId: r.nlcId,
@@ -567,6 +579,7 @@ export function HabitatDataSubStep({
             percentCover: pct,
             aiSummary: aiSummaries[r.nlcId] || null,
             bufferKm: selectedBuffer,
+            distance_from_boundary_km: distKm ?? null,
           } as unknown as Json,
         })
         toast({ title: 'Saved', description: `${r.fossittCode} saved to findings.` })

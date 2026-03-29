@@ -20,8 +20,6 @@ interface SiteInfoCardProps {
 }
 
 export function SiteInfoCard({ boundaryInfo, locationInfo, isLoadingLocation }: SiteInfoCardProps) {
-  if (!boundaryInfo) return null
-
   return (
     <div className="space-y-2 text-sm">
       <div className="flex items-center gap-2 font-medium">
@@ -30,37 +28,35 @@ export function SiteInfoCard({ boundaryInfo, locationInfo, isLoadingLocation }: 
       </div>
 
       <dl className="space-y-1.5">
-        {locationInfo?.county && (
-          <div className="flex justify-between gap-4">
-            <dt className="text-muted-foreground">County</dt>
-            <dd className="font-medium">Co. {locationInfo.county}</dd>
-          </div>
-        )}
-        {locationInfo?.townland && (
-          <div className="flex justify-between gap-4">
-            <dt className="text-muted-foreground">Townland</dt>
-            <dd className="font-medium">{locationInfo.townland}</dd>
-          </div>
-        )}
+        <div className="flex justify-between gap-4">
+          <dt className="text-muted-foreground">County</dt>
+          <dd className="font-medium">
+            {isLoadingLocation ? (
+              <span className="bg-muted inline-block h-4 w-20 animate-pulse rounded" />
+            ) : locationInfo?.county ? (
+              `Co. ${locationInfo.county}`
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            )}
+          </dd>
+        </div>
         <div className="flex justify-between gap-4">
           <dt className="text-muted-foreground">Area</dt>
-          <dd className="font-medium">{boundaryInfo.area} ha</dd>
+          <dd className="font-medium">{boundaryInfo?.area ?? '—'} ha</dd>
         </div>
         <div className="flex justify-between gap-4">
           <dt className="text-muted-foreground">Perimeter</dt>
-          <dd className="font-medium">{boundaryInfo.perimeter} km</dd>
+          <dd className="font-medium">{boundaryInfo?.perimeter ?? '—'} km</dd>
         </div>
         <div className="flex justify-between gap-4">
           <dt className="text-muted-foreground">Grid Ref</dt>
-          <dd className="font-mono text-xs">{boundaryInfo.gridRef}</dd>
+          <dd className="font-mono text-xs">{boundaryInfo?.gridRef ?? '—'}</dd>
         </div>
         <div className="flex justify-between gap-4">
           <dt className="text-muted-foreground">Vertices</dt>
-          <dd className="font-medium">{boundaryInfo.pointCount}</dd>
+          <dd className="font-medium">{boundaryInfo?.pointCount ?? '—'}</dd>
         </div>
       </dl>
-
-      {isLoadingLocation && <p className="text-muted-foreground text-xs">Loading location...</p>}
     </div>
   )
 }
