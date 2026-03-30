@@ -191,9 +191,8 @@ export function DataGatheringSubstepShell({
   const deleteFinding = useDeleteFinding()
   const updateFinding = useUpdateFinding()
 
-  // Cache key for sessionStorage — includes site context for multi-site
-  const siteSuffix = siteId ? `-${siteId}` : ''
-  const cacheKey = `${config.cacheKeyPrefix}-search-${project.id}${siteSuffix}`
+  // Cache key for sessionStorage — project-level (site selection only changes map boundary)
+  const cacheKey = `${config.cacheKeyPrefix}-search-${project.id}`
 
   const [isSearching, setIsSearching] = React.useState(false)
   const [searchResults, setSearchResults] = useSessionStorage<FindingDisplay[]>(cacheKey, [])

@@ -113,8 +113,7 @@ export function HabitatDataSubStep({
   const createFinding = useCreateFinding()
   const deleteFinding = useDeleteFinding()
   const updateFinding = useUpdateFinding()
-  const siteSuffix = siteId ? `-${siteId}` : ''
-  const cacheKey = `nlc-habitat-${project.id}${siteSuffix}`
+  const cacheKey = `nlc-habitat-${project.id}`
 
   const [isSearching, setIsSearching] = React.useState(false)
   const [results, setResults] = useSessionStorage<HabitatResult[]>(cacheKey, [])

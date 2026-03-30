@@ -159,9 +159,6 @@ export function DataGatheringStep({
   const { projectBoundary, projectCenter, bufferDistances, effectiveSiteId, projectSites } =
     useProjectBoundary(project, selectedSite)
 
-  // Site-scoped cache key suffix (empty string for single-site / "All Sites" fallback)
-  const siteSuffix = effectiveSiteId ? `-${effectiveSiteId}` : ''
-
   // Other site boundaries for map overlay (all sites except the active one)
   const otherBoundaries = React.useMemo(
     () =>
@@ -188,16 +185,16 @@ export function DataGatheringStep({
   // Invalidate caches when boundary changes (GIS re-edited)
   React.useEffect(() => {
     if (!boundaryHash) return
-    const hashKey = `boundary-hash-${project.id}${siteSuffix}`
+    const hashKey = `boundary-hash-${project.id}`
     const storedHash = sessionStorage.getItem(hashKey)
 
     if (storedHash && storedHash !== boundaryHash) {
       // Boundary changed — clear all search caches and auto-search flag for this site
-      sessionStorage.removeItem(`auto-search-triggered-${project.id}${siteSuffix}`)
-      sessionStorage.removeItem(`npws-search-${project.id}${siteSuffix}`)
-      sessionStorage.removeItem(`gbif-search-${project.id}${siteSuffix}`)
-      sessionStorage.removeItem(`epa-search-${project.id}${siteSuffix}`)
-      sessionStorage.removeItem(`nlc-habitat-${project.id}${siteSuffix}`)
+      sessionStorage.removeItem(`auto-search-triggered-${project.id}`)
+      sessionStorage.removeItem(`npws-search-${project.id}`)
+      sessionStorage.removeItem(`gbif-search-${project.id}`)
+      sessionStorage.removeItem(`epa-search-${project.id}`)
+      sessionStorage.removeItem(`nlc-habitat-${project.id}`)
       // Reset auto-search state so it re-triggers
       setAutoSearchStatus({
         triggered: false,
@@ -209,22 +206,7 @@ export function DataGatheringStep({
     }
 
     sessionStorage.setItem(hashKey, boundaryHash)
-  }, [boundaryHash, project.id, siteSuffix])
-
-  // Reset auto-search when site selection changes
-  const prevSiteIdRef = React.useRef(effectiveSiteId)
-  React.useEffect(() => {
-    if (prevSiteIdRef.current !== effectiveSiteId) {
-      prevSiteIdRef.current = effectiveSiteId
-      setAutoSearchStatus({
-        triggered: false,
-        sites: 'idle',
-        species: 'idle',
-        aquatic: 'idle',
-        habitats: 'idle',
-      })
-    }
-  }, [effectiveSiteId])
+  }, [boundaryHash, project.id])
 
   // Auto-search: trigger when boundary exists and no prior auto-search in this session
   React.useEffect(() => {
@@ -234,14 +216,14 @@ export function DataGatheringStep({
     if (viewMode !== 'wizard') return
 
     // Check if already triggered this session (per site)
-    const autoSearchKey = `auto-search-triggered-${project.id}${siteSuffix}`
+    const autoSearchKey = `auto-search-triggered-${project.id}`
     if (sessionStorage.getItem(autoSearchKey)) return
 
     // Check if all substeps already have cache (per site)
-    const hasSitesCache = !!sessionStorage.getItem(`npws-search-${project.id}${siteSuffix}`)
-    const hasSpeciesCache = !!sessionStorage.getItem(`gbif-search-${project.id}${siteSuffix}`)
-    const hasAquaticCache = !!sessionStorage.getItem(`epa-search-${project.id}${siteSuffix}`)
-    const hasHabitatCache = !!sessionStorage.getItem(`nlc-habitat-${project.id}${siteSuffix}`)
+    const hasSitesCache = !!sessionStorage.getItem(`npws-search-${project.id}`)
+    const hasSpeciesCache = !!sessionStorage.getItem(`gbif-search-${project.id}`)
+    const hasAquaticCache = !!sessionStorage.getItem(`epa-search-${project.id}`)
+    const hasHabitatCache = !!sessionStorage.getItem(`nlc-habitat-${project.id}`)
 
     // If all caches exist, no need to auto-search
     if (hasSitesCache && hasSpeciesCache && hasAquaticCache && hasHabitatCache) return
@@ -256,14 +238,7 @@ export function DataGatheringStep({
       habitats: hasHabitatCache ? 'skipped' : 'searching',
     })
     setShowAutoSearchBanner(true)
-  }, [
-    projectBoundary,
-    project.id,
-    siteSuffix,
-    autoSearchStatus.triggered,
-    isStepCompleted,
-    viewMode,
-  ])
+  }, [projectBoundary, project.id, autoSearchStatus.triggered, isStepCompleted, viewMode])
 
   // Auto-hide banner 5 seconds after all searches complete
   React.useEffect(() => {
