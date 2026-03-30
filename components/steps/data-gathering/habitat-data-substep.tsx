@@ -70,6 +70,8 @@ const ProjectMap = dynamic(
 interface HabitatDataSubStepProps {
   project: Project
   projectBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
+  /** Merged boundary for search (covers all sites); falls back to projectBoundary */
+  searchBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
   projectCenter?: { lat: number; lng: number }
   bufferDistances: number[]
   /** Active site ID for site-scoped caching and saving */
@@ -97,6 +99,7 @@ export interface HabitatResult {
 export function HabitatDataSubStep({
   project,
   projectBoundary,
+  searchBoundary,
   projectCenter,
   bufferDistances,
   siteId,
@@ -203,7 +206,7 @@ export function HabitatDataSubStep({
   React.useEffect(() => {
     if (results.length > 0 && !habitatPolygons && !isSearching && !hasFetchedRef.current) {
       hasFetchedRef.current = true
-      const bbox = getBoundingBox(projectBoundary, projectCenter, selectedBuffer)
+      const bbox = getBoundingBox(searchBoundary ?? projectBoundary, projectCenter, selectedBuffer)
       if (bbox) {
         fetchNlcPolygons({
           bbox: {
@@ -239,7 +242,7 @@ export function HabitatDataSubStep({
     }
     autoSearchTriggeredRef.current = true
 
-    const bbox = getBoundingBox(projectBoundary, projectCenter, selectedBuffer)
+    const bbox = getBoundingBox(searchBoundary ?? projectBoundary, projectCenter, selectedBuffer)
     if (!bbox) {
       onAutoSearchComplete?.('error')
       return
@@ -250,8 +253,9 @@ export function HabitatDataSubStep({
       bbox: { minLat: bbox.minLat, maxLat: bbox.maxLat, minLng: bbox.minLng, maxLng: bbox.maxLng },
     }
 
-    Promise.all([searchNlcLandCover(bboxParams), fetchNlcPolygons(bboxParams)])
-      .then(([aggregated, polygons]) => {
+    // Auto-search: fetch only lightweight aggregate stats first, defer heavy polygon geometry
+    searchNlcLandCover(bboxParams)
+      .then((aggregated) => {
         if (aggregated.length === 0) {
           onAutoSearchComplete?.('done')
           return
@@ -269,9 +273,12 @@ export function HabitatDataSubStep({
           }
         })
         setResults(mapped)
-        setHabitatPolygons(polygons)
-        hasFetchedRef.current = true
         onAutoSearchComplete?.('done')
+        // Fetch polygons in background (non-blocking) for map display
+        fetchNlcPolygons(bboxParams).then((polygons) => {
+          setHabitatPolygons(polygons)
+          hasFetchedRef.current = true
+        })
       })
       .catch(() => {
         onAutoSearchComplete?.('error')
@@ -404,7 +411,7 @@ export function HabitatDataSubStep({
   }, [results, habitatPolygons, isSearching])
 
   const performSearch = async () => {
-    const bbox = getBoundingBox(projectBoundary, projectCenter, selectedBuffer)
+    const bbox = getBoundingBox(searchBoundary ?? projectBoundary, projectCenter, selectedBuffer)
     if (!bbox) {
       toast({
         variant: 'destructive',

@@ -149,12 +149,13 @@ export async function fetchNlcPolygons(
   const { bbox } = params
   const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] }
 
-  // Estimate simplification tolerance from bbox size (~0.5% of extent)
+  // Simplification tolerance scales with bbox — larger area = more aggressive simplification
+  // to keep polygon count and geometry size manageable
   const extent = Math.max(bbox.maxLng - bbox.minLng, bbox.maxLat - bbox.minLat)
-  const simplifyTolerance = extent * 0.005
+  const simplifyTolerance = extent * 0.01
 
-  const PAGE_SIZE = 2000
-  const MAX_FEATURES = 15000
+  const PAGE_SIZE = 1000
+  const MAX_FEATURES = 5000
   const allFeatures: GeoJSON.Feature[] = []
   let offset = 0
 

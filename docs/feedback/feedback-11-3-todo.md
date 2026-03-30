@@ -33,11 +33,11 @@ F: Bagimsiz ──→ paralel yapilabilir
 | ----------------- | ------ | ---------- | ------------------ |
 | A: GIS Altyapi    | 31     | 27         | █████████░ 87%     |
 | B: Habitat Veri   | 11     | 11         | ██████████ 100% ✅ |
-| C: Desk Temizlik  | 6      | 0          | ░░░░░░░░░░ 0%      |
+| C: Desk Temizlik  | 6      | 6          | ██████████ 100% ✅ |
 | D: Field Research | 9      | 0          | ░░░░░░░░░░ 0%      |
 | E: Raporlama      | 20     | 1          | █░░░░░░░░░ 5%      |
 | F: Bagimsiz       | 5      | 0          | ░░░░░░░░░░ 0%      |
-| **Toplam**        | **72** | **39**     | █████░░░░░ **54%** |
+| **Toplam**        | **72** | **45**     | ██████░░░░ **63%** |
 
 ---
 
@@ -138,15 +138,15 @@ F: Bagimsiz ──→ paralel yapilabilir
 
 ### C1. Planning Policy Kaldirma (Feedback #1)
 
-- [ ] **C1.1** Planning policy substep'ini Data Gathering'den kaldir
-- [ ] **C1.2** Statik data dosyasini (`lib/data/county-development-plans.ts`) ve component'i (`planning-policy-substep.tsx`) temizle — API endpoint yok
+- [x] **C1.1** ~~Planning policy substep'ini Data Gathering'den kaldir~~ ✅ (30 Mart 2026) — WIZARD_STEPS, WizardStep type, render blogu, import kaldirildi
+- [x] **C1.2** ~~Statik data dosyasini (`lib/data/county-development-plans.ts`) ve component'i (`planning-policy-substep.tsx`) temizle~~ ✅ (30 Mart 2026) — her iki dosya + `.claude/rules/step2-planning-policy.md` silindi
 
 ### C2. Desk Assessment Birlestirme + Export (Feedback #7)
 
-- [ ] **C2.1** Baseline report ve ecological summary'i tek sayfa gorunumunde birlestir
-- [ ] **C2.2** Birlestirilen sayfayi HTML, PDF ve Word formatlarinda export et
-- [ ] **C2.3** Export'a tum ilgili haritalari dahil et
-- [ ] **C2.4** AI analiz ciktisindan "Survey Recommendation" bolumunu kaldir
+- [x] **C2.1** ~~Baseline report ve ecological summary'i tek sayfa gorunumunde birlestir~~ ✅ (30 Mart 2026) — 3 tab → 2 tab ("Desk Assessment" birlestik + "Deep Research"). AI Summary + Data Summary + Baseline Report bolumleri tek scrollable view'da
+- [x] **C2.2** ~~Birlestirilen sayfayi HTML, PDF ve Word formatlarinda export et~~ ✅ (30 Mart 2026) — Header'a Export dropdown eklendi (HTML/PDF/Word). `desk-assessment-exporter.ts` yeni dosya: PDF (jsPDF) + DOCX (docx). `baseline-report-exporter.ts` AI insights destegi eklendi
+- [x] **C2.3** ~~Export'a tum ilgili haritalari dahil et~~ ✅ (30 Mart 2026) — HTML zaten destekliyordu. PDF'e `jsPDF.addImage()`, DOCX'e `ImageRun` ile harita screenshot'lari eklendi
+- [x] **C2.4** ~~AI analiz ciktisindan "Survey Recommendation" bolumunu kaldir~~ ✅ (30 Mart 2026) — Survey Recommendations + Optimal Survey Timing kartlari silindi, kullanilmayan import'lar (Calendar, Lightbulb, CardHeader, CardTitle) temizlendi
 
 ---
 

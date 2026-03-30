@@ -18,10 +18,12 @@ import type { FindingSource, FindingType } from '@/components/desk-research/find
 interface AquaticFeaturesSubStepProps {
   project: Project
   projectBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
+  searchBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
   projectCenter?: { lat: number; lng: number }
   bufferDistances: number[]
   siteId?: string | null
   otherBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
+  allBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   userId: string
   savedFindings: DeskResearchFinding[]
   showMap: boolean
@@ -32,7 +34,7 @@ interface AquaticFeaturesSubStepProps {
 }
 
 export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
-  const { projectBoundary, savedFindings, project, userId } = props
+  const { projectBoundary, searchBoundary, allBoundaries, savedFindings, project, userId } = props
   const createFinding = useCreateFinding()
   const updateFinding = useUpdateFinding()
 
@@ -338,6 +340,8 @@ export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
       <DataGatheringSubstepShell
         {...props}
         config={config}
+        searchBoundary={searchBoundary}
+        allBoundaries={allBoundaries}
         aiSummaryTriggerRef={aiSummaryTriggerRef}
       />
       <AquaticDeepResearchModal

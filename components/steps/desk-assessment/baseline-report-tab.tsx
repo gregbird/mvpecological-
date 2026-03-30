@@ -27,7 +27,7 @@ import { fetchImageAsBase64 } from '@/lib/export/image-utils'
 import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
 import type { DeskResearchFinding, Project } from '@/types/database'
 
-interface HabitatRow {
+export interface HabitatRow {
   fossittCode: string
   fossittName: string
   nlcLabel: string
@@ -38,9 +38,18 @@ interface HabitatRow {
 interface BaselineReportTabProps {
   savedFindings: DeskResearchFinding[]
   project: Project
+  /** Lift habitat data to parent for combined export */
+  onHabitatData?: (rows: HabitatRow[]) => void
+  /** Hide the internal export button (parent handles export) */
+  hideExport?: boolean
 }
 
-export function BaselineReportTab({ savedFindings, project }: BaselineReportTabProps) {
+export function BaselineReportTab({
+  savedFindings,
+  project,
+  onHabitatData: onHabitatDataParent,
+  hideExport,
+}: BaselineReportTabProps) {
   const { toast } = useToast()
   const { data: deepResearch = [], isLoading: isLoadingDeep } = useProjectDeepResearch(project.id)
   const { data: aquaticResearch = [], isLoading: isLoadingAquatic } = useProjectAquaticResearch(
@@ -53,6 +62,15 @@ export function BaselineReportTab({ savedFindings, project }: BaselineReportTabP
 
   // Lifted habitat state from HabitatInventorySection for use in export
   const [habitatRows, setHabitatRows] = React.useState<HabitatRow[]>([])
+
+  // Notify parent when habitat data changes
+  const handleHabitatData = React.useCallback(
+    (rows: HabitatRow[]) => {
+      setHabitatRows(rows)
+      onHabitatDataParent?.(rows)
+    },
+    [onHabitatDataParent]
+  )
   const [showExcluded, setShowExcluded] = React.useState(false)
 
   const excludedFindings = React.useMemo(
@@ -311,14 +329,16 @@ export function BaselineReportTab({ savedFindings, project }: BaselineReportTabP
                 />
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting}>
-              {isExporting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="mr-2 h-4 w-4" />
-              )}
-              {isExporting ? 'Exporting...' : 'Export HTML'}
-            </Button>
+            {!hideExport && (
+              <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting}>
+                {isExporting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                {isExporting ? 'Exporting...' : 'Export HTML'}
+              </Button>
+            )}
           </div>
         </div>
         <DesignatedSitesMatrix
@@ -345,7 +365,7 @@ export function BaselineReportTab({ savedFindings, project }: BaselineReportTabP
         <HabitatInventorySection
           findings={savedFindings}
           boundary={boundary}
-          onHabitatData={setHabitatRows}
+          onHabitatData={handleHabitatData}
           onRemoveFinding={handleRemoveFinding}
           npwsVisibleLayers={
             Array.isArray(project.visible_layers)

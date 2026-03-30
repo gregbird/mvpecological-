@@ -13,6 +13,8 @@ interface ProjectBoundaryResult {
   effectiveSiteId: string | null
   /** All project sites (from useProjectSites query) */
   projectSites: ProjectSiteWithGeoJSON[]
+  /** All site boundaries (for multi-site search and display) */
+  allBoundaries: GeoJSON.Feature<GeoJSON.Polygon>[]
 }
 
 /**
@@ -28,6 +30,15 @@ export function useProjectBoundary(
   selectedSite?: ProjectSiteWithGeoJSON | null
 ): ProjectBoundaryResult {
   const { data: projectSites = [] } = useProjectSites(project.id)
+
+  // All site boundaries for multi-site operations
+  const allBoundaries = React.useMemo(
+    () =>
+      projectSites
+        .filter((s) => s.boundary)
+        .map((s) => s.boundary as GeoJSON.Feature<GeoJSON.Polygon>),
+    [projectSites]
+  )
 
   const fallbackSite = React.useMemo(() => {
     if (selectedSite || project.boundary) return null
@@ -55,5 +66,12 @@ export function useProjectBoundary(
 
   const effectiveSiteId = effectiveSite?.id ?? null
 
-  return { projectBoundary, projectCenter, bufferDistances, effectiveSiteId, projectSites }
+  return {
+    projectBoundary,
+    projectCenter,
+    bufferDistances,
+    effectiveSiteId,
+    projectSites,
+    allBoundaries,
+  }
 }

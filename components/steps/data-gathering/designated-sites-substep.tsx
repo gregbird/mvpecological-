@@ -22,10 +22,12 @@ import type { FindingSource, FindingType } from '@/components/desk-research/find
 interface DesignatedSitesSubStepProps {
   project: Project
   projectBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
+  searchBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
   projectCenter?: { lat: number; lng: number }
   bufferDistances: number[]
   siteId?: string | null
   otherBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
+  allBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   userId: string
   savedFindings: DeskResearchFinding[]
   showMap: boolean
@@ -36,7 +38,7 @@ interface DesignatedSitesSubStepProps {
 }
 
 export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
-  const { projectBoundary, savedFindings, project, userId } = props
+  const { projectBoundary, searchBoundary, allBoundaries, savedFindings, project, userId } = props
   const createFinding = useCreateFinding()
   const updateFinding = useUpdateFinding()
 
@@ -375,6 +377,8 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
       <DataGatheringSubstepShell
         {...props}
         config={config}
+        searchBoundary={searchBoundary}
+        allBoundaries={allBoundaries}
         aiSummaryTriggerRef={aiSummaryTriggerRef}
       />
       <DeepResearchModal

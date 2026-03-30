@@ -42,6 +42,7 @@ export interface BaselineExportData {
     constraint: string
   }[]
   mapImages?: MapImage[]
+  aiInsights?: string
 }
 
 /** Map step names to report section numbers */
@@ -51,6 +52,32 @@ const STEP_TO_SECTION: Record<string, number> = {
   species_records: 2,
   aquatic_features: 4,
   data_analysis: 5,
+}
+
+/** Convert simple markdown (##, -, **bold**) to HTML */
+function markdownToHtml(md: string): string {
+  return md
+    .split('\n')
+    .map((line) => {
+      const trimmed = line.trim()
+      if (!trimmed) return ''
+      if (trimmed.startsWith('## ')) {
+        return `<h3>${escapeHtml(trimmed.slice(3))}</h3>`
+      }
+      if (trimmed.startsWith('- ')) {
+        const bullet = trimmed
+          .slice(2)
+          .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+          .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        return `<li>${bullet}</li>`
+      }
+      const para = trimmed
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      return `<p>${para}</p>`
+    })
+    .join('\n')
+    .replace(/(<li>[\s\S]*?<\/li>\n?)+/g, (match) => `<ul>${match}</ul>`)
 }
 
 function renderMapImages(images: MapImage[], stepName: string): string {
@@ -152,19 +179,25 @@ export function generateBaselineReportHtml(data: BaselineExportData): string {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Baseline Report — ${escapeHtml(data.projectName)}</title>
+<title>Desk Assessment Report — ${escapeHtml(data.projectName)}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1a1a1a; max-width: 900px; margin: 0 auto; padding: 40px 24px; }
   h1 { font-size: 24px; margin-bottom: 4px; }
   .meta { color: #666; font-size: 14px; margin-bottom: 32px; }
   h2 { font-size: 18px; margin: 32px 0 12px; padding-bottom: 6px; border-bottom: 2px solid #e5e7eb; }
+  h3 { font-size: 15px; margin: 20px 0 8px; color: #374151; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 8px; }
   th, td { padding: 8px 10px; text-align: left; border: 1px solid #e5e7eb; }
   th { background: #f9fafb; font-weight: 600; }
   tr:nth-child(even) { background: #f9fafb; }
   .empty { color: #9ca3af; font-size: 13px; font-style: italic; padding: 16px 0; }
   .note { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 12px 16px; font-size: 12px; color: #1e40af; margin-top: 8px; }
+  .ai-summary { background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 8px; padding: 20px 24px; margin-bottom: 32px; font-size: 13px; line-height: 1.6; }
+  .ai-summary h3 { color: #6b21a8; margin-top: 16px; }
+  .ai-summary ul { padding-left: 20px; margin: 8px 0; }
+  .ai-summary li { margin-bottom: 4px; }
+  .ai-summary p { margin: 6px 0; }
   .map-images { margin: 16px 0; }
   .map-figure { margin: 12px 0; text-align: center; }
   .map-figure img { max-width: 100%; height: auto; border: 1px solid #e5e7eb; border-radius: 6px; }
@@ -179,10 +212,12 @@ export function generateBaselineReportHtml(data: BaselineExportData): string {
 </style>
 </head>
 <body>
-<h1>Baseline Report</h1>
+<h1>Desk Assessment Report</h1>
 <div class="meta">
   <strong>${escapeHtml(data.projectName)}</strong> | Site Code: ${escapeHtml(data.siteCode)} | ${escapeHtml(data.date)}
 </div>
+
+${data.aiInsights ? `<h2>Ecological Summary</h2>\n<div class="ai-summary">\n${markdownToHtml(data.aiInsights)}\n</div>` : ''}
 
 ${siteOverviewMaps}
 

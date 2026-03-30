@@ -20,10 +20,12 @@ import type { FindingSource, FindingType } from '@/components/desk-research/find
 interface SpeciesRecordsSubStepProps {
   project: Project
   projectBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
+  searchBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
   projectCenter?: { lat: number; lng: number }
   bufferDistances: number[]
   siteId?: string | null
   otherBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
+  allBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   userId: string
   savedFindings: DeskResearchFinding[]
   showMap: boolean
@@ -80,7 +82,15 @@ function itmToIng(itmEasting: number, itmNorthing: number) {
 }
 
 export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
-  const { projectBoundary, projectCenter, savedFindings, project, userId } = props
+  const {
+    projectBoundary,
+    searchBoundary,
+    allBoundaries,
+    projectCenter,
+    savedFindings,
+    project,
+    userId,
+  } = props
   const createFinding = useCreateFinding()
   const updateFinding = useUpdateFinding()
 
@@ -851,6 +861,8 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       <DataGatheringSubstepShell
         {...props}
         config={config}
+        searchBoundary={searchBoundary}
+        allBoundaries={allBoundaries}
         aiSummaryTriggerRef={aiSummaryTriggerRef}
         renderExtraControls={renderResolutionControls}
       />

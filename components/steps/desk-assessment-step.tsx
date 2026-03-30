@@ -5,15 +5,13 @@ import {
   Loader2,
   Check,
   AlertCircle,
-  Sparkles,
   MapPin,
   Bug,
   Droplets,
-  Calendar,
   AlertTriangle,
-  Lightbulb,
   ExternalLink,
   ChevronDown,
+  Download,
   FileText,
   BarChart3,
   Layers,
@@ -32,17 +30,37 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
 import { useSavedFindings, useUpdateFinding } from '@/hooks/queries/use-finding-hooks'
 import { useUpdateWorkflowStep, useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { useProjectContext } from '@/contexts/project-context'
-import { BaselineReportTab } from '@/components/steps/desk-assessment/baseline-report-tab'
+import {
+  BaselineReportTab,
+  type HabitatRow,
+} from '@/components/steps/desk-assessment/baseline-report-tab'
 import { DeepResearchTab } from '@/components/steps/desk-assessment/deep-research-tab'
 import { EcologicalSummaryPanel } from '@/components/desk-research/ecological-summary-panel'
 import { getFindingSourceUrl } from '@/lib/utils/finding-source-url'
 import { groupFindingsByType } from '@/lib/utils/group-findings-by-type'
+import {
+  generateBaselineReportHtml,
+  type BaselineExportData,
+  type MapImage,
+} from '@/lib/export/baseline-report-exporter'
+import {
+  exportDeskAssessmentPdf,
+  exportDeskAssessmentDocx,
+} from '@/lib/export/desk-assessment-exporter'
+import { getAllScreenshots } from '@/lib/map-screenshots/storage'
+import { fetchImageAsBase64 } from '@/lib/export/image-utils'
 import type { Project, WorkflowStep, DeskResearchFinding } from '@/types/database'
 
 interface DeskAssessmentStepProps {
@@ -102,6 +120,8 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
     return (meta?.aiInsights as string) || null
   })
   const [expandedCard, setExpandedCard] = React.useState<string | null>(null)
+  const [habitatRows, setHabitatRows] = React.useState<HabitatRow[]>([])
+  const [isExporting, setIsExporting] = React.useState(false)
 
   // React Query hooks
   const { data: savedFindings = [], isLoading } = useSavedFindings(project.id)
@@ -377,6 +397,178 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
     }
   }
 
+  // ── Combined export handler ──
+  const collectExportData = React.useCallback(async (): Promise<BaselineExportData> => {
+    const designatedSites = savedFindings
+      .filter((f) => f.data_type === 'designated_site')
+      .map((f) => {
+        const raw = f.raw_data as Record<string, unknown> | null
+        return {
+          name: f.title,
+          code: (raw?.SITE_CODE as string) || '',
+          type: (raw?.DESIGNATION as string) || '',
+          area: raw?.AREA_HA ? `${(raw.AREA_HA as number).toFixed(0)} ha` : '',
+          distance: f.distance_from_boundary_km?.toFixed(1) ?? '—',
+        }
+      })
+
+    const speciesRecords = savedFindings
+      .filter((f) => f.data_type === 'species_record')
+      .map((f) => {
+        const raw = f.raw_data as Record<string, unknown> | null
+        const metadata = raw?.metadata as Record<string, unknown> | null
+        return {
+          name: f.title,
+          taxon: (metadata?.taxonGroup as string) || 'Unknown',
+          source: f.source,
+          protected: f.is_protected || (metadata?.isProtected as boolean) || false,
+          records: (metadata?.recordCount as number) || 1,
+        }
+      })
+
+    const waterBodies = savedFindings
+      .filter((f) => f.data_type === 'water_quality' || f.data_type === 'catchment')
+      .map((f) => {
+        const raw = f.raw_data as Record<string, unknown> | null
+        const metadata = raw?.metadata as Record<string, unknown> | null
+        const siteType = (metadata?.siteType as string) || ''
+        let type = 'River'
+        if (siteType.toLowerCase().includes('lake')) type = 'Lake'
+        else if (siteType.toLowerCase().includes('transitional')) type = 'Transitional'
+        else if (f.data_type === 'catchment') type = 'Catchment'
+        return {
+          name: f.title,
+          type,
+          wfdStatus: (raw?.WFD_Status as string) || '—',
+          distance: f.distance_from_boundary_km?.toFixed(1) ?? '—',
+        }
+      })
+
+    const constraints: BaselineExportData['constraints'] = []
+    for (const f of savedFindings) {
+      const raw = f.raw_data as Record<string, unknown> | null
+      const metadata = raw?.metadata as Record<string, unknown> | null
+
+      if (f.data_type === 'designated_site') {
+        const distance = f.distance_from_boundary_km ?? (metadata?.distance as number) ?? null
+        if (distance != null && distance <= 2) {
+          constraints.push({
+            finding: f.title,
+            type: 'Designated Site',
+            source: f.source,
+            constraint: `Within ${distance.toFixed(1)} km of site boundary`,
+          })
+        } else if (distance == null || distance === 0) {
+          constraints.push({
+            finding: f.title,
+            type: 'Designated Site',
+            source: f.source,
+            constraint: 'Overlaps or adjacent to site boundary',
+          })
+        }
+      }
+      if (f.data_type === 'species_record' && (f.is_protected || metadata?.isProtected)) {
+        constraints.push({
+          finding: f.title,
+          type: 'Species Record',
+          source: f.source,
+          constraint: 'Protected species — Wildlife Acts / Habitats Directive',
+        })
+      }
+      if (f.data_type === 'species_record' && metadata?.isInvasive) {
+        constraints.push({
+          finding: f.title,
+          type: 'Species Record',
+          source: f.source,
+          constraint: 'Invasive species — management measures required',
+        })
+      }
+      if (f.data_type === 'water_quality') {
+        const wfdStatus = (raw?.WFD_Status as string) || ''
+        if (['Poor', 'Bad', 'Moderate'].includes(wfdStatus)) {
+          constraints.push({
+            finding: f.title,
+            type: 'Water Quality',
+            source: f.source,
+            constraint: `WFD Status: ${wfdStatus} — water quality constraint`,
+          })
+        }
+      }
+    }
+
+    let mapImages: MapImage[] = []
+    try {
+      const screenshots = await getAllScreenshots(project.id)
+      const results = await Promise.all(
+        screenshots.map(async (ss) => {
+          if (!ss.url) return null
+          const img = await fetchImageAsBase64(ss.url)
+          if (!img) return null
+          return {
+            stepName: ss.stepName,
+            label: ss.label,
+            dataUrl: `data:image/jpeg;base64,${img.base64}`,
+          }
+        })
+      )
+      mapImages = results.filter((r): r is MapImage => r !== null)
+    } catch {
+      // Screenshots non-critical
+    }
+
+    return {
+      projectName: project.name,
+      siteCode: project.site_code || project.id.slice(0, 8),
+      date: new Date().toLocaleDateString('en-IE', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      }),
+      designatedSites,
+      speciesRecords,
+      habitatTypes: habitatRows.map((h) => ({
+        fossittCode: h.fossittCode,
+        name: h.fossittName,
+        nlcLabel: h.nlcLabel,
+        areaHa: h.areaHa,
+        percentage: h.percentage,
+      })),
+      waterBodies,
+      constraints,
+      mapImages,
+      aiInsights: aiInsights ?? undefined,
+    }
+  }, [savedFindings, project, habitatRows, aiInsights])
+
+  const handleExport = React.useCallback(
+    async (format: 'html' | 'pdf' | 'docx') => {
+      setIsExporting(true)
+      try {
+        const data = await collectExportData()
+        if (format === 'html') {
+          const html = generateBaselineReportHtml(data)
+          const blob = new Blob([html], { type: 'text/html' })
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `${(project.site_code || project.name).replace(/\s+/g, '_')}_desk_assessment.html`
+          a.click()
+          URL.revokeObjectURL(url)
+        } else if (format === 'pdf') {
+          exportDeskAssessmentPdf(data)
+        } else {
+          await exportDeskAssessmentDocx(data)
+        }
+        toast({ title: `Exported as ${format.toUpperCase()}` })
+      } catch {
+        toast({ variant: 'destructive', title: 'Export failed' })
+      } finally {
+        setIsExporting(false)
+      }
+    },
+    [collectExportData, project, toast]
+  )
+
   const isComplete = workflowStep.status === 'approved'
 
   if (isLoading) {
@@ -418,27 +610,43 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
             <Badge variant="outline" className="text-red-600">
               {highRelevanceCount} high priority
             </Badge>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={isExporting}>
+                  {isExporting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="mr-2 h-4 w-4" />
+                  )}
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleExport('html')}>
+                  Export as HTML
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport('pdf')}>
+                  Export as PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport('docx')}>
+                  Export as Word
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
 
       {/* Main Content — Tabs */}
-      <Tabs defaultValue="ai-analysis" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <Tabs defaultValue="desk-assessment" className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="shrink-0 border-b px-4">
           <TabsList className="h-auto gap-0 rounded-none border-none bg-transparent p-0">
             <TabsTrigger
-              value="ai-analysis"
-              className="data-[state=active]:border-primary relative rounded-none border-b-2 border-transparent py-3 font-medium shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-            >
-              <Sparkles className="mr-2 h-4 w-4" />
-              AI Analysis
-            </TabsTrigger>
-            <TabsTrigger
-              value="baseline-report"
+              value="desk-assessment"
               className="data-[state=active]:border-primary relative rounded-none border-b-2 border-transparent py-3 font-medium shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none"
             >
               <FileText className="mr-2 h-4 w-4" />
-              Baseline Report
+              Desk Assessment
             </TabsTrigger>
             <TabsTrigger
               value="deep-research"
@@ -450,14 +658,13 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
           </TabsList>
         </div>
 
-        {/* AI Analysis Tab */}
-        <TabsContent value="ai-analysis" className="mt-0 min-h-0 flex-1 overflow-y-auto">
+        {/* Desk Assessment Tab — combined AI Summary + Baseline Report */}
+        <TabsContent value="desk-assessment" className="mt-0 min-h-0 flex-1 overflow-y-auto">
           <div className="p-6">
             <EcologicalSummaryPanel
               insights={aiInsights}
               isGenerating={isGeneratingInsights}
               findingsCount={savedFindings.length}
-              projectName={project.name}
               onRegenerate={handleGenerateInsights}
               onInsightsChange={(updated) => {
                 setAiInsights(updated)
@@ -465,49 +672,9 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
               }}
             />
 
-            {/* Survey Recommendations */}
+            {/* Data Summary & Complete */}
             {!isGeneratingInsights && (
               <div className="mt-8 border-t pt-6">
-                <h3 className="mb-4 flex items-center gap-2 font-semibold">
-                  <Lightbulb className="h-5 w-5" />
-                  Survey Recommendations
-                </h3>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm">Recommended Survey Types</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <ul className="text-muted-foreground space-y-1 text-sm">
-                        <li>• Habitat Survey (Fossitt Level 3)</li>
-                        {protectedSpeciesCount > 0 && <li>• Protected Species Survey</li>}
-                        {(findingsByType.designated_site?.length || 0) > 0 && (
-                          <li>• Connectivity Assessment</li>
-                        )}
-                      </ul>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="flex items-center gap-2 text-sm">
-                        <Calendar className="h-4 w-4" />
-                        Optimal Survey Timing
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <ul className="text-muted-foreground space-y-1 text-sm">
-                        <li>• Breeding Birds: Mar - Jul</li>
-                        <li>• Bats: May - Sep</li>
-                        <li>• Badger: Year-round</li>
-                        <li>• Otter: Year-round</li>
-                        <li>• Vegetation: May - Sep</li>
-                      </ul>
-                    </CardContent>
-                  </Card>
-                </div>
-
                 {/* Data Summary */}
                 <div className="mt-8 border-t pt-6">
                   <h3 className="mb-4 flex items-center gap-2 font-semibold">
@@ -741,8 +908,22 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
                     </Card>
                   )}
                 </div>
+              </div>
+            )}
 
-                {/* Complete Button */}
+            {/* Baseline Report — inline within combined tab */}
+            <div className="mt-8 border-t pt-6">
+              <BaselineReportTab
+                savedFindings={savedFindings}
+                project={project}
+                onHabitatData={setHabitatRows}
+                hideExport
+              />
+            </div>
+
+            {/* Complete Button */}
+            {!isGeneratingInsights && (
+              <div className="px-6 pb-6">
                 <Button
                   onClick={handleComplete}
                   disabled={isComplete || completeStep.isPending}
@@ -759,11 +940,6 @@ ${protectedSpeciesCount > 0 ? `⚠️ **Protected Species**: ${protectedSpeciesC
               </div>
             )}
           </div>
-        </TabsContent>
-
-        {/* Baseline Report Tab */}
-        <TabsContent value="baseline-report" className="mt-0 min-h-0 flex-1 overflow-y-auto">
-          <BaselineReportTab savedFindings={savedFindings} project={project} />
         </TabsContent>
 
         {/* Deep Research Tab */}

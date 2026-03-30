@@ -40,7 +40,6 @@ import { SpeciesRecordsSubStep } from './data-gathering/species-records-substep'
 import { AquaticFeaturesSubStep } from './data-gathering/aquatic-features-substep'
 import { ReviewExportSubStep } from './data-gathering/review-export-substep'
 import { CompanyReportsSubStep } from './data-gathering/company-reports-substep'
-import { PlanningPolicySubStep } from './data-gathering/planning-policy-substep'
 import { HabitatDataSubStep } from './data-gathering/habitat-data-substep'
 
 // Dynamic import for map
@@ -64,15 +63,7 @@ interface DataGatheringStepProps {
 }
 
 // Wizard steps
-type WizardStep =
-  | 'info'
-  | 'sites'
-  | 'species'
-  | 'aquatic'
-  | 'habitats'
-  | 'planning'
-  | 'reports'
-  | 'review'
+type WizardStep = 'info' | 'sites' | 'species' | 'aquatic' | 'habitats' | 'reports' | 'review'
 type ViewMode = 'preview' | 'wizard'
 
 const WIZARD_STEPS: { id: WizardStep; label: string; icon: React.ElementType }[] = [
@@ -81,7 +72,6 @@ const WIZARD_STEPS: { id: WizardStep; label: string; icon: React.ElementType }[]
   { id: 'species', label: 'Species Records', icon: Bug },
   { id: 'aquatic', label: 'Aquatic Features', icon: Droplets },
   { id: 'habitats', label: 'Habitat Data', icon: Layers },
-  { id: 'planning', label: 'Planning Policy', icon: Database },
   { id: 'reports', label: 'Company Reports', icon: FileText },
   { id: 'review', label: 'Review & Export', icon: Check },
 ]
@@ -110,16 +100,7 @@ export function DataGatheringStep({
       const cached = sessionStorage.getItem(wizardStepCacheKey)
       if (
         cached &&
-        [
-          'info',
-          'sites',
-          'species',
-          'aquatic',
-          'habitats',
-          'planning',
-          'reports',
-          'review',
-        ].includes(cached)
+        ['info', 'sites', 'species', 'aquatic', 'habitats', 'reports', 'review'].includes(cached)
       ) {
         return cached as WizardStep
       }
@@ -156,31 +137,80 @@ export function DataGatheringStep({
 
   // Site-aware boundary via shared hook
   const [selectedSite, setSelectedSite] = React.useState<ProjectSiteWithGeoJSON | null>(null)
-  const { projectBoundary, projectCenter, bufferDistances, effectiveSiteId, projectSites } =
-    useProjectBoundary(project, selectedSite)
+  const {
+    projectBoundary,
+    projectCenter,
+    bufferDistances,
+    effectiveSiteId,
+    projectSites,
+    allBoundaries,
+  } = useProjectBoundary(project, selectedSite)
+
+  // Whether "All Sites" is selected (no specific site)
+  const isAllSites = !selectedSite && allBoundaries.length > 1
+
+  // Merged bbox boundary for searching across all sites
+  const searchBoundary = React.useMemo(() => {
+    if (!isAllSites || allBoundaries.length === 0) return projectBoundary
+    let minLng = Infinity,
+      maxLng = -Infinity,
+      minLat = Infinity,
+      maxLat = -Infinity
+    for (const b of allBoundaries) {
+      for (const coord of b.geometry.coordinates[0]) {
+        minLng = Math.min(minLng, coord[0])
+        maxLng = Math.max(maxLng, coord[0])
+        minLat = Math.min(minLat, coord[1])
+        maxLat = Math.max(maxLat, coord[1])
+      }
+    }
+    return {
+      type: 'Feature' as const,
+      properties: {},
+      geometry: {
+        type: 'Polygon' as const,
+        coordinates: [
+          [
+            [minLng, minLat],
+            [maxLng, minLat],
+            [maxLng, maxLat],
+            [minLng, maxLat],
+            [minLng, minLat],
+          ],
+        ],
+      },
+    } as GeoJSON.Feature<GeoJSON.Polygon>
+  }, [isAllSites, allBoundaries, projectBoundary])
 
   // Other site boundaries for map overlay (all sites except the active one)
   const otherBoundaries = React.useMemo(
     () =>
-      projectSites
-        .filter((s) => s.id !== effectiveSiteId && s.boundary)
-        .map((s) => s.boundary as GeoJSON.Feature<GeoJSON.Polygon>),
-    [projectSites, effectiveSiteId]
+      isAllSites
+        ? [] // When "All Sites", no dimmed boundaries — all shown as primary via allBoundaries
+        : projectSites
+            .filter((s) => s.id !== effectiveSiteId && s.boundary)
+            .map((s) => s.boundary as GeoJSON.Feature<GeoJSON.Polygon>),
+    [projectSites, effectiveSiteId, isAllSites]
   )
 
-  // Compute a simple boundary hash to detect GIS changes
+  // Stable boundary hash based on ALL boundaries — does NOT change on site switch
   const boundaryHash = React.useMemo(() => {
-    if (!projectBoundary) return ''
+    const boundaries =
+      allBoundaries.length > 0 ? allBoundaries : projectBoundary ? [projectBoundary] : []
+    if (boundaries.length === 0) return ''
     try {
-      const coords = projectBoundary.geometry.coordinates[0]
-      // Use first/last coords + length as a lightweight fingerprint
-      const first = coords[0]
-      const last = coords[coords.length - 1]
-      return `${coords.length}:${first[0].toFixed(6)},${first[1].toFixed(6)}:${last[0].toFixed(6)},${last[1].toFixed(6)}`
+      return boundaries
+        .map((b) => {
+          const coords = b.geometry.coordinates[0]
+          const first = coords[0]
+          const last = coords[coords.length - 1]
+          return `${coords.length}:${first[0].toFixed(6)},${first[1].toFixed(6)}:${last[0].toFixed(6)},${last[1].toFixed(6)}`
+        })
+        .join('|')
     } catch {
       return ''
     }
-  }, [projectBoundary])
+  }, [allBoundaries, projectBoundary])
 
   // Invalidate caches when boundary changes (GIS re-edited)
   React.useEffect(() => {
@@ -209,17 +239,18 @@ export function DataGatheringStep({
   }, [boundaryHash, project.id])
 
   // Auto-search: trigger when boundary exists and no prior auto-search in this session
+  // Uses searchBoundary (merged for multi-site) so auto-search covers ALL sites at once
   React.useEffect(() => {
     if (autoSearchStatus.triggered) return
-    if (!projectBoundary) return
+    if (!searchBoundary) return
     if (isStepCompleted) return
     if (viewMode !== 'wizard') return
 
-    // Check if already triggered this session (per site)
+    // Check if already triggered this session (project-level, not per-site)
     const autoSearchKey = `auto-search-triggered-${project.id}`
     if (sessionStorage.getItem(autoSearchKey)) return
 
-    // Check if all substeps already have cache (per site)
+    // Check if all substeps already have cache
     const hasSitesCache = !!sessionStorage.getItem(`npws-search-${project.id}`)
     const hasSpeciesCache = !!sessionStorage.getItem(`gbif-search-${project.id}`)
     const hasAquaticCache = !!sessionStorage.getItem(`epa-search-${project.id}`)
@@ -238,7 +269,7 @@ export function DataGatheringStep({
       habitats: hasHabitatCache ? 'skipped' : 'searching',
     })
     setShowAutoSearchBanner(true)
-  }, [projectBoundary, project.id, autoSearchStatus.triggered, isStepCompleted, viewMode])
+  }, [searchBoundary, project.id, autoSearchStatus.triggered, isStepCompleted, viewMode])
 
   // Auto-hide banner 5 seconds after all searches complete
   React.useEffect(() => {
@@ -841,10 +872,12 @@ export function DataGatheringStep({
             <DesignatedSitesSubStep
               project={project}
               projectBoundary={projectBoundary}
+              searchBoundary={searchBoundary}
               projectCenter={projectCenter}
               bufferDistances={bufferDistances}
               siteId={effectiveSiteId}
               otherBoundaries={otherBoundaries}
+              allBoundaries={isAllSites ? allBoundaries : undefined}
               userId={userId}
               savedFindings={savedFindings}
               showMap={showMap}
@@ -869,10 +902,12 @@ export function DataGatheringStep({
             <SpeciesRecordsSubStep
               project={project}
               projectBoundary={projectBoundary}
+              searchBoundary={searchBoundary}
               projectCenter={projectCenter}
               bufferDistances={bufferDistances}
               siteId={effectiveSiteId}
               otherBoundaries={otherBoundaries}
+              allBoundaries={isAllSites ? allBoundaries : undefined}
               userId={userId}
               savedFindings={savedFindings}
               showMap={showMap}
@@ -897,10 +932,12 @@ export function DataGatheringStep({
             <AquaticFeaturesSubStep
               project={project}
               projectBoundary={projectBoundary}
+              searchBoundary={searchBoundary}
               projectCenter={projectCenter}
               bufferDistances={bufferDistances}
               siteId={effectiveSiteId}
               otherBoundaries={otherBoundaries}
+              allBoundaries={isAllSites ? allBoundaries : undefined}
               userId={userId}
               savedFindings={savedFindings}
               showMap={showMap}
@@ -925,6 +962,7 @@ export function DataGatheringStep({
             <HabitatDataSubStep
               project={project}
               projectBoundary={projectBoundary}
+              searchBoundary={searchBoundary}
               projectCenter={projectCenter}
               bufferDistances={bufferDistances}
               siteId={effectiveSiteId}
@@ -942,12 +980,7 @@ export function DataGatheringStep({
           </div>
         )}
 
-        {/* Step 6: Planning Policy - county development plan references */}
-        {currentStep === 'planning' && (
-          <PlanningPolicySubStep project={project} isActive={currentStep === 'planning'} />
-        )}
-
-        {/* Step 7: Company Reports - text search, conditional render */}
+        {/* Step 6: Company Reports - text search, conditional render */}
         {currentStep === 'reports' && (
           <CompanyReportsSubStep
             project={project}

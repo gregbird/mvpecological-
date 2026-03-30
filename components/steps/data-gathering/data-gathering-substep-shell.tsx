@@ -52,12 +52,16 @@ export interface SubstepShellProps {
   // Common props passed by parent
   project: Project
   projectBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
+  /** Merged boundary for search (covers all sites); falls back to projectBoundary */
+  searchBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
   projectCenter?: { lat: number; lng: number }
   bufferDistances: number[]
   /** Active site ID for site-scoped caching and saving */
   siteId?: string | null
   /** Other site boundaries to show as dimmed overlays on the map */
   otherBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
+  /** All site boundaries — when provided, render buffers for every boundary */
+  allBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   userId: string
   savedFindings: DeskResearchFinding[]
   showMap: boolean
@@ -170,10 +174,12 @@ export interface SubstepShellConfig {
 export function DataGatheringSubstepShell({
   project,
   projectBoundary,
+  searchBoundary,
   projectCenter,
   bufferDistances,
   siteId,
   otherBoundaries,
+  allBoundaries,
   userId,
   savedFindings,
   showMap,
@@ -261,7 +267,9 @@ export function DataGatheringSubstepShell({
 
   // ── Perform search ──────────────────────────────────────────────────────
   const performSearch = async () => {
-    const bbox = getBoundingBox(projectBoundary, projectCenter, selectedBuffer)
+    // Use searchBoundary (merged across all sites) for bbox, fall back to projectBoundary
+    const effectiveBoundary = searchBoundary ?? projectBoundary
+    const bbox = getBoundingBox(effectiveBoundary, projectCenter, selectedBuffer)
     if (!bbox) {
       toast({
         variant: 'destructive',
@@ -710,6 +718,7 @@ export function DataGatheringSubstepShell({
             zoom={11}
             boundary={projectBoundary}
             otherBoundaries={otherBoundaries}
+            allBoundaries={allBoundaries}
             bufferDistances={[selectedBuffer]}
             gridOverlay={showGridOverlay ? (computedGridOverlay ?? config.gridOverlay) : undefined}
             findings={(config.filterConfig || config.showDistanceFilter

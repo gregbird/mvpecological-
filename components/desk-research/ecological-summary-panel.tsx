@@ -12,13 +12,11 @@ import {
   Pencil,
   Check,
   X,
-  Download,
   Brain,
   Loader2,
   FileText,
   Trees,
 } from 'lucide-react'
-import { jsPDF } from 'jspdf'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -79,174 +77,6 @@ function getCategoryIcon(title: string) {
 }
 
 // ============================================================
-// Export helpers
-// ============================================================
-
-function stripMarkdownFormatting(md: string): string {
-  return md
-    .replace(/\*\*\*(.+?)\*\*\*/g, '$1')
-    .replace(/\*\*(.+?)\*\*/g, '$1')
-    .replace(/\*(.+?)\*/g, '$1')
-    .replace(/`(.+?)`/g, '$1')
-}
-
-function exportAsPdf(markdown: string, projectName: string) {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
-  const pageWidth = doc.internal.pageSize.getWidth()
-  const margin = 15
-  const usableWidth = pageWidth - margin * 2
-  let y = 20
-
-  const addPageIfNeeded = (needed: number) => {
-    if (y + needed > doc.internal.pageSize.getHeight() - 15) {
-      doc.addPage()
-      y = 20
-    }
-  }
-
-  // Title
-  doc.setFontSize(16)
-  doc.setFont('helvetica', 'bold')
-  doc.text('Ecological Summary', margin, y)
-  y += 8
-  doc.setFontSize(10)
-  doc.setFont('helvetica', 'normal')
-  doc.text(projectName, margin, y)
-  y += 4
-  doc.text(`Generated: ${new Date().toLocaleDateString('en-IE')}`, margin, y)
-  y += 10
-
-  const lines = markdown.split('\n')
-  for (const line of lines) {
-    const trimmed = line.trim()
-    if (!trimmed) {
-      y += 3
-      continue
-    }
-
-    if (trimmed.startsWith('## ')) {
-      addPageIfNeeded(12)
-      y += 4
-      doc.setFontSize(13)
-      doc.setFont('helvetica', 'bold')
-      const heading = trimmed.replace(/^## /, '')
-      doc.text(heading, margin, y)
-      y += 7
-      doc.setFontSize(10)
-      doc.setFont('helvetica', 'normal')
-      continue
-    }
-
-    if (trimmed.startsWith('- ')) {
-      const bulletText = stripMarkdownFormatting(trimmed.replace(/^- /, ''))
-      const wrapped = doc.splitTextToSize(`•  ${bulletText}`, usableWidth - 5)
-      addPageIfNeeded(wrapped.length * 4.5)
-      doc.text(wrapped, margin + 3, y)
-      y += wrapped.length * 4.5
-      continue
-    }
-
-    // Regular paragraph
-    const plainText = stripMarkdownFormatting(trimmed)
-    doc.setFont('helvetica', 'italic')
-    const wrapped = doc.splitTextToSize(plainText, usableWidth)
-    addPageIfNeeded(wrapped.length * 4.5)
-    doc.text(wrapped, margin, y)
-    y += wrapped.length * 4.5
-    doc.setFont('helvetica', 'normal')
-  }
-
-  doc.save(`ecological-summary-${projectName.replace(/\s+/g, '-').toLowerCase()}.pdf`)
-}
-
-async function exportAsDocx(markdown: string, projectName: string) {
-  const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import('docx')
-
-  const children: InstanceType<typeof Paragraph>[] = []
-
-  // Title
-  children.push(
-    new Paragraph({
-      text: 'Ecological Summary',
-      heading: HeadingLevel.TITLE,
-    })
-  )
-  children.push(
-    new Paragraph({
-      children: [
-        new TextRun({ text: projectName, italics: true }),
-        new TextRun({
-          text: `  •  Generated: ${new Date().toLocaleDateString('en-IE')}`,
-          italics: true,
-        }),
-      ],
-    })
-  )
-  children.push(new Paragraph({ text: '' }))
-
-  const lines = markdown.split('\n')
-  for (const line of lines) {
-    const trimmed = line.trim()
-    if (!trimmed) {
-      children.push(new Paragraph({ text: '' }))
-      continue
-    }
-
-    if (trimmed.startsWith('## ')) {
-      const heading = trimmed.replace(/^## /, '')
-      children.push(
-        new Paragraph({
-          text: heading,
-          heading: HeadingLevel.HEADING_2,
-          spacing: { before: 240 },
-        })
-      )
-      continue
-    }
-
-    if (trimmed.startsWith('- ')) {
-      const bulletText = stripMarkdownFormatting(trimmed.replace(/^- /, ''))
-      // Parse bold segments
-      const runs: InstanceType<typeof TextRun>[] = []
-      const parts = bulletText.split(/(\*\*.*?\*\*)/)
-      for (const part of parts) {
-        if (part.startsWith('**') && part.endsWith('**')) {
-          runs.push(new TextRun({ text: part.slice(2, -2), bold: true }))
-        } else {
-          runs.push(new TextRun({ text: part }))
-        }
-      }
-      children.push(
-        new Paragraph({
-          children: runs,
-          bullet: { level: 0 },
-        })
-      )
-      continue
-    }
-
-    // Assessment paragraph (italic)
-    children.push(
-      new Paragraph({
-        children: [new TextRun({ text: stripMarkdownFormatting(trimmed), italics: true })],
-      })
-    )
-  }
-
-  const doc = new Document({
-    sections: [{ children }],
-  })
-
-  const blob = await Packer.toBlob(doc)
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `ecological-summary-${projectName.replace(/\s+/g, '-').toLowerCase()}.docx`
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-// ============================================================
 // Component
 // ============================================================
 
@@ -254,7 +84,6 @@ interface EcologicalSummaryPanelProps {
   insights: string | null
   isGenerating: boolean
   findingsCount: number
-  projectName: string
   onRegenerate: () => void
   onInsightsChange: (insights: string) => void
 }
@@ -263,7 +92,6 @@ export function EcologicalSummaryPanel({
   insights,
   isGenerating,
   findingsCount,
-  projectName,
   onRegenerate,
   onInsightsChange,
 }: EcologicalSummaryPanelProps) {
@@ -346,14 +174,6 @@ export function EcologicalSummaryPanel({
               <Button variant="ghost" size="sm" onClick={onRegenerate}>
                 <RefreshCw className="mr-1 h-3 w-3" />
                 Regenerate
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => exportAsPdf(insights, projectName)}>
-                <Download className="mr-1 h-3 w-3" />
-                PDF
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => exportAsDocx(insights, projectName)}>
-                <Download className="mr-1 h-3 w-3" />
-                Word
               </Button>
             </>
           )}

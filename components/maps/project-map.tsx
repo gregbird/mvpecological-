@@ -27,6 +27,8 @@ interface ProjectMapProps {
   boundary?: GeoJSON.Feature<GeoJSON.Polygon>
   /** Other site boundaries to display as non-editable dimmed overlays */
   otherBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
+  /** All site boundaries — when provided, render buffers for every boundary (multi-site "All Sites" mode) */
+  allBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   bufferDistances?: number[] // Buffer zones in km to display
   habitatPolygons?: GeoJSON.FeatureCollection
   habitatSelectionKey?: string
@@ -55,6 +57,7 @@ function MapComponent({
   zoom,
   boundary,
   otherBoundaries = [],
+  allBoundaries,
   bufferDistances,
   habitatPolygons,
   habitatSelectionKey,
@@ -81,6 +84,7 @@ function MapComponent({
   zoom: number
   boundary?: GeoJSON.Feature<GeoJSON.Polygon>
   otherBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
+  allBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   bufferDistances?: number[]
   habitatPolygons?: GeoJSON.FeatureCollection
   habitatSelectionKey?: string
@@ -344,7 +348,10 @@ function MapComponent({
     useIWebsLayers(map, boundary ?? null, iwebsVisibleLayers ?? [])
 
     // NPWS designated site overlays — fetch and render SAC/SPA/NHA/pNHA polygons
-    useNPWSLayers(map, boundary ? [boundary] : [], npwsVisibleLayers ?? [])
+    // Use allBoundaries when available (multi-site "All Sites" mode)
+    const npwsBoundaries =
+      allBoundaries && allBoundaries.length > 0 ? allBoundaries : boundary ? [boundary] : []
+    useNPWSLayers(map, npwsBoundaries, npwsVisibleLayers ?? [])
 
     return null
   }
@@ -493,35 +500,40 @@ function MapComponent({
       )}
 
       {/* Buffer Zones - render largest first (underneath) */}
-      {boundary &&
-        bufferDistances &&
-        bufferDistances.length > 0 &&
-        [...bufferDistances]
-          .sort((a, b) => b - a) // Largest first so they render underneath
+      {/* When allBoundaries is set (multi-site "All Sites" mode), render buffers for each boundary */}
+      {(() => {
+        const boundariesToBuffer =
+          allBoundaries && allBoundaries.length > 0 ? allBoundaries : boundary ? [boundary] : []
+        if (boundariesToBuffer.length === 0 || !bufferDistances || bufferDistances.length === 0)
+          return null
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const turf = require('@turf/turf')
+        return [...bufferDistances]
+          .sort((a, b) => b - a)
           .map((distance) => {
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const turf = require('@turf/turf')
-            try {
-              const buffered = turf.buffer(boundary, distance, { units: 'kilometers' })
-              const color = BUFFER_COLORS[distance] || '#6b7280'
-              return (
-                <GeoJSON
-                  key={`buffer-${distance}`}
-                  data={buffered}
-                  style={{
-                    color: color,
-                    weight: 2,
-                    fillColor: color,
-                    fillOpacity: 0.05,
-                    dashArray: '5, 5',
-                  }}
-                />
-              )
-            } catch (error) {
-              console.warn(`Error creating buffer for ${distance}km:`, error)
-              return null
-            }
-          })}
+            const color = BUFFER_COLORS[distance] || '#6b7280'
+            return boundariesToBuffer.map((b, bIdx) => {
+              try {
+                const buffered = turf.buffer(b, distance, { units: 'kilometers' })
+                return (
+                  <GeoJSON
+                    key={`buffer-${distance}-${bIdx}`}
+                    data={buffered}
+                    style={{
+                      color: color,
+                      weight: 2,
+                      fillColor: color,
+                      fillOpacity: 0.05,
+                      dashArray: '5, 5',
+                    }}
+                  />
+                )
+              } catch {
+                return null
+              }
+            })
+          })
+      })()}
 
       {/* Project Boundary */}
       {boundary && boundaryLayer?.visible && (
@@ -537,25 +549,41 @@ function MapComponent({
         />
       )}
 
-      {/* Other site boundaries (dimmed) */}
-      {otherBoundaries.map((feat, idx) => (
-        <GeoJSON
-          key={`other-boundary-${idx}-${feat.geometry.coordinates[0]?.[0]?.[0]}`}
-          data={feat}
-          style={() => ({
-            color: '#94a3b8',
-            weight: 2,
-            fillColor: '#94a3b8',
-            fillOpacity: 0.08,
-            dashArray: '6, 4',
-          })}
-        />
-      ))}
+      {/* All site boundaries (shown as primary when "All Sites" mode) */}
+      {allBoundaries && allBoundaries.length > 0
+        ? allBoundaries
+            .filter((feat) => feat !== boundary) // Skip the one already rendered above
+            .map((feat, idx) => (
+              <GeoJSON
+                key={`all-boundary-${idx}-${feat.geometry.coordinates[0]?.[0]?.[0]}`}
+                data={feat}
+                style={{
+                  color: '#ef4444',
+                  weight: 3,
+                  fillColor: '#ef4444',
+                  fillOpacity: 0.1,
+                }}
+              />
+            ))
+        : /* Other site boundaries (dimmed) — single site mode */
+          otherBoundaries.map((feat, idx) => (
+            <GeoJSON
+              key={`other-boundary-${idx}-${feat.geometry.coordinates[0]?.[0]?.[0]}`}
+              data={feat}
+              style={() => ({
+                color: '#94a3b8',
+                weight: 2,
+                fillColor: '#94a3b8',
+                fillOpacity: 0.08,
+                dashArray: '6, 4',
+              })}
+            />
+          ))}
 
       {/* Habitat Polygons — rendered as single GeoJSON for performance */}
       {habitatPolygons && habitatPolygons.features.length > 0 && habitatLayer?.visible && (
         <GeoJSON
-          key={`habitats-${habitatSelectionKey || 'all'}-${habitatPolygons.features.length}`}
+          key={`habitats-${habitatSelectionKey || 'all'}-${habitatPolygons.features.length}-z${currentZoom}`}
           data={habitatPolygons}
           style={(feature: GeoJSON.Feature | undefined) => {
             const props = feature?.properties
@@ -582,8 +610,8 @@ function MapComponent({
                     ${props.area_hectares ? `<div style="font-size:13px;margin-top:4px">Area: ${props.area_hectares} ha</div>` : ''}
                   </div>
                 `)
-              // Permanent FOSSITT label on polygon surface (visible at zoom 13+)
-              if (props.fossitt_code && props.fossitt_code !== '—') {
+              // FOSSITT labels only at zoom 14+ to prevent hundreds of overlapping tooltips
+              if (currentZoom >= 14 && props.fossitt_code && props.fossitt_code !== '—') {
                 ;(layer as L.GeoJSON).bindTooltip(props.fossitt_code, {
                   permanent: true,
                   direction: 'center',
@@ -742,6 +770,7 @@ export function ProjectMap({
   zoom = DEFAULT_ZOOM,
   boundary,
   otherBoundaries,
+  allBoundaries,
   bufferDistances,
   habitatPolygons,
   habitatSelectionKey,
@@ -821,6 +850,7 @@ export function ProjectMap({
           zoom={zoom}
           boundary={boundary}
           otherBoundaries={otherBoundaries}
+          allBoundaries={allBoundaries}
           bufferDistances={bufferDistances}
           habitatPolygons={habitatPolygons}
           habitatSelectionKey={habitatSelectionKey}
