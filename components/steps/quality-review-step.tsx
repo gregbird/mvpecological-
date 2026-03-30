@@ -205,8 +205,8 @@ export function QualityReviewStep({
         },
       })
 
-      // Reset Step 8 back to in_progress so the Complete button becomes active again
-      const aiDraftStep = workflowSteps.find((s) => s.step_number === 8)
+      // Reset Step 6 (AI Draft) back to in_progress so the Complete button becomes active again
+      const aiDraftStep = workflowSteps.find((s) => s.step_number === 6)
       if (aiDraftStep) {
         await updateWorkflowStep.mutateAsync({
           stepId: aiDraftStep.id,
@@ -221,8 +221,8 @@ export function QualityReviewStep({
         description: 'Returning to AI Draft step for revisions.',
       })
 
-      // Navigate back to Step 8 so the author sees the revision banner
-      setTimeout(() => navigateToStep(8), 1200)
+      // Navigate back to Step 6 (AI Draft) so the author sees the revision banner
+      setTimeout(() => navigateToStep(6), 1200)
     } catch {
       toast({
         variant: 'destructive',
@@ -280,7 +280,7 @@ export function QualityReviewStep({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Step 9: Quality Review</h2>
+          <h2 className="text-2xl font-bold">Step 7: Quality Review</h2>
           <p className="text-muted-foreground">Peer review and approval of the draft report</p>
         </div>
         <Badge

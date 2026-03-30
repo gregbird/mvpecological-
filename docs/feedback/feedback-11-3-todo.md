@@ -34,10 +34,10 @@ F: Bagimsiz ──→ paralel yapilabilir
 | A: GIS Altyapi    | 31     | 27         | █████████░ 87%     |
 | B: Habitat Veri   | 11     | 11         | ██████████ 100% ✅ |
 | C: Desk Temizlik  | 6      | 6          | ██████████ 100% ✅ |
-| D: Field Research | 9      | 0          | ░░░░░░░░░░ 0%      |
+| D: Field Research | 9      | 8          | █████████░ 89%     |
 | E: Raporlama      | 20     | 1          | █░░░░░░░░░ 5%      |
 | F: Bagimsiz       | 5      | 0          | ░░░░░░░░░░ 0%      |
-| **Toplam**        | **72** | **45**     | ██████░░░░ **63%** |
+| **Toplam**        | **72** | **53**     | ███████░░░ **74%** |
 
 ---
 
@@ -158,18 +158,18 @@ F: Bagimsiz ──→ paralel yapilabilir
 
 ### D1. Field Survey Planlama Duzenlemeleri (Feedback #8)
 
-- [ ] **D1.1** "Survey Targets from Desk Research" bolumunu Step 4'ten kaldir
-- [ ] **D1.2** Survey Schedule'dan "state the survey" secenegini kaldir
-- [ ] **D1.3** Survey olusturulurken otomatik doldur: site name, releve code (REL 101+), recorder = atanan ekolog
-- [ ] **D1.4** Survey Schedule'dan "Approved" statusunu kaldir
-- [ ] **D1.5** Coklu site projelerinde survey'i ilgili site'a bagla — ⚠️ **A2 (coklu site destegi) tamamlanmadan yapilamaz**
+- [x] **D1.1** ~~"Survey Targets from Desk Research" bolumunu Step 4'ten kaldir~~ ✅ (30 Mart 2026) — Collapsible kart, showFindings state, useSavedFindings hook, surveyRecommendations memo, getRawData callback ve kullanilmayan importlar (Bug, Waves, Shield, Target, ChevronDown, ChevronUp, AlertCircle, Collapsible) kaldirildi
+- [x] **D1.2** ~~Survey Schedule'dan "start the survey" secenegini kaldir~~ ✅ (30 Mart 2026) — `planned` status tamamen kaldirildi (type, UI, DB migration). Yeni survey'ler direkt `in_progress` olarak basliyor. DB migration D1.4 ile birlestirildi: `20260330_simplify_survey_status.sql`. ⚠️ **Mobile:** `planned` status'u kullanan sorgular/UI bozulacak
+- [x] **D1.3** ~~Survey olusturulurken otomatik doldur: site name, releve code (REL 101+), recorder = atanan ekolog~~ ✅ (30 Mart 2026) — `survey-form.tsx`: surveyor default olarak current user. `releve-survey-form.tsx`: site_name=projectName, releve_code=REL 101+ (mevcut kayit sayisina gore), recorder=current user full_name
+- [x] **D1.4** ~~Survey Schedule'dan "Approved" statusunu kaldir~~ ✅ (30 Mart 2026) — `approved` status tamamen kaldirildi. Survey akisi artik: `in_progress → completed`. DB migration D1.2 ile birlestirildi: `20260330_simplify_survey_status.sql`. ⚠️ **Mobile:** `approved` status kullanan sorgular/UI bozulacak
+- [x] **D1.5** ~~Coklu site projelerinde survey'i ilgili site'a bagla~~ ✅ (30 Mart 2026) — SiteSelector'dan secilen site `site_id` olarak survey'e kaydediliyor. Survey listesi secili site'a gore filtreleniyor. DB'de `surveys.site_id` zaten mevcuttu, sadece UI baglandi. **Bug fix'ler:** (1) `groupSurveysByVisit` filtrelenmis survey'lerle calisiyor — baska site'a ait bos grup basliklari artik gorunmuyor. (2) Multi-site projede "All Sites" modundayken survey olusturma engellendi — `site_id = null` orphan survey sorunu cozuldu. (3) SiteSelector sag uste tasinip Badge'in ustune yerlestirildi. ⚠️ **Mobile:** `site_id` filtreleme mantigi mobile'da da uygulanmali
 
 ### D2. Field Research Yapi Degisikligi (Feedback #9)
 
-- [ ] **D2.1** Field Research bolumunu ardisik asamali tab yapisiyla guncelle (data gathering gibi tab bar)
-- [ ] **D2.2** Habitat Mapping'i Field Survey alt kategorisi olarak yeniden yapilandir
+- [x] **D2.1** ~~Field Research bolumunu tab yapisiyla guncelle~~ ✅ (30 Mart 2026) — Step 4+5+6 tek step'e birlestirildi (Step 4: Field Research). 10 step → 8 step. `FieldResearchStep` wrapper bileseni 3 tab: Field Survey, Habitat Mapping, Target Notes. Tum step numaralari guncellendi (7→5, 8→6, 9→7, 10→8). DB migration: step 5+6 silinir, 7-10 → 5-8 kaydirılır. Etkilenen dosyalar: `workflow.ts`, `workflow queries`, `page.tsx`, `sidebar.tsx`, `seed-data.ts`, `index.ts`, tum step heading'leri ve hata mesajlari. ⚠️ **Mobile:** Workflow step numaralari tamamen degisti (10→8 step). Mobile'da `step_number` referanslari, sidebar, completion mantigi guncellenmeli
+- [x] **D2.2** ~~Habitat Mapping'i Field Survey alt kategorisi olarak yeniden yapilandir~~ ✅ (30 Mart 2026) — Header, Badge, "Complete Step" butonu, `handleComplete`, `completeStep` hook, `onComplete` prop kaldirildi. Wrapper tek "Complete Step" yonetiyor
 - [ ] **D2.3** Data gathering stage 5'ten habitat verisini otomatik cek ve duzenlenebilir yap
-- [ ] **D2.4** Target Notes'u Field Survey alt kategorisi olarak yeniden yapilandir
+- [x] **D2.4** ~~Target Notes'u Field Survey alt kategorisi olarak yeniden yapilandir~~ ✅ (30 Mart 2026) — D2.2 ile ayni: Header, Badge, "Complete Step" kaldirildi, wrapper yonetiyor
 
 ---
 

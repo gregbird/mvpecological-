@@ -23,13 +23,11 @@ const WORKFLOW_STEPS = [
   { step_number: 1, name: 'GIS Mapping', phase: 'desk_research' as const },
   { step_number: 2, name: 'Data Gathering', phase: 'desk_research' as const },
   { step_number: 3, name: 'Desk Assessment', phase: 'desk_research' as const },
-  { step_number: 4, name: 'Survey Planning', phase: 'field_research' as const },
-  { step_number: 5, name: 'Field Survey', phase: 'field_research' as const },
-  { step_number: 6, name: 'Habitat Mapping', phase: 'field_research' as const },
-  { step_number: 7, name: 'Species Recording', phase: 'field_research' as const },
-  { step_number: 8, name: 'Data Analysis', phase: 'reporting' as const },
-  { step_number: 9, name: 'AI Draft', phase: 'reporting' as const },
-  { step_number: 10, name: 'Final Report', phase: 'reporting' as const },
+  { step_number: 4, name: 'Field Research', phase: 'field_research' as const },
+  { step_number: 5, name: 'Data Analysis', phase: 'reporting' as const },
+  { step_number: 6, name: 'AI Draft', phase: 'reporting' as const },
+  { step_number: 7, name: 'Quality Review', phase: 'reporting' as const },
+  { step_number: 8, name: 'Final Submission', phase: 'reporting' as const },
 ]
 
 async function seed() {

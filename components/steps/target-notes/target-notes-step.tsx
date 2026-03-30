@@ -1,10 +1,9 @@
 'use client'
 
 import * as React from 'react'
-import { Plus, Loader2, Check, Target, ClipboardList, Download } from 'lucide-react'
+import { Plus, Loader2, Target, ClipboardList, Download } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,7 +24,6 @@ import {
 } from '@/hooks/queries/use-observation-hooks'
 import { useSurveys } from '@/hooks/queries/use-survey-hooks'
 import { useSavedFindings } from '@/hooks/queries/use-finding-hooks'
-import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import {
   useTargetNotes,
   useTargetNotesStats,
@@ -55,14 +53,12 @@ interface TargetNotesStepProps {
   project: Project
   workflowStep: WorkflowStep
   userId: string
-  onComplete?: () => void
 }
 
 export function TargetNotesStep({
   project,
-  workflowStep,
+  workflowStep: _workflowStep,
   userId,
-  onComplete,
 }: TargetNotesStepProps) {
   const { toast } = useToast()
   const [selectedSite, setSelectedSite] = React.useState<ProjectSiteWithGeoJSON | null>(null)
@@ -117,8 +113,6 @@ export function TargetNotesStep({
   const updateTargetNote = useUpdateTargetNote()
   const deleteTargetNote = useDeleteTargetNote()
   const verifyTargetNote = useVerifyTargetNote()
-
-  const completeStep = useCompleteWorkflowStep()
 
   const isLoading = observationsLoading || targetNotesLoading
 
@@ -511,32 +505,6 @@ export function TargetNotesStep({
     }
   }
 
-  // Complete workflow step
-  const handleComplete = async () => {
-    try {
-      await completeStep.mutateAsync({
-        projectId: project.id,
-        stepNumber: workflowStep.step_number,
-      })
-
-      toast({
-        title: 'Step completed',
-        description: 'Target Notes step has been completed. Moving to Data Analysis.',
-      })
-
-      onComplete?.()
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error completing step',
-        description: 'Failed to complete the workflow step.',
-      })
-    }
-  }
-
-  const isComplete = workflowStep.status === 'approved'
-  const canComplete = !isComplete
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -547,15 +515,12 @@ export function TargetNotesStep({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header - Compact */}
+      {/* Compact toolbar */}
       <div className="flex items-center justify-between border-b px-6 py-3">
         <div className="flex items-center gap-4">
-          <div>
-            <h2 className="text-lg font-semibold">Step 6: Target Notes</h2>
-            <p className="text-muted-foreground text-sm">
-              Record field notes and species observations
-            </p>
-          </div>
+          <p className="text-muted-foreground text-sm">
+            Record field notes and species observations
+          </p>
           <SiteSelector
             projectId={project.id}
             stepKey="target-notes"
@@ -579,35 +544,6 @@ export function TargetNotesStep({
               <div className="text-muted-foreground text-xs">Verified</div>
             </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge
-            variant={
-              isComplete
-                ? 'default'
-                : workflowStep.status === 'in_progress'
-                  ? 'secondary'
-                  : 'outline'
-            }
-          >
-            {isComplete
-              ? 'Completed'
-              : workflowStep.status === 'in_progress'
-                ? 'In Progress'
-                : 'Pending'}
-          </Badge>
-          <Button
-            onClick={handleComplete}
-            disabled={!canComplete || completeStep.isPending}
-            size="sm"
-          >
-            {completeStep.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Check className="mr-2 h-4 w-4" />
-            )}
-            Complete Step
-          </Button>
         </div>
       </div>
 

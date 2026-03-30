@@ -1,26 +1,12 @@
 'use client'
 
 import * as React from 'react'
-import {
-  Plus,
-  Loader2,
-  Check,
-  AlertCircle,
-  Calendar,
-  Bug,
-  Waves,
-  Shield,
-  Target,
-  ChevronDown,
-  ChevronUp,
-  ImageIcon,
-} from 'lucide-react'
+import { Plus, Loader2, Calendar, ChevronDown, ImageIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -28,13 +14,10 @@ import { useToast } from '@/hooks/use-toast'
 import { getDefaultFieldsForType } from '@/lib/config/survey-field-definitions'
 import {
   useSurveys,
-  useSurveyStats,
   useCreateSurvey,
   useUpdateSurvey,
   useDeleteSurvey,
 } from '@/hooks/queries/use-survey-hooks'
-import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
-import { useSavedFindings } from '@/hooks/queries/use-finding-hooks'
 import { assignSurveyStaff } from '@/lib/supabase/queries/survey-assignments'
 import {
   SurveyCard,
@@ -51,20 +34,19 @@ import { groupSurveysByVisit, getNextVisitNumber } from '@/lib/utils/survey-grou
 import type { SurveyWithSurveyor } from '@/lib/supabase/queries/surveys'
 import { useRole } from '@/contexts/role-context'
 import { SiteSelector } from '@/components/project/site-selector'
+import { useProjectSites } from '@/hooks/queries/use-site-hooks'
 import type { Project, WorkflowStep, Json } from '@/types/database'
 
 interface FieldSurveyStepProps {
   project: Project
   workflowStep: WorkflowStep
   userId: string
-  onComplete?: () => void
 }
 
 export function FieldSurveyStep({
   project,
-  workflowStep,
+  workflowStep: _workflowStep,
   userId,
-  onComplete,
 }: FieldSurveyStepProps) {
   const { toast } = useToast()
   const { user: roleUser } = useRole()
@@ -74,7 +56,7 @@ export function FieldSurveyStep({
   const [assigningSurvey, setAssigningSurvey] = React.useState<SurveyCardType | null>(null)
   const [activeTab, setActiveTab] = React.useState('all')
   const [topTab, setTopTab] = React.useState<'surveys' | 'photos'>('surveys')
-  const [showFindings, setShowFindings] = React.useState(true)
+  const [selectedSiteId, setSelectedSiteId] = React.useState<string | null>(null)
   const [highlightedSurveyId, setHighlightedSurveyId] = React.useState<string | null>(null)
   const [releveEditOnOpen, setReleveEditOnOpen] = React.useState(false)
   const [addVisitMode, setAddVisitMode] = React.useState<{
@@ -84,132 +66,17 @@ export function FieldSurveyStep({
   } | null>(null)
   const [confirmAction, setConfirmAction] = React.useState<{
     survey: SurveyCardType
-    action: 'complete' | 'approve'
+    action: 'complete'
   } | null>(null)
   const surveyListRef = React.useRef<HTMLDivElement>(null)
 
   // React Query hooks
   const { data: surveys = [], isLoading } = useSurveys(project.id)
-  const { data: surveyStats } = useSurveyStats(project.id)
-  const { data: savedFindings = [], isLoading: findingsLoading } = useSavedFindings(project.id)
+  const { data: projectSites = [] } = useProjectSites(project.id)
+  const isMultiSite = projectSites.length > 1
   const createSurvey = useCreateSurvey()
   const updateSurvey = useUpdateSurvey()
   const deleteSurvey = useDeleteSurvey()
-  const completeStep = useCompleteWorkflowStep()
-
-  // Helper to extract data from raw_data JSON
-  const getRawData = React.useCallback((finding: (typeof savedFindings)[0]) => {
-    const raw = finding.raw_data as Record<string, unknown> | null
-    return {
-      scientificName: (raw?.scientificName || raw?.scientific_name) as string | undefined,
-      commonName: (raw?.commonName || raw?.common_name || raw?.vernacularName) as
-        | string
-        | undefined,
-      taxonGroup: (raw?.taxonGroup || raw?.taxon_group || raw?.class) as string | undefined,
-      siteName: (raw?.SITE_NAME || raw?.siteName || raw?.site_name) as string | undefined,
-      siteCode: (raw?.SITECODE || raw?.siteCode || raw?.site_code) as string | undefined,
-    }
-  }, [])
-
-  // Process findings to extract survey recommendations
-  const surveyRecommendations = React.useMemo(() => {
-    const designatedSites = savedFindings.filter((f) => f.data_type === 'designated_site')
-    const speciesRecords = savedFindings.filter((f) => f.data_type === 'species_record')
-    const aquaticFeatures = savedFindings.filter(
-      (f) => f.data_type === 'water_quality' || f.data_type === 'catchment'
-    )
-
-    // Extract protected species that need surveys
-    const protectedSpecies = speciesRecords.filter((f) => f.is_protected)
-
-    // Determine recommended survey types based on findings
-    const recommendedSurveys: {
-      type: string
-      reason: string
-      priority: 'high' | 'medium' | 'low'
-    }[] = []
-
-    // Always recommend walkover
-    recommendedSurveys.push({
-      type: 'walkover',
-      reason: 'Initial site assessment required',
-      priority: 'high',
-    })
-
-    // Habitat mapping if designated sites nearby
-    if (designatedSites.length > 0) {
-      recommendedSurveys.push({
-        type: 'habitat_mapping',
-        reason: `${designatedSites.length} designated sites within buffer zone`,
-        priority: 'high',
-      })
-    }
-
-    // Check for bat-related species
-    const hasBats = protectedSpecies.some((s) => {
-      const raw = getRawData(s)
-      return (
-        raw.scientificName?.toLowerCase().includes('pipistrellus') ||
-        raw.scientificName?.toLowerCase().includes('myotis') ||
-        raw.scientificName?.toLowerCase().includes('plecotus') ||
-        raw.commonName?.toLowerCase().includes('bat')
-      )
-    })
-    if (hasBats) {
-      recommendedSurveys.push({
-        type: 'bat_survey',
-        reason: 'Protected bat species recorded in area',
-        priority: 'high',
-      })
-    }
-
-    // Check for bird species
-    const hasBirds = protectedSpecies.some((s) => {
-      const raw = getRawData(s)
-      return raw.taxonGroup?.toLowerCase() === 'birds' || raw.taxonGroup?.toLowerCase() === 'aves'
-    })
-    if (hasBirds) {
-      recommendedSurveys.push({
-        type: 'bird_survey',
-        reason: 'Protected bird species recorded in area',
-        priority: 'medium',
-      })
-    }
-
-    // Check for mammals (badger, otter, etc.)
-    const hasMammals = protectedSpecies.some((s) => {
-      const raw = getRawData(s)
-      return (
-        raw.scientificName?.toLowerCase().includes('meles') ||
-        raw.scientificName?.toLowerCase().includes('lutra') ||
-        raw.commonName?.toLowerCase().includes('badger') ||
-        raw.commonName?.toLowerCase().includes('otter')
-      )
-    })
-    if (hasMammals) {
-      recommendedSurveys.push({
-        type: 'mammal_survey',
-        reason: 'Protected mammal species (badger/otter) in area',
-        priority: 'high',
-      })
-    }
-
-    // Aquatic survey if water features
-    if (aquaticFeatures.length > 0) {
-      recommendedSurveys.push({
-        type: 'aquatic_survey',
-        reason: `${aquaticFeatures.length} water features identified`,
-        priority: 'medium',
-      })
-    }
-
-    return {
-      designatedSites,
-      protectedSpecies,
-      aquaticFeatures,
-      recommendedSurveys,
-    }
-  }, [savedFindings])
 
   // Compute visit group counts for badge display
   const visitGroupCounts = React.useMemo(() => {
@@ -243,6 +110,7 @@ export function FieldSurveyStep({
           name: s.surveyor?.full_name || 'Unknown',
           avatarUrl: undefined,
         },
+        siteId: s.site_id,
         visitGroupId: s.visit_group_id,
         visitNumber: s.visit_number,
         totalVisitsInGroup: s.visit_group_id ? visitGroupCounts.get(s.visit_group_id) : undefined,
@@ -250,25 +118,31 @@ export function FieldSurveyStep({
     )
   }, [surveys, userId, visitGroupCounts])
 
-  // Group surveys by visit_group_id
-  const { groups: surveyGroups, standalone: standaloneSurveys } = React.useMemo(
-    () => groupSurveysByVisit(surveys as SurveyWithSurveyor[]),
-    [surveys]
-  )
+  // Filter surveys by selected site (null = all sites)
+  const filteredSurveys = React.useMemo(() => {
+    if (!selectedSiteId) return surveysAsCards
+    return surveysAsCards.filter((s) => s.siteId === selectedSiteId)
+  }, [surveysAsCards, selectedSiteId])
+
+  // Group surveys by visit_group_id (filtered by selected site)
+  const { groups: surveyGroups, standalone: standaloneSurveys } = React.useMemo(() => {
+    const siteFiltered = selectedSiteId
+      ? surveys.filter((s) => s.site_id === selectedSiteId)
+      : surveys
+    return groupSurveysByVisit(siteFiltered as SurveyWithSurveyor[])
+  }, [surveys, selectedSiteId])
 
   // Group surveys by status
   const surveysByStatus = React.useMemo(() => {
     const groups: Record<string, SurveyCardType[]> = {
-      planned: [],
       in_progress: [],
       completed: [],
-      approved: [],
     }
-    for (const survey of surveysAsCards) {
+    for (const survey of filteredSurveys) {
       groups[survey.status]?.push(survey)
     }
     return groups
-  }, [surveysAsCards])
+  }, [filteredSurveys])
 
   // Handle creating a new survey
   const handleCreateSurvey = async (data: Partial<SurveyCardType>) => {
@@ -280,9 +154,10 @@ export function FieldSurveyStep({
         start_time: data.startTime || null,
         end_time: data.endTime || null,
         surveyor_id: userId,
-        status: 'planned',
+        status: 'in_progress',
         weather: (data.weather as unknown as Json) || null,
         notes: data.notes || null,
+        site_id: selectedSiteId || null,
         visit_group_id: data.visitGroupId || null,
         visit_number: data.visitNumber || null,
       })
@@ -396,61 +271,31 @@ export function FieldSurveyStep({
     }
   }
 
-  // Handle starting a survey (planned → in_progress)
-  const handleStartSurvey = async (survey: SurveyCardType) => {
-    try {
-      await updateSurvey.mutateAsync({
-        surveyId: survey.id,
-        updates: { status: 'in_progress' },
-      })
-
-      toast({
-        title: 'Survey started',
-        description: 'Survey is now in progress.',
-      })
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error starting survey',
-        description: 'Failed to start the survey.',
-      })
-    }
-  }
-
   // Open confirm dialog before completing
   const handleCompleteSurvey = (survey: SurveyCardType) => {
     setConfirmAction({ survey, action: 'complete' })
   }
 
-  // Open confirm dialog before approving
-  const handleApproveSurvey = (survey: SurveyCardType) => {
-    setConfirmAction({ survey, action: 'approve' })
-  }
-
   // Actually execute the status change after confirmation
   const executeStatusChange = async () => {
     if (!confirmAction) return
-    const { survey, action } = confirmAction
-    const newStatus = action === 'complete' ? 'completed' : 'approved'
+    const { survey } = confirmAction
 
     try {
       await updateSurvey.mutateAsync({
         surveyId: survey.id,
-        updates: { status: newStatus },
+        updates: { status: 'completed' },
       })
 
       toast({
-        title: action === 'complete' ? 'Survey completed' : 'Survey approved',
-        description:
-          action === 'complete'
-            ? 'Survey has been marked as completed.'
-            : 'Survey has been approved.',
+        title: 'Survey completed',
+        description: 'Survey has been marked as completed.',
       })
     } catch {
       toast({
         variant: 'destructive',
-        title: `Error ${action === 'complete' ? 'completing' : 'approving'} survey`,
-        description: `Failed to ${action} the survey.`,
+        title: 'Error completing survey',
+        description: 'Failed to complete the survey.',
       })
     } finally {
       setConfirmAction(null)
@@ -519,42 +364,6 @@ export function FieldSurveyStep({
     }
   }
 
-  // Complete workflow step
-  const handleComplete = async () => {
-    if (surveysAsCards.length === 0) {
-      toast({
-        variant: 'destructive',
-        title: 'Cannot complete step',
-        description: 'Please schedule at least one survey before completing this step.',
-      })
-      return
-    }
-
-    try {
-      await completeStep.mutateAsync({
-        projectId: project.id,
-        stepNumber: workflowStep.step_number,
-      })
-
-      toast({
-        title: 'Step completed',
-        description: 'Field Survey step has been completed. Moving to Habitat Mapping.',
-      })
-
-      onComplete?.()
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error completing step',
-        description: 'Failed to complete the workflow step.',
-      })
-    }
-  }
-
-  const isComplete = workflowStep.status === 'approved'
-  const hasPlannedSurveys = (surveyStats?.planned || 0) > 0
-  const canComplete = surveysAsCards.length > 0 && !isComplete
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -565,35 +374,14 @@ export function FieldSurveyStep({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div>
-            <h2 className="text-2xl font-bold">Step 4: Field Survey Planning</h2>
-            <p className="text-muted-foreground">
-              Schedule and manage field surveys for ecological assessment
-            </p>
-          </div>
-          <SiteSelector
-            projectId={project.id}
-            stepKey="field-survey"
-            onSiteChange={() => {
-              /* TODO: filter surveys by site */
-            }}
-            showAllOption
-          />
-        </div>
-        <Badge
-          variant={
-            isComplete ? 'default' : workflowStep.status === 'in_progress' ? 'secondary' : 'outline'
-          }
-        >
-          {isComplete
-            ? 'Completed'
-            : workflowStep.status === 'in_progress'
-              ? 'In Progress'
-              : 'Pending'}
-        </Badge>
+      {/* Site Selector */}
+      <div className="flex items-center justify-end">
+        <SiteSelector
+          projectId={project.id}
+          stepKey="field-survey"
+          onSiteChange={(site) => setSelectedSiteId(site?.id ?? null)}
+          showAllOption
+        />
       </div>
 
       {/* Top-Level Tabs: Surveys vs Photos */}
@@ -614,195 +402,8 @@ export function FieldSurveyStep({
         </TabsContent>
 
         <TabsContent value="surveys" className="mt-4 space-y-6">
-          {/* Desk Research Findings Summary */}
-          <Collapsible open={showFindings} onOpenChange={setShowFindings}>
-            <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20">
-              <CollapsibleTrigger asChild>
-                <CardHeader className="cursor-pointer">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Target className="h-5 w-5 text-blue-600" />
-                      <CardTitle className="text-lg">Survey Targets from Desk Research</CardTitle>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {savedFindings.length > 0 && (
-                        <Badge variant="secondary">{savedFindings.length} findings</Badge>
-                      )}
-                      {showFindings ? (
-                        <ChevronUp className="h-4 w-4" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4" />
-                      )}
-                    </div>
-                  </div>
-                  <CardDescription>
-                    Based on desk research, the following ecological features require field
-                    verification
-                  </CardDescription>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent className="space-y-4">
-                  {findingsLoading ? (
-                    <div className="flex items-center justify-center py-4">
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    </div>
-                  ) : savedFindings.length === 0 ? (
-                    <Alert>
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        No saved findings from desk research. Complete the Data Gathering step first
-                        to get survey recommendations.
-                      </AlertDescription>
-                    </Alert>
-                  ) : (
-                    <div className="grid gap-4 md:grid-cols-3">
-                      {/* Designated Sites */}
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm font-medium">
-                          <Shield className="h-4 w-4 text-green-600" />
-                          <span>Designated Sites</span>
-                          <Badge variant="outline" className="ml-auto">
-                            {surveyRecommendations.designatedSites.length}
-                          </Badge>
-                        </div>
-                        <ScrollArea className="h-32 rounded border p-2">
-                          {surveyRecommendations.designatedSites.length === 0 ? (
-                            <p className="text-muted-foreground text-xs">No sites found</p>
-                          ) : (
-                            <ul className="space-y-1">
-                              {surveyRecommendations.designatedSites.slice(0, 5).map((site) => {
-                                const raw = getRawData(site)
-                                return (
-                                  <li key={site.id} className="text-xs">
-                                    <span className="font-medium">
-                                      {raw.siteName || site.title}
-                                    </span>
-                                    {raw.siteCode && (
-                                      <span className="text-muted-foreground ml-1">
-                                        ({raw.siteCode})
-                                      </span>
-                                    )}
-                                  </li>
-                                )
-                              })}
-                              {surveyRecommendations.designatedSites.length > 5 && (
-                                <li className="text-muted-foreground text-xs">
-                                  +{surveyRecommendations.designatedSites.length - 5} more
-                                </li>
-                              )}
-                            </ul>
-                          )}
-                        </ScrollArea>
-                      </div>
-
-                      {/* Protected Species */}
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm font-medium">
-                          <Bug className="h-4 w-4 text-amber-600" />
-                          <span>Protected Species</span>
-                          <Badge variant="outline" className="ml-auto">
-                            {surveyRecommendations.protectedSpecies.length}
-                          </Badge>
-                        </div>
-                        <ScrollArea className="h-32 rounded border p-2">
-                          {surveyRecommendations.protectedSpecies.length === 0 ? (
-                            <p className="text-muted-foreground text-xs">No protected species</p>
-                          ) : (
-                            <ul className="space-y-1">
-                              {surveyRecommendations.protectedSpecies.slice(0, 5).map((species) => {
-                                const raw = getRawData(species)
-                                return (
-                                  <li key={species.id} className="text-xs">
-                                    <span className="font-medium italic">
-                                      {raw.scientificName || raw.commonName || species.title}
-                                    </span>
-                                    {raw.taxonGroup && (
-                                      <Badge variant="secondary" className="ml-1 text-[10px]">
-                                        {raw.taxonGroup}
-                                      </Badge>
-                                    )}
-                                  </li>
-                                )
-                              })}
-                              {surveyRecommendations.protectedSpecies.length > 5 && (
-                                <li className="text-muted-foreground text-xs">
-                                  +{surveyRecommendations.protectedSpecies.length - 5} more
-                                </li>
-                              )}
-                            </ul>
-                          )}
-                        </ScrollArea>
-                      </div>
-
-                      {/* Aquatic Features */}
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm font-medium">
-                          <Waves className="h-4 w-4 text-blue-600" />
-                          <span>Aquatic Features</span>
-                          <Badge variant="outline" className="ml-auto">
-                            {surveyRecommendations.aquaticFeatures.length}
-                          </Badge>
-                        </div>
-                        <ScrollArea className="h-32 rounded border p-2">
-                          {surveyRecommendations.aquaticFeatures.length === 0 ? (
-                            <p className="text-muted-foreground text-xs">No water features</p>
-                          ) : (
-                            <ul className="space-y-1">
-                              {surveyRecommendations.aquaticFeatures.slice(0, 5).map((feature) => {
-                                const raw = getRawData(feature)
-                                return (
-                                  <li key={feature.id} className="text-xs">
-                                    <span className="font-medium">
-                                      {feature.title || raw.siteName || 'Aquatic Feature'}
-                                    </span>
-                                  </li>
-                                )
-                              })}
-                              {surveyRecommendations.aquaticFeatures.length > 5 && (
-                                <li className="text-muted-foreground text-xs">
-                                  +{surveyRecommendations.aquaticFeatures.length - 5} more
-                                </li>
-                              )}
-                            </ul>
-                          )}
-                        </ScrollArea>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Recommended Surveys */}
-                  {surveyRecommendations.recommendedSurveys.length > 0 && (
-                    <div className="border-t pt-4">
-                      <h4 className="mb-3 text-sm font-medium">Recommended Surveys</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {surveyRecommendations.recommendedSurveys.map((rec) => (
-                          <Badge
-                            key={rec.type}
-                            variant={rec.priority === 'high' ? 'destructive' : 'secondary'}
-                            className="cursor-pointer"
-                            onClick={() => {
-                              setEditingSurvey(null)
-                              setShowSurveyForm(true)
-                            }}
-                          >
-                            {rec.priority === 'high' && '⚠️ '}
-                            {FIELD_SURVEY_TYPE_LABELS[rec.type] || rec.type}
-                          </Badge>
-                        ))}
-                      </div>
-                      <p className="text-muted-foreground mt-2 text-xs">
-                        Click on a badge to create a survey of that type
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
-
           {/* Survey List */}
-          {surveysAsCards.length === 0 ? (
+          {filteredSurveys.length === 0 ? (
             <Alert>
               <Calendar className="h-4 w-4" />
               <AlertTitle>No Surveys Scheduled</AlertTitle>
@@ -814,6 +415,7 @@ export function FieldSurveyStep({
               <div className="mt-3">
                 <Button
                   size="sm"
+                  disabled={isMultiSite && !selectedSiteId}
                   onClick={() => {
                     setEditingSurvey(null)
                     setShowSurveyForm(true)
@@ -822,6 +424,11 @@ export function FieldSurveyStep({
                   <Plus className="mr-2 h-4 w-4" />
                   Schedule Survey
                 </Button>
+                {isMultiSite && !selectedSiteId && (
+                  <p className="mt-1 text-xs text-red-500">
+                    Select a site first to schedule a survey.
+                  </p>
+                )}
               </div>
             </Alert>
           ) : (
@@ -833,32 +440,32 @@ export function FieldSurveyStep({
                     Manage and track all field surveys for this project
                   </CardDescription>
                 </div>
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    setEditingSurvey(null)
-                    setShowSurveyForm(true)
-                  }}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Schedule Survey
-                </Button>
+                <div className="flex flex-col items-end">
+                  <Button
+                    size="sm"
+                    disabled={isMultiSite && !selectedSiteId}
+                    onClick={() => {
+                      setEditingSurvey(null)
+                      setShowSurveyForm(true)
+                    }}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Schedule Survey
+                  </Button>
+                  {isMultiSite && !selectedSiteId && (
+                    <p className="mt-1 text-xs text-red-500">Select a site first.</p>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
                   <TabsList>
-                    <TabsTrigger value="all">All ({surveysAsCards.length})</TabsTrigger>
-                    <TabsTrigger value="planned">
-                      Planned ({surveysByStatus.planned.length})
-                    </TabsTrigger>
+                    <TabsTrigger value="all">All ({filteredSurveys.length})</TabsTrigger>
                     <TabsTrigger value="in_progress">
                       In Progress ({surveysByStatus.in_progress.length})
                     </TabsTrigger>
                     <TabsTrigger value="completed">
                       Completed ({surveysByStatus.completed.length})
-                    </TabsTrigger>
-                    <TabsTrigger value="approved">
-                      Approved ({surveysByStatus.approved.length})
                     </TabsTrigger>
                   </TabsList>
 
@@ -867,7 +474,7 @@ export function FieldSurveyStep({
                       <div className="space-y-4 pr-4">
                         {/* Visit Groups */}
                         {surveyGroups.map((group) => {
-                          const groupCards = surveysAsCards.filter(
+                          const groupCards = filteredSurveys.filter(
                             (s) => s.visitGroupId === group.visitGroupId
                           )
                           const typeLabel =
@@ -900,19 +507,16 @@ export function FieldSurveyStep({
                                         onView={handleViewSurvey}
                                         onEdit={handleOpenEditForm}
                                         onDelete={handleDeleteSurvey}
-                                        onStart={handleStartSurvey}
                                         onComplete={handleCompleteSurvey}
-                                        onApprove={handleApproveSurvey}
                                         onAssignStaff={
                                           canAssignStaff ? setAssigningSurvey : undefined
                                         }
                                         isHighlighted={survey.id === highlightedSurveyId}
-                                        groupApproveDisabled={!group.canComplete}
                                       />
                                     ))}
                                   </div>
-                                  {/* Add Visit button — group level (hidden only if all approved) */}
-                                  {!groupCards.every((s) => s.status === 'approved') && (
+                                  {/* Add Visit button — group level (hidden only if all completed) */}
+                                  {!groupCards.every((s) => s.status === 'completed') && (
                                     <div className="border-t px-3 py-2">
                                       <Button
                                         variant="outline"
@@ -934,7 +538,7 @@ export function FieldSurveyStep({
                         {/* Standalone surveys (no visit group) */}
                         {standaloneSurveys.length > 0 && (
                           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                            {surveysAsCards
+                            {filteredSurveys
                               .filter((s) => !s.visitGroupId)
                               .map((survey) => (
                                 <SurveyCard
@@ -943,9 +547,7 @@ export function FieldSurveyStep({
                                   onView={handleViewSurvey}
                                   onEdit={handleOpenEditForm}
                                   onDelete={handleDeleteSurvey}
-                                  onStart={handleStartSurvey}
                                   onComplete={handleCompleteSurvey}
-                                  onApprove={handleApproveSurvey}
                                   onAssignStaff={canAssignStaff ? setAssigningSurvey : undefined}
                                   onAddVisit={handleAddVisit}
                                   isHighlighted={survey.id === highlightedSurveyId}
@@ -975,9 +577,7 @@ export function FieldSurveyStep({
                                   onView={handleViewSurvey}
                                   onEdit={handleOpenEditForm}
                                   onDelete={handleDeleteSurvey}
-                                  onStart={handleStartSurvey}
                                   onComplete={handleCompleteSurvey}
-                                  onApprove={handleApproveSurvey}
                                   onAssignStaff={canAssignStaff ? setAssigningSurvey : undefined}
                                   onAddVisit={handleAddVisit}
                                   isHighlighted={survey.id === highlightedSurveyId}
@@ -993,29 +593,9 @@ export function FieldSurveyStep({
             </Card>
           )}
 
-          {/* Progress Panel — compact */}
-          <div className="flex items-center gap-4 rounded-lg border p-3">
-            <div className="flex flex-1 items-center gap-3">
-              <Progress
-                value={isComplete ? 100 : surveysAsCards.length > 0 ? 75 : 25}
-                className="h-2 flex-1"
-              />
-              <span className="text-muted-foreground shrink-0 text-xs">
-                {surveysAsCards.length} survey{surveysAsCards.length !== 1 ? 's' : ''}
-              </span>
-            </div>
-            <Button
-              size="sm"
-              onClick={handleComplete}
-              disabled={!canComplete || completeStep.isPending}
-            >
-              {completeStep.isPending ? (
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Check className="mr-1.5 h-3.5 w-3.5" />
-              )}
-              {isComplete ? 'Completed' : 'Complete Step'}
-            </Button>
+          {/* Survey count */}
+          <div className="text-muted-foreground text-center text-xs">
+            {surveysAsCards.length} survey{surveysAsCards.length !== 1 ? 's' : ''} scheduled
           </div>
 
           {/* Survey Form Dialog */}

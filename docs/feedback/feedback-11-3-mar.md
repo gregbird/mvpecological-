@@ -207,11 +207,11 @@ Her vektor feature, cizgilerle baglanan koordinat noktalari serisidir. Bu noktal
 
 **Yapilacilar:**
 
-- [ ] **8.1** "Survey Targets from Desk Research" bolumunu Step 4'ten kaldir
-- [ ] **8.2** Survey Schedule'dan "state the survey" secenegini kaldir
-- [ ] **8.3** Survey olusturulurken bilinen verilerle otomatik doldur (site name, releve code REL 101+, recorder = atanan ekolog)
-- [ ] **8.4** Survey Schedule'dan "Approved" statusunu kaldir
-- [ ] **8.5** Coklu site projelerinde survey'i ilgili site'a bagla
+- [x] **8.1** ~~"Survey Targets from Desk Research" bolumunu Step 4'ten kaldir~~ ✅ (30 Mart 2026)
+- [x] **8.2** ~~Survey Schedule'dan "start the survey" secenegini kaldir~~ ✅ (30 Mart 2026) — `planned` status kaldirildi, D1.4 ile birlesik migration: `20260330_simplify_survey_status.sql`. ⚠️ Mobile guncellenmeli
+- [x] **8.3** ~~Survey olusturulurken bilinen verilerle otomatik doldur (site name, releve code REL 101+, recorder = atanan ekolog)~~ ✅ (30 Mart 2026)
+- [x] **8.4** ~~Survey Schedule'dan "Approved" statusunu kaldir~~ ✅ (30 Mart 2026) — D1.2 ile birlesik migration. ⚠️ Mobile guncellenmeli
+- [x] **8.5** ~~Coklu site projelerinde survey'i ilgili site'a bagla~~ ✅ (30 Mart 2026) — Bug fix: bos grup basliklari, orphan survey engeli. ⚠️ Mobile: `site_id` filtreleme uygulanmali
 
 ---
 
@@ -227,10 +227,10 @@ Her vektor feature, cizgilerle baglanan koordinat noktalari serisidir. Bu noktal
 
 **Yapilacilar:**
 
-- [ ] **9.1** Field Research bolumunu 4 ardisik asamali tab yapisiyla guncelle
-- [ ] **9.2** Habitat Mapping'i Field Survey alt kategorisi olarak yeniden yapilandir
+- [x] **9.1** ~~Field Research bolumunu tab yapisiyla guncelle~~ ✅ (30 Mart 2026) — Step 4+5+6 → tek Step 4 (Field Research). 10 step → 8 step. `FieldResearchStep` wrapper, 3 tab. DB migration: `20260330_merge_field_research_steps.sql`. ⚠️ **Mobile:** Step numaralari tamamen degisti, mobile guncellenmeli
+- [x] **9.2** ~~Habitat Mapping'i Field Survey alt kategorisi olarak yeniden yapilandir~~ ✅ (30 Mart 2026) — Header, Badge, Complete Step kaldirildi, wrapper yonetiyor
 - [ ] **9.3** Data gathering stage 5'ten habitat verisini otomatik cek ve duzenlenebilir yap
-- [ ] **9.4** Target Notes'u Field Survey alt kategorisi olarak yeniden yapilandir
+- [x] **9.4** ~~Target Notes'u Field Survey alt kategorisi olarak yeniden yapilandir~~ ✅ (30 Mart 2026) — D2.2 ile ayni sekilde yapilandirildi
 
 ---
 

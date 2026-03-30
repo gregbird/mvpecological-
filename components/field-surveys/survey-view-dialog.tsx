@@ -42,7 +42,6 @@ const STATUS_STYLES: Record<
     className?: string
   }
 > = {
-  planned: { label: 'Planned', variant: 'outline' },
   in_progress: {
     label: 'In Progress',
     variant: 'default',
@@ -51,9 +50,8 @@ const STATUS_STYLES: Record<
   completed: {
     label: 'Completed',
     variant: 'default',
-    className: 'bg-amber-500 hover:bg-amber-600 text-white',
+    className: 'bg-green-600 hover:bg-green-700',
   },
-  approved: { label: 'Approved', variant: 'default', className: 'bg-green-600 hover:bg-green-700' },
 }
 
 function InfoRow({
@@ -87,7 +85,7 @@ export function SurveyViewDialog({
   initialEditMode = false,
   onNavigateVisit,
 }: SurveyViewDialogProps) {
-  const statusStyle = STATUS_STYLES[survey.status]
+  const statusStyle = STATUS_STYLES[survey.status as SurveyStatus] ?? STATUS_STYLES.in_progress
   const isReleve = survey.surveyType === 'releve_survey'
   const [releveEditing, setReleveEditing] = React.useState(false)
   const [surveyPhotos, setSurveyPhotos] = React.useState<string[]>([])
@@ -211,7 +209,7 @@ export function SurveyViewDialog({
               <Badge variant={statusStyle.variant} className={statusStyle.className}>
                 {statusStyle.label}
               </Badge>
-              {!releveEditing && survey.status !== 'approved' && releveData && (
+              {!releveEditing && survey.status !== 'completed' && releveData && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -235,7 +233,7 @@ export function SurveyViewDialog({
                 <p className="text-muted-foreground text-sm">
                   No relevé data has been recorded for this survey yet.
                 </p>
-                {survey.status !== 'approved' && (
+                {survey.status !== 'completed' && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -278,7 +276,7 @@ export function SurveyViewDialog({
                     photos={surveyPhotos}
                     onPhotosChange={setSurveyPhotos}
                     maxPhotos={10}
-                    disabled={survey.status === 'approved'}
+                    disabled={survey.status === 'completed'}
                   />
                 </div>
               </>
@@ -460,7 +458,7 @@ export function SurveyViewDialog({
             <Mail className="mr-1.5 h-3.5 w-3.5" />
             Email
           </Button>
-          {onEdit && survey.status !== 'approved' && (
+          {onEdit && survey.status !== 'completed' && (
             <Button
               variant="outline"
               className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-950"

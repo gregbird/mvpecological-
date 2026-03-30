@@ -3,7 +3,6 @@
 import * as React from 'react'
 import {
   Loader2,
-  Check,
   AlertCircle,
   Trash2,
   Pencil,
@@ -42,7 +41,6 @@ import {
   useUpdateHabitat,
   useDeleteHabitat,
 } from '@/hooks/queries/use-habitat-hooks'
-import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { useSavedFindings } from '@/hooks/queries/use-finding-hooks'
 import {
   HabitatForm,
@@ -84,7 +82,6 @@ interface HabitatMappingStepProps {
   project: Project
   workflowStep: WorkflowStep
   userId: string
-  onComplete?: () => void
 }
 
 const CONDITION_LABELS: Record<string, { label: string; color: string }> = {
@@ -97,9 +94,8 @@ const CONDITION_LABELS: Record<string, { label: string; color: string }> = {
 
 export function HabitatMappingStep({
   project,
-  workflowStep,
+  workflowStep: _workflowStep,
   userId: _userId,
-  onComplete,
 }: HabitatMappingStepProps) {
   const { toast } = useToast()
   const [selectedSite, setSelectedSite] = React.useState<ProjectSiteWithGeoJSON | null>(null)
@@ -155,9 +151,50 @@ export function HabitatMappingStep({
   const createHabitat = useCreateHabitat()
   const updateHabitat = useUpdateHabitat()
   const deleteHabitat = useDeleteHabitat()
-  const completeStep = useCompleteWorkflowStep()
 
   const findingsByType = React.useMemo(() => groupFindingsByType(savedFindings), [savedFindings])
+
+  // D2.3: Auto-pull habitat findings from data gathering into habitat_polygons
+  // Runs when data is ready — existingKeys prevents duplicates, isPulling prevents concurrent runs
+  const isPulling = React.useRef(false)
+  React.useEffect(() => {
+    if (isPulling.current || isLoading || findingsLoading) return
+
+    const habitatFindings = savedFindings.filter((f) => {
+      if (f.data_type !== 'habitat') return false
+      const raw = f.raw_data as Record<string, unknown> | null
+      return raw?.habitatFinding === true && raw?.fossittCode
+    })
+    if (habitatFindings.length === 0) return
+
+    // Check which FOSSITT code + site_id combos already exist as habitat_polygons
+    const existingKeys = new Set(habitats.map((h) => `${h.fossitt_code}::${h.site_id ?? ''}`))
+
+    const newFindings = habitatFindings.filter((f) => {
+      const raw = f.raw_data as Record<string, unknown>
+      const key = `${raw.fossittCode as string}::${f.site_id ?? ''}`
+      return !existingKeys.has(key)
+    })
+    if (newFindings.length === 0) return
+
+    isPulling.current = true
+    Promise.all(
+      newFindings.map((f) => {
+        const raw = f.raw_data as Record<string, unknown>
+        return createHabitat.mutateAsync({
+          project_id: project.id,
+          site_id: f.site_id ?? null,
+          fossitt_code: raw.fossittCode as string,
+          fossitt_name: raw.fossittName as string,
+          area_hectares: (raw.areaHectares as number) ?? null,
+          notes: `Auto-imported from Data Gathering (NLC)`,
+          include_in_report: true,
+        })
+      })
+    ).finally(() => {
+      isPulling.current = false
+    })
+  }, [isLoading, findingsLoading, savedFindings, habitats, project.id, createHabitat])
 
   // Convert findings to map markers (filtered by visibility toggles)
   const findingMarkers: FindingMarker[] = React.useMemo(() => {
@@ -205,9 +242,15 @@ export function HabitatMappingStep({
     }
   }, [])
 
+  // Filter habitats by selected site
+  const filteredHabitats = React.useMemo(() => {
+    if (!selectedSite) return habitats
+    return habitats.filter((h) => h.site_id === selectedSite.id)
+  }, [habitats, selectedSite])
+
   // Convert saved habitats to map overlay format
   const habitatPolygonOverlays: HabitatPolygonOverlay[] = React.useMemo(() => {
-    return habitats
+    return filteredHabitats
       .filter((h) => h.boundary != null)
       .map((h) => {
         const fossittInfo = getHabitatByCode(h.fossitt_code)
@@ -220,7 +263,7 @@ export function HabitatMappingStep({
           color: fossittInfo?.color,
         }
       })
-  }, [habitats])
+  }, [filteredHabitats])
 
   // Handle clicking a habitat polygon on the map
   const handleHabitatMapClick = React.useCallback(
@@ -253,6 +296,7 @@ export function HabitatMappingStep({
     try {
       await createHabitat.mutateAsync({
         project_id: project.id,
+        site_id: selectedSite?.id ?? null,
         fossitt_code: data.fossittCode!,
         fossitt_name: fossittInfo?.name || data.fossittCode!,
         boundary: drawnBoundary ? (drawnBoundary.geometry as unknown as Json) : null,
@@ -367,41 +411,6 @@ export function HabitatMappingStep({
     }
   }
 
-  // Complete workflow step
-  const handleComplete = async () => {
-    if (habitats.length === 0) {
-      toast({
-        variant: 'destructive',
-        title: 'Cannot complete step',
-        description: 'Please map at least one habitat polygon before completing this step.',
-      })
-      return
-    }
-
-    try {
-      await completeStep.mutateAsync({
-        projectId: project.id,
-        stepNumber: workflowStep.step_number,
-      })
-
-      toast({
-        title: 'Step completed',
-        description: 'Habitat Mapping step has been completed. Moving to Target Notes.',
-      })
-
-      onComplete?.()
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error completing step',
-        description: 'Failed to complete the workflow step.',
-      })
-    }
-  }
-
-  const isComplete = workflowStep.status === 'approved'
-  const canComplete = habitats.length > 0 && !isComplete
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -412,15 +421,12 @@ export function HabitatMappingStep({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header - Compact */}
+      {/* Compact toolbar */}
       <div className="flex items-center justify-between border-b px-6 py-3">
         <div className="flex items-center gap-4">
-          <div>
-            <h2 className="text-lg font-semibold">Step 5: Habitat Mapping</h2>
-            <p className="text-muted-foreground text-sm">
-              Draw polygons on the map, then select Fossitt code and condition
-            </p>
-          </div>
+          <p className="text-muted-foreground text-sm">
+            Draw polygons on the map, then select Fossitt code and condition
+          </p>
           <SiteSelector
             projectId={project.id}
             stepKey="habitat-mapping"
@@ -434,7 +440,7 @@ export function HabitatMappingStep({
               <div className="text-muted-foreground text-xs">Findings</div>
             </div>
             <div className="text-center">
-              <div className="text-lg font-bold">{habitats.length}</div>
+              <div className="text-lg font-bold">{filteredHabitats.length}</div>
               <div className="text-muted-foreground text-xs">Habitats</div>
             </div>
             <div className="text-center">
@@ -444,35 +450,6 @@ export function HabitatMappingStep({
               <div className="text-muted-foreground text-xs">Total Area</div>
             </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge
-            variant={
-              isComplete
-                ? 'default'
-                : workflowStep.status === 'in_progress'
-                  ? 'secondary'
-                  : 'outline'
-            }
-          >
-            {isComplete
-              ? 'Completed'
-              : workflowStep.status === 'in_progress'
-                ? 'In Progress'
-                : 'Pending'}
-          </Badge>
-          <Button
-            onClick={handleComplete}
-            disabled={!canComplete || completeStep.isPending}
-            size="sm"
-          >
-            {completeStep.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Check className="mr-2 h-4 w-4" />
-            )}
-            Complete Step
-          </Button>
         </div>
       </div>
 
@@ -495,7 +472,7 @@ export function HabitatMappingStep({
             <div className="flex items-center gap-2 px-3 pt-3">
               <TabsList className="grid w-auto shrink-0 grid-cols-2">
                 <TabsTrigger value="habitats" className="text-xs">
-                  Habitats ({habitats.length})
+                  Habitats ({filteredHabitats.length})
                 </TabsTrigger>
                 <TabsTrigger value="findings" className="text-xs">
                   Desk Research ({savedFindings.length})
@@ -525,7 +502,7 @@ export function HabitatMappingStep({
                 )}
               >
                 <CardContent className="h-full p-3">
-                  {habitats.length === 0 ? (
+                  {filteredHabitats.length === 0 ? (
                     <div className="text-muted-foreground flex h-full items-center justify-center text-center text-sm">
                       No habitats mapped yet. Click &quot;Add Habitat&quot; or draw a polygon on the
                       map below.
@@ -533,7 +510,7 @@ export function HabitatMappingStep({
                   ) : (
                     <ScrollArea className="h-full">
                       <div className="space-y-2 pr-3">
-                        {habitats.map((habitat) => (
+                        {filteredHabitats.map((habitat) => (
                           <HabitatListItem
                             key={habitat.id}
                             habitat={habitat}

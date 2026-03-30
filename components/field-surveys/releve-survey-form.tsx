@@ -1,5 +1,6 @@
 'use client'
 
+import * as React from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, Mail } from 'lucide-react'
@@ -9,7 +10,8 @@ import { Button } from '@/components/ui/button'
 import { Form } from '@/components/ui/form'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { useUpsertReleveSurvey } from '@/hooks/queries/use-releve-hooks'
+import { useUpsertReleveSurvey, useReleveSurveys } from '@/hooks/queries/use-releve-hooks'
+import { useRole } from '@/contexts/role-context'
 import type { ReleveSurveyRow, ReleveSpeciesRow } from '@/lib/supabase/queries/releve-surveys'
 
 import {
@@ -69,19 +71,28 @@ export function ReleveSurveyForm({
 }: ReleveSurveyFormProps) {
   const { toast } = useToast()
   const upsertReleve = useUpsertReleveSurvey()
+  const { user } = useRole()
+  const { data: existingReleves = [] } = useReleveSurveys(projectId)
 
   const existing = existingData?.survey
   const existingSpecies = existingData?.species ?? []
   const existingCustom = parseCustomFields(existing?.custom_fields as Record<string, unknown>)
 
+  // Auto-generate next releve code (REL 101, REL 102, ...)
+  const nextReleveCode = React.useMemo(() => {
+    if (existing?.releve_code) return existing.releve_code
+    const nextNumber = 101 + existingReleves.length
+    return `REL ${nextNumber}`
+  }, [existing?.releve_code, existingReleves.length])
+
   const form = useForm<ReleveFormValues>({
     resolver: zodResolver(releveFormSchema),
     defaultValues: {
-      site_name: existing?.site_name ?? '',
+      site_name: existing?.site_name ?? projectName ?? '',
       survey_date: existing?.survey_date ?? format(new Date(), 'yyyy-MM-dd'),
-      releve_code: existing?.releve_code ?? '',
+      releve_code: existing?.releve_code ?? nextReleveCode,
       releve_area_sqm: fromNum(existing?.releve_area_sqm),
-      recorder: existing?.recorder ?? '',
+      recorder: existing?.recorder ?? user?.full_name ?? '',
       survey_x_coord: fromNum(existing?.survey_x_coord),
       survey_y_coord: fromNum(existing?.survey_y_coord),
       accuracy_m: fromNum(existing?.accuracy_m),

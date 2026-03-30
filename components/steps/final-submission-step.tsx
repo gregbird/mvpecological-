@@ -309,7 +309,7 @@ export function FinalSubmissionStep({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Step 10: Final Submission</h2>
+          <h2 className="text-2xl font-bold">Step 8: Final Submission</h2>
           <p className="text-muted-foreground">Export and finalize the project report</p>
         </div>
         <Badge

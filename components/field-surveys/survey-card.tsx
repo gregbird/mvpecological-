@@ -8,9 +8,7 @@ import {
   Eye,
   Pencil,
   Trash2,
-  Play,
   CheckCircle2,
-  ShieldCheck,
   Users,
   MoreHorizontal,
   Plus,
@@ -30,7 +28,7 @@ import {
 import { cn } from '@/lib/utils'
 import { FIELD_SURVEY_TYPE_LABELS } from '@/lib/config/survey'
 
-export type SurveyStatus = 'planned' | 'in_progress' | 'completed' | 'approved'
+export type SurveyStatus = 'in_progress' | 'completed'
 export type SurveyType =
   | 'walkover'
   | 'habitat_mapping'
@@ -77,6 +75,7 @@ export interface Survey {
   }
   observationCount?: number
   habitatCount?: number
+  siteId?: string | null
   visitGroupId?: string | null
   visitNumber?: number | null
   totalVisitsInGroup?: number
@@ -87,15 +86,11 @@ interface SurveyCardProps {
   onView?: (survey: Survey) => void
   onEdit?: (survey: Survey) => void
   onDelete?: (survey: Survey) => void
-  onStart?: (survey: Survey) => void
   onComplete?: (survey: Survey) => void
-  onApprove?: (survey: Survey) => void
   onAssignStaff?: (survey: Survey) => void
   /** Add a visit — shown in dropdown for standalone surveys */
   onAddVisit?: (survey: Survey) => void
   isHighlighted?: boolean
-  /** When true, the approve button is disabled (not all group visits completed) */
-  groupApproveDisabled?: boolean
 }
 
 const STATUS_STYLES: Record<
@@ -106,7 +101,6 @@ const STATUS_STYLES: Record<
     className?: string
   }
 > = {
-  planned: { label: 'Planned', variant: 'outline' },
   in_progress: {
     label: 'In Progress',
     variant: 'default',
@@ -115,9 +109,8 @@ const STATUS_STYLES: Record<
   completed: {
     label: 'Completed',
     variant: 'default',
-    className: 'bg-amber-500 hover:bg-amber-600 text-white',
+    className: 'bg-green-600 hover:bg-green-700',
   },
-  approved: { label: 'Approved', variant: 'default', className: 'bg-green-600 hover:bg-green-700' },
 }
 
 export function SurveyCard({
@@ -125,15 +118,12 @@ export function SurveyCard({
   onView,
   onEdit,
   onDelete,
-  onStart,
   onComplete,
-  onApprove,
   onAssignStaff,
   onAddVisit,
   isHighlighted,
-  groupApproveDisabled,
 }: SurveyCardProps) {
-  const statusStyle = STATUS_STYLES[survey.status]
+  const statusStyle = STATUS_STYLES[survey.status] ?? STATUS_STYLES.in_progress
   const surveyTypeLabel = FIELD_SURVEY_TYPE_LABELS[survey.surveyType]
 
   const formatDate = (dateString: string) => {
@@ -149,7 +139,7 @@ export function SurveyCard({
   return (
     <Card
       className={cn(
-        survey.status === 'approved' && 'border-green-500/50',
+        survey.status === 'completed' && 'border-green-500/50',
         isHighlighted && 'ring-primary animate-pulse ring-2'
       )}
     >
@@ -231,16 +221,6 @@ export function SurveyCard({
 
       <CardFooter className="flex-col gap-2 pt-0">
         {/* Status transition button */}
-        {survey.status === 'planned' && onStart && (
-          <Button
-            size="sm"
-            className="w-full bg-blue-600 hover:bg-blue-700"
-            onClick={() => onStart(survey)}
-          >
-            <Play className="mr-1.5 h-3.5 w-3.5" />
-            Start Survey
-          </Button>
-        )}
         {survey.status === 'in_progress' && onComplete && (
           <Button
             size="sm"
@@ -251,21 +231,6 @@ export function SurveyCard({
             Complete Survey
           </Button>
         )}
-        {survey.status === 'completed' && onApprove && (
-          <Button
-            size="sm"
-            className="w-full bg-green-600 hover:bg-green-700"
-            onClick={() => onApprove(survey)}
-            disabled={groupApproveDisabled}
-            title={
-              groupApproveDisabled ? 'All visits must be completed before approving' : undefined
-            }
-          >
-            <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
-            Approve
-          </Button>
-        )}
-
         {/* View + overflow menu */}
         <div className="flex w-full items-center gap-1.5">
           {onView && (
@@ -281,13 +246,13 @@ export function SurveyCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {onEdit && survey.status !== 'approved' && (
+              {onEdit && survey.status !== 'completed' && (
                 <DropdownMenuItem onClick={() => onEdit(survey)}>
                   <Pencil className="mr-2 h-3.5 w-3.5" />
                   Edit
                 </DropdownMenuItem>
               )}
-              {onAddVisit && survey.status !== 'approved' && (
+              {onAddVisit && survey.status !== 'completed' && (
                 <DropdownMenuItem onClick={() => onAddVisit(survey)}>
                   <Plus className="mr-2 h-3.5 w-3.5" />
                   Add Visit
@@ -299,7 +264,7 @@ export function SurveyCard({
                   Assign Staff
                 </DropdownMenuItem>
               )}
-              {onDelete && survey.status !== 'approved' && (
+              {onDelete && survey.status !== 'completed' && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem

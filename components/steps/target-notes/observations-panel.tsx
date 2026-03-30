@@ -76,7 +76,7 @@ export function ObservationsPanel({
         <Alert variant="destructive" className="mb-4">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>No Surveys Available</AlertTitle>
-          <AlertDescription>Please complete Step 4 (Field Survey Planning) first.</AlertDescription>
+          <AlertDescription>Please complete Step 4 (Field Research) first.</AlertDescription>
         </Alert>
       ) : null}
 

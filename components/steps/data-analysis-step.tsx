@@ -118,7 +118,7 @@ export function DataAnalysisStep({
       <div className="shrink-0 px-1">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold">Step 7: Data Analysis</h2>
+            <h2 className="text-2xl font-bold">Step 5: Data Analysis</h2>
             <p className="text-muted-foreground">
               Review and analyze all project data across phases
             </p>

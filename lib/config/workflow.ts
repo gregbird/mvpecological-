@@ -3,7 +3,6 @@ import {
   Search,
   FileCheck,
   Clipboard,
-  Target,
   BarChart3,
   Sparkles,
   CheckCircle,
@@ -61,21 +60,9 @@ export const WORKFLOW_PHASES: WorkflowPhase[] = [
     steps: [
       {
         number: 4,
-        label: 'Field Survey',
+        label: 'Field Research',
         icon: Clipboard,
-        description: 'Plan and conduct field survey',
-      },
-      {
-        number: 5,
-        label: 'Habitat Mapping',
-        icon: Map,
-        description: 'Map habitats using Fossitt classification codes',
-      },
-      {
-        number: 6,
-        label: 'Target Notes',
-        icon: Target,
-        description: 'Add target notes and species observations',
+        description: 'Field surveys, habitat mapping and target notes',
       },
     ],
   },
@@ -86,25 +73,25 @@ export const WORKFLOW_PHASES: WorkflowPhase[] = [
     color: 'purple',
     steps: [
       {
-        number: 7,
+        number: 5,
         label: 'Data Analysis',
         icon: BarChart3,
         description: 'Analyse and visualize collected data',
       },
       {
-        number: 8,
+        number: 6,
         label: 'AI Draft',
         icon: Sparkles,
         description: 'Generate AI-assisted report draft',
       },
       {
-        number: 9,
+        number: 7,
         label: 'Quality Review',
         icon: CheckCircle,
         description: 'Review and quality check report',
       },
       {
-        number: 10,
+        number: 8,
         label: 'Final Submission',
         icon: Send,
         description: 'Submit final report',
@@ -166,7 +153,7 @@ export function getPhaseColorClasses(phaseId: string): {
 }
 
 // Total steps count
-export const TOTAL_STEPS = 10
+export const TOTAL_STEPS = 8
 
 /**
  * Step dependency map — when a step is edited after approval,
@@ -176,13 +163,11 @@ export const STEP_DEPENDENCIES: Record<number, number[]> = {
   1: [2, 3], // GIS boundary → Data Gathering, Desk Assessment
   2: [3], // Findings → Desk Assessment
   3: [], // Desk Assessment has no direct downstream
-  4: [5, 6], // Surveys → Habitat Mapping, Target Notes
-  5: [7], // Habitats → Data Analysis
-  6: [7], // Target Notes → Data Analysis
-  7: [8], // Analysis → AI Draft
-  8: [9], // Draft → Quality Review
-  9: [10], // Review → Final Submission
-  10: [], // Final step has no downstream
+  4: [5], // Field Research → Data Analysis
+  5: [6], // Data Analysis → AI Draft
+  6: [7], // AI Draft → Quality Review
+  7: [8], // Quality Review → Final Submission
+  8: [], // Final step has no downstream
 }
 
 /**
@@ -191,12 +176,12 @@ export const STEP_DEPENDENCIES: Record<number, number[]> = {
  * Steps not listed are locked (hidden/disabled) for that role.
  */
 export const ROLE_STEP_ACCESS: Record<string, number[]> = {
-  admin: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-  project_manager: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-  ecologist: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-  assessor: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], // deprecated, maps to ecologist
-  junior: [2, 4, 5, 6], // Data Gathering + Field Research steps
-  third_party: [4, 5, 6], // Field Research steps only
+  admin: [1, 2, 3, 4, 5, 6, 7, 8],
+  project_manager: [1, 2, 3, 4, 5, 6, 7, 8],
+  ecologist: [1, 2, 3, 4, 5, 6, 7, 8],
+  assessor: [1, 2, 3, 4, 5, 6, 7, 8], // deprecated, maps to ecologist
+  junior: [2, 4], // Data Gathering + Field Research
+  third_party: [4], // Field Research only
   client: [], // No step access (read-only project view)
 }
 

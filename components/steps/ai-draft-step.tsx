@@ -461,7 +461,7 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
       {/* Header */}
       <div className="flex items-center justify-between px-1 pb-3">
         <div>
-          <h2 className="text-2xl font-bold">Step 8: AI Draft Generation</h2>
+          <h2 className="text-2xl font-bold">Step 6: AI Draft Generation</h2>
           <p className="text-muted-foreground">
             Generate AI-assisted report draft based on collected data
           </p>

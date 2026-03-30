@@ -11,9 +11,7 @@ import {
   GISMappingStep,
   DataGatheringStep,
   DeskAssessmentStep,
-  FieldSurveyStep,
-  HabitatMappingStep,
-  TargetNotesStep,
+  FieldResearchStep,
   DataAnalysisStep,
   AIDraftStep,
   QualityReviewStep,
@@ -117,18 +115,14 @@ export default function ProjectDetailPage() {
       case 3:
         return <DeskAssessmentStep {...stepProps} />
       case 4:
-        return <FieldSurveyStep {...stepProps} />
+        return <FieldResearchStep {...stepProps} />
       case 5:
-        return <HabitatMappingStep {...stepProps} />
-      case 6:
-        return <TargetNotesStep {...stepProps} />
-      case 7:
         return <DataAnalysisStep {...stepProps} />
-      case 8:
+      case 6:
         return <AIDraftStep {...stepProps} />
-      case 9:
+      case 7:
         return <QualityReviewStep {...stepProps} />
-      case 10:
+      case 8:
         return <FinalSubmissionStep {...stepProps} />
       default:
         return (

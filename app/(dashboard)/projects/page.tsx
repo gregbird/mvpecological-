@@ -199,7 +199,7 @@ export default function ProjectsPage() {
           const completedSteps = steps.filter(
             (s) => s.status === 'approved' || s.status === 'needs_review'
           ).length
-          const totalSteps = steps.length || 10
+          const totalSteps = steps.length || 8
 
           // Find current step (first non-completed step or last step)
           const sortedSteps = [...steps].sort((a, b) => a.step_number - b.step_number)
@@ -222,7 +222,7 @@ export default function ProjectsPage() {
 
           return {
             ...project,
-            currentStep: Math.min(currentStepData?.step_number || 1, 10),
+            currentStep: Math.min(currentStepData?.step_number || 1, 8),
             currentStepName: currentStepData?.name || 'GIS Mapping',
             progress:
               totalSteps > 0 ? Math.min(Math.round((completedSteps / totalSteps) * 100), 100) : 0,

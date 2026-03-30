@@ -180,7 +180,7 @@ export function TargetNotesTab({ projectId, project }: TargetNotesTabProps) {
       ) : (
         <Card>
           <CardContent className="text-muted-foreground py-8 text-center text-sm">
-            No target notes recorded yet. Complete Step 6 (Target Notes) first.
+            No target notes recorded yet. Complete Step 4 (Field Research — Target Notes) first.
           </CardContent>
         </Card>
       )}

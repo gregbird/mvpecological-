@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { AlertCircle, CheckCircle2, ShieldCheck, Loader2 } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
 
 import {
   AlertDialog,
@@ -24,7 +24,7 @@ interface SurveyConfirmDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   surveyId: string
-  action: 'complete' | 'approve'
+  action: 'complete'
   onConfirm: () => void
 }
 
@@ -85,17 +85,8 @@ export function SurveyConfirmDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
-            {isComplete ? (
-              <>
-                <AlertCircle className="h-5 w-5 text-amber-500" />
-                Complete Survey?
-              </>
-            ) : (
-              <>
-                <ShieldCheck className="h-5 w-5 text-green-600" />
-                Approve Survey?
-              </>
-            )}
+            <AlertCircle className="h-5 w-5 text-amber-500" />
+            Complete Survey?
           </AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="space-y-3">
@@ -113,18 +104,14 @@ export function SurveyConfirmDialog({
                   </div>
 
                   {/* Warning or info message */}
-                  {!hasData && isComplete ? (
+                  {!hasData ? (
                     <p className="text-sm text-amber-600 dark:text-amber-400">
                       This survey has no observations or photos recorded. Are you sure you want to
                       mark it as complete?
                     </p>
-                  ) : isComplete ? (
-                    <p className="text-sm">
-                      Mark this survey as complete? You can still edit it afterwards.
-                    </p>
                   ) : (
                     <p className="text-sm">
-                      Review the data above and confirm approval. Approved surveys cannot be edited.
+                      Mark this survey as complete? You can still edit it afterwards.
                     </p>
                   )}
                 </>
@@ -137,23 +124,10 @@ export function SurveyConfirmDialog({
           <AlertDialogAction
             onClick={onConfirm}
             disabled={loading}
-            className={
-              isComplete
-                ? 'bg-amber-500 text-white hover:bg-amber-600'
-                : 'bg-green-600 hover:bg-green-700'
-            }
+            className="bg-amber-500 text-white hover:bg-amber-600"
           >
-            {isComplete ? (
-              <>
-                <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                Complete
-              </>
-            ) : (
-              <>
-                <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
-                Approve
-              </>
-            )}
+            <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+            Complete
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

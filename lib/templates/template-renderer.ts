@@ -193,7 +193,7 @@ function buildDeskSourcesSummary(findings: DeskResearchFinding[]): string {
 
 function buildSurveyDetails(surveys: Survey[]): string {
   if (surveys.length === 0) {
-    return '*[No field surveys recorded. Complete Step 4 (Field Survey) to populate this section.]*'
+    return '*[No field surveys recorded. Complete Step 4 (Field Research) to populate this section.]*'
   }
 
   const lines: string[] = []
@@ -277,7 +277,7 @@ function buildDesignatedSitesTable(findings: DeskResearchFinding[]): string {
 
 function buildHabitatTable(habitats: HabitatPolygon[]): string {
   if (habitats.length === 0) {
-    return '*[No habitats mapped. Complete Step 5 (Habitat Mapping) to populate this section.]*'
+    return '*[No habitats mapped. Complete Step 4 (Field Research) to populate this section.]*'
   }
 
   const lines: string[] = [

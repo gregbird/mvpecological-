@@ -150,7 +150,7 @@ export function SurveyForm({
     defaultValues: {
       surveyType: addVisitMode?.surveyType || initialData?.surveyType || 'walkover',
       surveyDate: initialData?.surveyDate ? new Date(initialData.surveyDate) : new Date(),
-      surveyorId: initialData?.surveyor?.id || '',
+      surveyorId: initialData?.surveyor?.id || user?.id || '',
       expectedSurveyCount:
         initialData?.expectedSurveyCount?.toString() ||
         (
@@ -167,7 +167,7 @@ export function SurveyForm({
       form.reset({
         surveyType: addVisitMode?.surveyType || initialData?.surveyType || 'walkover',
         surveyDate: initialData?.surveyDate ? new Date(initialData.surveyDate) : new Date(),
-        surveyorId: initialData?.surveyor?.id || '',
+        surveyorId: initialData?.surveyor?.id || user?.id || '',
         expectedSurveyCount:
           initialData?.expectedSurveyCount?.toString() ||
           (
@@ -329,7 +329,7 @@ export function SurveyForm({
           : undefined,
         weather: weatherData,
         notes: values.notes || undefined,
-        status: initialData?.status || 'planned',
+        status: initialData?.status || 'in_progress',
         visitGroupId: addVisitMode?.visitGroupId,
         visitNumber: addVisitMode?.visitNumber,
       })

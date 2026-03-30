@@ -35,9 +35,7 @@ export function groupSurveysByVisit(surveys: SurveyWithSurveyor[]): {
     // Sort by visit_number
     visits.sort((a, b) => (a.visit_number ?? 0) - (b.visit_number ?? 0))
 
-    const completedVisits = visits.filter(
-      (v) => v.status === 'completed' || v.status === 'approved'
-    ).length
+    const completedVisits = visits.filter((v) => v.status === 'completed').length
 
     groups.push({
       visitGroupId,
@@ -45,7 +43,7 @@ export function groupSurveysByVisit(surveys: SurveyWithSurveyor[]): {
       visits,
       totalVisits: visits.length,
       completedVisits,
-      canComplete: visits.every((v) => v.status === 'completed' || v.status === 'approved'),
+      canComplete: visits.every((v) => v.status === 'completed'),
     })
   }
 
@@ -63,7 +61,7 @@ export function groupSurveysByVisit(surveys: SurveyWithSurveyor[]): {
  * Check if all visits in a group are completed (allowing group approval).
  */
 export function canCompleteSurveyGroup(group: SurveyGroup): boolean {
-  return group.visits.every((v) => v.status === 'completed' || v.status === 'approved')
+  return group.visits.every((v) => v.status === 'completed')
 }
 
 /**

@@ -36,7 +36,7 @@ import type { Survey } from '@/types/database'
 
 const schema = z.object({
   notes: z.string().nullable(),
-  status: z.enum(['planned', 'in_progress', 'completed', 'approved']),
+  status: z.enum(['in_progress', 'completed']),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -52,7 +52,7 @@ export function SurveyEditDialog({ survey, onOpenChange }: SurveyEditDialogProps
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { notes: null, status: 'planned' },
+    defaultValues: { notes: null, status: 'in_progress' },
   })
 
   useEffect(() => {
@@ -102,10 +102,8 @@ export function SurveyEditDialog({ survey, onOpenChange }: SurveyEditDialogProps
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="planned">Planned</SelectItem>
                       <SelectItem value="in_progress">In Progress</SelectItem>
                       <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="approved">Approved</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />

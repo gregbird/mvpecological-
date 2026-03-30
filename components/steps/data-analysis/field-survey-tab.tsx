@@ -16,9 +16,7 @@ interface FieldSurveyTabProps {
 
 const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
   completed: 'default',
-  approved: 'default',
   in_progress: 'secondary',
-  planned: 'outline',
 }
 
 export function FieldSurveyTab({ projectId }: FieldSurveyTabProps) {
@@ -123,7 +121,7 @@ export function FieldSurveyTab({ projectId }: FieldSurveyTabProps) {
       ) : (
         <Card>
           <CardContent className="text-muted-foreground py-8 text-center text-sm">
-            No surveys recorded yet. Complete Step 4 (Field Survey) first.
+            No surveys recorded yet. Complete Step 4 (Field Research) first.
           </CardContent>
         </Card>
       )}

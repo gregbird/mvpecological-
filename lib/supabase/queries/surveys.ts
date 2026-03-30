@@ -112,10 +112,8 @@ export async function updateSurveyStatus(
 // Get survey counts by status
 export async function getSurveyStats(projectId: string): Promise<{
   total: number
-  planned: number
   in_progress: number
   completed: number
-  approved: number
 }> {
   const supabase = createClient()
   const { data, error } = await supabase
@@ -125,16 +123,14 @@ export async function getSurveyStats(projectId: string): Promise<{
 
   if (error) {
     console.error('Error fetching survey stats:', error)
-    return { total: 0, planned: 0, in_progress: 0, completed: 0, approved: 0 }
+    return { total: 0, in_progress: 0, completed: 0 }
   }
 
   const surveys = (data ?? []) as Array<{ status: string }>
   return {
     total: surveys.length,
-    planned: surveys.filter((s) => s.status === 'planned').length,
     in_progress: surveys.filter((s) => s.status === 'in_progress').length,
     completed: surveys.filter((s) => s.status === 'completed').length,
-    approved: surveys.filter((s) => s.status === 'approved').length,
   }
 }
 

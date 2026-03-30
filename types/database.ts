@@ -3164,7 +3164,7 @@ export type Database = {
       project_phase: 'desk_research' | 'field_research' | 'reporting'
       project_status: 'draft' | 'active' | 'completed' | 'archived'
       report_status: 'draft' | 'internal_review' | 'client_review' | 'approved' | 'final'
-      survey_status: 'planned' | 'in_progress' | 'completed' | 'approved'
+      survey_status: 'in_progress' | 'completed'
       sync_status: 'synced' | 'pending' | 'conflict'
       user_role:
         | 'admin'
@@ -3325,7 +3325,7 @@ export const Constants = {
       project_phase: ['desk_research', 'field_research', 'reporting'],
       project_status: ['draft', 'active', 'completed', 'archived'],
       report_status: ['draft', 'internal_review', 'client_review', 'approved', 'final'],
-      survey_status: ['planned', 'in_progress', 'completed', 'approved'],
+      survey_status: ['in_progress', 'completed'],
       sync_status: ['synced', 'pending', 'conflict'],
       user_role: [
         'admin',

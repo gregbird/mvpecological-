@@ -9,13 +9,11 @@ export const DEFAULT_WORKFLOW_STEPS = [
   { step_number: 1, name: 'GIS Mapping', phase: 'desk_research' as const },
   { step_number: 2, name: 'Data Gathering', phase: 'desk_research' as const },
   { step_number: 3, name: 'Desk Assessment', phase: 'desk_research' as const },
-  { step_number: 4, name: 'Field Survey', phase: 'field_research' as const },
-  { step_number: 5, name: 'Habitat Mapping', phase: 'field_research' as const },
-  { step_number: 6, name: 'Target Notes', phase: 'field_research' as const },
-  { step_number: 7, name: 'Data Analysis', phase: 'reporting' as const },
-  { step_number: 8, name: 'AI Draft', phase: 'reporting' as const },
-  { step_number: 9, name: 'Quality Review', phase: 'reporting' as const },
-  { step_number: 10, name: 'Final Submission', phase: 'reporting' as const },
+  { step_number: 4, name: 'Field Research', phase: 'field_research' as const },
+  { step_number: 5, name: 'Data Analysis', phase: 'reporting' as const },
+  { step_number: 6, name: 'AI Draft', phase: 'reporting' as const },
+  { step_number: 7, name: 'Quality Review', phase: 'reporting' as const },
+  { step_number: 8, name: 'Final Submission', phase: 'reporting' as const },
 ]
 
 // Get workflow steps for project
@@ -130,7 +128,7 @@ export async function completeWorkflowStep(
 
   // If not the last step, activate next step
   let nextStep: WorkflowStep | null = null
-  if (stepNumber < 10) {
+  if (stepNumber < 8) {
     const { data, error: nextError } = await supabase
       .from('workflow_steps')
       .update({
@@ -267,7 +265,7 @@ export function getCurrentStep(steps: WorkflowStep[]): number {
     .sort((a, b) => b.step_number - a.step_number)[0]
 
   if (lastApprovedStep) {
-    return Math.min(lastApprovedStep.step_number + 1, 10)
+    return Math.min(lastApprovedStep.step_number + 1, 8)
   }
 
   return 1

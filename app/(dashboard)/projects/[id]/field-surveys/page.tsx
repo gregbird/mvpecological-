@@ -54,7 +54,7 @@ const mockSurveys: Survey[] = [
     surveyDate: '2024-03-15',
     startTime: '09:00',
     endTime: '16:30',
-    status: 'approved',
+    status: 'completed',
     surveyor: { id: '1', name: "Dr. Sarah O'Brien" },
     weather: {
       temperature: 12,
@@ -110,7 +110,7 @@ const mockSurveys: Survey[] = [
     id: '4',
     surveyType: 'bat_survey',
     surveyDate: '2024-05-20',
-    status: 'planned',
+    status: 'in_progress',
     surveyor: { id: '3', name: 'Emma Kelly' },
     notes: 'Dusk bat activity survey at identified roost locations.',
     observationCount: 0,
@@ -144,10 +144,8 @@ export default function FieldSurveysPage() {
   const surveyStats = React.useMemo(() => {
     const stats = {
       total: surveys.length,
-      planned: surveys.filter((s) => s.status === 'planned').length,
       in_progress: surveys.filter((s) => s.status === 'in_progress').length,
       completed: surveys.filter((s) => s.status === 'completed').length,
-      approved: surveys.filter((s) => s.status === 'approved').length,
       totalObservations: surveys.reduce((acc, s) => acc + (s.observationCount || 0), 0),
       totalHabitats: surveys.reduce((acc, s) => acc + (s.habitatCount || 0), 0),
     }
@@ -158,7 +156,7 @@ export default function FieldSurveysPage() {
     const newSurvey: Survey = {
       ...data,
       id: `${Date.now()}`,
-      status: 'planned',
+      status: 'in_progress',
       observationCount: 0,
       habitatCount: 0,
     } as Survey
@@ -183,16 +181,6 @@ export default function FieldSurveysPage() {
     toast({
       title: 'Survey deleted',
       description: 'The survey has been removed.',
-    })
-  }
-
-  const handleApproveSurvey = (survey: Survey) => {
-    setSurveys((prev) =>
-      prev.map((s) => (s.id === survey.id ? { ...s, status: 'approved' as SurveyStatus } : s))
-    )
-    toast({
-      title: 'Survey approved',
-      description: 'The survey has been approved and locked.',
     })
   }
 
@@ -253,8 +241,8 @@ export default function FieldSurveysPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <p className="text-2xl font-bold text-yellow-600">{surveyStats.planned}</p>
-              <p className="text-muted-foreground text-sm">Planned</p>
+              <p className="text-2xl font-bold text-blue-600">{surveyStats.in_progress}</p>
+              <p className="text-muted-foreground text-sm">In Progress</p>
             </div>
           </CardContent>
         </Card>
@@ -263,14 +251,6 @@ export default function FieldSurveysPage() {
             <div className="text-center">
               <p className="text-2xl font-bold text-blue-600">{surveyStats.completed}</p>
               <p className="text-muted-foreground text-sm">Completed</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-green-600">{surveyStats.approved}</p>
-              <p className="text-muted-foreground text-sm">Approved</p>
             </div>
           </CardContent>
         </Card>
@@ -303,10 +283,8 @@ export default function FieldSurveysPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="planned">Planned</SelectItem>
                     <SelectItem value="in_progress">In Progress</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -359,7 +337,6 @@ export default function FieldSurveysPage() {
                       }}
                       onEdit={handleEditSurvey}
                       onDelete={handleDeleteSurvey}
-                      onApprove={handleApproveSurvey}
                     />
                   ))}
                 </div>
