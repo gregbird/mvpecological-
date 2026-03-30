@@ -37,6 +37,7 @@ import { useHabitats, useHabitatStats, useUpdateHabitat } from '@/hooks/queries/
 import { useSavedFindings } from '@/hooks/queries/use-finding-hooks'
 import { HabitatEditDialog } from '@/components/steps/data-analysis/habitat-edit-dialog'
 import { getHabitatByCode } from '@/lib/data/fossitt-codes'
+import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
 import type { HabitatPolygon, Project } from '@/types/database'
 
 const DynamicProjectMap = dynamic(
@@ -112,13 +113,7 @@ export function HabitatTab({ projectId, siteCode, project }: HabitatTabProps) {
     }))
   }, [habitatStats])
 
-  const projectBoundary = project.boundary as GeoJSON.Feature<GeoJSON.Polygon> | undefined
-  const projectCenter = project.center_point
-    ? {
-        lat: (project.center_point as GeoJSON.Point).coordinates[1],
-        lng: (project.center_point as GeoJSON.Point).coordinates[0],
-      }
-    : undefined
+  const { projectBoundary, projectCenter } = useProjectBoundary(project)
 
   // Combine field-verified habitats + desk research habitat polygons for map
   const habitatFeatureCollection: GeoJSON.FeatureCollection = React.useMemo(() => {

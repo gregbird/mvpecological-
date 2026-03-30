@@ -12,17 +12,20 @@ import type { Project } from '@/types/database'
 
 interface ProjectInfoSubStepProps {
   project: Project
+  projectBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
   bufferDistances: number[]
   savedFindingsCount: number
 }
 
 export function ProjectInfoSubStep({
   project,
+  projectBoundary,
   bufferDistances,
   savedFindingsCount,
 }: ProjectInfoSubStepProps) {
-  const hasBoundary = !!project.boundary
-  const boundary = project.boundary as GeoJSON.Feature<GeoJSON.Polygon> | undefined
+  const boundary =
+    projectBoundary ?? (project.boundary as GeoJSON.Feature<GeoJSON.Polygon> | undefined)
+  const hasBoundary = !!boundary
 
   // Calculate area and perimeter from boundary (same as GIS mapping step)
   const boundaryStats = React.useMemo(() => {

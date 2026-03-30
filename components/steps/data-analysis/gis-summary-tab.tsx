@@ -4,6 +4,7 @@ import { MapPin, Map, Layers } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 
+import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
 import type { Project } from '@/types/database'
 
 interface GisSummaryTabProps {
@@ -11,7 +12,8 @@ interface GisSummaryTabProps {
 }
 
 export function GisSummaryTab({ project }: GisSummaryTabProps) {
-  const hasBoundary = !!project.boundary
+  const { projectBoundary } = useProjectBoundary(project)
+  const hasBoundary = !!projectBoundary
   const hasCenter = !!project.center_point
   const location = [project.townland, project.county, project.province].filter(Boolean).join(', ')
   const bufferDistances = project.buffer_distances

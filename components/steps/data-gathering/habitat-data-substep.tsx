@@ -50,7 +50,7 @@ import {
 import { useUpdateWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import type { Project, DeskResearchFinding, WorkflowStep, Json } from '@/types/database'
 
-/** Narrow cast for Supabase Json columns — avoids `as Json` double casts */
+/** Single-step cast for Supabase Json columns — avoids double casts per CLAUDE.md rules */
 function toJson(value: Record<string, unknown> | GeoJSON.Geometry | null): Json {
   return value as Json
 }
@@ -72,6 +72,8 @@ interface HabitatDataSubStepProps {
   projectBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
   projectCenter?: { lat: number; lng: number }
   bufferDistances: number[]
+  /** Active site ID for site-scoped caching and saving */
+  siteId?: string | null
   showMap: boolean
   onToggleMap: () => void
   isActive?: boolean
@@ -97,6 +99,7 @@ export function HabitatDataSubStep({
   projectBoundary,
   projectCenter,
   bufferDistances,
+  siteId,
   showMap,
   onToggleMap,
   isActive,
@@ -110,7 +113,8 @@ export function HabitatDataSubStep({
   const createFinding = useCreateFinding()
   const deleteFinding = useDeleteFinding()
   const updateFinding = useUpdateFinding()
-  const cacheKey = `nlc-habitat-${project.id}`
+  const siteSuffix = siteId ? `-${siteId}` : ''
+  const cacheKey = `nlc-habitat-${project.id}${siteSuffix}`
 
   const [isSearching, setIsSearching] = React.useState(false)
   const [results, setResults] = useSessionStorage<HabitatResult[]>(cacheKey, [])
@@ -153,6 +157,10 @@ export function HabitatDataSubStep({
   projectBoundaryRef.current = projectBoundary
   const selectedBufferRef = React.useRef(selectedBuffer)
   selectedBufferRef.current = selectedBuffer
+  const createFindingRef = React.useRef(createFinding)
+  createFindingRef.current = createFinding
+  const toastRef = React.useRef(toast)
+  toastRef.current = toast
 
   // Style polygons for map highlight — 3-field fallback matching
   const styledPolygons = React.useMemo((): GeoJSON.FeatureCollection | undefined => {
@@ -346,8 +354,9 @@ export function HabitatDataSubStep({
           currentBoundary ?? undefined
         )
         try {
-          await createFinding.mutateAsync({
+          await createFindingRef.current.mutateAsync({
             project_id: project.id,
+            site_id: siteId ?? null,
             created_by: userId,
             source: 'manual' as const,
             data_type: 'habitat' as const,
@@ -383,12 +392,15 @@ export function HabitatDataSubStep({
           failed.length > 0
             ? `${count} saved, ${failed.length} failed (${failed.join(', ')})`
             : `${count} habitat${count > 1 ? 's' : ''} automatically saved to findings.`
-        toast({ title: 'Habitats auto-saved', description: desc })
+        toastRef.current({ title: 'Habitats auto-saved', description: desc })
       }
       setIsSavingAll(false)
     }
 
     saveSequentially()
+    // Deps intentionally limited — refs provide latest values for captured closures.
+    // Adding createFinding/toast/project.id would cause infinite re-runs since mutation
+    // hooks return new references on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [results, habitatPolygons, isSearching])
 
@@ -486,7 +498,7 @@ export function HabitatDataSubStep({
             findingId: existing.id,
             updates: {
               content: data.summary,
-              raw_data: { ...existingRaw, aiSummary: data.summary } as Json,
+              raw_data: toJson({ ...existingRaw, aiSummary: data.summary }),
             },
           })
         }
@@ -528,11 +540,11 @@ export function HabitatDataSubStep({
           updateWorkflowStep.mutate({
             stepId: workflowStep.id,
             updates: {
-              metadata: {
+              metadata: toJson({
                 ...existingMeta,
                 habitatOverallAnalysis: data.analysis,
                 habitatOverallAnalysisUpdatedAt: new Date().toISOString(),
-              } as Json,
+              }),
             },
           })
         }
@@ -579,6 +591,7 @@ export function HabitatDataSubStep({
         )
         await createFinding.mutateAsync({
           project_id: project.id,
+          site_id: siteId ?? null,
           created_by: userId,
           source: 'manual' as const,
           data_type: 'habitat' as const,
@@ -589,7 +602,7 @@ export function HabitatDataSubStep({
           notes: notes[r.nlcId] || null,
           location: toJson(geometry),
           distance_from_boundary_km: distKm ?? null,
-          raw_data: {
+          raw_data: toJson({
             habitatFinding: true,
             nlcId: r.nlcId,
             nlcLabel: r.nlcLabel,
@@ -602,7 +615,7 @@ export function HabitatDataSubStep({
             aiSummary: aiSummaries[r.nlcId] || null,
             bufferKm: selectedBuffer,
             distance_from_boundary_km: distKm ?? null,
-          } as Json,
+          }),
         })
         toast({ title: 'Saved', description: `${r.fossittCode} saved to findings.` })
         // Auto-trigger AI summary if not already generated
@@ -635,6 +648,7 @@ export function HabitatDataSubStep({
         const geometry = getHabitatGeometry(r.nlcId)
         await createFinding.mutateAsync({
           project_id: project.id,
+          site_id: siteId ?? null,
           created_by: userId,
           source: 'manual' as const,
           data_type: 'habitat' as const,
@@ -644,7 +658,7 @@ export function HabitatDataSubStep({
           is_saved: true,
           notes: notes[r.nlcId] || null,
           location: toJson(geometry),
-          raw_data: {
+          raw_data: toJson({
             habitatFinding: true,
             nlcId: r.nlcId,
             nlcLabel: r.nlcLabel,
@@ -656,7 +670,7 @@ export function HabitatDataSubStep({
             percentCover: pct,
             aiSummary: aiSummaries[r.nlcId] || null,
             bufferKm: selectedBuffer,
-          } as Json,
+          }),
         })
         savedCount++
         // Trigger AI summary for each
@@ -1054,10 +1068,10 @@ export function HabitatDataSubStep({
               updateFinding.mutate({
                 findingId: existing.id,
                 updates: {
-                  raw_data: {
+                  raw_data: toJson({
                     ...existingRaw,
                     deepResearch: { aiAnalysis: data.aiAnalysis },
-                  } as Json,
+                  }),
                 },
               })
             } else {
@@ -1065,6 +1079,7 @@ export function HabitatDataSubStep({
               const pct = totalArea > 0 ? ((r.areaHectares / totalArea) * 100).toFixed(1) : '0'
               await createFinding.mutateAsync({
                 project_id: project.id,
+                site_id: siteId ?? null,
                 created_by: userId,
                 source: 'manual' as const,
                 data_type: 'habitat' as const,
@@ -1074,7 +1089,7 @@ export function HabitatDataSubStep({
                   aiSummaries[r.nlcId] || `${r.fossittName} (${r.areaHectares} ha, ${pct}% cover)`,
                 is_saved: true,
                 notes: notes[r.nlcId] || null,
-                raw_data: {
+                raw_data: toJson({
                   habitatFinding: true,
                   nlcId: r.nlcId,
                   nlcLabel: r.nlcLabel,
@@ -1087,7 +1102,7 @@ export function HabitatDataSubStep({
                   aiSummary: aiSummaries[r.nlcId] || null,
                   bufferKm: selectedBuffer,
                   deepResearch: { aiAnalysis: data.aiAnalysis },
-                } as Json,
+                }),
               })
             }
             // Auto-trigger short AI summary if not already generated

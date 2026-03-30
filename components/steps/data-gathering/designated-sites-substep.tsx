@@ -24,6 +24,8 @@ interface DesignatedSitesSubStepProps {
   projectBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
   projectCenter?: { lat: number; lng: number }
   bufferDistances: number[]
+  siteId?: string | null
+  otherBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   userId: string
   savedFindings: DeskResearchFinding[]
   showMap: boolean
@@ -251,8 +253,9 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
       minimalMetadataKeys: ['siteCode', 'siteType'],
 
       // Save payload
-      buildCreatePayload: (finding, { projectId, userId: uid }) => ({
+      buildCreatePayload: (finding, { projectId, userId: uid, siteId }) => ({
         project_id: projectId,
+        site_id: siteId ?? null,
         source: 'npws',
         data_type: 'designated_site',
         title: finding.title,

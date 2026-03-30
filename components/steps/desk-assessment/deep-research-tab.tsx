@@ -34,6 +34,7 @@ import type { DeskResearchFinding as MapFinding } from '@/components/desk-resear
 import { getNPWSSiteData } from '@/lib/data/npws-site-lookup'
 import { getArticle17Data, getHabitatsSummary } from '@/lib/data/article17-habitats'
 import { useToast } from '@/hooks/use-toast'
+import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
 import type { Project, DeskResearchFinding as DbFinding } from '@/types/database'
 
 const DynamicProjectMap = dynamic(
@@ -773,8 +774,7 @@ export function DeepResearchTab({ projectId, project, findings }: DeepResearchTa
     currentSite: string
   } | null>(null)
 
-  const boundary = project.boundary as GeoJSON.Feature<GeoJSON.Polygon> | undefined
-  const bufferDistances = (project.buffer_distances as number[] | null) || []
+  const { projectBoundary: boundary, bufferDistances } = useProjectBoundary(project)
   // Only show designated sites that have deep research
   const researchedSiteCodes = React.useMemo(
     () => new Set(researchResults.map((r) => r.site_code)),

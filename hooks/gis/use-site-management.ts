@@ -328,8 +328,12 @@ export function useSiteManagement(project: Project, existingSites: ProjectSiteWi
               }
             })
 
-            setSites((prev) => [...prev, ...newSites])
-            setActiveSiteIndex(sites.length)
+            // Replace empty (boundary-less) sites with the new shapefile sites
+            setSites((prev) => {
+              const withBoundary = prev.filter((s) => s.boundary)
+              return [...withBoundary, ...newSites]
+            })
+            setActiveSiteIndex(0)
           }
 
           return 'upload' as const

@@ -24,6 +24,7 @@ import {
 } from '@/lib/export/baseline-report-exporter'
 import { getAllScreenshots } from '@/lib/map-screenshots/storage'
 import { fetchImageAsBase64 } from '@/lib/export/image-utils'
+import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
 import type { DeskResearchFinding, Project } from '@/types/database'
 
 interface HabitatRow {
@@ -48,7 +49,7 @@ export function BaselineReportTab({ savedFindings, project }: BaselineReportTabP
   const { data: allFindings = [] } = useFindings(project.id)
   const toggleSaved = useToggleFindingSaved()
 
-  const boundary = project.boundary as GeoJSON.Feature<GeoJSON.Polygon> | undefined
+  const { projectBoundary: boundary } = useProjectBoundary(project)
 
   // Lifted habitat state from HabitatInventorySection for use in export
   const [habitatRows, setHabitatRows] = React.useState<HabitatRow[]>([])

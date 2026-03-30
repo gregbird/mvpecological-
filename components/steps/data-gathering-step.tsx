@@ -29,6 +29,7 @@ import { useHabitats } from '@/hooks/queries/use-habitat-hooks'
 import { IRELAND_CENTER } from '@/lib/config/map-constants'
 import { useProjectContext } from '@/contexts/project-context'
 import { SiteSelector } from '@/components/project/site-selector'
+import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
 import type { ProjectSiteWithGeoJSON } from '@/lib/supabase/queries/project-sites'
 import type { Project, WorkflowStep } from '@/types/database'
 
@@ -153,20 +154,22 @@ export function DataGatheringStep({
   // Expanded state for Findings by Type rows
   const [expandedType, setExpandedType] = React.useState<string | null>(null)
 
-  // Site-aware boundary: use selected site's boundary if multi-site, else project boundary
+  // Site-aware boundary via shared hook
   const [selectedSite, setSelectedSite] = React.useState<ProjectSiteWithGeoJSON | null>(null)
-  const projectBoundary = (selectedSite?.boundary ?? project.boundary) as
-    | GeoJSON.Feature<GeoJSON.Polygon>
-    | undefined
-  const projectCenter = (() => {
-    const cp = selectedSite?.center_point ?? (project.center_point as GeoJSON.Point | null)
-    if (!cp) return undefined
-    return { lat: cp.coordinates[1], lng: cp.coordinates[0] }
-  })()
+  const { projectBoundary, projectCenter, bufferDistances, effectiveSiteId, projectSites } =
+    useProjectBoundary(project, selectedSite)
 
-  // Buffer distances: use site-specific if available, else project-level
-  const bufferDistances = (selectedSite?.buffer_distances as number[] | null) ??
-    (project.buffer_distances as number[] | null) ?? [2, 5]
+  // Site-scoped cache key suffix (empty string for single-site / "All Sites" fallback)
+  const siteSuffix = effectiveSiteId ? `-${effectiveSiteId}` : ''
+
+  // Other site boundaries for map overlay (all sites except the active one)
+  const otherBoundaries = React.useMemo(
+    () =>
+      projectSites
+        .filter((s) => s.id !== effectiveSiteId && s.boundary)
+        .map((s) => s.boundary as GeoJSON.Feature<GeoJSON.Polygon>),
+    [projectSites, effectiveSiteId]
+  )
 
   // Compute a simple boundary hash to detect GIS changes
   const boundaryHash = React.useMemo(() => {
@@ -185,16 +188,16 @@ export function DataGatheringStep({
   // Invalidate caches when boundary changes (GIS re-edited)
   React.useEffect(() => {
     if (!boundaryHash) return
-    const hashKey = `boundary-hash-${project.id}`
+    const hashKey = `boundary-hash-${project.id}${siteSuffix}`
     const storedHash = sessionStorage.getItem(hashKey)
 
     if (storedHash && storedHash !== boundaryHash) {
-      // Boundary changed — clear all search caches and auto-search flag
-      sessionStorage.removeItem(`auto-search-triggered-${project.id}`)
-      sessionStorage.removeItem(`npws-search-${project.id}`)
-      sessionStorage.removeItem(`gbif-search-${project.id}`)
-      sessionStorage.removeItem(`epa-search-${project.id}`)
-      sessionStorage.removeItem(`nlc-habitat-${project.id}`)
+      // Boundary changed — clear all search caches and auto-search flag for this site
+      sessionStorage.removeItem(`auto-search-triggered-${project.id}${siteSuffix}`)
+      sessionStorage.removeItem(`npws-search-${project.id}${siteSuffix}`)
+      sessionStorage.removeItem(`gbif-search-${project.id}${siteSuffix}`)
+      sessionStorage.removeItem(`epa-search-${project.id}${siteSuffix}`)
+      sessionStorage.removeItem(`nlc-habitat-${project.id}${siteSuffix}`)
       // Reset auto-search state so it re-triggers
       setAutoSearchStatus({
         triggered: false,
@@ -206,7 +209,22 @@ export function DataGatheringStep({
     }
 
     sessionStorage.setItem(hashKey, boundaryHash)
-  }, [boundaryHash, project.id])
+  }, [boundaryHash, project.id, siteSuffix])
+
+  // Reset auto-search when site selection changes
+  const prevSiteIdRef = React.useRef(effectiveSiteId)
+  React.useEffect(() => {
+    if (prevSiteIdRef.current !== effectiveSiteId) {
+      prevSiteIdRef.current = effectiveSiteId
+      setAutoSearchStatus({
+        triggered: false,
+        sites: 'idle',
+        species: 'idle',
+        aquatic: 'idle',
+        habitats: 'idle',
+      })
+    }
+  }, [effectiveSiteId])
 
   // Auto-search: trigger when boundary exists and no prior auto-search in this session
   React.useEffect(() => {
@@ -215,15 +233,15 @@ export function DataGatheringStep({
     if (isStepCompleted) return
     if (viewMode !== 'wizard') return
 
-    // Check if already triggered this session
-    const autoSearchKey = `auto-search-triggered-${project.id}`
+    // Check if already triggered this session (per site)
+    const autoSearchKey = `auto-search-triggered-${project.id}${siteSuffix}`
     if (sessionStorage.getItem(autoSearchKey)) return
 
-    // Check if all substeps already have cache
-    const hasSitesCache = !!sessionStorage.getItem(`npws-search-${project.id}`)
-    const hasSpeciesCache = !!sessionStorage.getItem(`gbif-search-${project.id}`)
-    const hasAquaticCache = !!sessionStorage.getItem(`epa-search-${project.id}`)
-    const hasHabitatCache = !!sessionStorage.getItem(`nlc-habitat-${project.id}`)
+    // Check if all substeps already have cache (per site)
+    const hasSitesCache = !!sessionStorage.getItem(`npws-search-${project.id}${siteSuffix}`)
+    const hasSpeciesCache = !!sessionStorage.getItem(`gbif-search-${project.id}${siteSuffix}`)
+    const hasAquaticCache = !!sessionStorage.getItem(`epa-search-${project.id}${siteSuffix}`)
+    const hasHabitatCache = !!sessionStorage.getItem(`nlc-habitat-${project.id}${siteSuffix}`)
 
     // If all caches exist, no need to auto-search
     if (hasSitesCache && hasSpeciesCache && hasAquaticCache && hasHabitatCache) return
@@ -238,7 +256,14 @@ export function DataGatheringStep({
       habitats: hasHabitatCache ? 'skipped' : 'searching',
     })
     setShowAutoSearchBanner(true)
-  }, [projectBoundary, project.id, autoSearchStatus.triggered, isStepCompleted, viewMode])
+  }, [
+    projectBoundary,
+    project.id,
+    siteSuffix,
+    autoSearchStatus.triggered,
+    isStepCompleted,
+    viewMode,
+  ])
 
   // Auto-hide banner 5 seconds after all searches complete
   React.useEffect(() => {
@@ -664,6 +689,18 @@ export function DataGatheringStep({
           </div>
         )}
 
+        {/* Site selector in map mode (always visible) */}
+        {isMapMode && (
+          <div className="mb-1 flex justify-end">
+            <SiteSelector
+              projectId={project.id}
+              stepKey="data-gathering"
+              onSiteChange={setSelectedSite}
+              showAllOption
+            />
+          </div>
+        )}
+
         {/* Step indicators */}
         <div
           className={cn(
@@ -812,6 +849,7 @@ export function DataGatheringStep({
         {currentStep === 'info' && (
           <ProjectInfoSubStep
             project={project}
+            projectBoundary={projectBoundary}
             bufferDistances={bufferDistances}
             savedFindingsCount={savedFindings.length}
           />
@@ -830,6 +868,8 @@ export function DataGatheringStep({
               projectBoundary={projectBoundary}
               projectCenter={projectCenter}
               bufferDistances={bufferDistances}
+              siteId={effectiveSiteId}
+              otherBoundaries={otherBoundaries}
               userId={userId}
               savedFindings={savedFindings}
               showMap={showMap}
@@ -856,6 +896,8 @@ export function DataGatheringStep({
               projectBoundary={projectBoundary}
               projectCenter={projectCenter}
               bufferDistances={bufferDistances}
+              siteId={effectiveSiteId}
+              otherBoundaries={otherBoundaries}
               userId={userId}
               savedFindings={savedFindings}
               showMap={showMap}
@@ -882,6 +924,8 @@ export function DataGatheringStep({
               projectBoundary={projectBoundary}
               projectCenter={projectCenter}
               bufferDistances={bufferDistances}
+              siteId={effectiveSiteId}
+              otherBoundaries={otherBoundaries}
               userId={userId}
               savedFindings={savedFindings}
               showMap={showMap}
@@ -908,6 +952,7 @@ export function DataGatheringStep({
               projectBoundary={projectBoundary}
               projectCenter={projectCenter}
               bufferDistances={bufferDistances}
+              siteId={effectiveSiteId}
               showMap={showMap}
               onToggleMap={() => setShowMap(!showMap)}
               isActive={currentStep === 'habitats'}

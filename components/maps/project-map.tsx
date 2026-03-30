@@ -25,6 +25,8 @@ interface ProjectMapProps {
   center?: [number, number] // [lat, lng] for Leaflet
   zoom?: number
   boundary?: GeoJSON.Feature<GeoJSON.Polygon>
+  /** Other site boundaries to display as non-editable dimmed overlays */
+  otherBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   bufferDistances?: number[] // Buffer zones in km to display
   habitatPolygons?: GeoJSON.FeatureCollection
   habitatSelectionKey?: string
@@ -52,6 +54,7 @@ function MapComponent({
   center,
   zoom,
   boundary,
+  otherBoundaries = [],
   bufferDistances,
   habitatPolygons,
   habitatSelectionKey,
@@ -77,6 +80,7 @@ function MapComponent({
   center: [number, number]
   zoom: number
   boundary?: GeoJSON.Feature<GeoJSON.Polygon>
+  otherBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   bufferDistances?: number[]
   habitatPolygons?: GeoJSON.FeatureCollection
   habitatSelectionKey?: string
@@ -533,6 +537,21 @@ function MapComponent({
         />
       )}
 
+      {/* Other site boundaries (dimmed) */}
+      {otherBoundaries.map((feat, idx) => (
+        <GeoJSON
+          key={`other-boundary-${idx}-${feat.geometry.coordinates[0]?.[0]?.[0]}`}
+          data={feat}
+          style={() => ({
+            color: '#94a3b8',
+            weight: 2,
+            fillColor: '#94a3b8',
+            fillOpacity: 0.08,
+            dashArray: '6, 4',
+          })}
+        />
+      ))}
+
       {/* Habitat Polygons — rendered as single GeoJSON for performance */}
       {habitatPolygons && habitatPolygons.features.length > 0 && habitatLayer?.visible && (
         <GeoJSON
@@ -722,6 +741,7 @@ export function ProjectMap({
   center = IRELAND_CENTER,
   zoom = DEFAULT_ZOOM,
   boundary,
+  otherBoundaries,
   bufferDistances,
   habitatPolygons,
   habitatSelectionKey,
@@ -800,6 +820,7 @@ export function ProjectMap({
           center={center}
           zoom={zoom}
           boundary={boundary}
+          otherBoundaries={otherBoundaries}
           bufferDistances={bufferDistances}
           habitatPolygons={habitatPolygons}
           habitatSelectionKey={habitatSelectionKey}

@@ -74,6 +74,16 @@ export function useSubstepSearch(
   const searchResultsRef = React.useRef(searchResults)
   searchResultsRef.current = searchResults
 
+  // --- Reset refs when cacheKey changes (site switch) ---
+  const prevCacheKeyRef = React.useRef(cacheKey)
+  React.useEffect(() => {
+    if (prevCacheKeyRef.current !== cacheKey) {
+      prevCacheKeyRef.current = cacheKey
+      autoSearchHandledRef.current = false
+      restoredRef.current = false
+    }
+  }, [cacheKey])
+
   // --- Auto-search effect ---
   const autoSearchHandledRef = React.useRef(false)
   React.useEffect(() => {

@@ -38,21 +38,6 @@ export function SiteSelector({
     return sessionStorage.getItem(storageKey) ?? 'all'
   })
 
-  // Don't render if only 1 site (single-site projects behave as before)
-  if (sites.length <= 1) return null
-
-  const handleChange = (value: string) => {
-    setSelectedSiteId(value)
-    sessionStorage.setItem(storageKey, value)
-
-    if (value === 'all') {
-      onSiteChange(null)
-    } else {
-      const site = sites.find((s) => s.id === value)
-      onSiteChange(site ?? null)
-    }
-  }
-
   // Fire initial selection on mount / when sites load
   React.useEffect(() => {
     if (sites.length === 0) return
@@ -70,6 +55,21 @@ export function SiteSelector({
       }
     }
   }, [sites]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Don't render if only 1 site (single-site projects behave as before)
+  if (sites.length <= 1) return null
+
+  const handleChange = (value: string) => {
+    setSelectedSiteId(value)
+    sessionStorage.setItem(storageKey, value)
+
+    if (value === 'all') {
+      onSiteChange(null)
+    } else {
+      const site = sites.find((s) => s.id === value)
+      onSiteChange(site ?? null)
+    }
+  }
 
   return (
     <div className={className}>

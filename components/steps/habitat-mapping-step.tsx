@@ -63,6 +63,8 @@ import type {
 } from '@/types/database'
 
 import { SiteSelector } from '@/components/project/site-selector'
+import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
+import type { ProjectSiteWithGeoJSON } from '@/lib/supabase/queries/project-sites'
 import type { FindingMarker, HabitatPolygonOverlay } from '@/components/maps/map-types'
 
 // Dynamic import for map with draw controls
@@ -100,6 +102,8 @@ export function HabitatMappingStep({
   onComplete,
 }: HabitatMappingStepProps) {
   const { toast } = useToast()
+  const [selectedSite, setSelectedSite] = React.useState<ProjectSiteWithGeoJSON | null>(null)
+  const { projectBoundary, projectCenter } = useProjectBoundary(project, selectedSite)
   const [showHabitatForm, setShowHabitatForm] = React.useState(false)
   const [editingHabitat, setEditingHabitat] = React.useState<HabitatPolygon | null>(null)
   const [deletingHabitat, setDeletingHabitat] = React.useState<HabitatPolygon | null>(null)
@@ -227,14 +231,7 @@ export function HabitatMappingStep({
     [habitats]
   )
 
-  // Project boundary
-  const projectBoundary = project.boundary as GeoJSON.Feature<GeoJSON.Polygon> | undefined
-  const projectCenter = project.center_point
-    ? {
-        lat: (project.center_point as GeoJSON.Point).coordinates[1],
-        lng: (project.center_point as GeoJSON.Point).coordinates[0],
-      }
-    : undefined
+  // Project boundary resolved via useProjectBoundary hook above
 
   // Handle boundary drawn on map
   const handleBoundaryChange = (features: GeoJSON.FeatureCollection) => {
@@ -424,7 +421,12 @@ export function HabitatMappingStep({
               Draw polygons on the map, then select Fossitt code and condition
             </p>
           </div>
-          <SiteSelector projectId={project.id} stepKey="habitat-mapping" onSiteChange={() => {}} />
+          <SiteSelector
+            projectId={project.id}
+            stepKey="habitat-mapping"
+            onSiteChange={setSelectedSite}
+            showAllOption
+          />
           {/* Inline Stats */}
           <div className="hidden items-center gap-4 border-l pl-4 md:flex">
             <div className="text-center">

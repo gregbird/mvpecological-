@@ -25,6 +25,7 @@ import {
   useUpdateFinding,
 } from '@/hooks/queries/use-finding-hooks'
 import { FindingEditDialog } from '@/components/steps/data-analysis/finding-edit-dialog'
+import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
 import type { DeskResearchFinding, Project } from '@/types/database'
 
 const DynamicProjectMap = dynamic(
@@ -62,13 +63,7 @@ export function DataGatheringTab({ projectId, userId, project }: DataGatheringTa
   const updateFinding = useUpdateFinding()
   const [editingFinding, setEditingFinding] = React.useState<DeskResearchFinding | null>(null)
 
-  const projectBoundary = project.boundary as GeoJSON.Feature<GeoJSON.Polygon> | undefined
-  const projectCenter = project.center_point
-    ? {
-        lat: (project.center_point as GeoJSON.Point).coordinates[1],
-        lng: (project.center_point as GeoJSON.Point).coordinates[0],
-      }
-    : undefined
+  const { projectBoundary, projectCenter } = useProjectBoundary(project)
 
   const mapFindings = React.useMemo(
     () =>

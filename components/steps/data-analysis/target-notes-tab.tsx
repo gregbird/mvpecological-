@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast'
 import { useTargetNotes, useUpdateTargetNote } from '@/hooks/queries/use-target-note-hooks'
 import { useProjectObservations } from '@/hooks/queries/use-observation-hooks'
 import { TargetNoteEditDialog } from '@/components/steps/data-analysis/target-note-edit-dialog'
+import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
 import type { TargetNote, Project } from '@/types/database'
 
 const DynamicProjectMap = dynamic(
@@ -50,13 +51,7 @@ export function TargetNotesTab({ projectId, project }: TargetNotesTabProps) {
   const updateNote = useUpdateTargetNote()
   const [editingNote, setEditingNote] = React.useState<TargetNote | null>(null)
 
-  const projectBoundary = project.boundary as GeoJSON.Feature<GeoJSON.Polygon> | undefined
-  const projectCenter = project.center_point
-    ? {
-        lat: (project.center_point as GeoJSON.Point).coordinates[1],
-        lng: (project.center_point as GeoJSON.Point).coordinates[0],
-      }
-    : undefined
+  const { projectBoundary, projectCenter } = useProjectBoundary(project)
 
   const targetNoteMarkers = React.useMemo(
     () =>

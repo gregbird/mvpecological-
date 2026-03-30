@@ -49,6 +49,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
 import type { Project, DeskResearchFinding } from '@/types/database'
 import type { TargetNoteMarker } from '@/components/maps/map-types'
 
@@ -154,13 +155,7 @@ export function MapsTab({ projectId, userId, project }: MapsTabProps) {
   const [isExportingShapefile, setIsExportingShapefile] = React.useState(false)
 
   // Project data
-  const projectBoundary = project.boundary as GeoJSON.Feature<GeoJSON.Polygon> | undefined
-  const projectCenter = project.center_point
-    ? {
-        lat: (project.center_point as GeoJSON.Point).coordinates[1],
-        lng: (project.center_point as GeoJSON.Point).coordinates[0],
-      }
-    : undefined
+  const { projectBoundary, projectCenter } = useProjectBoundary(project)
 
   // Convert findings to map format
   const mapFindings = React.useMemo(() => {
@@ -667,7 +662,6 @@ export function MapsTab({ projectId, userId, project }: MapsTabProps) {
           className="w-full"
           disabled={isExportingShapefile}
           onClick={async () => {
-            const projectBoundary = project.boundary as GeoJSON.Feature<GeoJSON.Polygon> | undefined
             if (!projectBoundary) {
               toast({ title: 'No boundary', description: 'No project boundary to export.' })
               return

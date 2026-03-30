@@ -20,6 +20,8 @@ interface AquaticFeaturesSubStepProps {
   projectBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
   projectCenter?: { lat: number; lng: number }
   bufferDistances: number[]
+  siteId?: string | null
+  otherBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   userId: string
   savedFindings: DeskResearchFinding[]
   showMap: boolean
@@ -217,8 +219,9 @@ export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
       minimalMetadataKeys: ['siteType', 'siteCode'],
 
       // Save payload
-      buildCreatePayload: (finding, { projectId, userId: uid }) => ({
+      buildCreatePayload: (finding, { projectId, userId: uid, siteId }) => ({
         project_id: projectId,
+        site_id: siteId ?? null,
         source: 'epa',
         data_type: finding.dataType as 'water_quality' | 'catchment',
         title: finding.title,

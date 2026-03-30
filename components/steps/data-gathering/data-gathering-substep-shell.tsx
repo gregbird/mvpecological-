@@ -54,6 +54,10 @@ export interface SubstepShellProps {
   projectBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
   projectCenter?: { lat: number; lng: number }
   bufferDistances: number[]
+  /** Active site ID for site-scoped caching and saving */
+  siteId?: string | null
+  /** Other site boundaries to show as dimmed overlays on the map */
+  otherBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   userId: string
   savedFindings: DeskResearchFinding[]
   showMap: boolean
@@ -108,7 +112,7 @@ export interface SubstepShellConfig {
   // Build the DB payload when saving a finding (varies per substep)
   buildCreatePayload: (
     finding: FindingDisplay,
-    context: { projectId: string; userId: string }
+    context: { projectId: string; userId: string; siteId?: string | null }
   ) => Record<string, unknown>
 
   // AI summary
@@ -168,6 +172,8 @@ export function DataGatheringSubstepShell({
   projectBoundary,
   projectCenter,
   bufferDistances,
+  siteId,
+  otherBoundaries,
   userId,
   savedFindings,
   showMap,
@@ -185,8 +191,9 @@ export function DataGatheringSubstepShell({
   const deleteFinding = useDeleteFinding()
   const updateFinding = useUpdateFinding()
 
-  // Cache key for sessionStorage
-  const cacheKey = `${config.cacheKeyPrefix}-search-${project.id}`
+  // Cache key for sessionStorage — includes site context for multi-site
+  const siteSuffix = siteId ? `-${siteId}` : ''
+  const cacheKey = `${config.cacheKeyPrefix}-search-${project.id}${siteSuffix}`
 
   const [isSearching, setIsSearching] = React.useState(false)
   const [searchResults, setSearchResults] = useSessionStorage<FindingDisplay[]>(cacheKey, [])
@@ -314,6 +321,7 @@ export function DataGatheringSubstepShell({
         const payload = config.buildCreatePayload(finding, {
           projectId: project.id,
           userId,
+          siteId,
         })
         await createFinding.mutateAsync(payload as Parameters<typeof createFinding.mutateAsync>[0])
 
@@ -702,6 +710,7 @@ export function DataGatheringSubstepShell({
             center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
             zoom={11}
             boundary={projectBoundary}
+            otherBoundaries={otherBoundaries}
             bufferDistances={[selectedBuffer]}
             gridOverlay={showGridOverlay ? (computedGridOverlay ?? config.gridOverlay) : undefined}
             findings={(config.filterConfig || config.showDistanceFilter

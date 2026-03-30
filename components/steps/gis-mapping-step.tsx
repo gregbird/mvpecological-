@@ -258,8 +258,6 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
   }
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    // Ensure at least one site exists before upload
-    if (siteMgmt.sites.length === 0) siteMgmt.addSite()
     const result = await siteMgmt.handleFileUpload(event)
     if (result) {
       wizard.setHasUnsavedChanges(true)

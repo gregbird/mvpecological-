@@ -31,13 +31,13 @@ F: Bagimsiz ──→ paralel yapilabilir
 
 | Grup              | Madde  | Tamamlanan | Ilerleme           |
 | ----------------- | ------ | ---------- | ------------------ |
-| A: GIS Altyapi    | 19     | 15         | ████████░░ 79%     |
+| A: GIS Altyapi    | 31     | 27         | █████████░ 87%     |
 | B: Habitat Veri   | 11     | 11         | ██████████ 100% ✅ |
 | C: Desk Temizlik  | 6      | 0          | ░░░░░░░░░░ 0%      |
 | D: Field Research | 9      | 0          | ░░░░░░░░░░ 0%      |
 | E: Raporlama      | 20     | 1          | █░░░░░░░░░ 5%      |
 | F: Bagimsiz       | 5      | 0          | ░░░░░░░░░░ 0%      |
-| **Toplam**        | **60** | **27**     | █████░░░░░ **45%** |
+| **Toplam**        | **72** | **39**     | █████░░░░░ **54%** |
 
 ---
 
@@ -78,7 +78,24 @@ F: Bagimsiz ──→ paralel yapilabilir
 ### A5. Shapefile Export (Feedback #6)
 
 - [x] **A5.1** ~~Eksiksiz shapefile export (.shp, .shx, .dbf, .prj)~~ ✅ (29 Mart 2026) — `shp-write` ile boundary + attributes export. Step 7 Maps tab'ina "Export Shapefile" butonu eklendi. Dosyalar: `lib/gis/shapefile-export.ts`, `types/shp-write.d.ts`, `maps-tab.tsx`
-- [ ] **A5.2** Greg'in sagladigi shapefile ile test
+- [x] **A5.2** ~~Greg'in sagladigi shapefile ile test~~ ✅ (30 Mart 2026) — `LH_ExportSampleSiteBoundaries` (21 site, Co. Louth) basariyla yuklendi. ITM→WGS84 donusumu, MultiPolygon split, attribute okuma calisiyor
+
+### A6. Multi-Site UX Duzeltmeleri (30 Mart 2026)
+
+> Test sirasinda tespit edilen bug'lar ve iyilestirmeler
+
+- [x] **A6.1** ~~Site'a tiklaninca harita o site'a ucmuyor~~ ✅ — `flyToBounds` ile animasyonlu gecis
+- [x] **A6.2** ~~Boundary Info paneli titriyor (layout bounce)~~ ✅ — her zaman mount, opacity ile gizle/goster
+- [x] **A6.3** ~~Sadece aktif site haritada gorunuyor~~ ✅ — `otherBoundaries` prop'u ile inaktif site'lar gri kesikli cizgi
+- [x] **A6.4** ~~"unsaved" badge kafa karistirici~~ ✅ — kaldirildi, site numarasi eklendi
+- [x] **A6.5** ~~Polygon cizince yeni site olusturmuyor~~ ✅ — aktif site boundary'si varsa otomatik yeni site olusur
+- [x] **A6.6** ~~"Add Site" butonu gereksiz~~ ✅ — kaldirildi, "draw polygon to add" yazisi eklendi
+- [x] **A6.7** ~~Button-in-button hydration hatasi~~ ✅ — outer element `div[role=button]` yapildi
+- [x] **A6.8** ~~Buffer sadece aktif site'i kapsiyor~~ ✅ — `turf.union` ile tum site'larin buffer'lari birlestiriliyor
+- [x] **A6.9** ~~Rectangle cizim ilk seferde bozuk~~ ✅ — `lastLoadedBoundaryRef` handleCreated'da guncelleniyor
+- [x] **A6.10** ~~Shapefile upload'da bos ilk site~~ ✅ — upload oncesi `addSite()` kaldirildi, boundary'siz site'lar filtreleniyor
+- [x] **A6.11** ~~Layer data (NPWS/EPA) sadece aktif site'i kapsıyor~~ ✅ — per-site fetch + dedup + `batchAsync` concurrency limiter (max 3)
+- [ ] **A6.12** Multi-site layer data tam dogru calismiyor — WIP, ayrica debug gerekiyor
 
 ---
 

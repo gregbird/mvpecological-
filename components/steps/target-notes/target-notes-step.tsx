@@ -44,6 +44,8 @@ import {
   type TargetNoteFormData,
 } from '@/components/field-surveys/target-note-form'
 import { SiteSelector } from '@/components/project/site-selector'
+import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
+import type { ProjectSiteWithGeoJSON } from '@/lib/supabase/queries/project-sites'
 import type { Project, WorkflowStep, SpeciesObservation, Json } from '@/types/database'
 import type { TargetNoteWithCreator } from '@/lib/supabase/queries/target-notes'
 import { TargetNotesPanel } from './target-notes-panel'
@@ -63,6 +65,8 @@ export function TargetNotesStep({
   onComplete,
 }: TargetNotesStepProps) {
   const { toast } = useToast()
+  const [selectedSite, setSelectedSite] = React.useState<ProjectSiteWithGeoJSON | null>(null)
+  const { projectBoundary, projectCenter } = useProjectBoundary(project, selectedSite)
   const [activeMainTab, setActiveMainTab] = React.useState<'target-notes' | 'observations'>(
     'target-notes'
   )
@@ -165,14 +169,7 @@ export function TargetNotesStep({
     return groups
   }, [targetNotes])
 
-  // Project boundary and center
-  const projectBoundary = project.boundary as GeoJSON.Feature<GeoJSON.Polygon> | undefined
-  const projectCenter = project.center_point
-    ? {
-        lat: (project.center_point as GeoJSON.Point).coordinates[1],
-        lng: (project.center_point as GeoJSON.Point).coordinates[0],
-      }
-    : undefined
+  // Project boundary resolved via useProjectBoundary hook above
 
   // Handle creating a target note
   const handleCreateTargetNote = async (data: TargetNoteFormData) => {
@@ -559,7 +556,12 @@ export function TargetNotesStep({
               Record field notes and species observations
             </p>
           </div>
-          <SiteSelector projectId={project.id} stepKey="target-notes" onSiteChange={() => {}} />
+          <SiteSelector
+            projectId={project.id}
+            stepKey="target-notes"
+            onSiteChange={setSelectedSite}
+            showAllOption
+          />
           {/* Inline Stats */}
           <div className="hidden items-center gap-4 border-l pl-4 md:flex">
             <div className="text-center">

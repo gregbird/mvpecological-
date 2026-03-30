@@ -577,7 +577,9 @@ export function FieldSurveyStep({
           <SiteSelector
             projectId={project.id}
             stepKey="field-survey"
-            onSiteChange={() => {}}
+            onSiteChange={() => {
+              /* TODO: filter surveys by site */
+            }}
             showAllOption
           />
         </div>
