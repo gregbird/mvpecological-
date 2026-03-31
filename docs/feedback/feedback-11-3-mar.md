@@ -13,8 +13,8 @@
 
 **Yapilacilar:**
 
-- [ ] **1.1** Planning policy substep'ini Data Gathering'den kaldir
-- [ ] **1.2** Ilgili API endpoint ve servislerini temizle
+- [x] **1.1** ~~Planning policy substep'ini Data Gathering'den kaldir~~ ✅ (30 Mart 2026)
+- [x] **1.2** ~~Ilgili statik data ve component dosyalarini temizle~~ ✅ (30 Mart 2026) — API endpoint yoktu, `planning-policy-substep.tsx` + `county-development-plans.ts` silindi
 
 ---
 
@@ -192,10 +192,10 @@ Her vektor feature, cizgilerle baglanan koordinat noktalari serisidir. Bu noktal
 
 **Yapilacilar:**
 
-- [ ] **7.1** Baseline report ve ecological summary'i tek sayfa gorunumunde birlestir
-- [ ] **7.2** Birlestirilen sayfayi HTML, PDF ve Word formatlarinda export destegiyle donat
-- [ ] **7.3** Export'a tum ilgili haritalari dahil et
-- [ ] **7.4** AI analiz ciktisindan "Survey Recommendation" bolumunu kaldir
+- [x] **7.1** ~~Baseline report ve ecological summary'i tek sayfa gorunumunde birlestir~~ ✅ (30 Mart 2026) — 3 tab → 2 tab, AI Summary + Baseline Report tek scrollable view
+- [x] **7.2** ~~Birlestirilen sayfayi HTML, PDF ve Word formatlarinda export destegiyle donat~~ ✅ (30 Mart 2026) — Export dropdown (HTML/PDF/Word), `desk-assessment-exporter.ts`
+- [x] **7.3** ~~Export'a tum ilgili haritalari dahil et~~ ✅ (30 Mart 2026) — PDF: `addImage()`, DOCX: `ImageRun`, HTML: zaten destekliyordu
+- [x] **7.4** ~~AI analiz ciktisindan "Survey Recommendation" bolumunu kaldir~~ ✅ (30 Mart 2026)
 
 ---
 

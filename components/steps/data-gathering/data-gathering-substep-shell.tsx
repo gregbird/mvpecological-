@@ -291,7 +291,7 @@ export function DataGatheringSubstepShell({
           maxLng: bbox.maxLng,
         },
         buffer: selectedBuffer,
-        boundary: projectBoundary,
+        boundary: effectiveBoundary,
       })
 
       setSearchResults(findings)
@@ -532,9 +532,43 @@ export function DataGatheringSubstepShell({
     )
   }
 
+  // ── Spatial filter: when a specific site is selected, only show findings near that site ──
+  const siteBbox = React.useMemo(() => {
+    // Filter when:
+    // 1. searchBoundary exists → multi-site project, cache has results from broader search
+    // 2. allBoundaries is NOT set → viewing a specific site (not "All Sites")
+    // 3. projectBoundary exists → we have a boundary to filter by
+    if (!searchBoundary || (allBoundaries && allBoundaries.length > 0) || !projectBoundary)
+      return null
+    return getBoundingBox(projectBoundary, projectCenter, selectedBuffer)
+  }, [allBoundaries, searchBoundary, projectBoundary, projectCenter, selectedBuffer])
+
+  const spatiallyFilteredResults = React.useMemo(() => {
+    if (!siteBbox) return searchResults
+    const inBbox = (lng: number, lat: number) =>
+      lng >= siteBbox.minLng &&
+      lng <= siteBbox.maxLng &&
+      lat >= siteBbox.minLat &&
+      lat <= siteBbox.maxLat
+    return searchResults.filter((f) => {
+      const loc = f.location
+      if (!loc) return true // No location → include by default
+      if (loc.type === 'Point') {
+        return inBbox(loc.coordinates[0], loc.coordinates[1])
+      }
+      if (loc.type === 'Polygon') {
+        return loc.coordinates[0].some((c) => inBbox(c[0], c[1]))
+      }
+      if (loc.type === 'LineString') {
+        return loc.coordinates.some((c) => inBbox(c[0], c[1]))
+      }
+      return true
+    })
+  }, [searchResults, siteBbox])
+
   // ── Filter results for map ──────────────────────────────────────────────
   const filteredResults = React.useMemo(() => {
-    let result = searchResults
+    let result = spatiallyFilteredResults
     if (activeSiteTypeFilter) {
       result = result.filter((f) => f.metadata?.siteType === activeSiteTypeFilter)
     }
@@ -557,7 +591,7 @@ export function DataGatheringSubstepShell({
       })
     }
     return result
-  }, [searchResults, activeSiteTypeFilter, activeDistanceFilter])
+  }, [spatiallyFilteredResults, activeSiteTypeFilter, activeDistanceFilter])
 
   // Default map findings mapper
   const defaultMapFindingsMapper = (f: FindingDisplay): MapFinding => ({
@@ -668,7 +702,7 @@ export function DataGatheringSubstepShell({
         {/* Results List */}
         <div className="flex-1 overflow-hidden">
           <FindingsList
-            findings={config.filterConfig ? filteredResults : searchResults}
+            findings={config.filterConfig ? filteredResults : spatiallyFilteredResults}
             savedFindings={savedFindings}
             isLoading={isSearching}
             onSave={handleSaveFinding}
@@ -723,7 +757,7 @@ export function DataGatheringSubstepShell({
             gridOverlay={showGridOverlay ? (computedGridOverlay ?? config.gridOverlay) : undefined}
             findings={(config.filterConfig || config.showDistanceFilter
               ? filteredResults
-              : searchResults
+              : spatiallyFilteredResults
             )
               .filter((f) => !hiddenIds.has(f.id))
               .filter((f) => !showSavedOnMap || savedFilter(f))

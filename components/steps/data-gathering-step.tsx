@@ -149,9 +149,10 @@ export function DataGatheringStep({
   // Whether "All Sites" is selected (no specific site)
   const isAllSites = !selectedSite && allBoundaries.length > 1
 
-  // Merged bbox boundary for searching across all sites
+  // Merged bbox boundary for searching across all sites.
+  // Always computed for multi-site projects so the shell can detect broader search results.
   const searchBoundary = React.useMemo(() => {
-    if (!isAllSites || allBoundaries.length === 0) return projectBoundary
+    if (allBoundaries.length <= 1) return undefined
     let minLng = Infinity,
       maxLng = -Infinity,
       minLat = Infinity,
@@ -180,7 +181,7 @@ export function DataGatheringStep({
         ],
       },
     } as GeoJSON.Feature<GeoJSON.Polygon>
-  }, [isAllSites, allBoundaries, projectBoundary])
+  }, [allBoundaries])
 
   // Other site boundaries for map overlay (all sites except the active one)
   const otherBoundaries = React.useMemo(
@@ -239,10 +240,11 @@ export function DataGatheringStep({
   }, [boundaryHash, project.id])
 
   // Auto-search: trigger when boundary exists and no prior auto-search in this session
-  // Uses searchBoundary (merged for multi-site) so auto-search covers ALL sites at once
+  // Uses searchBoundary (merged for multi-site) or projectBoundary (single site)
+  const autoSearchBoundary = searchBoundary ?? projectBoundary
   React.useEffect(() => {
     if (autoSearchStatus.triggered) return
-    if (!searchBoundary) return
+    if (!autoSearchBoundary) return
     if (isStepCompleted) return
     if (viewMode !== 'wizard') return
 
@@ -269,7 +271,7 @@ export function DataGatheringStep({
       habitats: hasHabitatCache ? 'skipped' : 'searching',
     })
     setShowAutoSearchBanner(true)
-  }, [searchBoundary, project.id, autoSearchStatus.triggered, isStepCompleted, viewMode])
+  }, [autoSearchBoundary, project.id, autoSearchStatus.triggered, isStepCompleted, viewMode])
 
   // Auto-hide banner 5 seconds after all searches complete
   React.useEffect(() => {

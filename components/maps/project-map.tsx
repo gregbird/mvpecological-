@@ -552,7 +552,13 @@ function MapComponent({
       {/* All site boundaries (shown as primary when "All Sites" mode) */}
       {allBoundaries && allBoundaries.length > 0
         ? allBoundaries
-            .filter((feat) => feat !== boundary) // Skip the one already rendered above
+            .filter((feat) => {
+              // Skip the one already rendered above (compare by first coord, not reference)
+              if (!boundary) return true
+              const a = feat.geometry.coordinates[0]?.[0]
+              const b = boundary.geometry.coordinates[0]?.[0]
+              return !(a && b && a[0] === b[0] && a[1] === b[1])
+            })
             .map((feat, idx) => (
               <GeoJSON
                 key={`all-boundary-${idx}-${feat.geometry.coordinates[0]?.[0]?.[0]}`}
