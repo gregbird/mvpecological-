@@ -34,7 +34,8 @@ interface AquaticFeaturesSubStepProps {
 }
 
 export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
-  const { projectBoundary, searchBoundary, allBoundaries, savedFindings, project, userId } = props
+  const { projectBoundary, searchBoundary, allBoundaries, savedFindings, project, userId, siteId } =
+    props
   const createFinding = useCreateFinding()
   const updateFinding = useUpdateFinding()
 
@@ -91,6 +92,7 @@ export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
         try {
           const payload = {
             project_id: project.id,
+            site_id: siteId ?? null,
             source: 'epa' as const,
             data_type: deepResearchFinding.dataType as 'water_quality' | 'catchment',
             title: deepResearchFinding.title,

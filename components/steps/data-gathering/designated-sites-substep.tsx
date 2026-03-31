@@ -38,7 +38,8 @@ interface DesignatedSitesSubStepProps {
 }
 
 export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
-  const { projectBoundary, searchBoundary, allBoundaries, savedFindings, project, userId } = props
+  const { projectBoundary, searchBoundary, allBoundaries, savedFindings, project, userId, siteId } =
+    props
   const createFinding = useCreateFinding()
   const updateFinding = useUpdateFinding()
 
@@ -93,6 +94,7 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
         try {
           const payload = {
             project_id: project.id,
+            site_id: siteId ?? null,
             source: 'npws' as const,
             data_type: 'designated_site' as const,
             title: deepResearchFinding.title,

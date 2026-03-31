@@ -90,6 +90,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
     savedFindings,
     project,
     userId,
+    siteId,
   } = props
   const createFinding = useCreateFinding()
   const updateFinding = useUpdateFinding()
@@ -337,6 +338,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       try {
         const payload = {
           project_id: project.id,
+          site_id: siteId ?? null,
           source: 'nbdc' as const,
           data_type: 'species_record' as const,
           title: deepResearchFinding.title,

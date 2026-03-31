@@ -116,11 +116,29 @@ export function TargetNotesStep({
 
   const isLoading = observationsLoading || targetNotesLoading
 
-  // Filter observations by survey if selected
+  // Build set of survey IDs for the selected site (observations link through survey)
+  const siteSurveyIds = React.useMemo(() => {
+    if (!selectedSite) return null
+    return new Set(surveys.filter((s) => s.site_id === selectedSite.id).map((s) => s.id))
+  }, [surveys, selectedSite])
+
+  // Filter surveys by selected site (for observations panel dropdown)
+  const filteredSurveys = React.useMemo(() => {
+    if (!selectedSite) return surveys
+    return surveys.filter((s) => s.site_id === selectedSite.id)
+  }, [surveys, selectedSite])
+
+  // Filter observations by site (via survey) and by selected survey
   const filteredObservations = React.useMemo(() => {
-    if (!selectedSurveyId) return observations
-    return observations.filter((o) => o.survey_id === selectedSurveyId)
-  }, [observations, selectedSurveyId])
+    let result = observations
+    if (siteSurveyIds) {
+      result = result.filter((o) => siteSurveyIds.has(o.survey_id))
+    }
+    if (selectedSurveyId) {
+      result = result.filter((o) => o.survey_id === selectedSurveyId)
+    }
+    return result
+  }, [observations, selectedSurveyId, siteSurveyIds])
 
   // Group observations by taxon group
   const observationsByTaxon = React.useMemo(() => {
@@ -152,16 +170,22 @@ export function TargetNotesStep({
     })
   }, [speciesFindings, alreadyImportedNames])
 
+  // Filter target notes by selected site — site_id=null means project-level, show under every site
+  const filteredTargetNotes = React.useMemo(() => {
+    if (!selectedSite) return targetNotes
+    return targetNotes.filter((n) => n.site_id === selectedSite.id || n.site_id === null)
+  }, [targetNotes, selectedSite])
+
   // Group target notes by category
   const targetNotesByCategory = React.useMemo(() => {
     const groups: Record<string, TargetNoteWithCreator[]> = {}
-    for (const note of targetNotes) {
+    for (const note of filteredTargetNotes) {
       const category = note.category || 'check_feature'
       if (!groups[category]) groups[category] = []
       groups[category].push(note)
     }
     return groups
-  }, [targetNotes])
+  }, [filteredTargetNotes])
 
   // Project boundary resolved via useProjectBoundary hook above
 
@@ -178,6 +202,7 @@ export function TargetNotesStep({
       await createTargetNote.mutateAsync({
         project_id: project.id,
         created_by: userId,
+        site_id: selectedSite?.id || null,
         category: data.category,
         title: data.title,
         description: data.description || null,
@@ -530,11 +555,11 @@ export function TargetNotesStep({
           {/* Inline Stats */}
           <div className="hidden items-center gap-4 border-l pl-4 md:flex">
             <div className="text-center">
-              <div className="text-lg font-bold">{targetNotes.length}</div>
+              <div className="text-lg font-bold">{filteredTargetNotes.length}</div>
               <div className="text-muted-foreground text-xs">Notes</div>
             </div>
             <div className="text-center">
-              <div className="text-lg font-bold">{observations.length}</div>
+              <div className="text-lg font-bold">{filteredObservations.length}</div>
               <div className="text-muted-foreground text-xs">Observations</div>
             </div>
             <div className="text-center">
@@ -558,11 +583,11 @@ export function TargetNotesStep({
             <TabsList>
               <TabsTrigger value="target-notes" className="flex items-center gap-2">
                 <Target className="h-4 w-4" />
-                Target Notes ({targetNotes.length})
+                Target Notes ({filteredTargetNotes.length})
               </TabsTrigger>
               <TabsTrigger value="observations" className="flex items-center gap-2">
                 <ClipboardList className="h-4 w-4" />
-                Species Observations ({observations.length})
+                Species Observations ({filteredObservations.length})
               </TabsTrigger>
             </TabsList>
             {activeMainTab === 'target-notes' ? (
@@ -611,7 +636,7 @@ export function TargetNotesStep({
           {/* TARGET NOTES TAB */}
           <TabsContent value="target-notes" className="mt-0 min-h-0 flex-1">
             <TargetNotesPanel
-              targetNotes={targetNotes}
+              targetNotes={filteredTargetNotes}
               targetNotesByCategory={targetNotesByCategory}
               selectedTargetNote={selectedTargetNote}
               activeCategoryTab={activeCategoryTab}
@@ -636,7 +661,7 @@ export function TargetNotesStep({
           {/* SPECIES OBSERVATIONS TAB */}
           <TabsContent value="observations" className="mt-0 min-h-0 flex-1">
             <ObservationsPanel
-              surveys={surveys}
+              surveys={filteredSurveys}
               filteredObservations={filteredObservations}
               observationsByTaxon={observationsByTaxon}
               selectedSurveyId={selectedSurveyId}

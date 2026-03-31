@@ -368,6 +368,7 @@ export function DataGatheringSubstepShell({
           const payload = config.buildCreatePayload(finding, {
             projectId: project.id,
             userId,
+            siteId,
           })
           await createFinding.mutateAsync(
             payload as Parameters<typeof createFinding.mutateAsync>[0]
@@ -518,20 +519,6 @@ export function DataGatheringSubstepShell({
     [updateFinding]
   )
 
-  // ── No boundary check ──────────────────────────────────────────────────
-  if (!projectBoundary) {
-    return (
-      <div className="flex h-full items-center justify-center p-8">
-        <Alert variant="destructive" className="max-w-md">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            No project boundary defined. Please complete Step 1 (GIS Mapping) first.
-          </AlertDescription>
-        </Alert>
-      </div>
-    )
-  }
-
   // ── Spatial filter: when a specific site is selected, only show findings near that site ──
   const siteBbox = React.useMemo(() => {
     // Filter when:
@@ -646,6 +633,19 @@ export function DataGatheringSubstepShell({
   )
 
   // ── Render ──────────────────────────────────────────────────────────────
+  if (!projectBoundary) {
+    return (
+      <div className="flex h-full items-center justify-center p-8">
+        <Alert variant="destructive" className="max-w-md">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            No project boundary defined. Please complete Step 1 (GIS Mapping) first.
+          </AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-full">
       {/* Results Panel */}

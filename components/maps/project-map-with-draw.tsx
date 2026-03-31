@@ -74,20 +74,6 @@ interface ProjectMapWithDrawProps {
   npwsSites?: import('@/lib/external-apis/npws').NPWSDesignatedSite[]
 }
 
-// Define event types for leaflet-draw
-interface DrawCreatedEvent {
-  layer: L.Layer
-  layerType: string
-}
-
-interface DrawEditedEvent {
-  layers: L.LayerGroup
-}
-
-interface DrawDeletedEvent {
-  layers: L.LayerGroup
-}
-
 // Internal map component
 function MapComponentWithDraw({
   center,
@@ -161,9 +147,6 @@ function MapComponentWithDraw({
     CircleMarker,
     Popup,
   } = rl
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { EditControl } = require('react-leaflet-draw')
-
   const tileConfig = TILE_LAYERS[currentStyle]
   const featureGroupRef = React.useRef<LeafletFeatureGroup | null>(null)
   const [_drawnFeatures, setDrawnFeatures] = React.useState<GeoJSON.Feature[]>([])
@@ -179,6 +162,9 @@ function MapComponentWithDraw({
   const lastLoadedBoundaryRef = React.useRef<string | null>(null)
   // Track the last flyTo key to prevent re-triggering
   const lastFlyToKeyRef = React.useRef<string | null>(null)
+  // Stable ref for boundary change callback (used in Geoman event handlers)
+  const onBoundaryChangeRef = React.useRef(onBoundaryChange)
+  onBoundaryChangeRef.current = onBoundaryChange
 
   // Initialize with existing boundary or reset when boundary is cleared
   React.useEffect(() => {
@@ -360,121 +346,172 @@ function MapComponentWithDraw({
     return null
   }
 
-  const handleCreated = (e: DrawCreatedEvent) => {
-    const layer = e.layer as L.Polygon
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const geoJSON = (layer as any).toGeoJSON() as GeoJSON.Feature
+  // Geoman integration — replaces leaflet-draw EditControl
+  // Provides: snapping, vertex editing, cut/clip, polygon + rectangle drawing
+  function GeomanSetup() {
+    const map = useMap()
+    const geomanReadyRef = React.useRef(false)
 
-    // Validate the geometry before accepting
-    if (
-      !geoJSON?.geometry ||
-      (geoJSON.geometry.type === 'Polygon' &&
-        (!geoJSON.geometry.coordinates?.[0] || geoJSON.geometry.coordinates[0].length < 4))
-    ) {
-      return
-    }
+    React.useEffect(() => {
+      if (geomanReadyRef.current) return
 
-    if (allowMultipleDrawings) {
-      // Habitat mapping mode: keep existing drawings, just add new layer
-      if (featureGroupRef.current) {
-        featureGroupRef.current.addLayer(layer)
-      }
-    } else {
-      // Single boundary mode (Step 1): clear previous drawings
-      if (featureGroupRef.current) {
-        featureGroupRef.current.clearLayers()
-        featureGroupRef.current.addLayer(layer)
-      }
-    }
+      const init = async () => {
+        try {
+          await import('@geoman-io/leaflet-geoman-free')
+          if (!map.pm) return
 
-    const newFeatures = [geoJSON]
-    setDrawnFeatures(newFeatures)
+          // Global options — snapping enabled (A3.1)
+          map.pm.setGlobalOptions({
+            snappable: true,
+            snapDistance: 15,
+            snapMiddle: true,
+            allowSelfIntersection: false,
+            templineStyle: { color: '#ef4444', weight: 2 },
+            hintlineStyle: { color: '#ef4444', weight: 2, dashArray: '5,5' },
+            pathOptions: {
+              color: '#ef4444',
+              fillColor: '#ef4444',
+              fillOpacity: 0.1,
+              weight: 3,
+            },
+          })
 
-    // Mark this boundary as already loaded so LoadExistingBoundary doesn't
-    // clear the featureGroup and re-add it (which causes visual glitch + zoom jump)
-    const geom = geoJSON.geometry
-    if (geom && 'coordinates' in geom) {
-      lastLoadedBoundaryRef.current = JSON.stringify(geom.coordinates)
-    }
+          // Toolbar: polygon, rectangle, edit (A3.4), cut (A3.3), delete
+          map.pm.addControls({
+            position: 'topright',
+            drawMarker: false,
+            drawCircleMarker: false,
+            drawPolyline: false,
+            drawRectangle: true,
+            drawCircle: false,
+            drawText: false,
+            drawPolygon: true,
+            editMode: true,
+            dragMode: false,
+            cutPolygon: true,
+            removalMode: true,
+            rotateMode: false,
+          })
 
-    onBoundaryChange?.({
-      type: 'FeatureCollection',
-      features: newFeatures,
-    })
-  }
+          // Helper: collect all valid polygon features from FeatureGroup
+          const collectFeatures = (): GeoJSON.Feature[] => {
+            const features: GeoJSON.Feature[] = []
+            featureGroupRef.current?.eachLayer((layer: L.Layer) => {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const geo = (layer as any).toGeoJSON?.() as GeoJSON.Feature | undefined
+              if (geo?.geometry?.type === 'Polygon' && geo.geometry.coordinates?.[0]?.length >= 4) {
+                features.push(geo)
+              }
+            })
+            return features
+          }
 
-  const handleEditStart = () => {
-    isEditingRef.current = true
-  }
+          // Helper: update state + notify parent
+          const notifyChange = (features: GeoJSON.Feature[]) => {
+            setDrawnFeatures(features)
+            const geom = features[0]?.geometry
+            lastLoadedBoundaryRef.current =
+              features.length > 0 && geom && 'coordinates' in geom
+                ? JSON.stringify(geom.coordinates)
+                : null
+            onBoundaryChangeRef.current?.({
+              type: 'FeatureCollection',
+              features,
+            })
+          }
 
-  const handleEditStop = () => {
-    isEditingRef.current = false
-  }
+          // --- pm:create — new polygon/rectangle drawn ---
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          map.on('pm:create', (e: any) => {
+            const layer = e.layer as L.Polygon
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const geoJSON = (layer as any).toGeoJSON() as GeoJSON.Feature
 
-  const handleDeleteStart = () => {
-    isEditingRef.current = true
-  }
+            if (
+              !geoJSON?.geometry ||
+              (geoJSON.geometry.type === 'Polygon' &&
+                (!geoJSON.geometry.coordinates?.[0] || geoJSON.geometry.coordinates[0].length < 4))
+            ) {
+              map.removeLayer(layer)
+              return
+            }
 
-  const handleDeleteStop = () => {
-    isEditingRef.current = false
-  }
+            // Move layer from map into FeatureGroup
+            map.removeLayer(layer)
+            if (!allowMultipleDrawings && featureGroupRef.current) {
+              featureGroupRef.current.clearLayers()
+            }
+            featureGroupRef.current?.addLayer(layer)
 
-  const handleEdited = (e: DrawEditedEvent) => {
-    isEditingRef.current = false
-    const layers = e.layers
-    const features: GeoJSON.Feature[] = []
+            notifyChange([geoJSON])
+          })
 
-    layers.eachLayer((layer: L.Layer) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const geoJSON = (layer as any).toGeoJSON() as GeoJSON.Feature
-      // Validate geometry before accepting
-      if (geoJSON?.geometry?.type === 'Polygon' && geoJSON.geometry.coordinates?.[0]?.length >= 4) {
-        features.push(geoJSON)
-      }
-    })
+          // --- pm:remove — shape deleted ---
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          map.on('pm:remove', (e: any) => {
+            isEditingRef.current = false
+            if (featureGroupRef.current?.hasLayer(e.layer)) {
+              featureGroupRef.current.removeLayer(e.layer)
+            }
+            notifyChange(collectFeatures())
+          })
 
-    if (features.length > 0) {
-      setDrawnFeatures(features)
-      // Update the last loaded boundary ref so we don't reload the same boundary
-      const geometry = features[0]?.geometry
-      lastLoadedBoundaryRef.current = JSON.stringify(
-        geometry && 'coordinates' in geometry ? geometry.coordinates : null
-      )
-      onBoundaryChange?.({
-        type: 'FeatureCollection',
-        features,
-      })
-    }
-  }
+          // --- pm:cut — polygon clipped (A3.3) ---
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          map.on('pm:cut', (e: any) => {
+            // Remove original from FeatureGroup
+            if (e.originalLayer && featureGroupRef.current?.hasLayer(e.originalLayer)) {
+              featureGroupRef.current.removeLayer(e.originalLayer)
+            }
+            // Move cut result into FeatureGroup
+            if (e.layer) {
+              map.removeLayer(e.layer)
+              featureGroupRef.current?.addLayer(e.layer)
+            }
+            notifyChange(collectFeatures())
+          })
 
-  const handleDeleted = (_e: DrawDeletedEvent) => {
-    isEditingRef.current = false
+          // --- Edit mode toggle — collect features when exiting (A3.4) ---
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          map.on('pm:globaleditmodetoggled', (e: any) => {
+            isEditingRef.current = e.enabled
+            if (!e.enabled) {
+              // Exiting edit mode — persist vertex changes
+              notifyChange(collectFeatures())
+            }
+          })
 
-    // Get remaining features from the FeatureGroup
-    const remainingFeatures: GeoJSON.Feature[] = []
-    if (featureGroupRef.current) {
-      featureGroupRef.current.eachLayer((layer: L.Layer) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const geoJSON = (layer as any).toGeoJSON?.() as GeoJSON.Feature | undefined
-        if (
-          geoJSON?.geometry?.type === 'Polygon' &&
-          geoJSON.geometry.coordinates?.[0]?.length >= 4
-        ) {
-          remainingFeatures.push(geoJSON)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          map.on('pm:globalremovalmodetoggled', (e: any) => {
+            isEditingRef.current = e.enabled
+          })
+
+          geomanReadyRef.current = true
+        } catch (error) {
+          console.error('Failed to initialize Geoman:', error)
         }
-      })
-    }
+      }
 
-    setDrawnFeatures(remainingFeatures)
-    const geom = remainingFeatures[0]?.geometry
-    lastLoadedBoundaryRef.current =
-      remainingFeatures.length > 0 && geom && 'coordinates' in geom
-        ? JSON.stringify(geom.coordinates)
-        : null
-    onBoundaryChange?.({
-      type: 'FeatureCollection',
-      features: remainingFeatures,
-    })
+      init()
+
+      return () => {
+        if (map.pm) {
+          try {
+            map.pm.removeControls()
+            map.off('pm:create')
+            map.off('pm:remove')
+            map.off('pm:cut')
+            map.off('pm:globaleditmodetoggled')
+            map.off('pm:globalremovalmodetoggled')
+          } catch {
+            // ignore cleanup errors
+          }
+        }
+        geomanReadyRef.current = false
+      }
+    }, [map])
+
+    return null
   }
 
   // Convert buffer zones Map to array for rendering
@@ -711,52 +748,14 @@ function MapComponentWithDraw({
       })}
 
       {editable ? (
-        <FeatureGroup
-          ref={(ref: LeafletFeatureGroup | null) => {
-            featureGroupRef.current = ref
-          }}
-        >
-          <EditControl
-            position="topright"
-            onCreated={handleCreated}
-            onEdited={handleEdited}
-            onDeleted={handleDeleted}
-            onEditStart={handleEditStart}
-            onEditStop={handleEditStop}
-            onDeleteStart={handleDeleteStart}
-            onDeleteStop={handleDeleteStop}
-            draw={{
-              rectangle: {
-                showArea: true,
-                shapeOptions: {
-                  color: '#ef4444',
-                  fillColor: '#ef4444',
-                  fillOpacity: 0.1,
-                  weight: 3,
-                },
-              },
-              circle: false,
-              circlemarker: false,
-              marker: false,
-              polyline: false,
-              polygon: {
-                allowIntersection: false,
-                showArea: true,
-                showLength: true,
-                shapeOptions: {
-                  color: '#ef4444',
-                  fillColor: '#ef4444',
-                  fillOpacity: 0.1,
-                  weight: 3,
-                },
-              },
-            }}
-            edit={{
-              remove: true,
-              edit: true,
+        <>
+          <FeatureGroup
+            ref={(ref: LeafletFeatureGroup | null) => {
+              featureGroupRef.current = ref
             }}
           />
-        </FeatureGroup>
+          <GeomanSetup />
+        </>
       ) : (
         // Display-only mode
         boundary && (

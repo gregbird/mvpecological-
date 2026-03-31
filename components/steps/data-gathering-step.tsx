@@ -988,6 +988,7 @@ export function DataGatheringStep({
             project={project}
             userId={userId}
             isActive={currentStep === 'reports'}
+            siteId={selectedSite?.id ?? null}
           />
         )}
 

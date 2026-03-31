@@ -163,7 +163,7 @@ export function useSubstepSearch(
   }, [isActive])
 
   // --- Restore location data when cache is missing geometries ---
-  // Priority: savedFindings full geometry > locationCenter as Point fallback
+  // Full geometry is now preserved in cache, but some older caches may still have locationCenter
   React.useEffect(() => {
     if (searchResults.length === 0) return
     const needsRestore = searchResults.some((r) => !r.location)
@@ -174,12 +174,14 @@ export function useSubstepSearch(
         if (result.location) return result
         // Try to restore full geometry from saved findings
         if (savedFindings.length > 0) {
-          const match = savedFindings.find((sf) => matchPredicate(sf, result))
+          const match = savedFindings.find(
+            (sf) => sf.id === result.id || matchPredicate(sf, result)
+          )
           if (match?.location) {
             return { ...result, location: match.location as GeoJSON.Geometry }
           }
         }
-        // Fallback: convert cached locationCenter to Point geometry
+        // Legacy fallback: convert cached locationCenter to Point geometry
         const lc = (result as unknown as Record<string, unknown>).locationCenter as
           | number[]
           | undefined
@@ -217,46 +219,8 @@ export function useSubstepSearch(
     if (cacheTimerRef.current) clearTimeout(cacheTimerRef.current)
     cacheTimerRef.current = setTimeout(() => {
       try {
-        // Strip rawData and large geometry to reduce storage size.
-        // For non-Point geometries (LineString, Polygon), compute a centroid
-        // so map markers can still be placed when restoring from cache.
-        const cacheableResults = searchResults.map(({ rawData: _rawData, location, ...rest }) => {
-          let center: number[] | undefined
-          if (location) {
-            if (location.type === 'Point') {
-              center = location.coordinates as number[]
-            } else {
-              // Compute centroid from bbox of all coordinates
-              try {
-                const coords: number[][] = []
-                const extractCoords = (g: GeoJSON.Geometry) => {
-                  if ('coordinates' in g) {
-                    const flat = JSON.stringify(g.coordinates)
-                    const nums = flat.match(/-?\d+\.?\d*/g)
-                    if (nums && nums.length >= 2) {
-                      for (let i = 0; i < nums.length - 1; i += 2) {
-                        coords.push([parseFloat(nums[i]), parseFloat(nums[i + 1])])
-                      }
-                    }
-                  }
-                  if (g.type === 'GeometryCollection') {
-                    for (const sub of (g as GeoJSON.GeometryCollection).geometries)
-                      extractCoords(sub)
-                  }
-                }
-                extractCoords(location)
-                if (coords.length > 0) {
-                  const sumLng = coords.reduce((s, c) => s + c[0], 0)
-                  const sumLat = coords.reduce((s, c) => s + c[1], 0)
-                  center = [sumLng / coords.length, sumLat / coords.length]
-                }
-              } catch {
-                // Skip centroid calculation
-              }
-            }
-          }
-          return { ...rest, locationCenter: center }
-        })
+        // Strip rawData but keep full geometry so polygons render correctly on restore
+        const cacheableResults = searchResults.map(({ rawData: _rawData, ...rest }) => rest)
         sessionStorage.setItem(cacheKey, JSON.stringify(cacheableResults))
       } catch (e) {
         console.warn('Failed to cache search results:', e)

@@ -30,6 +30,7 @@ interface CompanyReportsSubStepProps {
   project: Project
   userId: string
   isActive?: boolean
+  siteId?: string | null
 }
 
 /** Highlight matching terms in text */
@@ -157,7 +158,12 @@ function ResultCard({
   )
 }
 
-export function CompanyReportsSubStep({ project, userId, isActive }: CompanyReportsSubStepProps) {
+export function CompanyReportsSubStep({
+  project,
+  userId,
+  isActive,
+  siteId,
+}: CompanyReportsSubStepProps) {
   const [query, setQuery] = React.useState('')
   const [debouncedQuery, setDebouncedQuery] = React.useState('')
   const [hasDocuments, setHasDocuments] = React.useState<boolean | null>(null)
@@ -214,6 +220,7 @@ export function CompanyReportsSubStep({ project, userId, isActive }: CompanyRepo
     try {
       await createFinding.mutateAsync({
         project_id: project.id,
+        site_id: siteId ?? null,
         created_by: userId,
         source: 'company_reports',
         data_type: 'company_report',
