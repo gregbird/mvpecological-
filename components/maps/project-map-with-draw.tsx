@@ -37,7 +37,7 @@ interface ProjectMapWithDrawProps {
   boundary?: GeoJSON.Feature<GeoJSON.Polygon>
   bufferZones?: Map<number, GeoJSON.Feature<GeoJSON.Polygon>>
   bufferColors?: Record<number, BufferColorConfig>
-  onBoundaryChange?: (features: GeoJSON.FeatureCollection) => void
+  onBoundaryChange?: (features: GeoJSON.FeatureCollection, isEdit?: boolean) => void
   onViewChange?: (center: [number, number], zoom: number) => void
   editable?: boolean
   showMeasureTool?: boolean
@@ -110,7 +110,7 @@ function MapComponentWithDraw({
   bufferZones?: Map<number, GeoJSON.Feature<GeoJSON.Polygon>>
   bufferColors?: Record<number, BufferColorConfig>
   currentStyle: MapStyle
-  onBoundaryChange?: (features: GeoJSON.FeatureCollection) => void
+  onBoundaryChange?: (features: GeoJSON.FeatureCollection, isEdit?: boolean) => void
   onViewChange?: (center: [number, number], zoom: number) => void
   editable: boolean
   mapRef: React.MutableRefObject<LeafletMap | null>
@@ -162,9 +162,13 @@ function MapComponentWithDraw({
   const lastLoadedBoundaryRef = React.useRef<string | null>(null)
   // Track the last flyTo key to prevent re-triggering
   const lastFlyToKeyRef = React.useRef<string | null>(null)
-  // Stable ref for boundary change callback (used in Geoman event handlers)
+  // Geoman initialization flag — persists across nested component re-renders
+  const geomanReadyRef = React.useRef(false)
+  // Stable refs for values used in Geoman event handlers (avoid stale closures)
   const onBoundaryChangeRef = React.useRef(onBoundaryChange)
   onBoundaryChangeRef.current = onBoundaryChange
+  const allowMultipleDrawingsRef = React.useRef(allowMultipleDrawings)
+  allowMultipleDrawingsRef.current = allowMultipleDrawings
 
   // Initialize with existing boundary or reset when boundary is cleared
   React.useEffect(() => {
@@ -302,6 +306,12 @@ function MapComponentWithDraw({
 
         geoJsonLayer.eachLayer((layer: L.Layer) => {
           featureGroupRef.current?.addLayer(layer)
+          // Enable Geoman editing on loaded layers so vertex edit/cut works
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          if ((layer as any).pm) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ;(layer as any).pm.setOptions({ snappable: true, snapDistance: 15 })
+          }
         })
 
         // Fly to boundary bounds whenever boundary changes
@@ -343,22 +353,16 @@ function MapComponentWithDraw({
       }
     }, [map, flyToLocation])
 
-    return null
-  }
-
-  // Geoman integration — replaces leaflet-draw EditControl
-  // Provides: snapping, vertex editing, cut/clip, polygon + rectangle drawing
-  function GeomanSetup() {
-    const map = useMap()
-    const geomanReadyRef = React.useRef(false)
-
+    // Geoman initialization — snapping (A3.1), cut (A3.3), vertex edit (A3.4)
+    // Uses geomanReadyRef from parent scope so it persists across re-renders
     React.useEffect(() => {
-      if (geomanReadyRef.current) return
+      if (!editable || geomanReadyRef.current || !map) return
 
       const init = async () => {
         try {
           await import('@geoman-io/leaflet-geoman-free')
-          if (!map.pm) return
+          // Guard: check again after async import in case of race condition
+          if (!map.pm || geomanReadyRef.current) return
 
           // Global options — snapping enabled (A3.1)
           map.pm.setGlobalOptions({
@@ -376,7 +380,7 @@ function MapComponentWithDraw({
             },
           })
 
-          // Toolbar: polygon, rectangle, edit (A3.4), cut (A3.3), delete
+          // Toolbar: polygon, rectangle, edit, cut, delete
           map.pm.addControls({
             position: 'topright',
             drawMarker: false,
@@ -407,17 +411,15 @@ function MapComponentWithDraw({
           }
 
           // Helper: update state + notify parent
-          const notifyChange = (features: GeoJSON.Feature[]) => {
+          // isEdit=true for vertex edits and cuts, false for new draws
+          const notifyChange = (features: GeoJSON.Feature[], isEdit = false) => {
             setDrawnFeatures(features)
             const geom = features[0]?.geometry
             lastLoadedBoundaryRef.current =
               features.length > 0 && geom && 'coordinates' in geom
                 ? JSON.stringify(geom.coordinates)
                 : null
-            onBoundaryChangeRef.current?.({
-              type: 'FeatureCollection',
-              features,
-            })
+            onBoundaryChangeRef.current?.({ type: 'FeatureCollection', features }, isEdit)
           }
 
           // --- pm:create — new polygon/rectangle drawn ---
@@ -438,12 +440,12 @@ function MapComponentWithDraw({
 
             // Move layer from map into FeatureGroup
             map.removeLayer(layer)
-            if (!allowMultipleDrawings && featureGroupRef.current) {
+            if (!allowMultipleDrawingsRef.current && featureGroupRef.current) {
               featureGroupRef.current.clearLayers()
             }
             featureGroupRef.current?.addLayer(layer)
 
-            notifyChange([geoJSON])
+            notifyChange([geoJSON], false)
           })
 
           // --- pm:remove — shape deleted ---
@@ -453,22 +455,20 @@ function MapComponentWithDraw({
             if (featureGroupRef.current?.hasLayer(e.layer)) {
               featureGroupRef.current.removeLayer(e.layer)
             }
-            notifyChange(collectFeatures())
+            notifyChange(collectFeatures(), false)
           })
 
           // --- pm:cut — polygon clipped (A3.3) ---
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           map.on('pm:cut', (e: any) => {
-            // Remove original from FeatureGroup
             if (e.originalLayer && featureGroupRef.current?.hasLayer(e.originalLayer)) {
               featureGroupRef.current.removeLayer(e.originalLayer)
             }
-            // Move cut result into FeatureGroup
             if (e.layer) {
               map.removeLayer(e.layer)
               featureGroupRef.current?.addLayer(e.layer)
             }
-            notifyChange(collectFeatures())
+            notifyChange(collectFeatures(), true)
           })
 
           // --- Edit mode toggle — collect features when exiting (A3.4) ---
@@ -476,8 +476,7 @@ function MapComponentWithDraw({
           map.on('pm:globaleditmodetoggled', (e: any) => {
             isEditingRef.current = e.enabled
             if (!e.enabled) {
-              // Exiting edit mode — persist vertex changes
-              notifyChange(collectFeatures())
+              notifyChange(collectFeatures(), true)
             }
           })
 
@@ -493,23 +492,8 @@ function MapComponentWithDraw({
       }
 
       init()
-
-      return () => {
-        if (map.pm) {
-          try {
-            map.pm.removeControls()
-            map.off('pm:create')
-            map.off('pm:remove')
-            map.off('pm:cut')
-            map.off('pm:globaleditmodetoggled')
-            map.off('pm:globalremovalmodetoggled')
-          } catch {
-            // ignore cleanup errors
-          }
-        }
-        geomanReadyRef.current = false
-      }
-    }, [map])
+      // No cleanup — Geoman controls persist for the map's lifetime
+    }, [map, editable]) // eslint-disable-line react-hooks/exhaustive-deps
 
     return null
   }
@@ -748,14 +732,11 @@ function MapComponentWithDraw({
       })}
 
       {editable ? (
-        <>
-          <FeatureGroup
-            ref={(ref: LeafletFeatureGroup | null) => {
-              featureGroupRef.current = ref
-            }}
-          />
-          <GeomanSetup />
-        </>
+        <FeatureGroup
+          ref={(ref: LeafletFeatureGroup | null) => {
+            featureGroupRef.current = ref
+          }}
+        />
       ) : (
         // Display-only mode
         boundary && (

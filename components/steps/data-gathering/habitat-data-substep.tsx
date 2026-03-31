@@ -76,6 +76,8 @@ interface HabitatDataSubStepProps {
   bufferDistances: number[]
   /** Active site ID for site-scoped caching and saving */
   siteId?: string | null
+  /** All site boundaries — when provided, search each individually and merge */
+  allBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   showMap: boolean
   onToggleMap: () => void
   isActive?: boolean
@@ -103,6 +105,7 @@ export function HabitatDataSubStep({
   projectCenter,
   bufferDistances,
   siteId,
+  allBoundaries,
   showMap,
   onToggleMap,
   isActive,
@@ -117,6 +120,20 @@ export function HabitatDataSubStep({
   const deleteFinding = useDeleteFinding()
   const updateFinding = useUpdateFinding()
   const cacheKey = `nlc-habitat-${project.id}`
+
+  /** Build per-site bbox list for multi-site, or single bbox for single-site */
+  const buildBboxList = React.useCallback(
+    (buffer: number) => {
+      if (allBoundaries && allBoundaries.length > 0) {
+        return allBoundaries
+          .map((b) => getBoundingBox(b, null, buffer))
+          .filter(Boolean) as NonNullable<ReturnType<typeof getBoundingBox>>[]
+      }
+      const bbox = getBoundingBox(searchBoundary ?? projectBoundary, projectCenter, buffer)
+      return bbox ? [bbox] : []
+    },
+    [allBoundaries, searchBoundary, projectBoundary, projectCenter]
+  )
 
   const [isSearching, setIsSearching] = React.useState(false)
   const [results, setResults] = useSessionStorage<HabitatResult[]>(cacheKey, [])
@@ -206,19 +223,29 @@ export function HabitatDataSubStep({
   React.useEffect(() => {
     if (results.length > 0 && !habitatPolygons && !isSearching && !hasFetchedRef.current) {
       hasFetchedRef.current = true
-      const bbox = getBoundingBox(searchBoundary ?? projectBoundary, projectCenter, selectedBuffer)
-      if (bbox) {
-        fetchNlcPolygons({
-          bbox: {
-            minLat: bbox.minLat,
-            maxLat: bbox.maxLat,
-            minLng: bbox.minLng,
-            maxLng: bbox.maxLng,
-          },
-        }).then(setHabitatPolygons)
+      const bboxes = buildBboxList(selectedBuffer)
+      if (bboxes.length > 0) {
+        Promise.all(
+          bboxes.map((bbox) =>
+            fetchNlcPolygons({
+              bbox: {
+                minLat: bbox.minLat,
+                maxLat: bbox.maxLat,
+                minLng: bbox.minLng,
+                maxLng: bbox.maxLng,
+              },
+            })
+          )
+        ).then((collections) => {
+          const merged: GeoJSON.FeatureCollection = {
+            type: 'FeatureCollection',
+            features: collections.flatMap((c) => c.features),
+          }
+          setHabitatPolygons(merged)
+        })
       }
     }
-  }, [results, habitatPolygons, isSearching, projectBoundary, projectCenter, selectedBuffer])
+  }, [results, habitatPolygons, isSearching, buildBboxList, selectedBuffer])
 
   React.useEffect(() => {
     if (isActive) {
@@ -242,25 +269,40 @@ export function HabitatDataSubStep({
     }
     autoSearchTriggeredRef.current = true
 
-    const bbox = getBoundingBox(searchBoundary ?? projectBoundary, projectCenter, selectedBuffer)
-    if (!bbox) {
+    const bboxes = buildBboxList(selectedBuffer)
+    if (bboxes.length === 0) {
       onAutoSearchComplete?.('error')
       return
     }
 
     setIsSearching(true)
-    const bboxParams = {
+    const bboxParamsList = bboxes.map((bbox) => ({
       bbox: { minLat: bbox.minLat, maxLat: bbox.maxLat, minLng: bbox.minLng, maxLng: bbox.maxLng },
-    }
+    }))
 
-    // Auto-search: fetch only lightweight aggregate stats first, defer heavy polygon geometry
-    searchNlcLandCover(bboxParams)
-      .then((aggregated) => {
-        if (aggregated.length === 0) {
+    // Auto-search: fetch lightweight aggregate stats for each site, then merge
+    Promise.all(bboxParamsList.map((p) => searchNlcLandCover(p)))
+      .then((allAggregated) => {
+        // Merge aggregated results by nlcId
+        const mergedMap = new Map<string, AggregatedHabitat>()
+        for (const aggregated of allAggregated) {
+          for (const h of aggregated) {
+            const existing = mergedMap.get(h.nlcId)
+            if (existing) {
+              existing.areaHectares += h.areaHectares
+              existing.polygonCount += h.polygonCount
+            } else {
+              mergedMap.set(h.nlcId, { ...h })
+            }
+          }
+        }
+        const merged = Array.from(mergedMap.values())
+
+        if (merged.length === 0) {
           onAutoSearchComplete?.('done')
           return
         }
-        const mapped: HabitatResult[] = aggregated.map((h: AggregatedHabitat) => {
+        const mapped: HabitatResult[] = merged.map((h: AggregatedHabitat) => {
           const fossitt = mapNlcToFossitt(h.nlcId)
           return {
             nlcId: h.nlcId,
@@ -275,8 +317,12 @@ export function HabitatDataSubStep({
         setResults(mapped)
         onAutoSearchComplete?.('done')
         // Fetch polygons in background (non-blocking) for map display
-        fetchNlcPolygons(bboxParams).then((polygons) => {
-          setHabitatPolygons(polygons)
+        Promise.all(bboxParamsList.map((p) => fetchNlcPolygons(p))).then((collections) => {
+          const mergedPolygons: GeoJSON.FeatureCollection = {
+            type: 'FeatureCollection',
+            features: collections.flatMap((c) => c.features),
+          }
+          setHabitatPolygons(mergedPolygons)
           hasFetchedRef.current = true
         })
       })
@@ -412,8 +458,8 @@ export function HabitatDataSubStep({
   }, [results, habitatPolygons, isSearching, getSavedFinding])
 
   const performSearch = async () => {
-    const bbox = getBoundingBox(searchBoundary ?? projectBoundary, projectCenter, selectedBuffer)
-    if (!bbox) {
+    const bboxes = buildBboxList(selectedBuffer)
+    if (bboxes.length === 0) {
       toast({
         variant: 'destructive',
         title: 'No boundary',
@@ -428,23 +474,43 @@ export function HabitatDataSubStep({
     hasFetchedRef.current = true
     autoSaveTriggeredRef.current = false
 
-    const bboxParams = {
+    const bboxParamsList = bboxes.map((bbox) => ({
       bbox: { minLat: bbox.minLat, maxLat: bbox.maxLat, minLng: bbox.minLng, maxLng: bbox.maxLng },
-    }
+    }))
 
     try {
-      const [aggregated, polygons] = await Promise.all([
-        searchNlcLandCover(bboxParams),
-        fetchNlcPolygons(bboxParams),
-      ])
+      const allResults = await Promise.all(
+        bboxParamsList.map((p) => Promise.all([searchNlcLandCover(p), fetchNlcPolygons(p)]))
+      )
 
-      if (aggregated.length === 0) {
+      // Merge aggregated results by nlcId
+      const mergedMap = new Map<string, AggregatedHabitat>()
+      for (const [aggregated] of allResults) {
+        for (const h of aggregated) {
+          const existing = mergedMap.get(h.nlcId)
+          if (existing) {
+            existing.areaHectares += h.areaHectares
+            existing.polygonCount += h.polygonCount
+          } else {
+            mergedMap.set(h.nlcId, { ...h })
+          }
+        }
+      }
+      const mergedAggregated = Array.from(mergedMap.values())
+
+      // Merge polygon collections
+      const mergedPolygons: GeoJSON.FeatureCollection = {
+        type: 'FeatureCollection',
+        features: allResults.flatMap(([, polygons]) => polygons.features),
+      }
+
+      if (mergedAggregated.length === 0) {
         toast({ title: 'No habitats found', description: 'No land cover data in buffer zone.' })
         setIsSearching(false)
         return
       }
 
-      const mapped: HabitatResult[] = aggregated.map((h: AggregatedHabitat) => {
+      const mapped: HabitatResult[] = mergedAggregated.map((h: AggregatedHabitat) => {
         const fossitt = mapNlcToFossitt(h.nlcId)
         return {
           nlcId: h.nlcId,
@@ -458,7 +524,7 @@ export function HabitatDataSubStep({
       })
 
       setResults(mapped)
-      setHabitatPolygons(polygons)
+      setHabitatPolygons(mergedPolygons)
 
       const totalPolygons = mapped.reduce((sum, m) => sum + m.polygonCount, 0)
       toast({

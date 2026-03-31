@@ -968,6 +968,7 @@ export function DataGatheringStep({
               projectCenter={projectCenter}
               bufferDistances={bufferDistances}
               siteId={selectedSite?.id ?? null}
+              allBoundaries={isAllSites ? allBoundaries : undefined}
               showMap={showMap}
               onToggleMap={() => setShowMap(!showMap)}
               isActive={currentStep === 'habitats'}

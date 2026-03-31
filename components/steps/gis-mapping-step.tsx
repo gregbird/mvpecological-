@@ -252,8 +252,8 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
     }
   }
 
-  const handleBoundaryChange = (features: GeoJSON.FeatureCollection) => {
-    const changed = siteMgmt.handleBoundaryChange(features)
+  const handleBoundaryChange = (features: GeoJSON.FeatureCollection, isEdit?: boolean) => {
+    const changed = siteMgmt.handleBoundaryChange(features, isEdit)
     if (changed) wizard.setHasUnsavedChanges(true)
   }
 

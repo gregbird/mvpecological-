@@ -267,7 +267,58 @@ export function DataGatheringSubstepShell({
 
   // ── Perform search ──────────────────────────────────────────────────────
   const performSearch = async () => {
-    // Use searchBoundary (merged across all sites) for bbox, fall back to projectBoundary
+    // Multi-site "All Sites" mode: search each site boundary individually and merge
+    if (allBoundaries && allBoundaries.length > 0) {
+      setIsSearching(true)
+      setSearchResults([])
+
+      try {
+        const merged: FindingDisplay[] = []
+        const seenIds = new Set<string>()
+
+        for (const boundary of allBoundaries) {
+          const bbox = getBoundingBox(boundary, null, selectedBuffer)
+          if (!bbox) continue
+
+          const findings = await config.performSearch({
+            bbox: {
+              minLat: bbox.minLat,
+              maxLat: bbox.maxLat,
+              minLng: bbox.minLng,
+              maxLng: bbox.maxLng,
+            },
+            buffer: selectedBuffer,
+            boundary,
+          })
+
+          for (const f of findings) {
+            if (!seenIds.has(f.id)) {
+              seenIds.add(f.id)
+              merged.push(f)
+            }
+          }
+        }
+
+        setSearchResults(merged)
+
+        // Post-search hook (e.g. NBDC enrichment)
+        if (config.onPostSearch && merged.length > 0) {
+          config.onPostSearch(merged, setSearchResults)
+        }
+      } catch (error) {
+        console.error(`${config.cacheKeyPrefix} search error:`, error)
+        toast({
+          variant: 'destructive',
+          title: 'Search failed',
+          description: `Could not fetch data from ${config.searchButtonLabel.replace('Search ', '')}.`,
+        })
+      } finally {
+        setIsSearching(false)
+      }
+      return
+    }
+
+    // Single site or specific site — use searchBoundary (merged) or projectBoundary
     const effectiveBoundary = searchBoundary ?? projectBoundary
     const bbox = getBoundingBox(effectiveBoundary, projectCenter, selectedBuffer)
     if (!bbox) {

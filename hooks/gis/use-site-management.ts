@@ -206,9 +206,9 @@ export function useSiteManagement(project: Project, existingSites: ProjectSiteWi
   )
 
   // Update active site's boundary from map drawing.
-  // If the active site already has a boundary, create a new site instead.
+  // isEdit=true means vertex edit or cut (update in place), false means new polygon drawn.
   const handleBoundaryChange = React.useCallback(
-    (features: GeoJSON.FeatureCollection) => {
+    (features: GeoJSON.FeatureCollection, isEdit?: boolean) => {
       if (features.features.length > 0) {
         const feature = features.features[features.features.length - 1]
         if (
@@ -219,8 +219,8 @@ export function useSiteManagement(project: Project, existingSites: ProjectSiteWi
           const center = centroid(poly)
           const active = sites[activeSiteIndex]
 
-          if (!active?.boundary) {
-            // Active site has no boundary → assign to it
+          if (!active?.boundary || isEdit) {
+            // No boundary yet, or editing existing → update active site
             setSites((prev) =>
               prev.map((s, i) =>
                 i === activeSiteIndex
@@ -229,7 +229,7 @@ export function useSiteManagement(project: Project, existingSites: ProjectSiteWi
               )
             )
           } else {
-            // Active site already has a boundary → create new site
+            // New polygon drawn + active site already has boundary → create new site
             const existingCodes = sites.map((s) => s.siteCode)
             const newCode = generateSiteCode(codePrefix, existingCodes)
             const newSite: SiteState = {
