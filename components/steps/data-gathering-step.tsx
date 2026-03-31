@@ -877,7 +877,7 @@ export function DataGatheringStep({
               searchBoundary={searchBoundary}
               projectCenter={projectCenter}
               bufferDistances={bufferDistances}
-              siteId={effectiveSiteId}
+              siteId={selectedSite?.id ?? null}
               otherBoundaries={otherBoundaries}
               allBoundaries={isAllSites ? allBoundaries : undefined}
               userId={userId}
@@ -907,7 +907,7 @@ export function DataGatheringStep({
               searchBoundary={searchBoundary}
               projectCenter={projectCenter}
               bufferDistances={bufferDistances}
-              siteId={effectiveSiteId}
+              siteId={selectedSite?.id ?? null}
               otherBoundaries={otherBoundaries}
               allBoundaries={isAllSites ? allBoundaries : undefined}
               userId={userId}
@@ -937,7 +937,7 @@ export function DataGatheringStep({
               searchBoundary={searchBoundary}
               projectCenter={projectCenter}
               bufferDistances={bufferDistances}
-              siteId={effectiveSiteId}
+              siteId={selectedSite?.id ?? null}
               otherBoundaries={otherBoundaries}
               allBoundaries={isAllSites ? allBoundaries : undefined}
               userId={userId}
@@ -967,7 +967,7 @@ export function DataGatheringStep({
               searchBoundary={searchBoundary}
               projectCenter={projectCenter}
               bufferDistances={bufferDistances}
-              siteId={effectiveSiteId}
+              siteId={selectedSite?.id ?? null}
               showMap={showMap}
               onToggleMap={() => setShowMap(!showMap)}
               isActive={currentStep === 'habitats'}

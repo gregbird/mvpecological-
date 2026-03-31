@@ -155,8 +155,12 @@ export function HabitatMappingStep({
   const findingsByType = React.useMemo(() => groupFindingsByType(savedFindings), [savedFindings])
 
   // D2.3: Auto-pull habitat findings from data gathering into habitat_polygons
-  // Runs when data is ready — existingKeys prevents duplicates, isPulling prevents concurrent runs
+  // Refs keep mutation stable so the effect only re-runs on real data changes
+  const createHabitatRef = React.useRef(createHabitat)
+  createHabitatRef.current = createHabitat
+  const importedFindingIds = React.useRef(new Set<string>())
   const isPulling = React.useRef(false)
+
   React.useEffect(() => {
     if (isPulling.current || isLoading || findingsLoading) return
 
@@ -171,30 +175,67 @@ export function HabitatMappingStep({
     const existingKeys = new Set(habitats.map((h) => `${h.fossitt_code}::${h.site_id ?? ''}`))
 
     const newFindings = habitatFindings.filter((f) => {
+      if (importedFindingIds.current.has(f.id)) return false
       const raw = f.raw_data as Record<string, unknown>
       const key = `${raw.fossittCode as string}::${f.site_id ?? ''}`
       return !existingKeys.has(key)
     })
     if (newFindings.length === 0) return
 
+    // Mark as importing immediately to prevent duplicate runs
     isPulling.current = true
+    for (const f of newFindings) importedFindingIds.current.add(f.id)
+
+    // Normalize any geometry to a single Polygon (DB column type is strictly Polygon).
+    // For GeometryCollection / MultiPolygon, pick the largest polygon by coordinate count.
+    const toPolygon = (geo: unknown): Json | null => {
+      if (!geo || typeof geo !== 'object') return null
+      const g = geo as GeoJSON.Geometry
+      if (g.type === 'Polygon') return g as unknown as Json
+      // Extract all polygons from the geometry
+      let polys: GeoJSON.Polygon[] = []
+      if (g.type === 'MultiPolygon') {
+        polys = (g as GeoJSON.MultiPolygon).coordinates.map((coords) => ({
+          type: 'Polygon',
+          coordinates: coords,
+        }))
+      } else if (g.type === 'GeometryCollection') {
+        for (const sub of (g as GeoJSON.GeometryCollection).geometries) {
+          if (sub.type === 'Polygon') polys.push(sub as GeoJSON.Polygon)
+          else if (sub.type === 'MultiPolygon') {
+            for (const coords of (sub as GeoJSON.MultiPolygon).coordinates) {
+              polys.push({ type: 'Polygon', coordinates: coords })
+            }
+          }
+        }
+      }
+      if (polys.length === 0) return null
+      // Pick the largest polygon (most coordinates = largest area)
+      const largest = polys.reduce((a, b) =>
+        (a.coordinates[0]?.length ?? 0) >= (b.coordinates[0]?.length ?? 0) ? a : b
+      )
+      return largest as unknown as Json
+    }
+
     Promise.all(
       newFindings.map((f) => {
         const raw = f.raw_data as Record<string, unknown>
-        return createHabitat.mutateAsync({
+        return createHabitatRef.current.mutateAsync({
           project_id: project.id,
           site_id: f.site_id ?? null,
           fossitt_code: raw.fossittCode as string,
           fossitt_name: raw.fossittName as string,
+          boundary: toPolygon(f.location),
           area_hectares: (raw.areaHectares as number) ?? null,
-          notes: `Auto-imported from Data Gathering (NLC)`,
+          condition: 'moderate',
+          notes: 'Auto-imported from Data Gathering (NLC)',
           include_in_report: true,
         })
       })
     ).finally(() => {
       isPulling.current = false
     })
-  }, [isLoading, findingsLoading, savedFindings, habitats, project.id, createHabitat])
+  }, [isLoading, findingsLoading, savedFindings, habitats, project.id])
 
   // Convert findings to map markers (filtered by visibility toggles)
   const findingMarkers: FindingMarker[] = React.useMemo(() => {
@@ -242,10 +283,10 @@ export function HabitatMappingStep({
     }
   }, [])
 
-  // Filter habitats by selected site
+  // Filter habitats by selected site — site_id=null means project-level, show under every site
   const filteredHabitats = React.useMemo(() => {
     if (!selectedSite) return habitats
-    return habitats.filter((h) => h.site_id === selectedSite.id)
+    return habitats.filter((h) => h.site_id === selectedSite.id || h.site_id === null)
   }, [habitats, selectedSite])
 
   // Convert saved habitats to map overlay format

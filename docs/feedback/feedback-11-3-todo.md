@@ -34,10 +34,10 @@ F: Bagimsiz ──→ paralel yapilabilir
 | A: GIS Altyapi    | 31     | 27         | █████████░ 87%     |
 | B: Habitat Veri   | 11     | 11         | ██████████ 100% ✅ |
 | C: Desk Temizlik  | 6      | 6          | ██████████ 100% ✅ |
-| D: Field Research | 9      | 8          | █████████░ 89%     |
+| D: Field Research | 9      | 9          | ██████████ 100% ✅ |
 | E: Raporlama      | 20     | 1          | █░░░░░░░░░ 5%      |
 | F: Bagimsiz       | 5      | 0          | ░░░░░░░░░░ 0%      |
-| **Toplam**        | **72** | **53**     | ███████░░░ **74%** |
+| **Toplam**        | **72** | **54**     | ████████░░ **75%** |
 
 ---
 
@@ -168,7 +168,7 @@ F: Bagimsiz ──→ paralel yapilabilir
 
 - [x] **D2.1** ~~Field Research bolumunu tab yapisiyla guncelle~~ ✅ (30 Mart 2026) — Step 4+5+6 tek step'e birlestirildi (Step 4: Field Research). 10 step → 8 step. `FieldResearchStep` wrapper bileseni 3 tab: Field Survey, Habitat Mapping, Target Notes. Tum step numaralari guncellendi (7→5, 8→6, 9→7, 10→8). DB migration: step 5+6 silinir, 7-10 → 5-8 kaydirılır. Etkilenen dosyalar: `workflow.ts`, `workflow queries`, `page.tsx`, `sidebar.tsx`, `seed-data.ts`, `index.ts`, tum step heading'leri ve hata mesajlari. ⚠️ **Mobile:** Workflow step numaralari tamamen degisti (10→8 step). Mobile'da `step_number` referanslari, sidebar, completion mantigi guncellenmeli
 - [x] **D2.2** ~~Habitat Mapping'i Field Survey alt kategorisi olarak yeniden yapilandir~~ ✅ (30 Mart 2026) — Header, Badge, "Complete Step" butonu, `handleComplete`, `completeStep` hook, `onComplete` prop kaldirildi. Wrapper tek "Complete Step" yonetiyor
-- [ ] **D2.3** Data gathering stage 5'ten habitat verisini otomatik cek ve duzenlenebilir yap
+- [x] **D2.3** ~~Data gathering stage 5'ten habitat verisini otomatik cek ve duzenlenebilir yap~~ ✅ (31 Mart 2026) — Habitat Mapping tab acildiginda `desk_research_findings` (data_type='habitat') otomatik olarak `habitat_polygons` tablosuna aktariliyor. NLC polygon geometrisi dahil (GeometryCollection → Polygon donusumu), default condition='moderate', site_id korunuyor. Ekolog her habitati duzenleyebilir (FOSSITT kodu, condition, boundary, notlar). ⚠️ **Tespit edilen A grubu bug'lari:** (1) `useProjectBoundary` fallback'i "All Sites" modunda `effectiveSiteId`'yi Site 1'e atiyordu → `data-gathering-step.tsx`'de `siteId={selectedSite?.id ?? null}` olarak duzeltildi. (2) `getSavedFinding` site_id'ye bakmiyordu → ayni NLC ID farkli site'larda "zaten kaydedilmis" saniliyordu → site-scoped hale getirildi. Dosyalar: `habitat-mapping-step.tsx`, `data-gathering-step.tsx`, `habitat-data-substep.tsx`
 - [x] **D2.4** ~~Target Notes'u Field Survey alt kategorisi olarak yeniden yapilandir~~ ✅ (30 Mart 2026) — D2.2 ile ayni: Header, Badge, "Complete Step" kaldirildi, wrapper yonetiyor
 
 ---

@@ -300,14 +300,16 @@ export function HabitatDataSubStep({
     setTotalArea(Math.round(total * 100) / 100)
   }, [results])
 
-  // Check if a habitat is already saved in DB — uses ref for latest data
+  // Check if a habitat is already saved in DB — uses ref for latest data, scoped by site
   const getSavedFinding = React.useCallback(
     (nlcId: string): DeskResearchFinding | undefined =>
       savedFindingsRef.current.find((f) => {
         const raw = f.raw_data as Record<string, unknown> | null
-        return raw?.nlcId === nlcId && raw?.habitatFinding === true
+        if (!(raw?.nlcId === nlcId && raw?.habitatFinding === true)) return false
+        // Must match the current site scope (null == project-level)
+        return (f.site_id ?? null) === (siteId ?? null)
       }),
-    []
+    [siteId]
   )
 
   /** Extract merged geometry for a habitat from the polygon collection */
@@ -407,8 +409,7 @@ export function HabitatDataSubStep({
     // Deps intentionally limited — refs provide latest values for captured closures.
     // Adding createFinding/toast/project.id would cause infinite re-runs since mutation
     // hooks return new references on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [results, habitatPolygons, isSearching])
+  }, [results, habitatPolygons, isSearching, getSavedFinding])
 
   const performSearch = async () => {
     const bbox = getBoundingBox(searchBoundary ?? projectBoundary, projectCenter, selectedBuffer)
