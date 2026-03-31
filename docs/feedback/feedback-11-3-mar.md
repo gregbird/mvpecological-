@@ -175,10 +175,10 @@ Her vektor feature, cizgilerle baglanan koordinat noktalari serisidir. Bu noktal
 
 **Yapilacilar:**
 
-- [x] **6.1** ~~Snapping (yapisma) araci ekle~~ ✅ (29 Mart 2026) — `@geoman-io/leaflet-geoman-free` ile point, vertex, edge snapping. Dosya: `components/maps/geoman-controls.tsx`
-- [x] **6.2** ~~Tracing (izleme) araci ekle~~ ✅ (29 Mart 2026) — Custom: `findNearestEdgePoint()`, `traceEdge()`, `findNearestPolygonEdge()`. Dosya: `lib/gis/trace-along-feature.ts`
-- [x] **6.3** ~~Clipping (kirpma) araci ekle~~ ✅ (29 Mart 2026) — Geoman cut mode + `clipPolygon()` (turf.js). Dosya: `lib/gis/polygon-operations.ts`
-- [x] **6.4** ~~Vertex management araci ekle~~ ✅ (29 Mart 2026) — Geoman Free'de native: vertex ekle/sil/tasi
+- [x] **6.1** ~~Snapping (yapisma) araci ekle~~ ✅ (31 Mart 2026) — Geoman Free `project-map-with-draw.tsx`'e entegre edildi (leaflet-draw kaldirildi). `snappable: true`, `snapDistance: 15px`, `snapMiddle: true`. Snap noktasinda yesil marker gosteriliyor
+- [x] **6.2** ~~Tracing (izleme) araci ekle~~ ✅ (31 Mart 2026) — `trace-along-feature.ts` fonksiyonlari `pm:create` post-processing'e baglandi. Habitat mapping'de komsu kenarlar otomatik hizalanir (50m mesafe)
+- [x] **6.3** ~~Clipping (kirpma) araci ekle~~ ✅ (31 Mart 2026) — Geoman toolbar'da makas ikonu + `polygon-operations.ts` overlap tespiti `pm:create`'e baglandi. Auto-clip verileri callback'te hazir
+- [x] **6.4** ~~Vertex management araci ekle~~ ✅ (31 Mart 2026) — Geoman `editMode` + `dragMode` (tum poligonu tasima). Undo/redo (Ctrl+Z), silme onay dialog'u, keyboard shortcuts (Escape), canli alan/cevre gosterimi, toolbar tooltips eklendi
 - [x] **6.5** ~~Eksiksiz shapefile export (.shp, .shx, .dbf, .prj)~~ ✅ (29 Mart 2026) — `shp-write` ile boundary + attributes + target notes + habitats export. `downloadShapefile()` browser download tetikler. Step 7 Maps tab'ina "Export Shapefile" butonu eklendi. Dosyalar: `lib/gis/shapefile-export.ts` (yeni), `types/shp-write.d.ts` (yeni), `components/steps/data-analysis/maps-tab.tsx` (guncellendi)
 - [ ] **6.6** Test: Greg'in sagladigi shapefile ile test et
 
@@ -229,7 +229,7 @@ Her vektor feature, cizgilerle baglanan koordinat noktalari serisidir. Bu noktal
 
 - [x] **9.1** ~~Field Research bolumunu tab yapisiyla guncelle~~ ✅ (30 Mart 2026) — Step 4+5+6 → tek Step 4 (Field Research). 10 step → 8 step. `FieldResearchStep` wrapper, 3 tab. DB migration: `20260330_merge_field_research_steps.sql`. ⚠️ **Mobile:** Step numaralari tamamen degisti, mobile guncellenmeli
 - [x] **9.2** ~~Habitat Mapping'i Field Survey alt kategorisi olarak yeniden yapilandir~~ ✅ (30 Mart 2026) — Header, Badge, Complete Step kaldirildi, wrapper yonetiyor
-- [ ] **9.3** Data gathering stage 5'ten habitat verisini otomatik cek ve duzenlenebilir yap
+- [x] **9.3** ~~Data gathering stage 5'ten habitat verisini otomatik cek ve duzenlenebilir yap~~ ✅ (31 Mart 2026) — Habitat Mapping tab acildiginda desk_research_findings (data_type='habitat') otomatik olarak habitat_polygons'a aktariliyor. NLC polygon geometrisi dahil, default condition='moderate', site_id korunuyor
 - [x] **9.4** ~~Target Notes'u Field Survey alt kategorisi olarak yeniden yapilandir~~ ✅ (30 Mart 2026) — D2.2 ile ayni sekilde yapilandirildi
 
 ---
@@ -249,12 +249,12 @@ Her vektor feature, cizgilerle baglanan koordinat noktalari serisidir. Bu noktal
 
 **Yapilacilar:**
 
-- [ ] **10.1** GIS Mapping ve Data Gathering tab'larini Data Analysis'ten kaldir
-- [ ] **10.2** Desk Assessment tab'ini baseline report + tum analizlerle birlestir, "Add to Report" ve "Create a Summary" butonlari ekle
-- [ ] **10.3** Field Survey tab'i — saha verisi + tamamlanmis survey template goster
-- [ ] **10.4** Habitats tab'i — guncellenmis habitat mapping verisi
-- [ ] **10.5** Target Notes tab'i — tum target note listesi
-- [ ] **10.6** Harita gorunumune lejant (legend) ekle
+- [x] **10.1** ~~GIS Mapping ve Data Gathering tab'larini Data Analysis'ten kaldir~~ ✅ (31 Mart 2026) — 8 tab → 6 tab. `gis-summary-tab.tsx`, `data-gathering-tab.tsx`, `desk-assessment-tab.tsx` silindi. Yeni combined tab: `desk-assessment-combined-tab.tsx` + sub-components. Multi-site filtreleme icin tum query hook'larina opsiyonel `siteId` parametresi eklendi, `SiteSelector` Step 5 header'ina eklendi
+- [x] **10.2** ~~Desk Assessment tab'ini baseline report + tum analizlerle birlestir, "Add to Report" ve "Create a Summary" butonlari ekle~~ ✅ (31 Mart 2026) — Collapsible project context + source stats + findings table (Switch toggle = "Add to Report") + BaselineReportTab reuse (5 analiz bolumu) + AI insights. "Create a Summary" butonu: `create-summary-button.tsx` + `/api/ai/data-analysis-summary` endpoint (GPT-4o-mini)
+- [x] **10.3** ~~Field Survey tab'i — saha verisi + tamamlanmis survey template goster~~ ✅ (31 Mart 2026) — siteId filtresi + "Create a Summary" butonu eklendi
+- [x] **10.4** ~~Habitats tab'i — guncellenmis habitat mapping verisi~~ ✅ (31 Mart 2026) — siteId filtresi + "Create a Summary" butonu eklendi
+- [x] **10.5** ~~Target Notes tab'i — tum target note listesi~~ ✅ (31 Mart 2026) — siteId filtresi + "Create a Summary" butonu eklendi
+- [x] **10.6** ~~Harita gorunumune lejant (legend) ekle~~ ✅ (31 Mart 2026) — Legend zaten mevcuttu (interactive checkboxlar, katman toggle, AI legend). siteId filtresi eklendi, veriler secili site'a gore filtreleniyor
 
 ---
 

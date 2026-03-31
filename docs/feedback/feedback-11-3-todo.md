@@ -1,14 +1,14 @@
 # Feedback 11/3 — Yapilacaklar Listesi
 
 > **Kaynak:** Greg Birdthistle — 11 Mart 2026
-> **Durum:** Devam ediyor (Faz 1 + Faz 2 + Faz 3 tamamlandi)
-> **Toplam:** 60 madde, 6 grup
+> **Durum:** Devam ediyor (Faz 1 + Faz 2 + Faz 3 + E1 tamamlandi)
+> **Toplam:** 72 madde, 6 grup
 
 ---
 
 ## Icindekiler
 
-- [Grup A: GIS Altyapi](#grup-a-gis-altyapi) — Shapefile, coklu site, cizim araclari, attribute (19 madde)
+- [Grup A: GIS Altyapi](#grup-a-gis-altyapi) — Shapefile, coklu site, cizim araclari, attribute, Geoman UX (39 madde)
 - [Grup B: Habitat Veri Akisi](#grup-b-habitat-veri-akisi) — Katman kaydetme, NLC, buffer, etiketler (11 madde)
 - [Grup C: Desk Research Temizlik](#grup-c-desk-research-temizlik) — Planning policy kaldir, desk assessment birlestir (6 madde)
 - [Grup D: Field Research Yeniden Yapi](#grup-d-field-research-yeniden-yapi) — Survey planlama, field research tab yapisi (9 madde)
@@ -31,13 +31,13 @@ F: Bagimsiz ──→ paralel yapilabilir
 
 | Grup              | Madde  | Tamamlanan | Ilerleme           |
 | ----------------- | ------ | ---------- | ------------------ |
-| A: GIS Altyapi    | 31     | 27         | █████████░ 87%     |
+| A: GIS Altyapi    | 39     | 38         | ██████████ 97%     |
 | B: Habitat Veri   | 11     | 11         | ██████████ 100% ✅ |
 | C: Desk Temizlik  | 6      | 6          | ██████████ 100% ✅ |
 | D: Field Research | 9      | 9          | ██████████ 100% ✅ |
 | E: Raporlama      | 20     | 7          | ████░░░░░░ 35%     |
 | F: Bagimsiz       | 5      | 0          | ░░░░░░░░░░ 0%      |
-| **Toplam**        | **72** | **60**     | ████████░░ **83%** |
+| **Toplam**        | **80** | **71**     | █████████░ **89%** |
 
 ---
 
@@ -62,11 +62,24 @@ F: Bagimsiz ──→ paralel yapilabilir
 
 > Referans: `docs/feedback/feedback-11-3-mar.md` — Bolum 6, detayli aciklamalar
 
-- [x] **A3.1** ~~Snapping (yapisma)~~ ✅ (29 Mart 2026) — `@geoman-io/leaflet-geoman-free` kuruldu. `GeomanControls` bileseni: point, vertex, edge snapping (snapDistance: 15px). Dosya: `components/maps/geoman-controls.tsx`
-- [x] **A3.2** ~~Tracing (izleme)~~ ✅ (29 Mart 2026) — Custom implementasyon: `findNearestEdgePoint()`, `traceEdge()`, `findNearestPolygonEdge()` (turf.nearestPointOnLine + lineSlice). Dosya: `lib/gis/trace-along-feature.ts`
-- [x] **A3.3** ~~Clipping (kirpma)~~ ✅ (29 Mart 2026) — `polygon-operations.ts` ile `clipPolygon()`, `polygonsOverlap()`, `getOverlapArea()` (turf.js). Geoman cut mode da aktif. Dosya: `lib/gis/polygon-operations.ts`
-- [x] **A3.4** ~~Vertex management~~ ✅ (29 Mart 2026) — Geoman Free'de native: vertex ekle/sil/tasi, editMode aktif
-- [x] **A3.5** ~~Poligon cizim zoom bug'ini duzelt~~ ✅ (29 Mart 2026) — Geoman'da bu bug yok (leaflet-draw spesifik sorundu). Geoman gecisiyle otomatik cozuldu
+- [x] **A3.1** ~~Snapping (yapisma)~~ ✅ (31 Mart 2026) — Geoman Free `project-map-with-draw.tsx`'e entegre edildi. `snappable: true`, `snapDistance: 15px`, `snapMiddle: true`. Snap noktasinda yesil marker gosteriliyor (`pm:snap`/`pm:unsnap` event'leri). leaflet-draw tamamen kaldirildi
+- [x] **A3.2** ~~Tracing (izleme)~~ ✅ (31 Mart 2026) — `trace-along-feature.ts` fonksiyonlari `pm:create` post-processing'e baglandi. Habitat mapping modunda yeni polygon cizildiginde, mevcut habitat kenarinin 50m icindeki vertex'ler otomatik hizalanir. Dosya: `project-map-with-draw.tsx`
+- [x] **A3.3** ~~Clipping (kirpma)~~ ✅ (31 Mart 2026) — Geoman toolbar'da makas ikonu (`cutPolygon: true`). Ek: `polygon-operations.ts` overlap tespiti `pm:create`'e baglandi — habitat mapping'de cakisma otomatik tespit edilir ve `onOverlapDetected` callback ile bildirilir. Auto-clip icin polygon verileri callback'te mevcut
+- [x] **A3.4** ~~Vertex management~~ ✅ (31 Mart 2026) — Geoman `editMode: true` ile toolbar'da kalem ikonu. Vertex ekle/sil/tasi. Ek: `dragMode: true` ile tum poligonu tasima. Edit/drag sonrasi `isEdit=true` flag'i ile mevcut site guncellenir (yeni site olusturmaz)
+- [x] **A3.5** ~~Poligon cizim zoom bug'ini duzelt~~ ✅ (31 Mart 2026) — leaflet-draw tamamen kaldirildi, Geoman'da bu bug yok. CSS de temizlendi (`leaflet-draw/dist/leaflet.draw.css` kaldirildi)
+
+### A3-EXT. Ek Cizim Iyilestirmeleri (31 Mart 2026)
+
+> Geoman entegrasyonu sirasinda eklenen UX iyilestirmeleri
+
+- [x] **A3.6** ~~Undo/Redo~~ ✅ — Custom history stack. Ctrl+Z geri al, Ctrl+Shift+Z ileri al. Her `pm:create`, `pm:remove`, `pm:cut`, edit-mode-exit'te snapshot kaydedilir
+- [x] **A3.7** ~~Silme onay dialog'u~~ ✅ — `pm:remove`'da polygon dim edilir, "Delete polygon?" dialog gosterilir. Cancel ile geri alinir, Delete ile silinir
+- [x] **A3.8** ~~Keyboard shortcuts~~ ✅ — Escape: aktif modu iptal (cizim/edit/cut/drag/delete). Map container'a `keydown` listener + `tabindex`
+- [x] **A3.9** ~~Toolbar tooltips~~ ✅ — `map.pm.setLang()` ile buton aciklamalari: "Draw polygon boundary", "Edit vertices", "Move entire polygon", "Cut / clip polygon", "Delete polygon"
+- [x] **A3.10** ~~Cizim sirasinda canli alan/cevre gosterimi~~ ✅ — `pm:vertexadded` event'i ile 3+ vertex sonrasi "Area: X ha | Perimeter: Y m" overlay. `lib/gis/draw-area-calculator.ts` (turf.area + turf.length). Kucuk alan m², buyuk cevre km olarak gosterilir
+- [x] **A3.11** ~~Cakisma tespiti (habitat mapping)~~ ✅ — `pm:create` handler'da `polygonsOverlap()` ile mevcut habitat'larla karsilastirilir. `onOverlapDetected` callback: overlap alan (m²), habitat adi, her iki polygon verisi (auto-clip icin hazir)
+- [x] **A3.12** ~~Stale closure bug fix'leri~~ ✅ — `allowMultipleDrawingsRef`, `onBoundaryChangeRef`, `onOverlapDetectedRef`, `habitatPolygonsRef` ile Geoman event handler'lardaki stale closure sorunu cozuldu
+- [x] **A3.13** ~~DB'den yuklenen boundary'ler Geoman ile duzenlenebilir~~ ✅ — `LoadExistingBoundary`'de FeatureGroup'a eklenen layer'lara `pm.setOptions({ snappable: true })` uygulanir
 
 ### A4. Attribute (Oznitelik) Yonetimi (Feedback #5)
 
