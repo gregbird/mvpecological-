@@ -38,6 +38,7 @@ import { useSavedFindings } from '@/hooks/queries/use-finding-hooks'
 import { HabitatEditDialog } from '@/components/steps/data-analysis/habitat-edit-dialog'
 import { getHabitatByCode } from '@/lib/data/fossitt-codes'
 import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
+import { CreateSummaryButton } from './create-summary-button'
 import type { HabitatPolygon, Project } from '@/types/database'
 
 const DynamicProjectMap = dynamic(
@@ -54,6 +55,7 @@ const DynamicProjectMap = dynamic(
 
 interface HabitatTabProps {
   projectId: string
+  siteId?: string | null
   siteCode: string | null
   project: Project
 }
@@ -66,11 +68,11 @@ const CONDITION_COLORS: Record<string, string> = {
   bad: '#ef4444',
 }
 
-export function HabitatTab({ projectId, siteCode, project }: HabitatTabProps) {
+export function HabitatTab({ projectId, siteId, siteCode, project }: HabitatTabProps) {
   const { toast } = useToast()
-  const { data: habitats = [] } = useHabitats(projectId)
-  const { data: habitatStats } = useHabitatStats(projectId)
-  const { data: savedFindings = [] } = useSavedFindings(projectId)
+  const { data: habitats = [] } = useHabitats(projectId, siteId)
+  const { data: habitatStats } = useHabitatStats(projectId, siteId)
+  const { data: savedFindings = [] } = useSavedFindings(projectId, siteId)
   const updateHabitat = useUpdateHabitat()
   const [editingHabitat, setEditingHabitat] = React.useState<HabitatPolygon | null>(null)
 
@@ -188,6 +190,9 @@ export function HabitatTab({ projectId, siteCode, project }: HabitatTabProps) {
 
   return (
     <div className="space-y-4 p-4">
+      {/* AI Summary */}
+      <CreateSummaryButton projectId={projectId} siteId={siteId} tabContext="habitats" />
+
       {/* Habitat Map */}
       <Card>
         <CardHeader className="pb-2">

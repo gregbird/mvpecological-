@@ -11,10 +11,10 @@ import {
 } from '@/lib/supabase/queries'
 import type { InsertTables, UpdateTables } from '@/types/database'
 
-export function useHabitats(projectId: string) {
+export function useHabitats(projectId: string, siteId?: string | null) {
   return useQuery({
-    queryKey: ['habitats', projectId],
-    queryFn: () => getProjectHabitats(projectId),
+    queryKey: ['habitats', projectId, siteId ?? null],
+    queryFn: () => getProjectHabitats(projectId, siteId),
     enabled: !!projectId,
   })
 }
@@ -27,10 +27,10 @@ export function useSurveyHabitats(surveyId: string) {
   })
 }
 
-export function useHabitatStats(projectId: string) {
+export function useHabitatStats(projectId: string, siteId?: string | null) {
   return useQuery({
-    queryKey: ['habitat-stats', projectId],
-    queryFn: () => getHabitatStats(projectId),
+    queryKey: ['habitat-stats', projectId, siteId ?? null],
+    queryFn: () => getHabitatStats(projectId, siteId),
     enabled: !!projectId,
   })
 }

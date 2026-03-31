@@ -13,26 +13,26 @@ import {
 } from '@/lib/supabase/queries'
 import type { DeskResearchFinding, InsertTables, UpdateTables } from '@/types/database'
 
-export function useFindings(projectId: string) {
+export function useFindings(projectId: string, siteId?: string | null) {
   return useQuery({
-    queryKey: ['findings', projectId],
-    queryFn: () => getProjectFindings(projectId),
+    queryKey: ['findings', projectId, siteId ?? null],
+    queryFn: () => getProjectFindings(projectId, siteId),
     enabled: !!projectId,
   })
 }
 
-export function useSavedFindings(projectId: string) {
+export function useSavedFindings(projectId: string, siteId?: string | null) {
   return useQuery({
-    queryKey: ['saved-findings', projectId],
-    queryFn: () => getSavedFindings(projectId),
+    queryKey: ['saved-findings', projectId, siteId ?? null],
+    queryFn: () => getSavedFindings(projectId, siteId),
     enabled: !!projectId,
   })
 }
 
-export function useFindingsStats(projectId: string) {
+export function useFindingsStats(projectId: string, siteId?: string | null) {
   return useQuery({
-    queryKey: ['findings-stats', projectId],
-    queryFn: () => getFindingsStats(projectId),
+    queryKey: ['findings-stats', projectId, siteId ?? null],
+    queryFn: () => getFindingsStats(projectId, siteId),
     enabled: !!projectId,
   })
 }

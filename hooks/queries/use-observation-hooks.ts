@@ -20,18 +20,18 @@ export function useObservations(surveyId: string) {
   })
 }
 
-export function useProjectObservations(projectId: string) {
+export function useProjectObservations(projectId: string, siteId?: string | null) {
   return useQuery({
-    queryKey: ['project-observations', projectId],
-    queryFn: () => getProjectObservations(projectId),
+    queryKey: ['project-observations', projectId, siteId ?? null],
+    queryFn: () => getProjectObservations(projectId, siteId),
     enabled: !!projectId,
   })
 }
 
-export function useObservationStats(projectId: string) {
+export function useObservationStats(projectId: string, siteId?: string | null) {
   return useQuery({
-    queryKey: ['observation-stats', projectId],
-    queryFn: () => getObservationStats(projectId),
+    queryKey: ['observation-stats', projectId, siteId ?? null],
+    queryFn: () => getObservationStats(projectId, siteId),
     enabled: !!projectId,
   })
 }

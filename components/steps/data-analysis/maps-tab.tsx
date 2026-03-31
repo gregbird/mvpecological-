@@ -67,6 +67,7 @@ const DynamicProjectMap = dynamic(
 
 interface MapsTabProps {
   projectId: string
+  siteId?: string | null
   userId: string
   project: Project
 }
@@ -112,15 +113,15 @@ const FINDING_TYPE_LEGEND: Record<string, { label: string; color: string }> = {
   other: { label: 'Other Findings', color: '#f59e0b' },
 }
 
-export function MapsTab({ projectId, userId, project }: MapsTabProps) {
+export function MapsTab({ projectId, siteId, userId, project }: MapsTabProps) {
   const { toast } = useToast()
   const mapContainerRef = React.useRef<HTMLDivElement>(null)
 
-  // Data hooks
-  const { data: findings = [] } = useSavedFindings(projectId)
-  const { data: habitats = [] } = useHabitats(projectId)
-  const { data: targetNotes = [] } = useTargetNotes(projectId)
-  const { data: observations = [] } = useProjectObservations(projectId)
+  // Data hooks (filtered by site when selected)
+  const { data: findings = [] } = useSavedFindings(projectId, siteId)
+  const { data: habitats = [] } = useHabitats(projectId, siteId)
+  const { data: targetNotes = [] } = useTargetNotes(projectId, siteId)
+  const { data: observations = [] } = useProjectObservations(projectId, siteId)
 
   // Layer visibility state
   const [visibleOverlays, setVisibleOverlays] = React.useState<Set<string>>(

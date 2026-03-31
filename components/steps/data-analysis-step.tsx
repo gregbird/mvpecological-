@@ -6,8 +6,6 @@ import {
   Check,
   AlertCircle,
   Info,
-  Map,
-  Database,
   Sparkles,
   ClipboardList,
   TreePine,
@@ -28,10 +26,9 @@ import { useObservationStats } from '@/hooks/queries/use-observation-hooks'
 import { useFindingsStats } from '@/hooks/queries/use-finding-hooks'
 import { useSurveyStats } from '@/hooks/queries/use-survey-hooks'
 import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
+import { SiteSelector } from '@/components/project/site-selector'
 
-import { GisSummaryTab } from '@/components/steps/data-analysis/gis-summary-tab'
-import { DataGatheringTab } from '@/components/steps/data-analysis/data-gathering-tab'
-import { DeskAssessmentTab } from '@/components/steps/data-analysis/desk-assessment-tab'
+import { DeskAssessmentCombinedTab } from '@/components/steps/data-analysis/desk-assessment-combined-tab'
 import { FieldSurveyTab } from '@/components/steps/data-analysis/field-survey-tab'
 import { HabitatTab } from '@/components/steps/data-analysis/habitat-tab'
 import { TargetNotesTab } from '@/components/steps/data-analysis/target-notes-tab'
@@ -48,8 +45,6 @@ interface DataAnalysisStepProps {
 }
 
 const TABS = [
-  { id: 'gis', label: 'GIS Mapping', icon: Map },
-  { id: 'data-gathering', label: 'Data Gathering', icon: Database },
   { id: 'desk-assessment', label: 'Desk Assessment', icon: Sparkles },
   { id: 'field-survey', label: 'Field Survey', icon: ClipboardList },
   { id: 'habitats', label: 'Habitats', icon: TreePine },
@@ -67,13 +62,26 @@ export function DataAnalysisStep({
   onComplete,
 }: DataAnalysisStepProps) {
   const { toast } = useToast()
-  const [activeTab, setActiveTab] = React.useState<TabId>('gis')
+  const [activeTab, setActiveTab] = React.useState<TabId>('desk-assessment')
+  const [selectedSiteId, setSelectedSiteId] = React.useState<string | null>(null)
 
-  // Stats hooks for summary cards
-  const { data: habitatStats, isLoading: loadingHabitats } = useHabitatStats(project.id)
-  const { data: observationStats, isLoading: loadingObservations } = useObservationStats(project.id)
-  const { data: findingsStats, isLoading: loadingFindings } = useFindingsStats(project.id)
-  const { data: surveyStats, isLoading: loadingSurveys } = useSurveyStats(project.id)
+  // Stats hooks for summary cards (filtered by site)
+  const { data: habitatStats, isLoading: loadingHabitats } = useHabitatStats(
+    project.id,
+    selectedSiteId
+  )
+  const { data: observationStats, isLoading: loadingObservations } = useObservationStats(
+    project.id,
+    selectedSiteId
+  )
+  const { data: findingsStats, isLoading: loadingFindings } = useFindingsStats(
+    project.id,
+    selectedSiteId
+  )
+  const { data: surveyStats, isLoading: loadingSurveys } = useSurveyStats(
+    project.id,
+    selectedSiteId
+  )
   const completeStep = useCompleteWorkflowStep()
 
   const isLoading = loadingHabitats || loadingObservations || loadingFindings || loadingSurveys
@@ -123,21 +131,29 @@ export function DataAnalysisStep({
               Review and analyze all project data across phases
             </p>
           </div>
-          <Badge
-            variant={
-              isComplete
-                ? 'default'
+          <div className="flex items-center gap-3">
+            <SiteSelector
+              projectId={project.id}
+              stepKey="data-analysis"
+              onSiteChange={(site) => setSelectedSiteId(site?.id ?? null)}
+              showAllOption
+            />
+            <Badge
+              variant={
+                isComplete
+                  ? 'default'
+                  : workflowStep.status === 'in_progress'
+                    ? 'secondary'
+                    : 'outline'
+              }
+            >
+              {isComplete
+                ? 'Completed'
                 : workflowStep.status === 'in_progress'
-                  ? 'secondary'
-                  : 'outline'
-            }
-          >
-            {isComplete
-              ? 'Completed'
-              : workflowStep.status === 'in_progress'
-                ? 'In Progress'
-                : 'Pending'}
-          </Badge>
+                  ? 'In Progress'
+                  : 'Pending'}
+            </Badge>
+          </div>
         </div>
       </div>
 
@@ -236,20 +252,35 @@ export function DataAnalysisStep({
 
       {/* Tab Content */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {activeTab === 'gis' && <GisSummaryTab project={project} />}
-        {activeTab === 'data-gathering' && (
-          <DataGatheringTab projectId={project.id} userId={userId || ''} project={project} />
+        {activeTab === 'desk-assessment' && (
+          <DeskAssessmentCombinedTab
+            projectId={project.id}
+            siteId={selectedSiteId}
+            userId={userId || ''}
+            project={project}
+          />
         )}
-        {activeTab === 'desk-assessment' && <DeskAssessmentTab projectId={project.id} />}
-        {activeTab === 'field-survey' && <FieldSurveyTab projectId={project.id} />}
+        {activeTab === 'field-survey' && (
+          <FieldSurveyTab projectId={project.id} siteId={selectedSiteId} />
+        )}
         {activeTab === 'habitats' && (
-          <HabitatTab projectId={project.id} siteCode={project.site_code} project={project} />
+          <HabitatTab
+            projectId={project.id}
+            siteId={selectedSiteId}
+            siteCode={project.site_code}
+            project={project}
+          />
         )}
         {activeTab === 'target-notes' && (
-          <TargetNotesTab projectId={project.id} project={project} />
+          <TargetNotesTab projectId={project.id} siteId={selectedSiteId} project={project} />
         )}
         {activeTab === 'maps' && (
-          <MapsTab projectId={project.id} userId={userId || ''} project={project} />
+          <MapsTab
+            projectId={project.id}
+            siteId={selectedSiteId}
+            userId={userId || ''}
+            project={project}
+          />
         )}
         {activeTab === 'photographs' && <PhotographsTab projectId={project.id} />}
       </div>

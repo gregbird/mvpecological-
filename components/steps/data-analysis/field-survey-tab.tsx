@@ -8,10 +8,12 @@ import { Badge } from '@/components/ui/badge'
 import { useSurveys, useSurveyStats } from '@/hooks/queries/use-survey-hooks'
 import { useObservationStats } from '@/hooks/queries/use-observation-hooks'
 import { SurveyEditDialog } from '@/components/steps/data-analysis/survey-edit-dialog'
+import { CreateSummaryButton } from './create-summary-button'
 import type { Survey } from '@/types/database'
 
 interface FieldSurveyTabProps {
   projectId: string
+  siteId?: string | null
 }
 
 const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
@@ -19,14 +21,17 @@ const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'dest
   in_progress: 'secondary',
 }
 
-export function FieldSurveyTab({ projectId }: FieldSurveyTabProps) {
-  const { data: surveys = [] } = useSurveys(projectId)
-  const { data: surveyStats } = useSurveyStats(projectId)
-  const { data: observationStats } = useObservationStats(projectId)
+export function FieldSurveyTab({ projectId, siteId }: FieldSurveyTabProps) {
+  const { data: surveys = [] } = useSurveys(projectId, siteId)
+  const { data: surveyStats } = useSurveyStats(projectId, siteId)
+  const { data: observationStats } = useObservationStats(projectId, siteId)
   const [editingSurvey, setEditingSurvey] = React.useState<Survey | null>(null)
 
   return (
     <div className="space-y-4 p-4">
+      {/* AI Summary */}
+      <CreateSummaryButton projectId={projectId} siteId={siteId} tabContext="field-survey" />
+
       {/* Stats */}
       <div className="grid gap-3 sm:grid-cols-3">
         <Card>

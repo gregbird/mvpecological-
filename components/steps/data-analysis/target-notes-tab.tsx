@@ -14,6 +14,7 @@ import { useTargetNotes, useUpdateTargetNote } from '@/hooks/queries/use-target-
 import { useProjectObservations } from '@/hooks/queries/use-observation-hooks'
 import { TargetNoteEditDialog } from '@/components/steps/data-analysis/target-note-edit-dialog'
 import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
+import { CreateSummaryButton } from './create-summary-button'
 import type { TargetNote, Project } from '@/types/database'
 
 const DynamicProjectMap = dynamic(
@@ -30,6 +31,7 @@ const DynamicProjectMap = dynamic(
 
 interface TargetNotesTabProps {
   projectId: string
+  siteId?: string | null
   project: Project
 }
 
@@ -44,10 +46,10 @@ const CATEGORY_COLORS: Record<string, string> = {
   ownership: 'bg-orange-100 text-orange-700',
 }
 
-export function TargetNotesTab({ projectId, project }: TargetNotesTabProps) {
+export function TargetNotesTab({ projectId, siteId, project }: TargetNotesTabProps) {
   const { toast } = useToast()
-  const { data: targetNotes = [] } = useTargetNotes(projectId)
-  const { data: observations = [] } = useProjectObservations(projectId)
+  const { data: targetNotes = [] } = useTargetNotes(projectId, siteId)
+  const { data: observations = [] } = useProjectObservations(projectId, siteId)
   const updateNote = useUpdateTargetNote()
   const [editingNote, setEditingNote] = React.useState<TargetNote | null>(null)
 
@@ -86,6 +88,9 @@ export function TargetNotesTab({ projectId, project }: TargetNotesTabProps) {
 
   return (
     <div className="space-y-4 p-4">
+      {/* AI Summary */}
+      <CreateSummaryButton projectId={projectId} siteId={siteId} tabContext="target-notes" />
+
       {/* Stats */}
       <div className="grid gap-3 sm:grid-cols-2">
         <Card>

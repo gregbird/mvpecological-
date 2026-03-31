@@ -37,14 +37,16 @@ export async function getSurveyObservationCount(surveyId: string): Promise<numbe
   return count ?? 0
 }
 
-// Get all observations for a project (across all surveys)
-export async function getProjectObservations(projectId: string): Promise<SpeciesObservation[]> {
+// Get all observations for a project (optionally filtered by site via surveys)
+export async function getProjectObservations(
+  projectId: string,
+  siteId?: string | null
+): Promise<SpeciesObservation[]> {
   const supabase = createClient()
-  // First get all surveys for the project
-  const { data: surveys, error: surveysError } = await supabase
-    .from('surveys')
-    .select('id')
-    .eq('project_id', projectId)
+  // First get all surveys for the project (optionally filtered by site)
+  let surveyQuery = supabase.from('surveys').select('id').eq('project_id', projectId)
+  if (siteId) surveyQuery = surveyQuery.eq('site_id', siteId)
+  const { data: surveys, error: surveysError } = await surveyQuery
 
   if (surveysError || !surveys) {
     console.error('Error fetching project surveys:', surveysError)
@@ -146,15 +148,18 @@ export async function verifyObservation(
   })
 }
 
-// Get observation statistics
-export async function getObservationStats(projectId: string): Promise<{
+// Get observation statistics (optionally filtered by site)
+export async function getObservationStats(
+  projectId: string,
+  siteId?: string | null
+): Promise<{
   total: number
   protected: number
   needsVerification: number
   byTaxonGroup: { group: string; count: number }[]
   byConfidence: { level: string; count: number }[]
 }> {
-  const observations = await getProjectObservations(projectId)
+  const observations = await getProjectObservations(projectId, siteId)
 
   // Group by taxon
   const taxonGroups = observations.reduce(

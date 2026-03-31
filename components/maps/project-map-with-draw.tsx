@@ -72,6 +72,13 @@ interface ProjectMapWithDrawProps {
   allowMultipleDrawings?: boolean
   /** Pre-fetched NPWS sites from useLayerData — avoids duplicate fetch */
   npwsSites?: import('@/lib/external-apis/npws').NPWSDesignatedSite[]
+  /** Called when a newly drawn polygon overlaps an existing habitat */
+  onOverlapDetected?: (info: {
+    overlapAreaM2: number
+    habitatName: string
+    newPolygon: GeoJSON.Feature<GeoJSON.Polygon>
+    overlappingPolygon: GeoJSON.Feature<GeoJSON.Polygon>
+  }) => void
 }
 
 // Internal map component
@@ -103,6 +110,7 @@ function MapComponentWithDraw({
   allowMultipleDrawings = false,
   onMapReady,
   showBatRecords,
+  onOverlapDetected,
 }: {
   center: [number, number]
   zoom: number
@@ -134,6 +142,12 @@ function MapComponentWithDraw({
   allowMultipleDrawings?: boolean
   onMapReady?: (map: LeafletMap) => void
   showBatRecords?: boolean
+  onOverlapDetected?: (info: {
+    overlapAreaM2: number
+    habitatName: string
+    newPolygon: GeoJSON.Feature<GeoJSON.Polygon>
+    overlappingPolygon: GeoJSON.Feature<GeoJSON.Polygon>
+  }) => void
 }) {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const rl = require('react-leaflet')
@@ -150,6 +164,14 @@ function MapComponentWithDraw({
   const tileConfig = TILE_LAYERS[currentStyle]
   const featureGroupRef = React.useRef<LeafletFeatureGroup | null>(null)
   const [_drawnFeatures, setDrawnFeatures] = React.useState<GeoJSON.Feature[]>([])
+  // Delete confirmation: layer pending user confirmation
+  const pendingDeleteLayerRef = React.useRef<L.Layer | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false)
+  // Live area/perimeter during drawing
+  const [drawMeasurement, setDrawMeasurement] = React.useState<{
+    areaHa: number
+    perimeterM: number
+  } | null>(null)
 
   // Refs for tracking internal map movements (to prevent infinite loops)
   const isInternalMoveRef = React.useRef(false)
@@ -169,6 +191,10 @@ function MapComponentWithDraw({
   onBoundaryChangeRef.current = onBoundaryChange
   const allowMultipleDrawingsRef = React.useRef(allowMultipleDrawings)
   allowMultipleDrawingsRef.current = allowMultipleDrawings
+  const onOverlapDetectedRef = React.useRef(onOverlapDetected)
+  onOverlapDetectedRef.current = onOverlapDetected
+  const habitatPolygonsRef = React.useRef(habitatPolygons)
+  habitatPolygonsRef.current = habitatPolygons
 
   // Initialize with existing boundary or reset when boundary is cleared
   React.useEffect(() => {
@@ -364,12 +390,13 @@ function MapComponentWithDraw({
           // Guard: check again after async import in case of race condition
           if (!map.pm || geomanReadyRef.current) return
 
-          // Global options — snapping enabled (A3.1)
+          // Global options — snapping, keyboard shortcuts
           map.pm.setGlobalOptions({
             snappable: true,
             snapDistance: 15,
             snapMiddle: true,
             allowSelfIntersection: false,
+            finishOn: 'dblclick' as unknown as null,
             templineStyle: { color: '#ef4444', weight: 2 },
             hintlineStyle: { color: '#ef4444', weight: 2, dashArray: '5,5' },
             pathOptions: {
@@ -380,7 +407,7 @@ function MapComponentWithDraw({
             },
           })
 
-          // Toolbar: polygon, rectangle, edit, cut, delete
+          // Toolbar: polygon, rectangle, edit, drag, cut, delete
           map.pm.addControls({
             position: 'topright',
             drawMarker: false,
@@ -391,11 +418,31 @@ function MapComponentWithDraw({
             drawText: false,
             drawPolygon: true,
             editMode: true,
-            dragMode: false,
+            dragMode: true,
             cutPolygon: true,
             removalMode: true,
             rotateMode: false,
           })
+
+          // Toolbar button tooltips
+          map.pm.setLang('custom', {
+            tooltips: {
+              placeMarker: 'Click to place',
+              firstVertex: 'Click to start',
+              continueLine: 'Click to continue',
+              finishLine: 'Double-click to finish',
+              finishPoly: 'Double-click to finish',
+              finishRect: 'Click to finish',
+            },
+            buttonTitles: {
+              drawPolyButton: 'Draw polygon boundary',
+              drawRectButton: 'Draw rectangle boundary',
+              editButton: 'Edit vertices (drag corners)',
+              dragButton: 'Move entire polygon',
+              cutButton: 'Cut / clip polygon',
+              deleteButton: 'Delete polygon',
+            },
+          } as Record<string, unknown>)
 
           // Helper: collect all valid polygon features from FeatureGroup
           const collectFeatures = (): GeoJSON.Feature[] => {
@@ -445,17 +492,135 @@ function MapComponentWithDraw({
             }
             featureGroupRef.current?.addLayer(layer)
 
+            // Trace-along: align new polygon edges with existing habitat boundaries
+            if (
+              allowMultipleDrawingsRef.current &&
+              habitatPolygonsRef.current.length > 0 &&
+              geoJSON.geometry.type === 'Polygon'
+            ) {
+              import('@/lib/gis/trace-along-feature').then(
+                ({ findNearestPolygonEdge, traceEdge }) => {
+                  try {
+                    const existingPolygons = habitatPolygonsRef.current
+                      .filter((hp) => hp.geometry.type === 'Polygon')
+                      .map((hp) => ({
+                        type: 'Feature' as const,
+                        geometry: hp.geometry as GeoJSON.Polygon,
+                        properties: {},
+                      }))
+                    if (existingPolygons.length === 0) return
+
+                    const polyGeom = geoJSON.geometry as GeoJSON.Polygon
+                    const coords = polyGeom.coordinates[0] as [number, number][]
+                    let modified = false
+                    const newCoords: [number, number][] = [coords[0]]
+
+                    for (let i = 0; i < coords.length - 1; i++) {
+                      const startResult = findNearestPolygonEdge(coords[i], existingPolygons, 0.05)
+                      const endResult = findNearestPolygonEdge(
+                        coords[i + 1],
+                        existingPolygons,
+                        0.05
+                      )
+
+                      if (
+                        startResult &&
+                        endResult &&
+                        startResult.polygonIndex === endResult.polygonIndex
+                      ) {
+                        // Both vertices near same polygon — trace along its edge
+                        const traced = traceEdge(
+                          existingPolygons[startResult.polygonIndex].geometry,
+                          startResult.point,
+                          endResult.point
+                        )
+                        if (traced.length > 2) {
+                          // Replace straight line with traced edge (skip first, it's already added)
+                          for (let t = 1; t < traced.length; t++) {
+                            newCoords.push(traced[t])
+                          }
+                          modified = true
+                          continue
+                        }
+                      }
+                      newCoords.push(coords[i + 1])
+                    }
+
+                    if (modified) {
+                      // Update the polygon geometry with traced edges
+                      polyGeom.coordinates = [newCoords]
+                      // Update the layer in FeatureGroup
+                      if (featureGroupRef.current) {
+                        featureGroupRef.current.removeLayer(layer)
+                        const updatedLayer = leaflet.geoJSON(geoJSON, {
+                          style: {
+                            color: '#ef4444',
+                            weight: 3,
+                            fillColor: '#ef4444',
+                            fillOpacity: 0.1,
+                          },
+                        })
+                        updatedLayer.eachLayer((l: L.Layer) => featureGroupRef.current?.addLayer(l))
+                      }
+                      notifyChange([geoJSON], false)
+                    }
+                  } catch {
+                    // Trace-along failed silently — polygon stays as drawn
+                  }
+                }
+              )
+            }
+
             notifyChange([geoJSON], false)
+
+            // Check for overlap with existing habitat polygons
+            if (
+              allowMultipleDrawingsRef.current &&
+              onOverlapDetectedRef.current &&
+              geoJSON.geometry.type === 'Polygon'
+            ) {
+              import('@/lib/gis/polygon-operations').then(({ polygonsOverlap, getOverlapArea }) => {
+                const newPoly = geoJSON as GeoJSON.Feature<GeoJSON.Polygon>
+                for (const hp of habitatPolygonsRef.current) {
+                  if (hp.geometry.type !== 'Polygon') continue
+                  const existingPoly: GeoJSON.Feature<GeoJSON.Polygon> = {
+                    type: 'Feature',
+                    geometry: hp.geometry as GeoJSON.Polygon,
+                    properties: {},
+                  }
+                  if (polygonsOverlap(newPoly, existingPoly)) {
+                    const overlapM2 = getOverlapArea(newPoly, existingPoly)
+                    if (overlapM2 > 1) {
+                      onOverlapDetectedRef.current?.({
+                        overlapAreaM2: overlapM2,
+                        habitatName: `${hp.fossittCode} — ${hp.fossittName}`,
+                        newPolygon: newPoly,
+                        overlappingPolygon: existingPoly,
+                      })
+                      break // Report first overlap
+                    }
+                  }
+                }
+              })
+            }
           })
 
-          // --- pm:remove — shape deleted ---
+          // --- pm:remove — show delete confirmation ---
+          // Geoman removes the layer from map on click. We re-add it dimmed,
+          // then ask for confirmation before permanently deleting.
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           map.on('pm:remove', (e: any) => {
             isEditingRef.current = false
-            if (featureGroupRef.current?.hasLayer(e.layer)) {
-              featureGroupRef.current.removeLayer(e.layer)
+            const layer = e.layer as L.Polygon
+            // Re-add layer to map with dimmed style (pending confirmation)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            if ((layer as any).setStyle) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              ;(layer as any).setStyle({ opacity: 0.3, fillOpacity: 0.05, dashArray: '8, 4' })
             }
-            notifyChange(collectFeatures(), false)
+            layer.addTo(map)
+            pendingDeleteLayerRef.current = layer
+            setShowDeleteConfirm(true)
           })
 
           // --- pm:cut — polygon clipped (A3.3) ---
@@ -485,6 +650,172 @@ function MapComponentWithDraw({
             isEditingRef.current = e.enabled
           })
 
+          // --- Drag mode toggle — persist position after drag ---
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          map.on('pm:globaldragmodetoggled', (e: any) => {
+            isEditingRef.current = e.enabled
+            if (!e.enabled) {
+              notifyChange(collectFeatures(), true)
+            }
+          })
+
+          // --- Snap visualization — show green dot at snap point ---
+          let snapMarker: L.CircleMarker | null = null
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const leaflet = require('leaflet')
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          map.on('pm:snap', (e: any) => {
+            if (!snapMarker) {
+              snapMarker = leaflet
+                .circleMarker(e.snapLatLng || e.latlng, {
+                  radius: 6,
+                  color: '#22c55e',
+                  fillColor: '#22c55e',
+                  fillOpacity: 0.8,
+                  weight: 2,
+                  pane: 'markerPane',
+                })
+                .addTo(map)
+            } else {
+              snapMarker.setLatLng(e.snapLatLng || e.latlng)
+            }
+          })
+
+          map.on('pm:unsnap', () => {
+            if (snapMarker) {
+              map.removeLayer(snapMarker)
+              snapMarker = null
+            }
+          })
+
+          // Clean up snap marker and area overlay when drawing ends
+          map.on('pm:drawend', () => {
+            if (snapMarker) {
+              map.removeLayer(snapMarker)
+              snapMarker = null
+            }
+            setDrawMeasurement(null)
+          })
+
+          // --- Live area/perimeter calculation during drawing ---
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          map.on('pm:drawstart', () => {
+            setDrawMeasurement(null)
+          })
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          map.on('pm:vertexadded', (e: any) => {
+            try {
+              const workingLayer = e.workingLayer
+              if (!workingLayer?.getLatLngs) return
+              const latlngs = workingLayer.getLatLngs()
+              // Flatten nested arrays (Geoman may nest them)
+              const flat = Array.isArray(latlngs[0]) ? latlngs[0] : latlngs
+              if (flat.length < 3) {
+                setDrawMeasurement(null)
+                return
+              }
+              // Dynamic import to keep init fast
+              import('@/lib/gis/draw-area-calculator').then(({ calculateDrawMeasurement }) => {
+                const result = calculateDrawMeasurement(flat)
+                setDrawMeasurement(result)
+              })
+            } catch {
+              // ignore calculation errors during draw
+            }
+          })
+
+          // --- Undo/Redo history stack ---
+          const historyStack: GeoJSON.Feature[][] = []
+          let historyIndex = -1
+
+          const pushHistory = () => {
+            const snapshot = collectFeatures()
+            // Trim future entries on new action
+            historyStack.splice(historyIndex + 1)
+            historyStack.push(snapshot)
+            historyIndex = historyStack.length - 1
+          }
+
+          const restoreSnapshot = (features: GeoJSON.Feature[]) => {
+            if (!featureGroupRef.current) return
+            featureGroupRef.current.clearLayers()
+            for (const feat of features) {
+              const layer = leaflet.geoJSON(feat, {
+                style: { color: '#ef4444', weight: 3, fillColor: '#ef4444', fillOpacity: 0.1 },
+              })
+              layer.eachLayer((l: L.Layer) => featureGroupRef.current?.addLayer(l))
+            }
+            notifyChange(features, true)
+          }
+
+          const undo = () => {
+            if (historyIndex <= 0) return
+            historyIndex--
+            restoreSnapshot(historyStack[historyIndex])
+          }
+
+          const redo = () => {
+            if (historyIndex >= historyStack.length - 1) return
+            historyIndex++
+            restoreSnapshot(historyStack[historyIndex])
+          }
+
+          // Push initial state
+          pushHistory()
+
+          // Wrap notifyChange to auto-push history
+          const originalNotifyChange = notifyChange
+          const notifyChangeWithHistory = (features: GeoJSON.Feature[], isEdit = false) => {
+            originalNotifyChange(features, isEdit)
+            pushHistory()
+          }
+
+          // Re-bind events to use history-aware notifyChange
+          // (the previously bound events use the original notifyChange via closure,
+          //  so we override by adding history push after each event)
+          map.on('pm:create', () => pushHistory())
+          map.on('pm:remove', () => pushHistory())
+          map.on('pm:cut', () => pushHistory())
+
+          // Keyboard shortcuts: Ctrl+Z = undo, Ctrl+Shift+Z = redo, Escape = cancel
+          const container = map.getContainer()
+          const handleKeyDown = (e: KeyboardEvent) => {
+            const isMac = navigator.platform.includes('Mac')
+            const mod = isMac ? e.metaKey : e.ctrlKey
+
+            if (mod && !e.shiftKey && e.key === 'z') {
+              e.preventDefault()
+              undo()
+            } else if (mod && e.shiftKey && e.key === 'z') {
+              e.preventDefault()
+              redo()
+            } else if (e.key === 'Escape') {
+              // Cancel any active draw/edit mode
+              if (map.pm.globalDrawModeEnabled()) {
+                map.pm.disableDraw()
+              }
+              if (map.pm.globalEditModeEnabled()) {
+                map.pm.disableGlobalEditMode()
+              }
+              if (map.pm.globalRemovalModeEnabled()) {
+                map.pm.disableGlobalRemovalMode()
+              }
+              if (map.pm.globalDragModeEnabled()) {
+                map.pm.disableGlobalDragMode()
+              }
+              if (map.pm.globalCutModeEnabled()) {
+                map.pm.disableGlobalCutMode()
+              }
+            }
+          }
+          container.addEventListener('keydown', handleKeyDown)
+          // Make container focusable for keyboard events
+          if (!container.getAttribute('tabindex')) {
+            container.setAttribute('tabindex', '0')
+          }
+
           geomanReadyRef.current = true
         } catch (error) {
           console.error('Failed to initialize Geoman:', error)
@@ -498,6 +829,51 @@ function MapComponentWithDraw({
     return null
   }
 
+  // Delete confirmation handlers
+  const confirmDelete = React.useCallback(() => {
+    const layer = pendingDeleteLayerRef.current
+    if (layer && mapRef.current) {
+      mapRef.current.removeLayer(layer)
+      if (featureGroupRef.current?.hasLayer(layer)) {
+        featureGroupRef.current.removeLayer(layer)
+      }
+    }
+    pendingDeleteLayerRef.current = null
+    setShowDeleteConfirm(false)
+    // Notify parent with remaining features
+    const features: GeoJSON.Feature[] = []
+    featureGroupRef.current?.eachLayer((l: L.Layer) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const geo = (l as any).toGeoJSON?.() as GeoJSON.Feature | undefined
+      if (geo?.geometry?.type === 'Polygon' && geo.geometry.coordinates?.[0]?.length >= 4) {
+        features.push(geo)
+      }
+    })
+    setDrawnFeatures(features)
+    const geom = features[0]?.geometry
+    lastLoadedBoundaryRef.current =
+      features.length > 0 && geom && 'coordinates' in geom ? JSON.stringify(geom.coordinates) : null
+    onBoundaryChangeRef.current?.({ type: 'FeatureCollection', features }, false)
+  }, [])
+
+  const cancelDelete = React.useCallback(() => {
+    const layer = pendingDeleteLayerRef.current
+    if (layer) {
+      // Restore original style and add back to FeatureGroup
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((layer as any).setStyle) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ;(layer as any).setStyle({ opacity: 1, fillOpacity: 0.1, dashArray: '' })
+      }
+      if (mapRef.current) {
+        mapRef.current.removeLayer(layer)
+      }
+      featureGroupRef.current?.addLayer(layer)
+    }
+    pendingDeleteLayerRef.current = null
+    setShowDeleteConfirm(false)
+  }, [])
+
   // Convert buffer zones Map to array for rendering
   const bufferZonesArray = React.useMemo(() => {
     if (!bufferZones) return []
@@ -505,80 +881,139 @@ function MapComponentWithDraw({
   }, [bufferZones])
 
   return (
-    <MapContainer
-      center={center}
-      zoom={zoom}
-      className="h-full min-h-100 w-full"
-      style={{ height: '100%', minHeight: '400px' }}
-      zoomControl={false}
-    >
-      {/* Base map — WMS, TMS, or regular tile depending on style */}
-      {tileConfig.wms && tileConfig.wms.transparent && (
-        <TileLayer
-          key="base-streets"
-          url={TILE_LAYERS.streets.url}
-          attribution={TILE_LAYERS.streets.attribution}
-        />
+    <>
+      {/* Delete confirmation dialog */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50">
+          <div className="bg-background mx-4 max-w-sm rounded-lg border p-6 shadow-xl">
+            <h3 className="text-foreground mb-2 text-lg font-semibold">Delete polygon?</h3>
+            <p className="text-muted-foreground mb-4 text-sm">
+              This will permanently remove the polygon from the map. This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={cancelDelete}
+                className="bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-md px-4 py-2 text-sm font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
-      {tileConfig.wms ? (
-        <WMSTileLayer
-          key={currentStyle}
-          url={tileConfig.url}
-          params={tileConfig.wms}
-          maxZoom={tileConfig.maxZoom}
-          attribution={tileConfig.attribution}
-        />
-      ) : (
-        <TileLayer key={currentStyle} url={tileConfig.url} attribution={tileConfig.attribution} />
-      )}
-      {/* Labels overlay for hybrid mode */}
-      {currentStyle === 'hybrid' && (
-        <TileLayer
-          key="hybrid-labels"
-          url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
-          attribution=""
-          pane="overlayPane"
-        />
-      )}
-      {/* GBIF bat records overlay */}
-      {showBatRecords && (
-        <TileLayer
-          key="gbif-bats"
-          url="https://api.gbif.org/v2/map/occurrence/density/{z}/{x}/{y}@1x.png?taxonKey=734&country=IE&style=orange.point"
-          attribution="Bat records &copy; GBIF"
-          pane="overlayPane"
-          tileSize={512}
-          zoomOffset={-1}
-        />
-      )}
-      <LoadExistingBoundary />
-
-      {/* County Boundaries - render at bottom as reference layer */}
-      {showCounties && countiesData && (
-        <GeoJSON
-          key="county-boundaries"
-          data={countiesData}
-          style={(feature: GeoJSON.Feature | undefined) => {
-            const province = feature?.properties?.province as string | undefined
-            const provinceColors: Record<string, string> = {
-              Leinster: '#3b82f6',
-              Munster: '#22c55e',
-              Connacht: '#f59e0b',
-              Ulster: '#ef4444',
-            }
-            const color = province ? provinceColors[province] || '#f97316' : '#f97316'
-            return {
-              color: color,
-              weight: 1.5,
-              fillColor: color,
-              fillOpacity: 0.03,
-              dashArray: '4, 4',
-            }
+      {/* Live area/perimeter overlay during polygon drawing */}
+      {drawMeasurement && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 48,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 1000,
           }}
-          onEachFeature={(feature: GeoJSON.Feature, layer: L.Layer) => {
-            const props = feature.properties as Record<string, string> | null
-            if (props) {
-              ;(layer as L.GeoJSON).bindPopup(`
+          className="bg-background/95 text-foreground rounded-lg border px-4 py-2 shadow-lg backdrop-blur-sm"
+        >
+          <div className="flex items-center gap-4 text-sm font-medium">
+            <span>
+              Area:{' '}
+              <strong className="text-emerald-600 dark:text-emerald-400">
+                {drawMeasurement.areaHa < 0.01
+                  ? `${(drawMeasurement.areaHa * 10000).toFixed(0)} m²`
+                  : `${drawMeasurement.areaHa.toFixed(2)} ha`}
+              </strong>
+            </span>
+            <span className="text-muted-foreground">|</span>
+            <span>
+              Perimeter:{' '}
+              <strong className="text-blue-600 dark:text-blue-400">
+                {drawMeasurement.perimeterM < 1000
+                  ? `${drawMeasurement.perimeterM.toFixed(0)} m`
+                  : `${(drawMeasurement.perimeterM / 1000).toFixed(2)} km`}
+              </strong>
+            </span>
+          </div>
+        </div>
+      )}
+      <MapContainer
+        center={center}
+        zoom={zoom}
+        className="h-full min-h-100 w-full"
+        style={{ height: '100%', minHeight: '400px' }}
+        zoomControl={false}
+      >
+        {/* Base map — WMS, TMS, or regular tile depending on style */}
+        {tileConfig.wms && tileConfig.wms.transparent && (
+          <TileLayer
+            key="base-streets"
+            url={TILE_LAYERS.streets.url}
+            attribution={TILE_LAYERS.streets.attribution}
+          />
+        )}
+        {tileConfig.wms ? (
+          <WMSTileLayer
+            key={currentStyle}
+            url={tileConfig.url}
+            params={tileConfig.wms}
+            maxZoom={tileConfig.maxZoom}
+            attribution={tileConfig.attribution}
+          />
+        ) : (
+          <TileLayer key={currentStyle} url={tileConfig.url} attribution={tileConfig.attribution} />
+        )}
+        {/* Labels overlay for hybrid mode */}
+        {currentStyle === 'hybrid' && (
+          <TileLayer
+            key="hybrid-labels"
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+            attribution=""
+            pane="overlayPane"
+          />
+        )}
+        {/* GBIF bat records overlay */}
+        {showBatRecords && (
+          <TileLayer
+            key="gbif-bats"
+            url="https://api.gbif.org/v2/map/occurrence/density/{z}/{x}/{y}@1x.png?taxonKey=734&country=IE&style=orange.point"
+            attribution="Bat records &copy; GBIF"
+            pane="overlayPane"
+            tileSize={512}
+            zoomOffset={-1}
+          />
+        )}
+        <LoadExistingBoundary />
+
+        {/* County Boundaries - render at bottom as reference layer */}
+        {showCounties && countiesData && (
+          <GeoJSON
+            key="county-boundaries"
+            data={countiesData}
+            style={(feature: GeoJSON.Feature | undefined) => {
+              const province = feature?.properties?.province as string | undefined
+              const provinceColors: Record<string, string> = {
+                Leinster: '#3b82f6',
+                Munster: '#22c55e',
+                Connacht: '#f59e0b',
+                Ulster: '#ef4444',
+              }
+              const color = province ? provinceColors[province] || '#f97316' : '#f97316'
+              return {
+                color: color,
+                weight: 1.5,
+                fillColor: color,
+                fillOpacity: 0.03,
+                dashArray: '4, 4',
+              }
+            }}
+            onEachFeature={(feature: GeoJSON.Feature, layer: L.Layer) => {
+              const props = feature.properties as Record<string, string> | null
+              if (props) {
+                ;(layer as L.GeoJSON).bindPopup(`
                 <div style="min-width: 150px;">
                   <strong>${props.name || 'Unknown'}</strong>
                   ${props.nameIrish ? `<br/><em>${props.nameIrish}</em>` : ''}
@@ -586,27 +1021,27 @@ function MapComponentWithDraw({
                   <br/><small style="color: #999;">© Tailte Éireann (CC-BY 4.0)</small>
                 </div>
               `)
-            }
-          }}
-        />
-      )}
+              }
+            }}
+          />
+        )}
 
-      {/* Townland Boundaries - only at zoom 12+ */}
-      {showTownlands && townlandsData && currentZoom >= 12 && (
-        <GeoJSON
-          key={`townlands-${townlandsData.features?.length || 0}`}
-          data={townlandsData}
-          style={() => ({
-            color: '#a855f7',
-            weight: 1,
-            fillColor: '#a855f7',
-            fillOpacity: 0.02,
-            dashArray: '2, 2',
-          })}
-          onEachFeature={(feature: GeoJSON.Feature, layer: L.Layer) => {
-            const props = feature.properties as Record<string, string | number | null> | null
-            if (props) {
-              ;(layer as L.GeoJSON).bindPopup(`
+        {/* Townland Boundaries - only at zoom 12+ */}
+        {showTownlands && townlandsData && currentZoom >= 12 && (
+          <GeoJSON
+            key={`townlands-${townlandsData.features?.length || 0}`}
+            data={townlandsData}
+            style={() => ({
+              color: '#a855f7',
+              weight: 1,
+              fillColor: '#a855f7',
+              fillOpacity: 0.02,
+              dashArray: '2, 2',
+            })}
+            onEachFeature={(feature: GeoJSON.Feature, layer: L.Layer) => {
+              const props = feature.properties as Record<string, string | number | null> | null
+              if (props) {
+                ;(layer as L.GeoJSON).bindPopup(`
                 <div style="min-width: 180px;">
                   <strong>${props.name || 'Unknown Townland'}</strong>
                   ${props.nameIrish ? `<br/><em>${props.nameIrish}</em>` : ''}
@@ -614,144 +1049,145 @@ function MapComponentWithDraw({
                   <br/><small style="color: #999;">© Tailte Éireann (CC-BY 4.0)</small>
                 </div>
               `)
-            }
-          }}
-        />
-      )}
-
-      {/* Other site boundaries (inactive sites — dimmed, non-interactive) */}
-      {otherBoundaries.map((feat, idx) => (
-        <GeoJSON
-          key={`other-boundary-${idx}-${feat.geometry.coordinates[0]?.[0]?.[0]}`}
-          data={feat}
-          style={() => ({
-            color: '#94a3b8',
-            weight: 2,
-            fillColor: '#94a3b8',
-            fillOpacity: 0.08,
-            dashArray: '6, 4',
-          })}
-        />
-      ))}
-
-      {/* Render buffer zones (larger first so smaller ones appear on top) */}
-      {bufferZonesArray.map(([distance, bufferFeature]) => (
-        <GeoJSON
-          key={`buffer-${distance}`}
-          data={bufferFeature}
-          style={() => getBufferZoneStyle(distance, bufferColors?.[distance])}
-        />
-      ))}
-
-      {/* Finding markers from desk research */}
-      {findings.map((finding) => {
-        if (!finding.location?.coordinates) return null
-
-        // Parse coordinates - handle various formats
-        const coords = finding.location.coordinates
-        let lat: number | undefined
-        let lng: number | undefined
-
-        if (Array.isArray(coords) && coords.length >= 2) {
-          // Standard GeoJSON [lng, lat] format
-          const parsedLng =
-            typeof coords[0] === 'number' ? coords[0] : parseFloat(String(coords[0]))
-          const parsedLat =
-            typeof coords[1] === 'number' ? coords[1] : parseFloat(String(coords[1]))
-          if (!isNaN(parsedLng) && !isNaN(parsedLat)) {
-            lng = parsedLng
-            lat = parsedLat
-          }
-        }
-
-        // Skip if we couldn't parse valid coordinates
-        if (lat === undefined || lng === undefined || isNaN(lat) || isNaN(lng)) {
-          return null
-        }
-
-        const color = FINDING_TYPE_COLORS[finding.dataType] || FINDING_TYPE_COLORS.other
-        return (
-          <CircleMarker
-            key={finding.id}
-            center={[lat, lng]}
-            radius={8}
-            pathOptions={{
-              color: color,
-              fillColor: color,
-              fillOpacity: 0.7,
-              weight: 2,
+              }
             }}
-            eventHandlers={{
-              click: () => onFindingClick?.(finding),
-            }}
-          >
-            <Popup>
-              <div className="text-sm">
-                <strong>{finding.title}</strong>
-                <br />
-                <span className="text-gray-500 capitalize">
-                  {finding.dataType.replace('_', ' ')}
-                </span>
-                {finding.isProtected && (
-                  <>
-                    <br />
-                    <span className="font-medium text-red-600">Protected</span>
-                  </>
-                )}
-              </div>
-            </Popup>
-          </CircleMarker>
-        )
-      })}
+          />
+        )}
 
-      {/* Saved habitat polygons */}
-      {habitatPolygons.map((hp) => {
-        const isSelected = hp.id === selectedHabitatId
-        const fillColor = hp.color || '#22c55e'
-        return (
+        {/* Other site boundaries (inactive sites — dimmed, non-interactive) */}
+        {otherBoundaries.map((feat, idx) => (
           <GeoJSON
-            key={`habitat-${hp.id}`}
-            data={{ type: 'Feature', geometry: hp.geometry, properties: {} } as GeoJSON.Feature}
+            key={`other-boundary-${idx}-${feat.geometry.coordinates[0]?.[0]?.[0]}`}
+            data={feat}
             style={() => ({
-              color: isSelected ? '#facc15' : fillColor,
-              weight: isSelected ? 4 : 2,
-              fillColor: fillColor,
-              fillOpacity: isSelected ? 0.35 : 0.2,
+              color: '#94a3b8',
+              weight: 2,
+              fillColor: '#94a3b8',
+              fillOpacity: 0.08,
+              dashArray: '6, 4',
             })}
-            onEachFeature={(_feature: GeoJSON.Feature, layer: L.Layer) => {
-              ;(layer as L.GeoJSON).bindPopup(`
+          />
+        ))}
+
+        {/* Render buffer zones (larger first so smaller ones appear on top) */}
+        {bufferZonesArray.map(([distance, bufferFeature]) => (
+          <GeoJSON
+            key={`buffer-${distance}`}
+            data={bufferFeature}
+            style={() => getBufferZoneStyle(distance, bufferColors?.[distance])}
+          />
+        ))}
+
+        {/* Finding markers from desk research */}
+        {findings.map((finding) => {
+          if (!finding.location?.coordinates) return null
+
+          // Parse coordinates - handle various formats
+          const coords = finding.location.coordinates
+          let lat: number | undefined
+          let lng: number | undefined
+
+          if (Array.isArray(coords) && coords.length >= 2) {
+            // Standard GeoJSON [lng, lat] format
+            const parsedLng =
+              typeof coords[0] === 'number' ? coords[0] : parseFloat(String(coords[0]))
+            const parsedLat =
+              typeof coords[1] === 'number' ? coords[1] : parseFloat(String(coords[1]))
+            if (!isNaN(parsedLng) && !isNaN(parsedLat)) {
+              lng = parsedLng
+              lat = parsedLat
+            }
+          }
+
+          // Skip if we couldn't parse valid coordinates
+          if (lat === undefined || lng === undefined || isNaN(lat) || isNaN(lng)) {
+            return null
+          }
+
+          const color = FINDING_TYPE_COLORS[finding.dataType] || FINDING_TYPE_COLORS.other
+          return (
+            <CircleMarker
+              key={finding.id}
+              center={[lat, lng]}
+              radius={8}
+              pathOptions={{
+                color: color,
+                fillColor: color,
+                fillOpacity: 0.7,
+                weight: 2,
+              }}
+              eventHandlers={{
+                click: () => onFindingClick?.(finding),
+              }}
+            >
+              <Popup>
+                <div className="text-sm">
+                  <strong>{finding.title}</strong>
+                  <br />
+                  <span className="text-gray-500 capitalize">
+                    {finding.dataType.replace('_', ' ')}
+                  </span>
+                  {finding.isProtected && (
+                    <>
+                      <br />
+                      <span className="font-medium text-red-600">Protected</span>
+                    </>
+                  )}
+                </div>
+              </Popup>
+            </CircleMarker>
+          )
+        })}
+
+        {/* Saved habitat polygons */}
+        {habitatPolygons.map((hp) => {
+          const isSelected = hp.id === selectedHabitatId
+          const fillColor = hp.color || '#22c55e'
+          return (
+            <GeoJSON
+              key={`habitat-${hp.id}`}
+              data={{ type: 'Feature', geometry: hp.geometry, properties: {} } as GeoJSON.Feature}
+              style={() => ({
+                color: isSelected ? '#facc15' : fillColor,
+                weight: isSelected ? 4 : 2,
+                fillColor: fillColor,
+                fillOpacity: isSelected ? 0.35 : 0.2,
+              })}
+              onEachFeature={(_feature: GeoJSON.Feature, layer: L.Layer) => {
+                ;(layer as L.GeoJSON).bindPopup(`
                 <div style="min-width: 160px;">
                   <strong>${hp.fossittCode}</strong> — ${hp.fossittName}
                   ${hp.condition ? `<br/><span style="color: #666;">Condition: ${hp.condition}</span>` : ''}
                 </div>
               `)
-              layer.on('click', () => onHabitatClick?.(hp.id))
-            }}
-          />
-        )
-      })}
+                layer.on('click', () => onHabitatClick?.(hp.id))
+              }}
+            />
+          )
+        })}
 
-      {editable ? (
-        <FeatureGroup
-          ref={(ref: LeafletFeatureGroup | null) => {
-            featureGroupRef.current = ref
-          }}
-        />
-      ) : (
-        // Display-only mode
-        boundary && (
-          <GeoJSON
-            data={boundary}
-            style={{
-              color: '#ef4444',
-              weight: 3,
-              fillColor: '#ef4444',
-              fillOpacity: 0.1,
+        {editable ? (
+          <FeatureGroup
+            ref={(ref: LeafletFeatureGroup | null) => {
+              featureGroupRef.current = ref
             }}
           />
-        )
-      )}
-    </MapContainer>
+        ) : (
+          // Display-only mode
+          boundary && (
+            <GeoJSON
+              data={boundary}
+              style={{
+                color: '#ef4444',
+                weight: 3,
+                fillColor: '#ef4444',
+                fillOpacity: 0.1,
+              }}
+            />
+          )
+        )}
+      </MapContainer>
+    </>
   )
 }
 
@@ -788,6 +1224,7 @@ export function ProjectMapWithDraw({
   onHabitatClick,
   allowMultipleDrawings = false,
   npwsSites: externalNpwsSites,
+  onOverlapDetected,
 }: ProjectMapWithDrawProps) {
   const [mapLoaded, setMapLoaded] = React.useState(false)
   // Use controlled style if provided, otherwise use local state
@@ -948,6 +1385,7 @@ export function ProjectMapWithDraw({
           allowMultipleDrawings={allowMultipleDrawings}
           onMapReady={setMapInstance}
           showBatRecords={showBatRecords}
+          onOverlapDetected={onOverlapDetected}
         />
       </div>
 

@@ -4,14 +4,15 @@ import type { Database, HabitatPolygon } from '@/types/database'
 type InsertHabitat = Database['public']['Tables']['habitat_polygons']['Insert']
 type UpdateHabitat = Database['public']['Tables']['habitat_polygons']['Update']
 
-// Get all habitat polygons for a project
-export async function getProjectHabitats(projectId: string): Promise<HabitatPolygon[]> {
+// Get all habitat polygons for a project (optionally filtered by site)
+export async function getProjectHabitats(
+  projectId: string,
+  siteId?: string | null
+): Promise<HabitatPolygon[]> {
   const supabase = createClient()
-  const { data, error } = await supabase
-    .from('habitat_polygons')
-    .select('*')
-    .eq('project_id', projectId)
-    .order('created_at', { ascending: false })
+  let query = supabase.from('habitat_polygons').select('*').eq('project_id', projectId)
+  if (siteId) query = query.eq('site_id', siteId)
+  const { data, error } = await query.order('created_at', { ascending: false })
 
   if (error) {
     console.error('Error fetching habitats:', error)
@@ -103,18 +104,23 @@ export async function deleteHabitat(habitatId: string): Promise<boolean> {
   return true
 }
 
-// Get habitat statistics for a project
-export async function getHabitatStats(projectId: string): Promise<{
+// Get habitat statistics for a project (optionally filtered by site)
+export async function getHabitatStats(
+  projectId: string,
+  siteId?: string | null
+): Promise<{
   total: number
   totalArea: number
   byFossittCode: { code: string; name: string; count: number; area: number }[]
   byCondition: { condition: string; count: number }[]
 }> {
   const supabase = createClient()
-  const { data, error } = await supabase
+  let query = supabase
     .from('habitat_polygons')
     .select('fossitt_code, fossitt_name, area_hectares, condition')
     .eq('project_id', projectId)
+  if (siteId) query = query.eq('site_id', siteId)
+  const { data, error } = await query
 
   if (error) {
     console.error('Error fetching habitat stats:', error)

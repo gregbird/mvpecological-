@@ -1,11 +1,10 @@
 'use client'
 
 import * as React from 'react'
-import dynamic from 'next/dynamic'
 import { Database, MapPin, Bug, Droplets, Globe, Pencil, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import {
@@ -16,7 +15,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { IRELAND_CENTER } from '@/lib/config/map-constants'
 import { useToast } from '@/hooks/use-toast'
 import {
   useSavedFindings,
@@ -25,25 +23,12 @@ import {
   useUpdateFinding,
 } from '@/hooks/queries/use-finding-hooks'
 import { FindingEditDialog } from '@/components/steps/data-analysis/finding-edit-dialog'
-import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
-import type { DeskResearchFinding, Project } from '@/types/database'
+import type { DeskResearchFinding } from '@/types/database'
 
-const DynamicProjectMap = dynamic(
-  () => import('@/components/maps/project-map').then((mod) => mod.ProjectMap),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="bg-muted/50 flex h-72 items-center justify-center rounded-lg">
-        <div className="border-primary h-6 w-6 animate-spin rounded-full border-b-2" />
-      </div>
-    ),
-  }
-)
-
-interface DataGatheringTabProps {
+interface DeskAssessmentFindingsSectionProps {
   projectId: string
+  siteId?: string | null
   userId: string
-  project: Project
 }
 
 const SOURCE_CONFIG: Record<string, { label: string; icon: typeof Database; color: string }> = {
@@ -55,31 +40,17 @@ const SOURCE_CONFIG: Record<string, { label: string; icon: typeof Database; colo
   manual: { label: 'Manual', icon: Database, color: 'text-gray-600' },
 }
 
-export function DataGatheringTab({ projectId, userId, project }: DataGatheringTabProps) {
+export function DeskAssessmentFindingsSection({
+  projectId,
+  siteId,
+  userId,
+}: DeskAssessmentFindingsSectionProps) {
   const { toast } = useToast()
-  const { data: findings = [] } = useSavedFindings(projectId)
-  const { data: stats } = useFindingsStats(projectId)
+  const { data: findings = [] } = useSavedFindings(projectId, siteId)
+  const { data: stats } = useFindingsStats(projectId, siteId)
   const createFinding = useCreateFinding()
   const updateFinding = useUpdateFinding()
   const [editingFinding, setEditingFinding] = React.useState<DeskResearchFinding | null>(null)
-
-  const { projectBoundary, projectCenter } = useProjectBoundary(project)
-
-  const mapFindings = React.useMemo(
-    () =>
-      findings
-        .filter((f) => f.include_in_report)
-        .map((f) => ({
-          id: f.id,
-          source: f.source,
-          dataType: f.data_type,
-          title: f.title,
-          content: f.content || undefined,
-          location: f.location as GeoJSON.Geometry | undefined,
-          isSaved: true,
-        })),
-    [findings]
-  )
 
   const sourceStats = stats?.bySource || []
 
@@ -115,7 +86,7 @@ export function DataGatheringTab({ projectId, userId, project }: DataGatheringTa
   }
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="space-y-4">
       {/* Source Stats */}
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {sourceStats.map((s) => {
@@ -140,41 +111,22 @@ export function DataGatheringTab({ projectId, userId, project }: DataGatheringTa
         )}
       </div>
 
-      {/* Findings Map */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Findings Map</CardTitle>
-        </CardHeader>
-        <CardContent className="p-3 pt-0">
-          <DynamicProjectMap
-            className="h-72"
-            center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
-            zoom={projectCenter ? 14 : 7}
-            boundary={projectBoundary}
-            findings={mapFindings}
-            showControls={false}
-          />
-        </CardContent>
-      </Card>
-
       {/* Findings Table */}
       {findings.length > 0 && (
         <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Saved Findings ({findings.length})</CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleAddManualFinding}
-                disabled={createFinding.isPending}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Manual Finding
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
+          <div className="flex items-center justify-between px-6 py-4">
+            <h3 className="text-base font-semibold">Saved Findings ({findings.length})</h3>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAddManualFinding}
+              disabled={createFinding.isPending}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Manual Finding
+            </Button>
+          </div>
+          <CardContent className="pt-0">
             <div className="max-h-[400px] overflow-y-auto">
               <UITable>
                 <TableHeader>
@@ -183,7 +135,7 @@ export function DataGatheringTab({ projectId, userId, project }: DataGatheringTa
                     <TableHead>Type</TableHead>
                     <TableHead>Source</TableHead>
                     <TableHead className="text-right">Distance (km)</TableHead>
-                    <TableHead className="w-20 text-center">Include</TableHead>
+                    <TableHead className="w-24 text-center">Add to Report</TableHead>
                     <TableHead className="w-12" />
                   </TableRow>
                 </TableHeader>
@@ -256,22 +208,6 @@ export function DataGatheringTab({ projectId, userId, project }: DataGatheringTa
                 </TableBody>
               </UITable>
             </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {findings.length === 0 && sourceStats.length > 0 && (
-        <Card>
-          <CardContent className="py-8 text-center">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleAddManualFinding}
-              disabled={createFinding.isPending}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Manual Finding
-            </Button>
           </CardContent>
         </Card>
       )}

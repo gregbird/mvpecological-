@@ -9,10 +9,13 @@ export interface SurveyWithSurveyor extends Survey {
   surveyor?: { id: string; full_name: string; email: string } | null
 }
 
-// Get all surveys for a project
-export async function getProjectSurveys(projectId: string): Promise<SurveyWithSurveyor[]> {
+// Get all surveys for a project (optionally filtered by site)
+export async function getProjectSurveys(
+  projectId: string,
+  siteId?: string | null
+): Promise<SurveyWithSurveyor[]> {
   const supabase = createClient()
-  const { data, error } = await supabase
+  let query = supabase
     .from('surveys')
     .select(
       `
@@ -21,7 +24,8 @@ export async function getProjectSurveys(projectId: string): Promise<SurveyWithSu
     `
     )
     .eq('project_id', projectId)
-    .order('survey_date', { ascending: false })
+  if (siteId) query = query.eq('site_id', siteId)
+  const { data, error } = await query.order('survey_date', { ascending: false })
 
   if (error) {
     console.error('Error fetching surveys:', error)
@@ -109,17 +113,19 @@ export async function updateSurveyStatus(
   return updateSurvey(surveyId, { status })
 }
 
-// Get survey counts by status
-export async function getSurveyStats(projectId: string): Promise<{
+// Get survey counts by status (optionally filtered by site)
+export async function getSurveyStats(
+  projectId: string,
+  siteId?: string | null
+): Promise<{
   total: number
   in_progress: number
   completed: number
 }> {
   const supabase = createClient()
-  const { data, error } = await supabase
-    .from('surveys')
-    .select('status')
-    .eq('project_id', projectId)
+  let query = supabase.from('surveys').select('status').eq('project_id', projectId)
+  if (siteId) query = query.eq('site_id', siteId)
+  const { data, error } = await query
 
   if (error) {
     console.error('Error fetching survey stats:', error)

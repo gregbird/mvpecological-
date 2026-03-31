@@ -12,10 +12,10 @@ import {
 } from '@/lib/supabase/queries'
 import type { InsertTables, UpdateTables } from '@/types/database'
 
-export function useSurveys(projectId: string) {
+export function useSurveys(projectId: string, siteId?: string | null) {
   return useQuery({
-    queryKey: ['surveys', projectId],
-    queryFn: () => getProjectSurveys(projectId),
+    queryKey: ['surveys', projectId, siteId ?? null],
+    queryFn: () => getProjectSurveys(projectId, siteId),
     enabled: !!projectId,
   })
 }
@@ -28,10 +28,10 @@ export function useSurvey(surveyId: string) {
   })
 }
 
-export function useSurveyStats(projectId: string) {
+export function useSurveyStats(projectId: string, siteId?: string | null) {
   return useQuery({
-    queryKey: ['survey-stats', projectId],
-    queryFn: () => getSurveyStats(projectId),
+    queryKey: ['survey-stats', projectId, siteId ?? null],
+    queryFn: () => getSurveyStats(projectId, siteId),
     enabled: !!projectId,
   })
 }

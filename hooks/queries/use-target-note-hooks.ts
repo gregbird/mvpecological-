@@ -12,10 +12,10 @@ import {
 } from '@/lib/supabase/queries'
 import type { InsertTables, UpdateTables } from '@/types/database'
 
-export function useTargetNotes(projectId: string) {
+export function useTargetNotes(projectId: string, siteId?: string | null) {
   return useQuery({
-    queryKey: ['target-notes', projectId],
-    queryFn: () => getProjectTargetNotes(projectId),
+    queryKey: ['target-notes', projectId, siteId ?? null],
+    queryFn: () => getProjectTargetNotes(projectId, siteId),
     enabled: !!projectId,
   })
 }
@@ -28,10 +28,10 @@ export function useTargetNote(noteId: string) {
   })
 }
 
-export function useTargetNotesStats(projectId: string) {
+export function useTargetNotesStats(projectId: string, siteId?: string | null) {
   return useQuery({
-    queryKey: ['target-notes-stats', projectId],
-    queryFn: () => getTargetNotesStats(projectId),
+    queryKey: ['target-notes-stats', projectId, siteId ?? null],
+    queryFn: () => getTargetNotesStats(projectId, siteId),
     enabled: !!projectId,
   })
 }

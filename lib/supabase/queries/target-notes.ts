@@ -10,10 +10,13 @@ export interface TargetNoteWithCreator extends TargetNote {
   finding?: { id: string; title: string; data_type: string } | null
 }
 
-// Get all target notes for a project
-export async function getProjectTargetNotes(projectId: string): Promise<TargetNoteWithCreator[]> {
+// Get all target notes for a project (optionally filtered by site)
+export async function getProjectTargetNotes(
+  projectId: string,
+  siteId?: string | null
+): Promise<TargetNoteWithCreator[]> {
   const supabase = createClient()
-  const { data, error } = await supabase
+  let query = supabase
     .from('target_notes')
     .select(
       `
@@ -23,7 +26,8 @@ export async function getProjectTargetNotes(projectId: string): Promise<TargetNo
     `
     )
     .eq('project_id', projectId)
-    .order('created_at', { ascending: false })
+  if (siteId) query = query.eq('site_id', siteId)
+  const { data, error } = await query.order('created_at', { ascending: false })
 
   if (error) {
     console.error('Error fetching target notes:', error)
@@ -33,13 +37,14 @@ export async function getProjectTargetNotes(projectId: string): Promise<TargetNo
   return (data ?? []) as unknown as TargetNoteWithCreator[]
 }
 
-// Get target notes by category
+// Get target notes by category (optionally filtered by site)
 export async function getTargetNotesByCategory(
   projectId: string,
-  category: TargetNote['category']
+  category: TargetNote['category'],
+  siteId?: string | null
 ): Promise<TargetNoteWithCreator[]> {
   const supabase = createClient()
-  const { data, error } = await supabase
+  let query = supabase
     .from('target_notes')
     .select(
       `
@@ -50,6 +55,8 @@ export async function getTargetNotesByCategory(
     )
     .eq('project_id', projectId)
     .eq('category', category)
+  if (siteId) query = query.eq('site_id', siteId)
+  const { data, error } = await query
     .order('priority', { ascending: true })
     .order('created_at', { ascending: false })
 
@@ -157,8 +164,11 @@ export async function verifyTargetNote(
   return data as unknown as TargetNote
 }
 
-// Get target notes stats for a project
-export async function getTargetNotesStats(projectId: string): Promise<{
+// Get target notes stats for a project (optionally filtered by site)
+export async function getTargetNotesStats(
+  projectId: string,
+  siteId?: string | null
+): Promise<{
   total: number
   byCategory: { category: string; count: number }[]
   byPriority: { priority: string; count: number }[]
@@ -168,10 +178,12 @@ export async function getTargetNotesStats(projectId: string): Promise<{
   const supabase = createClient()
 
   // Get all notes for the project
-  const { data, error } = await supabase
+  let query = supabase
     .from('target_notes')
     .select('category, priority, is_verified')
     .eq('project_id', projectId)
+  if (siteId) query = query.eq('site_id', siteId)
+  const { data, error } = await query
 
   if (error || !data) {
     console.error('Error fetching target notes stats:', error)

@@ -35,9 +35,9 @@ F: Bagimsiz ──→ paralel yapilabilir
 | B: Habitat Veri   | 11     | 11         | ██████████ 100% ✅ |
 | C: Desk Temizlik  | 6      | 6          | ██████████ 100% ✅ |
 | D: Field Research | 9      | 9          | ██████████ 100% ✅ |
-| E: Raporlama      | 20     | 1          | █░░░░░░░░░ 5%      |
+| E: Raporlama      | 20     | 7          | ████░░░░░░ 35%     |
 | F: Bagimsiz       | 5      | 0          | ░░░░░░░░░░ 0%      |
-| **Toplam**        | **72** | **54**     | ████████░░ **75%** |
+| **Toplam**        | **72** | **60**     | ████████░░ **83%** |
 
 ---
 
@@ -181,12 +181,12 @@ F: Bagimsiz ──→ paralel yapilabilir
 
 ### E1. Data Analysis Tab Yeniden Yapilandir (Feedback #10)
 
-- [ ] **E1.1** GIS Mapping ve Data Gathering tab'larini kaldir
-- [ ] **E1.2** Desk Assessment tab — baseline report + tum analizler, "Add to Report" ve "Create a Summary" butonlari
-- [ ] **E1.3** Field Survey tab — saha verisi + tamamlanmis survey template
-- [ ] **E1.4** Habitats tab — guncellenmis habitat mapping verisi
-- [ ] **E1.5** Target Notes tab — tum target note listesi
-- [ ] **E1.6** Harita lejantini guncelle/iyilestir — legend zaten var (`maps-tab.tsx`: interactive checkboxlar, katman toggle, AI legend), Greg'in istegi farkli bir gosterim olabilir
+- [x] **E1.1** ~~GIS Mapping ve Data Gathering tab'larini kaldir~~ ✅ (31 Mart 2026) — 8 tab → 6 tab. GIS + Data Gathering icerigi yeni Desk Assessment combined tab'a absorbe edildi. Dosyalar: `gis-summary-tab.tsx`, `data-gathering-tab.tsx`, `desk-assessment-tab.tsx` silindi. Yeni: `desk-assessment-combined-tab.tsx`, `desk-assessment-findings-section.tsx`, `desk-assessment-analysis-section.tsx`
+- [x] **E1.2** ~~Desk Assessment tab — baseline report + tum analizler, "Add to Report" ve "Create a Summary" butonlari~~ ✅ (31 Mart 2026) — Combined tab: collapsible project context + source stats + findings table (Switch toggle = "Add to Report") + BaselineReportTab (Step 3 sub-components reuse) + AI insights. "Create a Summary" butonu AI ozet olusturuyor (`/api/ai/data-analysis-summary`), metadata'ya kaydediyor. Dosyalar: `desk-assessment-combined-tab.tsx`, `create-summary-button.tsx`, `app/api/ai/data-analysis-summary/route.ts`
+- [x] **E1.3** ~~Field Survey tab — saha verisi + tamamlanmis survey template~~ ✅ (31 Mart 2026) — siteId filtresi + "Create a Summary" butonu eklendi
+- [x] **E1.4** ~~Habitats tab — guncellenmis habitat mapping verisi~~ ✅ (31 Mart 2026) — siteId filtresi + "Create a Summary" butonu eklendi
+- [x] **E1.5** ~~Target Notes tab — tum target note listesi~~ ✅ (31 Mart 2026) — siteId filtresi + "Create a Summary" butonu eklendi
+- [x] **E1.6** ~~Harita lejantini guncelle/iyilestir~~ ✅ (31 Mart 2026) — Legend zaten mevcut (interactive checkboxlar, katman toggle, AI legend), siteId filtresi eklendi. Maps tab verileri artik secili site'a gore filtreleniyor
 
 ### E2. AI Draft Fix + Autosave (Feedback #11)
 

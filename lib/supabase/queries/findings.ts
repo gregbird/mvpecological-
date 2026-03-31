@@ -4,14 +4,15 @@ import type { Database, DeskResearchFinding } from '@/types/database'
 type InsertFinding = Database['public']['Tables']['desk_research_findings']['Insert']
 type UpdateFinding = Database['public']['Tables']['desk_research_findings']['Update']
 
-// Get all findings for a project
-export async function getProjectFindings(projectId: string): Promise<DeskResearchFinding[]> {
+// Get all findings for a project (optionally filtered by site)
+export async function getProjectFindings(
+  projectId: string,
+  siteId?: string | null
+): Promise<DeskResearchFinding[]> {
   const supabase = createClient()
-  const { data, error } = await supabase
-    .from('desk_research_findings')
-    .select('*')
-    .eq('project_id', projectId)
-    .order('created_at', { ascending: false })
+  let query = supabase.from('desk_research_findings').select('*').eq('project_id', projectId)
+  if (siteId) query = query.eq('site_id', siteId)
+  const { data, error } = await query.order('created_at', { ascending: false })
 
   if (error) {
     console.error('Error fetching findings:', error)
@@ -21,15 +22,19 @@ export async function getProjectFindings(projectId: string): Promise<DeskResearc
   return (data ?? []) as DeskResearchFinding[]
 }
 
-// Get saved findings only
-export async function getSavedFindings(projectId: string): Promise<DeskResearchFinding[]> {
+// Get saved findings only (optionally filtered by site)
+export async function getSavedFindings(
+  projectId: string,
+  siteId?: string | null
+): Promise<DeskResearchFinding[]> {
   const supabase = createClient()
-  const { data, error } = await supabase
+  let query = supabase
     .from('desk_research_findings')
     .select('*')
     .eq('project_id', projectId)
     .eq('is_saved', true)
-    .order('created_at', { ascending: false })
+  if (siteId) query = query.eq('site_id', siteId)
+  const { data, error } = await query.order('created_at', { ascending: false })
 
   if (error) {
     console.error('Error fetching saved findings:', error)
@@ -122,18 +127,23 @@ export async function updateFindingNotes(
   return updateFinding(findingId, { notes })
 }
 
-// Get findings statistics
-export async function getFindingsStats(projectId: string): Promise<{
+// Get findings statistics (optionally filtered by site)
+export async function getFindingsStats(
+  projectId: string,
+  siteId?: string | null
+): Promise<{
   total: number
   saved: number
   bySource: { source: string; count: number }[]
   byType: { type: string; count: number }[]
 }> {
   const supabase = createClient()
-  const { data, error } = await supabase
+  let query = supabase
     .from('desk_research_findings')
     .select('source, data_type, is_saved')
     .eq('project_id', projectId)
+  if (siteId) query = query.eq('site_id', siteId)
+  const { data, error } = await query
 
   if (error) {
     console.error('Error fetching findings stats:', error)
