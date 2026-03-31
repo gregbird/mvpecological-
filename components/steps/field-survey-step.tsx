@@ -378,7 +378,7 @@ export function FieldSurveyStep({
       <div className="flex items-center justify-end">
         <SiteSelector
           projectId={project.id}
-          stepKey="field-survey"
+          stepKey="field-research"
           onSiteChange={(site) => setSelectedSiteId(site?.id ?? null)}
           showAllOption
         />

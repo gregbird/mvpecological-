@@ -98,6 +98,8 @@ export function HabitatMappingStep({
   userId: _userId,
 }: HabitatMappingStepProps) {
   const { toast } = useToast()
+  const toastRef = React.useRef(toast)
+  toastRef.current = toast
   const [selectedSite, setSelectedSite] = React.useState<ProjectSiteWithGeoJSON | null>(null)
   const { projectBoundary, projectCenter } = useProjectBoundary(project, selectedSite)
   const [showHabitatForm, setShowHabitatForm] = React.useState(false)
@@ -220,21 +222,37 @@ export function HabitatMappingStep({
     Promise.all(
       newFindings.map((f) => {
         const raw = f.raw_data as Record<string, unknown>
-        return createHabitatRef.current.mutateAsync({
-          project_id: project.id,
-          site_id: f.site_id ?? null,
-          fossitt_code: raw.fossittCode as string,
-          fossitt_name: raw.fossittName as string,
-          boundary: toPolygon(f.location),
-          area_hectares: (raw.areaHectares as number) ?? null,
-          condition: 'moderate',
-          notes: 'Auto-imported from Data Gathering (NLC)',
-          include_in_report: true,
-        })
+        return createHabitatRef.current
+          .mutateAsync({
+            project_id: project.id,
+            site_id: f.site_id ?? null,
+            fossitt_code: raw.fossittCode as string,
+            fossitt_name: raw.fossittName as string,
+            boundary: toPolygon(f.location),
+            area_hectares: (raw.areaHectares as number) ?? null,
+            condition: 'moderate',
+            notes: 'Auto-imported from Data Gathering (NLC)',
+            include_in_report: true,
+          })
+          .catch(() => {
+            // Remove from tracked set so it can be retried on next render
+            importedFindingIds.current.delete(f.id)
+            return null
+          })
       })
-    ).finally(() => {
-      isPulling.current = false
-    })
+    )
+      .then((results) => {
+        const imported = results.filter(Boolean).length
+        if (imported > 0) {
+          toastRef.current({
+            title: 'Habitats imported',
+            description: `${imported} habitat${imported > 1 ? 's' : ''} auto-imported from Data Gathering.`,
+          })
+        }
+      })
+      .finally(() => {
+        isPulling.current = false
+      })
   }, [isLoading, findingsLoading, savedFindings, habitats, project.id])
 
   // Convert findings to map markers (filtered by visibility toggles)
@@ -470,7 +488,7 @@ export function HabitatMappingStep({
           </p>
           <SiteSelector
             projectId={project.id}
-            stepKey="habitat-mapping"
+            stepKey="field-research"
             onSiteChange={setSelectedSite}
             showAllOption
           />

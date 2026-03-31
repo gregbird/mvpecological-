@@ -523,7 +523,7 @@ export function TargetNotesStep({
           </p>
           <SiteSelector
             projectId={project.id}
-            stepKey="target-notes"
+            stepKey="field-research"
             onSiteChange={setSelectedSite}
             showAllOption
           />
