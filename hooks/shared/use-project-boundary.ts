@@ -15,6 +15,8 @@ interface ProjectBoundaryResult {
   projectSites: ProjectSiteWithGeoJSON[]
   /** All site boundaries (for multi-site search and display) */
   allBoundaries: GeoJSON.Feature<GeoJSON.Polygon>[]
+  /** Whether the project sites query is still loading */
+  isSitesLoading: boolean
 }
 
 /**
@@ -29,15 +31,19 @@ export function useProjectBoundary(
   project: Project,
   selectedSite?: ProjectSiteWithGeoJSON | null
 ): ProjectBoundaryResult {
-  const { data: projectSites = [] } = useProjectSites(project.id)
+  const { data: projectSites = [], isLoading: isSitesLoading } = useProjectSites(project.id)
 
-  // All site boundaries for multi-site operations
+  // All site boundaries — only populated in "All Sites" mode (no specific site selected).
+  // When a specific site is selected, this is empty so downstream components
+  // correctly use `boundary` + `otherBoundaries` instead.
   const allBoundaries = React.useMemo(
     () =>
-      projectSites
-        .filter((s) => s.boundary)
-        .map((s) => s.boundary as GeoJSON.Feature<GeoJSON.Polygon>),
-    [projectSites]
+      selectedSite
+        ? []
+        : projectSites
+            .filter((s) => s.boundary)
+            .map((s) => s.boundary as GeoJSON.Feature<GeoJSON.Polygon>),
+    [selectedSite, projectSites]
   )
 
   const fallbackSite = React.useMemo(() => {
@@ -73,5 +79,6 @@ export function useProjectBoundary(
     effectiveSiteId,
     projectSites,
     allBoundaries,
+    isSitesLoading,
   }
 }

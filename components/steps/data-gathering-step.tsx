@@ -125,9 +125,12 @@ export function DataGatheringStep({
   }>({ triggered: false, sites: 'idle', species: 'idle', aquatic: 'idle', habitats: 'idle' })
   const [showAutoSearchBanner, setShowAutoSearchBanner] = React.useState(false)
 
-  // Data hooks
-  const { data: savedFindings = [] } = useSavedFindings(project.id)
-  const { data: findingsStats } = useFindingsStats(project.id)
+  // Site selection — must be before data hooks that depend on it
+  const [selectedSite, setSelectedSite] = React.useState<ProjectSiteWithGeoJSON | null>(null)
+
+  // Data hooks — filter by selected site when one is chosen
+  const { data: savedFindings = [] } = useSavedFindings(project.id, selectedSite?.id)
+  const { data: findingsStats } = useFindingsStats(project.id, selectedSite?.id)
   const { data: targetNotes = [] } = useTargetNotes(project.id)
   useHabitats(project.id) // pre-fetch for downstream steps
   const completeStep = useCompleteWorkflowStep()
@@ -136,7 +139,6 @@ export function DataGatheringStep({
   const [expandedType, setExpandedType] = React.useState<string | null>(null)
 
   // Site-aware boundary via shared hook
-  const [selectedSite, setSelectedSite] = React.useState<ProjectSiteWithGeoJSON | null>(null)
   const {
     projectBoundary,
     projectCenter,
@@ -144,20 +146,31 @@ export function DataGatheringStep({
     effectiveSiteId,
     projectSites,
     allBoundaries,
+    isSitesLoading,
   } = useProjectBoundary(project, selectedSite)
 
   // Whether "All Sites" is selected (no specific site)
   const isAllSites = !selectedSite && allBoundaries.length > 1
 
+  // All site boundaries — stable, independent of site selection.
+  // Used for searchBoundary and boundaryHash which must NOT change on site switch.
+  const allSiteBoundaries = React.useMemo(
+    () =>
+      projectSites
+        .filter((s) => s.boundary)
+        .map((s) => s.boundary as GeoJSON.Feature<GeoJSON.Polygon>),
+    [projectSites]
+  )
+
   // Merged bbox boundary for searching across all sites.
   // Always computed for multi-site projects so the shell can detect broader search results.
   const searchBoundary = React.useMemo(() => {
-    if (allBoundaries.length <= 1) return undefined
+    if (allSiteBoundaries.length <= 1) return undefined
     let minLng = Infinity,
       maxLng = -Infinity,
       minLat = Infinity,
       maxLat = -Infinity
-    for (const b of allBoundaries) {
+    for (const b of allSiteBoundaries) {
       for (const coord of b.geometry.coordinates[0]) {
         minLng = Math.min(minLng, coord[0])
         maxLng = Math.max(maxLng, coord[0])
@@ -181,7 +194,7 @@ export function DataGatheringStep({
         ],
       },
     } as GeoJSON.Feature<GeoJSON.Polygon>
-  }, [allBoundaries])
+  }, [allSiteBoundaries])
 
   // Other site boundaries for map overlay (all sites except the active one)
   const otherBoundaries = React.useMemo(
@@ -194,10 +207,18 @@ export function DataGatheringStep({
     [projectSites, effectiveSiteId, isAllSites]
   )
 
-  // Stable boundary hash based on ALL boundaries — does NOT change on site switch
+  // Stable boundary hash based on ALL project site boundaries — does NOT change on site switch.
+  // Uses projectSites directly (not allBoundaries which varies with selectedSite).
+  // Returns '' while sites query is loading to prevent false-positive hash changes.
   const boundaryHash = React.useMemo(() => {
+    // Don't compute hash until sites query settles — avoids projectBoundary→siteBoundaries
+    // transition causing a false "boundary changed" invalidation on page reload.
+    if (isSitesLoading) return ''
+    const siteBoundaries = projectSites
+      .filter((s) => s.boundary)
+      .map((s) => s.boundary as GeoJSON.Feature<GeoJSON.Polygon>)
     const boundaries =
-      allBoundaries.length > 0 ? allBoundaries : projectBoundary ? [projectBoundary] : []
+      siteBoundaries.length > 0 ? siteBoundaries : projectBoundary ? [projectBoundary] : []
     if (boundaries.length === 0) return ''
     try {
       return boundaries
@@ -207,11 +228,12 @@ export function DataGatheringStep({
           const last = coords[coords.length - 1]
           return `${coords.length}:${first[0].toFixed(6)},${first[1].toFixed(6)}:${last[0].toFixed(6)},${last[1].toFixed(6)}`
         })
+        .sort() // Normalize order — RPC doesn't guarantee site ordering
         .join('|')
     } catch {
       return ''
     }
-  }, [allBoundaries, projectBoundary])
+  }, [projectSites, projectBoundary, isSitesLoading])
 
   // Invalidate caches when boundary changes (GIS re-edited)
   React.useEffect(() => {
@@ -697,9 +719,60 @@ export function DataGatheringStep({
           </div>
         )}
 
-        {/* Site selector in map mode (always visible) */}
-        {isMapMode && (
-          <div className="mb-1 flex justify-end">
+        {/* Step indicators + site selector row */}
+        {isMapMode ? (
+          <div className="grid grid-cols-[1fr_auto] items-center gap-4">
+            <div className="flex items-center justify-center gap-2">
+              {WIZARD_STEPS.map((step, index) => {
+                const Icon = step.icon
+                const isActive = step.id === currentStep
+                const isPast = index < currentStepIndex
+                return (
+                  <React.Fragment key={step.id}>
+                    <button
+                      onClick={() => setCurrentStep(step.id)}
+                      className={cn(
+                        'flex cursor-pointer flex-row items-center gap-1 transition-all',
+                        !isActive && 'opacity-60 hover:opacity-100'
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          'flex h-7 w-7 items-center justify-center rounded-full border-2 transition-all',
+                          isActive && 'border-blue-500 bg-blue-500 text-white',
+                          isPast && 'border-blue-500 bg-blue-50 text-blue-600',
+                          !isActive && !isPast && 'border-gray-300 text-gray-400'
+                        )}
+                      >
+                        {isPast ? (
+                          <Check className="h-3.5 w-3.5" />
+                        ) : (
+                          <Icon className="h-3.5 w-3.5" />
+                        )}
+                      </div>
+                      <span
+                        className={cn(
+                          'text-[11px] font-medium',
+                          isActive && 'text-blue-600',
+                          isPast && 'text-blue-600',
+                          !isActive && !isPast && 'text-gray-400'
+                        )}
+                      >
+                        {step.label}
+                      </span>
+                    </button>
+                    {index < WIZARD_STEPS.length - 1 && (
+                      <div
+                        className={cn(
+                          'h-0.5 w-6',
+                          index < currentStepIndex ? 'bg-blue-500' : 'bg-gray-200'
+                        )}
+                      />
+                    )}
+                  </React.Fragment>
+                )
+              })}
+            </div>
             <SiteSelector
               projectId={project.id}
               stepKey="data-gathering"
@@ -707,70 +780,56 @@ export function DataGatheringStep({
               showAllOption
             />
           </div>
-        )}
+        ) : (
+          <div className="flex items-center justify-between">
+            {WIZARD_STEPS.map((step, index) => {
+              const Icon = step.icon
+              const isActive = step.id === currentStep
+              const isPast = index < currentStepIndex
 
-        {/* Step indicators */}
-        <div
-          className={cn(
-            'flex items-center',
-            isMapMode ? 'justify-center gap-2' : 'justify-between'
-          )}
-        >
-          {WIZARD_STEPS.map((step, index) => {
-            const Icon = step.icon
-            const isActive = step.id === currentStep
-            const isPast = index < currentStepIndex
-
-            return (
-              <React.Fragment key={step.id}>
-                <button
-                  onClick={() => setCurrentStep(step.id)}
-                  className={cn(
-                    'flex cursor-pointer items-center gap-1 transition-all',
-                    !isActive && 'opacity-60 hover:opacity-100',
-                    isMapMode ? 'flex-row' : 'flex-col'
+              return (
+                <React.Fragment key={step.id}>
+                  <button
+                    onClick={() => setCurrentStep(step.id)}
+                    className={cn(
+                      'flex cursor-pointer flex-col items-center gap-1 transition-all',
+                      !isActive && 'opacity-60 hover:opacity-100'
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        'flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all',
+                        isActive && 'border-blue-500 bg-blue-500 text-white',
+                        isPast && 'border-blue-500 bg-blue-50 text-blue-600',
+                        !isActive && !isPast && 'border-gray-300 text-gray-400'
+                      )}
+                    >
+                      {isPast ? <Check className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
+                    </div>
+                    <span
+                      className={cn(
+                        'text-xs font-medium',
+                        isActive && 'text-blue-600',
+                        isPast && 'text-blue-600',
+                        !isActive && !isPast && 'text-gray-400'
+                      )}
+                    >
+                      {step.label}
+                    </span>
+                  </button>
+                  {index < WIZARD_STEPS.length - 1 && (
+                    <div
+                      className={cn(
+                        'mx-2 h-0.5 flex-1',
+                        index < currentStepIndex ? 'bg-blue-500' : 'bg-gray-200'
+                      )}
+                    />
                   )}
-                >
-                  <div
-                    className={cn(
-                      'flex items-center justify-center rounded-full border-2 transition-all',
-                      isMapMode ? 'h-7 w-7' : 'h-10 w-10',
-                      isActive && 'border-blue-500 bg-blue-500 text-white',
-                      isPast && 'border-blue-500 bg-blue-50 text-blue-600',
-                      !isActive && !isPast && 'border-gray-300 text-gray-400'
-                    )}
-                  >
-                    {isPast ? (
-                      <Check className={cn(isMapMode ? 'h-3.5 w-3.5' : 'h-5 w-5')} />
-                    ) : (
-                      <Icon className={cn(isMapMode ? 'h-3.5 w-3.5' : 'h-5 w-5')} />
-                    )}
-                  </div>
-                  <span
-                    className={cn(
-                      'font-medium',
-                      isMapMode ? 'text-[11px]' : 'text-xs',
-                      isActive && 'text-blue-600',
-                      isPast && 'text-blue-600',
-                      !isActive && !isPast && 'text-gray-400'
-                    )}
-                  >
-                    {step.label}
-                  </span>
-                </button>
-                {index < WIZARD_STEPS.length - 1 && (
-                  <div
-                    className={cn(
-                      'h-0.5',
-                      isMapMode ? 'w-6' : 'mx-2 flex-1',
-                      index < currentStepIndex ? 'bg-blue-500' : 'bg-gray-200'
-                    )}
-                  />
-                )}
-              </React.Fragment>
-            )
-          })}
-        </div>
+                </React.Fragment>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Auto-search Progress Banner */}
@@ -874,7 +933,7 @@ export function DataGatheringStep({
             <DesignatedSitesSubStep
               project={project}
               projectBoundary={projectBoundary}
-              searchBoundary={searchBoundary}
+              searchBoundary={isAllSites ? searchBoundary : undefined}
               projectCenter={projectCenter}
               bufferDistances={bufferDistances}
               siteId={selectedSite?.id ?? null}
@@ -904,7 +963,7 @@ export function DataGatheringStep({
             <SpeciesRecordsSubStep
               project={project}
               projectBoundary={projectBoundary}
-              searchBoundary={searchBoundary}
+              searchBoundary={isAllSites ? searchBoundary : undefined}
               projectCenter={projectCenter}
               bufferDistances={bufferDistances}
               siteId={selectedSite?.id ?? null}
@@ -934,7 +993,7 @@ export function DataGatheringStep({
             <AquaticFeaturesSubStep
               project={project}
               projectBoundary={projectBoundary}
-              searchBoundary={searchBoundary}
+              searchBoundary={isAllSites ? searchBoundary : undefined}
               projectCenter={projectCenter}
               bufferDistances={bufferDistances}
               siteId={selectedSite?.id ?? null}
@@ -964,10 +1023,11 @@ export function DataGatheringStep({
             <HabitatDataSubStep
               project={project}
               projectBoundary={projectBoundary}
-              searchBoundary={searchBoundary}
+              searchBoundary={isAllSites ? searchBoundary : undefined}
               projectCenter={projectCenter}
               bufferDistances={bufferDistances}
               siteId={selectedSite?.id ?? null}
+              otherBoundaries={otherBoundaries}
               allBoundaries={isAllSites ? allBoundaries : undefined}
               showMap={showMap}
               onToggleMap={() => setShowMap(!showMap)}

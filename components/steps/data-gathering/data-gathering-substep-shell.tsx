@@ -157,6 +157,12 @@ export interface SubstepShellConfig {
   /** Compute grid overlay based on selected buffer — takes priority over static gridOverlay */
   computeGridOverlay?: (bufferKm: number) => GeoJSON.FeatureCollection | undefined
 
+  /** Custom spatial filter for findings without location (e.g. grid-based species records).
+   *  Called for findings where the built-in location filter doesn't apply. */
+  customSpatialFilter?: (finding: FindingDisplay) => boolean
+  /** Called whenever the spatially filtered results change (for external count tracking) */
+  onFilteredResultsChange?: (filtered: FindingDisplay[]) => void
+
   // Map findings customization
   mapFindingsMapper?: (finding: FindingDisplay, savedFindings: DeskResearchFinding[]) => MapFinding
   mapSelectedMapper?: (finding: FindingDisplay) => MapFinding
@@ -201,6 +207,7 @@ export function DataGatheringSubstepShell({
   const cacheKey = `${config.cacheKeyPrefix}-search-${project.id}`
 
   const [isSearching, setIsSearching] = React.useState(false)
+  const [searchProgress, setSearchProgress] = React.useState<string | null>(null)
   const [searchResults, setSearchResults] = useSessionStorage<FindingDisplay[]>(cacheKey, [])
 
   // Map container ref for screenshot capture
@@ -267,30 +274,38 @@ export function DataGatheringSubstepShell({
 
   // ── Perform search ──────────────────────────────────────────────────────
   const performSearch = async () => {
-    // Multi-site "All Sites" mode: search each site boundary individually and merge
+    // Multi-site "All Sites" mode: search all site boundaries in parallel and merge
     if (allBoundaries && allBoundaries.length > 0) {
       setIsSearching(true)
+      setSearchProgress(`${allBoundaries.length} sites...`)
       setSearchResults([])
 
       try {
+        // Build search tasks for all sites
+        const tasks = allBoundaries
+          .map((boundary) => {
+            const bbox = getBoundingBox(boundary, null, selectedBuffer)
+            if (!bbox) return null
+            return config.performSearch({
+              bbox: {
+                minLat: bbox.minLat,
+                maxLat: bbox.maxLat,
+                minLng: bbox.minLng,
+                maxLng: bbox.maxLng,
+              },
+              buffer: selectedBuffer,
+              boundary,
+            })
+          })
+          .filter(Boolean) as Promise<FindingDisplay[]>[]
+
+        // Run all site searches in parallel
+        const results = await Promise.all(tasks)
+
+        // Merge results, dedup by id
         const merged: FindingDisplay[] = []
         const seenIds = new Set<string>()
-
-        for (const boundary of allBoundaries) {
-          const bbox = getBoundingBox(boundary, null, selectedBuffer)
-          if (!bbox) continue
-
-          const findings = await config.performSearch({
-            bbox: {
-              minLat: bbox.minLat,
-              maxLat: bbox.maxLat,
-              minLng: bbox.minLng,
-              maxLng: bbox.maxLng,
-            },
-            buffer: selectedBuffer,
-            boundary,
-          })
-
+        for (const findings of results) {
           for (const f of findings) {
             if (!seenIds.has(f.id)) {
               seenIds.add(f.id)
@@ -314,6 +329,7 @@ export function DataGatheringSubstepShell({
         })
       } finally {
         setIsSearching(false)
+        setSearchProgress(null)
       }
       return
     }
@@ -571,38 +587,79 @@ export function DataGatheringSubstepShell({
   )
 
   // ── Spatial filter: when a specific site is selected, only show findings near that site ──
-  const siteBbox = React.useMemo(() => {
+  // Use turf buffered polygon for precise containment check instead of a bbox
+  const siteFilterPolygon = React.useMemo(() => {
     // Filter when:
     // 1. searchBoundary exists → multi-site project, cache has results from broader search
     // 2. allBoundaries is NOT set → viewing a specific site (not "All Sites")
     // 3. projectBoundary exists → we have a boundary to filter by
     if (!searchBoundary || (allBoundaries && allBoundaries.length > 0) || !projectBoundary)
       return null
-    return getBoundingBox(projectBoundary, projectCenter, selectedBuffer)
-  }, [allBoundaries, searchBoundary, projectBoundary, projectCenter, selectedBuffer])
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const turf = require('@turf/turf')
+      return turf.buffer(projectBoundary, selectedBuffer, {
+        units: 'kilometers',
+      }) as GeoJSON.Feature<GeoJSON.Polygon>
+    } catch {
+      return null
+    }
+  }, [allBoundaries, searchBoundary, projectBoundary, selectedBuffer])
 
   const spatiallyFilteredResults = React.useMemo(() => {
-    if (!siteBbox) return searchResults
-    const inBbox = (lng: number, lat: number) =>
-      lng >= siteBbox.minLng &&
-      lng <= siteBbox.maxLng &&
-      lat >= siteBbox.minLat &&
-      lat <= siteBbox.maxLat
+    // When no polygon filter and no custom filter, return all
+    if (!siteFilterPolygon && !config.customSpatialFilter) return searchResults
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const turf = siteFilterPolygon ? require('@turf/turf') : null
+
+    // Compute centroid of a coordinate array
+    const centroid = (coords: number[][]) => {
+      let lngSum = 0,
+        latSum = 0
+      for (const c of coords) {
+        lngSum += c[0]
+        latSum += c[1]
+      }
+      return [lngSum / coords.length, latSum / coords.length]
+    }
+
+    const inPolygon = (lng: number, lat: number) => {
+      if (!turf || !siteFilterPolygon) return true
+      try {
+        return turf.booleanPointInPolygon([lng, lat], siteFilterPolygon)
+      } catch {
+        return false
+      }
+    }
+
     return searchResults.filter((f) => {
       const loc = f.location
-      if (!loc) return true // No location → include by default
-      if (loc.type === 'Point') {
-        return inBbox(loc.coordinates[0], loc.coordinates[1])
+      if (!loc) {
+        // No location — use custom spatial filter if provided (e.g. grid-based species)
+        if (config.customSpatialFilter) return config.customSpatialFilter(f)
+        return true
       }
+      if (loc.type === 'Point') {
+        return inPolygon(loc.coordinates[0], loc.coordinates[1])
+      }
+      // For Polygon/LineString, check centroid instead of any vertex —
+      // prevents large NPWS polygons near other sites from leaking through
       if (loc.type === 'Polygon') {
-        return loc.coordinates[0].some((c) => inBbox(c[0], c[1]))
+        const c = centroid(loc.coordinates[0])
+        return inPolygon(c[0], c[1])
       }
       if (loc.type === 'LineString') {
-        return loc.coordinates.some((c) => inBbox(c[0], c[1]))
+        const c = centroid(loc.coordinates)
+        return inPolygon(c[0], c[1])
       }
       return true
     })
-  }, [searchResults, siteBbox])
+  }, [searchResults, siteFilterPolygon, config.customSpatialFilter])
+
+  // Notify parent when spatially filtered results change (e.g. for species counts)
+  React.useEffect(() => {
+    config.onFilteredResultsChange?.(spatiallyFilteredResults)
+  }, [spatiallyFilteredResults, config.onFilteredResultsChange])
 
   // ── Filter results for map ──────────────────────────────────────────────
   const filteredResults = React.useMemo(() => {
@@ -735,7 +792,7 @@ export function DataGatheringSubstepShell({
               {isSearching ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Searching...
+                  {searchProgress ? `Searching ${searchProgress}` : 'Searching...'}
                 </>
               ) : (
                 <>

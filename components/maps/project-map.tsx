@@ -107,6 +107,9 @@ function MapComponent({
   skipFitBounds?: boolean
   npwsVisibleLayers?: string[]
 }) {
+  // Unique ID to prevent "Map container is being reused" in React 19 Strict Mode
+  const mapInstanceId = React.useId()
+
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- react-leaflet must be client-side only
   const rl = require('react-leaflet')
   const { MapContainer, TileLayer, WMSTileLayer, GeoJSON, CircleMarker, Popup, useMap } = rl
@@ -240,17 +243,27 @@ function MapComponent({
     // Fit to boundary on initial load ONLY
     // Uses hasFitToBoundaryRef from parent scope so it persists across re-renders
     React.useEffect(() => {
-      if (boundary && map && !hasFitToBoundaryRef.current && !skipFitBounds) {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const L = require('leaflet')
-        const geoJsonLayer = L.geoJSON(boundary)
-        const bounds = geoJsonLayer.getBounds()
-        if (bounds.isValid()) {
-          map.fitBounds(bounds, { padding: [50, 50] })
-        }
-        hasFitToBoundaryRef.current = true
+      if (!map || hasFitToBoundaryRef.current || skipFitBounds) return
+
+      // In multi-site "All Sites" mode, fit to all boundaries
+      const boundariesToFit =
+        allBoundaries && allBoundaries.length > 0 ? allBoundaries : boundary ? [boundary] : []
+
+      if (boundariesToFit.length === 0) return
+
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const L = require('leaflet')
+      const featureCollection: GeoJSON.FeatureCollection = {
+        type: 'FeatureCollection',
+        features: boundariesToFit,
       }
-    }, [boundary, map])
+      const geoJsonLayer = L.geoJSON(featureCollection)
+      const bounds = geoJsonLayer.getBounds()
+      if (bounds.isValid()) {
+        map.fitBounds(bounds, { padding: [50, 50] })
+      }
+      hasFitToBoundaryRef.current = true
+    }, [boundary, allBoundaries, map])
 
     // Store map reference
     React.useEffect(() => {
@@ -367,6 +380,7 @@ function MapComponent({
 
   return (
     <MapContainer
+      key={mapInstanceId}
       center={center}
       zoom={zoom}
       className="h-full min-h-100 w-full"
@@ -500,39 +514,75 @@ function MapComponent({
       )}
 
       {/* Buffer Zones - render largest first (underneath) */}
-      {/* When allBoundaries is set (multi-site "All Sites" mode), render buffers for each boundary */}
+      {/* Render buffers for all boundaries: primary (selected or all) + other site boundaries (dimmed) */}
       {(() => {
-        const boundariesToBuffer =
+        const primaryBoundaries =
           allBoundaries && allBoundaries.length > 0 ? allBoundaries : boundary ? [boundary] : []
-        if (boundariesToBuffer.length === 0 || !bufferDistances || bufferDistances.length === 0)
+        if (primaryBoundaries.length === 0 || !bufferDistances || bufferDistances.length === 0)
           return null
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const turf = require('@turf/turf')
-        return [...bufferDistances]
-          .sort((a, b) => b - a)
-          .map((distance) => {
-            const color = BUFFER_COLORS[distance] || '#6b7280'
-            return boundariesToBuffer.map((b, bIdx) => {
-              try {
-                const buffered = turf.buffer(b, distance, { units: 'kilometers' })
-                return (
-                  <GeoJSON
-                    key={`buffer-${distance}-${bIdx}`}
-                    data={buffered}
-                    style={{
-                      color: color,
-                      weight: 2,
-                      fillColor: color,
-                      fillOpacity: 0.05,
-                      dashArray: '5, 5',
-                    }}
-                  />
-                )
-              } catch {
-                return null
-              }
-            })
-          })
+        // Stable key fragment from boundary first coordinate
+        const bKey = (b: GeoJSON.Feature<GeoJSON.Polygon>) => {
+          const c = b.geometry.coordinates[0]?.[0]
+          return c ? `${c[0].toFixed(4)}_${c[1].toFixed(4)}` : ''
+        }
+        return (
+          <>
+            {/* Primary buffers */}
+            {[...bufferDistances]
+              .sort((a, b) => b - a)
+              .map((distance) => {
+                const color = BUFFER_COLORS[distance] || '#6b7280'
+                return primaryBoundaries.map((b, bIdx) => {
+                  try {
+                    const buffered = turf.buffer(b, distance, { units: 'kilometers' })
+                    return (
+                      <GeoJSON
+                        key={`buffer-${distance}-${bIdx}-${bKey(b)}`}
+                        data={buffered}
+                        style={{
+                          color: color,
+                          weight: 2,
+                          fillColor: color,
+                          fillOpacity: 0.05,
+                          dashArray: '5, 5',
+                        }}
+                      />
+                    )
+                  } catch {
+                    return null
+                  }
+                })
+              })}
+            {/* Other site buffers (dimmed) — shown when a specific site is selected */}
+            {otherBoundaries.length > 0 &&
+              [...bufferDistances]
+                .sort((a, b) => b - a)
+                .map((distance) =>
+                  otherBoundaries.map((b, bIdx) => {
+                    try {
+                      const buffered = turf.buffer(b, distance, { units: 'kilometers' })
+                      return (
+                        <GeoJSON
+                          key={`other-buffer-${distance}-${bIdx}-${bKey(b)}`}
+                          data={buffered}
+                          style={{
+                            color: '#94a3b8',
+                            weight: 1,
+                            fillColor: '#94a3b8',
+                            fillOpacity: 0.03,
+                            dashArray: '4, 6',
+                          }}
+                        />
+                      )
+                    } catch {
+                      return null
+                    }
+                  })
+                )}
+          </>
+        )
       })()}
 
       {/* Project Boundary */}

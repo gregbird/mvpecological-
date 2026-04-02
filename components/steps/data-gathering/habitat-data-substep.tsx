@@ -76,6 +76,8 @@ interface HabitatDataSubStepProps {
   bufferDistances: number[]
   /** Active site ID for site-scoped caching and saving */
   siteId?: string | null
+  /** Other site boundaries to show as dimmed overlays on the map */
+  otherBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   /** All site boundaries — when provided, search each individually and merge */
   allBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   showMap: boolean
@@ -105,6 +107,7 @@ export function HabitatDataSubStep({
   projectCenter,
   bufferDistances,
   siteId,
+  otherBoundaries,
   allBoundaries,
   showMap,
   onToggleMap,
@@ -119,7 +122,7 @@ export function HabitatDataSubStep({
   const createFinding = useCreateFinding()
   const deleteFinding = useDeleteFinding()
   const updateFinding = useUpdateFinding()
-  const cacheKey = `nlc-habitat-${project.id}`
+  const cacheKey = `nlc-habitat-${project.id}${siteId ? `-${siteId}` : ''}`
 
   /** Build per-site bbox list for multi-site, or single bbox for single-site */
   const buildBboxList = React.useCallback(
@@ -225,9 +228,11 @@ export function HabitatDataSubStep({
       hasFetchedRef.current = true
       const bboxes = buildBboxList(selectedBuffer)
       if (bboxes.length > 0) {
-        Promise.all(
-          bboxes.map((bbox) =>
-            fetchNlcPolygons({
+        // Fetch sequentially to avoid ArcGIS timeouts
+        ;(async () => {
+          const allFeatures: GeoJSON.Feature[] = []
+          for (const bbox of bboxes) {
+            const fc = await fetchNlcPolygons({
               bbox: {
                 minLat: bbox.minLat,
                 maxLat: bbox.maxLat,
@@ -235,17 +240,26 @@ export function HabitatDataSubStep({
                 maxLng: bbox.maxLng,
               },
             })
-          )
-        ).then((collections) => {
-          const merged: GeoJSON.FeatureCollection = {
-            type: 'FeatureCollection',
-            features: collections.flatMap((c) => c.features),
+            allFeatures.push(...fc.features)
           }
-          setHabitatPolygons(merged)
-        })
+          setHabitatPolygons({
+            type: 'FeatureCollection',
+            features: allFeatures,
+          })
+        })()
       }
     }
   }, [results, habitatPolygons, isSearching, buildBboxList, selectedBuffer])
+
+  // Reset polygon fetch flag when site changes so polygons reload for the new site
+  const prevSiteIdRef = React.useRef(siteId)
+  React.useEffect(() => {
+    if (prevSiteIdRef.current !== siteId) {
+      prevSiteIdRef.current = siteId
+      hasFetchedRef.current = false
+      setHabitatPolygons(null)
+    }
+  }, [siteId])
 
   React.useEffect(() => {
     if (isActive) {
@@ -479,9 +493,15 @@ export function HabitatDataSubStep({
     }))
 
     try {
-      const allResults = await Promise.all(
-        bboxParamsList.map((p) => Promise.all([searchNlcLandCover(p), fetchNlcPolygons(p)]))
-      )
+      // Fetch sequentially to avoid ArcGIS server timeouts with multiple large bboxes
+      const allResults: [AggregatedHabitat[], GeoJSON.FeatureCollection][] = []
+      for (const p of bboxParamsList) {
+        const [aggregated, polygons] = await Promise.all([
+          searchNlcLandCover(p),
+          fetchNlcPolygons(p),
+        ])
+        allResults.push([aggregated, polygons])
+      }
 
       // Merge aggregated results by nlcId
       const mergedMap = new Map<string, AggregatedHabitat>()
@@ -1087,6 +1107,8 @@ export function HabitatDataSubStep({
             center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
             zoom={11}
             boundary={projectBoundary}
+            otherBoundaries={otherBoundaries}
+            allBoundaries={allBoundaries}
             bufferDistances={[selectedBuffer]}
             habitatPolygons={styledPolygons}
             habitatSelectionKey={`${selectedHabitat?.nlcId || 'all'}-v${styleVersion}`}

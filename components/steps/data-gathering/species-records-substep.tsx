@@ -123,11 +123,14 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
     sessionStorage.setItem(gridResolutionKey, gridResolution)
   }, [gridResolution, gridResolutionKey])
 
-  // Grid overlay for map — compute based on buffer + resolution
-  // Only includes grid squares that intersect the actual buffer polygon
-  const computeGridOverlay = React.useCallback(
-    (bufferKm: number): GeoJSON.FeatureCollection | undefined => {
-      if (!projectCenter && !projectBoundary) return undefined
+  // Compute valid grid refs for current boundary + buffer.
+  // Returns { features, validRefs } — reused for both overlay and spatial filtering.
+  const computeGridData = React.useCallback(
+    (
+      bufferKm: number,
+      boundaries: GeoJSON.Feature<GeoJSON.Polygon>[]
+    ): { features: GeoJSON.Feature[]; validRefs: Set<string> } | undefined => {
+      if (boundaries.length === 0 && !projectCenter) return undefined
 
       const resolutionMeters =
         gridResolution === '10km' ? 10000 : gridResolution === '2km' ? 2000 : 1000
@@ -135,70 +138,125 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       const precision: 1 | 2 = gridResolution === '10km' ? 1 : 2
 
       try {
-        // Use the same bbox calculation as the actual search
-        const bbox = getBoundingBox(projectBoundary, projectCenter, bufferKm)
-        if (!bbox) return undefined
-
-        // Build the actual buffer polygon for intersection testing
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const turf = require('@turf/turf')
-        const sourceGeometry =
-          projectBoundary ?? turf.point([projectCenter!.lng, projectCenter!.lat])
-        const bufferPoly = turf.buffer(sourceGeometry, bufferKm, { units: 'kilometers' })
-
-        const swItm = wgs84ToItm(bbox.minLat, bbox.minLng)
-        const neItm = wgs84ToItm(bbox.maxLat, bbox.maxLng)
-        const swIng = itmToIng(swItm.easting, swItm.northing)
-        const neIng = itmToIng(neItm.easting, neItm.northing)
-
-        const minE = Math.floor(swIng.easting / stepSize) * stepSize
-        const minN = Math.floor(swIng.northing / stepSize) * stepSize
-        const maxE = Math.floor(neIng.easting / stepSize) * stepSize
-        const maxN = Math.floor(neIng.northing / stepSize) * stepSize
-
         const features: GeoJSON.Feature[] = []
-        const seenRefs = new Set<string>()
-        for (let e = minE; e <= maxE; e += stepSize) {
-          for (let n = minN; n <= maxN; n += stepSize) {
-            try {
-              const ref = itmToGridRef(e, n, precision, true)
-              if (seenRefs.has(ref)) continue
-              seenRefs.add(ref)
+        const validRefs = new Set<string>()
 
-              // Convert grid square corners to WGS84
-              const sw = itmToWgs84(e + 400000, n + 500000)
-              const ne = itmToWgs84(e + resolutionMeters + 400000, n + resolutionMeters + 500000)
-              const gridPoly = turf.polygon([
-                [
-                  [sw.lng, sw.lat],
-                  [ne.lng, sw.lat],
-                  [ne.lng, ne.lat],
-                  [sw.lng, ne.lat],
-                  [sw.lng, sw.lat],
-                ],
-              ])
+        // If no boundaries, fall back to single center point
+        const sources =
+          boundaries.length > 0
+            ? boundaries
+            : [turf.point([projectCenter!.lng, projectCenter!.lat])]
 
-              // Only include grid squares that intersect the buffer polygon
-              if (!turf.booleanIntersects(gridPoly, bufferPoly)) continue
+        for (const source of sources) {
+          const bbox = getBoundingBox(
+            source.geometry?.type === 'Polygon'
+              ? (source as GeoJSON.Feature<GeoJSON.Polygon>)
+              : null,
+            source.geometry?.type === 'Point'
+              ? { lat: source.geometry.coordinates[1], lng: source.geometry.coordinates[0] }
+              : null,
+            bufferKm
+          )
+          if (!bbox) continue
 
-              const cleanRef = ref.replace(/\s+/g, '')
-              features.push({
-                type: 'Feature' as const,
-                properties: { label: cleanRef },
-                geometry: gridPoly.geometry,
-              })
-            } catch {
-              // Outside Irish Grid
+          const bufferPoly = turf.buffer(source, bufferKm, { units: 'kilometers' })
+
+          const swItm = wgs84ToItm(bbox.minLat, bbox.minLng)
+          const neItm = wgs84ToItm(bbox.maxLat, bbox.maxLng)
+          const swIng = itmToIng(swItm.easting, swItm.northing)
+          const neIng = itmToIng(neItm.easting, neItm.northing)
+
+          const minE = Math.floor(swIng.easting / stepSize) * stepSize
+          const minN = Math.floor(swIng.northing / stepSize) * stepSize
+          const maxE = Math.floor(neIng.easting / stepSize) * stepSize
+          const maxN = Math.floor(neIng.northing / stepSize) * stepSize
+
+          for (let e = minE; e <= maxE; e += stepSize) {
+            for (let n = minN; n <= maxN; n += stepSize) {
+              try {
+                const ref = itmToGridRef(e, n, precision, true)
+                const cleanRef = ref.replace(/\s+/g, '')
+                if (validRefs.has(cleanRef)) continue
+
+                const sw = itmToWgs84(e + 400000, n + 500000)
+                const ne = itmToWgs84(e + resolutionMeters + 400000, n + resolutionMeters + 500000)
+                const gridPoly = turf.polygon([
+                  [
+                    [sw.lng, sw.lat],
+                    [ne.lng, sw.lat],
+                    [ne.lng, ne.lat],
+                    [sw.lng, ne.lat],
+                    [sw.lng, sw.lat],
+                  ],
+                ])
+
+                if (!turf.booleanIntersects(gridPoly, bufferPoly)) continue
+
+                validRefs.add(cleanRef)
+                features.push({
+                  type: 'Feature' as const,
+                  properties: { label: cleanRef },
+                  geometry: gridPoly.geometry,
+                })
+              } catch {
+                // Outside Irish Grid
+              }
             }
           }
         }
 
-        return { type: 'FeatureCollection', features }
+        return { features, validRefs }
       } catch {
         return undefined
       }
     },
-    [projectCenter, projectBoundary, gridResolution]
+    [projectCenter, gridResolution]
+  )
+
+  // Grid overlay for map — compute based on buffer + resolution
+  // Only includes grid squares that intersect the actual buffer polygon.
+  // In "All Sites" mode, computes grids for each site boundary and merges them.
+  const computeGridOverlay = React.useCallback(
+    (bufferKm: number): GeoJSON.FeatureCollection | undefined => {
+      const boundaries =
+        allBoundaries && allBoundaries.length > 0
+          ? allBoundaries
+          : projectBoundary
+            ? [projectBoundary]
+            : []
+      const result = computeGridData(bufferKm, boundaries)
+      if (!result) return undefined
+      return { type: 'FeatureCollection', features: result.features }
+    },
+    [computeGridData, projectBoundary, allBoundaries]
+  )
+
+  // Valid grid refs for the SELECTED site (not all sites).
+  // Used for spatial filtering of species records when a specific site is chosen.
+  // When searchBoundary exists and allBoundaries is empty → a specific site is selected.
+  const selectedSiteGridRefs = React.useMemo((): Set<string> | null => {
+    if (!searchBoundary || (allBoundaries && allBoundaries.length > 0) || !projectBoundary)
+      return null // No filtering needed — either single-site project or "All Sites" mode
+    // Use the largest buffer for filtering (show all species within any buffer)
+    const maxBuffer = Math.max(...(props.bufferDistances || [2, 5]))
+    const result = computeGridData(maxBuffer, [projectBoundary])
+    return result?.validRefs ?? null
+  }, [searchBoundary, allBoundaries, projectBoundary, props.bufferDistances, computeGridData])
+
+  // Custom spatial filter for species records — filters NBDC species by grid ref overlap
+  const customSpatialFilter = React.useCallback(
+    (finding: FindingDisplay): boolean => {
+      if (!selectedSiteGridRefs) return true // No site-level filtering
+      // FPO and Article 17 species: include (they're supplementary, looked up by center)
+      if (finding.source === 'fpo' || finding.source === 'npws') return true
+      // NBDC species: check if any of the species' grid squares overlap with the site's grids
+      const gridSquares = finding.rawData?.gridSquares as string[] | undefined
+      if (!gridSquares || gridSquares.length === 0) return true
+      return gridSquares.some((gs) => selectedSiteGridRefs.has(gs))
+    },
+    [selectedSiteGridRefs]
   )
 
   // Handle species deep research
@@ -368,7 +426,13 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
   }
 
   // Count protected, invasive, and threatened species (single pass)
+  // Tracks the spatially filtered results — updated by onFilteredResultsChange from the shell
   const [currentSearchResults, setCurrentSearchResults] = React.useState<FindingDisplay[]>([])
+
+  // Callback from shell when spatially filtered results change (e.g. on site switch)
+  const handleFilteredResultsChange = React.useCallback((filtered: FindingDisplay[]) => {
+    setCurrentSearchResults(filtered)
+  }, [])
 
   const { protectedCount, invasiveCount, threatenedCount } = React.useMemo(() => {
     let prot = 0
@@ -394,6 +458,8 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       stepName: 'species_records',
       source: 'nbdc',
       computeGridOverlay,
+      customSpatialFilter,
+      onFilteredResultsChange: handleFilteredResultsChange,
 
       // Search — NBDC grid report API (generates XLSX per grid square)
       performSearch: async ({ bbox, buffer, boundary: searchBoundary }) => {
@@ -693,10 +759,9 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
         return findings
       },
 
-      // Post-search: track results and trigger AI summaries for top designated species
+      // Post-search: trigger AI summaries for top designated species in parallel batches
+      // (currentSearchResults is now tracked via onFilteredResultsChange)
       onPostSearch: async (findings, _setResults) => {
-        setCurrentSearchResults(findings)
-
         // Auto-generate AI summaries for top 15 designated species
         const designatedSpecies = findings
           .filter(
@@ -708,9 +773,11 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
           .slice(0, 15)
 
         if (designatedSpecies.length > 0 && aiSummaryTriggerRef.current) {
-          for (const species of designatedSpecies) {
-            aiSummaryTriggerRef.current(species)
-            await new Promise((resolve) => setTimeout(resolve, 500))
+          // Process in parallel batches of 5
+          const BATCH = 5
+          for (let i = 0; i < designatedSpecies.length; i += BATCH) {
+            const chunk = designatedSpecies.slice(i, i + BATCH)
+            await Promise.allSettled(chunk.map((species) => aiSummaryTriggerRef.current?.(species)))
           }
         }
       },
@@ -827,6 +894,8 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       sourceFilter,
       gridResolution,
       computeGridOverlay,
+      customSpatialFilter,
+      handleFilteredResultsChange,
       currentSearchResults.length,
       protectedCount,
       invasiveCount,

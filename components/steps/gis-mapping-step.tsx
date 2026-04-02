@@ -432,6 +432,8 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
 
   // PREVIEW MODE
   if (wizard.viewMode === 'preview') {
+    // In multi-site projects, show active site boundary + others dimmed
+    const previewBoundary = activeBoundary ?? boundaryMgmt.boundary ?? undefined
     return (
       <div className="flex h-full">
         <div className="flex-1">
@@ -439,7 +441,8 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
             className="h-full"
             center={mapView.mapCenter}
             zoom={mapView.mapZoom}
-            boundary={boundaryMgmt.boundary ?? undefined}
+            boundary={previewBoundary}
+            otherBoundaries={otherBoundaries}
             bufferZones={bufferConfig.bufferZones}
             bufferColors={bufferColors}
             onViewChange={mapView.handleViewChange}

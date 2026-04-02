@@ -213,17 +213,25 @@ export function useSubstepSearch(
 
   // --- Debounced sessionStorage write ---
   const cacheTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const cacheGaveUpRef = React.useRef(false)
   React.useEffect(() => {
     if (searchResults.length === 0) return
+    // Once caching has permanently failed, stop retrying to avoid perf drain
+    if (cacheGaveUpRef.current) return
 
     if (cacheTimerRef.current) clearTimeout(cacheTimerRef.current)
     cacheTimerRef.current = setTimeout(() => {
       try {
-        // Strip rawData but keep full geometry so polygons render correctly on restore
-        const cacheableResults = searchResults.map(({ rawData: _rawData, ...rest }) => rest)
+        // Strip rawData and AI summaries to reduce cache size
+        const cacheableResults = searchResults.map(({ rawData: _rawData, ...rest }) => {
+          if (rest.metadata?.aiSummary) {
+            const { aiSummary: _ai, ...metaRest } = rest.metadata
+            return { ...rest, metadata: metaRest }
+          }
+          return rest
+        })
         sessionStorage.setItem(cacheKey, JSON.stringify(cacheableResults))
-      } catch (e) {
-        console.warn('Failed to cache search results:', e)
+      } catch {
         try {
           // Evict other caches to free space
           const keysToRemove: string[] = []
@@ -231,7 +239,10 @@ export function useSubstepSearch(
             const key = sessionStorage.key(i)
             if (
               key &&
-              (key.startsWith('npws-') || key.startsWith('gbif-') || key.startsWith('epa-'))
+              (key.startsWith('npws-') ||
+                key.startsWith('gbif-') ||
+                key.startsWith('epa-') ||
+                key.startsWith('nbdc-report-'))
             ) {
               if (key !== cacheKey) keysToRemove.push(key)
             }
@@ -250,7 +261,8 @@ export function useSubstepSearch(
           }))
           sessionStorage.setItem(cacheKey, JSON.stringify(minimalResults))
         } catch {
-          // Give up caching
+          // Permanently give up caching for this key — stop retrying
+          cacheGaveUpRef.current = true
         }
       }
     }, 1000)

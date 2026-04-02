@@ -149,6 +149,9 @@ function MapComponentWithDraw({
     overlappingPolygon: GeoJSON.Feature<GeoJSON.Polygon>
   }) => void
 }) {
+  // Unique ID to prevent "Map container is being reused" in React 19 Strict Mode
+  const mapInstanceId = React.useId()
+
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const rl = require('react-leaflet')
   const {
@@ -382,15 +385,24 @@ function MapComponentWithDraw({
     // Geoman initialization — snapping (A3.1), cut (A3.3), vertex edit (A3.4)
     // Uses geomanReadyRef from parent scope so it persists across re-renders
     React.useEffect(() => {
-      if (!editable || geomanReadyRef.current || !map) return
+      if (!editable || !map) return
+      let cancelled = false
 
       const init = async () => {
         try {
+          // Wait for map container to be fully ready before adding controls
+          await new Promise<void>((resolve) => {
+            if (map.getContainer()?.clientHeight > 0) {
+              resolve()
+            } else {
+              map.whenReady(() => resolve())
+            }
+          })
+          if (cancelled) return
           await import('@geoman-io/leaflet-geoman-free')
-          // Guard: check again after async import in case of race condition
-          if (!map.pm || geomanReadyRef.current) return
+          if (cancelled || !map.pm) return
 
-          // Global options — snapping, keyboard shortcuts
+          // Always ensure controls are visible (addControls is idempotent)
           map.pm.setGlobalOptions({
             snappable: true,
             snapDistance: 15,
@@ -443,6 +455,9 @@ function MapComponentWithDraw({
               deleteButton: 'Delete polygon',
             },
           } as Record<string, unknown>)
+
+          // Event handlers only need to be set up once
+          if (geomanReadyRef.current) return
 
           // Helper: collect all valid polygon features from FeatureGroup
           const collectFeatures = (): GeoJSON.Feature[] => {
@@ -823,7 +838,9 @@ function MapComponentWithDraw({
       }
 
       init()
-      // No cleanup — Geoman controls persist for the map's lifetime
+      return () => {
+        cancelled = true
+      }
     }, [map, editable]) // eslint-disable-line react-hooks/exhaustive-deps
 
     return null
@@ -941,6 +958,7 @@ function MapComponentWithDraw({
         </div>
       )}
       <MapContainer
+        key={mapInstanceId}
         center={center}
         zoom={zoom}
         className="h-full min-h-100 w-full"

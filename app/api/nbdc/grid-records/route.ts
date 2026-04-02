@@ -92,6 +92,7 @@ async function generateAndParseReport(
   session: { cookies: string; xsrfToken: string }
 ): Promise<NBDCReportSpecies[]> {
   try {
+    const tStart = Date.now()
     const cleanRef = gridRef.replace(/\s+/g, '')
     const itm = gridRefToItm(cleanRef)
     const xMin = itm.easting
@@ -173,7 +174,7 @@ async function generateAndParseReport(
       return []
     }
 
-    return rows
+    const parsed = rows
       .map((row) => ({
         gridSquare: String(row['Grid square'] || cleanRef),
         speciesGroup: String(row['Species group'] || ''),
@@ -184,6 +185,9 @@ async function generateAndParseReport(
         designation: row['Designation'] ? String(row['Designation']) : null,
       }))
       .filter((s) => s.speciesName.length > 0)
+
+    console.error(`[NBDC Report] ${cleanRef}: ${parsed.length} species in ${Date.now() - tStart}ms`)
+    return parsed
   } catch (error) {
     // Catch gridRefToItm throws, timeouts, parse errors — don't poison other batches
     console.error(`[NBDC Report] Error processing ${gridRef}:`, error)
@@ -218,6 +222,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get NBDC session
+    const t0 = Date.now()
     const session = await getNBDCSession()
     if (!session) {
       return NextResponse.json(
@@ -225,18 +230,33 @@ export async function POST(request: NextRequest) {
         { status: 502 }
       )
     }
+    const tSession = Date.now()
 
     const allSpecies: NBDCReportSpecies[] = []
 
-    // Generate reports in batches of 3
-    const batchSize = 3
-    for (let i = 0; i < refs.length; i += batchSize) {
-      const batch = refs.slice(i, i + batchSize)
-      const results = await Promise.all(
-        batch.map((ref: string) => generateAndParseReport(ref, resolution, session))
+    // Process all grid refs with concurrency limit — max 8 concurrent NBDC requests
+    const CONCURRENCY = 8
+    const results: NBDCReportSpecies[][] = new Array(refs.length)
+
+    // Chunked parallel execution: process CONCURRENCY items at a time
+    for (let i = 0; i < refs.length; i += CONCURRENCY) {
+      const chunk = refs.slice(i, i + CONCURRENCY)
+      const chunkResults = await Promise.all(
+        chunk.map((ref: string) => generateAndParseReport(ref, resolution, session))
       )
-      allSpecies.push(...results.flat())
+      for (let j = 0; j < chunkResults.length; j++) {
+        results[i + j] = chunkResults[j]
+      }
     }
+
+    for (const r of results) {
+      if (r) allSpecies.push(...r)
+    }
+
+    const tDone = Date.now()
+    console.error(
+      `[NBDC Report] ${refs.length} grid refs @ ${resolution}m — session: ${tSession - t0}ms, reports: ${tDone - tSession}ms, total: ${tDone - t0}ms`
+    )
 
     return NextResponse.json({
       species: allSpecies,
