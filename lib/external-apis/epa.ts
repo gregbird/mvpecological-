@@ -274,7 +274,7 @@ export async function searchWaterQuality(params: EPASearchParams): Promise<EPAWa
   if (!params.bbox) return []
 
   try {
-    const data = await queryEPAWFS('WFD:WaterQualityStations', params.bbox, params.limit || 50)
+    const data = await queryEPAWFS('EPA:WFD_WaterQualityStations', params.bbox, params.limit || 50)
 
     return data.features.map((feature): EPAWaterQuality => {
       const coords = feature.geometry?.type === 'Point' ? feature.geometry.coordinates : undefined

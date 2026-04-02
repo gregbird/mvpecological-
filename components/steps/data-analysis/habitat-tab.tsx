@@ -177,6 +177,7 @@ export function HabitatTab({ projectId, siteId, siteCode, project }: HabitatTabP
     try {
       await updateHabitat.mutateAsync({
         habitatId: habitat.id,
+        projectId,
         updates: { include_in_report: !habitat.include_in_report },
       })
     } catch {
@@ -427,6 +428,7 @@ export function HabitatTab({ projectId, siteId, siteCode, project }: HabitatTabP
       <HabitatEditDialog
         habitat={editingHabitat}
         onOpenChange={(open) => !open && setEditingHabitat(null)}
+        projectId={projectId}
       />
     </div>
   )

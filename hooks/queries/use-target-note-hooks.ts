@@ -12,11 +12,14 @@ import {
 } from '@/lib/supabase/queries'
 import type { InsertTables, UpdateTables } from '@/types/database'
 
+const FIVE_MINUTES = 5 * 60 * 1000
+
 export function useTargetNotes(projectId: string, siteId?: string | null) {
   return useQuery({
     queryKey: ['target-notes', projectId, siteId ?? null],
     queryFn: () => getProjectTargetNotes(projectId, siteId),
     enabled: !!projectId,
+    staleTime: FIVE_MINUTES,
   })
 }
 
@@ -25,6 +28,7 @@ export function useTargetNote(noteId: string) {
     queryKey: ['target-note', noteId],
     queryFn: () => getTargetNote(noteId),
     enabled: !!noteId,
+    staleTime: FIVE_MINUTES,
   })
 }
 

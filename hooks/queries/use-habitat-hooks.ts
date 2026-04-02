@@ -11,11 +11,14 @@ import {
 } from '@/lib/supabase/queries'
 import type { InsertTables, UpdateTables } from '@/types/database'
 
+const FIVE_MINUTES = 5 * 60 * 1000
+
 export function useHabitats(projectId: string, siteId?: string | null) {
   return useQuery({
     queryKey: ['habitats', projectId, siteId ?? null],
     queryFn: () => getProjectHabitats(projectId, siteId),
     enabled: !!projectId,
+    staleTime: FIVE_MINUTES,
   })
 }
 
@@ -24,6 +27,7 @@ export function useSurveyHabitats(surveyId: string) {
     queryKey: ['survey-habitats', surveyId],
     queryFn: () => getSurveyHabitats(surveyId),
     enabled: !!surveyId,
+    staleTime: FIVE_MINUTES,
   })
 }
 
@@ -32,6 +36,7 @@ export function useHabitatStats(projectId: string, siteId?: string | null) {
     queryKey: ['habitat-stats', projectId, siteId ?? null],
     queryFn: () => getHabitatStats(projectId, siteId),
     enabled: !!projectId,
+    staleTime: FIVE_MINUTES,
   })
 }
 
@@ -40,10 +45,10 @@ export function useCreateHabitat() {
 
   return useMutation({
     mutationFn: (habitat: InsertTables<'habitat_polygons'>) => createHabitat(habitat),
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       if (data) {
-        queryClient.invalidateQueries({ queryKey: ['habitats'] })
-        queryClient.invalidateQueries({ queryKey: ['habitat-stats'] })
+        queryClient.invalidateQueries({ queryKey: ['habitats', variables.project_id] })
+        queryClient.invalidateQueries({ queryKey: ['habitat-stats', variables.project_id] })
       }
     },
   })
@@ -56,13 +61,19 @@ export function useUpdateHabitat() {
     mutationFn: ({
       habitatId,
       updates,
+      projectId,
     }: {
       habitatId: string
       updates: UpdateTables<'habitat_polygons'>
+      projectId?: string
     }) => updateHabitat(habitatId, updates),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['habitats'] })
-      queryClient.invalidateQueries({ queryKey: ['habitat-stats'] })
+    onSuccess: (_data, variables) => {
+      const scope = variables.projectId ? ['habitats', variables.projectId] : ['habitats']
+      queryClient.invalidateQueries({ queryKey: scope })
+      const statsScope = variables.projectId
+        ? ['habitat-stats', variables.projectId]
+        : ['habitat-stats']
+      queryClient.invalidateQueries({ queryKey: statsScope })
     },
   })
 }
@@ -71,10 +82,15 @@ export function useDeleteHabitat() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (habitatId: string) => deleteHabitat(habitatId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['habitats'] })
-      queryClient.invalidateQueries({ queryKey: ['habitat-stats'] })
+    mutationFn: ({ habitatId, projectId }: { habitatId: string; projectId?: string }) =>
+      deleteHabitat(habitatId),
+    onSuccess: (_data, variables) => {
+      const scope = variables.projectId ? ['habitats', variables.projectId] : ['habitats']
+      queryClient.invalidateQueries({ queryKey: scope })
+      const statsScope = variables.projectId
+        ? ['habitat-stats', variables.projectId]
+        : ['habitat-stats']
+      queryClient.invalidateQueries({ queryKey: statsScope })
     },
   })
 }

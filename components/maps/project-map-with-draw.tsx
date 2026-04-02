@@ -390,17 +390,39 @@ function MapComponentWithDraw({
 
       const init = async () => {
         try {
-          // Wait for map container to be fully ready before adding controls
+          // Wait for map container to be fully visible (clientHeight > 0)
+          // On first mount after dynamic import, the container may not have
+          // layout dimensions yet even though Leaflet considers itself "ready".
           await new Promise<void>((resolve) => {
-            if (map.getContainer()?.clientHeight > 0) {
+            const container = map.getContainer()
+            if (container?.clientHeight > 0) {
               resolve()
-            } else {
-              map.whenReady(() => resolve())
+              return
             }
+            // Poll until the container has a real height (layout complete)
+            const interval = setInterval(() => {
+              if (cancelled) {
+                clearInterval(interval)
+                resolve()
+                return
+              }
+              if (map.getContainer()?.clientHeight > 0) {
+                clearInterval(interval)
+                resolve()
+              }
+            }, 50)
+            // Safety timeout — resolve after 2s even if height is still 0
+            setTimeout(() => {
+              clearInterval(interval)
+              resolve()
+            }, 2000)
           })
           if (cancelled) return
           await import('@geoman-io/leaflet-geoman-free')
           if (cancelled || !map.pm) return
+
+          // Force Leaflet to recalculate container size so controls render correctly
+          map.invalidateSize()
 
           // Always ensure controls are visible (addControls is idempotent)
           map.pm.setGlobalOptions({

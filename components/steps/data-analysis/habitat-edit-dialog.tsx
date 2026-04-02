@@ -52,9 +52,10 @@ type FormValues = z.infer<typeof schema>
 interface HabitatEditDialogProps {
   habitat: HabitatPolygon | null
   onOpenChange: (open: boolean) => void
+  projectId?: string
 }
 
-export function HabitatEditDialog({ habitat, onOpenChange }: HabitatEditDialogProps) {
+export function HabitatEditDialog({ habitat, onOpenChange, projectId }: HabitatEditDialogProps) {
   const { toast } = useToast()
   const updateHabitat = useUpdateHabitat()
 
@@ -94,6 +95,7 @@ export function HabitatEditDialog({ habitat, onOpenChange }: HabitatEditDialogPr
     try {
       await updateHabitat.mutateAsync({
         habitatId: habitat.id,
+        projectId,
         updates: {
           fossitt_code: values.fossitt_code,
           fossitt_name: values.fossitt_name,

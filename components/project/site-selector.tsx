@@ -39,22 +39,31 @@ export function SiteSelector({
   })
 
   // Fire initial selection on mount / when sites load
+  // Use a ref for onSiteChange to avoid re-triggering on callback identity changes
+  const onSiteChangeRef = React.useRef(onSiteChange)
+  onSiteChangeRef.current = onSiteChange
+  const prevSitesLenRef = React.useRef(0)
+
   React.useEffect(() => {
     if (sites.length === 0) return
+    // Only fire when sites array length actually changes (initial load or site add/remove)
+    if (prevSitesLenRef.current === sites.length) return
+    prevSitesLenRef.current = sites.length
+
     if (selectedSiteId === 'all') {
-      onSiteChange(null)
+      onSiteChangeRef.current(null)
     } else {
       const site = sites.find((s) => s.id === selectedSiteId)
       if (site) {
-        onSiteChange(site)
+        onSiteChangeRef.current(site)
       } else {
         // Selected site no longer exists — reset to all
         setSelectedSiteId('all')
         sessionStorage.setItem(storageKey, 'all')
-        onSiteChange(null)
+        onSiteChangeRef.current(null)
       }
     }
-  }, [sites]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sites, selectedSiteId, storageKey])
 
   // Don't render if only 1 site (single-site projects behave as before)
   if (sites.length <= 1) return null

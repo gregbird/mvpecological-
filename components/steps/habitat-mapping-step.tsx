@@ -147,9 +147,12 @@ export function HabitatMappingStep({
   }, [])
 
   // React Query hooks
-  const { data: habitats = [], isLoading } = useHabitats(project.id)
-  const { data: habitatStats } = useHabitatStats(project.id)
-  const { data: savedFindings = [], isLoading: findingsLoading } = useSavedFindings(project.id)
+  const { data: habitats = [], isLoading } = useHabitats(project.id, selectedSite?.id)
+  const { data: habitatStats } = useHabitatStats(project.id, selectedSite?.id)
+  const { data: savedFindings = [], isLoading: findingsLoading } = useSavedFindings(
+    project.id,
+    selectedSite?.id
+  )
   const createHabitat = useCreateHabitat()
   const updateHabitat = useUpdateHabitat()
   const deleteHabitat = useDeleteHabitat()
@@ -162,6 +165,35 @@ export function HabitatMappingStep({
   createHabitatRef.current = createHabitat
   const importedFindingIds = React.useRef(new Set<string>())
   const isPulling = React.useRef(false)
+
+  // Normalize any geometry to a single Polygon (DB column type is strictly Polygon).
+  // For GeometryCollection / MultiPolygon, pick the largest polygon by coordinate count.
+  const toPolygon = React.useCallback((geo: unknown): Json | null => {
+    if (!geo || typeof geo !== 'object') return null
+    const g = geo as GeoJSON.Geometry
+    if (g.type === 'Polygon') return g as unknown as Json
+    let polys: GeoJSON.Polygon[] = []
+    if (g.type === 'MultiPolygon') {
+      polys = (g as GeoJSON.MultiPolygon).coordinates.map((coords) => ({
+        type: 'Polygon',
+        coordinates: coords,
+      }))
+    } else if (g.type === 'GeometryCollection') {
+      for (const sub of (g as GeoJSON.GeometryCollection).geometries) {
+        if (sub.type === 'Polygon') polys.push(sub as GeoJSON.Polygon)
+        else if (sub.type === 'MultiPolygon') {
+          for (const coords of (sub as GeoJSON.MultiPolygon).coordinates) {
+            polys.push({ type: 'Polygon', coordinates: coords })
+          }
+        }
+      }
+    }
+    if (polys.length === 0) return null
+    const largest = polys.reduce((a, b) =>
+      (a.coordinates[0]?.length ?? 0) >= (b.coordinates[0]?.length ?? 0) ? a : b
+    )
+    return largest as unknown as Json
+  }, [])
 
   React.useEffect(() => {
     if (isPulling.current || isLoading || findingsLoading) return
@@ -188,42 +220,14 @@ export function HabitatMappingStep({
     isPulling.current = true
     for (const f of newFindings) importedFindingIds.current.add(f.id)
 
-    // Normalize any geometry to a single Polygon (DB column type is strictly Polygon).
-    // For GeometryCollection / MultiPolygon, pick the largest polygon by coordinate count.
-    const toPolygon = (geo: unknown): Json | null => {
-      if (!geo || typeof geo !== 'object') return null
-      const g = geo as GeoJSON.Geometry
-      if (g.type === 'Polygon') return g as unknown as Json
-      // Extract all polygons from the geometry
-      let polys: GeoJSON.Polygon[] = []
-      if (g.type === 'MultiPolygon') {
-        polys = (g as GeoJSON.MultiPolygon).coordinates.map((coords) => ({
-          type: 'Polygon',
-          coordinates: coords,
-        }))
-      } else if (g.type === 'GeometryCollection') {
-        for (const sub of (g as GeoJSON.GeometryCollection).geometries) {
-          if (sub.type === 'Polygon') polys.push(sub as GeoJSON.Polygon)
-          else if (sub.type === 'MultiPolygon') {
-            for (const coords of (sub as GeoJSON.MultiPolygon).coordinates) {
-              polys.push({ type: 'Polygon', coordinates: coords })
-            }
-          }
-        }
-      }
-      if (polys.length === 0) return null
-      // Pick the largest polygon (most coordinates = largest area)
-      const largest = polys.reduce((a, b) =>
-        (a.coordinates[0]?.length ?? 0) >= (b.coordinates[0]?.length ?? 0) ? a : b
-      )
-      return largest as unknown as Json
-    }
-
-    Promise.all(
-      newFindings.map((f) => {
+    // Use sequential creation to avoid N parallel invalidations.
+    // Each mutateAsync triggers an invalidation — batch them by only invalidating once at the end.
+    const importSequentially = async () => {
+      let imported = 0
+      for (const f of newFindings) {
         const raw = f.raw_data as Record<string, unknown>
-        return createHabitatRef.current
-          .mutateAsync({
+        try {
+          await createHabitatRef.current.mutateAsync({
             project_id: project.id,
             site_id: f.site_id ?? null,
             fossitt_code: raw.fossittCode as string,
@@ -234,26 +238,22 @@ export function HabitatMappingStep({
             notes: 'Auto-imported from Data Gathering (NLC)',
             include_in_report: true,
           })
-          .catch(() => {
-            // Remove from tracked set so it can be retried on next render
-            importedFindingIds.current.delete(f.id)
-            return null
-          })
-      })
-    )
-      .then((results) => {
-        const imported = results.filter(Boolean).length
-        if (imported > 0) {
-          toastRef.current({
-            title: 'Habitats imported',
-            description: `${imported} habitat${imported > 1 ? 's' : ''} auto-imported from Data Gathering.`,
-          })
+          imported++
+        } catch {
+          importedFindingIds.current.delete(f.id)
         }
-      })
-      .finally(() => {
-        isPulling.current = false
-      })
-  }, [isLoading, findingsLoading, savedFindings, habitats, project.id])
+      }
+      if (imported > 0) {
+        toastRef.current({
+          title: 'Habitats imported',
+          description: `${imported} habitat${imported > 1 ? 's' : ''} auto-imported from Data Gathering.`,
+        })
+      }
+      isPulling.current = false
+    }
+
+    importSequentially()
+  }, [isLoading, findingsLoading, savedFindings, habitats, project.id, toPolygon])
 
   // Convert findings to map markers (filtered by visibility toggles)
   const findingMarkers: FindingMarker[] = React.useMemo(() => {
@@ -405,6 +405,7 @@ export function HabitatMappingStep({
     try {
       await updateHabitat.mutateAsync({
         habitatId: editingHabitat.id,
+        projectId: project.id,
         updates: {
           fossitt_code: data.fossittCode!,
           fossitt_name: fossittInfo?.name || data.fossittCode!,
@@ -449,7 +450,7 @@ export function HabitatMappingStep({
   const handleConfirmDelete = async () => {
     if (!deletingHabitat) return
     try {
-      await deleteHabitat.mutateAsync(deletingHabitat.id)
+      await deleteHabitat.mutateAsync({ habitatId: deletingHabitat.id, projectId: project.id })
 
       toast({
         title: 'Habitat deleted',

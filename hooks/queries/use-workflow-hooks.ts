@@ -14,11 +14,14 @@ import {
 } from '@/lib/supabase/queries'
 import type { UpdateTables } from '@/types/database'
 
+const FIVE_MINUTES = 5 * 60 * 1000
+
 export function useWorkflowSteps(projectId: string) {
   return useQuery({
     queryKey: ['workflow-steps', projectId],
     queryFn: () => getWorkflowSteps(projectId),
     enabled: !!projectId,
+    staleTime: FIVE_MINUTES,
   })
 }
 
@@ -27,6 +30,7 @@ export function useWorkflowStep(projectId: string, stepNumber: number) {
     queryKey: ['workflow-step', projectId, stepNumber],
     queryFn: () => getWorkflowStep(projectId, stepNumber),
     enabled: !!projectId && stepNumber > 0,
+    staleTime: FIVE_MINUTES,
   })
 }
 

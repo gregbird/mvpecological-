@@ -219,30 +219,62 @@ export async function fetchNlcPolygons(
 
     if (allFeatures.length === 0) return empty
 
-    // Enrich properties with Fossitt mapping and Heritage Council color for map styling
+    // Dissolve: merge all triangle features with the same LEVEL_2_ID into a single
+    // MultiPolygon feature per habitat type. NLC returns a TIN (triangulated mesh),
+    // so without this step we'd have thousands of tiny triangles killing Leaflet.
+    const grouped = new Map<
+      string,
+      { coords: GeoJSON.Position[][][]; props: Record<string, unknown>; totalArea: number }
+    >()
+
     for (const feature of allFeatures) {
       const props = feature.properties ?? {}
-      const level1 = String(props.LEVEL_1_VALUE || '')
-      const nlcId = String(props.LEVEL_2_ID || '')
-      const fossitt = mapNlcToFossitt(nlcId)
-      const fossittCode = fossitt?.fossittCode || ''
-      // Resolve color: FOSSITT code lookup → NLC Level 1 fallback
-      const fossittColor = fossittCode
-        ? HERITAGE_COUNCIL_COLORS[fossittCode[0] as keyof typeof HERITAGE_COUNCIL_COLORS]
-        : undefined
-      feature.properties = {
-        ...props,
-        color: fossittColor || NLC_LEVEL1_COLORS[level1] || '#808080',
-        nlc_id: nlcId,
-        nlc_label: String(props.LEVEL_2_VALUE || ''),
-        nlc_level1: level1,
-        fossitt_code: fossittCode || nlcId,
-        fossitt_name: fossitt?.fossittName || String(props.LEVEL_2_VALUE || ''),
-        area_hectares: Math.round((Number(props.AREA || 0) / 10000) * 100) / 100,
+      const nlcId = String(props.LEVEL_2_ID || 'unknown')
+      const geom = feature.geometry
+
+      // Extract polygon coordinate rings
+      let polyCoords: GeoJSON.Position[][][] = []
+      if (geom.type === 'Polygon') {
+        polyCoords = [(geom as GeoJSON.Polygon).coordinates]
+      } else if (geom.type === 'MultiPolygon') {
+        polyCoords = (geom as GeoJSON.MultiPolygon).coordinates
+      }
+
+      const existing = grouped.get(nlcId)
+      if (existing) {
+        existing.coords.push(...polyCoords)
+        existing.totalArea += Number(props.AREA || 0)
+      } else {
+        grouped.set(nlcId, { coords: [...polyCoords], props, totalArea: Number(props.AREA || 0) })
       }
     }
 
-    return { type: 'FeatureCollection', features: allFeatures }
+    // Build merged features — one per habitat type
+    const mergedFeatures: GeoJSON.Feature[] = []
+    for (const [nlcId, { coords, props, totalArea }] of grouped) {
+      const level1 = String(props.LEVEL_1_VALUE || '')
+      const fossitt = mapNlcToFossitt(nlcId)
+      const fossittCode = fossitt?.fossittCode || ''
+      const fossittColor = fossittCode
+        ? HERITAGE_COUNCIL_COLORS[fossittCode[0] as keyof typeof HERITAGE_COUNCIL_COLORS]
+        : undefined
+
+      mergedFeatures.push({
+        type: 'Feature',
+        geometry: { type: 'MultiPolygon', coordinates: coords },
+        properties: {
+          color: fossittColor || NLC_LEVEL1_COLORS[level1] || '#808080',
+          nlc_id: nlcId,
+          nlc_label: String(props.LEVEL_2_VALUE || ''),
+          nlc_level1: level1,
+          fossitt_code: fossittCode || nlcId,
+          fossitt_name: fossitt?.fossittName || String(props.LEVEL_2_VALUE || ''),
+          area_hectares: Math.round((totalArea / 10000) * 100) / 100,
+        },
+      })
+    }
+
+    return { type: 'FeatureCollection', features: mergedFeatures }
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       console.error('NLC polygon query timeout')

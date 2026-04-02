@@ -6,11 +6,14 @@ import {
   type UpsertSiteParams,
 } from '@/lib/supabase/queries/project-sites'
 
+const FIVE_MINUTES = 5 * 60 * 1000
+
 export function useProjectSites(projectId: string | undefined) {
   return useQuery({
     queryKey: ['project-sites', projectId],
     queryFn: () => getProjectSites(projectId!),
     enabled: !!projectId,
+    staleTime: FIVE_MINUTES,
   })
 }
 

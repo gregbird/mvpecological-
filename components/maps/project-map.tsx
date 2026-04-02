@@ -636,10 +636,11 @@ function MapComponent({
             />
           ))}
 
-      {/* Habitat Polygons — rendered as single GeoJSON for performance */}
+      {/* Habitat Polygons — rendered as single GeoJSON for performance.
+          Key excludes zoom to prevent full layer remount on every zoom change. */}
       {habitatPolygons && habitatPolygons.features.length > 0 && habitatLayer?.visible && (
         <GeoJSON
-          key={`habitats-${habitatSelectionKey || 'all'}-${habitatPolygons.features.length}-z${currentZoom}`}
+          key={`habitats-${habitatSelectionKey || 'all'}-${habitatPolygons.features.length}`}
           data={habitatPolygons}
           style={(feature: GeoJSON.Feature | undefined) => {
             const props = feature?.properties
@@ -666,8 +667,8 @@ function MapComponent({
                     ${props.area_hectares ? `<div style="font-size:13px;margin-top:4px">Area: ${props.area_hectares} ha</div>` : ''}
                   </div>
                 `)
-              // FOSSITT labels only at zoom 14+ to prevent hundreds of overlapping tooltips
-              if (currentZoom >= 14 && props.fossitt_code && props.fossitt_code !== '—') {
+              // FOSSITT labels — bind tooltip always but only show at zoom 14+
+              if (props.fossitt_code && props.fossitt_code !== '\u2014') {
                 ;(layer as L.GeoJSON).bindTooltip(props.fossitt_code, {
                   permanent: true,
                   direction: 'center',

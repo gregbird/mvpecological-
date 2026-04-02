@@ -13,11 +13,14 @@ import {
 } from '@/lib/supabase/queries'
 import type { DeskResearchFinding, InsertTables, UpdateTables } from '@/types/database'
 
+const FIVE_MINUTES = 5 * 60 * 1000
+
 export function useFindings(projectId: string, siteId?: string | null) {
   return useQuery({
     queryKey: ['findings', projectId, siteId ?? null],
     queryFn: () => getProjectFindings(projectId, siteId),
     enabled: !!projectId,
+    staleTime: FIVE_MINUTES,
   })
 }
 
@@ -26,6 +29,7 @@ export function useSavedFindings(projectId: string, siteId?: string | null) {
     queryKey: ['saved-findings', projectId, siteId ?? null],
     queryFn: () => getSavedFindings(projectId, siteId),
     enabled: !!projectId,
+    staleTime: FIVE_MINUTES,
   })
 }
 
@@ -34,6 +38,7 @@ export function useFindingsStats(projectId: string, siteId?: string | null) {
     queryKey: ['findings-stats', projectId, siteId ?? null],
     queryFn: () => getFindingsStats(projectId, siteId),
     enabled: !!projectId,
+    staleTime: FIVE_MINUTES,
   })
 }
 
@@ -68,15 +73,11 @@ export function useUpdateFinding() {
       projectId?: string
     }) => updateFinding(findingId, updates),
     onSuccess: (_data, variables) => {
-      if (variables.projectId) {
-        queryClient.invalidateQueries({ queryKey: ['findings', variables.projectId] })
-        queryClient.invalidateQueries({ queryKey: ['saved-findings', variables.projectId] })
-        queryClient.invalidateQueries({ queryKey: ['findings-stats', variables.projectId] })
-      } else {
-        queryClient.invalidateQueries({ queryKey: ['findings'] })
-        queryClient.invalidateQueries({ queryKey: ['saved-findings'] })
-        queryClient.invalidateQueries({ queryKey: ['findings-stats'] })
-      }
+      // Always scope invalidation to the project to avoid refetching all projects' data
+      const scope = variables.projectId ? [variables.projectId] : []
+      queryClient.invalidateQueries({ queryKey: ['findings', ...scope] })
+      queryClient.invalidateQueries({ queryKey: ['saved-findings', ...scope] })
+      queryClient.invalidateQueries({ queryKey: ['findings-stats', ...scope] })
     },
   })
 }

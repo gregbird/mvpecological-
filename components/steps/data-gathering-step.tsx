@@ -25,7 +25,6 @@ import { useToast } from '@/hooks/use-toast'
 import { useSavedFindings, useFindingsStats } from '@/hooks/queries/use-finding-hooks'
 import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { useTargetNotes } from '@/hooks/queries/use-target-note-hooks'
-import { useHabitats } from '@/hooks/queries/use-habitat-hooks'
 import { IRELAND_CENTER } from '@/lib/config/map-constants'
 import { useProjectContext } from '@/contexts/project-context'
 import { SiteSelector } from '@/components/project/site-selector'
@@ -132,7 +131,6 @@ export function DataGatheringStep({
   const { data: savedFindings = [] } = useSavedFindings(project.id, selectedSite?.id)
   const { data: findingsStats } = useFindingsStats(project.id, selectedSite?.id)
   const { data: targetNotes = [] } = useTargetNotes(project.id)
-  useHabitats(project.id) // pre-fetch for downstream steps
   const completeStep = useCompleteWorkflowStep()
 
   // Expanded state for Findings by Type rows
@@ -372,17 +370,15 @@ export function DataGatheringStep({
   const isComplete = viewMode === 'preview' && workflowStep.status === 'approved'
   const isMapMode = currentStep !== 'info' && currentStep !== 'reports' && currentStep !== 'review'
 
-  // Track visited substeps so we keep them mounted (preserves searchResults + map state)
-  const [visitedSteps, setVisitedSteps] = React.useState<Set<WizardStep>>(
-    () => new Set([currentStep])
-  )
-
-  React.useEffect(() => {
-    setVisitedSteps((prev) => {
-      if (prev.has(currentStep)) return prev
-      return new Set(prev).add(currentStep)
-    })
-  }, [currentStep])
+  // Whether auto-search is still running (substeps need to stay mounted during auto-search)
+  const isAutoSearchRunning =
+    autoSearchStatus.triggered &&
+    !(
+      ['done', 'skipped', 'error'].includes(autoSearchStatus.sites) &&
+      ['done', 'skipped', 'error'].includes(autoSearchStatus.species) &&
+      ['done', 'skipped', 'error'].includes(autoSearchStatus.aquatic) &&
+      ['done', 'skipped', 'error'].includes(autoSearchStatus.habitats)
+    )
 
   // PREVIEW MODE - Show summary when step is completed
   if (viewMode === 'preview') {
@@ -922,8 +918,8 @@ export function DataGatheringStep({
           />
         )}
 
-        {/* Step 2: Designated Sites (NPWS) - keep mounted once visited or during auto-search */}
-        {(visitedSteps.has('sites') || autoSearchStatus.triggered) && (
+        {/* Step 2: Designated Sites (NPWS) - mount when active or during auto-search */}
+        {(currentStep === 'sites' || isAutoSearchRunning) && (
           <div
             className={cn(
               'absolute inset-0',
@@ -933,7 +929,7 @@ export function DataGatheringStep({
             <DesignatedSitesSubStep
               project={project}
               projectBoundary={projectBoundary}
-              searchBoundary={isAllSites ? searchBoundary : undefined}
+              searchBoundary={searchBoundary}
               projectCenter={projectCenter}
               bufferDistances={bufferDistances}
               siteId={selectedSite?.id ?? null}
@@ -952,8 +948,8 @@ export function DataGatheringStep({
           </div>
         )}
 
-        {/* Step 3: Species Records (GBIF + NBDC) - keep mounted once visited or during auto-search */}
-        {(visitedSteps.has('species') || autoSearchStatus.triggered) && (
+        {/* Step 3: Species Records (GBIF + NBDC) - mount when active or during auto-search */}
+        {(currentStep === 'species' || isAutoSearchRunning) && (
           <div
             className={cn(
               'absolute inset-0',
@@ -963,7 +959,7 @@ export function DataGatheringStep({
             <SpeciesRecordsSubStep
               project={project}
               projectBoundary={projectBoundary}
-              searchBoundary={isAllSites ? searchBoundary : undefined}
+              searchBoundary={searchBoundary}
               projectCenter={projectCenter}
               bufferDistances={bufferDistances}
               siteId={selectedSite?.id ?? null}
@@ -982,8 +978,8 @@ export function DataGatheringStep({
           </div>
         )}
 
-        {/* Step 4: Aquatic Features (EPA) - keep mounted once visited or during auto-search */}
-        {(visitedSteps.has('aquatic') || autoSearchStatus.triggered) && (
+        {/* Step 4: Aquatic Features (EPA) - mount when active or during auto-search */}
+        {(currentStep === 'aquatic' || isAutoSearchRunning) && (
           <div
             className={cn(
               'absolute inset-0',
@@ -993,7 +989,7 @@ export function DataGatheringStep({
             <AquaticFeaturesSubStep
               project={project}
               projectBoundary={projectBoundary}
-              searchBoundary={isAllSites ? searchBoundary : undefined}
+              searchBoundary={searchBoundary}
               projectCenter={projectCenter}
               bufferDistances={bufferDistances}
               siteId={selectedSite?.id ?? null}
@@ -1012,8 +1008,8 @@ export function DataGatheringStep({
           </div>
         )}
 
-        {/* Step 5: Habitat Data - NLC 2018 land cover - keep mounted once visited or during auto-search */}
-        {(visitedSteps.has('habitats') || autoSearchStatus.triggered) && (
+        {/* Step 5: Habitat Data - NLC 2018 land cover - mount when active or during auto-search */}
+        {(currentStep === 'habitats' || isAutoSearchRunning) && (
           <div
             className={cn(
               'absolute inset-0',
@@ -1023,7 +1019,7 @@ export function DataGatheringStep({
             <HabitatDataSubStep
               project={project}
               projectBoundary={projectBoundary}
-              searchBoundary={isAllSites ? searchBoundary : undefined}
+              searchBoundary={searchBoundary}
               projectCenter={projectCenter}
               bufferDistances={bufferDistances}
               siteId={selectedSite?.id ?? null}
