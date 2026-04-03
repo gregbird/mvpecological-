@@ -274,22 +274,43 @@ export async function searchWaterQuality(params: EPASearchParams): Promise<EPAWa
   if (!params.bbox) return []
 
   try {
-    const data = await queryEPAWFS('EPA:WFD_WaterQualityStations', params.bbox, params.limit || 50)
+    // EPA renamed the layer — WFD_WaterQualityStations no longer exists
+    const data = await queryEPAWFS('EPA:MON_WaterStations', params.bbox, params.limit || 50)
 
     return data.features.map((feature): EPAWaterQuality => {
-      const coords = feature.geometry?.type === 'Point' ? feature.geometry.coordinates : undefined
+      const geom = feature.geometry
+      // MON_WaterStations returns MultiPoint — extract first coordinate
+      const coords =
+        geom?.type === 'Point'
+          ? geom.coordinates
+          : geom?.type === 'MultiPoint'
+            ? geom.coordinates[0]
+            : undefined
+
+      // Map StationType to WaterBodyType
+      const stationType = (feature.properties?.StationType as string) || ''
+      const waterBodyType: EPAWaterQuality['WaterBodyType'] = stationType
+        .toLowerCase()
+        .includes('lake')
+        ? 'lake'
+        : stationType.toLowerCase().includes('transitional')
+          ? 'transitional'
+          : stationType.toLowerCase().includes('coastal')
+            ? 'coastal'
+            : stationType.toLowerCase().includes('groundwater')
+              ? 'groundwater'
+              : 'river'
 
       return {
-        StationId: feature.properties?.STATION_ID || feature.properties?.ID || '',
-        StationName:
-          feature.properties?.STATION_NAME || feature.properties?.NAME || 'Unknown Station',
-        WaterBodyType: feature.properties?.WATERBODY_TYPE || 'river',
-        LatestStatus: feature.properties?.LATEST_STATUS || feature.properties?.STATUS,
-        StatusYear: feature.properties?.STATUS_YEAR,
-        Q_Value: feature.properties?.Q_VALUE,
-        Latitude: coords ? coords[1] : feature.properties?.LATITUDE,
-        Longitude: coords ? coords[0] : feature.properties?.LONGITUDE,
-        geometry: feature.geometry,
+        StationId: feature.properties?.StationID || '',
+        StationName: feature.properties?.StationName || 'Unknown Station',
+        WaterBodyType: waterBodyType,
+        LatestStatus: undefined,
+        StatusYear: undefined,
+        Q_Value: undefined,
+        Latitude: coords ? coords[1] : undefined,
+        Longitude: coords ? coords[0] : undefined,
+        geometry: geom,
       }
     })
   } catch (error) {

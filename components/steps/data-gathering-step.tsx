@@ -240,12 +240,17 @@ export function DataGatheringStep({
     const storedHash = sessionStorage.getItem(hashKey)
 
     if (storedHash && storedHash !== boundaryHash) {
-      // Boundary changed — clear all search caches and auto-search flag for this site
+      // Boundary changed — clear all search caches and auto-search flag
       sessionStorage.removeItem(`auto-search-triggered-${project.id}`)
       sessionStorage.removeItem(`npws-search-${project.id}`)
       sessionStorage.removeItem(`gbif-search-${project.id}`)
       sessionStorage.removeItem(`epa-search-${project.id}`)
-      sessionStorage.removeItem(`nlc-habitat-${project.id}`)
+      // Clear all site-scoped habitat caches (nlc-habitat-{projectId}-{siteId}, plus notes/summaries)
+      const habitatPrefix = `nlc-habitat-${project.id}`
+      for (let i = sessionStorage.length - 1; i >= 0; i--) {
+        const key = sessionStorage.key(i)
+        if (key?.startsWith(habitatPrefix)) sessionStorage.removeItem(key)
+      }
       // Reset auto-search state so it re-triggers
       setAutoSearchStatus({
         triggered: false,
@@ -276,7 +281,19 @@ export function DataGatheringStep({
     const hasSitesCache = !!sessionStorage.getItem(`npws-search-${project.id}`)
     const hasSpeciesCache = !!sessionStorage.getItem(`gbif-search-${project.id}`)
     const hasAquaticCache = !!sessionStorage.getItem(`epa-search-${project.id}`)
-    const hasHabitatCache = !!sessionStorage.getItem(`nlc-habitat-${project.id}`)
+    const habitatPrefix = `nlc-habitat-${project.id}`
+    let hasHabitatCache = false
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i)
+      if (
+        key?.startsWith(habitatPrefix) &&
+        !key.includes('-notes') &&
+        !key.includes('-summaries')
+      ) {
+        hasHabitatCache = true
+        break
+      }
+    }
 
     // If all caches exist, no need to auto-search
     if (hasSitesCache && hasSpeciesCache && hasAquaticCache && hasHabitatCache) return

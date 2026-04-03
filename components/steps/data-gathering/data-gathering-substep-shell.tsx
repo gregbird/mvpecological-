@@ -203,7 +203,8 @@ export function DataGatheringSubstepShell({
   const deleteFinding = useDeleteFinding()
   const updateFinding = useUpdateFinding()
 
-  // Cache key for sessionStorage — project-level (site selection only changes map boundary)
+  // Cache key for sessionStorage — project-level (search covers all sites).
+  // Site filtering is done at display time via spatial filter.
   const cacheKey = `${config.cacheKeyPrefix}-search-${project.id}`
 
   const [isSearching, setIsSearching] = React.useState(false)
@@ -261,6 +262,7 @@ export function DataGatheringSubstepShell({
       matchPredicate: stableMatchPredicate,
       minimalMetadataKeys: stableMinimalKeys,
       sourceFilter: config.sourceFilter ?? [config.source],
+      siteId,
     },
     bufferDistances[0] || 2
   )
@@ -589,12 +591,11 @@ export function DataGatheringSubstepShell({
   // ── Spatial filter: when a specific site is selected, only show findings near that site ──
   // Use turf buffered polygon for precise containment check instead of a bbox
   const siteFilterPolygon = React.useMemo(() => {
-    // Filter when:
-    // 1. searchBoundary exists → multi-site project, cache has results from broader search
-    // 2. allBoundaries is NOT set → viewing a specific site (not "All Sites")
-    // 3. projectBoundary exists → we have a boundary to filter by
-    if (!searchBoundary || (allBoundaries && allBoundaries.length > 0) || !projectBoundary)
-      return null
+    // Only filter when a specific site is selected (not "All Sites") and we have a boundary
+    // allBoundaries is set → "All Sites" mode → no filtering needed
+    if (allBoundaries && allBoundaries.length > 0) return null
+    // No siteId → single-site project or "All Sites" → no filtering needed
+    if (!siteId || !projectBoundary) return null
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const turf = require('@turf/turf')
@@ -604,7 +605,7 @@ export function DataGatheringSubstepShell({
     } catch {
       return null
     }
-  }, [allBoundaries, searchBoundary, projectBoundary, selectedBuffer])
+  }, [allBoundaries, siteId, projectBoundary, selectedBuffer])
 
   const spatiallyFilteredResults = React.useMemo(() => {
     // When no polygon filter and no custom filter, return all
@@ -612,21 +613,19 @@ export function DataGatheringSubstepShell({
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const turf = siteFilterPolygon ? require('@turf/turf') : null
 
-    // Compute centroid of a coordinate array
-    const centroid = (coords: number[][]) => {
-      let lngSum = 0,
-        latSum = 0
-      for (const c of coords) {
-        lngSum += c[0]
-        latSum += c[1]
-      }
-      return [lngSum / coords.length, latSum / coords.length]
-    }
-
-    const inPolygon = (lng: number, lat: number) => {
+    const pointInFilter = (lng: number, lat: number) => {
       if (!turf || !siteFilterPolygon) return true
       try {
         return turf.booleanPointInPolygon([lng, lat], siteFilterPolygon)
+      } catch {
+        return false
+      }
+    }
+
+    const geometryIntersectsFilter = (geom: GeoJSON.Geometry) => {
+      if (!turf || !siteFilterPolygon) return true
+      try {
+        return turf.booleanIntersects(geom, siteFilterPolygon)
       } catch {
         return false
       }
@@ -640,17 +639,13 @@ export function DataGatheringSubstepShell({
         return true
       }
       if (loc.type === 'Point') {
-        return inPolygon(loc.coordinates[0], loc.coordinates[1])
+        return pointInFilter(loc.coordinates[0], loc.coordinates[1])
       }
-      // For Polygon/LineString, check centroid instead of any vertex —
-      // prevents large NPWS polygons near other sites from leaking through
-      if (loc.type === 'Polygon') {
-        const c = centroid(loc.coordinates[0])
-        return inPolygon(c[0], c[1])
-      }
-      if (loc.type === 'LineString') {
-        const c = centroid(loc.coordinates)
-        return inPolygon(c[0], c[1])
+      // For Polygon/LineString, use intersection test instead of centroid —
+      // large NPWS polygons (e.g. bays) may have centroids far from the site
+      // boundary even though they overlap with the buffer area
+      if (loc.type === 'Polygon' || loc.type === 'MultiPolygon' || loc.type === 'LineString') {
+        return geometryIntersectsFilter(loc)
       }
       return true
     })

@@ -122,7 +122,8 @@ export function HabitatDataSubStep({
   const createFinding = useCreateFinding()
   const deleteFinding = useDeleteFinding()
   const updateFinding = useUpdateFinding()
-  const cacheKey = `nlc-habitat-${project.id}${siteId ? `-${siteId}` : ''}`
+  // Cache key is project-level — search covers all sites, filtering is at display time
+  const cacheKey = `nlc-habitat-${project.id}`
 
   /** Build per-site bbox list for multi-site, or single bbox for single-site */
   const buildBboxList = React.useCallback(
@@ -144,9 +145,12 @@ export function HabitatDataSubStep({
     null
   )
   const [selectedHabitat, setSelectedHabitat] = React.useState<HabitatResult | null>(null)
-  const [styleVersion, setStyleVersion] = React.useState(0)
   const [selectedBuffer, setSelectedBuffer] = React.useState(bufferDistances[0] || 2)
-  const [totalArea, setTotalArea] = React.useState(0)
+
+  const totalArea = React.useMemo(
+    () => Math.round(results.reduce((sum, r) => sum + r.areaHectares, 0) * 100) / 100,
+    [results]
+  )
 
   // Per-card state (sessionStorage)
   const [notes, setNotes] = useSessionStorage<Record<string, string>>(`${cacheKey}-notes`, {})
@@ -154,6 +158,41 @@ export function HabitatDataSubStep({
     `${cacheKey}-summaries`,
     {}
   )
+
+  // Debounced sessionStorage write — useSessionStorage only reads, callers must persist
+  const cacheTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  React.useEffect(() => {
+    if (results.length === 0) return
+    if (cacheTimerRef.current) clearTimeout(cacheTimerRef.current)
+    cacheTimerRef.current = setTimeout(() => {
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify(results))
+      } catch {
+        // SessionStorage full — habitat results are small, unlikely to fail
+      }
+    }, 1000)
+    return () => {
+      if (cacheTimerRef.current) clearTimeout(cacheTimerRef.current)
+    }
+  }, [results, cacheKey])
+
+  React.useEffect(() => {
+    if (Object.keys(notes).length === 0) return
+    try {
+      sessionStorage.setItem(`${cacheKey}-notes`, JSON.stringify(notes))
+    } catch {
+      // noop
+    }
+  }, [notes, cacheKey])
+
+  React.useEffect(() => {
+    if (Object.keys(aiSummaries).length === 0) return
+    try {
+      sessionStorage.setItem(`${cacheKey}-summaries`, JSON.stringify(aiSummaries))
+    } catch {
+      // noop
+    }
+  }, [aiSummaries, cacheKey])
   const updateWorkflowStep = useUpdateWorkflowStep()
   const [overallAi, setOverallAi] = React.useState<string>(() => {
     const meta = workflowStep?.metadata as Record<string, unknown> | null
@@ -184,12 +223,61 @@ export function HabitatDataSubStep({
   const toastRef = React.useRef(toast)
   toastRef.current = toast
 
-  // Style polygons for map highlight — 3-field fallback matching
-  const styledPolygons = React.useMemo((): GeoJSON.FeatureCollection | undefined => {
-    if (!habitatPolygons) return undefined
+  // ── Spatial filter: when a specific site is selected, filter polygons & results ──
+  const siteFilterPolygon = React.useMemo(() => {
+    if (allBoundaries && allBoundaries.length > 0) return null
+    if (!siteId || !projectBoundary) return null
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const turf = require('@turf/turf')
+      return turf.buffer(projectBoundary, selectedBuffer, {
+        units: 'kilometers',
+      }) as GeoJSON.Feature<GeoJSON.Polygon>
+    } catch {
+      return null
+    }
+  }, [allBoundaries, siteId, projectBoundary, selectedBuffer])
+
+  const filteredPolygons = React.useMemo((): GeoJSON.FeatureCollection | null => {
+    if (!habitatPolygons) return null
+    if (!siteFilterPolygon) return habitatPolygons
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const turf = require('@turf/turf')
     return {
       type: 'FeatureCollection',
-      features: habitatPolygons.features.map((f) => {
+      features: habitatPolygons.features.filter((f) => {
+        try {
+          return turf.booleanIntersects(f.geometry, siteFilterPolygon)
+        } catch {
+          return false
+        }
+      }),
+    }
+  }, [habitatPolygons, siteFilterPolygon])
+
+  const filteredResults = React.useMemo((): HabitatResult[] => {
+    if (!siteFilterPolygon || !filteredPolygons) return results
+    // Collect nlcIds that have polygons in the filtered set
+    const nlcIdsInSite = new Set<string>()
+    for (const f of filteredPolygons.features) {
+      const nlcId = f.properties?.nlc_id
+      if (nlcId) nlcIdsInSite.add(String(nlcId).trim())
+    }
+    return results.filter((r) => nlcIdsInSite.has(r.nlcId))
+  }, [results, siteFilterPolygon, filteredPolygons])
+
+  // Total area derived from currently displayed (filtered) results
+  const filteredTotalArea = React.useMemo(
+    () => Math.round(filteredResults.reduce((sum, r) => sum + r.areaHectares, 0) * 100) / 100,
+    [filteredResults]
+  )
+
+  // Style polygons for map highlight — 3-field fallback matching
+  const styledPolygons = React.useMemo((): GeoJSON.FeatureCollection | undefined => {
+    if (!filteredPolygons) return undefined
+    return {
+      type: 'FeatureCollection',
+      features: filteredPolygons.features.map((f) => {
         let isMatch = false
         if (selectedHabitat) {
           const p = f.properties
@@ -219,7 +307,7 @@ export function HabitatDataSubStep({
         }
       }),
     }
-  }, [habitatPolygons, selectedHabitat])
+  }, [filteredPolygons, selectedHabitat])
 
   // Auto-refetch polygons when switching back to this tab (results exist from sessionStorage)
   const hasFetchedRef = React.useRef(false)
@@ -251,13 +339,12 @@ export function HabitatDataSubStep({
     }
   }, [results, habitatPolygons, isSearching, buildBboxList, selectedBuffer])
 
-  // Reset polygon fetch flag when site changes so polygons reload for the new site
+  // Reset UI state when site changes — polygons stay (project-level), spatial filter handles display
   const prevSiteIdRef = React.useRef(siteId)
   React.useEffect(() => {
     if (prevSiteIdRef.current !== siteId) {
       prevSiteIdRef.current = siteId
-      hasFetchedRef.current = false
-      setHabitatPolygons(null)
+      setSelectedHabitat(null)
     }
   }, [siteId])
 
@@ -354,11 +441,6 @@ export function HabitatDataSubStep({
     results.length,
     onAutoSearchComplete,
   ])
-
-  React.useEffect(() => {
-    const total = results.reduce((sum, r) => sum + r.areaHectares, 0)
-    setTotalArea(Math.round(total * 100) / 100)
-  }, [results])
 
   // Check if a habitat is already saved in DB — uses ref for latest data, scoped by site
   const getSavedFinding = React.useCallback(
@@ -664,7 +746,6 @@ export function HabitatDataSubStep({
 
   const handleRowClick = (r: HabitatResult) => {
     setSelectedHabitat((prev) => (prev?.nlcId === r.nlcId ? null : r))
-    setStyleVersion((v) => v + 1)
   }
 
   // Save a habitat finding to DB
@@ -727,9 +808,12 @@ export function HabitatDataSubStep({
     }
   }
 
-  // Save all unsaved habitats at once
-  const unsavedResults = results.filter((r) => !getSavedFinding(r.nlcId))
-  const allSaved = results.length > 0 && unsavedResults.length === 0
+  // Save all unsaved habitats at once — uses filteredResults for site-scoped display
+  const unsavedResults = React.useMemo(
+    () => filteredResults.filter((r) => !getSavedFinding(r.nlcId)),
+    [filteredResults, getSavedFinding]
+  )
+  const allSaved = filteredResults.length > 0 && unsavedResults.length === 0
 
   const handleSaveAll = async () => {
     if (unsavedResults.length === 0) return
@@ -739,6 +823,10 @@ export function HabitatDataSubStep({
       for (const r of unsavedResults) {
         const pct = totalArea > 0 ? ((r.areaHectares / totalArea) * 100).toFixed(1) : '0'
         const geometry = getHabitatGeometry(r.nlcId)
+        const distKm = calculateDistanceFromBoundary(
+          geometry ?? undefined,
+          projectBoundary ?? undefined
+        )
         await createFinding.mutateAsync({
           project_id: project.id,
           site_id: siteId ?? null,
@@ -751,6 +839,7 @@ export function HabitatDataSubStep({
           is_saved: true,
           notes: notes[r.nlcId] || null,
           location: toJson(geometry),
+          distance_from_boundary_km: distKm ?? null,
           raw_data: toJson({
             habitatFinding: true,
             nlcId: r.nlcId,
@@ -763,6 +852,7 @@ export function HabitatDataSubStep({
             percentCover: pct,
             aiSummary: aiSummaries[r.nlcId] || null,
             bufferKm: selectedBuffer,
+            distance_from_boundary_km: distKm ?? null,
           }),
         })
         savedCount++
@@ -852,7 +942,7 @@ export function HabitatDataSubStep({
 
         {/* Results list */}
         <div className="flex-1 overflow-hidden">
-          {results.length === 0 && !isSearching ? (
+          {filteredResults.length === 0 && !isSearching ? (
             <div className="flex h-64 flex-col items-center justify-center text-center">
               <Layers className="mb-4 h-12 w-12 text-gray-300" />
               <p className="text-muted-foreground">Search to find habitat data</p>
@@ -864,10 +954,10 @@ export function HabitatDataSubStep({
           ) : (
             <div className="flex h-full flex-col">
               <div className="flex items-center justify-between border-b px-4 py-2">
-                <span className="text-sm font-medium">{results.length} habitat types</span>
+                <span className="text-sm font-medium">{filteredResults.length} habitat types</span>
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground text-xs">
-                    {totalArea.toLocaleString()} ha
+                    {filteredTotalArea.toLocaleString()} ha
                   </span>
                   <Button
                     variant="ghost"
@@ -904,9 +994,11 @@ export function HabitatDataSubStep({
 
               <ScrollArea className="flex-1">
                 <div className="space-y-2 p-2">
-                  {results.map((r) => {
+                  {filteredResults.map((r) => {
                     const pct =
-                      totalArea > 0 ? ((r.areaHectares / totalArea) * 100).toFixed(1) : '0'
+                      filteredTotalArea > 0
+                        ? ((r.areaHectares / filteredTotalArea) * 100).toFixed(1)
+                        : '0'
                     const color = NLC_LEVEL1_COLORS[r.nlcLevel1] || '#22c55e'
                     const isSelected = selectedHabitat?.nlcId === r.nlcId
                     const summary = aiSummaries[r.nlcId]
@@ -1111,7 +1203,7 @@ export function HabitatDataSubStep({
             allBoundaries={allBoundaries}
             bufferDistances={[selectedBuffer]}
             habitatPolygons={styledPolygons}
-            habitatSelectionKey={`${selectedHabitat?.nlcId || 'all'}-v${styleVersion}`}
+            habitatSelectionKey={selectedHabitat?.nlcId || 'all'}
             findings={[]}
           />
           <Button
@@ -1145,8 +1237,8 @@ export function HabitatDataSubStep({
             ? {
                 ...deepResearchSite,
                 percentCover:
-                  totalArea > 0
-                    ? ((deepResearchSite.areaHectares / totalArea) * 100).toFixed(1)
+                  filteredTotalArea > 0
+                    ? ((deepResearchSite.areaHectares / filteredTotalArea) * 100).toFixed(1)
                     : '0',
               }
             : null

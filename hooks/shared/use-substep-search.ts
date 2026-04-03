@@ -28,6 +28,8 @@ export interface UseSubstepSearchConfig {
   minimalMetadataKeys: string[]
   /** Source values to filter savedFindings for this substep (e.g., ['npws'] or ['gbif', 'nbdc']) */
   sourceFilter?: string[]
+  /** Active site ID — used to reset state when site changes */
+  siteId?: string | null
 }
 
 export interface UseSubstepSearchReturn {
@@ -60,6 +62,7 @@ export function useSubstepSearch(
     matchPredicate,
     minimalMetadataKeys,
     sourceFilter,
+    siteId,
   } = config
 
   const [selectedFinding, setSelectedFinding] = React.useState<FindingDisplay | null>(null)
@@ -74,8 +77,23 @@ export function useSubstepSearch(
   const searchResultsRef = React.useRef(searchResults)
   searchResultsRef.current = searchResults
 
-  // --- Auto-search effect ---
+  // --- Refs for auto-search and restore guards ---
   const autoSearchHandledRef = React.useRef(false)
+  const restoredRef = React.useRef(false)
+
+  // --- Reset UI state when site changes ---
+  const prevSiteIdRef = React.useRef(siteId)
+  React.useEffect(() => {
+    if (prevSiteIdRef.current === siteId) return
+    prevSiteIdRef.current = siteId
+    // Clear selection state — search results stay in project-level cache,
+    // spatial filter handles per-site display
+    setSelectedFinding(null)
+    setHiddenIds(new Set())
+    setShowSavedOnMap(false)
+  }, [siteId])
+
+  // --- Auto-search effect ---
   React.useEffect(() => {
     if (!autoSearchTrigger || autoSearchHandledRef.current) return
     autoSearchHandledRef.current = true
@@ -96,7 +114,6 @@ export function useSubstepSearch(
   }, [autoSearchTrigger, projectBoundary])
 
   // --- Restore saved findings from DB when sessionStorage cache is empty ---
-  const restoredRef = React.useRef(false)
   React.useEffect(() => {
     if (restoredRef.current) return
     if (searchResults.length > 0) return
