@@ -60,6 +60,7 @@ export function useUpdateWorkflowStep() {
     }) => updateWorkflowStep(stepId, updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workflow-steps'] })
+      queryClient.invalidateQueries({ queryKey: ['workflow-step'] })
     },
   })
 }
