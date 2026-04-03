@@ -1,25 +1,11 @@
 'use client'
 
 import * as React from 'react'
-import {
-  FileUp,
-  MapPin,
-  Loader2,
-  Check,
-  Globe,
-  Database,
-  Pencil,
-  Clock,
-  ChevronLeft,
-  ChevronRight,
-  Circle,
-  Layers,
-} from 'lucide-react'
+import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import {
   AlertDialog,
@@ -35,7 +21,6 @@ import { useUpdateProjectBoundary } from '@/hooks/queries/use-project-hooks'
 import { useCompleteWorkflowStep, useUpdateWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { getDefaultVisibleLayers } from '@/lib/config/dataset-layers'
 import { getBufferColor } from '@/lib/config/map-constants'
-import { STANDARD_BUFFER_DISTANCES } from '@/lib/gis'
 import { MapCaptureButton } from '@/components/maps/map-capture-button'
 import type { Project, WorkflowStep } from '@/types/database'
 import { useProjectContext } from '@/contexts/project-context'
@@ -53,6 +38,9 @@ import { useProjectSites, useUpsertSite } from '@/hooks/queries/use-site-hooks'
 import { PreviewPanel } from './gis-mapping/preview-panel'
 import { LayersSidebar } from './gis-mapping/layers-sidebar'
 import { SiteListPanel } from './gis-mapping/site-list-panel'
+import { SourceSelectionPanel, type GISSourceId } from './gis-mapping/source-selection-panel'
+import { BufferZonePanel } from './gis-mapping/buffer-zone-panel'
+import { WizardStepHeader } from './gis-mapping/wizard-step-header'
 
 // Dynamic import for map
 const ProjectMapWithDraw = dynamic(
@@ -74,42 +62,6 @@ interface GISMappingStepProps {
   onComplete?: () => void
 }
 
-// GIS source options
-const gisSourceOptions = [
-  {
-    id: 'arcgis' as const,
-    label: 'ArcGIS Online',
-    description: 'Import from ArcGIS',
-    icon: Globe,
-    color: 'bg-blue-500',
-    comingSoon: true,
-  },
-  {
-    id: 'qgis' as const,
-    label: 'QGIS',
-    description: 'Import from PostGIS',
-    icon: Database,
-    color: 'bg-green-600',
-    comingSoon: true,
-  },
-  {
-    id: 'manual' as const,
-    label: 'Draw on Map',
-    description: 'Draw boundary manually',
-    icon: Pencil,
-    color: 'bg-amber-500',
-    comingSoon: false,
-  },
-  {
-    id: 'upload' as const,
-    label: 'Upload File',
-    description: 'GeoJSON or Shapefile',
-    icon: FileUp,
-    color: 'bg-purple-500',
-    comingSoon: false,
-  },
-]
-
 export function GISMappingStep({ project, workflowStep, userId, onComplete }: GISMappingStepProps) {
   const { setMapFullscreen, refetchProject, refetchWorkflowSteps } = useProjectContext()
   const { toast } = useToast()
@@ -118,7 +70,6 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
   const wizard = useGISWizard(project, workflowStep)
   const { data: existingSites = [] } = useProjectSites(project.id)
   const siteMgmt = useSiteManagement(project, existingSites)
-  // Keep boundaryMgmt for backward compat (preview mode, legacy code paths)
   const boundaryMgmt = useBoundaryManagement(project)
   const bufferConfig = useBufferConfiguration(project)
   const layers = useLayerData(project)
@@ -188,7 +139,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
     layers.resetLayerCache()
   }, [allSiteBoundaries, activeBoundary, layers.resetLayerCache])
 
-  // Trigger data fetch when layers step is active — use ALL site boundaries
+  // Trigger data fetch when layers step is active
   React.useEffect(() => {
     if (wizard.currentStep === 'layers' && !layers.layerDataFetchedRef.current) {
       const boundaries =
@@ -239,14 +190,14 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
     ).length
   }, [layers.layerData.npwsSites, layers.visibleLayers, layers.deletedItems, layers.ignoredItems])
 
-  // Handlers
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
   const handleSourceSelect = (source: string) => {
     if (source === 'upload') {
       siteMgmt.fileInputRef.current?.click()
       return
     }
     if (source === 'manual') {
-      // Ensure at least one site exists for drawing
       if (siteMgmt.sites.length === 0) siteMgmt.addSite()
       wizard.setCurrentStep('sites')
     }
@@ -430,9 +381,9 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
     }
   }
 
-  // PREVIEW MODE
+  // ── PREVIEW MODE ──────────────────────────────────────────────────────────
+
   if (wizard.viewMode === 'preview') {
-    // In multi-site projects, show active site boundary + others dimmed
     const previewBoundary = activeBoundary ?? boundaryMgmt.boundary ?? undefined
     return (
       <div className="flex h-full">
@@ -484,174 +435,31 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
     )
   }
 
-  // WIZARD MODE
+  // ── WIZARD MODE ───────────────────────────────────────────────────────────
+
   return (
     <div className="flex h-full flex-col">
-      {/* Progress Header */}
-      <div
-        className={cn(
-          'border-border bg-card shrink-0 border-b transition-all duration-300',
-          wizard.isMapMode ? 'px-4 py-2' : 'px-6 py-4'
-        )}
-      >
-        {!wizard.isMapMode && (
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold">GIS Mapping</h2>
-              <p className="text-muted-foreground text-sm">Define your project boundary</p>
-            </div>
-            <Badge variant={wizard.isComplete ? 'default' : 'secondary'}>
-              {wizard.isComplete ? 'Completed' : 'In Progress'}
-            </Badge>
-          </div>
-        )}
-
-        {/* Step indicators */}
-        <div
-          className={cn(
-            'flex items-center',
-            wizard.isMapMode ? 'justify-center gap-2' : 'justify-between'
-          )}
-        >
-          {WIZARD_STEPS.map((step, index) => {
-            const icons: Record<string, typeof Globe> = {
-              source: Globe,
-              sites: MapPin,
-              boundary: MapPin,
-              buffers: Circle,
-              layers: Layers,
-            }
-            const Icon = icons[step.id] ?? Globe
-            const isActive = step.id === wizard.currentStep
-            const isPast = index < wizard.currentStepIndex
-            const hasSites = siteMgmt.sites.length > 0
-            const hasAnySiteBoundary = siteMgmt.sites.some((s) => s.boundary)
-            const isClickable =
-              isPast ||
-              (index === wizard.currentStepIndex + 1 &&
-                (wizard.currentStep !== 'source' || hasSites) &&
-                (wizard.currentStep !== 'sites' || hasAnySiteBoundary))
-
-            return (
-              <React.Fragment key={step.id}>
-                <button
-                  onClick={() => isClickable && wizard.setCurrentStep(step.id)}
-                  disabled={!isClickable && !isActive}
-                  className={cn(
-                    'flex items-center gap-1 transition-all',
-                    isClickable && 'cursor-pointer',
-                    !isClickable && !isActive && 'opacity-40',
-                    wizard.isMapMode ? 'flex-row' : 'flex-col'
-                  )}
-                >
-                  <div
-                    className={cn(
-                      'flex items-center justify-center rounded-full border-2 transition-all',
-                      wizard.isMapMode ? 'h-7 w-7' : 'h-10 w-10',
-                      isActive && 'border-emerald-500 bg-emerald-500 text-white',
-                      isPast &&
-                        'border-emerald-500 bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400',
-                      !isActive && !isPast && 'border-gray-300 text-gray-400'
-                    )}
-                  >
-                    {isPast ? (
-                      <Check className={cn(wizard.isMapMode ? 'h-3.5 w-3.5' : 'h-5 w-5')} />
-                    ) : (
-                      <Icon className={cn(wizard.isMapMode ? 'h-3.5 w-3.5' : 'h-5 w-5')} />
-                    )}
-                  </div>
-                  <span
-                    className={cn(
-                      'font-medium',
-                      wizard.isMapMode ? 'text-[11px]' : 'text-xs',
-                      isActive && 'text-emerald-600',
-                      isPast && 'text-emerald-600',
-                      !isActive && !isPast && 'text-gray-400'
-                    )}
-                  >
-                    {step.label}
-                  </span>
-                </button>
-                {index < WIZARD_STEPS.length - 1 && (
-                  <div
-                    className={cn(
-                      'h-0.5',
-                      wizard.isMapMode ? 'w-6' : 'mx-2 flex-1',
-                      index < wizard.currentStepIndex
-                        ? 'bg-emerald-500'
-                        : 'bg-gray-200 dark:bg-gray-700'
-                    )}
-                  />
-                )}
-              </React.Fragment>
-            )
-          })}
-        </div>
-      </div>
+      <WizardStepHeader
+        currentStep={wizard.currentStep}
+        currentStepIndex={wizard.currentStepIndex}
+        isMapMode={wizard.isMapMode}
+        isComplete={wizard.isComplete}
+        hasSites={siteMgmt.sites.length > 0}
+        hasAnySiteBoundary={siteMgmt.sites.some((s) => s.boundary)}
+        onStepClick={wizard.setCurrentStep}
+      />
 
       {/* Step Content */}
       <div className="flex-1 overflow-hidden">
         {/* Step 1: Source Selection */}
         {wizard.currentStep === 'source' && (
-          <div className="flex h-full items-center justify-center p-8">
-            <div className="w-full max-w-2xl">
-              <h3 className="mb-2 text-center text-xl font-semibold">
-                How would you like to define your boundary?
-              </h3>
-              <p className="text-muted-foreground mb-8 text-center">
-                Choose a method to get started
-              </p>
-
-              <div className="grid grid-cols-2 gap-4">
-                {gisSourceOptions.map((option) => {
-                  const Icon = option.icon
-                  const isSelected = boundaryMgmt.selectedSource === option.id
-
-                  return (
-                    <button
-                      key={option.id}
-                      onClick={() => !option.comingSoon && handleSourceSelect(option.id)}
-                      disabled={option.comingSoon}
-                      className={cn(
-                        'relative flex flex-col items-center gap-3 rounded-xl border-2 p-6 transition-all',
-                        option.comingSoon && 'cursor-not-allowed opacity-50',
-                        !option.comingSoon && 'hover:border-emerald-400 hover:shadow-lg',
-                        isSelected &&
-                          'border-emerald-500 bg-emerald-50 shadow-lg dark:bg-emerald-950'
-                      )}
-                    >
-                      {option.comingSoon && (
-                        <Badge variant="secondary" className="absolute -top-2 -right-2">
-                          <Clock className="mr-1 h-3 w-3" /> Soon
-                        </Badge>
-                      )}
-                      <div
-                        className={cn(
-                          'flex h-14 w-14 items-center justify-center rounded-xl',
-                          option.color
-                        )}
-                      >
-                        <Icon className="h-7 w-7 text-white" />
-                      </div>
-                      <div className="text-center">
-                        <h4 className="font-semibold">{option.label}</h4>
-                        <p className="text-muted-foreground text-sm">{option.description}</p>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-
-              <input
-                ref={siteMgmt.fileInputRef}
-                type="file"
-                accept=".geojson,.json,.shp,.zip"
-                className="hidden"
-                onChange={handleFileUpload}
-                disabled={siteMgmt.isProcessing}
-              />
-            </div>
-          </div>
+          <SourceSelectionPanel
+            selectedSource={boundaryMgmt.selectedSource as GISSourceId | null}
+            fileInputRef={siteMgmt.fileInputRef}
+            isProcessing={siteMgmt.isProcessing}
+            onSourceSelect={handleSourceSelect}
+            onFileUpload={handleFileUpload}
+          />
         )}
 
         {/* Step 2: Sites (Multi-site boundary management) */}
@@ -710,182 +518,22 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
               />
             </div>
 
-            {/* Buffer selection panel */}
-            <div className="border-border w-80 overflow-y-auto border-l p-6">
-              <h3 className="mb-2 text-lg font-semibold">Buffer Zones</h3>
-              <p className="text-muted-foreground mb-6 text-sm">
-                Select buffer distances for designated site analysis
-              </p>
-
-              <div className="space-y-2">
-                {STANDARD_BUFFER_DISTANCES.map((buffer) => {
-                  const isEnabled = bufferConfig.enabledBuffers.includes(buffer.value)
-                  const color = getBufferColor(buffer.value)
-
-                  return (
-                    <button
-                      key={buffer.value}
-                      onClick={() => handleBufferToggle(buffer.value)}
-                      className={cn(
-                        'flex w-full items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
-                        isEnabled
-                          ? 'border-gray-400 bg-gray-50 dark:border-gray-500 dark:bg-gray-800'
-                          : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'
-                      )}
-                    >
-                      <div
-                        className="flex h-8 w-8 items-center justify-center rounded-full border-2"
-                        style={{
-                          borderColor: color.stroke,
-                          backgroundColor: isEnabled ? color.fill : 'transparent',
-                        }}
-                      >
-                        {isEnabled && <Check className="h-4 w-4 text-white" />}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{buffer.label}</span>
-                          <span
-                            className="h-2 w-2 rounded-full"
-                            style={{ backgroundColor: color.fill }}
-                          />
-                        </div>
-                        <div className="text-muted-foreground text-xs">{buffer.description}</div>
-                      </div>
-                    </button>
-                  )
-                })}
-
-                {/* Custom buffer distances */}
-                {bufferConfig.customBuffers.map((distance) => {
-                  const isEnabled = bufferConfig.enabledBuffers.includes(distance)
-                  const color = getBufferColor(distance)
-
-                  return (
-                    <div key={distance} className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleBufferToggle(distance)}
-                        className={cn(
-                          'flex flex-1 items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
-                          isEnabled
-                            ? 'border-gray-400 bg-gray-50 dark:border-gray-500 dark:bg-gray-800'
-                            : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'
-                        )}
-                      >
-                        <div
-                          className="flex h-8 w-8 items-center justify-center rounded-full border-2"
-                          style={{
-                            borderColor: color.stroke,
-                            backgroundColor: isEnabled ? color.fill : 'transparent',
-                          }}
-                        >
-                          {isEnabled && <Check className="h-4 w-4 text-white" />}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{distance} km</span>
-                          <span
-                            className="h-2 w-2 rounded-full"
-                            style={{ backgroundColor: color.fill }}
-                          />
-                          <Badge variant="outline" className="text-[10px]">
-                            Custom
-                          </Badge>
-                        </div>
-                      </button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-gray-400 hover:text-red-500"
-                        onClick={() => {
-                          bufferConfig.handleRemoveCustomBuffer(distance)
-                          wizard.setHasUnsavedChanges(true)
-                        }}
-                      >
-                        <span className="text-lg">×</span>
-                      </Button>
-                    </div>
-                  )
-                })}
-              </div>
-
-              {/* Add custom buffer */}
-              <div className="mt-4 border-t pt-4">
-                <label className="text-sm font-medium">Add Custom Buffer</label>
-                <div className="mt-2 flex gap-2">
-                  <input
-                    type="number"
-                    min="0.1"
-                    max="50"
-                    step="0.1"
-                    value={bufferConfig.customBufferInput}
-                    onChange={(e) => bufferConfig.setCustomBufferInput(e.target.value)}
-                    placeholder="e.g. 3.5"
-                    className="border-input bg-background flex-1 rounded-md border px-3 py-2 text-sm"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const added = bufferConfig.handleAddCustomBuffer()
-                      if (added) wizard.setHasUnsavedChanges(true)
-                    }}
-                    disabled={
-                      !bufferConfig.customBufferInput ||
-                      parseFloat(bufferConfig.customBufferInput) <= 0
-                    }
-                  >
-                    Add
-                  </Button>
-                </div>
-                <p className="text-muted-foreground mt-1 text-xs">
-                  Enter distance in kilometers (0.1 - 50)
-                </p>
-                {bufferConfig.customBufferInput &&
-                  parseFloat(bufferConfig.customBufferInput) > 15 && (
-                    <p className="mt-1 text-xs text-amber-600">
-                      Large buffers may slow down searches and map rendering
-                    </p>
-                  )}
-              </div>
-
-              {/* Selected summary */}
-              <div className="mt-6 rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Selected Buffers</span>
-                  <span className="text-muted-foreground text-sm">
-                    {bufferConfig.enabledBuffers.length}
-                  </span>
-                </div>
-                {bufferConfig.enabledBuffers.length === 0 && (
-                  <p className="mt-2 text-xs text-amber-600">
-                    Select at least one buffer zone to proceed
-                  </p>
-                )}
-                {bufferConfig.enabledBuffers.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {bufferConfig.enabledBuffers
-                      .sort((a, b) => a - b)
-                      .map((d) => {
-                        const color = getBufferColor(d)
-                        return (
-                          <Badge
-                            key={d}
-                            variant="secondary"
-                            className="gap-1"
-                            style={{ borderColor: color.stroke, borderWidth: 1 }}
-                          >
-                            <span
-                              className="h-2 w-2 rounded-full"
-                              style={{ backgroundColor: color.fill }}
-                            />
-                            {d} km
-                          </Badge>
-                        )
-                      })}
-                  </div>
-                )}
-              </div>
-            </div>
+            <BufferZonePanel
+              enabledBuffers={bufferConfig.enabledBuffers}
+              customBuffers={bufferConfig.customBuffers}
+              customBufferInput={bufferConfig.customBufferInput}
+              onBufferToggle={handleBufferToggle}
+              onRemoveCustomBuffer={(distance) => {
+                bufferConfig.handleRemoveCustomBuffer(distance)
+                wizard.setHasUnsavedChanges(true)
+              }}
+              onAddCustomBuffer={() => {
+                const added = bufferConfig.handleAddCustomBuffer()
+                if (added) wizard.setHasUnsavedChanges(true)
+                return added
+              }}
+              onCustomBufferInputChange={bufferConfig.setCustomBufferInput}
+            />
           </div>
         )}
 

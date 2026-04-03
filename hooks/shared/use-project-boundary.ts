@@ -13,8 +13,14 @@ interface ProjectBoundaryResult {
   effectiveSiteId: string | null
   /** All project sites (from useProjectSites query) */
   projectSites: ProjectSiteWithGeoJSON[]
-  /** All site boundaries (for multi-site search and display) */
+  /** All site boundaries (for multi-site search and display) — empty when a specific site is selected */
   allBoundaries: GeoJSON.Feature<GeoJSON.Polygon>[]
+  /** All site boundaries regardless of selection (for merged bbox search) */
+  allSiteBoundaries: GeoJSON.Feature<GeoJSON.Polygon>[]
+  /** Other site boundaries excluding the effective site (for map overlay) */
+  otherBoundaries: GeoJSON.Feature<GeoJSON.Polygon>[]
+  /** Merged bounding box of all site boundaries (for multi-site search) — undefined if ≤1 site */
+  searchBoundary: GeoJSON.Feature<GeoJSON.Polygon> | undefined
   /** Whether the project sites query is still loading */
   isSitesLoading: boolean
 }
@@ -72,6 +78,60 @@ export function useProjectBoundary(
 
   const effectiveSiteId = effectiveSite?.id ?? null
 
+  // All site boundaries regardless of selection (for merged bbox search)
+  const allSiteBoundaries = React.useMemo(
+    () =>
+      projectSites
+        .filter((s) => s.boundary)
+        .map((s) => s.boundary as GeoJSON.Feature<GeoJSON.Polygon>),
+    [projectSites]
+  )
+
+  // Other site boundaries excluding the effective site (for map overlay)
+  const isAllSites = !selectedSite && allBoundaries.length > 1
+  const otherBoundaries = React.useMemo(
+    () =>
+      isAllSites
+        ? []
+        : projectSites
+            .filter((s) => s.id !== effectiveSiteId && s.boundary)
+            .map((s) => s.boundary as GeoJSON.Feature<GeoJSON.Polygon>),
+    [projectSites, effectiveSiteId, isAllSites]
+  )
+
+  // Merged bounding box of all site boundaries for multi-site search
+  const searchBoundary = React.useMemo(() => {
+    if (allSiteBoundaries.length <= 1) return undefined
+    let minLng = Infinity,
+      maxLng = -Infinity,
+      minLat = Infinity,
+      maxLat = -Infinity
+    for (const b of allSiteBoundaries) {
+      for (const coord of b.geometry.coordinates[0]) {
+        minLng = Math.min(minLng, coord[0])
+        maxLng = Math.max(maxLng, coord[0])
+        minLat = Math.min(minLat, coord[1])
+        maxLat = Math.max(maxLat, coord[1])
+      }
+    }
+    return {
+      type: 'Feature' as const,
+      properties: {},
+      geometry: {
+        type: 'Polygon' as const,
+        coordinates: [
+          [
+            [minLng, minLat],
+            [maxLng, minLat],
+            [maxLng, maxLat],
+            [minLng, maxLat],
+            [minLng, minLat],
+          ],
+        ],
+      },
+    } as GeoJSON.Feature<GeoJSON.Polygon>
+  }, [allSiteBoundaries])
+
   return {
     projectBoundary,
     projectCenter,
@@ -79,6 +139,9 @@ export function useProjectBoundary(
     effectiveSiteId,
     projectSites,
     allBoundaries,
+    allSiteBoundaries,
+    otherBoundaries,
+    searchBoundary,
     isSitesLoading,
   }
 }

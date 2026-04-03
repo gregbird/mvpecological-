@@ -1,8 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Search, Loader2, Eye, EyeOff, AlertCircle, Grid3X3 } from 'lucide-react'
-import dynamic from 'next/dynamic'
+import { Search, Loader2, AlertCircle } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -13,43 +12,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useToast } from '@/hooks/use-toast'
-import {
-  useCreateFinding,
-  useDeleteFinding,
-  useUpdateFinding,
-} from '@/hooks/queries/use-finding-hooks'
+import { useUpdateFinding } from '@/hooks/queries/use-finding-hooks'
 import { FindingsList, type FindingDisplay } from './findings-list'
-import { getBoundingBox } from '@/lib/gis/bounding-box'
-import type { Project, DeskResearchFinding, Json } from '@/types/database'
+import { ShellMapPanel } from './shell-map-panel'
+import type { Project, DeskResearchFinding } from '@/types/database'
 import { useSessionStorage } from '@/hooks/shared/use-session-storage'
 import { useSubstepSearch } from '@/hooks/shared/use-substep-search'
-import {
-  type FindingSource,
-  type FindingType,
-  type DeskResearchFinding as MapFinding,
-} from '@/components/desk-research/finding-card'
-import { IRELAND_CENTER } from '@/lib/config/map-constants'
-import { MapCaptureButton } from '@/components/maps/map-capture-button'
+import { useShellSearch } from '@/hooks/data-gathering/use-shell-search'
+import { useShellSave } from '@/hooks/data-gathering/use-shell-save'
+import { useShellAi } from '@/hooks/data-gathering/use-shell-ai'
+import { useSpatialFilter } from '@/hooks/shared/use-spatial-filter'
 import type { MapStepName } from '@/lib/map-screenshots/types'
-
-// Dynamic import for map
-const ProjectMap = dynamic(
-  () => import('@/components/maps/project-map').then((mod) => mod.ProjectMap),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="bg-muted/50 flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    ),
-  }
-)
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export interface SubstepShellProps {
-  // Common props passed by parent
   project: Project
   projectBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
   /** Merged boundary for search (covers all sites); falls back to projectBoundary */
@@ -70,56 +47,44 @@ export interface SubstepShellProps {
   autoSearchTrigger?: boolean
   onAutoSearchComplete?: (status: 'done' | 'error' | 'skipped') => void
 
-  // Configuration
   config: SubstepShellConfig
-
-  // Ref to expose the AI summary trigger to parent substep components
   aiSummaryTriggerRef?: React.MutableRefObject<((finding: FindingDisplay) => void) | null>
 
-  // Children: render prop for deep research modal
   renderDeepResearchModal?: (props: {
     searchResults: FindingDisplay[]
     savedFindings: DeskResearchFinding[]
   }) => React.ReactNode
 
-  // Optional extra content above FindingsList (e.g. enrichment progress)
   renderExtraControls?: () => React.ReactNode
 }
 
 export interface SubstepShellConfig {
-  // Identity
   title: string
   titleIcon?: React.ReactNode
   description: string
   searchButtonLabel: string
   searchButtonColor: string
   emptyMessage: string
-  cacheKeyPrefix: string // e.g. 'npws', 'gbif', 'epa'
-  stepName: MapStepName // for MapCaptureButton
-
-  // Data source
-  source: string // 'npws' | 'gbif' | 'epa'
+  cacheKeyPrefix: string
+  stepName: MapStepName
+  source: string
   /** Source values to match when restoring saved findings from DB (defaults to [source]) */
   sourceFilter?: string[]
 
-  // Search
   performSearch: (params: {
     bbox: { minLat: number; maxLat: number; minLng: number; maxLng: number }
     buffer: number
     boundary?: GeoJSON.Feature<GeoJSON.Polygon>
   }) => Promise<FindingDisplay[]>
 
-  // Matching (save/unsave)
   matchPredicate: (saved: DeskResearchFinding, result: FindingDisplay) => boolean
   minimalMetadataKeys: string[]
 
-  // Build the DB payload when saving a finding (varies per substep)
   buildCreatePayload: (
     finding: FindingDisplay,
     context: { projectId: string; userId: string; siteId?: string | null }
   ) => Record<string, unknown>
 
-  // AI summary
   aiSummaryEndpoint: string
   buildAiSummaryBody: (finding: FindingDisplay) => Record<string, unknown>
   /** Optional guard — if returns false, skip AI summary for this finding */
@@ -127,32 +92,23 @@ export interface SubstepShellConfig {
   /** Optional filter for which findings to batch-summarize */
   summarizeFilter?: (finding: FindingDisplay) => boolean
 
-  // Filtering (optional, for site-type filter)
   filterConfig?: {
     showSiteTypeFilter: boolean
     siteTypeFilterOrder: string[]
     siteTypeFilterConfig: Record<string, { active: string; inactive: string }>
   }
 
-  // Distance/proximity filter (for species records)
   showDistanceFilter?: boolean
-
-  // Extra FindingsList props
   findingsListExtraProps?: Record<string, unknown>
 
-  // Post-search hook (e.g. NBDC enrichment)
   onPostSearch?: (
     findings: FindingDisplay[],
     setResults: React.Dispatch<React.SetStateAction<FindingDisplay[]>>
   ) => Promise<void>
 
-  // Deep research
   onDeepResearch?: (finding: FindingDisplay, savedFindings: DeskResearchFinding[]) => void
 
-  // Extra search disabled condition
   isSearchDisabled?: boolean
-
-  // Grid overlay for map (searched grid squares)
   gridOverlay?: GeoJSON.FeatureCollection
   /** Compute grid overlay based on selected buffer — takes priority over static gridOverlay */
   computeGridOverlay?: (bufferKm: number) => GeoJSON.FeatureCollection | undefined
@@ -163,15 +119,18 @@ export interface SubstepShellConfig {
   /** Called whenever the spatially filtered results change (for external count tracking) */
   onFilteredResultsChange?: (filtered: FindingDisplay[]) => void
 
-  // Map findings customization
-  mapFindingsMapper?: (finding: FindingDisplay, savedFindings: DeskResearchFinding[]) => MapFinding
-  mapSelectedMapper?: (finding: FindingDisplay) => MapFinding
+  mapFindingsMapper?: (
+    finding: FindingDisplay,
+    savedFindings: DeskResearchFinding[]
+  ) => import('@/components/desk-research/finding-card').DeskResearchFinding
+  mapSelectedMapper?: (
+    finding: FindingDisplay
+  ) => import('@/components/desk-research/finding-card').DeskResearchFinding
   mapFindingsSavedFilter?: (
     finding: FindingDisplay,
     savedFindings: DeskResearchFinding[]
   ) => boolean
 
-  // Site type filter state callback (for parent-level filter sync)
   onSiteTypeFilterChange?: (siteType: string | null) => void
 }
 
@@ -198,36 +157,19 @@ export function DataGatheringSubstepShell({
   renderDeepResearchModal,
   renderExtraControls,
 }: SubstepShellProps) {
-  const { toast } = useToast()
-  const createFinding = useCreateFinding()
-  const deleteFinding = useDeleteFinding()
   const updateFinding = useUpdateFinding()
 
-  // Cache key for sessionStorage — project-level (search covers all sites).
-  // Site filtering is done at display time via spatial filter.
   const cacheKey = `${config.cacheKeyPrefix}-search-${project.id}`
 
-  const [isSearching, setIsSearching] = React.useState(false)
-  const [searchProgress, setSearchProgress] = React.useState<string | null>(null)
   const [searchResults, setSearchResults] = useSessionStorage<FindingDisplay[]>(cacheKey, [])
 
-  // Map container ref for screenshot capture
-  const mapContainerRef = React.useRef<HTMLDivElement>(null)
-
-  // View mode tracking
-  const [listViewMode, setListViewMode] = React.useState<'cards' | 'table'>('table')
-  // Grid overlay toggle (default on when grid overlay is available)
-  const [showGridOverlay, setShowGridOverlay] = React.useState(true)
-
-  // Site type filter for map sync
+  const [, setListViewMode] = React.useState<'cards' | 'table'>('table')
   const [activeSiteTypeFilter, setActiveSiteTypeFilter] = React.useState<string | null>(null)
 
-  // Distance filter for map sync
   const [activeDistanceFilter, setActiveDistanceFilter] = React.useState<
     'all' | '0-1' | '1-5' | '5-10' | '10+'
   >('all')
 
-  // Shared substep search logic
   const performSearchRef = React.useRef<(() => Promise<void>) | null>(null)
   const stableMinimalKeys = React.useMemo(
     () => config.minimalMetadataKeys,
@@ -267,396 +209,70 @@ export function DataGatheringSubstepShell({
     bufferDistances[0] || 2
   )
 
-  // Memoize computed grid overlay to avoid recalculating on every render
   const computedGridOverlay = React.useMemo(
     () => config.computeGridOverlay?.(selectedBuffer),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [config.computeGridOverlay, selectedBuffer]
   )
 
-  // ── Perform search ──────────────────────────────────────────────────────
-  const performSearch = async () => {
-    // Multi-site "All Sites" mode: search all site boundaries in parallel and merge
-    if (allBoundaries && allBoundaries.length > 0) {
-      setIsSearching(true)
-      setSearchProgress(`${allBoundaries.length} sites...`)
-      setSearchResults([])
+  const { isSearching, searchProgress, performSearch } = useShellSearch({
+    config,
+    allBoundaries,
+    searchBoundary,
+    projectBoundary,
+    projectCenter,
+    selectedBuffer,
+    setSearchResults,
+    performSearchRef,
+  })
 
-      try {
-        // Build search tasks for all sites
-        const tasks = allBoundaries
-          .map((boundary) => {
-            const bbox = getBoundingBox(boundary, null, selectedBuffer)
-            if (!bbox) return null
-            return config.performSearch({
-              bbox: {
-                minLat: bbox.minLat,
-                maxLat: bbox.maxLat,
-                minLng: bbox.minLng,
-                maxLng: bbox.maxLng,
-              },
-              buffer: selectedBuffer,
-              boundary,
-            })
-          })
-          .filter(Boolean) as Promise<FindingDisplay[]>[]
+  const { handleFetchAiSummary, handleSummarizeAll, handleStopSummarize, isSummarizing } =
+    useShellAi({
+      config,
+      savedFindings,
+      searchResults,
+      setSearchResults,
+      aiSummaryTriggerRef,
+    })
 
-        // Run all site searches in parallel
-        const results = await Promise.all(tasks)
-
-        // Merge results, dedup by id
-        const merged: FindingDisplay[] = []
-        const seenIds = new Set<string>()
-        for (const findings of results) {
-          for (const f of findings) {
-            if (!seenIds.has(f.id)) {
-              seenIds.add(f.id)
-              merged.push(f)
-            }
-          }
-        }
-
-        setSearchResults(merged)
-
-        // Post-search hook (e.g. NBDC enrichment)
-        if (config.onPostSearch && merged.length > 0) {
-          config.onPostSearch(merged, setSearchResults)
-        }
-      } catch (error) {
-        console.error(`${config.cacheKeyPrefix} search error:`, error)
-        toast({
-          variant: 'destructive',
-          title: 'Search failed',
-          description: `Could not fetch data from ${config.searchButtonLabel.replace('Search ', '')}.`,
-        })
-      } finally {
-        setIsSearching(false)
-        setSearchProgress(null)
-      }
-      return
-    }
-
-    // Single site or specific site — use searchBoundary (merged) or projectBoundary
-    const effectiveBoundary = searchBoundary ?? projectBoundary
-    const bbox = getBoundingBox(effectiveBoundary, projectCenter, selectedBuffer)
-    if (!bbox) {
-      toast({
-        variant: 'destructive',
-        title: 'No boundary',
-        description: 'Please define a project boundary first.',
-      })
-      return
-    }
-
-    setIsSearching(true)
-    setSearchResults([])
-
-    try {
-      const findings = await config.performSearch({
-        bbox: {
-          minLat: bbox.minLat,
-          maxLat: bbox.maxLat,
-          minLng: bbox.minLng,
-          maxLng: bbox.maxLng,
-        },
-        buffer: selectedBuffer,
-        boundary: effectiveBoundary,
-      })
-
-      setSearchResults(findings)
-
-      // Post-search hook (e.g. NBDC enrichment)
-      if (config.onPostSearch && findings.length > 0) {
-        config.onPostSearch(findings, setSearchResults)
-      }
-    } catch (error) {
-      console.error(`${config.cacheKeyPrefix} search error:`, error)
-      toast({
-        variant: 'destructive',
-        title: 'Search failed',
-        description: `Could not fetch data from ${config.searchButtonLabel.replace('Search ', '')}.`,
-      })
-    } finally {
-      setIsSearching(false)
-    }
-  }
-
-  // Assign ref so the hook can call performSearch
-  performSearchRef.current = performSearch
-
-  // ── Handle save/unsave ──────────────────────────────────────────────────
-  const handleSaveFinding = async (finding: FindingDisplay) => {
-    setSavingIds((prev) => new Set(prev).add(finding.id))
-    try {
-      // Use the substep's matchPredicate for consistent matching
-      const existingFinding = savedFindings.find((f) => config.matchPredicate(f, finding))
-
-      if (existingFinding) {
-        await deleteFinding.mutateAsync(existingFinding.id)
-      } else {
-        const payload = config.buildCreatePayload(finding, {
-          projectId: project.id,
-          userId,
-          siteId,
-        })
-        await createFinding.mutateAsync(payload as Parameters<typeof createFinding.mutateAsync>[0])
-
-        // Auto-trigger AI summary generation after saving
-        if (!finding.metadata?.aiSummary && !finding.metadata?.aiSummaryLoading) {
-          handleFetchAiSummary(finding).catch((err) =>
-            console.error('[AI Summary] Auto-trigger failed:', err)
-          )
-        }
-      }
-    } catch (error) {
-      console.error('Save finding error:', error)
-      toast({
-        variant: 'destructive',
-        title: 'Save failed',
-        description: 'Could not save the finding. Please try again.',
-      })
-    } finally {
-      setSavingIds((prev) => {
-        const next = new Set(prev)
-        next.delete(finding.id)
-        return next
-      })
-    }
-  }
-
-  // ── Handle Save All ─────────────────────────────────────────────────────
-  const [isSavingAll, setIsSavingAll] = React.useState(false)
-
-  const handleSaveAll = async (findings: FindingDisplay[]) => {
-    setIsSavingAll(true)
-    let savedCount = 0
-    const savedFindings: FindingDisplay[] = []
-    try {
-      for (const finding of findings) {
-        try {
-          const payload = config.buildCreatePayload(finding, {
-            projectId: project.id,
-            userId,
-            siteId,
-          })
-          await createFinding.mutateAsync(
-            payload as Parameters<typeof createFinding.mutateAsync>[0]
-          )
-          savedCount++
-          savedFindings.push(finding)
-        } catch {
-          // Skip individual failures
-        }
-      }
-      toast({
-        title: `Saved ${savedCount} species`,
-        description: `${savedCount} of ${findings.length} species records saved. Generating AI summaries...`,
-      })
-
-      // Auto-trigger AI summaries for all saved findings (fire-and-forget)
-      for (const finding of savedFindings) {
-        if (!finding.metadata?.aiSummary && !finding.metadata?.aiSummaryLoading) {
-          handleFetchAiSummary(finding).catch(() => {})
-          await new Promise((resolve) => setTimeout(resolve, 300))
-        }
-      }
-    } finally {
-      setIsSavingAll(false)
-    }
-  }
-
-  // ── Handle AI summary ───────────────────────────────────────────────────
-  const handleFetchAiSummary = async (finding: FindingDisplay) => {
-    if (config.canFetchAiSummary && !config.canFetchAiSummary(finding)) return
-
-    // Set loading state
-    setSearchResults((prev) =>
-      prev.map((f) =>
-        f.id === finding.id ? { ...f, metadata: { ...f.metadata, aiSummaryLoading: true } } : f
+  const { handleSaveFinding, handleSaveAll, isSavingAll } = useShellSave({
+    config,
+    projectId: project.id,
+    userId,
+    siteId,
+    savedFindings,
+    setSavingIds,
+    onAfterSave: (finding) => {
+      handleFetchAiSummary(finding).catch((err) =>
+        console.error('[AI Summary] Auto-trigger failed:', err)
       )
-    )
-
-    try {
-      const response = await fetch(config.aiSummaryEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config.buildAiSummaryBody(finding)),
-      })
-
-      if (!response.ok) throw new Error('Failed to fetch summary')
-
-      const data = await response.json()
-
-      setSearchResults((prev) =>
-        prev.map((f) =>
-          f.id === finding.id
-            ? {
-                ...f,
-                metadata: {
-                  ...f.metadata,
-                  aiSummary: data.summary,
-                  aiSummaryLoading: false,
-                },
-              }
-            : f
-        )
-      )
-
-      // Persist AI summary to DB if finding is already saved
-      const existingSaved = savedFindings.find((f) => config.matchPredicate(f, finding))
-      if (existingSaved) {
-        const existingRawData = (existingSaved.raw_data as Record<string, unknown>) || {}
-        const existingMetadata = (existingRawData.metadata as Record<string, unknown>) || {}
-        updateFinding
-          .mutateAsync({
-            findingId: existingSaved.id,
-            updates: {
-              raw_data: {
-                ...existingRawData,
-                metadata: { ...existingMetadata, aiSummary: data.summary },
-              } as unknown as Json,
-            },
-          })
-          .catch((err) => console.error('Failed to persist AI summary:', err))
-      }
-    } catch (error) {
-      console.error('AI summary error:', error)
-      setSearchResults((prev) =>
-        prev.map((f) =>
-          f.id === finding.id
-            ? {
-                ...f,
-                metadata: {
-                  ...f.metadata,
-                  aiSummary: 'Failed to generate summary. Try again later.',
-                  aiSummaryLoading: false,
-                },
-              }
-            : f
-        )
-      )
-    }
-  }
-
-  // ── Expose AI summary trigger to parent substep components ──────────────
-  if (aiSummaryTriggerRef) {
-    aiSummaryTriggerRef.current = handleFetchAiSummary
-  }
-
-  // ── Batch summarize ─────────────────────────────────────────────────────
-  const [isSummarizing, setIsSummarizing] = React.useState(false)
-  const summarizeCancelRef = React.useRef(false)
-
-  const handleSummarizeAll = async () => {
-    const filter =
-      config.summarizeFilter ||
-      ((f: FindingDisplay) => !f.metadata?.aiSummary && !f.metadata?.aiSummaryLoading)
-    const candidates = searchResults.filter(filter)
-    if (candidates.length === 0) return
-
-    summarizeCancelRef.current = false
-    setIsSummarizing(true)
-    for (const finding of candidates) {
-      if (summarizeCancelRef.current) break
-      await handleFetchAiSummary(finding)
-      await new Promise((resolve) => setTimeout(resolve, 500))
-    }
-    setIsSummarizing(false)
-  }
-
-  const handleStopSummarize = () => {
-    summarizeCancelRef.current = true
-  }
-
-  // ── Deep research handler ───────────────────────────────────────────────
-  const handleDeepResearch = React.useCallback(
-    (finding: FindingDisplay) => {
-      config.onDeepResearch?.(finding, savedFindings)
     },
-    [config, savedFindings]
-  )
+  })
 
-  // ── Note update handler ─────────────────────────────────────────────────
-  const handleUpdateNote = React.useCallback(
-    async (findingId: string, notes: string) => {
-      try {
-        await updateFinding.mutateAsync({ findingId, updates: { notes: notes || null } })
-      } catch (error) {
-        console.error('Failed to update note:', error)
-      }
-    },
-    [updateFinding]
-  )
+  const spatialFilterDisabled = !!(allBoundaries && allBoundaries.length > 0) || !siteId
+  const getGeometry = React.useCallback((f: FindingDisplay) => {
+    return f.location ?? null
+  }, [])
 
-  // ── Spatial filter: when a specific site is selected, only show findings near that site ──
-  // Use turf buffered polygon for precise containment check instead of a bbox
-  const siteFilterPolygon = React.useMemo(() => {
-    // Only filter when a specific site is selected (not "All Sites") and we have a boundary
-    // allBoundaries is set → "All Sites" mode → no filtering needed
-    if (allBoundaries && allBoundaries.length > 0) return null
-    // No siteId → single-site project or "All Sites" → no filtering needed
-    if (!siteId || !projectBoundary) return null
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const turf = require('@turf/turf')
-      return turf.buffer(projectBoundary, selectedBuffer, {
-        units: 'kilometers',
-      }) as GeoJSON.Feature<GeoJSON.Polygon>
-    } catch {
-      return null
-    }
-  }, [allBoundaries, siteId, projectBoundary, selectedBuffer])
+  const { filteredItems: spatiallyFilteredBase } = useSpatialFilter({
+    boundary: projectBoundary,
+    bufferKm: selectedBuffer,
+    items: searchResults,
+    getGeometry,
+    disabled: spatialFilterDisabled,
+  })
 
   const spatiallyFilteredResults = React.useMemo(() => {
-    // When no polygon filter and no custom filter, return all
-    if (!siteFilterPolygon && !config.customSpatialFilter) return searchResults
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const turf = siteFilterPolygon ? require('@turf/turf') : null
-
-    const pointInFilter = (lng: number, lat: number) => {
-      if (!turf || !siteFilterPolygon) return true
-      try {
-        return turf.booleanPointInPolygon([lng, lat], siteFilterPolygon)
-      } catch {
-        return false
-      }
-    }
-
-    const geometryIntersectsFilter = (geom: GeoJSON.Geometry) => {
-      if (!turf || !siteFilterPolygon) return true
-      try {
-        return turf.booleanIntersects(geom, siteFilterPolygon)
-      } catch {
-        return false
-      }
-    }
-
-    return searchResults.filter((f) => {
-      const loc = f.location
-      if (!loc) {
-        // No location — use custom spatial filter if provided (e.g. grid-based species)
-        if (config.customSpatialFilter) return config.customSpatialFilter(f)
-        return true
-      }
-      if (loc.type === 'Point') {
-        return pointInFilter(loc.coordinates[0], loc.coordinates[1])
-      }
-      // For Polygon/LineString, use intersection test instead of centroid —
-      // large NPWS polygons (e.g. bays) may have centroids far from the site
-      // boundary even though they overlap with the buffer area
-      if (loc.type === 'Polygon' || loc.type === 'MultiPolygon' || loc.type === 'LineString') {
-        return geometryIntersectsFilter(loc)
-      }
-      return true
+    if (!config.customSpatialFilter || spatialFilterDisabled) return spatiallyFilteredBase
+    return spatiallyFilteredBase.filter((f) => {
+      if (f.location) return true
+      return config.customSpatialFilter!(f)
     })
-  }, [searchResults, siteFilterPolygon, config.customSpatialFilter])
+  }, [spatiallyFilteredBase, config.customSpatialFilter, spatialFilterDisabled])
 
-  // Notify parent when spatially filtered results change (e.g. for species counts)
   React.useEffect(() => {
     config.onFilteredResultsChange?.(spatiallyFilteredResults)
   }, [spatiallyFilteredResults, config.onFilteredResultsChange])
 
-  // ── Filter results for map ──────────────────────────────────────────────
   const filteredResults = React.useMemo(() => {
     let result = spatiallyFilteredResults
     if (activeSiteTypeFilter) {
@@ -683,42 +299,24 @@ export function DataGatheringSubstepShell({
     return result
   }, [spatiallyFilteredResults, activeSiteTypeFilter, activeDistanceFilter])
 
-  // Default map findings mapper
-  const defaultMapFindingsMapper = (f: FindingDisplay): MapFinding => ({
-    id: f.id,
-    source: f.source as FindingSource,
-    dataType: f.dataType as FindingType,
-    title: f.title,
-    content: f.content,
-    location: f.location,
-    isSaved: savedFindings.some((sf) => config.matchPredicate(sf, f)),
-  })
+  const handleDeepResearch = React.useCallback(
+    (finding: FindingDisplay) => {
+      config.onDeepResearch?.(finding, savedFindings)
+    },
+    [config, savedFindings]
+  )
 
-  // Default saved filter
-  const defaultSavedFilter = (f: FindingDisplay) =>
-    savedFindings.some((sf) => config.matchPredicate(sf, f))
+  const handleUpdateNote = React.useCallback(
+    async (findingId: string, notes: string) => {
+      try {
+        await updateFinding.mutateAsync({ findingId, updates: { notes: notes || null } })
+      } catch (error) {
+        console.error('Failed to update note:', error)
+      }
+    },
+    [updateFinding]
+  )
 
-  const mapFindingsMapper = config.mapFindingsMapper
-    ? (f: FindingDisplay) => config.mapFindingsMapper!(f, savedFindings)
-    : defaultMapFindingsMapper
-
-  const savedFilter = config.mapFindingsSavedFilter
-    ? (f: FindingDisplay) => config.mapFindingsSavedFilter!(f, savedFindings)
-    : defaultSavedFilter
-
-  const mapSelectedMapper = config.mapSelectedMapper
-    ? (f: FindingDisplay): MapFinding => config.mapSelectedMapper!(f)
-    : (f: FindingDisplay): MapFinding => ({
-        id: f.id,
-        source: f.source as FindingSource,
-        dataType: f.dataType as FindingType,
-        title: f.title,
-        content: f.content,
-        location: f.location,
-        isSaved: false,
-      })
-
-  // Handle site type filter change
   const handleSiteTypeFilterChange = React.useCallback(
     (siteType: string | null) => {
       setActiveSiteTypeFilter(siteType)
@@ -727,7 +325,6 @@ export function DataGatheringSubstepShell({
     [config]
   )
 
-  // Handle distance filter change (syncs map)
   const handleDistanceFilterChange = React.useCallback(
     (filter: 'all' | '0-1' | '1-5' | '5-10' | '10+') => {
       setActiveDistanceFilter(filter)
@@ -735,7 +332,6 @@ export function DataGatheringSubstepShell({
     []
   )
 
-  // ── Render ──────────────────────────────────────────────────────────────
   if (!projectBoundary) {
     return (
       <div className="flex h-full items-center justify-center p-8">
@@ -749,11 +345,12 @@ export function DataGatheringSubstepShell({
     )
   }
 
+  const displayFindings =
+    config.filterConfig || config.showDistanceFilter ? filteredResults : spatiallyFilteredResults
+
   return (
     <div className="flex h-full">
-      {/* Results Panel */}
       <div className="flex w-[40%] shrink-0 flex-col border-r">
-        {/* Search Controls */}
         <div className="border-b p-4">
           <h3 className="mb-3 flex items-center gap-2 font-semibold">
             {config.titleIcon}
@@ -799,10 +396,7 @@ export function DataGatheringSubstepShell({
           </div>
         </div>
 
-        {/* Optional extra controls (e.g. enrichment progress) */}
         {renderExtraControls?.()}
-
-        {/* Results List */}
         <div className="flex-1 overflow-hidden">
           <FindingsList
             findings={config.filterConfig ? filteredResults : spatiallyFilteredResults}
@@ -821,7 +415,6 @@ export function DataGatheringSubstepShell({
             onSavedFilterChange={setShowSavedOnMap}
             onSummarizeAll={isSummarizing ? handleStopSummarize : handleSummarizeAll}
             isSummarizing={isSummarizing}
-            // Site type filter props
             {...(config.filterConfig
               ? {
                   showSiteTypeFilter: config.filterConfig.showSiteTypeFilter,
@@ -830,14 +423,12 @@ export function DataGatheringSubstepShell({
                   onSiteTypeFilterChange: handleSiteTypeFilterChange,
                 }
               : {})}
-            // Distance filter props
             {...(config.showDistanceFilter
               ? {
                   distanceFilter: activeDistanceFilter,
                   onDistanceFilterChange: handleDistanceFilterChange,
                 }
               : {})}
-            // Extra props (e.g. species header, enrichment, source filter)
             {...(config.findingsListExtraProps || {})}
             onViewModeChange={setListViewMode}
             onSaveAll={handleSaveAll}
@@ -846,67 +437,30 @@ export function DataGatheringSubstepShell({
         </div>
       </div>
 
-      {/* Map */}
-      {showMap && (
-        <div className="relative flex-1" ref={mapContainerRef}>
-          <ProjectMap
-            className="h-full"
-            center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
-            zoom={11}
-            boundary={projectBoundary}
-            otherBoundaries={otherBoundaries}
-            allBoundaries={allBoundaries}
-            bufferDistances={[selectedBuffer]}
-            gridOverlay={showGridOverlay ? (computedGridOverlay ?? config.gridOverlay) : undefined}
-            findings={(config.filterConfig || config.showDistanceFilter
-              ? filteredResults
-              : spatiallyFilteredResults
-            )
-              .filter((f) => !hiddenIds.has(f.id))
-              .filter((f) => !showSavedOnMap || savedFilter(f))
-              .map(mapFindingsMapper)}
-            selectedFinding={selectedFinding ? mapSelectedMapper(selectedFinding) : undefined}
-            onFindingClick={(f) => {
-              const found = searchResults.find((r) => r.id === f.id) || null
-              setSelectedFinding((prev) => (prev?.id === f.id ? null : found))
-            }}
-            onMapClick={() => setSelectedFinding(null)}
-          />
+      <ShellMapPanel
+        showMap={showMap}
+        onToggleMap={onToggleMap}
+        projectCenter={projectCenter}
+        projectBoundary={projectBoundary}
+        otherBoundaries={otherBoundaries}
+        allBoundaries={allBoundaries}
+        selectedBuffer={selectedBuffer}
+        computedGridOverlay={computedGridOverlay}
+        config={config}
+        projectId={project.id}
+        userId={userId}
+        displayFindings={displayFindings}
+        savedFindings={savedFindings}
+        hiddenIds={hiddenIds}
+        showSavedOnMap={showSavedOnMap}
+        selectedFinding={selectedFinding}
+        searchResults={searchResults}
+        onFindingClick={(found) => {
+          setSelectedFinding((prev) => (prev?.id === found?.id ? null : found))
+        }}
+        onMapClick={() => setSelectedFinding(null)}
+      />
 
-          <div className="absolute top-4 right-4 z-1000 flex items-center gap-2">
-            {(config.gridOverlay || config.computeGridOverlay) && (
-              <Button
-                variant="secondary"
-                size="sm"
-                className={`shadow-md ${showGridOverlay ? 'bg-purple-100 text-purple-700' : ''}`}
-                onClick={() => setShowGridOverlay((prev) => !prev)}
-                data-map-control="true"
-              >
-                <Grid3X3 className="mr-1 h-4 w-4" />
-                {showGridOverlay ? 'Hide Grid' : 'Show Grid'}
-              </Button>
-            )}
-            <MapCaptureButton
-              containerRef={mapContainerRef}
-              projectId={project.id}
-              stepName={config.stepName}
-              userId={userId}
-              className="shadow-md"
-            />
-          </div>
-        </div>
-      )}
-
-      {!showMap && (
-        <div className="flex flex-1 items-center justify-center bg-gray-50 dark:bg-gray-900">
-          <Button variant="outline" onClick={onToggleMap}>
-            <Eye className="mr-2 h-4 w-4" />
-            Show Map
-          </Button>
-        </div>
-      )}
-
-      {/* Deep Research Modal (render prop) */}
       {renderDeepResearchModal?.({ searchResults, savedFindings })}
     </div>
   )

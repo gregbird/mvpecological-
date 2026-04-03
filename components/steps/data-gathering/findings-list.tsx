@@ -1,43 +1,19 @@
 'use client'
 
 import * as React from 'react'
-import {
-  Search,
-  Loader2,
-  ArrowUpDown,
-  MapPin,
-  Shield,
-  Bug,
-  Sparkles,
-  Waves,
-  Droplet,
-  Mountain,
-  Eye,
-  EyeOff,
-  Leaf,
-  FlaskConical,
-  Check,
-  Save,
-  AlertCircle,
-  AlertTriangle,
-  MessageSquare,
-  X,
-  LayoutList,
-  Table2,
-} from 'lucide-react'
+import { Search, Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import type { DeskResearchFinding } from '@/types/database'
 import { SpeciesTableView } from './species-table-view'
+import { FindingsHeader } from './findings-header'
+import { FindingCard } from './finding-card'
+import {
+  useFindingsFilters,
+  isFindingSaved,
+  getSavedFindingDbId,
+} from '@/hooks/data-gathering/use-findings-filters'
 
 // Finding type for display
 export interface FindingDisplay {
@@ -87,6 +63,7 @@ export interface FindingDisplay {
     datasetName?: string
     newestRecordDate?: string
     gridReference?: string
+    gridSquares?: string[]
   }
 }
 
@@ -146,46 +123,7 @@ interface FindingsListProps {
   isSavingAll?: boolean
 }
 
-// Source badge colors
-const SOURCE_COLORS: Record<string, string> = {
-  npws: 'bg-emerald-100 text-emerald-700',
-  gbif: 'bg-purple-100 text-purple-700',
-  nbdc: 'bg-blue-100 text-blue-700',
-  epa: 'bg-cyan-100 text-cyan-700',
-  fpo: 'bg-rose-100 text-rose-700',
-  manual: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
-  company_reports: 'bg-indigo-100 text-indigo-700',
-}
-
-// Designated site type badge colors (SAC, SPA, NHA, pNHA)
-const SITE_TYPE_COLORS: Record<string, string> = {
-  SAC: 'bg-emerald-100 text-emerald-700', // Green for SAC
-  SPA: 'bg-sky-100 text-sky-700', // Blue for SPA (birds)
-  NHA: 'bg-amber-100 text-amber-700', // Amber for NHA
-  pNHA: 'bg-orange-100 text-orange-700', // Orange for pNHA (proposed)
-}
-
-// EPA site type configs with icons and colors
-const EPA_SITE_TYPE_CONFIG: Record<
-  string,
-  { label: string; color: string; icon: React.ElementType }
-> = {
-  River: {
-    label: 'River',
-    color: 'bg-blue-50 text-blue-700',
-    icon: Waves,
-  },
-  Lake: {
-    label: 'Lake',
-    color: 'bg-cyan-50 text-cyan-700',
-    icon: Droplet,
-  },
-  Catchment: {
-    label: 'Catchment',
-    color: 'bg-slate-50 text-slate-700',
-    icon: Mountain,
-  },
-}
+const RESULTS_PER_PAGE = 20
 
 export function FindingsList({
   findings,
@@ -233,125 +171,15 @@ export function FindingsList({
   )
   const [sortBy, setSortBy] = React.useState<'distance' | 'title' | 'type'>('type')
   const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>('asc')
-  const [displayLimit, setDisplayLimit] = React.useState(20)
-  const RESULTS_PER_PAGE = 20
+  const [displayLimit, setDisplayLimit] = React.useState(RESULTS_PER_PAGE)
   const [activeSiteTypeFilter, setActiveSiteTypeFilter] = React.useState<string | null>(null)
   const [showSavedOnly, setShowSavedOnly] = React.useState(false)
-  // Note state: openNoteId = which finding has note textarea open; noteDrafts = current textarea value
-  const [openNoteId, setOpenNoteId] = React.useState<string | null>(null)
-  const [noteDrafts, setNoteDrafts] = React.useState<Record<string, string>>({})
-  const [savingNoteIds, setSavingNoteIds] = React.useState<Set<string>>(new Set())
 
-  // Check if finding is already saved
-  const isFindingSaved = (finding: FindingDisplay) => {
-    return savedFindings.some((f) => {
-      // Match by ID
-      if (f.id === finding.id) return true
-
-      // Match by title (most reliable - titles are unique per search result)
-      if (f.title === finding.title) return true
-
-      return false
-    })
-  }
-
-  // Get the database UUID for a display finding (display IDs are not UUIDs)
-  const getSavedFindingDbId = (finding: FindingDisplay): string | null => {
-    const saved = savedFindings.find((f) => f.id === finding.id || f.title === finding.title)
-    return saved?.id ?? null
-  }
-
-  // Sort findings - protected species always first
-  const sortedFindings = React.useMemo(() => {
-    const sorted = [...findings]
-    sorted.sort((a, b) => {
-      // Protected species always come first
-      const aProtected = a.metadata?.isProtected ? 1 : 0
-      const bProtected = b.metadata?.isProtected ? 1 : 0
-      if (aProtected !== bProtected) return bProtected - aProtected
-
-      let comparison = 0
-      switch (sortBy) {
-        case 'distance': {
-          const distA = a.metadata?.distance ?? Infinity
-          const distB = b.metadata?.distance ?? Infinity
-          comparison = distA - distB
-          break
-        }
-        case 'title':
-          comparison = a.title.localeCompare(b.title)
-          break
-        case 'type':
-          comparison = a.dataType.localeCompare(b.dataType)
-          break
-      }
-      return sortOrder === 'asc' ? comparison : -comparison
-    })
-    return sorted
-  }, [findings, sortBy, sortOrder])
-
-  // Available site types with counts (for filter buttons)
-  const siteTypeCounts = React.useMemo(() => {
-    if (!showSiteTypeFilter) return null
-    const counts: Record<string, number> = {}
-    for (const f of sortedFindings) {
-      const st = f.metadata?.siteType
-      if (st) counts[st] = (counts[st] || 0) + 1
-    }
-    return counts
-  }, [sortedFindings, showSiteTypeFilter])
-
-  // Count saved findings
-  const savedCount = React.useMemo(() => {
-    return sortedFindings.filter((f) => isFindingSaved(f)).length
-  }, [sortedFindings, savedFindings])
-
-  // Apply site type filter + saved filter + source filter + distance filter
-  const filteredFindings = React.useMemo(() => {
-    let result = sortedFindings
-    if (activeSiteTypeFilter) {
-      result = result.filter((f) => f.metadata?.siteType === activeSiteTypeFilter)
-    }
-    if (showSavedOnly) {
-      result = result.filter((f) => isFindingSaved(f))
-    }
-    // Species filter: protected, invasive, threatened
-    if (sourceFilter && sourceFilter !== 'all') {
-      if (sourceFilter === 'protected') {
-        result = result.filter((f) => f.metadata?.isProtected || f.metadata?.designations)
-      } else if (sourceFilter === 'invasive') {
-        result = result.filter((f) => f.metadata?.isInvasive)
-      } else if (sourceFilter === 'threatened') {
-        result = result.filter((f) => f.metadata?.isThreatened)
-      }
-    }
-    if (distanceFilter && distanceFilter !== 'all') {
-      result = result.filter((f) => {
-        const d = f.metadata?.distance
-        if (d == null) return false
-        switch (distanceFilter) {
-          case '0-1':
-            return d <= 1
-          case '1-5':
-            return d > 1 && d <= 5
-          case '5-10':
-            return d > 5 && d <= 10
-          case '10+':
-            return d > 10
-          default:
-            return true
-        }
-      })
-    }
-    return result
-  }, [
-    sortedFindings,
-    activeSiteTypeFilter,
-    showSavedOnly,
+  const { sortedFindings, filteredFindings, siteTypeCounts, savedCount } = useFindingsFilters(
+    findings,
     savedFindings,
-    sourceFilter,
-    distanceFilter,
-  ])
+    { activeSiteTypeFilter, showSavedOnly, sourceFilter, distanceFilter, sortBy, sortOrder }
+  )
 
   // Paginated findings
   const paginatedFindings = filteredFindings.slice(0, displayLimit)
@@ -376,7 +204,6 @@ export function FindingsList({
     const timer = setTimeout(() => {
       const el = document.getElementById(`finding-${selectedFindingId}`)
       if (!el) return
-      // Find the Radix ScrollArea viewport (nearest scrollable ancestor)
       const viewport = el.closest('[data-radix-scroll-area-viewport]')
       if (viewport) {
         const elRect = el.getBoundingClientRect()
@@ -411,319 +238,40 @@ export function FindingsList({
     <div className="flex h-full flex-col">
       {/* Header with count and filters */}
       {showFilters && (
-        <div className="flex flex-wrap items-center gap-1.5 border-b px-3 py-2">
-          {/* Species header: enrichment status + count + filter badges */}
-          {showSpeciesHeader ? (
-            <>
-              {enrichmentStatus?.isEnriching ? (
-                <span className="flex shrink-0 items-center gap-1.5 text-xs font-medium">
-                  <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
-                  <span className="text-blue-600">
-                    NBDC {enrichmentStatus.current}/{enrichmentStatus.total}
-                  </span>
-                </span>
-              ) : (
-                <button
-                  className={`shrink-0 text-sm font-medium ${showSavedOnly || sourceFilter !== 'all' || (distanceFilter && distanceFilter !== 'all') ? 'text-blue-600 hover:underline' : ''}`}
-                  onClick={() => {
-                    if (
-                      showSavedOnly ||
-                      (sourceFilter && sourceFilter !== 'all') ||
-                      (distanceFilter && distanceFilter !== 'all')
-                    ) {
-                      setShowSavedOnly(false)
-                      onSavedFilterChange?.(false)
-                      onSourceFilterChange?.('all')
-                      onDistanceFilterChange?.('all')
-                    }
-                  }}
-                >
-                  {filteredFindings.length !== sortedFindings.length
-                    ? `${filteredFindings.length} / ${sortedFindings.length}`
-                    : sortedFindings.length}{' '}
-                  results
-                </button>
-              )}
-              {(speciesCounts?.protected ?? 0) > 0 && (
-                <button
-                  onClick={() =>
-                    onSourceFilterChange?.(sourceFilter === 'protected' ? 'all' : 'protected')
-                  }
-                  title={`${speciesCounts!.protected} Protected species`}
-                  className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
-                    sourceFilter === 'protected'
-                      ? 'bg-red-600 text-white'
-                      : 'bg-red-100 text-red-700 hover:bg-red-200'
-                  }`}
-                >
-                  <Shield className="h-2.5 w-2.5" />
-                  {speciesCounts!.protected}
-                </button>
-              )}
-              {(speciesCounts?.invasive ?? 0) > 0 && (
-                <button
-                  onClick={() =>
-                    onSourceFilterChange?.(sourceFilter === 'invasive' ? 'all' : 'invasive')
-                  }
-                  title={`${speciesCounts!.invasive} Invasive species`}
-                  className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
-                    sourceFilter === 'invasive'
-                      ? 'bg-orange-600 text-white'
-                      : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
-                  }`}
-                >
-                  <AlertCircle className="h-2.5 w-2.5" />
-                  {speciesCounts!.invasive}
-                </button>
-              )}
-              {(speciesCounts?.threatened ?? 0) > 0 && (
-                <button
-                  onClick={() =>
-                    onSourceFilterChange?.(sourceFilter === 'threatened' ? 'all' : 'threatened')
-                  }
-                  title={`${speciesCounts!.threatened} Threatened species`}
-                  className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
-                    sourceFilter === 'threatened'
-                      ? 'bg-amber-600 text-white'
-                      : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                  }`}
-                >
-                  <AlertTriangle className="h-2.5 w-2.5" />
-                  {speciesCounts!.threatened}
-                </button>
-              )}
-              {savedCount > 0 && (
-                <button
-                  onClick={() => {
-                    const next = !showSavedOnly
-                    setShowSavedOnly(next)
-                    onSavedFilterChange?.(next)
-                  }}
-                  title={`${savedCount} Saved species`}
-                  className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
-                    showSavedOnly
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                  }`}
-                >
-                  <Check className="h-2.5 w-2.5" />
-                  {savedCount}
-                </button>
-              )}
-              {/* Save All button — saves all currently filtered (unsaved) findings */}
-              {onSaveAll && filteredFindings.length > 0 && (
-                <button
-                  onClick={() => {
-                    const unsaved = filteredFindings.filter(
-                      (f) =>
-                        !savedFindings.some(
-                          (sf) =>
-                            (sf.raw_data as Record<string, unknown>)?.scientificName ===
-                            f.metadata?.scientificName
-                        )
-                    )
-                    if (unsaved.length > 0) onSaveAll(unsaved)
-                  }}
-                  disabled={isSavingAll}
-                  className="flex shrink-0 items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-blue-700 transition-colors hover:bg-blue-200 disabled:opacity-50"
-                  title={`Save all ${filteredFindings.length} filtered results`}
-                >
-                  <Save className="h-2.5 w-2.5" />
-                  {isSavingAll
-                    ? 'Saving...'
-                    : `Save All (${
-                        filteredFindings.filter(
-                          (f) =>
-                            !savedFindings.some(
-                              (sf) =>
-                                (sf.raw_data as Record<string, unknown>)?.scientificName ===
-                                f.metadata?.scientificName
-                            )
-                        ).length
-                      })`}
-                </button>
-              )}
-            </>
-          ) : (
-            <>
-              <button
-                className={`shrink-0 text-sm font-medium ${activeSiteTypeFilter || showSavedOnly ? 'text-blue-600 hover:underline' : ''}`}
-                onClick={() => {
-                  if (activeSiteTypeFilter || showSavedOnly) {
-                    setActiveSiteTypeFilter(null)
-                    setShowSavedOnly(false)
-                    onSiteTypeFilterChange?.(null)
-                    onSavedFilterChange?.(false)
-                  }
-                }}
-              >
-                {filteredFindings.length !== sortedFindings.length
-                  ? `${filteredFindings.length} / ${sortedFindings.length}`
-                  : sortedFindings.length}{' '}
-                results
-              </button>
-              {savedCount > 0 && (
-                <button
-                  onClick={() => {
-                    const next = !showSavedOnly
-                    setShowSavedOnly(next)
-                    onSavedFilterChange?.(next)
-                  }}
-                  className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
-                    showSavedOnly
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                  }`}
-                >
-                  <Check className="h-2.5 w-2.5" />
-                  Saved {savedCount}
-                </button>
-              )}
-              {/* Site type filter buttons */}
-              {showSiteTypeFilter && siteTypeCounts && Object.keys(siteTypeCounts).length > 0 && (
-                <>
-                  {(siteTypeFilterOrder || ['SAC', 'SPA', 'NHA', 'pNHA']).map((siteType) => {
-                    const count = siteTypeCounts[siteType]
-                    if (!count) return null
-                    const isActive = activeSiteTypeFilter === siteType
-                    const defaultColorMap: Record<string, { active: string; inactive: string }> = {
-                      SAC: {
-                        active: 'bg-emerald-600 text-white',
-                        inactive: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200',
-                      },
-                      SPA: {
-                        active: 'bg-sky-600 text-white',
-                        inactive: 'bg-sky-100 text-sky-700 hover:bg-sky-200',
-                      },
-                      NHA: {
-                        active: 'bg-amber-600 text-white',
-                        inactive: 'bg-amber-100 text-amber-700 hover:bg-amber-200',
-                      },
-                      pNHA: {
-                        active: 'bg-orange-600 text-white',
-                        inactive: 'bg-orange-100 text-orange-700 hover:bg-orange-200',
-                      },
-                    }
-                    const config = siteTypeFilterConfig || defaultColorMap
-                    const colors = config[siteType] || {
-                      active: 'bg-gray-600 text-white',
-                      inactive:
-                        'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700',
-                    }
-                    return (
-                      <button
-                        key={siteType}
-                        onClick={() => {
-                          const newValue = isActive ? null : siteType
-                          setActiveSiteTypeFilter(newValue)
-                          onSiteTypeFilterChange?.(newValue)
-                        }}
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${isActive ? colors.active : colors.inactive}`}
-                      >
-                        {siteType} {count}
-                      </button>
-                    )
-                  })}
-                </>
-              )}
-            </>
-          )}
-          {onSummarizeAll && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`h-7 px-2 text-xs ${isSummarizing ? 'text-red-600 hover:text-red-700' : 'text-purple-600 hover:text-purple-700'}`}
-              onClick={isSummarizing ? onStopSummarize : onSummarizeAll}
-            >
-              {isSummarizing ? (
-                <>
-                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                  Stop
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-1 h-3 w-3" />
-                  AI
-                </>
-              )}
-            </Button>
-          )}
-          {/* Source filter dropdown for species */}
-          {onSourceFilterChange && (
-            <Select
-              value={sourceFilter || 'all'}
-              onValueChange={(v) =>
-                onSourceFilterChange(v as 'all' | 'protected' | 'invasive' | 'threatened')
-              }
-            >
-              <SelectTrigger className="h-7 w-auto min-w-[80px] border-0 bg-transparent px-1.5 text-xs shadow-none">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Species</SelectItem>
-                <SelectItem value="protected">Protected Only</SelectItem>
-                <SelectItem value="invasive">Invasive Only</SelectItem>
-                <SelectItem value="threatened">Threatened Only</SelectItem>
-              </SelectContent>
-            </Select>
-          )}
-          {/* Distance/proximity filter dropdown */}
-          {onDistanceFilterChange && (
-            <Select
-              value={distanceFilter || 'all'}
-              onValueChange={(v) =>
-                onDistanceFilterChange(v as 'all' | '0-1' | '1-5' | '5-10' | '10+')
-              }
-            >
-              <SelectTrigger className="h-7 w-auto min-w-[70px] border-0 bg-transparent px-1.5 text-xs shadow-none">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Distances</SelectItem>
-                <SelectItem value="0-1">&lt; 1 km</SelectItem>
-                <SelectItem value="1-5">1–5 km</SelectItem>
-                <SelectItem value="5-10">5–10 km</SelectItem>
-                <SelectItem value="10+">10+ km</SelectItem>
-              </SelectContent>
-            </Select>
-          )}
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
-            <SelectTrigger className="h-7 w-auto min-w-[80px] border-0 bg-transparent px-1.5 text-xs shadow-none">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="distance">Distance</SelectItem>
-              <SelectItem value="title">Title</SelectItem>
-              <SelectItem value="type">Type</SelectItem>
-            </SelectContent>
-          </Select>
-          <button
-            className="text-muted-foreground hover:text-foreground p-0.5"
-            onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
-            title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
-          >
-            <ArrowUpDown className="h-3.5 w-3.5" />
-          </button>
-          {/* Card/Table view toggle (only for species) */}
-          {showSpeciesHeader && (
-            <div className="ml-1 flex items-center rounded-md border">
-              <button
-                className={`p-1 ${viewMode === 'cards' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-                onClick={() => setViewMode('cards')}
-                title="Card view"
-              >
-                <LayoutList className="h-3.5 w-3.5" />
-              </button>
-              <button
-                className={`p-1 ${viewMode === 'table' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-                onClick={() => setViewMode('table')}
-                title="Table view"
-              >
-                <Table2 className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          )}
-        </div>
+        <FindingsHeader
+          filteredFindings={filteredFindings}
+          sortedFindings={sortedFindings}
+          savedFindings={savedFindings}
+          savedCount={savedCount}
+          siteTypeCounts={showSiteTypeFilter ? siteTypeCounts : null}
+          showSpeciesHeader={showSpeciesHeader}
+          speciesCounts={speciesCounts}
+          enrichmentStatus={enrichmentStatus}
+          sourceFilter={sourceFilter}
+          onSourceFilterChange={onSourceFilterChange}
+          showSavedOnly={showSavedOnly}
+          onShowSavedOnlyChange={setShowSavedOnly}
+          onSavedFilterChange={onSavedFilterChange}
+          showSiteTypeFilter={showSiteTypeFilter}
+          siteTypeFilterConfig={siteTypeFilterConfig}
+          siteTypeFilterOrder={siteTypeFilterOrder}
+          activeSiteTypeFilter={activeSiteTypeFilter}
+          onActiveSiteTypeFilterChange={setActiveSiteTypeFilter}
+          onSiteTypeFilterChange={onSiteTypeFilterChange}
+          distanceFilter={distanceFilter}
+          onDistanceFilterChange={onDistanceFilterChange}
+          sortBy={sortBy}
+          onSortByChange={setSortBy}
+          sortOrder={sortOrder}
+          onSortOrderToggle={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+          onSummarizeAll={onSummarizeAll}
+          onStopSummarize={onStopSummarize}
+          isSummarizing={isSummarizing}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          onSaveAll={onSaveAll}
+          isSavingAll={isSavingAll}
+        />
       )}
 
       {/* Table view for species */}
@@ -750,416 +298,23 @@ export function FindingsList({
                 <p className="text-muted-foreground text-sm">No results match the current filter</p>
               </div>
             )}
-            {paginatedFindings.map((finding, findingIdx) => {
-              const saved = isFindingSaved(finding)
-              const isSaving = savingIds?.has(finding.id) ?? false
-              const isEpaFinding = finding.source === 'epa'
-              const isFpoFinding = finding.source === 'fpo'
-              const epaConfig = finding.metadata?.siteType
-                ? EPA_SITE_TYPE_CONFIG[finding.metadata.siteType]
-                : null
-              const isHidden = hiddenIds?.has(finding.id) ?? false
-
-              const isSelected = selectedFindingId === finding.id
-
-              return (
-                <div
-                  key={`${finding.id}-${findingIdx}`}
-                  id={`finding-${finding.id}`}
-                  className={`rounded-lg p-2.5 transition-colors ${
-                    isSelected
-                      ? 'border border-blue-400 bg-blue-50 ring-2 ring-blue-400 dark:border-blue-500 dark:bg-blue-950'
-                      : isHidden
-                        ? 'border border-gray-200 bg-gray-50 opacity-60 dark:border-gray-700 dark:bg-gray-800'
-                        : saved
-                          ? 'border-t border-r border-b border-l-4 border-gray-200 border-l-emerald-500 bg-emerald-50/60 dark:border-gray-700 dark:border-l-emerald-500 dark:bg-emerald-950/40'
-                          : 'border hover:bg-gray-50 dark:hover:bg-gray-800'
-                  }`}
-                >
-                  {/* Title + actions row */}
-                  <div className="flex items-start gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        {/* EPA type icon */}
-                        {isEpaFinding && epaConfig && (
-                          <epaConfig.icon className="h-4 w-4 shrink-0 opacity-70" />
-                        )}
-                        <h4
-                          className={`line-clamp-2 text-sm leading-tight font-medium ${isHidden ? 'text-gray-400' : ''}`}
-                          title={finding.title}
-                        >
-                          {finding.title}
-                        </h4>
-                      </div>
-                    </div>
-                    <div className="relative z-10 flex shrink-0 items-center gap-1">
-                      {/* Visibility toggle */}
-                      {onToggleVisibility && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className={`h-7 w-7 p-0 ${isHidden ? 'text-gray-400' : 'hover:text-foreground text-gray-600'}`}
-                          onClick={() => onToggleVisibility(finding.id)}
-                          title={isHidden ? 'Show on map' : 'Hide from map'}
-                        >
-                          {isHidden ? (
-                            <EyeOff className="h-3.5 w-3.5" />
-                          ) : (
-                            <Eye className="h-3.5 w-3.5" />
-                          )}
-                        </Button>
-                      )}
-                      {/* Save button — relative z-10 prevents ScrollArea scrollbar overlap */}
-                      <button
-                        className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
-                          saved
-                            ? 'text-emerald-600 hover:text-emerald-700'
-                            : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300'
-                        }`}
-                        disabled={isSaving}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onSave({ ...finding, isSaved: !saved })
-                        }}
-                        title={saved ? 'Remove from saved' : 'Save finding'}
-                      >
-                        {isSaving ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : saved ? (
-                          <Check className="h-3.5 w-3.5" />
-                        ) : (
-                          <Save className="h-3.5 w-3.5" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* AI Summary for designated sites, species, and aquatic features */}
-                  {(finding.dataType === 'designated_site' ||
-                    finding.dataType === 'water_quality' ||
-                    finding.dataType === 'catchment' ||
-                    finding.dataType === 'species_record') && (
-                    <div className="mt-1.5">
-                      {finding.metadata?.aiSummary ? (
-                        <p className="text-muted-foreground text-[11px] leading-relaxed">
-                          {finding.metadata.aiSummary}
-                        </p>
-                      ) : finding.metadata?.aiSummaryLoading ? (
-                        <div className="flex items-center gap-1.5 text-[11px] text-purple-600">
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                          Generating summary...
-                        </div>
-                      ) : onFetchAiSummary ? (
-                        <button
-                          className="flex items-center gap-1 text-[11px] text-purple-600 hover:underline"
-                          onClick={() => onFetchAiSummary(finding)}
-                        >
-                          <Sparkles className="h-3 w-3" />
-                          AI Summary
-                        </button>
-                      ) : null}
-                    </div>
-                  )}
-
-                  {/* Content summary for EPA aquatic features */}
-                  {(finding.dataType === 'water_quality' || finding.dataType === 'catchment') &&
-                    finding.content && (
-                      <p className="text-muted-foreground mt-1 text-[11px] leading-relaxed">
-                        {finding.content}
-                      </p>
-                    )}
-
-                  {/* Species detail fields - shown for species records */}
-                  {finding.dataType === 'species_record' && finding.metadata && (
-                    <div className="mt-1.5 space-y-1 text-[11px]">
-                      {finding.metadata.scientificName && (
-                        <div className="text-muted-foreground italic">
-                          {finding.metadata.scientificName}
-                        </div>
-                      )}
-                      {finding.metadata.designations && (
-                        <div className="text-[10px] leading-tight font-medium text-red-600">
-                          {finding.metadata.designations
-                            .split('||')
-                            .map((d: string) => d.trim())
-                            .filter(Boolean)
-                            .join(' · ')}
-                        </div>
-                      )}
-                      <div className="flex flex-wrap gap-x-3 gap-y-0.5">
-                        {finding.metadata.taxonGroup && (
-                          <span className="text-muted-foreground">
-                            {finding.metadata.taxonGroup}
-                          </span>
-                        )}
-                        {finding.metadata.recordCount && finding.metadata.recordCount > 0 && (
-                          <span className="text-muted-foreground">
-                            {finding.metadata.recordCount} records
-                          </span>
-                        )}
-                        {finding.metadata.newestRecordDate && (
-                          <span className="text-muted-foreground">
-                            Last: {finding.metadata.newestRecordDate}
-                          </span>
-                        )}
-                        {finding.metadata.datasetName && (
-                          <span className="text-muted-foreground max-w-[200px] truncate">
-                            {finding.metadata.datasetName}
-                          </span>
-                        )}
-                      </div>
-                      {/* Grid squares info */}
-                      {(() => {
-                        const raw = finding.rawData as Record<string, unknown> | undefined
-                        const squares = raw?.gridSquares
-                        if (!Array.isArray(squares) || squares.length === 0) return null
-                        return (
-                          <div className="text-muted-foreground flex items-center gap-1 text-[10px]">
-                            <span className="inline-block h-2.5 w-2.5 rounded-sm border border-purple-300 bg-purple-50" />
-                            <span>
-                              Found in {squares.length} grid square
-                              {squares.length > 1 ? 's' : ''}
-                              {squares.length <= 4 && `: ${(squares as string[]).join(', ')}`}
-                            </span>
-                          </div>
-                        )
-                      })()}
-                    </div>
-                  )}
-
-                  {/* Compact badges row */}
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                    {/* FPO badge - special styling for protected flora */}
-                    {isFpoFinding ? (
-                      <Badge
-                        variant="secondary"
-                        className="h-5 gap-1 bg-rose-100 px-1.5 text-[10px] text-rose-700"
-                      >
-                        <Leaf className="h-2.5 w-2.5" />
-                        FPO Protected
-                      </Badge>
-                    ) : /* EPA type badge */
-                    isEpaFinding && epaConfig ? (
-                      <Badge
-                        variant="secondary"
-                        className={`h-5 px-1.5 text-[10px] ${epaConfig.color}`}
-                      >
-                        {epaConfig.label}
-                      </Badge>
-                    ) : /* Designated site type badge (SAC, SPA, NHA, pNHA) */
-                    finding.dataType === 'designated_site' && finding.metadata?.siteType ? (
-                      <Badge
-                        variant="secondary"
-                        className={`h-5 px-1.5 text-[10px] ${SITE_TYPE_COLORS[finding.metadata.siteType] || SOURCE_COLORS[finding.source] || ''}`}
-                      >
-                        {finding.metadata.siteType}
-                      </Badge>
-                    ) : finding.metadata?.nbdcEnriched ? (
-                      <Badge
-                        variant="secondary"
-                        className="h-5 gap-1 bg-linear-to-r from-purple-100 to-blue-100 px-1.5 text-[10px] text-purple-700"
-                      >
-                        <Sparkles className="h-2.5 w-2.5 text-amber-500" />
-                        GBIF+NBDC
-                      </Badge>
-                    ) : (
-                      <Badge
-                        variant="secondary"
-                        className={`h-5 px-1.5 text-[10px] ${SOURCE_COLORS[finding.source] || ''}`}
-                      >
-                        {finding.source.toUpperCase()}
-                      </Badge>
-                    )}
-                    {/* WFD Status badge for EPA findings */}
-                    {isEpaFinding && finding.metadata?.designation && (
-                      <Badge
-                        variant="outline"
-                        className={`h-5 px-1.5 text-[10px] ${
-                          finding.metadata.designation === 'Good' ||
-                          finding.metadata.designation === 'High'
-                            ? 'border-green-300 bg-green-50 text-green-700'
-                            : finding.metadata.designation === 'Moderate'
-                              ? 'border-amber-300 bg-amber-50 text-amber-700'
-                              : finding.metadata.designation === 'Poor' ||
-                                  finding.metadata.designation === 'Bad'
-                                ? 'border-red-300 bg-red-50 text-red-700'
-                                : ''
-                        }`}
-                      >
-                        {finding.metadata.designation}
-                      </Badge>
-                    )}
-                    {finding.metadata?.distance !== undefined && (
-                      <Badge variant="outline" className="h-5 gap-0.5 px-1.5 text-[10px]">
-                        <MapPin className="h-2.5 w-2.5" />
-                        {finding.metadata.distance === 0
-                          ? 'Within'
-                          : `${finding.metadata.distance.toFixed(1)}km`}
-                      </Badge>
-                    )}
-                    {finding.metadata?.isProtected && (
-                      <span title="Protected species">
-                        <Shield className="h-3.5 w-3.5 text-red-500" />
-                      </span>
-                    )}
-                    {finding.metadata?.isInvasive && (
-                      <span title="Invasive species">
-                        <Bug className="h-3.5 w-3.5 text-orange-500" />
-                      </span>
-                    )}
-                    {finding.metadata?.redListStatus && (
-                      <Badge variant="destructive" className="h-5 px-1.5 text-[10px]">
-                        {finding.metadata.redListStatus}
-                      </Badge>
-                    )}
-                  </div>
-
-                  {/* Compact action links */}
-                  <div className="mt-1.5 flex items-center gap-3 text-[11px]">
-                    {finding.location && onViewOnMap && (
-                      <button
-                        className="text-blue-600 hover:underline"
-                        onClick={() => onViewOnMap(finding)}
-                      >
-                        View on map
-                      </button>
-                    )}
-                    {/* Deep Research button for designated sites, species, and aquatic features */}
-                    {(finding.dataType === 'designated_site' ||
-                      finding.dataType === 'species_record' ||
-                      finding.dataType === 'water_quality' ||
-                      finding.dataType === 'catchment') &&
-                      onDeepResearch && (
-                        <button
-                          className="flex items-center gap-1 font-medium text-purple-600 hover:underline"
-                          onClick={() => onDeepResearch(finding)}
-                        >
-                          <FlaskConical className="h-3 w-3" />
-                          Deep Research
-                        </button>
-                      )}
-                    {/* Show both GBIF and NBDC links when enriched */}
-                    {finding.metadata?.nbdcEnriched ? (
-                      <>
-                        {(finding.metadata?.gbifUrl || finding.sourceUrl) && (
-                          <a
-                            href={finding.metadata?.gbifUrl || finding.sourceUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-purple-600 hover:underline"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            GBIF ↗
-                          </a>
-                        )}
-                        {finding.metadata?.nbdcUrl && (
-                          <a
-                            href={finding.metadata.nbdcUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="font-medium text-blue-600 hover:underline"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            NBDC ↗
-                          </a>
-                        )}
-                      </>
-                    ) : (
-                      finding.sourceUrl && (
-                        <a
-                          href={finding.sourceUrl}
-                          target="_blank"
-                          title={finding.sourceUrl}
-                          rel="noopener noreferrer"
-                          className="text-gray-500 hover:underline"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          Source ↗
-                        </a>
-                      )
-                    )}
-                    {/* Note toggle — only for saved findings when onUpdateNote provided */}
-                    {saved && onUpdateNote && (
-                      <button
-                        className={`flex items-center gap-1 ${finding.notes ? 'text-amber-600 hover:text-amber-700' : 'text-gray-400 hover:text-gray-600'}`}
-                        onClick={() => {
-                          if (openNoteId === finding.id) {
-                            setOpenNoteId(null)
-                          } else {
-                            setNoteDrafts((prev) => ({
-                              ...prev,
-                              [finding.id]: finding.notes ?? '',
-                            }))
-                            setOpenNoteId(finding.id)
-                          }
-                        }}
-                        title={finding.notes ? 'Edit note' : 'Add note'}
-                      >
-                        <MessageSquare className="h-3 w-3" />
-                        {finding.notes ? 'Note' : 'Add note'}
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Inline note display (when not editing) */}
-                  {finding.notes && openNoteId !== finding.id && (
-                    <div className="mt-1.5 flex items-start gap-1.5 rounded border border-amber-200 bg-amber-50 px-2 py-1.5">
-                      <MessageSquare className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" />
-                      <p className="text-[11px] leading-relaxed text-amber-800">{finding.notes}</p>
-                    </div>
-                  )}
-
-                  {/* Inline note editor (when open) */}
-                  {openNoteId === finding.id && onUpdateNote && (
-                    <div className="mt-1.5 space-y-1.5">
-                      <textarea
-                        autoFocus
-                        className="w-full rounded border border-amber-300 bg-amber-50 p-2 text-[11px] leading-relaxed text-amber-900 placeholder:text-amber-400 focus:border-amber-400 focus:ring-1 focus:ring-amber-300 focus:outline-none"
-                        rows={3}
-                        placeholder="Add a note about this finding..."
-                        value={noteDrafts[finding.id] ?? ''}
-                        onChange={(e) =>
-                          setNoteDrafts((prev) => ({ ...prev, [finding.id]: e.target.value }))
-                        }
-                      />
-                      <div className="flex items-center gap-2">
-                        <button
-                          disabled={savingNoteIds.has(finding.id)}
-                          className="flex h-6 items-center gap-1 rounded bg-amber-500 px-2 text-[11px] font-medium text-white hover:bg-amber-600 disabled:opacity-50"
-                          onClick={async () => {
-                            const dbId = getSavedFindingDbId(finding)
-                            if (!dbId) return
-                            const draft = noteDrafts[finding.id] ?? ''
-                            setSavingNoteIds((prev) => new Set(prev).add(finding.id))
-                            await onUpdateNote(dbId, draft)
-                            setSavingNoteIds((prev) => {
-                              const next = new Set(prev)
-                              next.delete(finding.id)
-                              return next
-                            })
-                            setOpenNoteId(null)
-                          }}
-                        >
-                          {savingNoteIds.has(finding.id) ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <Check className="h-3 w-3" />
-                          )}
-                          Save
-                        </button>
-                        <button
-                          className="flex h-6 items-center gap-1 rounded px-2 text-[11px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                          onClick={() => setOpenNoteId(null)}
-                        >
-                          <X className="h-3 w-3" />
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+            {paginatedFindings.map((finding, findingIdx) => (
+              <FindingCard
+                key={`${finding.id}-${findingIdx}`}
+                finding={finding}
+                isSaved={isFindingSaved(finding, savedFindings)}
+                isSaving={savingIds?.has(finding.id) ?? false}
+                isHidden={hiddenIds?.has(finding.id) ?? false}
+                isSelected={selectedFindingId === finding.id}
+                onSave={onSave}
+                onViewOnMap={onViewOnMap}
+                onDeepResearch={onDeepResearch}
+                onToggleVisibility={onToggleVisibility}
+                onFetchAiSummary={onFetchAiSummary}
+                onUpdateNote={onUpdateNote}
+                getSavedFindingDbId={(f) => getSavedFindingDbId(f, savedFindings)}
+              />
+            ))}
 
             {/* Load more */}
             {hasMoreResults && (

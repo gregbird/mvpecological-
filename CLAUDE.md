@@ -5,7 +5,7 @@ Detailed domain rules are in `.claude/rules/` — they load automatically when w
 
 ## Project Overview
 
-**Dulra** is an end-to-end project management platform for ecological consultancies in Ireland. It manages ecological projects through desk research, field surveys, and reporting phases with a 10-step workflow system. The platform integrates with Irish/EU biodiversity databases (NPWS, GBIF, NBDC, EPA, Catchments.ie) and uses AI for report generation.
+**Dulra** is an end-to-end project management platform for ecological consultancies in Ireland. It manages ecological projects through desk research, field surveys, and reporting phases with an 8-step workflow system. The platform integrates with Irish/EU biodiversity databases (NPWS, GBIF, NBDC, EPA, Catchments.ie) and uses AI for report generation.
 
 ### Report Types: PEA, EcIA, AA Screening, NIS
 
@@ -47,13 +47,13 @@ npm run type-check       # TypeScript type checking
 
 - **Step 3 Ecological Summary** → `api/ai/desk-insights` — takes all saved findings (designated_site, species_record, water_quality, catchment, habitat, company_report) + deep research + aquatic research
 - **Summary persists** to workflow step metadata as `aiInsights`
-- **Step 8 AI Draft** → `api/ai/report-section` uses `deskInsights` from metadata as context for report generation
+- **Step 6 AI Draft** → `api/ai/report-section` uses `deskInsights` from metadata as context for report generation
 
 ### Component Patterns
 
 - **Forms: always use React Hook Form + Zod** — `useForm({ resolver: zodResolver(schema) })` with shadcn `<Form>/<FormField>/<FormMessage>`
 - **Step root container: `flex h-full flex-col`** — ensures consistent dashboard panel layout
-- **Keep files under 400 lines** — extract sub-components into the step's subdirectory
+- **Keep files under 400 lines** — extract logic into hooks (`hooks/`) and UI into sub-components in the step's subdirectory
 - **Shared constants in `lib/config/`** — don't hardcode values in component files
 - **Dialog forms must `form.reset()` on open** — `useForm` only uses `defaultValues` on first mount
 
@@ -94,26 +94,35 @@ npm run type-check       # TypeScript type checking
 
 Use `@/` for all imports: `import { Button } from '@/components/ui/button'`
 
+### Modular Architecture (Post Multi-Site Refactoring)
+
+- **Context providers** — `DataGatheringProvider` in `contexts/data-gathering-context.tsx` eliminates prop drilling for data gathering substeps
+- **Shared hooks** — `hooks/shared/` contains reusable hooks:
+  - `use-spatial-filter.ts` — turf.js spatial filtering (boundary + buffer)
+  - `use-boundary-hash.ts` — boundary change detection + cache invalidation
+  - `use-auto-search.ts` — auto-search orchestration without mounting substeps
+  - `use-project-boundary.ts` — shared boundary resolution across steps
+- **Domain hooks** — `hooks/data-gathering/`, `hooks/maps/`, `hooks/steps/` contain extracted business logic
+- **Config files** — `lib/config/finding-colors.ts` for shared color constants
+
 ### Status Colors
 
 - **Phase:** desk_research (blue), field_research (green), reporting (purple)
 - **Health:** on_track (green), at_risk (amber), overdue (red)
 - **Workflow:** pending (gray), in_progress (blue), needs_review (amber), approved (green)
 
-## 10-Step Workflow
+## 8-Step Workflow
 
-| Phase          | Step | Name             | Component                   |
-| -------------- | ---- | ---------------- | --------------------------- |
-| Desk Research  | 1    | GIS Mapping      | `gis-mapping-step.tsx`      |
-| Desk Research  | 2    | Data Gathering   | `data-gathering-step.tsx`   |
-| Desk Research  | 3    | Desk Assessment  | `desk-assessment-step.tsx`  |
-| Field Research | 4    | Field Survey     | `field-survey-step.tsx`     |
-| Field Research | 5    | Habitat Mapping  | `habitat-mapping-step.tsx`  |
-| Field Research | 6    | Target Notes     | `target-notes-step.tsx`     |
-| Reporting      | 7    | Data Analysis    | `data-analysis-step.tsx`    |
-| Reporting      | 8    | AI Draft         | `ai-draft-step.tsx`         |
-| Reporting      | 9    | Quality Review   | `quality-review-step.tsx`   |
-| Reporting      | 10   | Final Submission | `final-submission-step.tsx` |
+| Phase          | Step | Name             | Component                                                                     |
+| -------------- | ---- | ---------------- | ----------------------------------------------------------------------------- |
+| Desk Research  | 1    | GIS Mapping      | `gis-mapping-step.tsx`                                                        |
+| Desk Research  | 2    | Data Gathering   | `data-gathering-step.tsx`                                                     |
+| Desk Research  | 3    | Desk Assessment  | `desk-assessment-step.tsx`                                                    |
+| Field Research | 4    | Field Research   | `field-research-step.tsx` (tabs: Field Survey, Habitat Mapping, Target Notes) |
+| Reporting      | 5    | Data Analysis    | `data-analysis-step.tsx`                                                      |
+| Reporting      | 6    | AI Draft         | `ai-draft-step.tsx`                                                           |
+| Reporting      | 7    | Quality Review   | `quality-review-step.tsx`                                                     |
+| Reporting      | 8    | Final Submission | `final-submission-step.tsx`                                                   |
 
 ## Environment Variables
 
@@ -131,5 +140,6 @@ NEXT_PUBLIC_OPENAI_API_KEY=    # Client-side AI (reports)
 - [x] Ireland center coords duplicated in 13 files → fixed: all use `IRELAND_CENTER` from `lib/config/map-constants.ts`
 - [x] `SURVEY_TYPE_LABELS` duplicated in 6 files → fixed: centralized in `lib/config/survey.ts`
 - [x] `findingsByType` grouping logic duplicated → fixed: `groupFindingsByType()` in `lib/utils/group-findings-by-type.ts`
-- [ ] Two separate `TargetNoteForm` components exist
+- [x] Two separate `TargetNoteForm` components exist → fixed: merged in multi-site refactoring
 - [x] Debug `console.log` in production code (5 files) → fixed: all removed
+- [x] Multi-site refactoring complete — modular hooks, context providers, 10-step → 8-step workflow

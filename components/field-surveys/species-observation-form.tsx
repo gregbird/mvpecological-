@@ -4,28 +4,10 @@ import * as React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { Loader2, MapPin, AlertTriangle, ImageIcon } from 'lucide-react'
+import { Loader2, AlertTriangle } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
-import { Checkbox } from '@/components/ui/checkbox'
+import { Form } from '@/components/ui/form'
 import {
   Dialog,
   DialogContent,
@@ -34,7 +16,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { PhotoUpload } from '@/components/ui/photo-upload'
+import {
+  PROTECTED_SPECIES,
+  SpeciesIdSection,
+  EvidenceSection,
+  LocationSection,
+  ProtectionSection,
+  PhotosSection,
+} from './observation-form-sections'
 
 export interface SpeciesObservation {
   id: string
@@ -134,64 +123,6 @@ interface SpeciesObservationFormProps {
   projectId?: string
 }
 
-const TAXON_GROUPS: { value: TaxonGroup; label: string }[] = [
-  { value: 'mammal', label: 'Mammals' },
-  { value: 'bird', label: 'Birds' },
-  { value: 'reptile', label: 'Reptiles' },
-  { value: 'amphibian', label: 'Amphibians' },
-  { value: 'fish', label: 'Fish' },
-  { value: 'invertebrate', label: 'Invertebrates' },
-  { value: 'plant', label: 'Plants' },
-  { value: 'fungi', label: 'Fungi' },
-  { value: 'other', label: 'Other' },
-]
-
-const EVIDENCE_TYPES: { value: EvidenceType; label: string }[] = [
-  { value: 'visual', label: 'Visual Sighting' },
-  { value: 'audio', label: 'Audio/Call' },
-  { value: 'tracks', label: 'Tracks/Footprints' },
-  { value: 'droppings', label: 'Droppings/Scat' },
-  { value: 'feeding_signs', label: 'Feeding Signs' },
-  { value: 'nest_burrow', label: 'Nest/Burrow/Roost' },
-  { value: 'dead_specimen', label: 'Dead Specimen' },
-  { value: 'dna_sample', label: 'DNA Sample' },
-  { value: 'camera_trap', label: 'Camera Trap' },
-  { value: 'other', label: 'Other' },
-]
-
-const DAFOR_LABELS: { value: DaforAbundance; label: string; description: string }[] = [
-  { value: 'D', label: 'Dominant', description: '>75% cover' },
-  { value: 'A', label: 'Abundant', description: '51-75% cover' },
-  { value: 'F', label: 'Frequent', description: '26-50% cover' },
-  { value: 'O', label: 'Occasional', description: '11-25% cover' },
-  { value: 'R', label: 'Rare', description: '<11% cover' },
-]
-
-const CONFIDENCE_LEVELS: { value: ConfidenceLevel; label: string }[] = [
-  { value: 'high', label: 'High' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'low', label: 'Low' },
-]
-
-// Common protected species in Ireland
-const PROTECTED_SPECIES = [
-  'Lutra lutra', // Otter
-  'Martes martes', // Pine Marten
-  'Meles meles', // Badger
-  'Sciurus vulgaris', // Red Squirrel
-  'Erinaceus europaeus', // Hedgehog
-  'Rhinolophus hipposideros', // Lesser Horseshoe Bat
-  'Plecotus auritus', // Brown Long-eared Bat
-  'Pipistrellus pipistrellus', // Common Pipistrelle
-  'Lacerta vivipara', // Common Lizard
-  'Bufo bufo', // Common Toad
-  'Rana temporaria', // Common Frog
-  'Triturus vulgaris', // Smooth Newt
-  'Salmo salar', // Atlantic Salmon
-  'Lampetra fluviatilis', // River Lamprey
-  'Margaritifera margaritifera', // Freshwater Pearl Mussel
-]
-
 export function SpeciesObservationForm({
   open,
   onOpenChange,
@@ -266,9 +197,7 @@ export function SpeciesObservationForm({
   }, [scientificName, form])
 
   const handleGetLocation = async () => {
-    if (!navigator.geolocation) {
-      return
-    }
+    if (!navigator.geolocation) return
 
     setIsGettingLocation(true)
 
@@ -304,10 +233,7 @@ export function SpeciesObservationForm({
         behaviorNotes: values.behaviorNotes || undefined,
         location:
           values.latitude && values.longitude
-            ? {
-                lat: parseFloat(values.latitude),
-                lng: parseFloat(values.longitude),
-              }
+            ? { lat: parseFloat(values.latitude), lng: parseFloat(values.longitude) }
             : undefined,
         gpsAccuracy: values.gpsAccuracy ? parseFloat(values.gpsAccuracy) : undefined,
         isProtected: values.isProtected,
@@ -353,334 +279,23 @@ export function SpeciesObservationForm({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-            {/* Species Identification */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-medium">Species Identification</h3>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="speciesNameScientific"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Scientific Name *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., Lutra lutra" className="italic" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+            <SpeciesIdSection form={form} />
+            <EvidenceSection form={form} />
+            <LocationSection
+              form={form}
+              isGettingLocation={isGettingLocation}
+              onGetLocation={handleGetLocation}
+            />
+            <ProtectionSection form={form} />
 
-                <FormField
-                  control={form.control}
-                  name="speciesNameCommon"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Common Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., European Otter" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="taxonGroup"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Taxon Group *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select group" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {TAXON_GROUPS.map((group) => (
-                            <SelectItem key={group.value} value={group.value}>
-                              {group.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="confidenceLevel"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Confidence Level *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select confidence" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {CONFIDENCE_LEVELS.map((level) => (
-                            <SelectItem key={level.value} value={level.value}>
-                              {level.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
-
-            {/* Evidence and Count */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-medium">Evidence & Abundance</h3>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <FormField
-                  control={form.control}
-                  name="evidenceType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Evidence Type *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select evidence" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {EVIDENCE_TYPES.map((type) => (
-                            <SelectItem key={type.value} value={type.value}>
-                              {type.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="count"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Count</FormLabel>
-                      <FormControl>
-                        <Input type="number" min="1" placeholder="e.g., 3" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="abundanceDafor"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>DAFOR Abundance</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select abundance" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {DAFOR_LABELS.map((dafor) => (
-                            <SelectItem key={dafor.value} value={dafor.value}>
-                              {dafor.value} - {dafor.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        For plants: D=Dominant, A=Abundant, F=Frequent, O=Occasional, R=Rare
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={form.control}
-                name="behaviorNotes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Behavior/Activity Notes</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="e.g., Foraging along riverbank, territorial call, breeding behavior..."
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            {/* Location */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium">Location</h3>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleGetLocation}
-                  disabled={isGettingLocation}
-                >
-                  {isGettingLocation ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <MapPin className="mr-2 h-4 w-4" />
-                  )}
-                  Get Current Location
-                </Button>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-3">
-                <FormField
-                  control={form.control}
-                  name="latitude"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Latitude</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.000001"
-                          placeholder="e.g., 53.349805"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="longitude"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Longitude</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.000001"
-                          placeholder="e.g., -6.260310"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="gpsAccuracy"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>GPS Accuracy (m)</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.1" placeholder="e.g., 5.0" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
-
-            {/* Protection Status */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-medium">Protection Status</h3>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="isProtected"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-y-0 space-x-3 rounded-md border p-4">
-                      <FormControl>
-                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>Protected Species</FormLabel>
-                        <FormDescription>
-                          Species protected under Wildlife Act or EU Directives
-                        </FormDescription>
-                      </div>
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="needsVerification"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-y-0 space-x-3 rounded-md border p-4">
-                      <FormControl>
-                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>Needs Verification</FormLabel>
-                        <FormDescription>Flag for senior ecologist review</FormDescription>
-                      </div>
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {form.watch('isProtected') && (
-                <FormField
-                  control={form.control}
-                  name="designation"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Legal Designation</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="e.g., Wildlife Act, Habitats Directive Annex II/IV"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Relevant legislation protecting this species
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-            </div>
-
-            {/* Photos */}
             {projectId && (
-              <div className="space-y-2">
-                <h3 className="flex items-center gap-2 text-sm font-medium">
-                  <ImageIcon className="h-4 w-4" />
-                  Photos (Optional)
-                </h3>
-                <PhotoUpload
-                  projectId={projectId}
-                  entityType="observation"
-                  entityId={initialData?.id}
-                  photos={photos}
-                  onPhotosChange={setPhotos}
-                  maxPhotos={10}
-                  disabled={isSubmitting}
-                />
-              </div>
+              <PhotosSection
+                projectId={projectId}
+                entityId={initialData?.id}
+                photos={photos}
+                onPhotosChange={setPhotos}
+                disabled={isSubmitting}
+              />
             )}
 
             {/* Actions */}

@@ -15,39 +15,20 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useToast } from '@/hooks/use-toast'
-import {
-  useProjectObservations,
-  useCreateObservation,
-  useUpdateObservation,
-  useDeleteObservation,
-} from '@/hooks/queries/use-observation-hooks'
-import { useSurveys } from '@/hooks/queries/use-survey-hooks'
-import { useSavedFindings } from '@/hooks/queries/use-finding-hooks'
-import {
-  useTargetNotes,
-  useTargetNotesStats,
-  useCreateTargetNote,
-  useUpdateTargetNote,
-  useDeleteTargetNote,
-  useVerifyTargetNote,
-} from '@/hooks/queries/use-target-note-hooks'
 import {
   SpeciesObservationForm,
   type SpeciesObservation as ObservationFormType,
 } from '@/components/field-surveys/species-observation-form'
 import { type TargetNoteCategory } from '@/components/field-surveys/target-note-card'
-import {
-  TargetNoteForm,
-  type TargetNoteFormData,
-} from '@/components/field-surveys/target-note-form'
+import { TargetNoteForm } from '@/components/field-surveys/target-note-form'
 import { SiteSelector } from '@/components/project/site-selector'
 import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
 import type { ProjectSiteWithGeoJSON } from '@/lib/supabase/queries/project-sites'
-import type { Project, WorkflowStep, SpeciesObservation, Json } from '@/types/database'
+import type { Project, WorkflowStep, SpeciesObservation } from '@/types/database'
 import type { TargetNoteWithCreator } from '@/lib/supabase/queries/target-notes'
 import { TargetNotesPanel } from './target-notes-panel'
 import { ObservationsPanel } from './observations-panel'
+import { useTargetNotesHandlers } from './use-target-notes-handlers'
 
 interface TargetNotesStepProps {
   project: Project
@@ -60,7 +41,6 @@ export function TargetNotesStep({
   workflowStep: _workflowStep,
   userId,
 }: TargetNotesStepProps) {
-  const { toast } = useToast()
   const [selectedSite, setSelectedSite] = React.useState<ProjectSiteWithGeoJSON | null>(null)
   const { projectBoundary, projectCenter } = useProjectBoundary(project, selectedSite)
   const [activeMainTab, setActiveMainTab] = React.useState<'target-notes' | 'observations'>(
@@ -95,439 +75,69 @@ export function TargetNotesStep({
     null
   )
 
-  // React Query hooks - Observations
-  const { data: surveys = [] } = useSurveys(project.id)
-  const { data: observations = [], isLoading: observationsLoading } = useProjectObservations(
-    project.id
-  )
-  const { data: savedFindings = [] } = useSavedFindings(project.id)
-  const createObservation = useCreateObservation()
-  const updateObservation = useUpdateObservation()
-  const deleteObservation = useDeleteObservation()
-  const [isImporting, setIsImporting] = React.useState(false)
+  const {
+    surveys,
+    filteredSurveys,
+    filteredObservations,
+    observationsByTaxon,
+    filteredTargetNotes,
+    targetNotesByCategory,
+    targetNotesStats,
+    importableSpecies,
+    isLoading,
+    isImporting,
+    isTargetNoteMutating,
+    handleCreateTargetNote,
+    handleEditTargetNote,
+    handleDeleteTargetNote,
+    handleVerifyTargetNote,
+    handleImportSpecies,
+    handleCreateObservation,
+    handleEditObservation,
+    handleDeleteObservation,
+  } = useTargetNotesHandlers({
+    projectId: project.id,
+    userId,
+    selectedSite,
+    selectedSurveyId,
+  })
 
-  // React Query hooks - Target Notes
-  const { data: targetNotes = [], isLoading: targetNotesLoading } = useTargetNotes(project.id)
-  const { data: targetNotesStats } = useTargetNotesStats(project.id)
-  const createTargetNote = useCreateTargetNote()
-  const updateTargetNote = useUpdateTargetNote()
-  const deleteTargetNote = useDeleteTargetNote()
-  const verifyTargetNote = useVerifyTargetNote()
-
-  const isLoading = observationsLoading || targetNotesLoading
-
-  // Build set of survey IDs for the selected site (observations link through survey)
-  const siteSurveyIds = React.useMemo(() => {
-    if (!selectedSite) return null
-    return new Set(surveys.filter((s) => s.site_id === selectedSite.id).map((s) => s.id))
-  }, [surveys, selectedSite])
-
-  // Filter surveys by selected site (for observations panel dropdown)
-  const filteredSurveys = React.useMemo(() => {
-    if (!selectedSite) return surveys
-    return surveys.filter((s) => s.site_id === selectedSite.id)
-  }, [surveys, selectedSite])
-
-  // Filter observations by site (via survey) and by selected survey
-  const filteredObservations = React.useMemo(() => {
-    let result = observations
-    if (siteSurveyIds) {
-      result = result.filter((o) => siteSurveyIds.has(o.survey_id))
-    }
-    if (selectedSurveyId) {
-      result = result.filter((o) => o.survey_id === selectedSurveyId)
-    }
-    return result
-  }, [observations, selectedSurveyId, siteSurveyIds])
-
-  // Group observations by taxon group
-  const observationsByTaxon = React.useMemo(() => {
-    const groups: Record<string, SpeciesObservation[]> = {}
-    for (const obs of filteredObservations) {
-      const taxon = obs.taxon_group || 'other'
-      if (!groups[taxon]) groups[taxon] = []
-      groups[taxon].push(obs)
-    }
-    return groups
-  }, [filteredObservations])
-
-  // Species findings from desk research (for import)
-  const speciesFindings = React.useMemo(() => {
-    return savedFindings.filter((f) => f.data_type === 'species_record')
-  }, [savedFindings])
-
-  // Check which species have already been imported (by scientific name)
-  const alreadyImportedNames = React.useMemo(() => {
-    return new Set(observations.map((o) => o.species_name_scientific.toLowerCase()))
-  }, [observations])
-
-  const importableSpecies = React.useMemo(() => {
-    return speciesFindings.filter((f) => {
-      const raw = f.raw_data as Record<string, unknown> | null
-      const metadata = raw?.metadata as Record<string, unknown> | undefined
-      const scientificName = (metadata?.scientificName as string) || f.title
-      return !alreadyImportedNames.has(scientificName.toLowerCase())
-    })
-  }, [speciesFindings, alreadyImportedNames])
-
-  // Filter target notes by selected site — site_id=null means project-level, show under every site
-  const filteredTargetNotes = React.useMemo(() => {
-    if (!selectedSite) return targetNotes
-    return targetNotes.filter((n) => n.site_id === selectedSite.id || n.site_id === null)
-  }, [targetNotes, selectedSite])
-
-  // Group target notes by category
-  const targetNotesByCategory = React.useMemo(() => {
-    const groups: Record<string, TargetNoteWithCreator[]> = {}
-    for (const note of filteredTargetNotes) {
-      const category = note.category || 'check_feature'
-      if (!groups[category]) groups[category] = []
-      groups[category].push(note)
-    }
-    return groups
-  }, [filteredTargetNotes])
-
-  // Project boundary resolved via useProjectBoundary hook above
-
-  // Handle creating a target note
-  const handleCreateTargetNote = async (data: TargetNoteFormData) => {
-    try {
-      const locationData = data.location
-        ? {
-            type: 'Point',
-            coordinates: [data.location.lng, data.location.lat],
-          }
-        : null
-
-      await createTargetNote.mutateAsync({
-        project_id: project.id,
-        created_by: userId,
-        site_id: selectedSite?.id || null,
-        category: data.category,
-        title: data.title,
-        description: data.description || null,
-        priority: data.priority,
-        location: locationData as unknown as undefined,
-        photos: data.photos || null,
-        survey_id: selectedSurveyId || surveys[0]?.id || null,
-      })
-
-      toast({
-        title: 'Target note added',
-        description: `"${data.title}" has been created.`,
-      })
-
-      setShowTargetNoteForm(false)
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error creating target note',
-        description: 'Failed to create the target note.',
-      })
-    }
+  const onCreateTargetNote = async (data: Parameters<typeof handleCreateTargetNote>[0]) => {
+    const success = await handleCreateTargetNote(data)
+    if (success) setShowTargetNoteForm(false)
   }
 
-  // Handle editing a target note
-  const handleEditTargetNote = async (data: TargetNoteFormData) => {
+  const onEditTargetNote = async (data: Parameters<typeof handleEditTargetNote>[0]) => {
     if (!editingTargetNote) return
-
-    try {
-      const locationData = data.location
-        ? {
-            type: 'Point',
-            coordinates: [data.location.lng, data.location.lat],
-          }
-        : null
-
-      await updateTargetNote.mutateAsync({
-        noteId: editingTargetNote.id,
-        updates: {
-          category: data.category,
-          title: data.title,
-          description: data.description || null,
-          priority: data.priority,
-          location: locationData as unknown as undefined,
-          photos: data.photos || null,
-        },
-      })
-
-      toast({
-        title: 'Target note updated',
-        description: 'Target note has been updated successfully.',
-      })
-
+    const success = await handleEditTargetNote(data, editingTargetNote)
+    if (success) {
       setEditingTargetNote(null)
       setShowTargetNoteForm(false)
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error updating target note',
-        description: 'Failed to update the target note.',
-      })
     }
   }
 
-  // Handle deleting a target note
-  const handleDeleteTargetNote = async (note: TargetNoteWithCreator) => {
-    try {
-      await deleteTargetNote.mutateAsync(note.id)
-
-      toast({
-        title: 'Target note deleted',
-        description: 'Target note has been removed.',
-      })
-
-      if (selectedTargetNote?.id === note.id) {
-        setSelectedTargetNote(null)
-      }
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error deleting target note',
-        description: 'Failed to delete the target note.',
-      })
-    }
+  const onDeleteTargetNote = async (note: TargetNoteWithCreator) => {
+    await handleDeleteTargetNote(note)
+    if (selectedTargetNote?.id === note.id) setSelectedTargetNote(null)
   }
 
-  // Handle verifying a target note
-  const handleVerifyTargetNote = async (note: TargetNoteWithCreator) => {
-    try {
-      await verifyTargetNote.mutateAsync({
-        noteId: note.id,
-        verifierId: userId,
-      })
-
-      toast({
-        title: 'Target note verified',
-        description: 'Target note has been marked as verified.',
-      })
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error verifying target note',
-        description: 'Failed to verify the target note.',
-      })
-    }
+  const onCreateObservation = async (data: Partial<ObservationFormType>) => {
+    const success = await handleCreateObservation(data)
+    if (success) setShowObservationForm(false)
   }
 
-  // Handle importing species from desk research
-  const handleImportSpecies = async () => {
-    const surveyId = selectedSurveyId || surveys[0]?.id
-
-    if (!surveyId) {
-      toast({
-        variant: 'destructive',
-        title: 'No surveys available',
-        description: 'Please create a survey first in Field Survey Planning.',
-      })
-      return
-    }
-
-    if (importableSpecies.length === 0) {
-      toast({
-        title: 'Nothing to import',
-        description: 'All data gathering species have already been imported.',
-      })
-      return
-    }
-
-    setIsImporting(true)
-
-    try {
-      let imported = 0
-      for (const finding of importableSpecies) {
-        const raw = finding.raw_data as Record<string, unknown> | null
-        const metadata = raw?.metadata as Record<string, unknown> | undefined
-        const sampleRecord = (raw?.sampleRecords as Record<string, unknown>[])?.[0]
-
-        const scientificName = (metadata?.scientificName as string) || finding.title
-        const commonName = (metadata?.commonName as string) || null
-
-        // Map GBIF class to taxon group
-        const gbifClass = (sampleRecord?.class as string) || ''
-        const kingdom = (sampleRecord?.kingdom as string) || ''
-        let taxonGroup = 'other'
-        if (gbifClass === 'Aves') taxonGroup = 'bird'
-        else if (gbifClass === 'Mammalia') taxonGroup = 'mammal'
-        else if (gbifClass === 'Reptilia') taxonGroup = 'reptile'
-        else if (gbifClass === 'Amphibia') taxonGroup = 'amphibian'
-        else if (gbifClass === 'Actinopterygii' || gbifClass === 'Chondrichthyes')
-          taxonGroup = 'fish'
-        else if (
-          gbifClass === 'Insecta' ||
-          gbifClass === 'Arachnida' ||
-          gbifClass === 'Malacostraca'
-        )
-          taxonGroup = 'invertebrate'
-        else if (
-          gbifClass === 'Magnoliopsida' ||
-          gbifClass === 'Liliopsida' ||
-          kingdom === 'Plantae'
-        )
-          taxonGroup = 'plant'
-        else if (gbifClass === 'Pezizomycetes' || kingdom === 'Fungi') taxonGroup = 'fungi'
-
-        const isProtected = finding.is_protected || !!(metadata?.isProtected as boolean | undefined)
-        const designation = (metadata?.designations as string) || null
-
-        await createObservation.mutateAsync({
-          survey_id: surveyId,
-          species_name_scientific: scientificName,
-          species_name_common: commonName,
-          taxon_group: taxonGroup,
-          is_protected: isProtected,
-          designation: designation,
-          confidence_level: 'low',
-          needs_verification: true,
-          behavior_notes: `Imported from data gathering (${finding.source.toUpperCase()})`,
-        })
-        imported++
-      }
-
-      toast({
-        title: 'Species imported',
-        description: `${imported} species imported from data gathering. Please verify in the field.`,
-      })
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Import failed',
-        description: 'Failed to import some species from data gathering.',
-      })
-    } finally {
-      setIsImporting(false)
-    }
-  }
-
-  // Handle creating an observation
-  const handleCreateObservation = async (data: Partial<ObservationFormType>) => {
-    if (!selectedSurveyId && surveys.length > 0) {
-      toast({
-        variant: 'destructive',
-        title: 'No survey selected',
-        description: 'Please select a survey to add the observation to.',
-      })
-      return
-    }
-
-    const surveyId = selectedSurveyId || surveys[0]?.id
-
-    if (!surveyId) {
-      toast({
-        variant: 'destructive',
-        title: 'No surveys available',
-        description: 'Please create a survey first in Field Survey Planning.',
-      })
-      return
-    }
-
-    try {
-      const locationData = data.location
-        ? {
-            type: 'Point',
-            coordinates: [data.location.lng, data.location.lat],
-          }
-        : null
-
-      await createObservation.mutateAsync({
-        survey_id: surveyId,
-        species_name_scientific: data.speciesNameScientific!,
-        species_name_common: data.speciesNameCommon || null,
-        taxon_group: data.taxonGroup || null,
-        count: data.count || null,
-        abundance_dafor: data.abundanceDafor || null,
-        evidence_type: data.evidenceType || null,
-        behavior_notes: data.behaviorNotes || null,
-        location: locationData as unknown as Json,
-        gps_accuracy: data.gpsAccuracy || null,
-        is_protected: data.isProtected || false,
-        designation: data.designation || null,
-        confidence_level: (data.confidenceLevel as 'high' | 'medium' | 'low') || 'medium',
-        needs_verification: data.needsVerification || false,
-      })
-
-      toast({
-        title: 'Observation recorded',
-        description: `${data.speciesNameScientific} observation saved.`,
-      })
-
-      setShowObservationForm(false)
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error recording observation',
-        description: 'Failed to save the observation.',
-      })
-    }
-  }
-
-  // Handle editing an observation
-  const handleEditObservation = async (data: Partial<ObservationFormType>) => {
+  const onEditObservation = async (data: Partial<ObservationFormType>) => {
     if (!editingObservation) return
-
-    try {
-      const locationData = data.location
-        ? {
-            type: 'Point',
-            coordinates: [data.location.lng, data.location.lat],
-          }
-        : null
-
-      await updateObservation.mutateAsync({
-        observationId: editingObservation.id,
-        updates: {
-          species_name_scientific: data.speciesNameScientific!,
-          species_name_common: data.speciesNameCommon || null,
-          taxon_group: data.taxonGroup || null,
-          count: data.count || null,
-          abundance_dafor: data.abundanceDafor || null,
-          evidence_type: data.evidenceType || null,
-          behavior_notes: data.behaviorNotes || null,
-          location: locationData as unknown as Json,
-          gps_accuracy: data.gpsAccuracy || null,
-          is_protected: data.isProtected || false,
-          designation: data.designation || null,
-          confidence_level: (data.confidenceLevel as 'high' | 'medium' | 'low') || 'medium',
-          needs_verification: data.needsVerification || false,
-        },
-      })
-
-      toast({
-        title: 'Observation updated',
-        description: 'Species observation has been updated.',
-      })
-
+    const success = await handleEditObservation(data, editingObservation)
+    if (success) {
       setEditingObservation(null)
       setShowObservationForm(false)
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error updating observation',
-        description: 'Failed to update the observation.',
-      })
     }
   }
 
-  // Handle deleting an observation
-  const handleDeleteObservation = async (observation: SpeciesObservation) => {
-    try {
-      await deleteObservation.mutateAsync(observation.id)
-
-      toast({
-        title: 'Observation deleted',
-        description: 'Species observation has been removed.',
-      })
-
-      if (selectedObservation?.id === observation.id) {
-        setSelectedObservation(null)
-      }
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error deleting observation',
-        description: 'Failed to delete the observation.',
-      })
-    }
+  const onDeleteObservation = async (observation: SpeciesObservation) => {
+    await handleDeleteObservation(observation)
+    if (selectedObservation?.id === observation.id) setSelectedObservation(null)
   }
 
   if (isLoading) {
@@ -692,7 +302,7 @@ export function TargetNotesStep({
             setMapClickLocation(undefined)
           }
         }}
-        onSubmit={editingTargetNote ? handleEditTargetNote : handleCreateTargetNote}
+        onSubmit={editingTargetNote ? onEditTargetNote : onCreateTargetNote}
         initialData={
           editingTargetNote
             ? {
@@ -715,7 +325,7 @@ export function TargetNotesStep({
               ? { location: mapClickLocation }
               : undefined
         }
-        isLoading={createTargetNote.isPending || updateTargetNote.isPending}
+        isLoading={isTargetNoteMutating}
         projectId={project.id}
         noteId={editingTargetNote?.id}
       />
@@ -727,7 +337,7 @@ export function TargetNotesStep({
           setShowObservationForm(open)
           if (!open) setEditingObservation(null)
         }}
-        onSubmit={editingObservation ? handleEditObservation : handleCreateObservation}
+        onSubmit={editingObservation ? onEditObservation : onCreateObservation}
         initialData={
           editingObservation
             ? {
@@ -773,7 +383,7 @@ export function TargetNotesStep({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
                 if (deletingTargetNote) {
-                  handleDeleteTargetNote(deletingTargetNote)
+                  onDeleteTargetNote(deletingTargetNote)
                   setDeletingTargetNote(null)
                 }
               }}
@@ -803,7 +413,7 @@ export function TargetNotesStep({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
                 if (deletingObservation) {
-                  handleDeleteObservation(deletingObservation)
+                  onDeleteObservation(deletingObservation)
                   setDeletingObservation(null)
                 }
               }}
