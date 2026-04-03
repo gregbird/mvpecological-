@@ -56,12 +56,37 @@ export function useHabitatSpatialFilter({
 
   const filteredResults = React.useMemo((): HabitatResult[] => {
     if (!siteFilterPolygon || !filteredPolygons) return results
-    const nlcIdsInSite = new Set<string>()
+    // Group filtered polygon areas by nlcId — recalculate from actual site polygons
+    const nlcAreaMap = new Map<string, { area: number; count: number }>()
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const turf = require('@turf/turf')
     for (const f of filteredPolygons.features) {
       const nlcId = f.properties?.nlc_id
-      if (nlcId) nlcIdsInSite.add(String(nlcId).trim())
+      if (!nlcId) continue
+      const key = String(nlcId).trim()
+      const entry = nlcAreaMap.get(key) ?? { area: 0, count: 0 }
+      try {
+        // turf.area returns m², convert to hectares
+        entry.area += turf.area(f) / 10000
+      } catch {
+        // Fallback: use property-based area if geometry calc fails
+        const propArea = f.properties?.area_hectares ?? f.properties?.Shape__Area
+        if (typeof propArea === 'number')
+          entry.area += propArea > 1000 ? propArea / 10000 : propArea
+      }
+      entry.count++
+      nlcAreaMap.set(key, entry)
     }
-    return results.filter((r) => nlcIdsInSite.has(r.nlcId))
+    return results
+      .filter((r) => nlcAreaMap.has(r.nlcId))
+      .map((r) => {
+        const siteData = nlcAreaMap.get(r.nlcId)!
+        return {
+          ...r,
+          areaHectares: Math.round(siteData.area * 100) / 100,
+          polygonCount: siteData.count,
+        }
+      })
   }, [results, siteFilterPolygon, filteredPolygons])
 
   const filteredTotalArea = React.useMemo(
