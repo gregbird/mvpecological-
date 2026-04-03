@@ -130,6 +130,18 @@
   box-shadow: none;
 }
 
+/* Links */
+.tiptap-editor .ProseMirror a {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.tiptap-editor .ProseMirror a:hover {
+  opacity: 0.8;
+}
+
 /* Horizontal rule */
 .tiptap-editor .ProseMirror hr {
   border: none;
