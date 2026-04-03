@@ -248,18 +248,56 @@ export function DataGatheringSubstepShell({
     },
   })
 
-  const spatialFilterDisabled = !!(allBoundaries && allBoundaries.length > 0) || !siteId
+  // In "All Sites" mode we still want spatial filtering — but against every site boundary,
+  // not just a single one.  When a specific site is selected, filter against that site only.
+  const isAllSitesMode = !!(allBoundaries && allBoundaries.length > 0)
+  const spatialFilterDisabled = !projectBoundary && !isAllSitesMode
   const getGeometry = React.useCallback((f: FindingDisplay) => {
     return f.location ?? null
   }, [])
 
-  const { filteredItems: spatiallyFilteredBase } = useSpatialFilter({
+  // Single-boundary spatial filter (used when a specific site is selected)
+  const { filteredItems: singleBoundaryFiltered } = useSpatialFilter({
     boundary: projectBoundary,
     bufferKm: selectedBuffer,
     items: searchResults,
     getGeometry,
-    disabled: spatialFilterDisabled,
+    disabled: isAllSitesMode || !projectBoundary,
   })
+
+  // Pre-compute buffer polygons for all sites (only when in All Sites mode)
+  const allSiteBufferPolys = React.useMemo(() => {
+    if (!isAllSitesMode || !allBoundaries || allBoundaries.length === 0) return null
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const turf = require('@turf/turf')
+      return allBoundaries.map((b) =>
+        turf.buffer(b, selectedBuffer, { units: 'kilometers' })
+      ) as GeoJSON.Feature[]
+    } catch {
+      return null
+    }
+  }, [isAllSitesMode, allBoundaries, selectedBuffer])
+
+  // Multi-boundary spatial filter: keep items that intersect ANY site's buffer
+  const spatiallyFilteredBase = React.useMemo(() => {
+    if (!isAllSitesMode) return singleBoundaryFiltered
+    if (!allSiteBufferPolys) return searchResults
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const turf = require('@turf/turf')
+    return searchResults.filter((item) => {
+      const geom = getGeometry(item)
+      if (!geom) return true // no location → include (customSpatialFilter handles these)
+      try {
+        return allSiteBufferPolys.some((bp) => {
+          if (geom.type === 'Point') return turf.booleanPointInPolygon(geom, bp)
+          return turf.booleanIntersects(geom, bp)
+        })
+      } catch {
+        return false
+      }
+    })
+  }, [isAllSitesMode, allSiteBufferPolys, searchResults, singleBoundaryFiltered, getGeometry])
 
   const spatiallyFilteredResults = React.useMemo(() => {
     if (!config.customSpatialFilter || spatialFilterDisabled) return spatiallyFilteredBase

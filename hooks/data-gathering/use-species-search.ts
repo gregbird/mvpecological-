@@ -166,7 +166,7 @@ export function buildPerformSearch(
 
     // --- NBDC Grid Report Search ---
     if (gridRefsToSearch.length > 0) {
-      processNBDCReport(gridRefsToSearch, resolutionMeters, searchLabel, findings)
+      await processNBDCReport(gridRefsToSearch, resolutionMeters, searchLabel, findings)
     }
 
     // --- FPO and Article 17 search (supplementary) ---
@@ -212,7 +212,7 @@ async function processNBDCReport(
     }
     const entry = speciesMap.get(key)!
     entry.totalCount += s.recordCount
-    entry.gridSquares.add(s.gridSquare)
+    entry.gridSquares.add(s.gridSquare.replace(/\s+/g, ''))
     if (s.designation && !entry.species.designation) {
       entry.species = { ...entry.species, designation: s.designation }
     }

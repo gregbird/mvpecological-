@@ -37,6 +37,23 @@ export function useSpatialFilter<T>(options: SpatialFilterOptions<T>): SpatialFi
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const turf = require('@turf/turf')
 
+    // Pre-compute filter bbox for fast rejection
+    const filterBbox = turf.bbox(filterPolygon) as [number, number, number, number]
+
+    const bboxOverlaps = (geom: GeoJSON.Geometry): boolean => {
+      try {
+        const geomBbox = turf.bbox(geom) as [number, number, number, number]
+        return (
+          geomBbox[0] <= filterBbox[2] &&
+          geomBbox[2] >= filterBbox[0] &&
+          geomBbox[1] <= filterBbox[3] &&
+          geomBbox[3] >= filterBbox[1]
+        )
+      } catch {
+        return true
+      }
+    }
+
     const intersects = (geom: GeoJSON.Geometry): boolean => {
       try {
         if (geom.type === 'Point') {
@@ -45,6 +62,8 @@ export function useSpatialFilter<T>(options: SpatialFilterOptions<T>): SpatialFi
         if (geom.type === 'GeometryCollection') {
           return geom.geometries.some((g: GeoJSON.Geometry) => intersects(g))
         }
+        // Fast bbox rejection before expensive intersection test
+        if (!bboxOverlaps(geom)) return false
         return turf.booleanIntersects(geom, filterPolygon)
       } catch {
         return false

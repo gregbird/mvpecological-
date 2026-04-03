@@ -64,8 +64,6 @@ export function useAutoSearch({
     if (viewMode !== 'wizard') return
 
     const autoSearchKey = `auto-search-triggered-${projectId}`
-    if (sessionStorage.getItem(autoSearchKey)) return
-
     const hasSitesCache = !!sessionStorage.getItem(`npws-search-${projectId}`)
     // Species cache key is resolution-dependent: nbdc-report-{10km|2km|1km}-search-{projectId}
     let hasSpeciesCache = false

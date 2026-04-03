@@ -64,14 +64,24 @@ export function useShellSearch({
 
         const results = await Promise.all(tasks)
 
-        // Merge results, dedup by id
+        // Merge results, dedup by id, merge gridSquares from duplicate species
         const merged: FindingDisplay[] = []
-        const seenIds = new Set<string>()
+        const seenIndex = new Map<string, number>()
         for (const findings of results) {
           for (const f of findings) {
-            if (!seenIds.has(f.id)) {
-              seenIds.add(f.id)
+            const existing = seenIndex.get(f.id)
+            if (existing === undefined) {
+              seenIndex.set(f.id, merged.length)
               merged.push(f)
+            } else {
+              // Merge gridSquares so spatial filter works across all sites
+              const prev = merged[existing]
+              const prevGrids = (prev.metadata?.gridSquares ?? []) as string[]
+              const newGrids = (f.metadata?.gridSquares ?? []) as string[]
+              if (newGrids.length > 0 && prev.metadata) {
+                const combined = new Set([...prevGrids, ...newGrids])
+                prev.metadata = { ...prev.metadata, gridSquares: Array.from(combined) }
+              }
             }
           }
         }

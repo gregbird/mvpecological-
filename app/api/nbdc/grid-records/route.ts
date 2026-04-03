@@ -176,7 +176,10 @@ async function generateAndParseReport(
 
     const parsed = rows
       .map((row) => ({
-        gridSquare: String(row['Grid square'] || cleanRef),
+        gridSquare:
+          !row['Grid square'] || row['Grid square'] === 'Custom'
+            ? cleanRef
+            : String(row['Grid square']),
         speciesGroup: String(row['Species group'] || ''),
         speciesName: String(row['Species name'] || ''),
         recordCount: Number(row['Record count'] || 0),

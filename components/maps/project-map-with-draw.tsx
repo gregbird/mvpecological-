@@ -68,6 +68,88 @@ interface ProjectMapWithDrawProps {
   }) => void
 }
 
+// ── Bridge component: must be defined OUTSIDE MapComponentWithDraw so that
+//    React sees a stable component type and does not unmount/remount every render.
+interface BoundaryControllerBridgeProps {
+  mapRef: React.MutableRefObject<LeafletMap | null>
+  featureGroupRef: React.RefObject<LeafletFeatureGroup | null>
+  boundary?: GeoJSON.Feature<GeoJSON.Polygon>
+  editable: boolean
+  onBoundaryChange?: (features: GeoJSON.FeatureCollection, isEdit?: boolean) => void
+  onViewChange?: (center: [number, number], zoom: number) => void
+  onZoomChange?: (
+    zoom: number,
+    bounds?: { west: number; south: number; east: number; north: number }
+  ) => void
+  flyToLocation?: { center: [number, number]; zoom: number; key: string }
+  allowMultipleDrawings: boolean
+  habitatPolygons: import('@/components/maps/map-types').HabitatPolygonOverlay[]
+  onOverlapDetected?: (info: {
+    overlapAreaM2: number
+    habitatName: string
+    newPolygon: GeoJSON.Feature<GeoJSON.Polygon>
+    overlappingPolygon: GeoJSON.Feature<GeoJSON.Polygon>
+  }) => void
+  onMapReady?: (map: LeafletMap) => void
+  onDeleteConfirmChange: React.Dispatch<React.SetStateAction<boolean>>
+  pendingDeleteLayerRef: React.MutableRefObject<L.Layer | null>
+  onDrawMeasurementChange: (measurement: DrawMeasurement | null) => void
+  collectFeaturesRef: React.MutableRefObject<() => GeoJSON.Feature[]>
+}
+
+function BoundaryControllerBridge({
+  mapRef,
+  featureGroupRef,
+  boundary,
+  editable,
+  onBoundaryChange,
+  onViewChange,
+  onZoomChange,
+  flyToLocation,
+  allowMultipleDrawings,
+  habitatPolygons,
+  onOverlapDetected,
+  onMapReady,
+  onDeleteConfirmChange,
+  pendingDeleteLayerRef,
+  onDrawMeasurementChange,
+  collectFeaturesRef,
+}: BoundaryControllerBridgeProps) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { useMap } = require('react-leaflet')
+  const map = useMap()
+
+  const handleCollectFeaturesReady = React.useCallback(
+    (fn: () => GeoJSON.Feature[]) => {
+      collectFeaturesRef.current = fn
+    },
+    [collectFeaturesRef]
+  )
+
+  if (!map) return null
+  return (
+    <MapBoundaryController
+      map={map}
+      mapRef={mapRef}
+      featureGroupRef={featureGroupRef}
+      boundary={boundary}
+      editable={editable}
+      onBoundaryChange={onBoundaryChange}
+      onViewChange={onViewChange}
+      onZoomChange={onZoomChange}
+      flyToLocation={flyToLocation}
+      allowMultipleDrawings={allowMultipleDrawings}
+      habitatPolygons={habitatPolygons}
+      onOverlapDetected={onOverlapDetected}
+      onMapReady={onMapReady}
+      onDeleteConfirmChange={onDeleteConfirmChange}
+      pendingDeleteLayerRef={pendingDeleteLayerRef}
+      onDrawMeasurementChange={onDrawMeasurementChange}
+      onCollectFeaturesReady={handleCollectFeaturesReady}
+    />
+  )
+}
+
 // ── Internal map component (rendered client-side only via dynamic import) ────
 
 function MapComponentWithDraw(props: InternalMapProps) {
@@ -104,50 +186,13 @@ function MapComponentWithDraw(props: InternalMapProps) {
   const mapInstanceId = React.useId()
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const rl = require('react-leaflet')
-  const {
-    MapContainer,
-    TileLayer,
-    WMSTileLayer,
-    GeoJSON,
-    FeatureGroup,
-    useMap,
-    CircleMarker,
-    Popup,
-  } = rl
+  const { MapContainer, TileLayer, WMSTileLayer, GeoJSON, FeatureGroup, CircleMarker, Popup } = rl
   const tileConfig = TILE_LAYERS[currentStyle]
   const featureGroupRef = React.useRef<LeafletFeatureGroup | null>(null)
   const pendingDeleteLayerRef = React.useRef<L.Layer | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false)
   const [drawMeasurement, setDrawMeasurement] = React.useState<DrawMeasurement | null>(null)
   const collectFeaturesRef = React.useRef<() => GeoJSON.Feature[]>(() => [])
-
-  function BoundaryControllerBridge() {
-    const map = useMap()
-    if (!map) return null
-    return (
-      <MapBoundaryController
-        map={map}
-        mapRef={mapRef}
-        featureGroupRef={featureGroupRef}
-        boundary={boundary}
-        editable={editable}
-        onBoundaryChange={onBoundaryChange}
-        onViewChange={onViewChange}
-        onZoomChange={onZoomChange}
-        flyToLocation={flyToLocation}
-        allowMultipleDrawings={allowMultipleDrawings}
-        habitatPolygons={habitatPolygons}
-        onOverlapDetected={onOverlapDetected}
-        onMapReady={onMapReady}
-        onDeleteConfirmChange={setShowDeleteConfirm}
-        pendingDeleteLayerRef={pendingDeleteLayerRef}
-        onDrawMeasurementChange={setDrawMeasurement}
-        onCollectFeaturesReady={(fn) => {
-          collectFeaturesRef.current = fn
-        }}
-      />
-    )
-  }
 
   const confirmDelete = React.useCallback(() => {
     const layer = pendingDeleteLayerRef.current
@@ -231,7 +276,24 @@ function MapComponentWithDraw(props: InternalMapProps) {
             zoomOffset={-1}
           />
         )}
-        <BoundaryControllerBridge />
+        <BoundaryControllerBridge
+          mapRef={mapRef}
+          featureGroupRef={featureGroupRef}
+          boundary={boundary}
+          editable={editable}
+          onBoundaryChange={onBoundaryChange}
+          onViewChange={onViewChange}
+          onZoomChange={onZoomChange}
+          flyToLocation={flyToLocation}
+          allowMultipleDrawings={allowMultipleDrawings}
+          habitatPolygons={habitatPolygons}
+          onOverlapDetected={onOverlapDetected}
+          onMapReady={onMapReady}
+          onDeleteConfirmChange={setShowDeleteConfirm}
+          pendingDeleteLayerRef={pendingDeleteLayerRef}
+          onDrawMeasurementChange={setDrawMeasurement}
+          collectFeaturesRef={collectFeaturesRef}
+        />
 
         {showCounties && countiesData && (
           <GeoJSON

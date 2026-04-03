@@ -123,35 +123,61 @@ export function useGeomanSetup({
 
     const init = async () => {
       try {
-        // Wait for map container to be fully visible (clientHeight > 0)
+        // Wait for map container to be fully visible using ResizeObserver
         await new Promise<void>((resolve) => {
           const container = map.getContainer()
           if (container?.clientHeight > 0) {
             resolve()
             return
           }
-          const interval = setInterval(() => {
-            if (cancelled) {
-              clearInterval(interval)
-              resolve()
-              return
+          // Use ResizeObserver for reliable detection of container becoming visible
+          const ro = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+              if (entry.contentRect.height > 0) {
+                ro.disconnect()
+                resolve()
+                return
+              }
             }
-            if (map.getContainer()?.clientHeight > 0) {
-              clearInterval(interval)
-              resolve()
-            }
-          }, 50)
-          setTimeout(() => {
-            clearInterval(interval)
+          })
+          if (container) ro.observe(container)
+          // Cleanup if cancelled or fallback after 5s (should never be needed)
+          const fallback = setTimeout(() => {
+            ro.disconnect()
             resolve()
-          }, 2000)
+          }, 5000)
+          // Store cleanup refs so cancellation can clean up
+          const checkCancelled = setInterval(() => {
+            if (cancelled) {
+              clearInterval(checkCancelled)
+              clearTimeout(fallback)
+              ro.disconnect()
+              resolve()
+            }
+          }, 100)
         })
         if (cancelled) return
         await import('@geoman-io/leaflet-geoman-free')
-        if (cancelled || !map.pm) return
+        if (cancelled) return
+
+        // Geoman uses L.Map.addInitHook to attach `map.pm` — but that only
+        // fires for maps created AFTER the import.  When the map was created
+        // before the dynamic import, `map.pm` is undefined.  Initialise it
+        // manually so the toolbar works on the very first navigation.
+        if (!map.pm) {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const L = require('leaflet')
+          if (L.PM?.Map) {
+            map.pm = new L.PM.Map(map)
+          }
+        }
+        if (!map.pm) return
 
         // Force Leaflet to recalculate container size so controls render correctly
         map.invalidateSize()
+        // Wait one animation frame for the layout to stabilize after invalidateSize
+        await new Promise<void>((r) => requestAnimationFrame(() => r()))
+        if (cancelled) return
 
         // Always ensure controls are visible (addControls is idempotent)
         map.pm.setGlobalOptions({

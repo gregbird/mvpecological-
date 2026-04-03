@@ -188,7 +188,8 @@ export function useGridOverlay({
         | string[]
         | undefined
       if (!gridSquares || gridSquares.length === 0) return true
-      return gridSquares.some((gs) => selectedSiteGridRefs.has(gs))
+      const match = gridSquares.some((gs) => selectedSiteGridRefs.has(gs))
+      return match
     },
     [selectedSiteGridRefs]
   )
