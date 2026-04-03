@@ -88,13 +88,22 @@ Use markdown sub-headings (###) for each sub-section. Be thorough and evidence-b
 Incorporate the ecologist's professional opinion where provided. Be specific and actionable.`,
   },
   appendices: {
-    prompt: `Write the Appendices section (~100-200 words). List the appendices that should accompany this report:
+    prompt: `Write the Appendices section (~200-400 words). Include two parts:
+
+**Part 1 — Appendix List:**
 - Appendix A: Site Location Map
 - Appendix B: Habitat Map (reference FOSSITT codes mapped)
 - Appendix C: Species List (reference observation counts)
 - Appendix D: Site Photographs
 - Appendix E: Survey Datasheets
-Add brief descriptions of what each appendix contains based on the available data.`,
+Add brief descriptions of what each appendix contains based on the available data.
+
+**Part 2 — Data Sources and References:**
+Using the DATA SOURCES AND REFERENCES section from the provided data, write a formatted references list. Include:
+- All online databases consulted (NPWS, NBDC, GBIF, EPA, Catchments.ie, NLC) with their URLs
+- Specific sites, species records, or water bodies accessed from each source
+- Standard ecological references (Fossitt 2000, CIEEM guidelines, etc.)
+Format as a numbered reference list suitable for an ecological report appendix.`,
   },
 }
 
@@ -194,7 +203,9 @@ Be specific about timing restrictions (e.g., no vegetation clearance 1 March –
 6. Further survey requirements and optimal timing`,
   },
   appendices: {
-    prompt: `Write the Appendices section (~100-200 words). List:
+    prompt: `Write the Appendices section (~200-400 words). Include two parts:
+
+**Part 1 — Appendix List:**
 - Appendix A: Site Location Map
 - Appendix B: Habitat Map (Fossitt codes annotated)
 - Appendix C: Designated Sites Map with Zone of Influence
@@ -202,7 +213,10 @@ Be specific about timing restrictions (e.g., no vegetation clearance 1 March –
 - Appendix E: Site Photographs
 - Appendix F: Survey Datasheets
 - Appendix G: CEMP Outline
-Add brief descriptions based on available data.`,
+Add brief descriptions based on available data.
+
+**Part 2 — Data Sources and References:**
+Using the DATA SOURCES AND REFERENCES section from the provided data, write a formatted references list including all online databases consulted with URLs, specific sites/records accessed, and standard ecological references. Format as a numbered list.`,
   },
 }
 
@@ -425,14 +439,19 @@ Include sonogram analysis reference where applicable.`,
 Follow NPWS best practice guidance and BCIreland recommendations.`,
   },
   appendices: {
-    prompt: `Write the Appendices section (~100-150 words). List:
+    prompt: `Write the Appendices section (~200-300 words). Include two parts:
+
+**Part 1 — Appendix List:**
 - Appendix A: Site Location & Survey Transect Map
 - Appendix B: Bat Activity Maps (species distribution)
 - Appendix C: Sonogram Examples
 - Appendix D: Survey Data Tables (passes per species per survey)
 - Appendix E: Site Photographs
 - Appendix F: Building/Tree Assessment Sheets
-Add brief descriptions based on available data.`,
+Add brief descriptions based on available data.
+
+**Part 2 — Data Sources and References:**
+Using the DATA SOURCES AND REFERENCES section from the provided data, write a formatted references list including all databases consulted with URLs and standard ecological references. Format as a numbered list.`,
   },
 }
 
@@ -503,14 +522,19 @@ Include comparative data with national population estimates where relevant.`,
 5. Species-specific recommendations for BoCCI Red-listed species`,
   },
   appendices: {
-    prompt: `Write the Appendices section (~100-150 words). List:
+    prompt: `Write the Appendices section (~200-300 words). Include two parts:
+
+**Part 1 — Appendix List:**
 - Appendix A: Site Location & Survey Point Map
 - Appendix B: Breeding Bird Territory Maps
 - Appendix C: Wintering Bird Count Data
 - Appendix D: BoCCI & Legal Status Table
 - Appendix E: Site Photographs
 - Appendix F: Survey Datasheets
-Add brief descriptions based on available data.`,
+Add brief descriptions based on available data.
+
+**Part 2 — Data Sources and References:**
+Using the DATA SOURCES AND REFERENCES section from the provided data, write a formatted references list including all databases consulted with URLs and standard ecological references. Format as a numbered list.`,
   },
 }
 
@@ -567,7 +591,9 @@ Present habitat areas in a summary table. Include relevé data where available.`
 5. **Monitoring** — post-development habitat condition monitoring programme with specific indicators`,
   },
   appendices: {
-    prompt: `Write the Appendices section (~100-150 words). List:
+    prompt: `Write the Appendices section (~200-300 words). Include two parts:
+
+**Part 1 — Appendix List:**
 - Appendix A: Site Location Map
 - Appendix B: Habitat Map (Fossitt codes annotated)
 - Appendix C: Habitat Area Summary Table
@@ -575,7 +601,10 @@ Present habitat areas in a summary table. Include relevé data where available.`
 - Appendix E: Plant Species List with DAFOR abundance
 - Appendix F: Site Photographs
 - Appendix G: Annex I Habitat Correspondence Table
-Add brief descriptions based on available data.`,
+Add brief descriptions based on available data.
+
+**Part 2 — Data Sources and References:**
+Using the DATA SOURCES AND REFERENCES section from the provided data, write a formatted references list including all databases consulted with URLs and standard ecological references. Format as a numbered list.`,
   },
 }
 

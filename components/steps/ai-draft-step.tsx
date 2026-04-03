@@ -15,6 +15,7 @@ import {
   useReportsByType,
 } from '@/hooks/queries/use-report-hooks'
 import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
+import { useAutosave } from '@/hooks/use-autosave'
 import { useActiveReportType } from '@/hooks/use-active-report-type'
 import { useTemplateData } from '@/hooks/queries/use-template-data'
 import {
@@ -276,15 +277,18 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
     setSections((prev) =>
       prev.map((s) => (s.id === sectionId ? { ...s, content, isEdited: true } : s))
     )
+    autosave.markDirty()
   }
 
   const updateSectionOpinion = (sectionId: string, opinion: string) => {
     setSections((prev) =>
       prev.map((s) => (s.id === sectionId ? { ...s, ecologistOpinion: opinion } : s))
     )
+    autosave.markDirty()
   }
 
-  const handleSaveReport = async () => {
+  // Core save logic — used by both manual save and autosave
+  const saveReport = React.useCallback(async () => {
     const reportContent: ReportContent = {
       sections,
       metadata: {
@@ -294,29 +298,39 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
       },
     }
 
-    try {
-      if (existingReport) {
-        const preservedStatus =
-          existingReport.status === 'approved' || existingReport.status === 'final'
-            ? existingReport.status
-            : 'draft'
-        await updateReport.mutateAsync({
-          reportId: existingReport.id,
-          updates: {
-            content: reportContent as unknown as Json,
-            status: preservedStatus,
-          },
-        })
-      } else {
-        await createReport.mutateAsync({
-          project_id: project.id,
-          report_type: reportType,
-          status: 'draft',
+    if (existingReport) {
+      const preservedStatus =
+        existingReport.status === 'approved' || existingReport.status === 'final'
+          ? existingReport.status
+          : 'draft'
+      await updateReport.mutateAsync({
+        reportId: existingReport.id,
+        updates: {
           content: reportContent as unknown as Json,
-          generated_by: userId,
-        })
-      }
+          status: preservedStatus,
+        },
+      })
+    } else {
+      await createReport.mutateAsync({
+        project_id: project.id,
+        report_type: reportType,
+        status: 'draft',
+        content: reportContent as unknown as Json,
+        generated_by: userId,
+      })
+    }
+  }, [sections, existingReport, updateReport, createReport, project.id, reportType, userId])
 
+  // Autosave: saves 30s after last edit, warns on page close
+  const autosave = useAutosave({
+    onSave: saveReport,
+    enabled: sections.some((s) => s.content),
+  })
+
+  // Manual save with toast notification
+  const handleSaveReport = async () => {
+    try {
+      await autosave.saveNow()
       toast({
         title: 'Report saved',
         description: 'Your draft report has been saved.',
@@ -548,6 +562,8 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
               isSaving={updateReport.isPending || createReport.isPending}
               isCreatingVersion={createVersion.isPending}
               isCompleting={completeStep.isPending}
+              autosaveStatus={autosave.status}
+              lastSavedAt={autosave.lastSavedAt}
               existingReport={existingReport ?? null}
               allReports={allReports ?? []}
               onGenerate={generateSectionContent}

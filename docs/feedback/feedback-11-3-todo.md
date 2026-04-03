@@ -1,7 +1,7 @@
 # Feedback 11/3 — Yapilacaklar Listesi
 
 > **Kaynak:** Greg Birdthistle — 11 Mart 2026
-> **Durum:** Devam ediyor (Faz 1 + Faz 2 + Faz 3 + E1 tamamlandi)
+> **Durum:** Devam ediyor (Faz 1 + Faz 2 + Faz 3 + E1 + E2 tamamlandi)
 > **Toplam:** 72 madde, 6 grup
 
 ---
@@ -35,9 +35,9 @@ F: Bagimsiz ──→ paralel yapilabilir
 | B: Habitat Veri   | 11     | 11         | ██████████ 100% ✅ |
 | C: Desk Temizlik  | 6      | 6          | ██████████ 100% ✅ |
 | D: Field Research | 9      | 9          | ██████████ 100% ✅ |
-| E: Raporlama      | 20     | 7          | ████░░░░░░ 35%     |
+| E: Raporlama      | 20     | 11         | █████░░░░░ 55%     |
 | F: Bagimsiz       | 5      | 0          | ░░░░░░░░░░ 0%      |
-| **Toplam**        | **80** | **71**     | █████████░ **89%** |
+| **Toplam**        | **80** | **75**     | █████████░ **94%** |
 
 ---
 
@@ -203,11 +203,11 @@ F: Bagimsiz ──→ paralel yapilabilir
 
 ### E2. AI Draft Fix + Autosave (Feedback #11)
 
-- [ ] **E2.1** Kaydetme sirasinda rapor metninin degismesi sorununu duzelt
-- [ ] **E2.2** AI metin dilini Irlanda Ingilizcesi (en-IE) olarak ayarla
-- [ ] **E2.3** Autosave ozelligi ekle
+- [x] **E2.1** ~~Kaydetme sirasinda rapor metninin degismesi sorununu duzelt~~ ✅ (3 Nisan 2026) — Kok neden: `tiptap-markdown` extension'i `getMarkdown()` ile serialize ederken markdown'i normalize ediyordu (bosluklar, satir araları, liste biçimleri degisiyor). Cozum: icerik artik ProseMirror document JSON olarak saklanıyor (`editor.getJSON()` / `JSON.stringify`). JSON round-trip kayipsiz — bosluklar, bos paragraflar, format birebir korunuyor. Eski markdown raporlar geriye uyumlu: ilk yuklemede tiptap-markdown parse eder, ilk duzenleme veya save'de otomatik JSON'a donusur. Dosya: `section-editor.tsx`
+- [x] **E2.2** ~~AI metin dilini Irlanda Ingilizcesi (en-IE) olarak ayarla~~ ✅ (3 Nisan 2026) — Iki katmanli cozum: (1) System prompt guclendirildi — 25+ ornek kelime ile detayli Irish English talimati eklendi (`route.ts`). (2) Post-processing sozlugu — `lib/ai/irish-english.ts` dosyasinda `toIrishEnglish()` fonksiyonu, 170+ American→Irish/British donusum kurali (ize→ise, or→our, er→re, ense→ence, og→ogue, double-L, bilimsel terimler). AI ciktisi dondukten sonra otomatik uygulanir, ~1ms ek sure. Buyuk/kucuk harf korunur
+- [x] **E2.3** ~~Autosave ozelligi ekle~~ ✅ (3 Nisan 2026) — `hooks/use-autosave.ts` hook'u: son duzenlemenin 30sn sonrasinda otomatik DB'ye kaydeder (Google Docs ile ayni yaklasim). Durumlar: idle → unsaved → saving → saved/error. Top bar'da status gostergesi (Cloud ikonu + "Saved at HH:MM" / "Unsaved changes" / "Saving..."). `beforeunload` ile sayfa kapatirken kaydedilmemis degisiklik uyarisi. Manuel Save butonu hala aktif (`autosave.saveNow()` ile entegre). Not: Elektrik kesilmesi gibi edge case'ler icin localStorage recovery eklenebilir (su an kapsam disi). Dosyalar: `use-autosave.ts`, `ai-draft-step.tsx`, `ai-draft-tab.tsx`, `document-top-bar.tsx`
 - [x] **E2.4** ~~Versiyon kontrolu~~ — **MEVCUT**: `version-history-panel.tsx` ile view/compare/restore calisiyor. Greg'e gosterip onay al
-- [ ] **E2.5** Appendix'e data gathering'den toplanan tum link ve kaynaklari ekle
+- [x] **E2.5** ~~Appendix'e data gathering'den toplanan tum link ve kaynaklari ekle~~ ✅ (3 Nisan 2026) — `buildReportContext` fonksiyonuna "DATA SOURCES AND REFERENCES" bolumu eklendi. `desk_research_findings.source` enum'undan (NPWS, GBIF, NBDC, EPA, Catchments, FPO) + deep research + aquatic research'ten kaynak URL'leri ve detaylar (site kodlari, su kutleleri) otomatik toplanir. NLC 2018 ve standart referanslar (Fossitt 2000, CIEEM 2018, Smith et al. 2011) her zaman dahil. Tum rapor tiplerinin (PEA, EcIA, AA, Bat, Bird, Habitat) appendix prompt'lari guncellendi — "Part 2: Data Sources and References" talimati eklendi. Dosyalar: `route.ts`, `report-section-prompts.ts`
 
 ### E3. Quality Review Yeni Akis (Feedback #12)
 

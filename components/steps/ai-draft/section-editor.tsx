@@ -21,7 +21,7 @@ declare module '@tiptap/core' {
 interface SectionEditorProps {
   content: string
   editable: boolean
-  onContentChange: (markdown: string) => void
+  onContentChange: (content: string) => void
   projectId?: string
 }
 
@@ -33,7 +33,22 @@ export function SectionEditor({
 }: SectionEditorProps) {
   const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const isExternalUpdate = React.useRef(false)
+  const initialSynced = React.useRef(false)
   const [pickerOpen, setPickerOpen] = React.useState(false)
+
+  // Detect if stored content is JSON (ProseMirror doc) or legacy markdown.
+  const initialContent = React.useMemo(() => {
+    if (!content) return ''
+    if (content.trimStart().startsWith('{')) {
+      try {
+        return JSON.parse(content)
+      } catch {
+        return content
+      }
+    }
+    // Legacy markdown — tiptap-markdown extension will parse it
+    return content
+  }, [content])
 
   const editor = useEditor({
     extensions: [
@@ -56,7 +71,7 @@ export function SectionEditor({
     ],
     immediatelyRender: false,
     editable,
-    content,
+    content: initialContent,
     onUpdate({ editor: updatedEditor }) {
       if (isExternalUpdate.current) return
 
@@ -64,11 +79,22 @@ export function SectionEditor({
         clearTimeout(debounceRef.current)
       }
       debounceRef.current = setTimeout(() => {
-        const md = updatedEditor.storage.markdown.getMarkdown()
-        onContentChange(md)
+        // Save as JSON — lossless round-trip, no markdown normalization
+        onContentChange(JSON.stringify(updatedEditor.getJSON()))
       }, 300)
     },
   })
+
+  // On first render with legacy markdown content, immediately sync to JSON
+  // so the parent state holds the lossless representation.
+  React.useEffect(() => {
+    if (!editor || initialSynced.current || !content) return
+    initialSynced.current = true
+    const isJson = content.trimStart().startsWith('{')
+    if (!isJson) {
+      onContentChange(JSON.stringify(editor.getJSON()))
+    }
+  }, [editor, content, onContentChange])
 
   // Sync editable prop
   React.useEffect(() => {
@@ -77,16 +103,36 @@ export function SectionEditor({
     }
   }, [editor, editable])
 
-  // Sync content from outside (e.g. AI regenerate)
+  // Sync content from outside (e.g. AI regenerate, version restore)
   React.useEffect(() => {
     if (!editor) return
-    const currentMd = editor.storage.markdown.getMarkdown()
-    if (content === currentMd) return
+
+    // Compare current editor JSON with incoming content
+    const currentJson = JSON.stringify(editor.getJSON())
+    if (content === currentJson) return
+
+    // Parse incoming content
+    let newContent: string | Record<string, unknown> = content
+    const isJson = content.trimStart().startsWith('{')
+    if (isJson) {
+      try {
+        newContent = JSON.parse(content)
+      } catch {
+        // Fallback: treat as markdown
+      }
+    }
 
     isExternalUpdate.current = true
-    editor.commands.setContent(content)
+    editor.commands.setContent(newContent)
+
+    // If incoming content was markdown (AI generate or legacy), immediately
+    // convert to JSON so the parent state matches the editor's internal
+    // representation — prevents phantom diffs on save.
+    if (!isJson && content) {
+      onContentChange(JSON.stringify(editor.getJSON()))
+    }
     isExternalUpdate.current = false
-  }, [editor, content])
+  }, [editor, content, onContentChange])
 
   // Cleanup debounce timer
   React.useEffect(() => {

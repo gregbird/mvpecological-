@@ -15,6 +15,8 @@ interface SectionDef {
   aiPrompt: string
 }
 
+type AutosaveStatus = 'idle' | 'unsaved' | 'saving' | 'saved' | 'error'
+
 interface AIDraftTabProps {
   project: Project
   reportType: string
@@ -27,6 +29,8 @@ interface AIDraftTabProps {
   isSaving: boolean
   isCreatingVersion: boolean
   isCompleting: boolean
+  autosaveStatus: AutosaveStatus
+  lastSavedAt: Date | null
   existingReport: Report | null
   allReports: Report[]
   onGenerate: (sectionId: string) => void
@@ -53,6 +57,8 @@ export function AIDraftTab({
   isSaving,
   isCreatingVersion,
   isCompleting,
+  autosaveStatus,
+  lastSavedAt,
   existingReport,
   allReports,
   onGenerate,
@@ -103,6 +109,8 @@ export function AIDraftTab({
         isSaving={isSaving}
         isCreatingVersion={isCreatingVersion}
         isCompleting={isCompleting}
+        autosaveStatus={autosaveStatus}
+        lastSavedAt={lastSavedAt}
         onSave={onSave}
         onSaveAsVersion={onSaveAsVersion}
         onGenerateAll={onGenerateAll}

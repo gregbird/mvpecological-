@@ -1,9 +1,11 @@
 'use client'
 
-import { Loader2, Save, Copy, Sparkles, RefreshCw, Check } from 'lucide-react'
+import { Loader2, Save, Copy, Sparkles, RefreshCw, Check, CloudOff, Cloud } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import type { ReportSection } from '@/lib/supabase/queries/reports'
+
+type AutosaveStatus = 'idle' | 'unsaved' | 'saving' | 'saved' | 'error'
 
 interface DocumentTopBarProps {
   totalSections: number
@@ -15,10 +17,17 @@ interface DocumentTopBarProps {
   isSaving: boolean
   isCreatingVersion: boolean
   isCompleting: boolean
+  autosaveStatus: AutosaveStatus
+  lastSavedAt: Date | null
   onSave: () => void
   onSaveAsVersion: () => void
   onGenerateAll: (onlyEmpty: boolean) => void
   onComplete: () => void
+}
+
+function formatSavedTime(date: Date | null): string {
+  if (!date) return ''
+  return date.toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit' })
 }
 
 export function DocumentTopBar({
@@ -31,6 +40,8 @@ export function DocumentTopBar({
   isSaving,
   isCreatingVersion,
   isCompleting,
+  autosaveStatus,
+  lastSavedAt,
   onSave,
   onSaveAsVersion,
   onGenerateAll,
@@ -48,6 +59,34 @@ export function DocumentTopBar({
         <span className="text-muted-foreground text-xs">
           {filled}/{total}
         </span>
+      </div>
+
+      {/* Autosave status */}
+      <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
+        {autosaveStatus === 'saving' && (
+          <>
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span>Saving...</span>
+          </>
+        )}
+        {autosaveStatus === 'saved' && (
+          <>
+            <Cloud className="h-3 w-3 text-green-600 dark:text-green-400" />
+            <span>Saved{lastSavedAt ? ` at ${formatSavedTime(lastSavedAt)}` : ''}</span>
+          </>
+        )}
+        {autosaveStatus === 'unsaved' && (
+          <>
+            <CloudOff className="h-3 w-3 text-amber-500" />
+            <span>Unsaved changes</span>
+          </>
+        )}
+        {autosaveStatus === 'error' && (
+          <>
+            <CloudOff className="h-3 w-3 text-red-500" />
+            <span className="text-red-500">Save failed</span>
+          </>
+        )}
       </div>
 
       <div className="flex-1" />

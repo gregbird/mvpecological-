@@ -5,6 +5,7 @@ import { getReportSectionsForType } from '@/lib/config/template-types'
 import { jsonToSections } from '@/lib/supabase/queries/templates'
 import { REPORT_TYPES } from '@/lib/config/template-types'
 import { getSectionPrompt, getSectionMaxTokens } from '@/lib/ai/report-section-prompts'
+import { toIrishEnglish } from '@/lib/ai/irish-english'
 
 /**
  * AI Report Section Generator API
@@ -32,7 +33,7 @@ Expertise: Irish designated sites (SAC, SPA, NHA, pNHA), EU Habitats & Birds Dir
 Rules:
 - Write professionally for direct inclusion in ${reportName} reports
 - Base ALL conclusions strictly on the provided data — never speculate or invent species/sites/counts
-- Use Irish English spelling (colour, behaviour, metre)
+- ALWAYS use Irish/British English spelling throughout. Never use American English. Key examples: colour (not color), behaviour (not behavior), metre (not meter), centre (not center), analyse (not analyze), summarise (not summarize), organise (not organize), minimise (not minimize), characterise (not characterize), specialise (not specialize), recognise (not recognize), favour (not favor), neighbour (not neighbor), defence (not defense), catalogue (not catalog), programme (not program), grey (not gray), sulphur (not sulfur), travelled (not traveled), modelling (not modeling), labelled (not labeled), fulfil (not fulfill), judgement (not judgment)
 - Reference Fossitt (2000) habitat classification where applicable
 - Reference relevant Irish wildlife legislation and EU Directives
 - Clearly identify data gaps and recommend further work where needed
@@ -393,7 +394,9 @@ Write the section content now. Use markdown formatting (bold, bullet points, tab
     }
 
     const data = await aiResponse.json()
-    const content = data.choices[0]?.message?.content?.trim() || ''
+    const rawContent = data.choices[0]?.message?.content?.trim() || ''
+    // Post-process: ensure Irish/British English spelling
+    const content = toIrishEnglish(rawContent)
     const tokensUsed = data.usage?.total_tokens || 0
 
     // Track which data sources contributed
@@ -814,6 +817,110 @@ function buildReportContext(input: ReportContextInput): string {
     parts.push(input.deskInsights)
     parts.push('')
   }
+
+  // 10. Data sources and references (for Appendix)
+  parts.push('# DATA SOURCES AND REFERENCES')
+  const sourceUrls: Record<string, { name: string; url: string; details: string[] }> = {
+    npws: {
+      name: 'National Parks and Wildlife Service (NPWS)',
+      url: 'https://www.npws.ie',
+      details: [],
+    },
+    gbif: {
+      name: 'Global Biodiversity Information Facility (GBIF)',
+      url: 'https://www.gbif.org',
+      details: [],
+    },
+    nbdc: {
+      name: 'National Biodiversity Data Centre (NBDC)',
+      url: 'https://maps.biodiversityireland.ie',
+      details: [],
+    },
+    epa: {
+      name: 'Environmental Protection Agency (EPA)',
+      url: 'https://www.epa.ie',
+      details: [],
+    },
+    catchments: {
+      name: 'Catchments.ie',
+      url: 'https://www.catchments.ie',
+      details: [],
+    },
+    fpo: {
+      name: 'Flora (Protection) Order 2022 — NPWS',
+      url: 'https://www.npws.ie/legislation/irish-law/flora-protection-order',
+      details: [],
+    },
+  }
+
+  // Collect details from findings
+  for (const f of input.findings) {
+    const entry = sourceUrls[f.source]
+    if (!entry) continue
+    if (f.source === 'npws') {
+      const raw = f.raw_data as Record<string, unknown> | null
+      const siteCode = raw?.siteCode || (raw?.metadata as Record<string, unknown>)?.siteCode
+      if (siteCode) {
+        const detail = `${f.title} (${siteCode})`
+        if (!entry.details.includes(detail)) entry.details.push(detail)
+      }
+    } else {
+      if (!entry.details.includes(f.title)) entry.details.push(f.title)
+    }
+  }
+
+  // Add deep research sites
+  for (const dr of input.deepResearch) {
+    const entry = sourceUrls['npws']
+    const detail = `${dr.site_name} (${dr.site_code}) — ${dr.site_type}`
+    if (!entry.details.includes(detail)) entry.details.push(detail)
+  }
+
+  // Add aquatic research
+  for (const ar of input.aquaticResearch) {
+    const epaEntry = sourceUrls['epa']
+    const detail = `${ar.water_body_name} (${ar.water_body_code}) — ${ar.water_body_type}`
+    if (!epaEntry.details.includes(detail)) epaEntry.details.push(detail)
+    if (ar.linked_sac_name) {
+      const npwsEntry = sourceUrls['npws']
+      const sacDetail = `${ar.linked_sac_name} (${ar.linked_sac_code}) — SAC`
+      if (!npwsEntry.details.includes(sacDetail)) npwsEntry.details.push(sacDetail)
+    }
+  }
+
+  // Add NLC data source if habitat findings exist
+  const hasNlcData = input.findings.some((f) => f.data_type === 'habitat')
+  if (hasNlcData) {
+    parts.push(
+      `- National Land Cover Map (NLC) 2018 — https://www.tailte.ie/surveying/products/professional-mapping/national-land-cover/`
+    )
+    parts.push(`  Source of desktop habitat data (FOSSITT classification)`)
+  }
+
+  // Output used sources with details
+  const usedSources = Object.values(sourceUrls).filter((s) => s.details.length > 0)
+  for (const source of usedSources) {
+    parts.push(`- ${source.name} — ${source.url}`)
+    // Show up to 10 details per source
+    for (const detail of source.details.slice(0, 10)) {
+      parts.push(`  • ${detail}`)
+    }
+    if (source.details.length > 10) {
+      parts.push(`  ... and ${source.details.length - 10} more`)
+    }
+  }
+
+  // Standard references always included
+  parts.push('')
+  parts.push('Standard references:')
+  parts.push('- Fossitt, J.A. (2000) A Guide to Habitats in Ireland. Heritage Council, Kilkenny.')
+  parts.push(
+    '- Smith, G.F. et al. (2011) Best Practice Guidance for Habitat Survey and Mapping. Heritage Council.'
+  )
+  parts.push(
+    '- CIEEM (2018) Guidelines for Ecological Impact Assessment in the UK and Ireland. CIEEM, Winchester.'
+  )
+  parts.push('')
 
   return parts.join('\n')
 }
