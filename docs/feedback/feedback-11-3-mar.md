@@ -122,10 +122,10 @@ FOSSITT koduna gore standart renk eslestirmesi (Heritage Council):
 
 **Yapilacilar:**
 
-- [ ] **5.1** Shapefile upload sirasinda oznitelik verilerini okuma ve gosterme
-- [ ] **5.2** Her site sinirina oznitelik atama UI'i
-- [ ] **5.3** Target note'lari oznitelik olarak isleme
-- [ ] **5.4** Final submission'da shapefile export'una oznitelik + target note dahil etme (.shp, .shx, .dbf, .prj)
+- [x] **5.1** ~~Shapefile upload sirasinda oznitelik verilerini okuma ve gosterme~~ ✅ (29 Mart 2026) — shapefile-parser attribute extraction yapiyor, useSiteManagement upload'da attributes'u site'a aktariyor
+- [ ] **5.2** Her site sinirina oznitelik atama UI'i — ⚠️ `attribute-editor.tsx` component yazildi ama hicbir sayfaya baglanmadi
+- [x] **5.3** ~~Target note'lari oznitelik olarak isleme~~ ✅ (29 Mart 2026) — shapefile-export.ts target notes point layer olarak dahil ediyor
+- [x] **5.4** ~~Final submission'da shapefile export'una oznitelik + target note dahil etme (.shp, .shx, .dbf, .prj)~~ ✅ (29 Mart 2026) — `downloadShapefile()` maps-tab'da kullaniliyor
 
 ---
 
@@ -266,11 +266,11 @@ Her vektor feature, cizgilerle baglanan koordinat noktalari serisidir. Bu noktal
 
 **Yapilacilar:**
 
-- [ ] **11.1** Kaydetme sirasinda rapor metninin degismesi sorununu duzelt
-- [ ] **11.2** AI metin dilini Irlanda Ingilizcesi (en-IE) olarak ayarla
-- [ ] **11.3** Autosave ozelligi ekle
-- [ ] **11.4** Versiyon kontrolu — her kayit yeni versiyon, en son kaydedilen her zaman erisilebilir
-- [ ] **11.5** Appendix'e data gathering'den toplanan tum link ve kaynaklari ekle
+- [x] **11.1** ~~Kaydetme sirasinda rapor metninin degismesi sorununu duzelt~~ ✅ (3 Nisan 2026) — Icerik artik ProseMirror JSON olarak saklanıyor, markdown normalize sorunu cozuldu
+- [x] **11.2** ~~AI metin dilini Irlanda Ingilizcesi (en-IE) olarak ayarla~~ ✅ (3 Nisan 2026) — System prompt + `toIrishEnglish()` post-processing (170+ kural)
+- [x] **11.3** ~~Autosave ozelligi ekle~~ ✅ (3 Nisan 2026) — `use-autosave.ts`: 30sn sonra otomatik kayit, Cloud status gostergesi, beforeunload uyarisi
+- [x] **11.4** ~~Versiyon kontrolu~~ ✅ — `version-history-panel.tsx` ile view/compare/restore calisiyor
+- [x] **11.5** ~~Appendix'e data gathering'den toplanan tum link ve kaynaklari ekle~~ ✅ (3 Nisan 2026) — NPWS, GBIF, NBDC, EPA, Catchments kaynak URL'leri otomatik toplanıyor
 
 ---
 

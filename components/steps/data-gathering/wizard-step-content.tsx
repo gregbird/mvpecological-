@@ -184,7 +184,6 @@ export function WizardStepContent({
           <HabitatDataSubStep
             project={project}
             projectBoundary={projectBoundary}
-            searchBoundary={searchBoundary}
             projectCenter={projectCenter}
             bufferDistances={bufferDistances}
             siteId={siteId}

@@ -15,7 +15,6 @@ import type { HabitatResult } from '@/components/steps/data-gathering/habitat-da
 interface UseHabitatSearchParams {
   projectId: string
   projectBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
-  searchBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
   projectCenter?: { lat: number; lng: number }
   allBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   bufferDistances: number[]
@@ -26,7 +25,6 @@ interface UseHabitatSearchParams {
 export function useHabitatSearch({
   projectId,
   projectBoundary,
-  searchBoundary,
   projectCenter,
   allBoundaries,
   bufferDistances,
@@ -52,10 +50,13 @@ export function useHabitatSearch({
           .map((b) => getBoundingBox(b, null, buffer))
           .filter(Boolean) as NonNullable<ReturnType<typeof getBoundingBox>>[]
       }
-      const bbox = getBoundingBox(searchBoundary ?? projectBoundary, projectCenter, buffer)
+      // Single-site: use only the selected site's boundary, not the merged multi-site bbox.
+      // searchBoundary covers ALL sites — using it here would fetch data from the entire
+      // project area, producing dissolved MultiPolygons too large to filter accurately.
+      const bbox = getBoundingBox(projectBoundary, projectCenter, buffer)
       return bbox ? [bbox] : []
     },
-    [allBoundaries, searchBoundary, projectBoundary, projectCenter]
+    [allBoundaries, projectBoundary, projectCenter]
   )
 
   // Debounced sessionStorage write

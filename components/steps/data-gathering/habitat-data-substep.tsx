@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useSessionStorage } from '@/hooks/shared/use-session-storage'
 import { IRELAND_CENTER } from '@/lib/config/map-constants'
+import { useProjectSites } from '@/hooks/queries/use-site-hooks'
 import { HabitatDeepResearchModal } from '@/components/desk-research/habitat-deep-research-modal'
 import { HabitatResultsPanel } from '@/components/steps/data-gathering/habitat-results-panel'
 import { useHabitatSearch } from '@/hooks/data-gathering/use-habitat-search'
@@ -37,7 +38,6 @@ const ProjectMap = dynamic(
 export interface HabitatDataSubStepProps {
   project: Project
   projectBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
-  searchBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
   projectCenter?: { lat: number; lng: number }
   bufferDistances: number[]
   siteId?: string | null
@@ -66,7 +66,6 @@ export interface HabitatResult {
 export function HabitatDataSubStep({
   project,
   projectBoundary,
-  searchBoundary,
   projectCenter,
   bufferDistances,
   siteId,
@@ -93,7 +92,6 @@ export function HabitatDataSubStep({
   } = useHabitatSearch({
     projectId: project.id,
     projectBoundary,
-    searchBoundary,
     projectCenter,
     allBoundaries,
     bufferDistances,
@@ -142,6 +140,9 @@ export function HabitatDataSubStep({
     [habitatPolygons]
   )
 
+  // ── Project sites (for per-site save in "All Sites" mode) ──
+  const { data: projectSites = [] } = useProjectSites(project.id)
+
   // ── Auto-save hook ──
   const { getSavedFinding, autoSaveTriggeredRef } = useHabitatAutoSave({
     results,
@@ -154,6 +155,7 @@ export function HabitatDataSubStep({
     selectedBuffer,
     savedFindings,
     getHabitatGeometry,
+    projectSites,
   })
 
   // ── AI hook ──
@@ -188,6 +190,8 @@ export function HabitatDataSubStep({
       getHabitatGeometry,
       getSavedFinding,
       fetchAiSummary,
+      projectSites,
+      habitatPolygons,
     })
 
   // ── Spatial filter ──

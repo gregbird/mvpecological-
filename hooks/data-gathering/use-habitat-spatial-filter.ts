@@ -42,6 +42,7 @@ export function useHabitatSpatialFilter({
     if (!siteFilterPolygon) return habitatPolygons
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const turf = require('@turf/turf')
+    // Filter polygons that touch the buffer zone — consistent with other data gathering steps
     return {
       type: 'FeatureCollection',
       features: habitatPolygons.features.filter((f) => {
