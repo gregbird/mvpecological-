@@ -114,12 +114,29 @@ async function generateLayerBlob(
   folder: string,
   filename: string
 ): Promise<Blob> {
-  return zip(collection, {
+  // shp-write 0.3.2 returns a base64 string, not a Blob
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const result = (zip as any)(collection, {
     folder,
     filename,
-    outputType: 'blob',
-    compression: 'DEFLATE',
+    types: {
+      point: 'points',
+      polygon: 'polygons',
+      polyline: 'polylines',
+    },
   })
+
+  // Convert base64 string to Blob
+  if (typeof result === 'string') {
+    const binary = atob(result)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i)
+    }
+    return new Blob([bytes], { type: 'application/zip' })
+  }
+
+  return result as unknown as Blob
 }
 
 /**

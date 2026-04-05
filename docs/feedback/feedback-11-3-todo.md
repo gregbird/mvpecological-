@@ -1,7 +1,7 @@
 # Feedback 11/3 — Yapilacaklar Listesi
 
 > **Kaynak:** Greg Birdthistle — 11 Mart 2026
-> **Durum:** Devam ediyor (Faz 1 + Faz 2 + Faz 3 + E1 + E2 tamamlandi)
+> **Durum:** Devam ediyor (Faz 1 + Faz 2 + Faz 3 + E1 + E2 + E3 + E4 tamamlandi)
 > **Toplam:** 72 madde, 6 grup
 
 ---
@@ -35,9 +35,9 @@ F: Bagimsiz ──→ paralel yapilabilir
 | B: Habitat Veri   | 11     | 11         | ██████████ 100% ✅ |
 | C: Desk Temizlik  | 6      | 6          | ██████████ 100% ✅ |
 | D: Field Research | 9      | 9          | ██████████ 100% ✅ |
-| E: Raporlama      | 20     | 11         | █████░░░░░ 55%     |
+| E: Raporlama      | 20     | 20         | ██████████ 100% ✅ |
 | F: Bagimsiz       | 5      | 0          | ░░░░░░░░░░ 0%      |
-| **Toplam**        | **80** | **75**     | █████████░ **94%** |
+| **Toplam**        | **90** | **84**     | █████████░ **93%** |
 
 ---
 
@@ -211,18 +211,18 @@ F: Bagimsiz ──→ paralel yapilabilir
 
 ### E3. Quality Review Yeni Akis (Feedback #12)
 
-- [ ] **E3.1** Mevcut checkbox akisini kaldir
-- [ ] **E3.2** Raporu inceleyiciye tam gorunur yap (appendix dahil)
-- [ ] **E3.3** Bolum bazli not ekleme ozelligi
-- [ ] **E3.4** Genel not ekleme ozelligi
-- [ ] **E3.5** Inceleme imza/onay mekanizmasi ekle
-- [ ] **E3.6** AI tarafindan olusturulan metni her bolumde pembe ile vurgula
+- [x] **E3.1** ~~Mevcut checkbox akisini kaldir~~ ✅ (5 Nisan 2026) — `QUALITY_CHECKLIST` sabiti (16 checkbox, 4 kategori), `checkedItems` state, `toggleChecklistItem`, `checklistProgress` hesaplamasi, auto-check useEffect, Quality Checklist karti ve Step Progress'teki checklist referansi kaldirildi. Kullanilmayan importlar temizlendi (CardDescription, Label, Checkbox, Separator). Dosya: `quality-review-step.tsx`
+- [x] **E3.2** ~~Raporu inceleyiciye tam gorunur yap (appendix dahil)~~ ✅ (5 Nisan 2026) — Report Status kartindan sonra "Draft Report" karti eklendi. `reportSectionDefs` ile tum bolumler (appendix dahil) sirayla listelenir. Her bolum `SectionEditor` (`editable={false}`) ile read-only render edilir. AI Generated/Edited/Template badge'leri gosterilir. Icerik olmayan bolumler icin "No content generated" mesaji. Dosya: `quality-review-step.tsx`
+- [x] **E3.3** ~~Bolum bazli not ekleme ozelligi~~ ✅ (5 Nisan 2026) — Her rapor bolumunun altina "Add Note" butonu eklendi. Notlar `reportContent.reviewNotes` (Record<sectionId, ReviewNote[]>) olarak JSON'a kaydedilir — DB migration gereksiz. ReviewNote: id, text, author (userId), createdAt. Notlar amber renkli kartlarda gosterilir, silinebilir (Trash2 ikonu). Step tamamlanmissa notlar readonly. Dosya: `quality-review-step.tsx`
+- [x] **E3.4** ~~Genel not ekleme ozelligi~~ ✅ (5 Nisan 2026) — "Review Comments" karti "General Notes" olarak yeniden yapilandirildi. Bolum notlariyla ayni pattern (`_general` key). Eski `reviewComments` textarea ve state kaldirildi. Reject akisi guncellendi: en az bir not (bolum veya genel) gerektirir. Notlar `reportContent.reviewNotes._general` altinda persist edilir. Dosya: `quality-review-step.tsx`
+- [x] **E3.5** ~~Inceleme imza/onay mekanizmasi ekle~~ ✅ (5 Nisan 2026) — `reviewSignature` objesi (reviewerId, reviewerName, decision, signedAt) approve/reject sirasinda `reportContent`'e kaydedilir. Imza karti: reviewer adi, karar ve tarih gosterilir (yesil=approved, kirmizi=rejected). Mevcut imza sayfa yuklendiginde `extendedContent`'ten restore edilir. `useRole().user` ile reviewer tam adi alinir. Dosya: `quality-review-step.tsx`
+- [x] **E3.6** ~~AI tarafindan olusturulan metni her bolumde pembe ile vurgula~~ ✅ (5 Nisan 2026) — `section.aiGenerated === true` olan bolumlerin `SectionEditor` wrapper'i pembe arka plan alir (`bg-pink-50/60 border-pink-200`, dark: `bg-pink-950/20 border-pink-900`). Inceleyici AI icerigi ile manuel icerigi aninda ayirt edebilir. Dosya: `quality-review-step.tsx`
 
 ### E4. Final Submission (Feedback #13)
 
-- [ ] **E4.1** Her harita icin oznitelikli shapefile export
-- [ ] **E4.2** Field survey verilerini CSV formatinda export
-- [ ] **E4.3** Her survey icin AI ozet rapor olusturma
+- [x] **E4.1** ~~Her harita icin oznitelikli shapefile export~~ ✅ (5 Nisan 2026) — "Additional Exports" karti eklendi. `exportProjectShapefile` ile site boundary'leri (attributes dahil) + habitat polygon'lari zip olarak indirilir. `useProjectSites` ve `useHabitats` hook'lari eklendi. Dosya: `final-submission-step.tsx`
+- [x] **E4.2** ~~Field survey verilerini CSV formatinda export~~ ✅ (5 Nisan 2026) — `handleSurveyCsvExport`: survey_date, type, status, site name, start/end time, notes kolonlari. BOM + UTF-8 encoding. `useSurveys` hook eklendi. Dosya: `final-submission-step.tsx`
+- [x] **E4.3** ~~Her survey icin AI ozet rapor olusturma~~ ✅ (5 Nisan 2026) — `handleGenerateSurveySummaries`: `/api/ai/data-analysis-summary` endpoint'ine `tabContext='field-survey'` ile istek gonderir. Sonuc `reportContent.surveyAiSummary` olarak kaydedilir. Spinner + disabled state. Dosya: `final-submission-step.tsx`
 
 ---
 

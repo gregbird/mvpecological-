@@ -282,12 +282,12 @@ Her vektor feature, cizgilerle baglanan koordinat noktalari serisidir. Bu noktal
 
 **Yapilacilar:**
 
-- [ ] **12.1** Mevcut checkbox akisini kaldir
-- [ ] **12.2** Raporu inceleyiciye tam gorunur yap (appendix dahil)
-- [ ] **12.3** Bolum bazli not ekleme ozelligi
-- [ ] **12.4** Genel not ekleme ozelligi
-- [ ] **12.5** Inceleme imza/onay mekanizmasi ekle
-- [ ] **12.6** AI tarafindan olusturulan metni her bolumde pembe ile vurgula
+- [x] **12.1** Mevcut checkbox akisini kaldir ✅ (5 Nisan 2026)
+- [x] **12.2** Raporu inceleyiciye tam gorunur yap (appendix dahil) ✅ (5 Nisan 2026)
+- [x] **12.3** Bolum bazli not ekleme ozelligi ✅ (5 Nisan 2026)
+- [x] **12.4** Genel not ekleme ozelligi ✅ (5 Nisan 2026)
+- [x] **12.5** Inceleme imza/onay mekanizmasi ekle ✅ (5 Nisan 2026)
+- [x] **12.6** AI tarafindan olusturulan metni her bolumde pembe ile vurgula ✅ (5 Nisan 2026)
 
 ---
 
@@ -303,9 +303,9 @@ Her vektor feature, cizgilerle baglanan koordinat noktalari serisidir. Bu noktal
 
 **Yapilacilar:**
 
-- [ ] **13.1** Her harita icin oznitelikli shapefile export
-- [ ] **13.2** Field survey verilerini CSV formatinda export
-- [ ] **13.3** Her survey icin AI ozet rapor olusturma
+- [x] **13.1** Her harita icin oznitelikli shapefile export ✅ (5 Nisan 2026)
+- [x] **13.2** Field survey verilerini CSV formatinda export ✅ (5 Nisan 2026)
+- [x] **13.3** Her survey icin AI ozet rapor olusturma ✅ (5 Nisan 2026)
 
 ---
 

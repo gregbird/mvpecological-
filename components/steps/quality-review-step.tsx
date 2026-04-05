@@ -10,17 +10,17 @@ import {
   CheckCircle2,
   XCircle,
   MessageSquare,
+  Plus,
+  Trash2,
 } from 'lucide-react'
 
+import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
 import { useRole } from '@/contexts/role-context'
 import { useProjectContext } from '@/contexts/project-context'
@@ -35,56 +35,27 @@ import { getReportSectionsForType } from '@/lib/config/template-types'
 import type { ReportContent } from '@/lib/supabase/queries/reports'
 import type { Project, WorkflowStep, Json } from '@/types/database'
 
+const SectionEditor = dynamic(
+  () =>
+    import('@/components/steps/ai-draft/section-editor').then((mod) => ({
+      default: mod.SectionEditor,
+    })),
+  { ssr: false, loading: () => <div className="bg-muted/30 h-32 animate-pulse rounded-md" /> }
+)
+
+interface ReviewNote {
+  id: string
+  text: string
+  author: string
+  createdAt: string
+}
+
 interface QualityReviewStepProps {
   project: Project
   workflowStep: WorkflowStep
   userId: string
   onComplete?: () => void
 }
-
-// Quality checklist items
-const QUALITY_CHECKLIST = [
-  {
-    id: 'data_complete',
-    category: 'Data Completeness',
-    items: [
-      { id: 'habitats_mapped', label: 'All habitats have been mapped and classified' },
-      { id: 'species_recorded', label: 'Species observations are complete' },
-      { id: 'photos_uploaded', label: 'Supporting photographs have been uploaded' },
-      { id: 'locations_verified', label: 'GPS locations have been verified' },
-    ],
-  },
-  {
-    id: 'report_quality',
-    category: 'Report Quality',
-    items: [
-      { id: 'all_sections', label: 'All report sections have been completed' },
-      { id: 'methodology_clear', label: 'Methodology is clearly described' },
-      { id: 'results_accurate', label: 'Results are accurate and consistent with data' },
-      { id: 'recommendations_appropriate', label: 'Recommendations are appropriate and justified' },
-    ],
-  },
-  {
-    id: 'regulatory',
-    category: 'Regulatory Compliance',
-    items: [
-      { id: 'protected_species', label: 'Protected species have been adequately addressed' },
-      { id: 'designated_sites', label: 'Impacts on designated sites have been assessed' },
-      { id: 'legislation_referenced', label: 'Relevant legislation has been referenced' },
-      { id: 'guidelines_followed', label: 'CIEEM/NPWS guidelines have been followed' },
-    ],
-  },
-  {
-    id: 'formatting',
-    category: 'Formatting & Presentation',
-    items: [
-      { id: 'spelling_grammar', label: 'Spelling and grammar have been checked' },
-      { id: 'figures_maps', label: 'Figures and maps are correctly referenced' },
-      { id: 'references_complete', label: 'All references are complete and formatted' },
-      { id: 'appendices_included', label: 'Required appendices are included' },
-    ],
-  },
-]
 
 export function QualityReviewStep({
   project,
@@ -93,16 +64,17 @@ export function QualityReviewStep({
   onComplete,
 }: QualityReviewStepProps) {
   const { toast } = useToast()
-  const { permissions } = useRole()
+  const { permissions, user: currentUser } = useRole()
   const { navigateToStep, workflowSteps } = useProjectContext()
   const {
     activeType: reportType,
     setActiveType: setReportType,
     reportTypes,
   } = useActiveReportType(project.id)
-  const [checkedItems, setCheckedItems] = React.useState<Record<string, boolean>>({})
-  const [reviewComments, setReviewComments] = React.useState('')
   const [reviewDecision, setReviewDecision] = React.useState<'approved' | 'rejected' | null>(null)
+  const [sectionNotes, setSectionNotes] = React.useState<Record<string, ReviewNote[]>>({})
+  const [addingNoteFor, setAddingNoteFor] = React.useState<string | null>(null)
+  const [noteText, setNoteText] = React.useState('')
 
   // React Query hooks
   const { data: report, isLoading: loadingReport } = useLatestReportByType(project.id, reportType)
@@ -119,47 +91,87 @@ export function QualityReviewStep({
   const reportSectionDefs = getReportSectionsForType(reportType)
   const totalSections = reportSectionDefs.length
 
-  // Toggle checklist item
-  const toggleChecklistItem = (itemId: string) => {
-    setCheckedItems((prev) => ({
-      ...prev,
-      [itemId]: !prev[itemId],
-    }))
+  // Load existing review notes and signature from report content
+  const extendedContent = reportContent as
+    | (ReportContent & {
+        reviewNotes?: Record<string, ReviewNote[]>
+        reviewSignature?: {
+          reviewerId: string
+          reviewerName: string
+          decision: 'approved' | 'rejected'
+          signedAt: string
+        }
+      })
+    | undefined
+
+  React.useEffect(() => {
+    if (extendedContent?.reviewNotes) {
+      setSectionNotes(extendedContent.reviewNotes)
+    }
+    if (extendedContent?.reviewSignature) {
+      setReviewDecision(extendedContent.reviewSignature.decision)
+    }
+  }, [extendedContent])
+
+  // Save section notes to report content
+  const persistNotes = async (updated: Record<string, ReviewNote[]>) => {
+    if (!report || !reportContent) return
+    const updatedContent = { ...reportContent, reviewNotes: updated }
+    await updateReport.mutateAsync({
+      reportId: report.id,
+      updates: { content: updatedContent as unknown as Json },
+    })
   }
 
-  // Calculate checklist progress
-  const totalItems = QUALITY_CHECKLIST.reduce((sum, cat) => sum + cat.items.length, 0)
-  const checkedCount = Object.values(checkedItems).filter(Boolean).length
-  const checklistProgress = (checkedCount / totalItems) * 100
-
-  // Auto-check items based on data
-  React.useEffect(() => {
-    const autoChecks: Record<string, boolean> = {}
-
-    // Check data completeness
-    if (habitatStats && habitatStats.total > 0) {
-      autoChecks.habitats_mapped = true
+  const handleAddNote = async (sectionId: string) => {
+    if (!noteText.trim()) return
+    const note: ReviewNote = {
+      id: crypto.randomUUID(),
+      text: noteText.trim(),
+      author: userId,
+      createdAt: new Date().toISOString(),
     }
-    if (observationStats && observationStats.total > 0) {
-      autoChecks.species_recorded = true
+    const updated = {
+      ...sectionNotes,
+      [sectionId]: [...(sectionNotes[sectionId] || []), note],
     }
-    if (reportContent?.sections?.every((s) => s.content)) {
-      autoChecks.all_sections = true
-    }
+    setSectionNotes(updated)
+    setNoteText('')
+    setAddingNoteFor(null)
+    await persistNotes(updated)
+  }
 
-    setCheckedItems((prev) => ({ ...autoChecks, ...prev }))
-  }, [habitatStats, observationStats, reportContent])
+  const handleDeleteNote = async (sectionId: string, noteId: string) => {
+    const updated = {
+      ...sectionNotes,
+      [sectionId]: (sectionNotes[sectionId] || []).filter((n) => n.id !== noteId),
+    }
+    setSectionNotes(updated)
+    await persistNotes(updated)
+  }
 
   // Handle approval
   const handleApprove = async () => {
-    if (!report) return
+    if (!report || !reportContent) return
 
     try {
+      const signatureData = {
+        ...reportContent,
+        reviewNotes: sectionNotes,
+        reviewSignature: {
+          reviewerId: userId,
+          reviewerName: currentUser?.full_name || currentUser?.email || userId,
+          decision: 'approved' as const,
+          signedAt: new Date().toISOString(),
+        },
+      }
+
       await updateReport.mutateAsync({
         reportId: report.id,
         updates: {
           status: 'approved',
           reviewed_by: userId,
+          content: signatureData as unknown as Json,
         },
       })
 
@@ -180,11 +192,13 @@ export function QualityReviewStep({
 
   // Handle rejection
   const handleReject = async () => {
-    if (!report || !reviewComments.trim()) {
+    const hasNotes = Object.values(sectionNotes).some((notes) => notes.length > 0)
+
+    if (!report || !hasNotes) {
       toast({
         variant: 'destructive',
-        title: 'Comments required',
-        description: 'Please provide review comments before rejecting.',
+        title: 'Notes required',
+        description: 'Please add at least one review note before requesting revisions.',
       })
       return
     }
@@ -192,8 +206,13 @@ export function QualityReviewStep({
     try {
       const updatedContent = {
         ...reportContent,
-        reviewComments: reviewComments,
-        reviewedAt: new Date().toISOString(),
+        reviewNotes: sectionNotes,
+        reviewSignature: {
+          reviewerId: userId,
+          reviewerName: currentUser?.full_name || currentUser?.email || userId,
+          decision: 'rejected' as const,
+          signedAt: new Date().toISOString(),
+        },
       }
 
       await updateReport.mutateAsync({
@@ -326,9 +345,9 @@ export function QualityReviewStep({
             <Info className="h-4 w-4" />
             <AlertTitle>Quality Review Process</AlertTitle>
             <AlertDescription>
-              Review the draft report against the quality checklist. Verify data completeness,
-              report quality, regulatory compliance, and formatting. Approve the report or request
-              revisions with specific comments.
+              Review the draft report and verify data completeness, report quality, regulatory
+              compliance, and formatting. Approve the report or request revisions with specific
+              comments.
             </AlertDescription>
           </Alert>
 
@@ -374,47 +393,136 @@ export function QualityReviewStep({
             </CardContent>
           </Card>
 
-          {/* Quality Checklist */}
+          {/* Report Content — read-only */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Quality Checklist</CardTitle>
-                <div className="flex items-center gap-2">
-                  <Progress value={checklistProgress} className="w-32" />
-                  <span className="text-muted-foreground text-sm">
-                    {checkedCount}/{totalItems}
-                  </span>
-                </div>
-              </div>
-              <CardDescription>
-                Review each item to ensure the report meets quality standards
-              </CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Draft Report
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
-                {QUALITY_CHECKLIST.map((category) => (
-                  <div key={category.id}>
-                    <h4 className="mb-3 font-medium">{category.category}</h4>
-                    <div className="space-y-3">
-                      {category.items.map((item) => (
-                        <div key={item.id} className="flex items-start gap-3">
-                          <Checkbox
-                            id={item.id}
-                            checked={checkedItems[item.id] || false}
-                            onCheckedChange={() => toggleChecklistItem(item.id)}
-                          />
-                          <Label
-                            htmlFor={item.id}
-                            className="cursor-pointer text-sm leading-tight font-normal"
+                {reportSectionDefs.map((def) => {
+                  const section = reportContent?.sections?.find((s) => s.id === def.id)
+                  return (
+                    <div key={def.id} className="border-b pb-6 last:border-b-0">
+                      <div className="mb-3 flex items-center gap-2">
+                        <h3 className="text-lg font-semibold">{def.title}</h3>
+                        {section?.content && (
+                          <Badge
+                            variant={
+                              section.isEdited
+                                ? 'secondary'
+                                : section.aiGenerated
+                                  ? 'default'
+                                  : 'outline'
+                            }
+                            className="text-xs"
                           >
-                            {item.label}
-                          </Label>
+                            {section.isEdited
+                              ? 'Edited'
+                              : section.aiGenerated
+                                ? 'AI Generated'
+                                : 'Template'}
+                          </Badge>
+                        )}
+                      </div>
+                      {section?.content ? (
+                        <div
+                          className={
+                            section.aiGenerated
+                              ? 'rounded-md border border-pink-200 bg-pink-50/60 p-3 dark:border-pink-900 dark:bg-pink-950/20'
+                              : ''
+                          }
+                        >
+                          <SectionEditor
+                            content={section.content}
+                            editable={false}
+                            onContentChange={() => {}}
+                          />
                         </div>
-                      ))}
+                      ) : (
+                        <p className="text-muted-foreground text-sm italic">
+                          No content generated for this section.
+                        </p>
+                      )}
+
+                      {/* Section review notes */}
+                      <div className="mt-3 space-y-2">
+                        {(sectionNotes[def.id] || []).map((note) => (
+                          <div
+                            key={note.id}
+                            className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/20"
+                          >
+                            <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                            <div className="flex-1">
+                              <p className="text-sm">{note.text}</p>
+                              <p className="text-muted-foreground mt-1 text-xs">
+                                {new Date(note.createdAt).toLocaleString()}
+                              </p>
+                            </div>
+                            {!isComplete && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteNote(def.id, note.id)}
+                                className="text-muted-foreground hover:text-destructive shrink-0"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+
+                        {addingNoteFor === def.id ? (
+                          <div className="space-y-2">
+                            <Textarea
+                              placeholder="Add a review note for this section..."
+                              value={noteText}
+                              onChange={(e) => setNoteText(e.target.value)}
+                              rows={2}
+                              autoFocus
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleAddNote(def.id)}
+                                disabled={!noteText.trim()}
+                              >
+                                Save Note
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setAddingNoteFor(null)
+                                  setNoteText('')
+                                }}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          !isComplete && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-muted-foreground"
+                              onClick={() => {
+                                setAddingNoteFor(def.id)
+                                setNoteText('')
+                              }}
+                            >
+                              <Plus className="mr-1.5 h-3.5 w-3.5" />
+                              Add Note
+                            </Button>
+                          )
+                        )}
+                      </div>
                     </div>
-                    <Separator className="mt-4" />
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </CardContent>
           </Card>
@@ -456,21 +564,82 @@ export function QualityReviewStep({
             </CardContent>
           </Card>
 
-          {/* Review Comments */}
+          {/* General Review Notes */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5" />
-                Review Comments
+                General Notes
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Textarea
-                placeholder="Enter review comments, notes, or revision requests..."
-                value={reviewComments}
-                onChange={(e) => setReviewComments(e.target.value)}
-                rows={4}
-              />
+              {(sectionNotes['_general'] || []).map((note) => (
+                <div
+                  key={note.id}
+                  className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/20"
+                >
+                  <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                  <div className="flex-1">
+                    <p className="text-sm">{note.text}</p>
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      {new Date(note.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                  {!isComplete && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteNote('_general', note.id)}
+                      className="text-muted-foreground hover:text-destructive shrink-0"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              {!isComplete &&
+                (addingNoteFor === '_general' ? (
+                  <div className="space-y-2">
+                    <Textarea
+                      placeholder="Add a general review note..."
+                      value={noteText}
+                      onChange={(e) => setNoteText(e.target.value)}
+                      rows={3}
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => handleAddNote('_general')}
+                        disabled={!noteText.trim()}
+                      >
+                        Save Note
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setAddingNoteFor(null)
+                          setNoteText('')
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setAddingNoteFor('_general')
+                      setNoteText('')
+                    }}
+                  >
+                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                    Add General Note
+                  </Button>
+                ))}
 
               {permissions.canApproveReport ? (
                 <div className="flex gap-2">
@@ -503,27 +672,41 @@ export function QualityReviewStep({
                 </Alert>
               )}
 
-              {reviewDecision && (
-                <Alert variant={reviewDecision === 'approved' ? 'default' : 'destructive'}>
-                  {reviewDecision === 'approved' ? (
-                    <>
-                      <CheckCircle2 className="h-4 w-4" />
-                      <AlertTitle>Report Approved</AlertTitle>
-                      <AlertDescription>
-                        The report has been approved and is ready for final submission.
-                      </AlertDescription>
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="h-4 w-4" />
-                      <AlertTitle>Revisions Requested</AlertTitle>
-                      <AlertDescription>
-                        The report has been sent back for revisions. Review comments have been
-                        saved.
-                      </AlertDescription>
-                    </>
+              {/* Review signature */}
+              {(reviewDecision || extendedContent?.reviewSignature) && (
+                <div
+                  className={`rounded-lg border-2 p-4 ${
+                    (extendedContent?.reviewSignature?.decision ?? reviewDecision) === 'approved'
+                      ? 'border-green-300 bg-green-50 dark:border-green-800 dark:bg-green-950/20'
+                      : 'border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/20'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {(extendedContent?.reviewSignature?.decision ?? reviewDecision) ===
+                    'approved' ? (
+                      <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    ) : (
+                      <XCircle className="h-5 w-5 text-red-600" />
+                    )}
+                    <span className="font-semibold">
+                      {(extendedContent?.reviewSignature?.decision ?? reviewDecision) === 'approved'
+                        ? 'Report Approved'
+                        : 'Revisions Requested'}
+                    </span>
+                  </div>
+                  {extendedContent?.reviewSignature && (
+                    <div className="text-muted-foreground mt-2 space-y-1 text-sm">
+                      <p>
+                        <span className="font-medium">Reviewed by:</span>{' '}
+                        {extendedContent.reviewSignature.reviewerName}
+                      </p>
+                      <p>
+                        <span className="font-medium">Date:</span>{' '}
+                        {new Date(extendedContent.reviewSignature.signedAt).toLocaleString()}
+                      </p>
+                    </div>
                   )}
-                </Alert>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -535,14 +718,6 @@ export function QualityReviewStep({
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span>Checklist completed</span>
-                  {checklistProgress === 100 ? (
-                    <Check className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <span className="text-muted-foreground">{Math.round(checklistProgress)}%</span>
-                  )}
-                </div>
                 <div className="flex items-center justify-between text-sm">
                   <span>Review decision</span>
                   {reviewDecision === 'approved' ? (

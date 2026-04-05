@@ -33,10 +33,12 @@ import { useHabitatStats } from '@/hooks/queries/use-habitat-hooks'
 import { useObservationStats } from '@/hooks/queries/use-observation-hooks'
 import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { useSavedFindings } from '@/hooks/queries/use-finding-hooks'
+import { useSurveys } from '@/hooks/queries/use-survey-hooks'
+import { useProjectSites } from '@/hooks/queries/use-site-hooks'
 import { prepareAppendixData } from '@/lib/export/appendix-data'
 import { getReportSectionsForType } from '@/lib/config/template-types'
 import type { ReportContent } from '@/lib/supabase/queries/reports'
-import type { Project, WorkflowStep } from '@/types/database'
+import type { Project, WorkflowStep, Json } from '@/types/database'
 
 interface FinalSubmissionStepProps {
   project: Project
@@ -93,6 +95,8 @@ export function FinalSubmissionStep({
   const { data: habitatStats } = useHabitatStats(project.id)
   const { data: observationStats } = useObservationStats(project.id)
   const { data: savedFindings } = useSavedFindings(project.id)
+  const { data: surveys } = useSurveys(project.id)
+  const { data: sites } = useProjectSites(project.id)
   const updateReport = useUpdateReport()
   const updateProject = useUpdateProject()
   const completeStep = useCompleteWorkflowStep()
@@ -225,6 +229,151 @@ export function FinalSubmissionStep({
       }
     } finally {
       setIsExporting(false)
+    }
+  }
+
+  // E4.1 — Shapefile export with attributes
+  const handleShapefileExport = async () => {
+    setIsExporting(true)
+    await yieldToBrowser()
+    try {
+      const { exportProjectShapefile } = await import('@/lib/gis/shapefile-export')
+      const { createClient } = await import('@/lib/supabase/client')
+      const supabase = createClient()
+
+      // Sites already have GeoJSON boundary via RPC
+      const boundaries = (sites || [])
+        .filter((s) => s.boundary)
+        .map((s) => ({
+          boundary: s.boundary as GeoJSON.Feature<GeoJSON.Polygon>,
+          siteName: s.site_name || undefined,
+          siteCode: s.site_code || undefined,
+          attributes: (s.attributes as Record<string, unknown>) || undefined,
+        }))
+
+      // Habitat boundaries are PostGIS geometry — fetch as GeoJSON via SQL
+      let habitatData: {
+        geometry: GeoJSON.Polygon
+        fossittCode?: string
+        fossittName?: string
+        areaHa?: number
+        condition?: string
+      }[] = []
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: habitatRows } = await (supabase.rpc as any)('get_habitat_polygons_geojson', {
+        p_project_id: project.id,
+      })
+
+      if (habitatRows && Array.isArray(habitatRows)) {
+        habitatData = (habitatRows as Record<string, unknown>[])
+          .filter((r) => r.boundary_geojson)
+          .map((r) => ({
+            geometry: r.boundary_geojson as unknown as GeoJSON.Polygon,
+            fossittCode: (r.fossitt_code as string) || undefined,
+            fossittName: (r.fossitt_name as string) || undefined,
+            areaHa: (r.area_hectares as number) || undefined,
+            condition: (r.condition as string) || undefined,
+          }))
+      }
+
+      const blob = await exportProjectShapefile({
+        boundaries,
+        habitats: habitatData,
+        projectName: project.name,
+      })
+
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = `${project.site_code || project.id}_shapefiles.zip`
+      link.click()
+      URL.revokeObjectURL(link.href)
+      toast({ title: 'Shapefiles exported' })
+    } catch (err) {
+      console.error('Shapefile export error:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Shapefile export failed',
+        description: err instanceof Error ? err.message : 'Unknown error',
+      })
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  // E4.2 — Survey CSV export
+  const handleSurveyCsvExport = () => {
+    if (!surveys || surveys.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'No surveys',
+        description: 'No survey data to export.',
+      })
+      return
+    }
+
+    const headers = ['Survey Date', 'Type', 'Status', 'Site', 'Start Time', 'End Time', 'Notes']
+    const rows = surveys.map((s) => [
+      s.survey_date,
+      s.survey_type,
+      s.status,
+      sites?.find((site) => site.id === s.site_id)?.site_name || '',
+      s.start_time || '',
+      s.end_time || '',
+      (s.notes || '').replace(/"/g, '""'),
+    ])
+
+    const csv = [headers.join(','), ...rows.map((r) => r.map((v) => `"${v}"`).join(','))].join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `${project.site_code || project.id}_surveys.csv`
+    link.click()
+    URL.revokeObjectURL(link.href)
+    toast({ title: 'Survey CSV exported' })
+  }
+
+  // E4.3 — AI survey summary
+  const [generatingSummary, setGeneratingSummary] = React.useState(false)
+  const [surveySummary, setSurveySummary] = React.useState<string | null>(
+    () => (reportContent as ReportContent & { surveyAiSummary?: string })?.surveyAiSummary ?? null
+  )
+
+  const handleGenerateSurveySummaries = async () => {
+    if (!surveys || surveys.length === 0) {
+      toast({ variant: 'destructive', title: 'No surveys to summarise' })
+      return
+    }
+
+    setGeneratingSummary(true)
+    try {
+      const res = await fetch('/api/ai/data-analysis-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: project.id,
+          tabContext: 'field-survey',
+        }),
+      })
+
+      if (!res.ok) throw new Error('AI summary request failed')
+      const { summary } = await res.json()
+
+      // Save to report content
+      if (report && reportContent) {
+        const updatedContent = { ...reportContent, surveyAiSummary: summary }
+        await updateReport.mutateAsync({
+          reportId: report.id,
+          updates: { content: updatedContent as unknown as Json },
+        })
+      }
+
+      setSurveySummary(summary)
+      toast({ title: 'Survey summary generated' })
+    } catch {
+      toast({ variant: 'destructive', title: 'Summary generation failed' })
+    } finally {
+      setGeneratingSummary(false)
     }
   }
 
@@ -539,6 +688,78 @@ export function FinalSubmissionStep({
                   Print Preview
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Additional Exports */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Additional Exports</CardTitle>
+              <CardDescription>
+                Export shapefiles, survey data, and generate AI survey summaries
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="space-y-2 rounded-lg border p-4">
+                  <h4 className="font-medium">Shapefiles</h4>
+                  <p className="text-muted-foreground text-sm">
+                    Site boundaries and habitats with attributes
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleShapefileExport}
+                    disabled={isExporting || !sites?.length}
+                  >
+                    <Download className="mr-1.5 h-3.5 w-3.5" />
+                    Export Shapefiles
+                  </Button>
+                </div>
+                <div className="space-y-2 rounded-lg border p-4">
+                  <h4 className="font-medium">Survey Data (CSV)</h4>
+                  <p className="text-muted-foreground text-sm">
+                    All field surveys in spreadsheet format
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSurveyCsvExport}
+                    disabled={!surveys?.length}
+                  >
+                    <Download className="mr-1.5 h-3.5 w-3.5" />
+                    Export CSV
+                  </Button>
+                </div>
+                <div className="space-y-2 rounded-lg border p-4">
+                  <h4 className="font-medium">AI Survey Summary</h4>
+                  <p className="text-muted-foreground text-sm">
+                    AI-generated summary of all field surveys
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateSurveySummaries}
+                    disabled={generatingSummary || !surveys?.length}
+                  >
+                    {generatingSummary ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <FileText className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    {generatingSummary ? 'Generating...' : 'Generate Summary'}
+                  </Button>
+                </div>
+              </div>
+
+              {surveySummary && (
+                <div className="mt-4 rounded-lg border bg-green-50 p-4 dark:bg-green-950/20">
+                  <h4 className="mb-2 font-medium">AI Survey Summary</h4>
+                  <div className="prose dark:prose-invert prose-sm max-w-none whitespace-pre-wrap">
+                    {surveySummary}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
