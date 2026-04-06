@@ -20,6 +20,9 @@ interface SpeciesRecordsSubStepProps {
   siteId?: string | null
   otherBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   allBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
+  /** All site boundaries regardless of selection — used by the shell to
+   *  keep manual search project-wide. */
+  allSiteBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   userId: string
   savedFindings: DeskResearchFinding[]
   showMap: boolean
@@ -34,6 +37,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
     projectBoundary,
     searchBoundary,
     allBoundaries,
+    allSiteBoundaries,
     projectCenter,
     savedFindings,
     project,
@@ -262,6 +266,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
         config={config}
         searchBoundary={searchBoundary}
         allBoundaries={allBoundaries}
+        allSiteBoundaries={allSiteBoundaries}
         aiSummaryTriggerRef={aiSummaryTriggerRef}
         renderExtraControls={renderResolutionControls}
       />

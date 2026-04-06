@@ -39,6 +39,10 @@ export interface SubstepShellProps {
   otherBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   /** All site boundaries — when provided, render buffers for every boundary */
   allBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
+  /** All site boundaries regardless of current site selection. Used so that
+   *  the manual `Search` button always refreshes data for every site in the
+   *  project, even when the site selector is narrowed to a single site. */
+  allSiteBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   userId: string
   savedFindings: DeskResearchFinding[]
   showMap: boolean
@@ -164,6 +168,7 @@ export function DataGatheringSubstepShell({
   siteId,
   otherBoundaries,
   allBoundaries,
+  allSiteBoundaries,
   userId,
   savedFindings,
   showMap,
@@ -250,6 +255,7 @@ export function DataGatheringSubstepShell({
   const { isSearching, searchProgress, performSearch } = useShellSearch({
     config,
     allBoundaries,
+    allSiteBoundaries,
     searchBoundary,
     projectBoundary,
     projectCenter,

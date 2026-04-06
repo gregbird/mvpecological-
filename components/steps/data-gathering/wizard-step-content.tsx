@@ -31,6 +31,10 @@ export interface WizardStepContentProps {
   siteId: string | null
   otherBoundaries: GeoJSON.Feature<GeoJSON.Polygon>[]
   allBoundaries: GeoJSON.Feature<GeoJSON.Polygon>[] | undefined
+  /** All site boundaries regardless of selection — used for refreshing
+   *  data at the project level (manual `Search` button), so that picking
+   *  a specific site never narrows the search scope. */
+  allSiteBoundaries: GeoJSON.Feature<GeoJSON.Polygon>[]
   savedFindings: DeskResearchFinding[]
   targetNotes: TargetNote[]
   findingsStats: FindingsStatsResult | undefined
@@ -65,6 +69,7 @@ export function WizardStepContent({
   siteId,
   otherBoundaries,
   allBoundaries,
+  allSiteBoundaries,
   savedFindings,
   targetNotes,
   findingsStats,
@@ -106,6 +111,7 @@ export function WizardStepContent({
             siteId={siteId}
             otherBoundaries={otherBoundaries}
             allBoundaries={allBoundaries}
+            allSiteBoundaries={allSiteBoundaries}
             userId={userId}
             savedFindings={savedFindings}
             showMap={showMap}
@@ -134,6 +140,7 @@ export function WizardStepContent({
             siteId={siteId}
             otherBoundaries={otherBoundaries}
             allBoundaries={allBoundaries}
+            allSiteBoundaries={allSiteBoundaries}
             userId={userId}
             savedFindings={savedFindings}
             showMap={showMap}
@@ -162,6 +169,7 @@ export function WizardStepContent({
             siteId={siteId}
             otherBoundaries={otherBoundaries}
             allBoundaries={allBoundaries}
+            allSiteBoundaries={allSiteBoundaries}
             userId={userId}
             savedFindings={savedFindings}
             showMap={showMap}

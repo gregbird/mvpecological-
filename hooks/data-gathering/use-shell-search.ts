@@ -14,7 +14,14 @@ const SITE_SEARCH_CONCURRENCY = 3
 
 interface UseShellSearchParams {
   config: SubstepShellConfig
+  /** Currently-selected site boundaries (narrowed by the site selector).
+   *  Used for display-time spatial filtering. */
   allBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
+  /** ALL project site boundaries, regardless of site selection. Search is
+   *  always project-wide so the manual `Search` button refreshes every
+   *  site's data instead of narrowing to the currently selected one (which
+   *  would silently overwrite the project-level cache with partial data). */
+  allSiteBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   searchBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
   projectBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
   projectCenter?: { lat: number; lng: number }
@@ -32,6 +39,7 @@ interface UseShellSearchReturn {
 export function useShellSearch({
   config,
   allBoundaries,
+  allSiteBoundaries,
   searchBoundary,
   projectBoundary,
   projectCenter,
@@ -52,21 +60,35 @@ export function useShellSearch({
 
   const performSearch = React.useCallback(async () => {
     const config = configRef.current
-    // Multi-site "All Sites" mode: search all site boundaries with bounded
-    // concurrency. We used to call `Promise.all(tasks)` which fires every
-    // request at once — for projects with 20+ sites this overwhelms the
-    // underlying APIs (NPWS/NBDC/EPA rate-limit or time out) and any single
-    // rejection nukes the whole batch. Using `batchAsync` with `allSettled`
-    // semantics keeps the load sane and preserves successful sites even when
-    // a few fail.
+    // Search ALWAYS runs at the project level regardless of the site
+    // selector. The site selector is a view filter — narrowing the search
+    // scope to a single site would silently wipe out the other sites'
+    // project-level cache.
+    //
+    // Priority for multi-site fan-out:
+    //   1. `allSiteBoundaries` — every site in the project (preferred)
+    //   2. `allBoundaries` — legacy path, same data when nothing is
+    //      selected; kept as fallback for callers that don't thread
+    //      `allSiteBoundaries` through yet
     //
     // Substeps may opt out of per-site fan-out by setting
     // `multiSiteSearchMode: 'merged'` in their config — e.g. species records,
     // which run a single NBDC report request over the union of all site
     // grid squares. For merged mode we fall through to the single-site path
     // below, using the merged `searchBoundary` for the bbox.
-    if (config.multiSiteSearchMode !== 'merged' && allBoundaries && allBoundaries.length > 0) {
-      const bboxes = allBoundaries
+    const effectiveMultiSiteBoundaries =
+      allSiteBoundaries && allSiteBoundaries.length > 0
+        ? allSiteBoundaries
+        : allBoundaries && allBoundaries.length > 0
+          ? allBoundaries
+          : undefined
+
+    if (
+      config.multiSiteSearchMode !== 'merged' &&
+      effectiveMultiSiteBoundaries &&
+      effectiveMultiSiteBoundaries.length > 1
+    ) {
+      const bboxes = effectiveMultiSiteBoundaries
         .map((boundary) => {
           const bbox = getBoundingBox(boundary, null, selectedBuffer)
           return bbox ? { boundary, bbox } : null
@@ -185,12 +207,13 @@ export function useShellSearch({
         },
         buffer: selectedBuffer,
         boundary: effectiveBoundary,
-        // Pass all site boundaries through in merged multi-site mode so the
-        // substep can compute a tighter search geometry (union of site
-        // buffers) instead of the merged rectangular bbox.
+        // Pass ALL project site boundaries in merged multi-site mode so the
+        // substep (e.g. species records) can build a tighter search
+        // geometry from the union of site buffers — independent of the
+        // current site selection so cache never narrows accidentally.
         allBoundaries:
-          config.multiSiteSearchMode === 'merged' && allBoundaries && allBoundaries.length > 0
-            ? allBoundaries
+          config.multiSiteSearchMode === 'merged' && effectiveMultiSiteBoundaries
+            ? effectiveMultiSiteBoundaries
             : undefined,
       })
 
@@ -211,6 +234,7 @@ export function useShellSearch({
     }
   }, [
     allBoundaries,
+    allSiteBoundaries,
     searchBoundary,
     projectBoundary,
     projectCenter,

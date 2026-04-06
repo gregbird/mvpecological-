@@ -28,6 +28,10 @@ interface DesignatedSitesSubStepProps {
   siteId?: string | null
   otherBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   allBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
+  /** All site boundaries regardless of selection — passed through to the
+   *  shell so manual search stays project-wide even when one site is
+   *  selected in the view filter. */
+  allSiteBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   userId: string
   savedFindings: DeskResearchFinding[]
   showMap: boolean
@@ -38,8 +42,16 @@ interface DesignatedSitesSubStepProps {
 }
 
 export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
-  const { projectBoundary, searchBoundary, allBoundaries, savedFindings, project, userId, siteId } =
-    props
+  const {
+    projectBoundary,
+    searchBoundary,
+    allBoundaries,
+    allSiteBoundaries,
+    savedFindings,
+    project,
+    userId,
+    siteId,
+  } = props
   const createFinding = useCreateFinding()
   const updateFinding = useUpdateFinding()
 
@@ -381,6 +393,7 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
         config={config}
         searchBoundary={searchBoundary}
         allBoundaries={allBoundaries}
+        allSiteBoundaries={allSiteBoundaries}
         aiSummaryTriggerRef={aiSummaryTriggerRef}
       />
       <DeepResearchModal

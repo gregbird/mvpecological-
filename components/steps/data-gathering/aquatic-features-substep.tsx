@@ -24,6 +24,9 @@ interface AquaticFeaturesSubStepProps {
   siteId?: string | null
   otherBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   allBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
+  /** All site boundaries regardless of selection — forwarded to the shell
+   *  so manual search always scopes to the whole project. */
+  allSiteBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   userId: string
   savedFindings: DeskResearchFinding[]
   showMap: boolean
@@ -34,8 +37,16 @@ interface AquaticFeaturesSubStepProps {
 }
 
 export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
-  const { projectBoundary, searchBoundary, allBoundaries, savedFindings, project, userId, siteId } =
-    props
+  const {
+    projectBoundary,
+    searchBoundary,
+    allBoundaries,
+    allSiteBoundaries,
+    savedFindings,
+    project,
+    userId,
+    siteId,
+  } = props
   const createFinding = useCreateFinding()
   const updateFinding = useUpdateFinding()
 
@@ -344,6 +355,7 @@ export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
         config={config}
         searchBoundary={searchBoundary}
         allBoundaries={allBoundaries}
+        allSiteBoundaries={allSiteBoundaries}
         aiSummaryTriggerRef={aiSummaryTriggerRef}
       />
       <AquaticDeepResearchModal

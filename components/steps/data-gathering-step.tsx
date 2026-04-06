@@ -104,6 +104,7 @@ export function DataGatheringStep({
     effectiveSiteId,
     projectSites,
     allBoundaries,
+    allSiteBoundaries,
     otherBoundaries,
     searchBoundary,
     isSitesLoading,
@@ -320,6 +321,7 @@ export function DataGatheringStep({
           siteId={selectedSite?.id ?? null}
           otherBoundaries={otherBoundaries}
           allBoundaries={isAllSites ? allBoundaries : undefined}
+          allSiteBoundaries={allSiteBoundaries}
           savedFindings={savedFindings}
           targetNotes={targetNotes}
           findingsStats={findingsStats}
