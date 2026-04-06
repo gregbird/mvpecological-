@@ -1,6 +1,5 @@
 'use client'
 
-import { cn } from '@/lib/utils'
 import type { AutoSearchStatus } from './auto-search-banner'
 import type { Project, WorkflowStep, DeskResearchFinding, TargetNote } from '@/types/database'
 
@@ -11,6 +10,8 @@ import { AquaticFeaturesSubStep } from './aquatic-features-substep'
 import { ReviewExportSubStep } from './review-export-substep'
 import { CompanyReportsSubStep } from './company-reports-substep'
 import { HabitatDataSubStep } from './habitat-data-substep'
+
+type WizardStepId = 'info' | 'sites' | 'species' | 'aquatic' | 'habitats' | 'reports' | 'review'
 
 interface FindingsStatsResult {
   total: number
@@ -23,6 +24,7 @@ export interface WizardStepContentProps {
   project: Project
   workflowStep: WorkflowStep
   currentStep: string
+  visitedSteps: Set<WizardStepId>
   userId: string
   projectBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
   searchBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
@@ -40,7 +42,6 @@ export interface WizardStepContentProps {
   findingsStats: FindingsStatsResult | undefined
   showMap: boolean
   onToggleMap: () => void
-  isAutoSearchRunning: boolean
   autoSearchStatus: {
     sites: AutoSearchStatus
     species: AutoSearchStatus
@@ -56,11 +57,21 @@ export interface WizardStepContentProps {
   isComplete: boolean
 }
 
-/** Renders the active substep content for the data-gathering wizard. */
+/**
+ * Renders substep content for the data-gathering wizard.
+ *
+ * Mounting strategy: Each substep is lazily mounted on first visit and stays
+ * mounted thereafter (controlled via `visitedSteps`). Inactive substeps are
+ * hidden with `display: none` so all local state — search results, filters,
+ * selections, modal state, AI summaries — is preserved when navigating between
+ * substeps. ShellMapPanel guards the Leaflet map with `isActive` to prevent
+ * multiple Leaflet containers being mounted simultaneously.
+ */
 export function WizardStepContent({
   project,
   workflowStep,
   currentStep,
+  visitedSteps,
   userId,
   projectBoundary,
   searchBoundary,
@@ -75,33 +86,37 @@ export function WizardStepContent({
   findingsStats,
   showMap,
   onToggleMap,
-  isAutoSearchRunning,
   autoSearchStatus,
   onAutoSearchComplete,
   onComplete,
   isCompleting,
   isComplete,
 }: WizardStepContentProps) {
+  // Helper: a substep should render if it's currently active OR has been visited.
+  const shouldMount = (id: WizardStepId) => currentStep === id || visitedSteps.has(id)
+
+  // Helper: hide via display:none so layout doesn't overlap and Leaflet doesn't
+  // try to measure invisible containers, while keeping the React tree mounted.
+  const wrapperStyle = (id: WizardStepId): React.CSSProperties =>
+    currentStep === id ? { display: 'block', height: '100%' } : { display: 'none' }
+
   return (
     <div className="relative min-h-0 flex-1">
       {/* Step 1: Project Info */}
-      {currentStep === 'info' && (
-        <ProjectInfoSubStep
-          project={project}
-          projectBoundary={projectBoundary}
-          bufferDistances={bufferDistances}
-          savedFindingsCount={savedFindings.length}
-        />
+      {shouldMount('info') && (
+        <div style={wrapperStyle('info')}>
+          <ProjectInfoSubStep
+            project={project}
+            projectBoundary={projectBoundary}
+            bufferDistances={bufferDistances}
+            savedFindingsCount={savedFindings.length}
+          />
+        </div>
       )}
 
       {/* Step 2: Designated Sites (NPWS) */}
-      {(currentStep === 'sites' || isAutoSearchRunning) && (
-        <div
-          className={cn(
-            'absolute inset-0',
-            currentStep === 'sites' ? 'visible z-10' : 'invisible z-0'
-          )}
-        >
+      {shouldMount('sites') && (
+        <div style={wrapperStyle('sites')}>
           <DesignatedSitesSubStep
             project={project}
             projectBoundary={projectBoundary}
@@ -124,13 +139,8 @@ export function WizardStepContent({
       )}
 
       {/* Step 3: Species Records (GBIF + NBDC) */}
-      {(currentStep === 'species' || isAutoSearchRunning) && (
-        <div
-          className={cn(
-            'absolute inset-0',
-            currentStep === 'species' ? 'visible z-10' : 'invisible z-0'
-          )}
-        >
+      {shouldMount('species') && (
+        <div style={wrapperStyle('species')}>
           <SpeciesRecordsSubStep
             project={project}
             projectBoundary={projectBoundary}
@@ -153,13 +163,8 @@ export function WizardStepContent({
       )}
 
       {/* Step 4: Aquatic Features (EPA) */}
-      {(currentStep === 'aquatic' || isAutoSearchRunning) && (
-        <div
-          className={cn(
-            'absolute inset-0',
-            currentStep === 'aquatic' ? 'visible z-10' : 'invisible z-0'
-          )}
-        >
+      {shouldMount('aquatic') && (
+        <div style={wrapperStyle('aquatic')}>
           <AquaticFeaturesSubStep
             project={project}
             projectBoundary={projectBoundary}
@@ -182,13 +187,8 @@ export function WizardStepContent({
       )}
 
       {/* Step 5: Habitat Data - NLC 2018 land cover */}
-      {(currentStep === 'habitats' || isAutoSearchRunning) && (
-        <div
-          className={cn(
-            'absolute inset-0',
-            currentStep === 'habitats' ? 'visible z-10' : 'invisible z-0'
-          )}
-        >
+      {shouldMount('habitats') && (
+        <div style={wrapperStyle('habitats')}>
           <HabitatDataSubStep
             project={project}
             projectBoundary={projectBoundary}
@@ -210,30 +210,34 @@ export function WizardStepContent({
       )}
 
       {/* Step 6: Company Reports */}
-      {currentStep === 'reports' && (
-        <CompanyReportsSubStep
-          project={project}
-          userId={userId}
-          isActive={currentStep === 'reports'}
-          siteId={siteId}
-        />
+      {shouldMount('reports') && (
+        <div style={wrapperStyle('reports')}>
+          <CompanyReportsSubStep
+            project={project}
+            userId={userId}
+            isActive={currentStep === 'reports'}
+            siteId={siteId}
+          />
+        </div>
       )}
 
       {/* Step 7: Review & Export */}
-      {currentStep === 'review' && (
-        <ReviewExportSubStep
-          project={project}
-          projectBoundary={projectBoundary}
-          projectCenter={projectCenter}
-          bufferDistances={bufferDistances}
-          userId={userId}
-          savedFindings={savedFindings}
-          targetNotes={targetNotes}
-          findingsStats={findingsStats}
-          onComplete={onComplete}
-          isCompleting={isCompleting}
-          isComplete={isComplete}
-        />
+      {shouldMount('review') && (
+        <div style={wrapperStyle('review')}>
+          <ReviewExportSubStep
+            project={project}
+            projectBoundary={projectBoundary}
+            projectCenter={projectCenter}
+            bufferDistances={bufferDistances}
+            userId={userId}
+            savedFindings={savedFindings}
+            targetNotes={targetNotes}
+            findingsStats={findingsStats}
+            onComplete={onComplete}
+            isCompleting={isCompleting}
+            isComplete={isComplete}
+          />
+        </div>
       )}
     </div>
   )

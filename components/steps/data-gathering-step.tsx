@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Layers,
+  Loader2,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -83,6 +84,19 @@ export function DataGatheringStep({
   })
   const [showMap, setShowMap] = React.useState(true)
 
+  // Track which substeps have been visited so they stay mounted (preserves state)
+  const [visitedSteps, setVisitedSteps] = React.useState<Set<WizardStep>>(
+    () => new Set([currentStep])
+  )
+  React.useEffect(() => {
+    setVisitedSteps((prev) => {
+      if (prev.has(currentStep)) return prev
+      const next = new Set(prev)
+      next.add(currentStep)
+      return next
+    })
+  }, [currentStep])
+
   React.useEffect(() => {
     sessionStorage.setItem(wizardStepCacheKey, currentStep)
   }, [currentStep, wizardStepCacheKey])
@@ -138,6 +152,59 @@ export function DataGatheringStep({
     [setAutoSearchStatus]
   )
 
+  // Auto-search needs the search-target substeps mounted to perform searches.
+  // Mark them visited as soon as auto-search begins so they stay mounted afterward.
+  React.useEffect(() => {
+    if (!isAutoSearchRunning) return
+    setVisitedSteps((prev) => {
+      let changed = false
+      const next = new Set(prev)
+      for (const id of ['sites', 'species', 'aquatic', 'habitats'] as const) {
+        if (!next.has(id)) {
+          next.add(id)
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [isAutoSearchRunning])
+
+  // Lookahead prefetch: when the user enters a substep, kick off the search for
+  // the NEXT substep in the background so its results are ready on arrival.
+  // Each next-step is prefetched at most once per session (prefetchedRef guard).
+  // Substeps with results already loaded skip themselves via useSubstepSearch's
+  // own guard (`searchResultsRef.current.length > 0 → skipped`).
+  const prefetchedRef = React.useRef<Set<string>>(new Set())
+  React.useEffect(() => {
+    const PREFETCH_NEXT: Partial<Record<WizardStep, 'sites' | 'species' | 'aquatic' | 'habitats'>> =
+      {
+        sites: 'species',
+        species: 'aquatic',
+        aquatic: 'habitats',
+      }
+    const nextStep = PREFETCH_NEXT[currentStep]
+    if (!nextStep) return
+    if (prefetchedRef.current.has(nextStep)) return
+    if (!projectBoundary && !searchBoundary) return
+    if (isStepCompleted) return
+
+    prefetchedRef.current.add(nextStep)
+
+    // Mount the next substep so it can react to autoSearchTrigger
+    setVisitedSteps((prev) => {
+      if (prev.has(nextStep)) return prev
+      const next = new Set(prev)
+      next.add(nextStep)
+      return next
+    })
+
+    // Trigger its search only if it hasn't already started
+    setAutoSearchStatus((prev) => {
+      if (prev[nextStep] !== 'idle') return prev
+      return { ...prev, [nextStep]: 'searching' }
+    })
+  }, [currentStep, projectBoundary, searchBoundary, isStepCompleted, setAutoSearchStatus])
+
   // Toggle map fullscreen mode in wizard
   React.useEffect(() => {
     const isMapStep =
@@ -156,13 +223,24 @@ export function DataGatheringStep({
   const canGoBack = currentStepIndex > 0
   const canGoNext = currentStepIndex < WIZARD_STEPS.length - 1
 
-  const goBack = () => {
-    if (canGoBack) setCurrentStep(WIZARD_STEPS[currentStepIndex - 1].id)
+  // Transition + double-click guard. The first click marks the navigation
+  // pending (button shows spinner + becomes disabled) while React mounts the
+  // next substep; the ref guard ignores any click that arrives within 300ms of
+  // the previous one so a fast double-tap can never skip a step.
+  const [isNavigating, startNavigation] = React.useTransition()
+  const lastNavRef = React.useRef(0)
+  const navigate = (delta: 1 | -1) => {
+    const now = Date.now()
+    if (now - lastNavRef.current < 300) return
+    const targetIdx = currentStepIndex + delta
+    if (targetIdx < 0 || targetIdx >= WIZARD_STEPS.length) return
+    lastNavRef.current = now
+    startNavigation(() => {
+      setCurrentStep(WIZARD_STEPS[targetIdx].id)
+    })
   }
-
-  const goNext = () => {
-    if (canGoNext) setCurrentStep(WIZARD_STEPS[currentStepIndex + 1].id)
-  }
+  const goBack = () => navigate(-1)
+  const goNext = () => navigate(1)
 
   const handleComplete = async () => {
     if (savedFindings.length === 0) {
@@ -313,6 +391,7 @@ export function DataGatheringStep({
           project={project}
           workflowStep={workflowStep}
           currentStep={currentStep}
+          visitedSteps={visitedSteps}
           userId={userId}
           projectBoundary={projectBoundary}
           searchBoundary={searchBoundary}
@@ -327,7 +406,6 @@ export function DataGatheringStep({
           findingsStats={findingsStats}
           showMap={showMap}
           onToggleMap={handleToggleMap}
-          isAutoSearchRunning={isAutoSearchRunning}
           autoSearchStatus={autoSearchStatus}
           onAutoSearchComplete={handleAutoSearchComplete}
           onComplete={handleComplete}
@@ -347,7 +425,7 @@ export function DataGatheringStep({
               variant="outline"
               size={isMapMode ? 'sm' : 'default'}
               onClick={goBack}
-              disabled={!canGoBack}
+              disabled={!canGoBack || isNavigating}
             >
               <ChevronLeft className={cn(isMapMode ? 'mr-1 h-3 w-3' : 'mr-2 h-4 w-4')} />
               Back
@@ -358,9 +436,24 @@ export function DataGatheringStep({
             </div>
 
             {currentStep !== 'review' ? (
-              <Button size={isMapMode ? 'sm' : 'default'} onClick={goNext} disabled={!canGoNext}>
-                Next
-                <ChevronRight className={cn(isMapMode ? 'ml-1 h-3 w-3' : 'ml-2 h-4 w-4')} />
+              <Button
+                size={isMapMode ? 'sm' : 'default'}
+                onClick={goNext}
+                disabled={!canGoNext || isNavigating}
+              >
+                {isNavigating ? (
+                  <>
+                    <Loader2
+                      className={cn('animate-spin', isMapMode ? 'mr-1 h-3 w-3' : 'mr-2 h-4 w-4')}
+                    />
+                    Loading
+                  </>
+                ) : (
+                  <>
+                    Next
+                    <ChevronRight className={cn(isMapMode ? 'ml-1 h-3 w-3' : 'ml-2 h-4 w-4')} />
+                  </>
+                )}
               </Button>
             ) : (
               <div className="w-20" />

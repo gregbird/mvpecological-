@@ -35,7 +35,8 @@ interface ShellMapPanelProps {
   onToggleMap: () => void
   /** Whether the parent substep is the currently visible tab. Leaflet is
    *  skipped entirely when `false` so invisible substeps that are only
-   *  mounted for auto-search don't pay the map init + polygon render cost. */
+   *  mounted for auto-search (or kept mounted via lazy + persistent mount)
+   *  don't pay the map init + polygon render cost. */
   isActive: boolean
   projectCenter?: { lat: number; lng: number }
   projectBoundary: GeoJSON.Feature<GeoJSON.Polygon>
@@ -144,8 +145,9 @@ export function ShellMapPanel({
     )
   }
 
-  // Don't render Leaflet when the substep is mounted but not visible (e.g.
-  // while auto-search is running in the background from another tab).
+  // Don't render Leaflet when the substep is mounted but not visible — either
+  // because auto-search is running in the background, or because lazy +
+  // persistent mount keeps the substep alive while another tab is active.
   // A fresh Leaflet init + polygon render happens as soon as the substep
   // becomes active, at a small navigation cost — much cheaper than running
   // 3 hidden maps in parallel for a 20-site project.
