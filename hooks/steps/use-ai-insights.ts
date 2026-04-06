@@ -4,7 +4,18 @@ import * as React from 'react'
 import { useToast } from '@/hooks/use-toast'
 import { useUpdateWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { groupFindingsByType } from '@/lib/utils/group-findings-by-type'
-import type { DeskResearchFinding, WorkflowStep } from '@/types/database'
+import type { DeskResearchFinding, Json, WorkflowStep } from '@/types/database'
+
+interface PerSiteInsight {
+  content: string
+  updatedAt: string
+}
+
+interface AiInsightsMetadata {
+  aiInsights?: string
+  aiInsightsUpdatedAt?: string
+  aiInsightsBySite?: Record<string, PerSiteInsight>
+}
 
 interface UseAiInsightsOptions {
   workflowStep: WorkflowStep
@@ -12,6 +23,23 @@ interface UseAiInsightsOptions {
   projectName: string
   projectLocation: string
   savedFindings: DeskResearchFinding[]
+  /** When set, insights are stored per-site under metadata.aiInsightsBySite[siteId] */
+  siteId?: string | null
+}
+
+function readInsightsFromMetadata(
+  metadata: WorkflowStep['metadata'],
+  siteId: string | null | undefined
+): string | null {
+  const meta = (metadata as AiInsightsMetadata | null) || null
+  if (!meta) return null
+  if (siteId) {
+    const slot = meta.aiInsightsBySite?.[siteId]
+    if (slot?.content) return slot.content
+    // Fallback to project-level insight so newly added sites immediately show context
+    return meta.aiInsights ?? null
+  }
+  return meta.aiInsights ?? null
 }
 
 export function useAiInsights({
@@ -20,42 +48,54 @@ export function useAiInsights({
   projectName,
   projectLocation,
   savedFindings,
+  siteId = null,
 }: UseAiInsightsOptions) {
   const { toast } = useToast()
   const updateWorkflowStep = useUpdateWorkflowStep()
 
   const [isGenerating, setIsGenerating] = React.useState(false)
-  const [insights, setInsights] = React.useState<string | null>(() => {
-    const meta = workflowStep.metadata as Record<string, unknown> | null
-    return (meta?.aiInsights as string) || null
-  })
+  const [insights, setInsights] = React.useState<string | null>(() =>
+    readInsightsFromMetadata(workflowStep.metadata, siteId)
+  )
 
-  // Sync when workflow step metadata changes (e.g. navigating back)
+  // Sync when workflow step metadata or site selection changes (e.g. navigating back, switching site)
   React.useEffect(() => {
-    const meta = workflowStep.metadata as Record<string, unknown> | null
-    if (meta?.aiInsights && typeof meta.aiInsights === 'string') {
-      setInsights(meta.aiInsights)
-    }
-  }, [workflowStep.metadata])
+    setInsights(readInsightsFromMetadata(workflowStep.metadata, siteId))
+  }, [workflowStep.metadata, siteId])
 
-  // Persist AI insights to workflow step metadata
+  // Persist AI insights to workflow step metadata.
+  // Per-site mode writes to metadata.aiInsightsBySite[siteId]; legacy "All Sites" mode writes
+  // to metadata.aiInsights so single-site projects (and All Sites view) keep working unchanged.
   const persistInsights = React.useCallback(
     (value: string) => {
-      const existingMeta = (workflowStep.metadata as Record<string, unknown>) || {}
+      const existingMeta = ((workflowStep.metadata as AiInsightsMetadata | null) ?? {}) as Record<
+        string,
+        unknown
+      > &
+        AiInsightsMetadata
+      const now = new Date().toISOString()
+
+      const nextMeta: AiInsightsMetadata & Record<string, unknown> = { ...existingMeta }
+      if (siteId) {
+        nextMeta.aiInsightsBySite = {
+          ...(existingMeta.aiInsightsBySite ?? {}),
+          [siteId]: { content: value, updatedAt: now },
+        }
+      } else {
+        nextMeta.aiInsights = value
+        nextMeta.aiInsightsUpdatedAt = now
+      }
+
       updateWorkflowStep
         .mutateAsync({
           stepId: workflowStep.id,
           updates: {
-            metadata: {
-              ...existingMeta,
-              aiInsights: value,
-              aiInsightsUpdatedAt: new Date().toISOString(),
-            },
+            metadata: nextMeta as unknown as Json,
           },
         })
         .catch((err) => console.error('Failed to persist AI insights:', err))
     },
-    [workflowStep.id, workflowStep.metadata, updateWorkflowStep]
+    [workflowStep.id, workflowStep.metadata, updateWorkflowStep, siteId]
   )
 
   const findingsByType = React.useMemo(() => groupFindingsByType(savedFindings), [savedFindings])
@@ -83,7 +123,7 @@ export function useAiInsights({
       const response = await fetch('/api/ai/desk-insights', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, projectName, projectLocation }),
+        body: JSON.stringify({ projectId, projectName, projectLocation, siteId }),
       })
 
       if (!response.ok) {
@@ -128,16 +168,23 @@ export function useAiInsights({
     highRelevanceCount,
     persistInsights,
     toast,
+    siteId,
   ])
 
-  // Auto-trigger on mount if no insights
-  const autoTriggeredRef = React.useRef(false)
+  // Auto-trigger on mount (or after site switch) if no insights for current site/scope.
+  // Tracks the previously auto-triggered siteId so switching site re-arms the auto-trigger.
+  // 800ms debounce prevents a storm of OpenAI calls when the user rapidly clicks between sites.
+  const autoTriggeredForRef = React.useRef<string | null | undefined>(undefined)
   React.useEffect(() => {
-    if (!insights && savedFindings.length > 0 && !isGenerating && !autoTriggeredRef.current) {
-      autoTriggeredRef.current = true
+    if (insights || isGenerating || savedFindings.length === 0) return
+    if (autoTriggeredForRef.current === siteId) return
+
+    const timer = window.setTimeout(() => {
+      autoTriggeredForRef.current = siteId
       generate()
-    }
-  }, [insights, savedFindings.length, isGenerating, generate])
+    }, 800)
+    return () => window.clearTimeout(timer)
+  }, [insights, savedFindings.length, isGenerating, generate, siteId])
 
   return {
     insights,

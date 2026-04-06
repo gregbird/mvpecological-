@@ -13,6 +13,7 @@ import { useProjectContext } from '@/contexts/project-context'
 import { useAiInsights } from '@/hooks/steps/use-ai-insights'
 import { useDeskExport } from '@/hooks/steps/use-desk-export'
 import { groupFindingsByType } from '@/lib/utils/group-findings-by-type'
+import { SiteSelector } from '@/components/project/site-selector'
 import {
   BaselineReportTab,
   type HabitatRow,
@@ -41,9 +42,10 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
   // State
   const [selectedFinding, setSelectedFinding] = React.useState<FindingWithRelevance | null>(null)
   const [habitatRows, setHabitatRows] = React.useState<HabitatRow[]>([])
+  const [selectedSiteId, setSelectedSiteId] = React.useState<string | null>(null)
 
-  // React Query hooks
-  const { data: savedFindings = [], isLoading } = useSavedFindings(project.id)
+  // React Query hooks (savedFindings is site-filtered when a site is active)
+  const { data: savedFindings = [], isLoading } = useSavedFindings(project.id, selectedSiteId)
   const updateWorkflowStep = useUpdateWorkflowStep()
   const completeStep = useCompleteWorkflowStep()
 
@@ -57,6 +59,7 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
     projectName: project.name,
     projectLocation,
     savedFindings,
+    siteId: selectedSiteId,
   })
 
   // Export hook
@@ -170,13 +173,36 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
 
   if (savedFindings.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-4 p-8">
-        <AlertCircle className="h-16 w-16 text-gray-300" />
-        <div className="text-center">
-          <h3 className="text-lg font-semibold">No Findings Available</h3>
-          <p className="text-muted-foreground mt-1">
-            Complete Step 2 (Data Gathering) and save some findings first.
-          </p>
+      <div className="flex h-full flex-col">
+        {/* Header — keep SiteSelector visible even when no findings so user can switch */}
+        <div className="border-border bg-card shrink-0 border-b px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Desk Assessment</h2>
+              <p className="text-muted-foreground text-sm">
+                Analyze findings and plan field survey
+              </p>
+            </div>
+            <SiteSelector
+              projectId={project.id}
+              stepKey="desk-assessment"
+              onSiteChange={(site) => setSelectedSiteId(site?.id ?? null)}
+              showAllOption
+            />
+          </div>
+        </div>
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
+          <AlertCircle className="h-16 w-16 text-gray-300" />
+          <div className="text-center">
+            <h3 className="text-lg font-semibold">
+              {selectedSiteId ? 'No Findings for This Site' : 'No Findings Available'}
+            </h3>
+            <p className="text-muted-foreground mt-1">
+              {selectedSiteId
+                ? 'Switch sites or save findings for this site in Step 2 (Data Gathering).'
+                : 'Complete Step 2 (Data Gathering) and save some findings first.'}
+            </p>
+          </div>
         </div>
       </div>
     )
@@ -192,6 +218,12 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
             <p className="text-muted-foreground text-sm">Analyze findings and plan field survey</p>
           </div>
           <div className="flex items-center gap-2">
+            <SiteSelector
+              projectId={project.id}
+              stepKey="desk-assessment"
+              onSiteChange={(site) => setSelectedSiteId(site?.id ?? null)}
+              showAllOption
+            />
             <Badge variant={isComplete ? 'default' : 'secondary'}>
               {isComplete ? 'Completed' : 'In Progress'}
             </Badge>
@@ -256,6 +288,7 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
                 project={project}
                 onHabitatData={setHabitatRows}
                 hideExport
+                siteId={selectedSiteId}
               />
             </div>
 
@@ -282,7 +315,12 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
 
         {/* Deep Research Tab */}
         <TabsContent value="deep-research" className="mt-0 min-h-0 flex-1 overflow-hidden">
-          <DeepResearchTab projectId={project.id} project={project} findings={savedFindings} />
+          <DeepResearchTab
+            projectId={project.id}
+            project={project}
+            findings={savedFindings}
+            siteId={selectedSiteId}
+          />
         </TabsContent>
       </Tabs>
 

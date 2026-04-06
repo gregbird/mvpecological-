@@ -43,7 +43,15 @@ export function useShellSearch({
   const [isSearching, setIsSearching] = React.useState(false)
   const [searchProgress, setSearchProgress] = React.useState<string | null>(null)
 
+  // Config object is usually recreated every render by substep callers, so
+  // we keep it behind a ref to prevent `performSearch` from being rebuilt on
+  // every render (which would in turn invalidate every downstream hook dep).
+  // The ref is always up-to-date because we assign during render.
+  const configRef = React.useRef(config)
+  configRef.current = config
+
   const performSearch = React.useCallback(async () => {
+    const config = configRef.current
     // Multi-site "All Sites" mode: search all site boundaries with bounded
     // concurrency. We used to call `Promise.all(tasks)` which fires every
     // request at once — for projects with 20+ sites this overwhelms the
@@ -51,7 +59,13 @@ export function useShellSearch({
     // rejection nukes the whole batch. Using `batchAsync` with `allSettled`
     // semantics keeps the load sane and preserves successful sites even when
     // a few fail.
-    if (allBoundaries && allBoundaries.length > 0) {
+    //
+    // Substeps may opt out of per-site fan-out by setting
+    // `multiSiteSearchMode: 'merged'` in their config — e.g. species records,
+    // which run a single NBDC report request over the union of all site
+    // grid squares. For merged mode we fall through to the single-site path
+    // below, using the merged `searchBoundary` for the bbox.
+    if (config.multiSiteSearchMode !== 'merged' && allBoundaries && allBoundaries.length > 0) {
       const bboxes = allBoundaries
         .map((boundary) => {
           const bbox = getBoundingBox(boundary, null, selectedBuffer)
@@ -171,6 +185,13 @@ export function useShellSearch({
         },
         buffer: selectedBuffer,
         boundary: effectiveBoundary,
+        // Pass all site boundaries through in merged multi-site mode so the
+        // substep can compute a tighter search geometry (union of site
+        // buffers) instead of the merged rectangular bbox.
+        allBoundaries:
+          config.multiSiteSearchMode === 'merged' && allBoundaries && allBoundaries.length > 0
+            ? allBoundaries
+            : undefined,
       })
 
       setSearchResults(findings)
@@ -195,7 +216,6 @@ export function useShellSearch({
     projectCenter,
     selectedBuffer,
     setSearchResults,
-    config,
     toast,
   ])
 

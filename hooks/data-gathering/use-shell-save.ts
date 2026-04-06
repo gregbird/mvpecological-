@@ -37,8 +37,14 @@ export function useShellSave({
   const deleteFinding = useDeleteFinding()
   const [isSavingAll, setIsSavingAll] = React.useState(false)
 
+  // Config is recreated every render by the substep — keep it behind a ref
+  // so the returned callbacks remain stable across renders.
+  const configRef = React.useRef(config)
+  configRef.current = config
+
   const handleSaveFinding = React.useCallback(
     async (finding: FindingDisplay) => {
+      const config = configRef.current
       setSavingIds((prev) => new Set(prev).add(finding.id))
       try {
         const existingFinding = savedFindings.find((f) => config.matchPredicate(f, finding))
@@ -72,7 +78,6 @@ export function useShellSave({
       }
     },
     [
-      config,
       projectId,
       userId,
       siteId,
@@ -87,6 +92,7 @@ export function useShellSave({
 
   const handleSaveAll = React.useCallback(
     async (findings: FindingDisplay[]) => {
+      const config = configRef.current
       setIsSavingAll(true)
       let savedCount = 0
       const justSaved: FindingDisplay[] = []
@@ -119,7 +125,7 @@ export function useShellSave({
         setIsSavingAll(false)
       }
     },
-    [config, projectId, userId, siteId, createFinding, toast, onAfterSave]
+    [projectId, userId, siteId, createFinding, toast, onAfterSave]
   )
 
   return { handleSaveFinding, handleSaveAll, isSavingAll }

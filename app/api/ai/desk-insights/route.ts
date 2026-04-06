@@ -67,7 +67,12 @@ export async function POST(request: NextRequest) {
     const { user: _authUser, error: authError } = await requireAuth()
     if (authError) return authError
 
-    const { projectId, projectName, projectLocation } = await request.json()
+    const { projectId, projectName, projectLocation, siteId } = (await request.json()) as {
+      projectId?: string
+      projectName?: string
+      projectLocation?: string
+      siteId?: string | null
+    }
 
     if (!projectId) {
       return NextResponse.json({ error: 'projectId is required' }, { status: 400 })
@@ -80,55 +85,116 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient()
 
-    // 1. Fetch saved findings with assessment data
-    const { data: findings, error: findingsError } = await supabase
+    // 0. (Multi-site) Fetch site context if scoped
+    let siteContext: {
+      siteCode: string
+      siteName: string | null
+      county: string | null
+      townland: string | null
+    } | null = null
+    if (siteId) {
+      const { data: siteRow } = await supabase
+        .from('project_sites')
+        .select('site_code, site_name, county, townland')
+        .eq('id', siteId)
+        .maybeSingle()
+      if (siteRow) {
+        siteContext = {
+          siteCode: siteRow.site_code,
+          siteName: siteRow.site_name,
+          county: siteRow.county,
+          townland: siteRow.townland,
+        }
+      }
+    }
+
+    // 1. Fetch saved findings with assessment data (filtered by site if scoped)
+    let findingsQuery = supabase
       .from('desk_research_findings')
       .select(
         'id, title, content, source, data_type, raw_data, distance_from_boundary_km, is_protected, notes'
       )
       .eq('project_id', projectId)
       .eq('is_saved', true)
+    if (siteId) findingsQuery = findingsQuery.eq('site_id', siteId)
+    const { data: findings, error: findingsError } = await findingsQuery
 
     if (findingsError) {
       console.error('Error fetching findings:', findingsError)
       return NextResponse.json({ error: 'Failed to fetch findings' }, { status: 500 })
     }
 
-    // 2. Fetch deep research results (designated sites)
-    const { data: deepResearch, error: deepError } = await supabase
-      .from('deep_research_results')
-      .select(
-        'site_code, site_name, site_type, habitats, conservation_summary, threats_pressures, ai_analysis'
-      )
-      .eq('project_id', projectId)
+    // Pre-compute finding IDs for the site (used to filter research tables which lack site_id)
+    const siteFindingIds = (findings ?? []).map((f) => f.id)
 
-    if (deepError) {
-      console.error('Error fetching deep research:', deepError)
+    // 2. Fetch deep research results (designated sites)
+    // deep_research_results has finding_id FK but no site_id — filter via finding_id when site-scoped.
+    let deepResearch: DeepResearchData[] | null = null
+    if (siteId && siteFindingIds.length === 0) {
+      // No findings for this site → no research results possible. Skip query.
+      deepResearch = []
+    } else {
+      let deepQuery = supabase
+        .from('deep_research_results')
+        .select(
+          'site_code, site_name, site_type, habitats, conservation_summary, threats_pressures, ai_analysis'
+        )
+        .eq('project_id', projectId)
+      if (siteId) deepQuery = deepQuery.in('finding_id', siteFindingIds)
+      const { data, error: deepError } = await deepQuery
+      if (deepError) {
+        console.error('Error fetching deep research:', deepError)
+      }
+      deepResearch = (data || []) as unknown as DeepResearchData[]
     }
 
     // 3. Fetch aquatic research results (water bodies)
-    const { data: aquaticResearch, error: aquaticError } = await supabase
-      .from('aquatic_research_results')
-      .select(
-        'water_body_code, water_body_name, water_body_type, current_status, risk_level, status_history, trends, failures, linked_sac_code, linked_sac_name, linked_sac_habitats, linked_sac_species, ai_analysis'
-      )
-      .eq('project_id', projectId)
-
-    if (aquaticError) {
-      console.error('Error fetching aquatic research:', aquaticError)
+    let aquaticResearch: AquaticResearchData[] | null = null
+    if (siteId && siteFindingIds.length === 0) {
+      aquaticResearch = []
+    } else {
+      let aquaticQuery = supabase
+        .from('aquatic_research_results')
+        .select(
+          'water_body_code, water_body_name, water_body_type, current_status, risk_level, status_history, trends, failures, linked_sac_code, linked_sac_name, linked_sac_habitats, linked_sac_species, ai_analysis'
+        )
+        .eq('project_id', projectId)
+      if (siteId) aquaticQuery = aquaticQuery.in('finding_id', siteFindingIds)
+      const { data, error: aquaticError } = await aquaticQuery
+      if (aquaticError) {
+        console.error('Error fetching aquatic research:', aquaticError)
+      }
+      aquaticResearch = (data || []) as unknown as AquaticResearchData[]
     }
 
-    // 4. Build comprehensive context for AI
+    // 4. Build comprehensive context for AI (with site-aware project header)
+    const effectiveLocation = siteContext
+      ? [siteContext.townland, siteContext.county].filter(Boolean).join(', ') ||
+        projectLocation ||
+        'Ireland'
+      : projectLocation || 'Ireland'
+    const effectiveProjectName = siteContext
+      ? `${projectName || 'Unknown Project'} — Site ${siteContext.siteCode}${
+          siteContext.siteName ? ` (${siteContext.siteName})` : ''
+        }`
+      : projectName || 'Unknown Project'
+
     const context = buildContext({
       findings: (findings || []) as FindingData[],
-      deepResearch: (deepResearch || []) as unknown as DeepResearchData[],
-      aquaticResearch: (aquaticResearch || []) as unknown as AquaticResearchData[],
-      projectName: projectName || 'Unknown Project',
-      projectLocation: projectLocation || 'Ireland',
+      deepResearch: deepResearch || [],
+      aquaticResearch: aquaticResearch || [],
+      projectName: effectiveProjectName,
+      projectLocation: effectiveLocation,
     })
 
     // 5. Generate AI insights
     const prompt = buildPrompt(context)
+
+    const siteScopeNote = siteContext
+      ? `\n\nIMPORTANT: This desk study covers a single site (${siteContext.siteCode}${
+          siteContext.siteName ? ` — ${siteContext.siteName}` : ''
+        }) of a multi-site project. All data provided has already been filtered to this site. Restrict your analysis to this site only — do not reference other sites in the project.`
+      : ''
 
     const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -151,7 +217,7 @@ Rules:
 - Clearly identify data gaps
 - Give specific, actionable field survey recommendations with optimal timing
 - Reference site codes, distances, and conservation status throughout
-- Use markdown formatting with headers, tables, and bullet points`,
+- Use markdown formatting with headers, tables, and bullet points${siteScopeNote}`,
           },
           { role: 'user', content: prompt },
         ],

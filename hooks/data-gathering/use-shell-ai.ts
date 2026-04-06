@@ -32,8 +32,14 @@ export function useShellAi({
   const [isSummarizing, setIsSummarizing] = React.useState(false)
   const summarizeCancelRef = React.useRef(false)
 
+  // Config is recreated every render by the substep — keep it behind a ref
+  // so the returned callbacks remain stable across renders.
+  const configRef = React.useRef(config)
+  configRef.current = config
+
   const handleFetchAiSummary = React.useCallback(
     async (finding: FindingDisplay) => {
+      const config = configRef.current
       if (config.canFetchAiSummary && !config.canFetchAiSummary(finding)) return
 
       // Set loading state
@@ -104,7 +110,7 @@ export function useShellAi({
         )
       }
     },
-    [config, savedFindings, setSearchResults, updateFinding]
+    [savedFindings, setSearchResults, updateFinding]
   )
 
   // Expose AI summary trigger to parent substep components
@@ -113,6 +119,7 @@ export function useShellAi({
   }
 
   const handleSummarizeAll = React.useCallback(async () => {
+    const config = configRef.current
     const filter =
       config.summarizeFilter ||
       ((f: FindingDisplay) => !f.metadata?.aiSummary && !f.metadata?.aiSummaryLoading)
@@ -127,7 +134,7 @@ export function useShellAi({
       await new Promise((resolve) => setTimeout(resolve, 500))
     }
     setIsSummarizing(false)
-  }, [config.summarizeFilter, searchResults, handleFetchAiSummary])
+  }, [searchResults, handleFetchAiSummary])
 
   const handleStopSummarize = React.useCallback(() => {
     summarizeCancelRef.current = true

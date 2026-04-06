@@ -75,7 +75,26 @@ export interface SubstepShellConfig {
     bbox: { minLat: number; maxLat: number; minLng: number; maxLng: number }
     buffer: number
     boundary?: GeoJSON.Feature<GeoJSON.Polygon>
+    /** In merged multi-site mode, the full set of site boundaries so the
+     *  substep can compute per-site geometry (e.g. union of site buffers for
+     *  dedupe'd grid-ref generation). */
+    allBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   }) => Promise<FindingDisplay[]>
+
+  /**
+   * Controls how `allBoundaries` (multi-site "All Sites" mode) is translated
+   * into external API calls.
+   *
+   * - `'per-site'` (default): one `performSearch` call per site boundary,
+   *   running in a small concurrency pool. Good when each site needs its own
+   *   spatial query (NPWS, EPA, NLC).
+   *
+   * - `'merged'`: skip the per-site loop and make a single `performSearch`
+   *   call against the pre-merged `searchBoundary`. Use when the substep can
+   *   dedupe / batch work internally across all sites (species records fan
+   *   out to one NBDC report request with union'd grid refs).
+   */
+  multiSiteSearchMode?: 'per-site' | 'merged'
 
   matchPredicate: (saved: DeskResearchFinding, result: FindingDisplay) => boolean
   minimalMetadataKeys: string[]
@@ -159,6 +178,13 @@ export function DataGatheringSubstepShell({
 }: SubstepShellProps) {
   const updateFinding = useUpdateFinding()
 
+  // The `config` object is created fresh on every substep render. Keep it
+  // behind a ref so internal callbacks/memos stay stable across renders —
+  // otherwise every parent re-render invalidates the spatial filter memos,
+  // which are the hottest path for multi-site projects.
+  const configRef = React.useRef(config)
+  configRef.current = config
+
   const cacheKey = `${config.cacheKeyPrefix}-search-${project.id}`
 
   const [searchResults, setSearchResults] = useSessionStorage<FindingDisplay[]>(cacheKey, [])
@@ -175,9 +201,12 @@ export function DataGatheringSubstepShell({
     () => config.minimalMetadataKeys,
     [config.minimalMetadataKeys.join(',')]
   )
+  // Stable match predicate — read from ref so repeated substep re-renders
+  // don't invalidate `useSubstepSearch`'s effects.
   const stableMatchPredicate = React.useCallback(
-    (sf: DeskResearchFinding, result: FindingDisplay) => config.matchPredicate(sf, result),
-    [config.matchPredicate]
+    (sf: DeskResearchFinding, result: FindingDisplay) =>
+      configRef.current.matchPredicate(sf, result),
+    []
   )
   const {
     selectedFinding,
@@ -209,9 +238,13 @@ export function DataGatheringSubstepShell({
     bufferDistances[0] || 2
   )
 
+  // Species substep is responsible for keeping `computeGridOverlay`'s
+  // reference stable via useCallback — here we depend on the reference
+  // directly so grid-resolution changes propagate immediately.
+  const computeGridOverlayFn = config.computeGridOverlay
   const computedGridOverlay = React.useMemo(
-    () => config.computeGridOverlay?.(selectedBuffer),
-    [config.computeGridOverlay, selectedBuffer]
+    () => computeGridOverlayFn?.(selectedBuffer),
+    [computeGridOverlayFn, selectedBuffer]
   )
 
   const { isSearching, searchProgress, performSearch } = useShellSearch({
@@ -354,37 +387,41 @@ export function DataGatheringSubstepShell({
     config.onFilteredResultsChange?.(spatiallyFilteredResults)
   }, [spatiallyFilteredResults, config.onFilteredResultsChange])
 
+  // UI filters are split into independent memos so that, e.g., toggling the
+  // distance filter does not re-run the site-type filter and vice-versa.
+  // These are cheap O(N) passes, but keeping them independent also means
+  // child components with React.memo only re-render when *their* data
+  // actually changes.
+  const siteTypeFilteredResults = React.useMemo(() => {
+    if (!activeSiteTypeFilter) return spatiallyFilteredResults
+    return spatiallyFilteredResults.filter((f) => f.metadata?.siteType === activeSiteTypeFilter)
+  }, [spatiallyFilteredResults, activeSiteTypeFilter])
+
   const filteredResults = React.useMemo(() => {
-    let result = spatiallyFilteredResults
-    if (activeSiteTypeFilter) {
-      result = result.filter((f) => f.metadata?.siteType === activeSiteTypeFilter)
-    }
-    if (activeDistanceFilter && activeDistanceFilter !== 'all') {
-      result = result.filter((f) => {
-        const d = f.metadata?.distance
-        if (d == null) return false
-        switch (activeDistanceFilter) {
-          case '0-1':
-            return d <= 1
-          case '1-5':
-            return d > 1 && d <= 5
-          case '5-10':
-            return d > 5 && d <= 10
-          case '10+':
-            return d > 10
-          default:
-            return true
-        }
-      })
-    }
-    return result
-  }, [spatiallyFilteredResults, activeSiteTypeFilter, activeDistanceFilter])
+    if (!activeDistanceFilter || activeDistanceFilter === 'all') return siteTypeFilteredResults
+    return siteTypeFilteredResults.filter((f) => {
+      const d = f.metadata?.distance
+      if (d == null) return false
+      switch (activeDistanceFilter) {
+        case '0-1':
+          return d <= 1
+        case '1-5':
+          return d > 1 && d <= 5
+        case '5-10':
+          return d > 5 && d <= 10
+        case '10+':
+          return d > 10
+        default:
+          return true
+      }
+    })
+  }, [siteTypeFilteredResults, activeDistanceFilter])
 
   const handleDeepResearch = React.useCallback(
     (finding: FindingDisplay) => {
-      config.onDeepResearch?.(finding, savedFindings)
+      configRef.current.onDeepResearch?.(finding, savedFindings)
     },
-    [config, savedFindings]
+    [savedFindings]
   )
 
   const handleUpdateNote = React.useCallback(
@@ -398,13 +435,10 @@ export function DataGatheringSubstepShell({
     [updateFinding]
   )
 
-  const handleSiteTypeFilterChange = React.useCallback(
-    (siteType: string | null) => {
-      setActiveSiteTypeFilter(siteType)
-      config.onSiteTypeFilterChange?.(siteType)
-    },
-    [config]
-  )
+  const handleSiteTypeFilterChange = React.useCallback((siteType: string | null) => {
+    setActiveSiteTypeFilter(siteType)
+    configRef.current.onSiteTypeFilterChange?.(siteType)
+  }, [])
 
   const handleDistanceFilterChange = React.useCallback(
     (filter: 'all' | '0-1' | '1-5' | '5-10' | '10+') => {

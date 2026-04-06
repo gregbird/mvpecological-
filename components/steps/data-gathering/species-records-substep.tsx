@@ -117,6 +117,9 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       cacheKeyPrefix: `nbdc-report-${gridResolution}`,
       stepName: 'species_records',
       source: 'nbdc',
+      // Species search dedupes grid refs across all sites and fires a single
+      // NBDC report request — skip per-site fan-out in the shell.
+      multiSiteSearchMode: 'merged',
       computeGridOverlay,
       customSpatialFilter,
       onFilteredResultsChange: handleFilteredResultsChange,

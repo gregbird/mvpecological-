@@ -42,6 +42,8 @@ interface BaselineReportTabProps {
   onHabitatData?: (rows: HabitatRow[]) => void
   /** Hide the internal export button (parent handles export) */
   hideExport?: boolean
+  /** Active site for multi-site projects (null = "All Sites") */
+  siteId?: string | null
 }
 
 export function BaselineReportTab({
@@ -49,13 +51,15 @@ export function BaselineReportTab({
   project,
   onHabitatData: onHabitatDataParent,
   hideExport,
+  siteId,
 }: BaselineReportTabProps) {
   const { toast } = useToast()
   const { data: deepResearch = [], isLoading: isLoadingDeep } = useProjectDeepResearch(project.id)
   const { data: aquaticResearch = [], isLoading: isLoadingAquatic } = useProjectAquaticResearch(
     project.id
   )
-  const { data: allFindings = [] } = useFindings(project.id)
+  // Filter unsaved findings to current site so the "show all findings" toggle stays site-aware
+  const { data: allFindings = [] } = useFindings(project.id, siteId)
   const toggleSaved = useToggleFindingSaved()
 
   const { projectBoundary: boundary } = useProjectBoundary(project)

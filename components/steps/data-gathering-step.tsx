@@ -30,7 +30,7 @@ import type { ProjectSiteWithGeoJSON } from '@/lib/supabase/queries/project-site
 import type { Project, WorkflowStep } from '@/types/database'
 
 import { DataGatheringPreview } from './data-gathering/data-gathering-preview'
-import { AutoSearchBanner } from './data-gathering/auto-search-banner'
+import { AutoSearchBanner, type AutoSearchStatus } from './data-gathering/auto-search-banner'
 import { WizardStepIndicators } from './data-gathering/wizard-step-indicators'
 import { WizardStepContent } from './data-gathering/wizard-step-content'
 
@@ -129,6 +129,14 @@ export function DataGatheringStep({
       boundaryChanged,
     })
 
+  // Stable auto-search completion callback — prevents WizardStepContent
+  // from invalidating every substep's prop reference on parent re-renders.
+  const handleAutoSearchComplete = React.useCallback(
+    (key: 'sites' | 'species' | 'aquatic' | 'habitats', status: AutoSearchStatus) =>
+      setAutoSearchStatus((prev) => ({ ...prev, [key]: status })),
+    [setAutoSearchStatus]
+  )
+
   // Toggle map fullscreen mode in wizard
   React.useEffect(() => {
     const isMapStep =
@@ -200,22 +208,41 @@ export function DataGatheringStep({
     )
   }
 
-  // Context value for substeps
-  const contextValue = {
-    project,
-    projectBoundary,
-    searchBoundary,
-    projectCenter,
-    bufferDistances,
-    selectedSite,
-    effectiveSiteId,
-    otherBoundaries,
-    allBoundaries,
-    savedFindings,
-    userId,
-    showMap,
-    onToggleMap: () => setShowMap(!showMap),
-  }
+  // Context value for substeps — memoized to prevent cascade re-renders
+  // across all consumers when an unrelated parent state changes.
+  const handleToggleMap = React.useCallback(() => setShowMap((v) => !v), [])
+  const contextValue = React.useMemo(
+    () => ({
+      project,
+      projectBoundary,
+      searchBoundary,
+      projectCenter,
+      bufferDistances,
+      selectedSite,
+      effectiveSiteId,
+      otherBoundaries,
+      allBoundaries,
+      savedFindings,
+      userId,
+      showMap,
+      onToggleMap: handleToggleMap,
+    }),
+    [
+      project,
+      projectBoundary,
+      searchBoundary,
+      projectCenter,
+      bufferDistances,
+      selectedSite,
+      effectiveSiteId,
+      otherBoundaries,
+      allBoundaries,
+      savedFindings,
+      userId,
+      showMap,
+      handleToggleMap,
+    ]
+  )
 
   // WIZARD MODE
   return (
@@ -297,12 +324,10 @@ export function DataGatheringStep({
           targetNotes={targetNotes}
           findingsStats={findingsStats}
           showMap={showMap}
-          onToggleMap={() => setShowMap(!showMap)}
+          onToggleMap={handleToggleMap}
           isAutoSearchRunning={isAutoSearchRunning}
           autoSearchStatus={autoSearchStatus}
-          onAutoSearchComplete={(key, status) =>
-            setAutoSearchStatus((prev) => ({ ...prev, [key]: status }))
-          }
+          onAutoSearchComplete={handleAutoSearchComplete}
           onComplete={handleComplete}
           isCompleting={completeStep.isPending}
           isComplete={isComplete}

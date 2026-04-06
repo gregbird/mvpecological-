@@ -18,36 +18,42 @@ interface CountyLayerProps {
   GeoJSON: React.ComponentType<Record<string, unknown>>
 }
 
+// Module-level function references so Leaflet doesn't remount the layer on
+// every parent render (react-leaflet compares style/onEachFeature by
+// reference and rebuilds if they change).
+function countyStyle(feature: GeoJSON.Feature | undefined) {
+  const province = feature?.properties?.province as string | undefined
+  const color = province ? PROVINCE_COLORS[province] || '#f97316' : '#f97316'
+  return {
+    color,
+    weight: 1.5,
+    fillColor: color,
+    fillOpacity: 0.03,
+    dashArray: '4, 4',
+  }
+}
+
+function countyOnEachFeature(feature: GeoJSON.Feature, layer: L.Layer) {
+  const props = feature.properties as Record<string, string> | null
+  if (!props) return
+  ;(layer as L.GeoJSON).bindPopup(`
+    <div style="min-width: 150px;">
+      <strong>${props.name || 'Unknown'}</strong>
+      ${props.nameIrish ? `<br/><em>${props.nameIrish}</em>` : ''}
+      <br/><span style="color: #666;">Province: ${props.province || 'Unknown'}</span>
+      <br/><small style="color: #999;">&copy; Tailte &Eacute;ireann (CC-BY 4.0)</small>
+    </div>
+  `)
+}
+
 /** County boundaries with province-based colouring and popup. */
 export function CountyLayer({ countiesData, GeoJSON }: CountyLayerProps) {
   return (
     <GeoJSON
       key="county-boundaries"
       data={countiesData}
-      style={(feature: GeoJSON.Feature | undefined) => {
-        const province = feature?.properties?.province as string | undefined
-        const color = province ? PROVINCE_COLORS[province] || '#f97316' : '#f97316'
-        return {
-          color,
-          weight: 1.5,
-          fillColor: color,
-          fillOpacity: 0.03,
-          dashArray: '4, 4',
-        }
-      }}
-      onEachFeature={(feature: GeoJSON.Feature, layer: L.Layer) => {
-        const props = feature.properties as Record<string, string> | null
-        if (props) {
-          ;(layer as L.GeoJSON).bindPopup(`
-            <div style="min-width: 150px;">
-              <strong>${props.name || 'Unknown'}</strong>
-              ${props.nameIrish ? `<br/><em>${props.nameIrish}</em>` : ''}
-              <br/><span style="color: #666;">Province: ${props.province || 'Unknown'}</span>
-              <br/><small style="color: #999;">&copy; Tailte &Eacute;ireann (CC-BY 4.0)</small>
-            </div>
-          `)
-        }
-      }}
+      style={countyStyle}
+      onEachFeature={countyOnEachFeature}
     />
   )
 }
@@ -60,6 +66,27 @@ interface TownlandLayerProps {
   currentZoom: number
   townlandsLoading: boolean
   GeoJSON: React.ComponentType<Record<string, unknown>>
+}
+
+const TOWNLAND_STYLE = {
+  color: '#a855f7',
+  weight: 1,
+  fillColor: '#a855f7',
+  fillOpacity: 0.02,
+  dashArray: '2, 2',
+}
+
+function townlandOnEachFeature(feature: GeoJSON.Feature, layer: L.Layer) {
+  const props = feature.properties as Record<string, string | number | null> | null
+  if (!props) return
+  ;(layer as L.GeoJSON).bindPopup(`
+    <div style="min-width: 180px;">
+      <strong>${props.name || 'Unknown Townland'}</strong>
+      ${props.nameIrish ? `<br/><em>${props.nameIrish}</em>` : ''}
+      ${props.areaHectares ? `<br/><span style="color: #666;">Area: ${props.areaHectares} ha</span>` : ''}
+      <br/><small style="color: #999;">&copy; Tailte &Eacute;ireann (CC-BY 4.0)</small>
+    </div>
+  `)
 }
 
 /** Townland boundaries rendered at zoom 12+ with loading/zoom hints. */
@@ -76,26 +103,8 @@ export function TownlandLayer({
         <GeoJSON
           key={`townlands-${townlandsBboxKey}`}
           data={townlandsData}
-          style={() => ({
-            color: '#a855f7',
-            weight: 1,
-            fillColor: '#a855f7',
-            fillOpacity: 0.02,
-            dashArray: '2, 2',
-          })}
-          onEachFeature={(feature: GeoJSON.Feature, layer: L.Layer) => {
-            const props = feature.properties as Record<string, string | number | null> | null
-            if (props) {
-              ;(layer as L.GeoJSON).bindPopup(`
-                <div style="min-width: 180px;">
-                  <strong>${props.name || 'Unknown Townland'}</strong>
-                  ${props.nameIrish ? `<br/><em>${props.nameIrish}</em>` : ''}
-                  ${props.areaHectares ? `<br/><span style="color: #666;">Area: ${props.areaHectares} ha</span>` : ''}
-                  <br/><small style="color: #999;">&copy; Tailte &Eacute;ireann (CC-BY 4.0)</small>
-                </div>
-              `)
-            }
-          }}
+          style={TOWNLAND_STYLE}
+          onEachFeature={townlandOnEachFeature}
         />
       ) : (
         <div className="absolute top-4 right-4 z-1000 rounded bg-purple-100 px-2 py-1 text-xs text-purple-800">
@@ -118,6 +127,27 @@ interface GridOverlayLayerProps {
   GeoJSON: React.ComponentType<Record<string, unknown>>
 }
 
+function gridOverlayStyle(feature: GeoJSON.Feature | undefined) {
+  return {
+    color: '#7c3aed',
+    weight: 1.5,
+    opacity: 0.7,
+    fillColor: '#7c3aed',
+    fillOpacity: feature?.properties?.fillOpacity ?? 0.08,
+    dashArray: '4 4',
+  }
+}
+
+function gridOverlayOnEachFeature(feature: GeoJSON.Feature, layer: L.Layer) {
+  const props = feature.properties
+  if (props?.label) {
+    ;(layer as L.Path).bindTooltip(
+      `${props.label}${props.speciesCount ? ` · ${props.speciesCount} species` : ''}`,
+      { sticky: true, className: 'text-xs' }
+    )
+  }
+}
+
 /** NBDC grid square overlay with species count tooltips. */
 export function GridOverlayLayer({ gridOverlay, GeoJSON }: GridOverlayLayerProps) {
   if (!gridOverlay.features.length) return null
@@ -126,23 +156,8 @@ export function GridOverlayLayer({ gridOverlay, GeoJSON }: GridOverlayLayerProps
     <GeoJSON
       key={`grid-overlay-${gridOverlay.features.length}`}
       data={gridOverlay}
-      style={(feature: GeoJSON.Feature | undefined) => ({
-        color: '#7c3aed',
-        weight: 1.5,
-        opacity: 0.7,
-        fillColor: '#7c3aed',
-        fillOpacity: feature?.properties?.fillOpacity ?? 0.08,
-        dashArray: '4 4',
-      })}
-      onEachFeature={(feature: GeoJSON.Feature, layer: L.Layer) => {
-        const props = feature.properties
-        if (props?.label) {
-          ;(layer as L.Path).bindTooltip(
-            `${props.label}${props.speciesCount ? ` · ${props.speciesCount} species` : ''}`,
-            { sticky: true, className: 'text-xs' }
-          )
-        }
-      }}
+      style={gridOverlayStyle}
+      onEachFeature={gridOverlayOnEachFeature}
     />
   )
 }

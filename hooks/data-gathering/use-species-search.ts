@@ -74,6 +74,9 @@ interface SpeciesSearchParams {
   bbox: { minLat: number; maxLat: number; minLng: number; maxLng: number }
   buffer: number
   boundary?: GeoJSON.Feature<GeoJSON.Polygon>
+  /** Set in merged multi-site mode — compute grid refs against these
+   *  buffered site polygons (union) instead of the single merged bbox. */
+  allBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
 }
 
 /**
@@ -89,6 +92,7 @@ export function buildPerformSearch(
     bbox,
     buffer,
     boundary: searchBoundary,
+    allBoundaries,
   }: SpeciesSearchParams): Promise<FindingDisplay[]> => {
     const findings: FindingDisplay[] = []
     const gridRefsToSearch: string[] = []
@@ -104,9 +108,26 @@ export function buildPerformSearch(
       try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const turf = require('@turf/turf')
-        const sourceGeometry =
-          searchBoundary ?? projectBoundary ?? turf.point([projectCenter.lng, projectCenter.lat])
-        const bufferPoly = turf.buffer(sourceGeometry, buffer, { units: 'kilometers' })
+
+        // Build test polygons for buffer intersection. In merged multi-site
+        // mode we compute one buffer *per* site boundary and test each grid
+        // square against the whole set — this keeps the grid ref list tight
+        // (no squares in the gaps between far-apart sites) and the resulting
+        // NBDC report request is a single dedupe'd batch instead of 20+.
+        const bufferPolygons: GeoJSON.Feature[] = []
+        if (allBoundaries && allBoundaries.length > 0) {
+          for (const b of allBoundaries) {
+            try {
+              bufferPolygons.push(turf.buffer(b, buffer, { units: 'kilometers' }))
+            } catch {
+              // ignore individual site buffer failure
+            }
+          }
+        } else {
+          const sourceGeometry =
+            searchBoundary ?? projectBoundary ?? turf.point([projectCenter.lng, projectCenter.lat])
+          bufferPolygons.push(turf.buffer(sourceGeometry, buffer, { units: 'kilometers' }))
+        }
 
         const swItm = wgs84ToItm(bbox.minLat, bbox.minLng)
         const neItm = wgs84ToItm(bbox.maxLat, bbox.maxLng)
@@ -138,7 +159,8 @@ export function buildPerformSearch(
                   [sw.lng, sw.lat],
                 ],
               ])
-              if (turf.booleanIntersects(gridPoly, bufferPoly)) {
+              // A grid square is included if it touches ANY site's buffer.
+              if (bufferPolygons.some((bp) => turf.booleanIntersects(gridPoly, bp))) {
                 gridRefsToSearch.push(ref)
               }
             } catch {

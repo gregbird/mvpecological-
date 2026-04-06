@@ -35,6 +35,7 @@ import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { useSavedFindings } from '@/hooks/queries/use-finding-hooks'
 import { useSurveys } from '@/hooks/queries/use-survey-hooks'
 import { useProjectSites } from '@/hooks/queries/use-site-hooks'
+import { SiteSelector } from '@/components/project/site-selector'
 import { prepareAppendixData } from '@/lib/export/appendix-data'
 import { getReportSectionsForType } from '@/lib/config/template-types'
 import type { ReportContent } from '@/lib/supabase/queries/reports'
@@ -89,14 +90,20 @@ export function FinalSubmissionStep({
   const [preparedFor, setPreparedFor] = React.useState('')
   const [isExporting, setIsExporting] = React.useState(false)
   const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const [selectedSiteId, setSelectedSiteId] = React.useState<string | null>(null)
 
   // React Query hooks
   const { data: report, isLoading: loadingReport } = useLatestReportByType(project.id, reportType)
-  const { data: habitatStats } = useHabitatStats(project.id)
-  const { data: observationStats } = useObservationStats(project.id)
-  const { data: savedFindings } = useSavedFindings(project.id)
+  // Stats and appendix sources are filtered by site for multi-site projects.
+  // Reports themselves remain project-scoped — narrative sections always cover the full project.
+  const { data: habitatStats } = useHabitatStats(project.id, selectedSiteId)
+  const { data: observationStats } = useObservationStats(project.id, selectedSiteId)
+  const { data: savedFindings } = useSavedFindings(project.id, selectedSiteId)
   const { data: surveys } = useSurveys(project.id)
   const { data: sites } = useProjectSites(project.id)
+  const activeSiteCode = selectedSiteId
+    ? (sites?.find((s) => s.id === selectedSiteId)?.site_code ?? undefined)
+    : undefined
   const updateReport = useUpdateReport()
   const updateProject = useUpdateProject()
   const completeStep = useCompleteWorkflowStep()
@@ -139,6 +146,11 @@ export function FinalSubmissionStep({
     title: coverPageTitle,
     preparedFor,
     siteCode: project.site_code || project.id,
+    siteCodes: (sites || [])
+      .map((s) => s.site_code)
+      .filter((code): code is string => Boolean(code)),
+    activeSiteId: selectedSiteId,
+    activeSiteCode,
     version: report?.version || 1,
     date: new Date().toLocaleDateString('en-IE'),
     sections: reportContent?.sections || [],
@@ -182,7 +194,8 @@ export function FinalSubmissionStep({
 
     try {
       const exportOptions = buildExportOptions()
-      const baseFilename = `${project.site_code || project.id}_${report?.report_type || 'report'}_v${report?.version || 1}`
+      const siteSuffix = activeSiteCode ? `_${activeSiteCode.replace(/\s+/g, '-')}` : ''
+      const baseFilename = `${project.site_code || project.id}_${report?.report_type || 'report'}_v${report?.version || 1}${siteSuffix}`
 
       if (exportFormat === 'pdf') {
         const { generatePeaPdf } = await import('@/lib/export/pdf-generator')
@@ -241,9 +254,10 @@ export function FinalSubmissionStep({
       const { createClient } = await import('@/lib/supabase/client')
       const supabase = createClient()
 
-      // Sites already have GeoJSON boundary via RPC
+      // Sites already have GeoJSON boundary via RPC.
+      // Filter to active site if user narrowed export scope.
       const boundaries = (sites || [])
-        .filter((s) => s.boundary)
+        .filter((s) => s.boundary && (!selectedSiteId || s.id === selectedSiteId))
         .map((s) => ({
           boundary: s.boundary as GeoJSON.Feature<GeoJSON.Polygon>,
           siteName: s.site_name || undefined,
@@ -283,9 +297,10 @@ export function FinalSubmissionStep({
         projectName: project.name,
       })
 
+      const shapefileSiteSuffix = activeSiteCode ? `_${activeSiteCode.replace(/\s+/g, '-')}` : ''
       const link = document.createElement('a')
       link.href = URL.createObjectURL(blob)
-      link.download = `${project.site_code || project.id}_shapefiles.zip`
+      link.download = `${project.site_code || project.id}${shapefileSiteSuffix}_shapefiles.zip`
       link.click()
       URL.revokeObjectURL(link.href)
       toast({ title: 'Shapefiles exported' })
@@ -461,18 +476,43 @@ export function FinalSubmissionStep({
           <h2 className="text-2xl font-bold">Step 8: Final Submission</h2>
           <p className="text-muted-foreground">Export and finalize the project report</p>
         </div>
-        <Badge
-          variant={
-            isComplete ? 'default' : workflowStep.status === 'in_progress' ? 'secondary' : 'outline'
-          }
-        >
-          {isComplete
-            ? 'Completed'
-            : workflowStep.status === 'in_progress'
-              ? 'In Progress'
-              : 'Pending'}
-        </Badge>
+        <div className="flex items-center gap-3">
+          <SiteSelector
+            projectId={project.id}
+            stepKey="final-submission"
+            onSiteChange={(site) => setSelectedSiteId(site?.id ?? null)}
+            showAllOption
+          />
+          <Badge
+            variant={
+              isComplete
+                ? 'default'
+                : workflowStep.status === 'in_progress'
+                  ? 'secondary'
+                  : 'outline'
+            }
+          >
+            {isComplete
+              ? 'Completed'
+              : workflowStep.status === 'in_progress'
+                ? 'In Progress'
+                : 'Pending'}
+          </Badge>
+        </div>
       </div>
+
+      {/* Multi-site export note */}
+      {selectedSiteId && (
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertTitle>Single-site export active</AlertTitle>
+          <AlertDescription>
+            Stats and appendix data are filtered to <strong>{activeSiteCode}</strong>. The report
+            narrative sections still cover the full project — generate site-specific content in Step
+            6 (AI Draft) before exporting if you need fully site-scoped narrative.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Report Type Tabs */}
       {reportTypes.length > 0 && (

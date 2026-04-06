@@ -123,9 +123,9 @@ FOSSITT koduna gore standart renk eslestirmesi (Heritage Council):
 **Yapilacilar:**
 
 - [x] **5.1** ~~Shapefile upload sirasinda oznitelik verilerini okuma ve gosterme~~ ✅ (29 Mart 2026) — shapefile-parser attribute extraction yapiyor, useSiteManagement upload'da attributes'u site'a aktariyor
-- [x] **5.2** ~~Her site sinirina oznitelik atama UI'i~~ ✅ (6 Nisan 2026) — `AttributeEditor` 29 Mart'ta yazildi ama baglanmamisti. 6 Nisan'da `SiteListPanel` icinde `SiteInfoCard`'in altina collapsible olarak baglandi. 12 predefined alan + shapefile custom alanlar. Degisiklik `siteMgmt.updateSite`'a aktarilir, save'de DB'ye yazilir
+- [x] **5.2** ~~Her site sinirina oznitelik atama UI'i~~ ✅ (6 Nisan 2026) — `AttributeEditor` 29 Mart'ta yazildi ama baglanmamisti. 6 Nisan'da `SiteListPanel` icinde `SiteInfoCard`'in altina collapsible olarak baglandi. 12 predefined alan + shapefile custom alanlar. Auto-fill: OBJECT_ID (sortOrder+1), SITE_NAME (shapefile property'lerinden 11 alias), DATE (bugun). Radix Select empty string crash bug fix. Save'de DB'ye yazilir. Detay: `feedback-11-3-todo.md` A4.2
 - [x] **5.3** ~~Target note'lari oznitelik olarak isleme~~ ✅ (29 Mart 2026) — shapefile-export.ts target notes point layer olarak dahil ediyor
-- [x] **5.4** ~~Final submission'da shapefile export'una oznitelik + target note dahil etme (.shp, .shx, .dbf, .prj)~~ ✅ (29 Mart 2026) — `downloadShapefile()` maps-tab'da kullaniliyor
+- [x] **5.4** ~~Final submission'da shapefile export'una oznitelik + target note dahil etme (.shp, .shx, .dbf, .prj)~~ ✅ (6 Nisan 2026) — Step 8 Final Submission zaten multi-site + attributes ile export ediyordu. 6 Nisan'da Step 5 Data Analysis Maps tab'i da guncellendi: `useProjectSites` ile multi-site + attributes destegi, legacy fallback korundu. Olu kod `map-export-controls.tsx` silindi
 
 ---
 

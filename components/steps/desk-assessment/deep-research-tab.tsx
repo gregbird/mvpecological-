@@ -33,9 +33,10 @@ interface DeepResearchTabProps {
   projectId: string
   project: Project
   findings: DbFinding[]
+  siteId?: string | null
 }
 
-export function DeepResearchTab({ projectId, project, findings }: DeepResearchTabProps) {
+export function DeepResearchTab({ projectId, project, findings, siteId }: DeepResearchTabProps) {
   const {
     researchResults,
     aquaticResults,
@@ -50,7 +51,7 @@ export function DeepResearchTab({ projectId, project, findings }: DeepResearchTa
     unresearchedSites,
     resultsByType,
     handleBatchResearch,
-  } = useDeepResearch(projectId, project, findings)
+  } = useDeepResearch(projectId, project, findings, siteId)
 
   if (isLoading) {
     return (

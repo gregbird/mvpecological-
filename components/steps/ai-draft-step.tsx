@@ -33,6 +33,8 @@ import { VersionViewDialog } from '@/components/steps/ai-draft/version-view-dial
 import { RestoreVersionDialog } from '@/components/steps/ai-draft/restore-version-dialog'
 import { ReportTypeSelector } from '@/components/steps/report-type-selector'
 import { SurveyLinkPanel } from '@/components/steps/ai-draft/survey-link-panel'
+import { SiteSelector } from '@/components/project/site-selector'
+import { useProjectSites } from '@/hooks/queries/use-site-hooks'
 import type { Project, Report, WorkflowStep, Json } from '@/types/database'
 
 interface AIDraftStepProps {
@@ -52,6 +54,13 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
   const [activeTab, setActiveTab] = React.useState('agent')
   const [generatingSection, setGeneratingSection] = React.useState<string | null>(null)
   const [sections, setSections] = React.useState<ReportSection[]>([])
+  const [selectedSiteId, setSelectedSiteId] = React.useState<string | null>(null)
+
+  // Project sites — used for site-scoped section generation and status banner
+  const { data: projectSites } = useProjectSites(project.id)
+  const activeSiteCode = selectedSiteId
+    ? (projectSites?.find((s) => s.id === selectedSiteId)?.site_code ?? undefined)
+    : undefined
 
   // Dynamic report section definitions based on report type
   const reportSectionDefs = React.useMemo(() => getReportSectionsForType(reportType), [reportType])
@@ -231,6 +240,7 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
           reportType,
           organizationId: project.organization_id || undefined,
           ecologistOpinion: sectionOpinion || undefined,
+          siteId: selectedSiteId,
         }),
       })
 
@@ -480,18 +490,47 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
             Generate AI-assisted report draft based on collected data
           </p>
         </div>
-        <Badge
-          variant={
-            isComplete ? 'default' : workflowStep.status === 'in_progress' ? 'secondary' : 'outline'
-          }
-        >
-          {isComplete
-            ? 'Completed'
-            : workflowStep.status === 'in_progress'
-              ? 'In Progress'
-              : 'Pending'}
-        </Badge>
+        <div className="flex items-center gap-3">
+          <SiteSelector
+            projectId={project.id}
+            stepKey="ai-draft"
+            onSiteChange={(site) => setSelectedSiteId(site?.id ?? null)}
+            showAllOption
+          />
+          <Badge
+            variant={
+              isComplete
+                ? 'default'
+                : workflowStep.status === 'in_progress'
+                  ? 'secondary'
+                  : 'outline'
+            }
+          >
+            {isComplete
+              ? 'Completed'
+              : workflowStep.status === 'in_progress'
+                ? 'In Progress'
+                : 'Pending'}
+          </Badge>
+        </div>
       </div>
+
+      {/* Multi-site generation warning */}
+      {selectedSiteId && (
+        <Alert className="mx-1 mb-3 border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/30">
+          <AlertTriangle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <AlertTitle className="text-blue-800 dark:text-blue-300">
+            Site-scoped generation: {activeSiteCode}
+          </AlertTitle>
+          <AlertDescription className="text-blue-700 dark:text-blue-400">
+            AI section generation is now filtered to <strong>{activeSiteCode}</strong>. Generating a
+            section will replace its current content with site-specific text. Use{' '}
+            <strong>Save as new version</strong> before switching sites if you want to keep the
+            current draft. Reports are stored at the project level — only one active draft exists
+            per report type.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Report Type Tabs */}
       {reportTypes.length > 0 && (

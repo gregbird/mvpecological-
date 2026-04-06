@@ -68,6 +68,34 @@ type MapComponentProps = Omit<ProjectMapProps, 'className' | 'showControls'> & {
   iwebsVisibleLayers?: string[]
 }
 
+// Stable style objects / key derivation — declared at module scope so that
+// Leaflet's layer diffing doesn't see a fresh reference on every parent
+// re-render and rebuild GeoJSON layers.
+const PRIMARY_BOUNDARY_STYLE = {
+  color: '#ef4444',
+  weight: 3,
+  fillColor: '#ef4444',
+  fillOpacity: 0.1,
+} as const
+
+const OTHER_BOUNDARY_STYLE = {
+  color: '#94a3b8',
+  weight: 2,
+  fillColor: '#94a3b8',
+  fillOpacity: 0.08,
+  dashArray: '6, 4',
+} as const
+
+function boundaryCoordKey(feat: GeoJSON.Feature<GeoJSON.Polygon>): string {
+  const ring = feat.geometry.coordinates[0]
+  if (!ring || ring.length === 0) return 'empty'
+  const first = ring[0]
+  const last = ring[ring.length - 1]
+  // First + last + length is enough to uniquely identify a polygon ring
+  // without the O(N) cost of stringifying every coordinate.
+  return `${first?.[0]?.toFixed(5)}_${first?.[1]?.toFixed(5)}_${last?.[0]?.toFixed(5)}_${last?.[1]?.toFixed(5)}_${ring.length}`
+}
+
 function MapComponent({
   center,
   zoom,
@@ -226,9 +254,9 @@ function MapComponent({
       {/* ── Project boundary ───────────────────────────────────────────── */}
       {boundary && boundaryLayer?.visible && (
         <GeoJSON
-          key={`boundary-${JSON.stringify(boundary).slice(0, 100)}`}
+          key={`boundary-${boundaryCoordKey(boundary)}`}
           data={boundary}
-          style={{ color: '#ef4444', weight: 3, fillColor: '#ef4444', fillOpacity: 0.1 }}
+          style={PRIMARY_BOUNDARY_STYLE}
         />
       )}
 
@@ -241,24 +269,18 @@ function MapComponent({
               const b = boundary.geometry.coordinates[0]?.[0]
               return !(a && b && a[0] === b[0] && a[1] === b[1])
             })
-            .map((feat, idx) => (
+            .map((feat) => (
               <GeoJSON
-                key={`all-boundary-${idx}-${feat.geometry.coordinates[0]?.[0]?.[0]}`}
+                key={`all-boundary-${boundaryCoordKey(feat)}`}
                 data={feat}
-                style={{ color: '#ef4444', weight: 3, fillColor: '#ef4444', fillOpacity: 0.1 }}
+                style={PRIMARY_BOUNDARY_STYLE}
               />
             ))
-        : otherBoundaries.map((feat, idx) => (
+        : otherBoundaries.map((feat) => (
             <GeoJSON
-              key={`other-boundary-${idx}-${feat.geometry.coordinates[0]?.[0]?.[0]}`}
+              key={`other-boundary-${boundaryCoordKey(feat)}`}
               data={feat}
-              style={() => ({
-                color: '#94a3b8',
-                weight: 2,
-                fillColor: '#94a3b8',
-                fillOpacity: 0.08,
-                dashArray: '6, 4',
-              })}
+              style={OTHER_BOUNDARY_STYLE}
             />
           ))}
 

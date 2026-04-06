@@ -7,6 +7,7 @@ import {
   useSaveDeepResearch,
   useProjectAquaticResearch,
 } from '@/hooks/queries/use-deep-research-hooks'
+import { useProjectSites } from '@/hooks/queries/use-site-hooks'
 import { getNPWSSiteData } from '@/lib/data/npws-site-lookup'
 import { getArticle17Data, getHabitatsSummary } from '@/lib/data/article17-habitats'
 import { useToast } from '@/hooks/use-toast'
@@ -56,13 +57,45 @@ function toMapFindings(dbFindings: DbFinding[]): MapFinding[] {
     })
 }
 
-export function useDeepResearch(projectId: string, project: Project, findings: DbFinding[]) {
-  const { data: researchResults = [], isLoading } = useProjectDeepResearch(projectId)
-  const { data: aquaticResults = [], isLoading: aquaticLoading } =
+export function useDeepResearch(
+  projectId: string,
+  project: Project,
+  findings: DbFinding[],
+  siteId?: string | null
+) {
+  const { data: allResearchResults = [], isLoading } = useProjectDeepResearch(projectId)
+  const { data: allAquaticResults = [], isLoading: aquaticLoading } =
     useProjectAquaticResearch(projectId)
+  const { data: projectSites = [] } = useProjectSites(projectId)
   const saveResearch = useSaveDeepResearch()
   const { toast } = useToast()
-  const { projectBoundary: boundary, bufferDistances } = useProjectBoundary(project)
+
+  // Resolve the selected site so the map zooms to its boundary in single-site mode
+  const selectedSite = React.useMemo(
+    () => (siteId ? (projectSites.find((s) => s.id === siteId) ?? null) : null),
+    [siteId, projectSites]
+  )
+
+  const { projectBoundary: boundary, bufferDistances } = useProjectBoundary(project, selectedSite)
+
+  // When site-scoped, filter research tables (which lack site_id) via finding_id JOIN.
+  // The `findings` prop is already site-filtered upstream by the parent component.
+  const findingIdSet = React.useMemo(() => new Set(findings.map((f) => f.id)), [findings])
+
+  const researchResults = React.useMemo(
+    () =>
+      siteId
+        ? allResearchResults.filter((r) => r.finding_id && findingIdSet.has(r.finding_id))
+        : allResearchResults,
+    [allResearchResults, siteId, findingIdSet]
+  )
+  const aquaticResults = React.useMemo(
+    () =>
+      siteId
+        ? allAquaticResults.filter((r) => r.finding_id && findingIdSet.has(r.finding_id))
+        : allAquaticResults,
+    [allAquaticResults, siteId, findingIdSet]
+  )
 
   const [batchProgress, setBatchProgress] = React.useState<BatchProgress | null>(null)
 

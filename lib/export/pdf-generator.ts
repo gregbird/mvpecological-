@@ -9,6 +9,12 @@ export interface PeaExportOptions {
   title: string
   preparedFor: string
   siteCode: string
+  /** Multi-site project: full list of site codes for cover page rendering */
+  siteCodes?: string[]
+  /** When set, the export is narrowed to a single site of a multi-site project */
+  activeSiteId?: string | null
+  /** Friendly site code label, used as filename suffix and cover page banner */
+  activeSiteCode?: string
   version: number
   date: string
   sections: ReportSection[]
@@ -517,7 +523,12 @@ export async function generatePeaPdf(options: PeaExportOptions): Promise<jsPDF> 
   doc.setFont('helvetica', 'normal')
   doc.text('Ecological Consultancy Management System', pageWidth / 2, 26, { align: 'center' })
   doc.setFontSize(9)
-  doc.text(options.siteCode, pageWidth / 2, 34, { align: 'center' })
+  // Multi-site banner: show "Sites: A, B, C" when more than one site, otherwise legacy single code
+  const bannerSiteText =
+    options.siteCodes && options.siteCodes.length > 1
+      ? `Sites: ${options.siteCodes.join(', ')}`
+      : options.siteCode
+  doc.text(bannerSiteText, pageWidth / 2, 34, { align: 'center' })
 
   // Report type label
   doc.setFontSize(12)
@@ -530,11 +541,14 @@ export async function generatePeaPdf(options: PeaExportOptions): Promise<jsPDF> 
   doc.setLineWidth(0.6)
   doc.line(margin + 20, 71, pageWidth - margin - 20, 71)
 
-  // Project title — large, centered
+  // Project title — large, centered (with optional site export suffix)
   doc.setFontSize(22)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(0, 0, 0)
-  const titleLines = doc.splitTextToSize(options.title, contentWidth - 10) as string[]
+  const titleText = options.activeSiteCode
+    ? `${options.title} (Site: ${options.activeSiteCode})`
+    : options.title
+  const titleLines = doc.splitTextToSize(titleText, contentWidth - 10) as string[]
   let titleY = 88
   for (const line of titleLines) {
     doc.text(line, pageWidth / 2, titleY, { align: 'center' })
@@ -546,9 +560,15 @@ export async function generatePeaPdf(options: PeaExportOptions): Promise<jsPDF> 
   const boxLeft = margin + 15
   const boxRight = pageWidth - margin - 15
   const boxWidth = boxRight - boxLeft
+  // Site reference label adapts to multi-site projects
+  const siteRefValue = options.activeSiteCode
+    ? `${options.activeSiteCode} (filtered from project)`
+    : options.siteCodes && options.siteCodes.length > 1
+      ? options.siteCodes.join(', ')
+      : options.siteCode
   const detailRows = [
     { label: 'Prepared For', value: options.preparedFor || 'Client' },
-    { label: 'Site Reference', value: options.siteCode },
+    { label: 'Site Reference', value: siteRefValue },
     { label: 'Report Version', value: `Version ${options.version}` },
     { label: 'Date', value: options.date },
   ]
@@ -1189,10 +1209,18 @@ export function generatePeaHtml(options: PeaExportOptions): string {
 <body>
   <div class="cover-page">
     <h1>Preliminary Ecological Appraisal</h1>
-    <div class="title">${escapeHtml(options.title)}</div>
+    <div class="title">${escapeHtml(
+      options.activeSiteCode ? `${options.title} (Site: ${options.activeSiteCode})` : options.title
+    )}</div>
     <div class="details">
       <div><strong>Prepared For:</strong> ${escapeHtml(options.preparedFor || 'Client')}</div>
-      <div><strong>Site Reference:</strong> ${escapeHtml(options.siteCode)}</div>
+      <div><strong>Site Reference:</strong> ${escapeHtml(
+        options.activeSiteCode
+          ? `${options.activeSiteCode} (filtered from project)`
+          : options.siteCodes && options.siteCodes.length > 1
+            ? options.siteCodes.join(', ')
+            : options.siteCode
+      )}</div>
       <div><strong>Version:</strong> ${options.version}</div>
       <div><strong>Date:</strong> ${escapeHtml(options.date)}</div>
     </div>

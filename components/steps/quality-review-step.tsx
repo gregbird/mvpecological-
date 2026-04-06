@@ -31,6 +31,7 @@ import { useHabitatStats } from '@/hooks/queries/use-habitat-hooks'
 import { useObservationStats } from '@/hooks/queries/use-observation-hooks'
 import { useFindingsStats } from '@/hooks/queries/use-finding-hooks'
 import { useCompleteWorkflowStep, useUpdateWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
+import { SiteSelector } from '@/components/project/site-selector'
 import { getReportSectionsForType } from '@/lib/config/template-types'
 import type { ReportContent } from '@/lib/supabase/queries/reports'
 import type { Project, WorkflowStep, Json } from '@/types/database'
@@ -75,12 +76,15 @@ export function QualityReviewStep({
   const [sectionNotes, setSectionNotes] = React.useState<Record<string, ReviewNote[]>>({})
   const [addingNoteFor, setAddingNoteFor] = React.useState<string | null>(null)
   const [noteText, setNoteText] = React.useState('')
+  const [selectedSiteId, setSelectedSiteId] = React.useState<string | null>(null)
 
   // React Query hooks
   const { data: report, isLoading: loadingReport } = useLatestReportByType(project.id, reportType)
-  const { data: habitatStats } = useHabitatStats(project.id)
-  const { data: observationStats } = useObservationStats(project.id)
-  const { data: findingsStats } = useFindingsStats(project.id)
+  // Stats are filtered by site for completeness verification.
+  // Reports themselves remain project-scoped — site filter only narrows the data summary card.
+  const { data: habitatStats } = useHabitatStats(project.id, selectedSiteId)
+  const { data: observationStats } = useObservationStats(project.id, selectedSiteId)
+  const { data: findingsStats } = useFindingsStats(project.id, selectedSiteId)
   const updateReport = useUpdateReport()
   const completeStep = useCompleteWorkflowStep()
   const updateWorkflowStep = useUpdateWorkflowStep()
@@ -302,17 +306,29 @@ export function QualityReviewStep({
           <h2 className="text-2xl font-bold">Step 7: Quality Review</h2>
           <p className="text-muted-foreground">Peer review and approval of the draft report</p>
         </div>
-        <Badge
-          variant={
-            isComplete ? 'default' : workflowStep.status === 'in_progress' ? 'secondary' : 'outline'
-          }
-        >
-          {isComplete
-            ? 'Completed'
-            : workflowStep.status === 'in_progress'
-              ? 'In Progress'
-              : 'Pending'}
-        </Badge>
+        <div className="flex items-center gap-3">
+          <SiteSelector
+            projectId={project.id}
+            stepKey="quality-review"
+            onSiteChange={(site) => setSelectedSiteId(site?.id ?? null)}
+            showAllOption
+          />
+          <Badge
+            variant={
+              isComplete
+                ? 'default'
+                : workflowStep.status === 'in_progress'
+                  ? 'secondary'
+                  : 'outline'
+            }
+          >
+            {isComplete
+              ? 'Completed'
+              : workflowStep.status === 'in_progress'
+                ? 'In Progress'
+                : 'Pending'}
+          </Badge>
+        </div>
       </div>
 
       {/* Report Type Tabs */}
@@ -531,6 +547,12 @@ export function QualityReviewStep({
           <Card>
             <CardHeader>
               <CardTitle>Data Summary</CardTitle>
+              {selectedSiteId && (
+                <p className="text-muted-foreground text-xs">
+                  Site filter affects completeness stats only. The report itself covers the entire
+                  project.
+                </p>
+              )}
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 sm:grid-cols-4">

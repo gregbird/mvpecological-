@@ -23,8 +23,16 @@ const REPORT_TYPE_LABELS: Record<string, string> = Object.fromEntries(
   REPORT_TYPES.map((r) => [r.id, r.name])
 )
 
-function buildSystemPrompt(reportType: string): string {
+function buildSystemPrompt(
+  reportType: string,
+  siteContext?: { siteCode: string; siteName: string | null } | null
+): string {
   const reportName = REPORT_TYPE_LABELS[reportType] || 'ecological report'
+  const siteScopeNote = siteContext
+    ? `\n\nSite scope: This section is being generated for Site ${siteContext.siteCode}${
+        siteContext.siteName ? ` (${siteContext.siteName})` : ''
+      } of a multi-site project. The data provided has already been filtered to this site only — do not reference other sites in the project.`
+    : ''
 
   return `You are a senior Irish ecological consultant writing sections for a ${reportName} under CIEEM guidelines.
 
@@ -45,7 +53,7 @@ Do NOT:
 - Make up specific survey data or counts that weren't provided
 - Include personal opinions without scientific basis
 - Use informal language or colloquialisms
-- Repeat information verbatim from the data — synthesise and interpret`
+- Repeat information verbatim from the data — synthesise and interpret${siteScopeNote}`
 }
 
 interface ProjectData {
@@ -146,7 +154,15 @@ export async function POST(request: NextRequest) {
       reportType = 'pea',
       organizationId,
       ecologistOpinion,
-    } = await request.json()
+      siteId,
+    } = (await request.json()) as {
+      projectId?: string
+      sectionId?: string
+      reportType?: string
+      organizationId?: string
+      ecologistOpinion?: string
+      siteId?: string | null
+    }
 
     if (!projectId || !sectionId) {
       return NextResponse.json({ error: 'projectId and sectionId are required' }, { status: 400 })
@@ -169,6 +185,31 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient()
 
+    // (Multi-site) Fetch site context if request is site-scoped
+    let siteContext: {
+      siteCode: string
+      siteName: string | null
+      county: string | null
+      townland: string | null
+      province: string | null
+    } | null = null
+    if (siteId) {
+      const { data: siteRow } = await supabase
+        .from('project_sites')
+        .select('site_code, site_name, county, townland, province')
+        .eq('id', siteId)
+        .maybeSingle()
+      if (siteRow) {
+        siteContext = {
+          siteCode: siteRow.site_code,
+          siteName: siteRow.site_name,
+          county: siteRow.county,
+          townland: siteRow.townland,
+          province: siteRow.province,
+        }
+      }
+    }
+
     // Check if specific surveys are linked to this report type
     const { data: linkedSurveyRows } = await supabase
       .from('report_survey_links')
@@ -176,6 +217,127 @@ export async function POST(request: NextRequest) {
       .eq('project_id', projectId)
       .eq('report_type', reportType)
     const linkedSurveyIds = linkedSurveyRows?.map((r) => r.survey_id) ?? []
+
+    // Pre-compute site-filtered survey IDs (needed for observations + releve filtering)
+    let siteFilteredSurveyIds: string[] | null = null
+    if (siteId) {
+      const { data: siteSurveys } = await supabase
+        .from('surveys')
+        .select('id')
+        .eq('project_id', projectId)
+        .eq('site_id', siteId)
+      siteFilteredSurveyIds = (siteSurveys || []).map((s) => s.id)
+    }
+
+    // Pre-compute site-filtered finding IDs (for deep/aquatic research which lack site_id)
+    let siteFilteredFindingIds: string[] | null = null
+    if (siteId) {
+      const { data: siteFindings } = await supabase
+        .from('desk_research_findings')
+        .select('id')
+        .eq('project_id', projectId)
+        .eq('site_id', siteId)
+      siteFilteredFindingIds = (siteFindings || []).map((f) => f.id)
+    }
+
+    // Build site-scoped query builders lazily so each one can apply the siteId filter.
+    // Independent flags: research tables (deep/aquatic) gate on finding ids,
+    // releve surveys gate on survey ids. Both return empty when their dependency is empty.
+    const researchNarrowsToEmpty =
+      siteId !== null &&
+      siteId !== undefined &&
+      siteFilteredFindingIds !== null &&
+      siteFilteredFindingIds.length === 0
+    const releveNarrowsToEmpty =
+      siteId !== null &&
+      siteId !== undefined &&
+      siteFilteredSurveyIds !== null &&
+      siteFilteredSurveyIds.length === 0
+
+    // Habitats — filter by site_id if scoped
+    let habitatsQuery = supabase
+      .from('habitat_polygons')
+      .select(
+        'fossitt_code, fossitt_name, area_hectares, condition, notes, threats, eu_annex_code, evaluation, listed_species'
+      )
+      .eq('project_id', projectId)
+      .eq('include_in_report', true)
+    if (siteId) habitatsQuery = habitatsQuery.eq('site_id', siteId)
+
+    // Observations — constrained by site-filtered survey ids if site scoped
+    const observationSurveyIds =
+      siteId && siteFilteredSurveyIds
+        ? siteFilteredSurveyIds
+        : (await supabase.from('surveys').select('id').eq('project_id', projectId)).data?.map(
+            (s) => s.id
+          ) || []
+    const observationsQuery =
+      observationSurveyIds.length > 0
+        ? supabase
+            .from('species_observations')
+            .select(
+              'species_name_scientific, species_name_common, taxon_group, count, abundance_dafor, evidence_type, is_protected, confidence_level, behavior_notes, survey_id'
+            )
+            .in('survey_id', observationSurveyIds)
+            .eq('include_in_report', true)
+        : null
+
+    // Findings — filter by site_id
+    let findingsQuery = supabase
+      .from('desk_research_findings')
+      .select('title, source, data_type, raw_data, distance_from_boundary_km, is_protected, notes')
+      .eq('project_id', projectId)
+      .eq('is_saved', true)
+      .eq('include_in_report', true)
+    if (siteId) findingsQuery = findingsQuery.eq('site_id', siteId)
+
+    // Surveys — filter by site_id
+    let surveysQuery = supabase
+      .from('surveys')
+      .select('survey_date, survey_type, weather, status, notes, start_time, end_time')
+      .eq('project_id', projectId)
+    if (siteId) surveysQuery = surveysQuery.eq('site_id', siteId)
+
+    // Target notes — filter by site_id
+    let targetNotesQuery = supabase
+      .from('target_notes')
+      .select('category, title, description, priority, is_verified')
+      .eq('project_id', projectId)
+      .eq('include_in_report', true)
+    if (siteId) targetNotesQuery = targetNotesQuery.eq('site_id', siteId)
+
+    // Deep research — no site_id column, filter via finding_id
+    let deepResearchQuery = supabase
+      .from('deep_research_results')
+      .select(
+        'site_code, site_name, site_type, habitats, conservation_summary, threats_pressures, ai_analysis'
+      )
+      .eq('project_id', projectId)
+    if (siteId && siteFilteredFindingIds && siteFilteredFindingIds.length > 0) {
+      deepResearchQuery = deepResearchQuery.in('finding_id', siteFilteredFindingIds)
+    }
+
+    // Aquatic research — no site_id column, filter via finding_id
+    let aquaticResearchQuery = supabase
+      .from('aquatic_research_results')
+      .select(
+        'water_body_code, water_body_name, water_body_type, current_status, risk_level, status_history, trends, failures, linked_sac_code, linked_sac_name, ai_analysis'
+      )
+      .eq('project_id', projectId)
+    if (siteId && siteFilteredFindingIds && siteFilteredFindingIds.length > 0) {
+      aquaticResearchQuery = aquaticResearchQuery.in('finding_id', siteFilteredFindingIds)
+    }
+
+    // Releve surveys — filter via survey_id relation (releve_surveys has project_id and survey_id FK)
+    let releveSurveysQuery = supabase
+      .from('releve_surveys')
+      .select(
+        'releve_code, habitat_type, soil_type, soil_stability, aspect, slope_degrees, releve_area_sqm, total_vegetation_cover_pct, cover_graminea_pct, cover_forbs_pct, cover_mosses_liverworts_pct, cover_trees_pct, cover_shrubs_pct, cover_litter_pct, cover_bare_soil_pct, cover_bare_rock_pct, cover_open_water_pct, max_height_trees_m, max_height_shrubs_cm, max_height_graminea_cm, max_height_forbs_cm, fauna_observations, releve_comment, id, survey_id'
+      )
+      .eq('project_id', projectId)
+    if (siteId && siteFilteredSurveyIds && siteFilteredSurveyIds.length > 0) {
+      releveSurveysQuery = releveSurveysQuery.in('survey_id', siteFilteredSurveyIds)
+    }
 
     // Fetch all project data in parallel
     const [
@@ -195,66 +357,20 @@ export async function POST(request: NextRequest) {
         .select('name, site_code, grid_reference, county, townland, province')
         .eq('id', projectId)
         .single(),
-      supabase
-        .from('habitat_polygons')
-        .select(
-          'fossitt_code, fossitt_name, area_hectares, condition, notes, threats, eu_annex_code, evaluation, listed_species'
-        )
-        .eq('project_id', projectId)
-        .eq('include_in_report', true),
-      supabase
-        .from('species_observations')
-        .select(
-          'species_name_scientific, species_name_common, taxon_group, count, abundance_dafor, evidence_type, is_protected, confidence_level, behavior_notes, survey_id'
-        )
-        .in(
-          'survey_id',
-          (await supabase.from('surveys').select('id').eq('project_id', projectId)).data?.map(
-            (s) => s.id
-          ) || []
-        )
-        .eq('include_in_report', true),
-      supabase
-        .from('desk_research_findings')
-        .select(
-          'title, source, data_type, raw_data, distance_from_boundary_km, is_protected, notes'
-        )
-        .eq('project_id', projectId)
-        .eq('is_saved', true)
-        .eq('include_in_report', true),
-      supabase
-        .from('surveys')
-        .select('survey_date, survey_type, weather, status, notes, start_time, end_time')
-        .eq('project_id', projectId),
-      supabase
-        .from('target_notes')
-        .select('category, title, description, priority, is_verified')
-        .eq('project_id', projectId)
-        .eq('include_in_report', true),
-      supabase
-        .from('deep_research_results')
-        .select(
-          'site_code, site_name, site_type, habitats, conservation_summary, threats_pressures, ai_analysis'
-        )
-        .eq('project_id', projectId),
-      supabase
-        .from('aquatic_research_results')
-        .select(
-          'water_body_code, water_body_name, water_body_type, current_status, risk_level, status_history, trends, failures, linked_sac_code, linked_sac_name, ai_analysis'
-        )
-        .eq('project_id', projectId),
+      habitatsQuery,
+      observationsQuery ?? Promise.resolve({ data: [], error: null }),
+      findingsQuery,
+      surveysQuery,
+      targetNotesQuery,
+      researchNarrowsToEmpty ? Promise.resolve({ data: [], error: null }) : deepResearchQuery,
+      researchNarrowsToEmpty ? Promise.resolve({ data: [], error: null }) : aquaticResearchQuery,
       supabase
         .from('workflow_steps')
         .select('metadata')
         .eq('project_id', projectId)
         .eq('step_number', 3)
         .single(),
-      supabase
-        .from('releve_surveys')
-        .select(
-          'releve_code, habitat_type, soil_type, soil_stability, aspect, slope_degrees, releve_area_sqm, total_vegetation_cover_pct, cover_graminea_pct, cover_forbs_pct, cover_mosses_liverworts_pct, cover_trees_pct, cover_shrubs_pct, cover_litter_pct, cover_bare_soil_pct, cover_bare_rock_pct, cover_open_water_pct, max_height_trees_m, max_height_shrubs_cm, max_height_graminea_cm, max_height_forbs_cm, fauna_observations, releve_comment, id'
-        )
-        .eq('project_id', projectId),
+      releveNarrowsToEmpty ? Promise.resolve({ data: [], error: null }) : releveSurveysQuery,
     ])
 
     if (projectResult.error) {
@@ -281,9 +397,15 @@ export async function POST(request: NextRequest) {
         : allObservations
     const deepResearch = (deepResearchResult.data || []) as unknown as DeepResearchData[]
     const aquaticResearch = (aquaticResearchResult.data || []) as unknown as AquaticResearchData[]
-    const deskInsights = (workflowResult.data?.metadata as Record<string, unknown>)?.aiInsights as
-      | string
+    // Prefer per-site insights when site-scoped; fall back to legacy project-wide aiInsights
+    const rawMetadata = (workflowResult.data?.metadata as Record<string, unknown>) || {}
+    const aiInsightsBySite = rawMetadata.aiInsightsBySite as
+      | Record<string, { content: string; updatedAt: string }>
       | undefined
+    const deskInsights: string | undefined =
+      (siteId && aiInsightsBySite?.[siteId]?.content) ||
+      (rawMetadata.aiInsights as string | undefined) ||
+      undefined
 
     // Fetch releve species for all releve surveys
     const releveSurveys = (releveSurveysResult.data || []) as ReleveData[]
@@ -300,7 +422,7 @@ export async function POST(request: NextRequest) {
       releveSpecies = (speciesData || []) as ReleveSpeciesData[]
     }
 
-    // Build context
+    // Build context (with optional per-site header override)
     const context = buildReportContext({
       project,
       habitats,
@@ -313,6 +435,7 @@ export async function POST(request: NextRequest) {
       deskInsights,
       releveSurveys,
       releveSpecies,
+      siteContext,
     })
 
     // Build section-specific prompt from centralized prompt definitions
@@ -376,7 +499,15 @@ Write the section content now. Use markdown formatting (bold, bullet points, tab
       body: JSON.stringify({
         model: 'gpt-4o',
         messages: [
-          { role: 'system', content: buildSystemPrompt(reportType) },
+          {
+            role: 'system',
+            content: buildSystemPrompt(
+              reportType,
+              siteContext
+                ? { siteCode: siteContext.siteCode, siteName: siteContext.siteName }
+                : null
+            ),
+          },
           { role: 'user', content: userPrompt },
         ],
         temperature: 0.3,
@@ -477,20 +608,42 @@ interface ReportContextInput {
   deskInsights?: string
   releveSurveys: ReleveData[]
   releveSpecies: ReleveSpeciesData[]
+  /** Multi-site scope — when set, project header includes site-specific location */
+  siteContext?: {
+    siteCode: string
+    siteName: string | null
+    county: string | null
+    townland: string | null
+    province: string | null
+  } | null
 }
 
 function buildReportContext(input: ReportContextInput): string {
   const parts: string[] = []
 
-  // 1. Project info
+  // 1. Project info (with optional site-scoped header override)
   const p = input.project
+  const sc = input.siteContext
   parts.push('# PROJECT INFORMATION')
   parts.push(`Project Name: ${p.name}`)
-  if (p.site_code) parts.push(`Site Code: ${p.site_code}`)
-  if (p.grid_reference) parts.push(`Grid Reference: ${p.grid_reference}`)
-  if (p.county) parts.push(`County: ${p.county}`)
-  if (p.townland) parts.push(`Townland: ${p.townland}`)
-  if (p.province) parts.push(`Province: ${p.province}`)
+  if (sc) {
+    parts.push(`Site Scope: ${sc.siteCode}${sc.siteName ? ` (${sc.siteName})` : ''}`)
+    parts.push(
+      'NOTE: Data below is filtered to this site only. Other sites in the project are excluded.'
+    )
+    if (sc.county) parts.push(`County: ${sc.county}`)
+    else if (p.county) parts.push(`County: ${p.county}`)
+    if (sc.townland) parts.push(`Townland: ${sc.townland}`)
+    else if (p.townland) parts.push(`Townland: ${p.townland}`)
+    if (sc.province) parts.push(`Province: ${sc.province}`)
+    else if (p.province) parts.push(`Province: ${p.province}`)
+  } else {
+    if (p.site_code) parts.push(`Site Code: ${p.site_code}`)
+    if (p.grid_reference) parts.push(`Grid Reference: ${p.grid_reference}`)
+    if (p.county) parts.push(`County: ${p.county}`)
+    if (p.townland) parts.push(`Townland: ${p.townland}`)
+    if (p.province) parts.push(`Province: ${p.province}`)
+  }
   parts.push('')
 
   // 2. Surveys

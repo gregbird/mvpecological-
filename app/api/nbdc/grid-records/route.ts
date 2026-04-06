@@ -6,7 +6,10 @@ import { gridRefToItm } from '@/lib/utils/grid-reference'
 const NBDC_BASE_URL = 'https://maps.biodiversityireland.ie'
 const FETCH_TIMEOUT = 20_000 // 20 seconds per external request
 const MAX_XLSX_SIZE = 10 * 1024 * 1024 // 10 MB
-const MAX_GRID_REFS = 50
+// Raised from 50 so multi-site projects (20+ sites) can send a single
+// dedupe'd batch of grid refs covering all sites in one request instead of
+// paying per-request overhead for each site.
+const MAX_GRID_REFS = 200
 const VALID_RESOLUTIONS = [1000, 2000, 10000] as const
 const SESSION_TTL = 5 * 60 * 1000 // 5 minutes
 
@@ -237,20 +240,22 @@ export async function POST(request: NextRequest) {
 
     const allSpecies: NBDCReportSpecies[] = []
 
-    // Process all grid refs with concurrency limit — max 8 concurrent NBDC requests
-    const CONCURRENCY = 8
+    // Pooled worker pattern — 10 concurrent NBDC requests at any given time.
+    // Previously this was a chunked `Promise.all` which suffers from
+    // head-of-line blocking: one slow grid ref stalls the entire chunk,
+    // leaving the other 7 workers idle until it completes. The pool keeps
+    // every worker busy and finishes a 200-ref batch much faster in practice.
+    const CONCURRENCY = 10
     const results: NBDCReportSpecies[][] = new Array(refs.length)
-
-    // Chunked parallel execution: process CONCURRENCY items at a time
-    for (let i = 0; i < refs.length; i += CONCURRENCY) {
-      const chunk = refs.slice(i, i + CONCURRENCY)
-      const chunkResults = await Promise.all(
-        chunk.map((ref: string) => generateAndParseReport(ref, resolution, session))
-      )
-      for (let j = 0; j < chunkResults.length; j++) {
-        results[i + j] = chunkResults[j]
+    let nextIdx = 0
+    const workers = Array.from({ length: Math.min(CONCURRENCY, refs.length) }, async () => {
+      while (true) {
+        const myIdx = nextIdx++
+        if (myIdx >= refs.length) return
+        results[myIdx] = await generateAndParseReport(refs[myIdx], resolution, session)
       }
-    }
+    })
+    await Promise.all(workers)
 
     for (const r of results) {
       if (r) allSpecies.push(...r)

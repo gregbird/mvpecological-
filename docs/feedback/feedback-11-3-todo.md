@@ -84,9 +84,18 @@ F: Bagimsiz ──→ paralel yapilabilir
 ### A4. Attribute (Oznitelik) Yonetimi (Feedback #5)
 
 - [x] **A4.1** ~~Shapefile upload sirasinda oznitelik verilerini okuma ve gosterme~~ ✅ (29 Mart 2026) — shapefile-parser zaten attribute extraction yapiyor, useSiteManagement upload'da attributes'u site'a aktariyor
-- [x] **A4.2** ~~Her site sinirina oznitelik atama UI'i~~ ✅ (6 Nisan 2026) — `AttributeEditor` bileseni 29 Mart'ta yazilmis ama hicbir sayfaya baglanmamisti (feedback-11-3-mar.md #5.2'de WIP). 6 Nisan'da `SiteListPanel` icine bagli hale getirildi: aktif site secilince `SiteInfoCard`'in altinda collapsible `AttributeEditor` gorunuyor. 12 predefined alan (OBJECT_ID, FOSS_CODE, ANNEX_CODE, FOSS_NAME, COMMENT, SITE_NAME, LABEL, NOTE_NUMBER, CATEGORY, DATA_QUAL, DATE, PHOTO_ID) + shapefile'dan gelen custom alanlar ayrica gosteriliyor (`extraKeys` filtresi). Degisiklik `siteMgmt.updateSite`'a aktarilir, `hasUnsavedChanges=true` olur, save'de DB'ye yazilir. Dosyalar: `site-list-panel.tsx`, `gis-mapping-step.tsx`, `components/gis/attribute-editor.tsx`, `lib/config/site-attributes.ts`
+- [x] **A4.2** ~~Her site sinirina oznitelik atama UI'i~~ ✅ (6 Nisan 2026) — `AttributeEditor` bileseni 29 Mart'ta yazilmis ama hicbir sayfaya baglanmamisti (feedback-11-3-mar.md #5.2'de WIP). 6 Nisan'da:
+  - **UI baglanti:** `SiteListPanel` icine bagli hale getirildi — aktif site secilince `SiteInfoCard`'in altinda collapsible `AttributeEditor` gorunuyor. 12 predefined alan (OBJECT_ID, FOSS_CODE, ANNEX_CODE, FOSS_NAME, COMMENT, SITE_NAME, LABEL, NOTE_NUMBER, CATEGORY, DATA_QUAL, DATE, PHOTO_ID) + shapefile'dan gelen custom alanlar ayrica gosteriliyor (`extraKeys` filtresi)
+  - **Radix bug fix:** `<SelectItem value="">` Radix UI'da empty string crash'i — kaldirildi, `value={... || undefined}` ile placeholder dogal calisiyor (CATEGORY dropdown crash'i giderildi)
+  - **Auto-fill:** Yeni site olusturulurken `buildInitialAttributes()` ile otomatik doldurulan alanlar:
+    - **OBJECT_ID** = sortOrder + 1 (her site icin sirali index)
+    - **SITE_NAME** = shapefile property'lerinden extract (`extractSiteNameFromProperties()` 11 alias kontrol eder: SITE_NAME, site_name, NAME, Name, name, MIW_Name, SiteName, FEATURE_NAME, TITLE vb.) — bulamazsa bos
+    - **DATE** = bugun (YYYY-MM-DD)
+  - **Site name extraction:** Shapefile upload'da `MIW_Name`, `name`, `NAME` gibi alanlar `site.siteName`'e de aktariliyor — site listesinde de gorunur
+  - **Save akisi:** Degisiklik `siteMgmt.updateSite`'a aktarilir, `hasUnsavedChanges=true` olur, save'de DB'ye `project_sites.attributes` jsonb kolonuna yazilir
+  - Dosyalar: `site-list-panel.tsx`, `gis-mapping-step.tsx`, `attribute-editor.tsx`, `lib/config/site-attributes.ts` (`buildInitialAttributes`, `extractSiteNameFromProperties`), `hooks/gis/use-site-management.ts` (4 site olusturma noktasi guncellendi)
 - [x] **A4.3** ~~Target note'lari oznitelik olarak isleme~~ ✅ (29 Mart 2026) — Maps tab export butonu target notes'u shapefile'a point layer olarak dahil ediyor (NOTE_NUM, CATEGORY, LABEL, COMMENT, DATE). Dosya: `maps-tab.tsx`
-- [x] **A4.4** ~~Shapefile export — attribute + target note dahil~~ ✅ (29 Mart 2026) — `shapefile-export.ts` boundary properties'e site attributes dahil ediyor. Target notes point layer builder hazir
+- [x] **A4.4** ~~Shapefile export — attribute + target note dahil~~ ✅ (6 Nisan 2026) — Step 8 Final Submission (`final-submission-step.tsx`) zaten multi-site + attributes ile export ediyordu. 6 Nisan'da Step 5 Data Analysis Maps tab'i (`maps-tab.tsx`) da multi-site + attributes destekleyecek sekilde guncellendi: `useProjectSites` hook eklendi, `boundaries` array'i sites'tan map ediliyor (siteName, siteCode, county, gridReference, attributes), legacy fallback korundu. Olu kod `map-export-controls.tsx` (205 satir) silindi. `shapefile-export.ts` boundary properties'e site attributes dahil ediyor
 
 ### A5. Shapefile Export (Feedback #6)
 
