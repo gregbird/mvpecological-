@@ -4,6 +4,23 @@ import type { Database, DeskResearchFinding } from '@/types/database'
 type InsertFinding = Database['public']['Tables']['desk_research_findings']['Insert']
 type UpdateFinding = Database['public']['Tables']['desk_research_findings']['Update']
 
+/**
+ * Serialise a Supabase PostgREST error into a plain object so it actually
+ * shows up in `console.error` — the raw error object often has non-enumerable
+ * fields which get logged as an empty `{}`.
+ */
+function formatSupabaseError(error: unknown): Record<string, unknown> {
+  if (!error || typeof error !== 'object') return { raw: String(error) }
+  const e = error as Record<string, unknown>
+  return {
+    message: e.message ?? null,
+    code: e.code ?? null,
+    details: e.details ?? null,
+    hint: e.hint ?? null,
+    name: (error as Error).name ?? null,
+  }
+}
+
 // Get all findings for a project (optionally filtered by site)
 export async function getProjectFindings(
   projectId: string,
@@ -15,7 +32,7 @@ export async function getProjectFindings(
   const { data, error } = await query.order('created_at', { ascending: false })
 
   if (error) {
-    console.error('Error fetching findings:', error)
+    console.error('Error fetching findings:', formatSupabaseError(error))
     return []
   }
 
@@ -37,7 +54,7 @@ export async function getSavedFindings(
   const { data, error } = await query.order('created_at', { ascending: false })
 
   if (error) {
-    console.error('Error fetching saved findings:', error)
+    console.error('Error fetching saved findings:', formatSupabaseError(error))
     return []
   }
 
@@ -54,7 +71,7 @@ export async function getFinding(findingId: string): Promise<DeskResearchFinding
     .maybeSingle()
 
   if (error) {
-    console.error('Error fetching finding:', error)
+    console.error('Error fetching finding:', formatSupabaseError(error))
     return null
   }
 
@@ -146,7 +163,7 @@ export async function getFindingsStats(
   const { data, error } = await query
 
   if (error) {
-    console.error('Error fetching findings stats:', error)
+    console.error('Error fetching findings stats:', formatSupabaseError(error))
     return { total: 0, saved: 0, bySource: [], byType: [] }
   }
 

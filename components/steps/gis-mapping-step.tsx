@@ -489,6 +489,10 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
               onSelectSite={siteMgmt.setActiveSiteIndex}
               onRemoveSite={siteMgmt.removeSite}
               onRenameSite={(index, code) => siteMgmt.updateSite(index, { siteCode: code })}
+              onUpdateAttributes={(attributes) => {
+                siteMgmt.updateSite(siteMgmt.activeSiteIndex, { attributes })
+                wizard.setHasUnsavedChanges(true)
+              }}
               boundaryInfo={siteMgmt.boundaryInfo}
               locationInfo={siteMgmt.locationInfo}
               isLoadingLocation={siteMgmt.isLoadingLocation}

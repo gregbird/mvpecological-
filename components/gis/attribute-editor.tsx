@@ -73,7 +73,7 @@ export function AttributeEditor({
 
             {field.type === 'select' && field.options ? (
               <Select
-                value={(attributes[field.key] as string) ?? ''}
+                value={(attributes[field.key] as string) || undefined}
                 onValueChange={(v) => handleChange(field.key, v)}
                 disabled={readOnly || field.auto}
               >
@@ -81,7 +81,6 @@ export function AttributeEditor({
                   <SelectValue placeholder="—" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">—</SelectItem>
                   {field.options.map((opt) => (
                     <SelectItem key={opt} value={opt}>
                       {opt}

@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { calculateAreaHa } from '@/lib/gis'
+import { AttributeEditor } from '@/components/gis/attribute-editor'
+import { SITE_ATTRIBUTE_FIELDS } from '@/lib/config/site-attributes'
 import { SiteInfoCard } from './site-info-card'
 import type { SiteState } from '@/hooks/gis/use-site-management'
 
@@ -16,6 +18,7 @@ interface SiteListPanelProps {
   onSelectSite: (index: number) => void
   onRemoveSite: (index: number) => void
   onRenameSite: (index: number, code: string) => void
+  onUpdateAttributes: (attributes: Record<string, unknown>) => void
   boundaryInfo: {
     centerLat: string
     centerLng: string
@@ -38,6 +41,7 @@ export function SiteListPanel({
   onSelectSite,
   onRemoveSite,
   onRenameSite,
+  onUpdateAttributes,
   boundaryInfo,
   locationInfo,
   isLoadingLocation,
@@ -45,6 +49,13 @@ export function SiteListPanel({
   const [editingIndex, setEditingIndex] = React.useState<number | null>(null)
   const [editValue, setEditValue] = React.useState('')
   const activeItemRef = React.useRef<HTMLDivElement>(null)
+
+  // Extra attribute keys from shapefile that aren't in the predefined field list
+  const activeAttributes = sites[activeSiteIndex]?.attributes ?? {}
+  const extraKeys = React.useMemo(() => {
+    const predefined = new Set(SITE_ATTRIBUTE_FIELDS.map((f) => f.key))
+    return Object.keys(activeAttributes).filter((k) => !predefined.has(k))
+  }, [activeAttributes])
 
   const startRename = (index: number) => {
     setEditingIndex(index)
@@ -173,18 +184,27 @@ export function SiteListPanel({
         </div>
       </ScrollArea>
 
-      {/* Active site info — always mounted to prevent layout bounce */}
-      <div
-        className={cn(
-          'border-t p-4 transition-opacity duration-150',
-          sites[activeSiteIndex]?.boundary ? 'opacity-100' : 'pointer-events-none opacity-0'
-        )}
-      >
-        <SiteInfoCard
-          boundaryInfo={boundaryInfo}
-          locationInfo={locationInfo}
-          isLoadingLocation={isLoadingLocation}
-        />
+      {/* Active site info + attributes — always mounted to prevent layout bounce */}
+      <div className="max-h-[55vh] overflow-y-auto border-t">
+        <div
+          className={cn(
+            'p-4 transition-opacity duration-150',
+            sites[activeSiteIndex]?.boundary ? 'opacity-100' : 'pointer-events-none opacity-0'
+          )}
+        >
+          <SiteInfoCard
+            boundaryInfo={boundaryInfo}
+            locationInfo={locationInfo}
+            isLoadingLocation={isLoadingLocation}
+          />
+          <div className="mt-4 border-t pt-3">
+            <AttributeEditor
+              attributes={activeAttributes}
+              onChange={onUpdateAttributes}
+              extraKeys={extraKeys}
+            />
+          </div>
+        </div>
       </div>
     </div>
   )

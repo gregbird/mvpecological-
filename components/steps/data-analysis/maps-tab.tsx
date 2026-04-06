@@ -34,6 +34,7 @@ import { useSavedFindings } from '@/hooks/queries/use-finding-hooks'
 import { useHabitats } from '@/hooks/queries/use-habitat-hooks'
 import { useTargetNotes } from '@/hooks/queries/use-target-note-hooks'
 import { useProjectObservations } from '@/hooks/queries/use-observation-hooks'
+import { useProjectSites } from '@/hooks/queries/use-site-hooks'
 import { useMapScreenshot } from '@/hooks/use-map-screenshot'
 import { saveScreenshot } from '@/lib/map-screenshots/storage'
 import { STEP_LABELS } from '@/lib/map-screenshots/types'
@@ -122,6 +123,7 @@ export function MapsTab({ projectId, siteId, userId, project }: MapsTabProps) {
   const { data: habitats = [] } = useHabitats(projectId, siteId)
   const { data: targetNotes = [] } = useTargetNotes(projectId, siteId)
   const { data: observations = [] } = useProjectObservations(projectId, siteId)
+  const { data: projectSites = [] } = useProjectSites(projectId)
 
   // Layer visibility state
   const [visibleOverlays, setVisibleOverlays] = React.useState<Set<string>>(
@@ -663,7 +665,30 @@ export function MapsTab({ projectId, siteId, userId, project }: MapsTabProps) {
           className="w-full"
           disabled={isExportingShapefile}
           onClick={async () => {
-            if (!projectBoundary) {
+            // Multi-site: prefer project_sites with attributes, fall back to legacy single boundary
+            const sitesWithBoundary = projectSites.filter((s) => s.boundary)
+            const boundaries =
+              sitesWithBoundary.length > 0
+                ? sitesWithBoundary.map((s) => ({
+                    boundary: s.boundary as GeoJSON.Feature<GeoJSON.Polygon>,
+                    siteName: s.site_name ?? undefined,
+                    siteCode: s.site_code ?? undefined,
+                    county: s.county ?? undefined,
+                    gridReference: s.grid_reference ?? undefined,
+                    attributes: s.attributes,
+                  }))
+                : projectBoundary
+                  ? [
+                      {
+                        boundary: projectBoundary,
+                        siteName: project.name,
+                        county: project.county ?? undefined,
+                        gridReference: project.grid_reference ?? undefined,
+                      },
+                    ]
+                  : []
+
+            if (boundaries.length === 0) {
               toast({ title: 'No boundary', description: 'No project boundary to export.' })
               return
             }
@@ -671,14 +696,7 @@ export function MapsTab({ projectId, siteId, userId, project }: MapsTabProps) {
             try {
               await downloadShapefile({
                 projectName: project.name,
-                boundaries: [
-                  {
-                    boundary: projectBoundary,
-                    siteName: project.name,
-                    county: project.county ?? undefined,
-                    gridReference: project.grid_reference ?? undefined,
-                  },
-                ],
+                boundaries,
                 targetNotes: targetNotes
                   .filter((tn) => tn.location && (tn.location as GeoJSON.Point).coordinates)
                   .map((tn, i) => ({

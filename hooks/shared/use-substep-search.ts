@@ -229,18 +229,26 @@ export function useSubstepSearch(
   }, [savedFindings])
 
   // --- Debounced sessionStorage write ---
+  // CRITICAL: this cache MUST survive unmount. During auto-search the substep can
+  // unmount as soon as all four searches complete — if the debounced timer is still
+  // pending at that point, a naive clearTimeout on cleanup would cancel the write
+  // and the cache stays empty (which caused species/aquatic results to vanish).
+  //
+  // Fix: keep searchResults in a ref and flush the write synchronously both
+  // (a) when the timer fires normally and (b) when the component unmounts with a
+  // pending write.
   const cacheTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const cacheGaveUpRef = React.useRef(false)
-  React.useEffect(() => {
-    if (searchResults.length === 0) return
-    // Once caching has permanently failed, stop retrying to avoid perf drain
-    if (cacheGaveUpRef.current) return
+  const latestSearchResultsRef = React.useRef(searchResults)
+  latestSearchResultsRef.current = searchResults
 
-    if (cacheTimerRef.current) clearTimeout(cacheTimerRef.current)
-    cacheTimerRef.current = setTimeout(() => {
+  const writeCacheNow = React.useCallback(
+    (resultsToWrite: FindingDisplay[]) => {
+      if (resultsToWrite.length === 0) return
+      if (cacheGaveUpRef.current) return
       try {
         // Strip rawData and AI summaries to reduce cache size
-        const cacheableResults = searchResults.map(({ rawData: _rawData, ...rest }) => {
+        const cacheableResults = resultsToWrite.map(({ rawData: _rawData, ...rest }) => {
           if (rest.metadata?.aiSummary) {
             const { aiSummary: _ai, ...metaRest } = rest.metadata
             return { ...rest, metadata: metaRest }
@@ -265,29 +273,57 @@ export function useSubstepSearch(
             }
           }
           keysToRemove.forEach((k) => sessionStorage.removeItem(k))
-          const minimalResults = searchResults.map(({ id, title, source, dataType, metadata }) => ({
-            id,
-            title,
-            source,
-            dataType,
-            metadata: Object.fromEntries(
-              minimalMetadataKeys
-                .filter((k) => (metadata as Record<string, unknown>)?.[k] !== undefined)
-                .map((k) => [k, (metadata as Record<string, unknown>)?.[k]])
-            ),
-          }))
+          const minimalResults = resultsToWrite.map(
+            ({ id, title, source, dataType, metadata }) => ({
+              id,
+              title,
+              source,
+              dataType,
+              metadata: Object.fromEntries(
+                minimalMetadataKeys
+                  .filter((k) => (metadata as Record<string, unknown>)?.[k] !== undefined)
+                  .map((k) => [k, (metadata as Record<string, unknown>)?.[k]])
+              ),
+            })
+          )
           sessionStorage.setItem(cacheKey, JSON.stringify(minimalResults))
         } catch {
           // Permanently give up caching for this key — stop retrying
           cacheGaveUpRef.current = true
         }
       }
-    }, 1000)
+    },
+    [cacheKey, minimalMetadataKeys]
+  )
 
+  // Keep a ref to the latest writeCacheNow so the unmount effect can always
+  // call the current version (cacheKey / minimalMetadataKeys may have changed)
+  const writeCacheNowRef = React.useRef(writeCacheNow)
+  writeCacheNowRef.current = writeCacheNow
+
+  React.useEffect(() => {
+    if (searchResults.length === 0) return
+    if (cacheGaveUpRef.current) return
+
+    if (cacheTimerRef.current) clearTimeout(cacheTimerRef.current)
+    cacheTimerRef.current = setTimeout(() => {
+      writeCacheNowRef.current(latestSearchResultsRef.current)
+      cacheTimerRef.current = null
+    }, 300)
+  }, [searchResults])
+
+  // Flush on unmount — write synchronously using the latest writeCacheNow so
+  // results survive a navigation away from the substep during auto-search.
+  // Empty deps → cleanup runs ONLY on actual unmount (not on cacheKey changes).
+  React.useEffect(() => {
     return () => {
-      if (cacheTimerRef.current) clearTimeout(cacheTimerRef.current)
+      if (cacheTimerRef.current) {
+        clearTimeout(cacheTimerRef.current)
+        cacheTimerRef.current = null
+      }
+      writeCacheNowRef.current(latestSearchResultsRef.current)
     }
-  }, [searchResults, cacheKey, minimalMetadataKeys])
+  }, [])
 
   return {
     selectedFinding,

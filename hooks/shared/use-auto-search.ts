@@ -11,6 +11,13 @@ interface AutoSearchState {
   habitats: AutoSearchStatus
 }
 
+/** Sequential execution order: designated sites first (user lands there),
+ *  then species, aquatic, and finally habitats (heaviest payload). */
+const SEQUENCE = ['sites', 'species', 'aquatic', 'habitats'] as const
+type SequenceKey = (typeof SEQUENCE)[number]
+
+const TERMINAL_STATUSES: AutoSearchStatus[] = ['done', 'skipped', 'error']
+
 const INITIAL_STATE: AutoSearchState = {
   triggered: false,
   sites: 'idle',
@@ -92,25 +99,47 @@ export function useAutoSearch({
     if (hasSitesCache && hasSpeciesCache && hasAquaticCache && hasHabitatCache) return
 
     sessionStorage.setItem(autoSearchKey, 'true')
+    // Queue everything as 'idle' (cached sources are marked 'skipped'
+    // immediately). The sequential orchestration effect below flips the
+    // first non-skipped source to 'searching', and advances one at a time
+    // as each one completes.
     setAutoSearchStatus({
       triggered: true,
-      sites: hasSitesCache ? 'skipped' : 'searching',
-      species: hasSpeciesCache ? 'skipped' : 'searching',
-      aquatic: hasAquaticCache ? 'skipped' : 'searching',
-      habitats: hasHabitatCache ? 'skipped' : 'searching',
+      sites: hasSitesCache ? 'skipped' : 'idle',
+      species: hasSpeciesCache ? 'skipped' : 'idle',
+      aquatic: hasAquaticCache ? 'skipped' : 'idle',
+      habitats: hasHabitatCache ? 'skipped' : 'idle',
     })
     setShowAutoSearchBanner(true)
   }, [boundary, projectId, autoSearchStatus.triggered, isStepCompleted, viewMode])
 
+  // Sequential orchestration: only ONE source may be 'searching' at a time.
+  // When the current source reaches a terminal state (done/skipped/error),
+  // this effect advances to the next pending source in SEQUENCE.
+  //
+  // Why sequential instead of parallel?
+  //   - Projects with 20+ sites used to fire 4 sources × 3 concurrent = 12+
+  //     parallel external HTTP requests, easily overwhelming browser TCP
+  //     pools and external API rate limits (NPWS timeouts, EPA throttling).
+  //   - Users land on "Designated Sites" first, so that tab finishing first
+  //     is the most valuable user-perceived speedup. They read those while
+  //     the rest trickle in.
+  useEffect(() => {
+    if (!autoSearchStatus.triggered) return
+
+    const anyRunning = SEQUENCE.some((k) => autoSearchStatus[k] === 'searching')
+    if (anyRunning) return
+
+    const nextIdle: SequenceKey | undefined = SEQUENCE.find((k) => autoSearchStatus[k] === 'idle')
+    if (!nextIdle) return
+
+    setAutoSearchStatus((prev) => ({ ...prev, [nextIdle]: 'searching' }))
+  }, [autoSearchStatus])
+
   // Auto-hide banner 5 seconds after all searches complete
   useEffect(() => {
     if (!showAutoSearchBanner) return
-    const { sites, species, aquatic, habitats: habitatStatus } = autoSearchStatus
-    const allDone =
-      ['done', 'skipped', 'error'].includes(sites) &&
-      ['done', 'skipped', 'error'].includes(species) &&
-      ['done', 'skipped', 'error'].includes(aquatic) &&
-      ['done', 'skipped', 'error'].includes(habitatStatus)
+    const allDone = SEQUENCE.every((k) => TERMINAL_STATUSES.includes(autoSearchStatus[k]))
 
     if (!allDone) return
     const timer = setTimeout(() => setShowAutoSearchBanner(false), 5000)
@@ -119,12 +148,7 @@ export function useAutoSearch({
 
   const isAutoSearchRunning =
     autoSearchStatus.triggered &&
-    !(
-      ['done', 'skipped', 'error'].includes(autoSearchStatus.sites) &&
-      ['done', 'skipped', 'error'].includes(autoSearchStatus.species) &&
-      ['done', 'skipped', 'error'].includes(autoSearchStatus.aquatic) &&
-      ['done', 'skipped', 'error'].includes(autoSearchStatus.habitats)
-    )
+    !SEQUENCE.every((k) => TERMINAL_STATUSES.includes(autoSearchStatus[k]))
 
   return {
     autoSearchStatus,

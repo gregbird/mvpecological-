@@ -265,39 +265,82 @@ export function DataGatheringSubstepShell({
     disabled: isAllSitesMode || !projectBoundary,
   })
 
-  // Pre-compute buffer polygons for all sites (only when in All Sites mode)
-  const allSiteBufferPolys = React.useMemo(() => {
+  // Pre-compute buffer polygons + their bboxes for every site (only used in
+  // "All Sites" mode). The bbox is used for a cheap pre-filter below so we
+  // can short-circuit the expensive turf.booleanIntersects call for the
+  // vast majority of findings that are far outside a given site.
+  const allSiteBufferData = React.useMemo(() => {
     if (!isAllSitesMode || !allBoundaries || allBoundaries.length === 0) return null
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const turf = require('@turf/turf')
-      return allBoundaries.map((b) =>
-        turf.buffer(b, selectedBuffer, { units: 'kilometers' })
-      ) as GeoJSON.Feature[]
+      return allBoundaries.map((b) => {
+        const bufferPoly = turf.buffer(b, selectedBuffer, {
+          units: 'kilometers',
+        }) as GeoJSON.Feature
+        const [minLng, minLat, maxLng, maxLat] = turf.bbox(bufferPoly) as [
+          number,
+          number,
+          number,
+          number,
+        ]
+        return { bufferPoly, minLng, minLat, maxLng, maxLat }
+      })
     } catch {
       return null
     }
   }, [isAllSitesMode, allBoundaries, selectedBuffer])
 
-  // Multi-boundary spatial filter: keep items that intersect ANY site's buffer
+  // Multi-boundary spatial filter: keep items that intersect ANY site's buffer.
+  //
+  // Performance: for a project with 20+ sites and hundreds of findings, the
+  // naive O(findings × sites) booleanIntersects call is the dominant cost on
+  // every re-render. Two optimisations:
+  //   1. For Points, compute lng/lat once and do a bbox check before calling
+  //      the polygon test. A bbox hit means we still need the accurate test,
+  //      a miss short-circuits immediately.
+  //   2. For non-Point geometries, we first compute the finding's own bbox
+  //      once and test it against each site bbox (cheap scalar compare).
   const spatiallyFilteredBase = React.useMemo(() => {
     if (!isAllSitesMode) return singleBoundaryFiltered
-    if (!allSiteBufferPolys) return searchResults
+    if (!allSiteBufferData) return searchResults
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const turf = require('@turf/turf')
+
+    const bboxesIntersect = (
+      a: { minLng: number; minLat: number; maxLng: number; maxLat: number },
+      b: { minLng: number; minLat: number; maxLng: number; maxLat: number }
+    ) =>
+      a.maxLng >= b.minLng && a.minLng <= b.maxLng && a.maxLat >= b.minLat && a.minLat <= b.maxLat
+
     return searchResults.filter((item) => {
       const geom = getGeometry(item)
       if (!geom) return true // no location → include (customSpatialFilter handles these)
       try {
-        return allSiteBufferPolys.some((bp) => {
-          if (geom.type === 'Point') return turf.booleanPointInPolygon(geom, bp)
-          return turf.booleanIntersects(geom, bp)
+        if (geom.type === 'Point') {
+          const [lng, lat] = geom.coordinates
+          return allSiteBufferData.some((bp) => {
+            if (lng < bp.minLng || lng > bp.maxLng || lat < bp.minLat || lat > bp.maxLat)
+              return false
+            return turf.booleanPointInPolygon(geom, bp.bufferPoly)
+          })
+        }
+        // Non-point: compute once, reuse across all sites
+        const [minLng, minLat, maxLng, maxLat] = turf.bbox({
+          type: 'Feature' as const,
+          properties: {},
+          geometry: geom,
+        }) as [number, number, number, number]
+        const itemBbox = { minLng, minLat, maxLng, maxLat }
+        return allSiteBufferData.some((bp) => {
+          if (!bboxesIntersect(itemBbox, bp)) return false
+          return turf.booleanIntersects(geom, bp.bufferPoly)
         })
       } catch {
         return false
       }
     })
-  }, [isAllSitesMode, allSiteBufferPolys, searchResults, singleBoundaryFiltered, getGeometry])
+  }, [isAllSitesMode, allSiteBufferData, searchResults, singleBoundaryFiltered, getGeometry])
 
   const spatiallyFilteredResults = React.useMemo(() => {
     if (!config.customSpatialFilter || spatialFilterDisabled) return spatiallyFilteredBase
@@ -478,6 +521,7 @@ export function DataGatheringSubstepShell({
       <ShellMapPanel
         showMap={showMap}
         onToggleMap={onToggleMap}
+        isActive={isActive ?? true}
         projectCenter={projectCenter}
         projectBoundary={projectBoundary}
         otherBoundaries={otherBoundaries}

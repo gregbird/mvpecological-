@@ -137,6 +137,10 @@ function MapComponent({
       className="h-full min-h-100 w-full"
       style={{ height: '100%', minHeight: '400px' }}
       zoomControl={false}
+      // Canvas renderer is dramatically faster than SVG when dozens of
+      // polygons are on screen (multi-site projects draw 20+ boundaries
+      // plus buffer rings plus habitat layers).
+      preferCanvas
     >
       {/* ── Base tiles ─────────────────────────────────────────────────── */}
       {tileConfig.wms && tileConfig.wms.transparent && (

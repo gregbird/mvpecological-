@@ -123,7 +123,7 @@ FOSSITT koduna gore standart renk eslestirmesi (Heritage Council):
 **Yapilacilar:**
 
 - [x] **5.1** ~~Shapefile upload sirasinda oznitelik verilerini okuma ve gosterme~~ ✅ (29 Mart 2026) — shapefile-parser attribute extraction yapiyor, useSiteManagement upload'da attributes'u site'a aktariyor
-- [ ] **5.2** Her site sinirina oznitelik atama UI'i — ⚠️ `attribute-editor.tsx` component yazildi ama hicbir sayfaya baglanmadi
+- [x] **5.2** ~~Her site sinirina oznitelik atama UI'i~~ ✅ (6 Nisan 2026) — `AttributeEditor` 29 Mart'ta yazildi ama baglanmamisti. 6 Nisan'da `SiteListPanel` icinde `SiteInfoCard`'in altina collapsible olarak baglandi. 12 predefined alan + shapefile custom alanlar. Degisiklik `siteMgmt.updateSite`'a aktarilir, save'de DB'ye yazilir
 - [x] **5.3** ~~Target note'lari oznitelik olarak isleme~~ ✅ (29 Mart 2026) — shapefile-export.ts target notes point layer olarak dahil ediyor
 - [x] **5.4** ~~Final submission'da shapefile export'una oznitelik + target note dahil etme (.shp, .shx, .dbf, .prj)~~ ✅ (29 Mart 2026) — `downloadShapefile()` maps-tab'da kullaniliyor
 

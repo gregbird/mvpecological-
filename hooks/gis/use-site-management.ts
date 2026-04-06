@@ -12,6 +12,7 @@ import {
 import { calculateAreaHectares } from '@/lib/supabase/queries/habitats'
 import { wgs84ToGridRef } from '@/lib/utils/grid-reference'
 import centroid from '@turf/centroid'
+import { buildInitialAttributes, extractSiteNameFromProperties } from '@/lib/config/site-attributes'
 import type { Project } from '@/types/database'
 import type { ProjectSiteWithGeoJSON } from '@/lib/supabase/queries/project-sites'
 
@@ -172,11 +173,12 @@ export function useSiteManagement(project: Project, existingSites: ProjectSiteWi
   const addSite = React.useCallback(() => {
     const existingCodes = sites.map((s) => s.siteCode)
     const newCode = generateSiteCode(codePrefix, existingCodes)
+    const sortOrder = sites.length
 
     const newSite: SiteState = {
       siteCode: newCode,
       siteName: null,
-      sortOrder: sites.length,
+      sortOrder,
       boundary: null,
       centerPoint: null,
       gridReference: null,
@@ -185,7 +187,7 @@ export function useSiteManagement(project: Project, existingSites: ProjectSiteWi
       province: null,
       bufferDistances: [2, 5],
       visibleLayers: [],
-      attributes: {},
+      attributes: buildInitialAttributes(sortOrder + 1),
       isNew: true,
       isDirty: true,
     }
@@ -232,10 +234,11 @@ export function useSiteManagement(project: Project, existingSites: ProjectSiteWi
             // New polygon drawn + active site already has boundary → create new site
             const existingCodes = sites.map((s) => s.siteCode)
             const newCode = generateSiteCode(codePrefix, existingCodes)
+            const sortOrder = sites.length
             const newSite: SiteState = {
               siteCode: newCode,
               siteName: null,
-              sortOrder: sites.length,
+              sortOrder,
               boundary: poly,
               centerPoint: center.geometry,
               gridReference: null,
@@ -244,7 +247,7 @@ export function useSiteManagement(project: Project, existingSites: ProjectSiteWi
               province: null,
               bufferDistances: [2, 5],
               visibleLayers: [],
-              attributes: {},
+              attributes: buildInitialAttributes(sortOrder + 1),
               isNew: true,
               isDirty: true,
             }
@@ -281,15 +284,21 @@ export function useSiteManagement(project: Project, existingSites: ProjectSiteWi
 
           if (result.features.length === 1) {
             // Single polygon → set as active site boundary
-            const center = centroid(result.features[0])
+            const feature = result.features[0]
+            const center = centroid(feature)
+            const extractedName = extractSiteNameFromProperties(feature.properties)
             setSites((prev) =>
               prev.map((s, i) =>
                 i === activeSiteIndex
                   ? {
                       ...s,
-                      boundary: result.features[0],
+                      boundary: feature,
                       centerPoint: center.geometry,
-                      attributes: result.features[0].properties ?? {},
+                      siteName: s.siteName ?? extractedName,
+                      attributes: buildInitialAttributes(s.sortOrder + 1, {
+                        siteName: s.siteName ?? extractedName,
+                        shapefileProperties: feature.properties,
+                      }),
                       isDirty: true,
                     }
                   : s
@@ -310,10 +319,12 @@ export function useSiteManagement(project: Project, existingSites: ProjectSiteWi
               ])
               existingCodes.push(code)
               const center = centroid(feat)
+              const extractedName = extractSiteNameFromProperties(feat.properties)
+              const sortOrder = sites.length + idx
               return {
                 siteCode: code,
-                siteName: (feat.properties?.name as string) ?? null,
-                sortOrder: sites.length + idx,
+                siteName: extractedName,
+                sortOrder,
                 boundary: feat,
                 centerPoint: center.geometry,
                 gridReference: null,
@@ -322,7 +333,10 @@ export function useSiteManagement(project: Project, existingSites: ProjectSiteWi
                 province: null,
                 bufferDistances: [2, 5],
                 visibleLayers: [],
-                attributes: feat.properties ?? {},
+                attributes: buildInitialAttributes(sortOrder + 1, {
+                  siteName: extractedName,
+                  shapefileProperties: feat.properties,
+                }),
                 isNew: true,
                 isDirty: true,
               }
@@ -373,10 +387,21 @@ export function useSiteManagement(project: Project, existingSites: ProjectSiteWi
 
           const poly = feature as GeoJSON.Feature<GeoJSON.Polygon>
           const center = centroid(poly)
+          const extractedName = extractSiteNameFromProperties(poly.properties)
           setSites((prev) =>
             prev.map((s, i) =>
               i === activeSiteIndex
-                ? { ...s, boundary: poly, centerPoint: center.geometry, isDirty: true }
+                ? {
+                    ...s,
+                    boundary: poly,
+                    centerPoint: center.geometry,
+                    siteName: s.siteName ?? extractedName,
+                    attributes: buildInitialAttributes(s.sortOrder + 1, {
+                      siteName: s.siteName ?? extractedName,
+                      shapefileProperties: poly.properties as Record<string, unknown> | null,
+                    }),
+                    isDirty: true,
+                  }
                 : s
             )
           )

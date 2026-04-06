@@ -33,6 +33,10 @@ const ProjectMap = dynamic(
 interface ShellMapPanelProps {
   showMap: boolean
   onToggleMap: () => void
+  /** Whether the parent substep is the currently visible tab. Leaflet is
+   *  skipped entirely when `false` so invisible substeps that are only
+   *  mounted for auto-search don't pay the map init + polygon render cost. */
+  isActive: boolean
   projectCenter?: { lat: number; lng: number }
   projectBoundary: GeoJSON.Feature<GeoJSON.Polygon>
   otherBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
@@ -95,6 +99,7 @@ function defaultMapSelectedMapper(f: FindingDisplay): MapFinding {
 export function ShellMapPanel({
   showMap,
   onToggleMap,
+  isActive,
   projectCenter,
   projectBoundary,
   otherBoundaries,
@@ -135,6 +140,22 @@ export function ShellMapPanel({
           <Eye className="mr-2 h-4 w-4" />
           Show Map
         </Button>
+      </div>
+    )
+  }
+
+  // Don't render Leaflet when the substep is mounted but not visible (e.g.
+  // while auto-search is running in the background from another tab).
+  // A fresh Leaflet init + polygon render happens as soon as the substep
+  // becomes active, at a small navigation cost — much cheaper than running
+  // 3 hidden maps in parallel for a 20-site project.
+  if (!isActive) {
+    return (
+      <div className="bg-muted/30 flex flex-1 items-center justify-center">
+        <div className="text-muted-foreground flex items-center gap-2 text-xs">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          <span>Map loads when this tab is active</span>
+        </div>
       </div>
     )
   }

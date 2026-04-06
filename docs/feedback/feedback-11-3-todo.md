@@ -1,7 +1,7 @@
 # Feedback 11/3 — Yapilacaklar Listesi
 
 > **Kaynak:** Greg Birdthistle — 11 Mart 2026
-> **Durum:** Devam ediyor (Faz 1 + Faz 2 + Faz 3 + E1 + E2 + E3 + E4 tamamlandi)
+> **Durum:** Devam ediyor (Faz 1 + Faz 2 + Faz 3 + E1 + E2 + E3 + E4 + A4.2 tamamlandi)
 > **Toplam:** 72 madde, 6 grup
 
 ---
@@ -31,13 +31,13 @@ F: Bagimsiz ──→ paralel yapilabilir
 
 | Grup              | Madde  | Tamamlanan | Ilerleme           |
 | ----------------- | ------ | ---------- | ------------------ |
-| A: GIS Altyapi    | 39     | 38         | ██████████ 97%     |
+| A: GIS Altyapi    | 39     | 39         | ██████████ 100% ✅ |
 | B: Habitat Veri   | 11     | 11         | ██████████ 100% ✅ |
 | C: Desk Temizlik  | 6      | 6          | ██████████ 100% ✅ |
 | D: Field Research | 9      | 9          | ██████████ 100% ✅ |
 | E: Raporlama      | 20     | 20         | ██████████ 100% ✅ |
 | F: Bagimsiz       | 5      | 0          | ░░░░░░░░░░ 0%      |
-| **Toplam**        | **90** | **84**     | █████████░ **93%** |
+| **Toplam**        | **90** | **85**     | █████████░ **94%** |
 
 ---
 
@@ -84,7 +84,7 @@ F: Bagimsiz ──→ paralel yapilabilir
 ### A4. Attribute (Oznitelik) Yonetimi (Feedback #5)
 
 - [x] **A4.1** ~~Shapefile upload sirasinda oznitelik verilerini okuma ve gosterme~~ ✅ (29 Mart 2026) — shapefile-parser zaten attribute extraction yapiyor, useSiteManagement upload'da attributes'u site'a aktariyor
-- [x] **A4.2** ~~Her site sinirina oznitelik atama UI'i~~ ✅ (29 Mart 2026) — `AttributeEditor` bileseni: 12 predefined alan + shapefile'dan gelen custom alanlar. `SiteAttributeField` config. Dosyalar: `components/gis/attribute-editor.tsx`, `lib/config/site-attributes.ts`
+- [x] **A4.2** ~~Her site sinirina oznitelik atama UI'i~~ ✅ (6 Nisan 2026) — `AttributeEditor` bileseni 29 Mart'ta yazilmis ama hicbir sayfaya baglanmamisti (feedback-11-3-mar.md #5.2'de WIP). 6 Nisan'da `SiteListPanel` icine bagli hale getirildi: aktif site secilince `SiteInfoCard`'in altinda collapsible `AttributeEditor` gorunuyor. 12 predefined alan (OBJECT_ID, FOSS_CODE, ANNEX_CODE, FOSS_NAME, COMMENT, SITE_NAME, LABEL, NOTE_NUMBER, CATEGORY, DATA_QUAL, DATE, PHOTO_ID) + shapefile'dan gelen custom alanlar ayrica gosteriliyor (`extraKeys` filtresi). Degisiklik `siteMgmt.updateSite`'a aktarilir, `hasUnsavedChanges=true` olur, save'de DB'ye yazilir. Dosyalar: `site-list-panel.tsx`, `gis-mapping-step.tsx`, `components/gis/attribute-editor.tsx`, `lib/config/site-attributes.ts`
 - [x] **A4.3** ~~Target note'lari oznitelik olarak isleme~~ ✅ (29 Mart 2026) — Maps tab export butonu target notes'u shapefile'a point layer olarak dahil ediyor (NOTE_NUM, CATEGORY, LABEL, COMMENT, DATE). Dosya: `maps-tab.tsx`
 - [x] **A4.4** ~~Shapefile export — attribute + target note dahil~~ ✅ (29 Mart 2026) — `shapefile-export.ts` boundary properties'e site attributes dahil ediyor. Target notes point layer builder hazir
 
@@ -108,7 +108,7 @@ F: Bagimsiz ──→ paralel yapilabilir
 - [x] **A6.9** ~~Rectangle cizim ilk seferde bozuk~~ ✅ — `lastLoadedBoundaryRef` handleCreated'da guncelleniyor
 - [x] **A6.10** ~~Shapefile upload'da bos ilk site~~ ✅ — upload oncesi `addSite()` kaldirildi, boundary'siz site'lar filtreleniyor
 - [x] **A6.11** ~~Layer data (NPWS/EPA) sadece aktif site'i kapsıyor~~ ✅ — per-site fetch + dedup + `batchAsync` concurrency limiter (max 3)
-- [ ] **A6.12** Multi-site layer data tam dogru calismiyor — WIP, ayrica debug gerekiyor
+- [x] **A6.12** ~~Multi-site layer data tam dogru calismiyor~~ ✅ (6 Nisan 2026) — Greg tarafindan test edildi, multi-layer akisi artik dogru calisiyor. Per-site fetch + dedup + `batchAsync(3)` mekanizmasi stabil (`use-layer-data.ts:136-157`)
 
 ---
 

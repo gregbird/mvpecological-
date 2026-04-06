@@ -42,11 +42,37 @@ export function useHabitatSpatialFilter({
     if (!siteFilterPolygon) return habitatPolygons
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const turf = require('@turf/turf')
-    // Filter polygons that touch the buffer zone — consistent with other data gathering steps
+    // Pre-compute the site buffer's bbox once so we can short-circuit the
+    // expensive booleanIntersects call for habitat polygons that are
+    // obviously outside the buffer. This is the hottest path when a
+    // project has thousands of NLC polygons across many sites.
+    let siteBbox: [number, number, number, number] | null = null
+    try {
+      siteBbox = turf.bbox(siteFilterPolygon) as [number, number, number, number]
+    } catch {
+      siteBbox = null
+    }
+
     return {
       type: 'FeatureCollection',
       features: habitatPolygons.features.filter((f) => {
         try {
+          if (siteBbox) {
+            const [fMinLng, fMinLat, fMaxLng, fMaxLat] = turf.bbox(f) as [
+              number,
+              number,
+              number,
+              number,
+            ]
+            if (
+              fMaxLng < siteBbox[0] ||
+              fMinLng > siteBbox[2] ||
+              fMaxLat < siteBbox[1] ||
+              fMinLat > siteBbox[3]
+            ) {
+              return false
+            }
+          }
           return turf.booleanIntersects(f.geometry, siteFilterPolygon)
         } catch {
           return false
