@@ -10,16 +10,28 @@ import { STEP_LABELS, type MapScreenshot, type MapStepName } from '@/lib/map-scr
 interface ScreenshotGalleryProps {
   projectId: string
   className?: string
+  /** When the gallery's parent stays mounted between visits (lazy + persistent
+   *  mount), pass `true` while visible so we re-fetch on every reactivation.
+   *  Defaults to `true` (legacy behaviour) when omitted. */
+  isActive?: boolean
 }
 
-export function ScreenshotGallery({ projectId, className }: ScreenshotGalleryProps) {
+export function ScreenshotGallery({
+  projectId,
+  className,
+  isActive = true,
+}: ScreenshotGalleryProps) {
   const [screenshots, setScreenshots] = React.useState<MapScreenshot[]>([])
   const [previewScreenshot, setPreviewScreenshot] = React.useState<MapScreenshot | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
   const [deletingId, setDeletingId] = React.useState<string | null>(null)
 
-  // Load screenshots on mount and when projectId changes
+  // Re-fetch on mount, when projectId changes, and every time the gallery
+  // becomes active again — the parent substep stays mounted between visits,
+  // so the effect would otherwise never re-run after new screenshots are added
+  // from other steps.
   React.useEffect(() => {
+    if (!isActive) return
     let cancelled = false
     setIsLoading(true)
 
@@ -33,7 +45,7 @@ export function ScreenshotGallery({ projectId, className }: ScreenshotGalleryPro
     return () => {
       cancelled = true
     }
-  }, [projectId])
+  }, [projectId, isActive])
 
   const handleDelete = async (screenshot: MapScreenshot) => {
     setDeletingId(screenshot.id)
@@ -89,14 +101,20 @@ export function ScreenshotGallery({ projectId, className }: ScreenshotGalleryPro
             />
 
             {/* Overlay with info */}
-            <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/70 to-transparent p-2">
+            <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/80 to-transparent p-2">
               <Badge
                 variant="secondary"
                 className="mb-1 bg-white/90 text-[10px] text-black dark:bg-black/70 dark:text-white"
               >
                 {STEP_LABELS[screenshot.stepName as MapStepName] || screenshot.stepName}
               </Badge>
-              <p className="text-[10px] text-white/80">
+              <p
+                className="line-clamp-2 text-[11px] leading-tight font-medium text-white"
+                title={screenshot.label}
+              >
+                {screenshot.label}
+              </p>
+              <p className="text-[10px] text-white/70">
                 {new Date(screenshot.createdAt).toLocaleString('en-IE', {
                   day: 'numeric',
                   month: 'short',
@@ -132,19 +150,22 @@ export function ScreenshotGallery({ projectId, className }: ScreenshotGalleryPro
       >
         <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex flex-col items-start gap-1">
               {previewScreenshot && (
                 <>
-                  <Badge variant="outline">
-                    {STEP_LABELS[previewScreenshot.stepName as MapStepName] ||
-                      previewScreenshot.stepName}
-                  </Badge>
-                  <span className="text-muted-foreground text-sm font-normal">
-                    {previewScreenshot.dimensions.width}×{previewScreenshot.dimensions.height}px
-                  </span>
-                  <span className="text-muted-foreground text-sm font-normal">
-                    {new Date(previewScreenshot.createdAt).toLocaleString('en-IE')}
-                  </span>
+                  <span className="text-base font-semibold">{previewScreenshot.label}</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline">
+                      {STEP_LABELS[previewScreenshot.stepName as MapStepName] ||
+                        previewScreenshot.stepName}
+                    </Badge>
+                    <span className="text-muted-foreground text-sm font-normal">
+                      {previewScreenshot.dimensions.width}×{previewScreenshot.dimensions.height}px
+                    </span>
+                    <span className="text-muted-foreground text-sm font-normal">
+                      {new Date(previewScreenshot.createdAt).toLocaleString('en-IE')}
+                    </span>
+                  </div>
                 </>
               )}
             </DialogTitle>

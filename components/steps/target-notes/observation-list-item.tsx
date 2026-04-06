@@ -83,6 +83,33 @@ export function ObservationListItem({
             {observation.count && <span>Count: {observation.count}</span>}
             {observation.evidence_type && <span>• {observation.evidence_type}</span>}
           </div>
+          {Array.isArray(observation.photos) && observation.photos.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {(observation.photos as string[]).slice(0, 4).map((url, idx) => (
+                <a
+                  key={`${observation.id}-photo-${idx}`}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="block h-12 w-12 overflow-hidden rounded border"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={url}
+                    alt={`Observation photo ${idx + 1}`}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                </a>
+              ))}
+              {(observation.photos as string[]).length > 4 && (
+                <div className="bg-muted text-muted-foreground flex h-12 w-12 items-center justify-center rounded border text-xs font-medium">
+                  +{(observation.photos as string[]).length - 4}
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex gap-1">
           <Button

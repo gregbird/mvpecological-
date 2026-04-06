@@ -271,24 +271,10 @@ export function DataGatheringStep({
   const isComplete = viewMode === 'preview' && workflowStep.status === 'approved'
   const isMapMode = currentStep !== 'info' && currentStep !== 'reports' && currentStep !== 'review'
 
-  // PREVIEW MODE
-  if (viewMode === 'preview') {
-    return (
-      <DataGatheringPreview
-        project={project}
-        workflowStep={workflowStep}
-        projectBoundary={projectBoundary}
-        bufferDistances={bufferDistances}
-        savedFindings={savedFindings}
-        findingsStats={findingsStats}
-        targetNotes={targetNotes}
-        onEdit={handleEditClick}
-      />
-    )
-  }
-
   // Context value for substeps — memoized to prevent cascade re-renders
   // across all consumers when an unrelated parent state changes.
+  // IMPORTANT: These hooks must run on EVERY render (including preview mode)
+  // to satisfy the Rules of Hooks. Do not move them below the preview return.
   const handleToggleMap = React.useCallback(() => setShowMap((v) => !v), [])
   const contextValue = React.useMemo(
     () => ({
@@ -322,6 +308,22 @@ export function DataGatheringStep({
       handleToggleMap,
     ]
   )
+
+  // PREVIEW MODE
+  if (viewMode === 'preview') {
+    return (
+      <DataGatheringPreview
+        project={project}
+        workflowStep={workflowStep}
+        projectBoundary={projectBoundary}
+        bufferDistances={bufferDistances}
+        savedFindings={savedFindings}
+        findingsStats={findingsStats}
+        targetNotes={targetNotes}
+        onEdit={handleEditClick}
+      />
+    )
+  }
 
   // WIZARD MODE
   return (

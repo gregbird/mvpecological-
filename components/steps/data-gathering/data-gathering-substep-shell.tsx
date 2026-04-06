@@ -534,7 +534,8 @@ export function DataGatheringSubstepShell({
             savingIds={savingIds}
             selectedFindingId={selectedFinding?.id}
             onSavedFilterChange={setShowSavedOnMap}
-            onSummarizeAll={isSummarizing ? handleStopSummarize : handleSummarizeAll}
+            onSummarizeAll={handleSummarizeAll}
+            onStopSummarize={handleStopSummarize}
             isSummarizing={isSummarizing}
             {...(config.filterConfig
               ? {

@@ -63,6 +63,9 @@ interface ReviewExportSubStepProps {
     byType: { type: string; count: number }[]
     bySource: { source: string; count: number }[]
   } | null
+  /** True when this substep is currently visible — used to refresh data
+   *  (e.g. ScreenshotGallery) since the substep stays mounted between visits. */
+  isActive?: boolean
   onComplete: () => void
   isCompleting: boolean
   isComplete: boolean
@@ -99,6 +102,7 @@ export function ReviewExportSubStep({
   userId,
   savedFindings,
   targetNotes,
+  isActive,
   onComplete,
   isCompleting,
   isComplete,
@@ -248,7 +252,7 @@ export function ReviewExportSubStep({
             {/* Map Screenshots */}
             <div className="rounded-lg border p-3">
               <h4 className="mb-2 text-sm font-medium">Map Screenshots</h4>
-              <ScreenshotGallery projectId={project.id} />
+              <ScreenshotGallery projectId={project.id} isActive={isActive} />
             </div>
 
             {/* Saved Findings List */}

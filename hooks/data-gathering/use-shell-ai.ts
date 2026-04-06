@@ -15,7 +15,7 @@ interface UseShellAiParams {
 }
 
 interface UseShellAiReturn {
-  handleFetchAiSummary: (finding: FindingDisplay) => Promise<void>
+  handleFetchAiSummary: (finding: FindingDisplay, signal?: AbortSignal) => Promise<void>
   handleSummarizeAll: () => Promise<void>
   handleStopSummarize: () => void
   isSummarizing: boolean
@@ -30,7 +30,7 @@ export function useShellAi({
 }: UseShellAiParams): UseShellAiReturn {
   const updateFinding = useUpdateFinding()
   const [isSummarizing, setIsSummarizing] = React.useState(false)
-  const summarizeCancelRef = React.useRef(false)
+  const summarizeAbortRef = React.useRef<AbortController | null>(null)
 
   // Config is recreated every render by the substep — keep it behind a ref
   // so the returned callbacks remain stable across renders.
@@ -38,9 +38,10 @@ export function useShellAi({
   configRef.current = config
 
   const handleFetchAiSummary = React.useCallback(
-    async (finding: FindingDisplay) => {
+    async (finding: FindingDisplay, signal?: AbortSignal) => {
       const config = configRef.current
       if (config.canFetchAiSummary && !config.canFetchAiSummary(finding)) return
+      if (signal?.aborted) return
 
       // Set loading state
       setSearchResults((prev) =>
@@ -54,6 +55,7 @@ export function useShellAi({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(config.buildAiSummaryBody(finding)),
+          signal,
         })
 
         if (!response.ok) throw new Error('Failed to fetch summary')
@@ -93,7 +95,10 @@ export function useShellAi({
             .catch((err) => console.error('Failed to persist AI summary:', err))
         }
       } catch (error) {
-        console.error('AI summary error:', error)
+        // Aborted requests should silently clear loading state without surfacing
+        // a "Failed to generate" message — the user explicitly stopped the batch.
+        const aborted =
+          (error instanceof DOMException && error.name === 'AbortError') || signal?.aborted
         setSearchResults((prev) =>
           prev.map((f) =>
             f.id === finding.id
@@ -101,13 +106,18 @@ export function useShellAi({
                   ...f,
                   metadata: {
                     ...f.metadata,
-                    aiSummary: 'Failed to generate summary. Try again later.',
+                    aiSummary: aborted
+                      ? f.metadata?.aiSummary
+                      : 'Failed to generate summary. Try again later.',
                     aiSummaryLoading: false,
                   },
                 }
               : f
           )
         )
+        if (!aborted) {
+          console.error('AI summary error:', error)
+        }
       }
     },
     [savedFindings, setSearchResults, updateFinding]
@@ -126,18 +136,51 @@ export function useShellAi({
     const candidates = searchResults.filter(filter)
     if (candidates.length === 0) return
 
-    summarizeCancelRef.current = false
+    // Abort any in-flight batch before starting a new one
+    summarizeAbortRef.current?.abort()
+    const controller = new AbortController()
+    summarizeAbortRef.current = controller
+    const { signal } = controller
+
     setIsSummarizing(true)
-    for (const candidate of candidates) {
-      if (summarizeCancelRef.current) break
-      await handleFetchAiSummary(candidate)
-      await new Promise((resolve) => setTimeout(resolve, 500))
+    try {
+      for (const candidate of candidates) {
+        if (signal.aborted) break
+        await handleFetchAiSummary(candidate, signal)
+        if (signal.aborted) break
+        // Cancel-aware delay between requests
+        await new Promise<void>((resolve) => {
+          if (signal.aborted) {
+            resolve()
+            return
+          }
+          let timer: ReturnType<typeof setTimeout> | null = null
+          const onAbort = () => {
+            if (timer) clearTimeout(timer)
+            resolve()
+          }
+          timer = setTimeout(() => {
+            signal.removeEventListener('abort', onAbort)
+            resolve()
+          }, 500)
+          signal.addEventListener('abort', onAbort, { once: true })
+        })
+      }
+    } finally {
+      if (summarizeAbortRef.current === controller) {
+        summarizeAbortRef.current = null
+      }
+      setIsSummarizing(false)
     }
-    setIsSummarizing(false)
   }, [searchResults, handleFetchAiSummary])
 
   const handleStopSummarize = React.useCallback(() => {
-    summarizeCancelRef.current = true
+    // Abort the in-flight fetch and the rest of the batch immediately, then
+    // flip UI state right away so the button reflects the stop without
+    // waiting for the loop to unwind.
+    summarizeAbortRef.current?.abort()
+    summarizeAbortRef.current = null
+    setIsSummarizing(false)
   }, [])
 
   return { handleFetchAiSummary, handleSummarizeAll, handleStopSummarize, isSummarizing }

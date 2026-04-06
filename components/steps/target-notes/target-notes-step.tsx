@@ -228,17 +228,28 @@ export function TargetNotesStep({
                     Import from Data Gathering ({importableSpecies.length})
                   </Button>
                 )}
-                <Button
-                  onClick={() => {
-                    setEditingObservation(null)
-                    setShowObservationForm(true)
-                  }}
-                  disabled={surveys.length === 0}
-                  size="sm"
+                <span
+                  title={
+                    surveys.length === 0
+                      ? 'Create a survey first in Field Survey Planning'
+                      : !selectedSurveyId
+                        ? 'Select a survey from the dropdown above to add observations to it'
+                        : undefined
+                  }
+                  className="inline-block"
                 >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Observation
-                </Button>
+                  <Button
+                    onClick={() => {
+                      setEditingObservation(null)
+                      setShowObservationForm(true)
+                    }}
+                    disabled={surveys.length === 0 || !selectedSurveyId}
+                    size="sm"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Observation
+                  </Button>
+                </span>
               </div>
             )}
           </div>
@@ -355,6 +366,7 @@ export function TargetNotesStep({
                 confidenceLevel:
                   editingObservation.confidence_level as ObservationFormType['confidenceLevel'],
                 needsVerification: editingObservation.needs_verification,
+                photos: (editingObservation.photos as string[]) || undefined,
               }
             : undefined
         }

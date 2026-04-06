@@ -233,6 +233,7 @@ export function WizardStepContent({
             savedFindings={savedFindings}
             targetNotes={targetNotes}
             findingsStats={findingsStats}
+            isActive={currentStep === 'review'}
             onComplete={onComplete}
             isCompleting={isCompleting}
             isComplete={isComplete}

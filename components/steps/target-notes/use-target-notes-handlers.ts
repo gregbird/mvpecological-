@@ -358,6 +358,7 @@ export function useTargetNotesHandlers({
         designation: data.designation || null,
         confidence_level: (data.confidenceLevel as 'high' | 'medium' | 'low') || 'medium',
         needs_verification: data.needsVerification || false,
+        photos: data.photos || null,
       })
 
       toast({
@@ -401,6 +402,7 @@ export function useTargetNotesHandlers({
           designation: data.designation || null,
           confidence_level: (data.confidenceLevel as 'high' | 'medium' | 'low') || 'medium',
           needs_verification: data.needsVerification || false,
+          photos: data.photos || null,
         },
       })
 
