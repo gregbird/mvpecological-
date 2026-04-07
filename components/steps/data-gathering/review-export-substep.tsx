@@ -36,6 +36,7 @@ import { getAISummary, getDeepResearch } from '@/hooks/data-gathering/use-export
 import { IRELAND_CENTER } from '@/lib/config/map-constants'
 import type { Project, DeskResearchFinding } from '@/types/database'
 import type { TargetNoteWithCreator } from '@/lib/supabase/queries/target-notes'
+import type { ProjectSiteWithGeoJSON } from '@/lib/supabase/queries/project-sites'
 
 // Dynamic import for map
 const ProjectMap = dynamic(
@@ -55,6 +56,18 @@ interface ReviewExportSubStepProps {
   projectBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
   projectCenter?: { lat: number; lng: number }
   bufferDistances?: number[]
+  /** Other site boundaries to render dimmed alongside the active site */
+  otherBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
+  /** All site boundaries — render every boundary in "All Sites" mode */
+  allBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
+  /** Selected site (null = "All Sites" view) — drives header label, export
+   *  filenames, and target-note site_id assignment. */
+  selectedSite?: ProjectSiteWithGeoJSON | null
+  /** Project-wide finding count, ignoring the site filter — used so that the
+   *  "Complete Data Gathering" button isn't disabled when the user is viewing
+   *  a single site that has no findings yet, but other sites in the project
+   *  do have findings. */
+  projectWideFindingsCount?: number
   userId: string
   savedFindings: DeskResearchFinding[]
   targetNotes: TargetNoteWithCreator[]
@@ -99,6 +112,10 @@ export function ReviewExportSubStep({
   projectBoundary,
   projectCenter,
   bufferDistances,
+  otherBoundaries,
+  allBoundaries,
+  selectedSite,
+  projectWideFindingsCount,
   userId,
   savedFindings,
   targetNotes,
@@ -108,6 +125,15 @@ export function ReviewExportSubStep({
   isComplete,
 }: ReviewExportSubStepProps) {
   const [showNoteForm, setShowNoteForm] = React.useState(false)
+
+  // Header label: "All Sites" vs the selected site code/name
+  const scopeLabel = selectedSite
+    ? selectedSite.site_code
+      ? `${selectedSite.site_code}${selectedSite.site_name ? ` — ${selectedSite.site_name}` : ''}`
+      : (selectedSite.site_name ?? 'Selected Site')
+    : (allBoundaries && allBoundaries.length > 1) || (otherBoundaries && otherBoundaries.length > 0)
+      ? 'All Sites'
+      : null
 
   // Stats calculations (single pass)
   const stats = React.useMemo(() => {
@@ -147,7 +173,11 @@ export function ReviewExportSubStep({
     return groups
   }, [savedFindings])
 
-  const canComplete = savedFindings.length > 0 && !isComplete
+  // Use project-wide finding count for completion gating so a single-site
+  // view with no findings doesn't disable the button while other sites do
+  // have data. Falls back to the local count when the prop isn't supplied.
+  const completionFindingCount = projectWideFindingsCount ?? savedFindings.length
+  const canComplete = completionFindingCount > 0 && !isComplete
 
   return (
     <div className="flex h-full">
@@ -155,8 +185,20 @@ export function ReviewExportSubStep({
       <div className="bg-background flex w-[60%] shrink-0 flex-col border-r">
         {/* Header */}
         <div className="border-b p-4">
-          <h3 className="text-lg font-semibold">Review & Export</h3>
-          <p className="text-muted-foreground text-sm">{savedFindings.length} findings collected</p>
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-lg font-semibold">Review & Export</h3>
+            {scopeLabel && (
+              <Badge variant="outline" className="text-[10px] font-medium">
+                {scopeLabel}
+              </Badge>
+            )}
+          </div>
+          <p className="text-muted-foreground text-sm">
+            {savedFindings.length} findings {scopeLabel ? `(${scopeLabel.toLowerCase()})` : ''}
+            {projectWideFindingsCount != null &&
+              projectWideFindingsCount !== savedFindings.length &&
+              ` · ${projectWideFindingsCount} project-wide`}
+          </p>
         </div>
 
         {/* Scrollable Content */}
@@ -284,6 +326,7 @@ export function ReviewExportSubStep({
                     <TargetNoteForm
                       projectId={project.id}
                       userId={userId}
+                      siteId={selectedSite?.id ?? null}
                       onSuccess={() => setShowNoteForm(false)}
                       onCancel={() => setShowNoteForm(false)}
                     />
@@ -339,14 +382,27 @@ export function ReviewExportSubStep({
               project={project}
               savedFindings={savedFindings}
               targetNotes={targetNotes}
+              selectedSite={selectedSite}
             />
 
-            {/* Validation Warning */}
-            {savedFindings.length === 0 && (
+            {/* Validation Warning — gated on project-wide count so a single
+                site with no findings doesn't block completion when other
+                sites in the project do have data. */}
+            {completionFindingCount === 0 && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  Save at least one finding to complete this step.
+                  Save at least one finding {scopeLabel ? 'in any site' : ''} to complete this step.
+                </AlertDescription>
+              </Alert>
+            )}
+            {completionFindingCount > 0 && savedFindings.length === 0 && selectedSite != null && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  No findings saved for <strong>{scopeLabel}</strong> yet, but other sites in this
+                  project have data. Switch to &ldquo;All Sites&rdquo; or another site to review
+                  them.
                 </AlertDescription>
               </Alert>
             )}
@@ -388,6 +444,8 @@ export function ReviewExportSubStep({
           center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
           zoom={12}
           boundary={projectBoundary}
+          otherBoundaries={otherBoundaries}
+          allBoundaries={allBoundaries}
           bufferDistances={bufferDistances}
           findings={savedFindings.map((f) => {
             const raw = f.raw_data as Record<string, unknown> | null

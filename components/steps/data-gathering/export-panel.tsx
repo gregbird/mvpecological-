@@ -5,19 +5,28 @@ import { FileSpreadsheet, FileJson, MapPin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { Project, DeskResearchFinding } from '@/types/database'
 import type { TargetNoteWithCreator } from '@/lib/supabase/queries/target-notes'
+import type { ProjectSiteWithGeoJSON } from '@/lib/supabase/queries/project-sites'
 import { useExportFindings } from '@/hooks/data-gathering/use-export-findings'
 
 interface ExportPanelProps {
   project: Project
   savedFindings: DeskResearchFinding[]
   targetNotes: TargetNoteWithCreator[]
+  /** Active site for multi-site filename + content disambiguation */
+  selectedSite?: ProjectSiteWithGeoJSON | null
 }
 
-export function ExportPanel({ project, savedFindings, targetNotes }: ExportPanelProps) {
+export function ExportPanel({
+  project,
+  savedFindings,
+  targetNotes,
+  selectedSite,
+}: ExportPanelProps) {
   const { exportAsCSV, exportAsGeoJSON, exportAsJSON } = useExportFindings(
     project,
     savedFindings,
-    targetNotes
+    targetNotes,
+    selectedSite
   )
 
   return (

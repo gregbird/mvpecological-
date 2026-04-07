@@ -107,6 +107,9 @@ export function DataGatheringStep({
   // Data hooks
   const { data: savedFindings = [] } = useSavedFindings(project.id, selectedSite?.id)
   const { data: findingsStats } = useFindingsStats(project.id, selectedSite?.id)
+  // Project-wide finding stats (no site filter) — used by Review & Export to
+  // gate the Complete button so a single empty site can't block the step.
+  const { data: projectWideFindingsStats } = useFindingsStats(project.id)
   const { data: targetNotes = [] } = useTargetNotes(project.id, selectedSite?.id)
   const completeStep = useCompleteWorkflowStep()
 
@@ -243,11 +246,14 @@ export function DataGatheringStep({
   const goNext = () => navigate(1)
 
   const handleComplete = async () => {
-    if (savedFindings.length === 0) {
+    // Gate on project-wide count so a single empty site can't block completion.
+    const projectWideCount = projectWideFindingsStats?.total ?? savedFindings.length
+    if (projectWideCount === 0) {
       toast({
         variant: 'destructive',
         title: 'No findings saved',
-        description: 'Save at least one finding before completing this step.',
+        description:
+          'Save at least one finding in any site of this project before completing this step.',
       })
       return
     }
@@ -400,12 +406,14 @@ export function DataGatheringStep({
           projectCenter={projectCenter}
           bufferDistances={bufferDistances}
           siteId={selectedSite?.id ?? null}
+          selectedSite={selectedSite}
           otherBoundaries={otherBoundaries}
           allBoundaries={isAllSites ? allBoundaries : undefined}
           allSiteBoundaries={allSiteBoundaries}
           savedFindings={savedFindings}
           targetNotes={targetNotes}
           findingsStats={findingsStats}
+          projectWideFindingsCount={projectWideFindingsStats?.total}
           showMap={showMap}
           onToggleMap={handleToggleMap}
           autoSearchStatus={autoSearchStatus}

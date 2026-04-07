@@ -2,6 +2,7 @@
 
 import type { AutoSearchStatus } from './auto-search-banner'
 import type { Project, WorkflowStep, DeskResearchFinding, TargetNote } from '@/types/database'
+import type { ProjectSiteWithGeoJSON } from '@/lib/supabase/queries/project-sites'
 
 import { ProjectInfoSubStep } from './project-info-substep'
 import { DesignatedSitesSubStep } from './designated-sites-substep'
@@ -31,6 +32,9 @@ export interface WizardStepContentProps {
   projectCenter?: { lat: number; lng: number }
   bufferDistances: number[]
   siteId: string | null
+  /** Selected site object (forwarded to Review & Export for header label,
+   *  export filenames, and target-note site_id assignment) */
+  selectedSite?: ProjectSiteWithGeoJSON | null
   otherBoundaries: GeoJSON.Feature<GeoJSON.Polygon>[]
   allBoundaries: GeoJSON.Feature<GeoJSON.Polygon>[] | undefined
   /** All site boundaries regardless of selection — used for refreshing
@@ -40,6 +44,10 @@ export interface WizardStepContentProps {
   savedFindings: DeskResearchFinding[]
   targetNotes: TargetNote[]
   findingsStats: FindingsStatsResult | undefined
+  /** Project-wide finding count (ignores siteId filter) — used so that the
+   *  Review & Export "Complete" button isn't disabled when the user views
+   *  a single empty site while other sites have data. */
+  projectWideFindingsCount?: number
   showMap: boolean
   onToggleMap: () => void
   autoSearchStatus: {
@@ -78,12 +86,14 @@ export function WizardStepContent({
   projectCenter,
   bufferDistances,
   siteId,
+  selectedSite,
   otherBoundaries,
   allBoundaries,
   allSiteBoundaries,
   savedFindings,
   targetNotes,
   findingsStats,
+  projectWideFindingsCount,
   showMap,
   onToggleMap,
   autoSearchStatus,
@@ -229,6 +239,10 @@ export function WizardStepContent({
             projectBoundary={projectBoundary}
             projectCenter={projectCenter}
             bufferDistances={bufferDistances}
+            otherBoundaries={otherBoundaries}
+            allBoundaries={allBoundaries}
+            selectedSite={selectedSite}
+            projectWideFindingsCount={projectWideFindingsCount}
             userId={userId}
             savedFindings={savedFindings}
             targetNotes={targetNotes}

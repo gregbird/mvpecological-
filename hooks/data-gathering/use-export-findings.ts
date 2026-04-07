@@ -52,9 +52,31 @@ function downloadBlob(blob: Blob, filename: string) {
 export function useExportFindings(
   project: Project,
   savedFindings: DeskResearchFinding[],
-  targetNotes: TargetNoteWithCreator[]
+  targetNotes: TargetNoteWithCreator[],
+  selectedSite?: ProjectSiteWithGeoJSON | null
 ) {
   const { toast } = useToast()
+  const { data: projectSites = [] } = useProjectSites(project.id)
+
+  // Map site_id → site_code so each finding/note row can resolve its site label
+  const siteIdToCode = React.useMemo(() => {
+    const map = new Map<string, string>()
+    for (const s of projectSites) {
+      if (s.site_code) map.set(s.id, s.site_code)
+    }
+    return map
+  }, [projectSites])
+
+  // Filename suffix: explicit single site → use its code; otherwise multi-site
+  // export → "_AllSites"; single-site project → no suffix.
+  const isMultiSite = projectSites.length > 1
+  const filenameSiteSuffix = selectedSite?.site_code
+    ? `_${selectedSite.site_code.replace(/\s+/g, '-')}`
+    : isMultiSite
+      ? '_AllSites'
+      : ''
+
+  const baseFilename = `${project.name.replace(/\s+/g, '_')}${filenameSiteSuffix}`
 
   const exportAsCSV = () => {
     const headers = [
@@ -62,6 +84,7 @@ export function useExportFindings(
       'Scientific Name',
       'Source',
       'Type',
+      'Site Code',
       'Taxon Group',
       'Site Type',
       'Distance (km)',
@@ -79,11 +102,13 @@ export function useExportFindings(
       const siteType = getSiteType(f)
       const rawData = f.raw_data as Record<string, unknown> | null
       const metadata = rawData?.metadata as Record<string, unknown> | undefined
+      const siteCode = f.site_id ? (siteIdToCode.get(f.site_id) ?? '') : ''
       return [
         f.title,
         (metadata?.scientificName as string) || '',
         f.source.toUpperCase(),
         f.data_type.replace(/_/g, ' '),
+        siteCode,
         (metadata?.taxonGroup as string) || '',
         siteType || '',
         f.distance_from_boundary_km?.toFixed(2) || '',
@@ -104,7 +129,7 @@ export function useExportFindings(
 
     // UTF-8 BOM for Excel compatibility
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' })
-    downloadBlob(blob, `${project.name.replace(/\s+/g, '_')}_findings.csv`)
+    downloadBlob(blob, `${baseFilename}_findings.csv`)
   }
 
   const exportAsGeoJSON = () => {
@@ -115,6 +140,7 @@ export function useExportFindings(
       const aiSummary = getAISummary(f)
       const deepResearch = getDeepResearch(f)
       const siteType = getSiteType(f)
+      const siteCode = f.site_id ? siteIdToCode.get(f.site_id) : undefined
       return {
         type: 'Feature' as const,
         geometry: f.location as GeoJSON.Geometry,
@@ -123,6 +149,8 @@ export function useExportFindings(
           title: f.title,
           source: f.source,
           dataType: f.data_type,
+          siteId: f.site_id || undefined,
+          siteCode,
           siteType: siteType || undefined,
           distance_km: f.distance_from_boundary_km,
           isProtected: f.is_protected,
@@ -147,7 +175,7 @@ export function useExportFindings(
     }
 
     const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: 'application/json' })
-    downloadBlob(blob, `${project.name.replace(/\s+/g, '_')}_findings.geojson`)
+    downloadBlob(blob, `${baseFilename}_findings.geojson`)
   }
 
   const exportAsJSON = () => {
@@ -159,6 +187,21 @@ export function useExportFindings(
         county: project.county,
         townland: project.townland,
       },
+      // Include site context so the consumer knows which scope this export covers
+      sites: projectSites.map((s) => ({
+        id: s.id,
+        siteCode: s.site_code,
+        siteName: s.site_name,
+        county: s.county,
+        townland: s.townland,
+      })),
+      activeSite: selectedSite
+        ? {
+            id: selectedSite.id,
+            siteCode: selectedSite.site_code,
+            siteName: selectedSite.site_name,
+          }
+        : null,
       findings: savedFindings.map((f) => {
         const aiSummary = getAISummary(f)
         const deepResearch = getDeepResearch(f)
@@ -168,6 +211,8 @@ export function useExportFindings(
           title: f.title,
           source: f.source,
           dataType: f.data_type,
+          siteId: f.site_id || undefined,
+          siteCode: f.site_id ? siteIdToCode.get(f.site_id) : undefined,
           siteType: siteType || undefined,
           content: f.content,
           distance_km: f.distance_from_boundary_km,
@@ -181,6 +226,8 @@ export function useExportFindings(
       }),
       targetNotes: targetNotes.map((n) => ({
         id: n.id,
+        siteId: n.site_id || undefined,
+        siteCode: n.site_id ? siteIdToCode.get(n.site_id) : undefined,
         category: n.category,
         title: n.title,
         description: n.description,
@@ -191,7 +238,7 @@ export function useExportFindings(
     }
 
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-    downloadBlob(blob, `${project.name.replace(/\s+/g, '_')}_data.json`)
+    downloadBlob(blob, `${baseFilename}_data.json`)
   }
 
   return { exportAsCSV, exportAsGeoJSON, exportAsJSON }
