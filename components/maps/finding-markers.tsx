@@ -36,6 +36,12 @@ export function FindingMarkers({
         // Skip species record dots on map (feedback: not helpful)
         if (finding.dataType === 'species_record') return null
 
+        // Habitat findings are rendered separately by HabitatPolygonLayer
+        // (with Heritage Council FOSSITT styling). Rendering them here as
+        // generic finding polygons would overlay a dull grey "manual"
+        // source fill on top of the proper habitat layer.
+        if (finding.dataType === 'habitat') return null
+
         const isSelected = selectedFinding?.id === finding.id
         // Use species-aware color function for species records
         const color = getSpeciesColor(finding)

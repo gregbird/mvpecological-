@@ -39,6 +39,7 @@ import { ExportPanel } from './export-panel'
 import { ScreenshotGallery } from '@/components/maps/screenshot-gallery'
 import { getAISummary, getDeepResearch } from '@/hooks/data-gathering/use-export-findings'
 import { IRELAND_CENTER } from '@/lib/config/map-constants'
+import { buildHabitatPolygonsFromFindings } from '@/lib/utils/habitat-polygons-from-findings'
 import type { Project, DeskResearchFinding } from '@/types/database'
 import type { TargetNoteWithCreator } from '@/lib/supabase/queries/target-notes'
 import type { ProjectSiteWithGeoJSON } from '@/lib/supabase/queries/project-sites'
@@ -189,6 +190,15 @@ export function ReviewExportSubStep({
     : (allBoundaries && allBoundaries.length > 1) || (otherBoundaries && otherBoundaries.length > 0)
       ? 'All Sites'
       : null
+
+  // Build a proper habitat FeatureCollection so the map renders NLC polygons
+  // with Heritage Council FOSSITT styling via HabitatPolygonLayer — matches
+  // the Desk Assessment "AI Analysis" view exactly, instead of the washed-out
+  // grey polygons that FindingMarkers would render for `data_type='habitat'`.
+  const habitatPolygonsFromFindings = React.useMemo(
+    () => buildHabitatPolygonsFromFindings(savedFindings),
+    [savedFindings]
+  )
 
   // Stats calculations (single pass)
   const stats = React.useMemo(() => {
@@ -689,6 +699,7 @@ export function ReviewExportSubStep({
           otherBoundaries={otherBoundaries}
           allBoundaries={allBoundaries}
           bufferDistances={bufferDistances}
+          habitatPolygons={habitatPolygonsFromFindings}
           visibleFindingTypes={visibleFindingTypes}
           findings={savedFindings.map((f) => {
             const raw = f.raw_data as Record<string, unknown> | null
