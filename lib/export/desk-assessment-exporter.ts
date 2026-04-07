@@ -311,6 +311,12 @@ export async function exportDeskAssessmentDocx(data: BaselineExportData) {
       return
     }
 
+    // A4 portrait content width ≈ 8640 dxa with default margins. Distribute
+    // evenly via DXA so cells render correctly in Word/Pages/LibreOffice.
+    const CONTENT_WIDTH_DXA = 8640
+    const colWidthDxa = Math.floor(CONTENT_WIDTH_DXA / headers.length)
+    const columnWidths = new Array(headers.length).fill(colWidthDxa)
+
     const makeCell = (text: string, bold = false) =>
       new TableCell({
         children: [
@@ -318,7 +324,7 @@ export async function exportDeskAssessmentDocx(data: BaselineExportData) {
             children: [new TextRun({ text, bold, size: 18 })],
           }),
         ],
-        width: { size: Math.floor(100 / headers.length), type: WidthType.PERCENTAGE },
+        width: { size: colWidthDxa, type: WidthType.DXA },
       })
 
     const headerRow = new TableRow({
@@ -336,7 +342,8 @@ export async function exportDeskAssessmentDocx(data: BaselineExportData) {
     children.push(
       new Table({
         rows: [headerRow, ...dataRows],
-        width: { size: 100, type: WidthType.PERCENTAGE },
+        width: { size: CONTENT_WIDTH_DXA, type: WidthType.DXA },
+        columnWidths,
       })
     )
   }

@@ -19,6 +19,7 @@ import {
 } from 'docx'
 import type { PeaExportOptions } from './pdf-generator'
 import { fetchImageAsBuffer } from './image-utils'
+import { sectionContentToMarkdown } from './tiptap-to-markdown'
 
 // ============================================================
 // Markdown → docx block types
@@ -196,6 +197,9 @@ function parseMarkdown(md: string): MdBlock[] {
 
 const DARK_GREEN = '2C5234'
 const TABLE_STRIPE = 'F5F7F5'
+// A4 portrait page width = 11906 dxa, with default margins (left 1800 + right 1440)
+// content width is ~8666 dxa. Round down to 9000-ish leaves a little safety.
+const CONTENT_WIDTH_DXA = 8640
 
 function runsToTextRuns(runs: RunSpec[], overrideColor?: string): TextRun[] {
   return runs.map(
@@ -246,7 +250,11 @@ async function blockToParagraphs(block: MdBlock): Promise<(Paragraph | Table)[]>
 
     case 'table': {
       const colCount = block.headers.length
-      const colPct = Math.floor(100 / colCount)
+      // A4 portrait content width with default margins ≈ 9000 dxa.
+      // Distribute evenly via DXA so cells render at correct width regardless
+      // of viewer-specific PERCENTAGE semantics.
+      const colWidthDxa = Math.floor(CONTENT_WIDTH_DXA / colCount)
+      const columnWidths = new Array(colCount).fill(colWidthDxa)
 
       const headerRow = new TableRow({
         tableHeader: true,
@@ -259,7 +267,7 @@ async function blockToParagraphs(block: MdBlock): Promise<(Paragraph | Table)[]>
                   children: [new TextRun({ text: h, bold: true, color: 'FFFFFF' })],
                 }),
               ],
-              width: { size: colPct, type: WidthType.PERCENTAGE },
+              width: { size: colWidthDxa, type: WidthType.DXA },
             })
         ),
       })
@@ -275,7 +283,7 @@ async function blockToParagraphs(block: MdBlock): Promise<(Paragraph | Table)[]>
                       ? { type: ShadingType.SOLID, color: TABLE_STRIPE, fill: TABLE_STRIPE }
                       : undefined,
                   children: [new Paragraph({ children: [new TextRun({ text: cell })] })],
-                  width: { size: colPct, type: WidthType.PERCENTAGE },
+                  width: { size: colWidthDxa, type: WidthType.DXA },
                 })
             ),
           })
@@ -284,7 +292,8 @@ async function blockToParagraphs(block: MdBlock): Promise<(Paragraph | Table)[]>
       return [
         new Table({
           rows: [headerRow, ...bodyRows],
-          width: { size: 100, type: WidthType.PERCENTAGE },
+          width: { size: CONTENT_WIDTH_DXA, type: WidthType.DXA },
+          columnWidths,
           borders: {
             top: { style: BorderStyle.SINGLE, size: 4, color: DARK_GREEN },
             bottom: { style: BorderStyle.SINGLE, size: 4, color: DARK_GREEN },
@@ -354,7 +363,8 @@ const APPENDIX_LABELS: Record<string, string> = {
 /** Build a styled table for appendix data (designated sites or species records). */
 function buildDocxAppendixTable(headers: string[], rows: string[][]): Table {
   const colCount = headers.length
-  const colPct = Math.floor(100 / colCount)
+  const colWidthDxa = Math.floor(CONTENT_WIDTH_DXA / colCount)
+  const columnWidths = new Array(colCount).fill(colWidthDxa)
 
   const headerRow = new TableRow({
     tableHeader: true,
@@ -367,7 +377,7 @@ function buildDocxAppendixTable(headers: string[], rows: string[][]): Table {
               children: [new TextRun({ text: h, bold: true, color: 'FFFFFF', size: 18 })],
             }),
           ],
-          width: { size: colPct, type: WidthType.PERCENTAGE },
+          width: { size: colWidthDxa, type: WidthType.DXA },
         })
     ),
   })
@@ -383,7 +393,7 @@ function buildDocxAppendixTable(headers: string[], rows: string[][]): Table {
                   ? { type: ShadingType.SOLID, color: TABLE_STRIPE, fill: TABLE_STRIPE }
                   : undefined,
               children: [new Paragraph({ children: [new TextRun({ text: cell, size: 18 })] })],
-              width: { size: colPct, type: WidthType.PERCENTAGE },
+              width: { size: colWidthDxa, type: WidthType.DXA },
             })
         ),
       })
@@ -391,7 +401,8 @@ function buildDocxAppendixTable(headers: string[], rows: string[][]): Table {
 
   return new Table({
     rows: [headerRow, ...bodyRows],
-    width: { size: 100, type: WidthType.PERCENTAGE },
+    width: { size: CONTENT_WIDTH_DXA, type: WidthType.DXA },
+    columnWidths,
     borders: {
       top: { style: BorderStyle.SINGLE, size: 4, color: DARK_GREEN },
       bottom: { style: BorderStyle.SINGLE, size: 4, color: DARK_GREEN },
@@ -532,7 +543,7 @@ export async function generatePeaDocx(options: PeaExportOptions): Promise<Blob> 
       })
     )
 
-    const blocks = parseMarkdown(section.content)
+    const blocks = parseMarkdown(sectionContentToMarkdown(section.content))
     for (const block of blocks) {
       const converted = await blockToParagraphs(block)
       for (const item of converted) {

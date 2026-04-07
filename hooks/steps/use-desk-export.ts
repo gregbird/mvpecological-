@@ -33,52 +33,46 @@ export function useDeskExport({
   const [isExporting, setIsExporting] = React.useState(false)
 
   const collectExportData = React.useCallback(async (): Promise<BaselineExportData> => {
-    const designatedSites = savedFindings
-      .filter((f) => f.data_type === 'designated_site')
-      .map((f) => {
-        const raw = f.raw_data as Record<string, unknown> | null
-        return {
-          name: f.title,
-          code: (raw?.SITE_CODE as string) || '',
-          type: (raw?.DESIGNATION as string) || '',
-          area: raw?.AREA_HA ? `${(raw.AREA_HA as number).toFixed(0)} ha` : '',
-          distance: f.distance_from_boundary_km?.toFixed(1) ?? '—',
-        }
-      })
+    // Dedupe findings before mapping. The DB can hold multiple rows for the same
+    // logical entity (e.g. duplicated saves, multi-report linkage) which would
+    // otherwise produce identical rows in the export tables.
+    const dedupedFindings = dedupeFindings(savedFindings)
 
-    const speciesRecords = savedFindings
-      .filter((f) => f.data_type === 'species_record')
-      .map((f) => {
-        const raw = f.raw_data as Record<string, unknown> | null
-        const metadata = raw?.metadata as Record<string, unknown> | null
-        return {
-          name: f.title,
-          taxon: (metadata?.taxonGroup as string) || 'Unknown',
-          source: f.source,
-          protected: f.is_protected || (metadata?.isProtected as boolean) || false,
-          records: (metadata?.recordCount as number) || 1,
-        }
-      })
+    const designatedSiteMap = new Map<string, ReturnType<typeof mapDesignatedSite>>()
+    for (const f of dedupedFindings.filter((x) => x.data_type === 'designated_site')) {
+      const row = mapDesignatedSite(f)
+      const key = row.code || row.name
+      if (!designatedSiteMap.has(key)) designatedSiteMap.set(key, row)
+    }
+    const designatedSites = Array.from(designatedSiteMap.values())
 
-    const waterBodies = savedFindings
-      .filter((f) => f.data_type === 'water_quality' || f.data_type === 'catchment')
-      .map((f) => {
-        const raw = f.raw_data as Record<string, unknown> | null
-        const metadata = raw?.metadata as Record<string, unknown> | null
-        const siteType = (metadata?.siteType as string) || ''
-        let type = 'River'
-        if (siteType.toLowerCase().includes('lake')) type = 'Lake'
-        else if (siteType.toLowerCase().includes('transitional')) type = 'Transitional'
-        else if (f.data_type === 'catchment') type = 'Catchment'
-        return {
-          name: f.title,
-          type,
-          wfdStatus: (raw?.WFD_Status as string) || '—',
-          distance: f.distance_from_boundary_km?.toFixed(1) ?? '—',
-        }
-      })
+    const speciesMap = new Map<string, ReturnType<typeof mapSpecies>>()
+    for (const f of dedupedFindings.filter((x) => x.data_type === 'species_record')) {
+      const row = mapSpecies(f)
+      const raw = f.raw_data as Record<string, unknown> | null
+      const scientific = (raw?.scientificName as string) || row.name
+      const key = `${scientific}__${row.source}`
+      if (!speciesMap.has(key)) speciesMap.set(key, row)
+    }
+    const speciesRecords = Array.from(speciesMap.values())
 
-    const constraints = buildConstraints(savedFindings)
+    const waterBodyMap = new Map<string, ReturnType<typeof mapWaterBody>>()
+    for (const f of dedupedFindings.filter(
+      (x) => x.data_type === 'water_quality' || x.data_type === 'catchment'
+    )) {
+      const row = mapWaterBody(f)
+      const raw = f.raw_data as Record<string, unknown> | null
+      const code =
+        (raw?.waterBodyCode as string) ||
+        (raw?.RiverCode as string) ||
+        (raw?.LakeCode as string) ||
+        (raw?.CatchmentId as string) ||
+        row.name
+      if (!waterBodyMap.has(code)) waterBodyMap.set(code, row)
+    }
+    const waterBodies = Array.from(waterBodyMap.values())
+
+    const constraints = buildConstraints(dedupedFindings)
 
     let mapImages: MapImage[] = []
     try {
@@ -154,6 +148,109 @@ export function useDeskExport({
   )
 
   return { isExporting, handleExport }
+}
+
+// ── Mappers (extracted so dedupe + mapping share one definition) ──
+
+function mapDesignatedSite(f: DeskResearchFinding) {
+  const raw = f.raw_data as Record<string, unknown> | null
+  // NPWS findings store the code under several possible keys depending on source
+  const code =
+    (raw?.SITE_CODE as string) || (raw?.siteCode as string) || (raw?.SITECODE as string) || ''
+  const type =
+    (raw?.DESIGNATION as string) || (raw?.siteType as string) || (raw?.SITE_TYPE as string) || ''
+  const areaHa = raw?.AREA_HA ?? raw?.areaHa
+  const area = typeof areaHa === 'number' ? `${areaHa.toFixed(0)} ha` : ''
+  return {
+    name: f.title,
+    code,
+    type,
+    area,
+    distance: f.distance_from_boundary_km != null ? f.distance_from_boundary_km.toFixed(1) : '—',
+  }
+}
+
+function mapSpecies(f: DeskResearchFinding) {
+  const raw = f.raw_data as Record<string, unknown> | null
+  const metadata = raw?.metadata as Record<string, unknown> | null
+  return {
+    name: f.title,
+    taxon: (metadata?.taxonGroup as string) || (raw?.taxonGroup as string) || 'Unknown',
+    source: f.source,
+    protected: f.is_protected || (metadata?.isProtected as boolean) || false,
+    records: (metadata?.recordCount as number) || (raw?.recordCount as number) || 1,
+  }
+}
+
+function mapWaterBody(f: DeskResearchFinding) {
+  const raw = f.raw_data as Record<string, unknown> | null
+  const metadata = raw?.metadata as Record<string, unknown> | null
+  const siteType = (metadata?.siteType as string) || (raw?.waterBodyType as string) || ''
+  let type = 'River'
+  if (siteType.toLowerCase().includes('lake')) type = 'Lake'
+  else if (siteType.toLowerCase().includes('transitional')) type = 'Transitional'
+  else if (f.data_type === 'catchment') type = 'Catchment'
+  return {
+    name: f.title,
+    type,
+    wfdStatus: (raw?.WFD_Status as string) || (raw?.wfdStatus as string) || '—',
+    distance: f.distance_from_boundary_km != null ? f.distance_from_boundary_km.toFixed(1) : '—',
+  }
+}
+
+// ── Finding deduplication ──
+
+/**
+ * Remove duplicate findings that share the same logical identity. The DB can
+ * hold multiple rows for the same entity (duplicated saves, multi-report links,
+ * legacy rows), and surfacing all of them in the export produces 2x/3x repeated
+ * tables. We keep the first occurrence per (data_type, identity key).
+ */
+function dedupeFindings(findings: DeskResearchFinding[]): DeskResearchFinding[] {
+  const seen = new Set<string>()
+  const out: DeskResearchFinding[] = []
+  for (const f of findings) {
+    const raw = f.raw_data as Record<string, unknown> | null
+    let identity = ''
+    switch (f.data_type) {
+      case 'designated_site':
+        identity =
+          (raw?.SITE_CODE as string) ||
+          (raw?.siteCode as string) ||
+          (raw?.SITECODE as string) ||
+          f.title
+        break
+      case 'species_record':
+        identity =
+          (raw?.scientificName as string) ||
+          ((raw?.metadata as Record<string, unknown> | null)?.scientificName as string) ||
+          f.title
+        identity = `${identity}__${f.source}`
+        break
+      case 'water_quality':
+      case 'catchment':
+        identity =
+          (raw?.waterBodyCode as string) ||
+          (raw?.RiverCode as string) ||
+          (raw?.LakeCode as string) ||
+          (raw?.CatchmentId as string) ||
+          f.title
+        break
+      case 'habitat':
+        identity = (raw?.fossittCode as string) || (raw?.nlcLabel as string) || f.title
+        break
+      case 'company_report':
+        identity = (raw?.fileName as string) || f.title
+        break
+      default:
+        identity = f.id
+    }
+    const key = `${f.data_type}::${identity}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(f)
+  }
+  return out
 }
 
 // ── Constraint builder ──

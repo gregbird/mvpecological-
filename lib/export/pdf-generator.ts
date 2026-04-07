@@ -4,6 +4,7 @@ import { jsPDF } from 'jspdf'
 import type { ReportSection } from '@/lib/supabase/queries/reports'
 import type { AppendixData } from './appendix-data'
 import { fetchImageAsBase64 } from './image-utils'
+import { sectionContentToMarkdown } from './tiptap-to-markdown'
 
 export interface PeaExportOptions {
   title: string
@@ -750,8 +751,8 @@ export async function generatePeaPdf(options: PeaExportOptions): Promise<jsPDF> 
     doc.setTextColor(0, 0, 0)
     y += 10
 
-    // Parse and render content
-    const blocks = parseMarkdown(section.content)
+    // Parse and render content (Tiptap JSON → markdown if needed)
+    const blocks = parseMarkdown(sectionContentToMarkdown(section.content))
 
     for (let blockIdx = 0; blockIdx < blocks.length; blockIdx++) {
       // Yield every 10 blocks to keep the UI responsive
@@ -1094,7 +1095,7 @@ export function generatePeaHtml(options: PeaExportOptions): string {
       (s, i) => `
     <div class="section" id="section-${i}">
       <h2>${s.title}</h2>
-      <div class="section-content">${markdownToHtml(s.content)}</div>
+      <div class="section-content">${markdownToHtml(sectionContentToMarkdown(s.content))}</div>
     </div>`
     )
     .join('\n')
