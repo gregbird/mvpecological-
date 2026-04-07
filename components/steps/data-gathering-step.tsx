@@ -107,7 +107,7 @@ export function DataGatheringStep({
   // Data hooks
   const { data: savedFindings = [] } = useSavedFindings(project.id, selectedSite?.id)
   const { data: findingsStats } = useFindingsStats(project.id, selectedSite?.id)
-  const { data: targetNotes = [] } = useTargetNotes(project.id)
+  const { data: targetNotes = [] } = useTargetNotes(project.id, selectedSite?.id)
   const completeStep = useCompleteWorkflowStep()
 
   // Site-aware boundary (includes searchBoundary, otherBoundaries, allSiteBoundaries)
@@ -271,6 +271,16 @@ export function DataGatheringStep({
   const isComplete = viewMode === 'preview' && workflowStep.status === 'approved'
   const isMapMode = currentStep !== 'info' && currentStep !== 'reports' && currentStep !== 'review'
 
+  // Single SiteSelector instance reused in both compact and full header layouts
+  const siteSelectorElement = (
+    <SiteSelector
+      projectId={project.id}
+      stepKey="data-gathering"
+      onSiteChange={setSelectedSite}
+      showAllOption
+    />
+  )
+
   // Context value for substeps — memoized to prevent cascade re-renders
   // across all consumers when an unrelated parent state changes.
   // IMPORTANT: These hooks must run on EVERY render (including preview mode)
@@ -345,12 +355,7 @@ export function DataGatheringStep({
                     Search external databases for ecological data
                   </p>
                 </div>
-                <SiteSelector
-                  projectId={project.id}
-                  stepKey="data-gathering"
-                  onSiteChange={setSelectedSite}
-                  showAllOption
-                />
+                {siteSelectorElement}
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant={isComplete ? 'default' : 'secondary'}>
@@ -370,12 +375,7 @@ export function DataGatheringStep({
                 onStepClick={(id) => setCurrentStep(id as WizardStep)}
                 compact
               />
-              <SiteSelector
-                projectId={project.id}
-                stepKey="data-gathering"
-                onSiteChange={setSelectedSite}
-                showAllOption
-              />
+              {siteSelectorElement}
             </div>
           ) : (
             <WizardStepIndicators

@@ -38,19 +38,24 @@ export function useTargetNotesHandlers({
 }: UseTargetNotesHandlersOptions) {
   const { toast } = useToast()
 
-  // React Query hooks - Observations
-  const { data: surveys = [] } = useSurveys(projectId)
-  const { data: observations = [], isLoading: observationsLoading } =
-    useProjectObservations(projectId)
-  const { data: savedFindings = [] } = useSavedFindings(projectId)
+  // React Query hooks - Observations (site-scoped at query level)
+  const { data: surveys = [] } = useSurveys(projectId, selectedSite?.id)
+  const { data: observations = [], isLoading: observationsLoading } = useProjectObservations(
+    projectId,
+    selectedSite?.id
+  )
+  const { data: savedFindings = [] } = useSavedFindings(projectId, selectedSite?.id)
   const createObservation = useCreateObservation()
   const updateObservation = useUpdateObservation()
   const deleteObservation = useDeleteObservation()
   const [isImporting, setIsImporting] = React.useState(false)
 
-  // React Query hooks - Target Notes
-  const { data: targetNotes = [], isLoading: targetNotesLoading } = useTargetNotes(projectId)
-  const { data: targetNotesStats } = useTargetNotesStats(projectId)
+  // React Query hooks - Target Notes (site-scoped at query level)
+  const { data: targetNotes = [], isLoading: targetNotesLoading } = useTargetNotes(
+    projectId,
+    selectedSite?.id
+  )
+  const { data: targetNotesStats } = useTargetNotesStats(projectId, selectedSite?.id)
   const createTargetNote = useCreateTargetNote()
   const updateTargetNote = useUpdateTargetNote()
   const deleteTargetNote = useDeleteTargetNote()
@@ -58,29 +63,15 @@ export function useTargetNotesHandlers({
 
   const isLoading = observationsLoading || targetNotesLoading
 
-  // Build set of survey IDs for the selected site
-  const siteSurveyIds = React.useMemo(() => {
-    if (!selectedSite) return null
-    return new Set(surveys.filter((s) => s.site_id === selectedSite.id).map((s) => s.id))
-  }, [surveys, selectedSite])
+  // surveys/observations are already site-scoped via the query hooks above.
+  // The "filtered" aliases are kept for downstream consumers; only the
+  // selected-survey narrowing for observations remains.
+  const filteredSurveys = surveys
 
-  // Filter surveys by selected site
-  const filteredSurveys = React.useMemo(() => {
-    if (!selectedSite) return surveys
-    return surveys.filter((s) => s.site_id === selectedSite.id)
-  }, [surveys, selectedSite])
-
-  // Filter observations by site (via survey) and by selected survey
   const filteredObservations = React.useMemo(() => {
-    let result = observations
-    if (siteSurveyIds) {
-      result = result.filter((o) => siteSurveyIds.has(o.survey_id))
-    }
-    if (selectedSurveyId) {
-      result = result.filter((o) => o.survey_id === selectedSurveyId)
-    }
-    return result
-  }, [observations, selectedSurveyId, siteSurveyIds])
+    if (!selectedSurveyId) return observations
+    return observations.filter((o) => o.survey_id === selectedSurveyId)
+  }, [observations, selectedSurveyId])
 
   // Group observations by taxon group
   const observationsByTaxon = React.useMemo(() => {
@@ -112,11 +103,9 @@ export function useTargetNotesHandlers({
     })
   }, [speciesFindings, alreadyImportedNames])
 
-  // Filter target notes by selected site
-  const filteredTargetNotes = React.useMemo(() => {
-    if (!selectedSite) return targetNotes
-    return targetNotes.filter((n) => n.site_id === selectedSite.id || n.site_id === null)
-  }, [targetNotes, selectedSite])
+  // targetNotes are already site-scoped via the query hook above.
+  // Alias kept so downstream consumers don't need to change.
+  const filteredTargetNotes = targetNotes
 
   // Group target notes by category
   const targetNotesByCategory = React.useMemo(() => {

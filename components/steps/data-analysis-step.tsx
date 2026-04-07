@@ -282,7 +282,9 @@ export function DataAnalysisStep({
             project={project}
           />
         )}
-        {activeTab === 'photographs' && <PhotographsTab projectId={project.id} />}
+        {activeTab === 'photographs' && (
+          <PhotographsTab projectId={project.id} siteId={selectedSiteId} />
+        )}
       </div>
 
       {/* Progress Panel */}

@@ -1,7 +1,10 @@
 'use client'
 
+import * as React from 'react'
 import type { Project, DeskResearchFinding } from '@/types/database'
 import type { TargetNoteWithCreator } from '@/lib/supabase/queries/target-notes'
+import type { ProjectSiteWithGeoJSON } from '@/lib/supabase/queries/project-sites'
+import { useProjectSites } from '@/hooks/queries/use-site-hooks'
 import { useToast } from '@/hooks/use-toast'
 
 // Helpers to extract data from raw_data

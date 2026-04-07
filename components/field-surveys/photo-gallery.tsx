@@ -41,12 +41,14 @@ const COMMON_TAGS = [
 
 interface PhotoGalleryProps {
   projectId: string
+  /** When set, only photos linked to entities in this site are shown. */
+  siteId?: string | null
   className?: string
 }
 
-export function PhotoGallery({ projectId, className }: PhotoGalleryProps) {
+export function PhotoGallery({ projectId, siteId, className }: PhotoGalleryProps) {
   const { toast } = useToast()
-  const { data: photos = [], isLoading } = useProjectPhotos(projectId)
+  const { data: photos = [], isLoading } = useProjectPhotos(projectId, siteId)
   const deletePhotoMutation = useDeletePhoto()
   const updatePhotoMutation = useUpdatePhoto()
 

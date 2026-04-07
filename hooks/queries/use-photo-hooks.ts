@@ -4,10 +4,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getProjectPhotos, createPhoto, updatePhoto, deletePhoto } from '@/lib/supabase/queries'
 import type { PhotoInsert, PhotoUpdate } from '@/types/database'
 
-export function useProjectPhotos(projectId: string) {
+export function useProjectPhotos(projectId: string, siteId?: string | null) {
   return useQuery({
-    queryKey: ['photos', projectId],
-    queryFn: () => getProjectPhotos(projectId),
+    queryKey: ['photos', projectId, siteId ?? null],
+    queryFn: () => getProjectPhotos(projectId, siteId),
     enabled: !!projectId,
   })
 }

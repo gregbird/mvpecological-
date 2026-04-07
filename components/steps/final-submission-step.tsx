@@ -99,7 +99,7 @@ export function FinalSubmissionStep({
   const { data: habitatStats } = useHabitatStats(project.id, selectedSiteId)
   const { data: observationStats } = useObservationStats(project.id, selectedSiteId)
   const { data: savedFindings } = useSavedFindings(project.id, selectedSiteId)
-  const { data: surveys } = useSurveys(project.id)
+  const { data: surveys } = useSurveys(project.id, selectedSiteId)
   const { data: sites } = useProjectSites(project.id)
   const activeSiteCode = selectedSiteId
     ? (sites?.find((s) => s.id === selectedSiteId)?.site_code ?? undefined)
@@ -368,6 +368,7 @@ export function FinalSubmissionStep({
         body: JSON.stringify({
           projectId: project.id,
           tabContext: 'field-survey',
+          siteId: selectedSiteId,
         }),
       })
 

@@ -21,6 +21,8 @@ interface TargetNoteFormProps {
   projectId: string
   userId: string
   findingId?: string
+  /** When set, the new note is bound to this site (multi-site projects) */
+  siteId?: string | null
   onSuccess?: () => void
   onCancel?: () => void
 }
@@ -46,6 +48,7 @@ export function TargetNoteForm({
   projectId,
   userId,
   findingId,
+  siteId,
   onSuccess,
   onCancel,
 }: TargetNoteFormProps) {
@@ -64,6 +67,7 @@ export function TargetNoteForm({
     try {
       await createNote.mutateAsync({
         project_id: projectId,
+        site_id: siteId ?? null,
         finding_id: findingId || null,
         category,
         title: title.trim(),

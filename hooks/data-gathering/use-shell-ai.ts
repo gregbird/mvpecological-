@@ -6,6 +6,33 @@ import type { SubstepShellConfig } from '@/components/steps/data-gathering/data-
 import type { DeskResearchFinding, Json } from '@/types/database'
 import { useUpdateFinding } from '@/hooks/queries/use-finding-hooks'
 
+// Module-level concurrency limiter shared across all useShellAi instances.
+// Without this, fire-and-forget batches (e.g. Save All on 27 invasive
+// species) spawn 10+ in-flight OpenAI requests, which trips OpenAI rate
+// limits and surfaces as a generic "Failed to fetch summary" toast.
+const MAX_CONCURRENT_AI_SUMMARIES = 3
+let aiSummaryInFlight = 0
+const aiSummaryWaiters: Array<() => void> = []
+
+const acquireAiSlot = (): Promise<void> =>
+  new Promise((resolve) => {
+    if (aiSummaryInFlight < MAX_CONCURRENT_AI_SUMMARIES) {
+      aiSummaryInFlight++
+      resolve()
+      return
+    }
+    aiSummaryWaiters.push(() => {
+      aiSummaryInFlight++
+      resolve()
+    })
+  })
+
+const releaseAiSlot = (): void => {
+  aiSummaryInFlight = Math.max(0, aiSummaryInFlight - 1)
+  const next = aiSummaryWaiters.shift()
+  if (next) next()
+}
+
 interface UseShellAiParams {
   config: SubstepShellConfig
   savedFindings: DeskResearchFinding[]
@@ -50,7 +77,14 @@ export function useShellAi({
         )
       )
 
+      // Throttle concurrent OpenAI calls — without this, batch flows like
+      // Save All saturate the OpenAI rate limit and surface as generic
+      // "Failed to fetch summary" errors.
+      await acquireAiSlot()
+
       try {
+        if (signal?.aborted) return
+
         const response = await fetch(config.aiSummaryEndpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -58,7 +92,16 @@ export function useShellAi({
           signal,
         })
 
-        if (!response.ok) throw new Error('Failed to fetch summary')
+        if (!response.ok) {
+          let detail = `HTTP ${response.status}`
+          try {
+            const errorBody = await response.json()
+            if (errorBody?.error) detail += `: ${errorBody.error}`
+          } catch {
+            // body wasn't JSON — fall back to status code only
+          }
+          throw new Error(`Failed to fetch summary (${detail})`)
+        }
 
         const data = await response.json()
 
@@ -118,6 +161,8 @@ export function useShellAi({
         if (!aborted) {
           console.error('AI summary error:', error)
         }
+      } finally {
+        releaseAiSlot()
       }
     },
     [savedFindings, setSearchResults, updateFinding]

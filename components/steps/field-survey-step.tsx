@@ -49,8 +49,8 @@ export function FieldSurveyStep({
   } | null>(null)
   const surveyListRef = React.useRef<HTMLDivElement>(null)
 
-  // React Query hooks
-  const { data: surveys = [], isLoading } = useSurveys(project.id)
+  // React Query hooks — surveys filtered by selected site for multi-site projects
+  const { data: surveys = [], isLoading } = useSurveys(project.id, selectedSiteId)
   const { data: projectSites = [] } = useProjectSites(project.id)
   const isMultiSite = projectSites.length > 1
 
@@ -70,7 +70,7 @@ export function FieldSurveyStep({
     },
   })
 
-  // Compute visit group counts for badge display
+  // Compute visit group counts for badge display (uses already-site-filtered surveys)
   const visitGroupCounts = React.useMemo(() => {
     const counts = new Map<string, number>()
     for (const s of surveys) {
@@ -82,7 +82,7 @@ export function FieldSurveyStep({
   }, [surveys])
 
   // Convert database surveys to card format
-  const surveysAsCards = React.useMemo(() => {
+  const filteredSurveys = React.useMemo(() => {
     return surveys.map(
       (s): SurveyCardType => ({
         id: s.id,
@@ -110,19 +110,10 @@ export function FieldSurveyStep({
     )
   }, [surveys, userId, visitGroupCounts])
 
-  // Filter surveys by selected site
-  const filteredSurveys = React.useMemo(() => {
-    if (!selectedSiteId) return surveysAsCards
-    return surveysAsCards.filter((s) => s.siteId === selectedSiteId)
-  }, [surveysAsCards, selectedSiteId])
-
-  // Group surveys by visit_group_id
+  // Group surveys by visit_group_id (input is already site-scoped)
   const { groups: surveyGroups, standalone: standaloneSurveys } = React.useMemo(() => {
-    const siteFiltered = selectedSiteId
-      ? surveys.filter((s) => s.site_id === selectedSiteId)
-      : surveys
-    return groupSurveysByVisit(siteFiltered as SurveyWithSurveyor[])
-  }, [surveys, selectedSiteId])
+    return groupSurveysByVisit(surveys as SurveyWithSurveyor[])
+  }, [surveys])
 
   // Group surveys by status
   const surveysByStatus = React.useMemo(() => {
@@ -188,7 +179,7 @@ export function FieldSurveyStep({
         </TabsList>
 
         <TabsContent value="photos" className="mt-4">
-          <PhotoGallery projectId={project.id} />
+          <PhotoGallery projectId={project.id} siteId={selectedSiteId} />
         </TabsContent>
 
         <TabsContent value="surveys" className="mt-4 space-y-6">
@@ -268,7 +259,7 @@ export function FieldSurveyStep({
           )}
 
           <div className="text-muted-foreground text-center text-xs">
-            {surveysAsCards.length} survey{surveysAsCards.length !== 1 ? 's' : ''} scheduled
+            {filteredSurveys.length} survey{filteredSurveys.length !== 1 ? 's' : ''} scheduled
           </div>
 
           {/* Survey Form Dialog */}
