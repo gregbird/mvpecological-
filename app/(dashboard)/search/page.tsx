@@ -56,14 +56,14 @@ export default function SearchPage() {
 
   if (isRoleLoading || isConnectionLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      <div className="bg-background flex min-h-screen items-center justify-center">
+        <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 lg:p-8 dark:bg-gray-900">
+    <div className="bg-background min-h-screen p-6 lg:p-8">
       <div className="mb-8">
         <div className="flex items-center gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#0061FE]">
@@ -71,7 +71,7 @@ export default function SearchPage() {
           </div>
           <div>
             <h1 className="text-foreground text-2xl font-bold">Document Search</h1>
-            <p className="mt-1 text-gray-600">
+            <p className="text-muted-foreground mt-1">
               Connect your Dropbox to index ecological reports and search across your firm&apos;s
               document library
             </p>
@@ -80,8 +80,8 @@ export default function SearchPage() {
       </div>
 
       {!organizationId ? (
-        <div className="py-16 text-center text-gray-500">
-          <Search className="mx-auto mb-3 h-12 w-12 text-gray-300" />
+        <div className="text-muted-foreground py-16 text-center">
+          <Search className="text-muted-foreground/40 mx-auto mb-3 h-12 w-12" />
           <p>No organization found. Please contact your administrator.</p>
         </div>
       ) : (

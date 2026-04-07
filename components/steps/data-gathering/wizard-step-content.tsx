@@ -227,6 +227,7 @@ export function WizardStepContent({
             userId={userId}
             isActive={currentStep === 'reports'}
             siteId={siteId}
+            savedFindings={savedFindings}
           />
         </div>
       )}

@@ -275,7 +275,10 @@ export function DataGatheringStep({
   }
 
   const isComplete = viewMode === 'preview' && workflowStep.status === 'approved'
-  const isMapMode = currentStep !== 'info' && currentStep !== 'reports' && currentStep !== 'review'
+  // Compact header (small wizard, no big title) is used for every substep
+  // except Project Info, where we still want the introductory header. The
+  // variable name is legacy from when only the map substeps used compact mode.
+  const isMapMode = currentStep !== 'info'
 
   // Single SiteSelector instance reused in both compact and full header layouts
   const siteSelectorElement = (

@@ -13,8 +13,14 @@ function getAppKey(): string {
 }
 
 const DROPBOX_TOKEN_URL = 'https://api.dropboxapi.com/oauth2/token'
+const DROPBOX_REVOKE_URL = 'https://api.dropboxapi.com/2/auth/token/revoke'
 
-/** Create a DropboxAuth instance to generate PKCE auth URL + code verifier */
+/** Create a DropboxAuth instance to generate PKCE auth URL + code verifier.
+ *  Always appends `force_reapprove=true` so users disconnecting and reconnecting
+ *  see the Dropbox approval screen instead of being silently re-linked to the
+ *  previously authorized account. The Dropbox approval screen also exposes a
+ *  "Sign in as a different user" link, which is the only OAuth-flow path to
+ *  switch accounts without clearing browser cookies. */
 export async function createAuthUrlWithPKCE(
   redirectUri: string,
   state: string
@@ -24,7 +30,7 @@ export async function createAuthUrlWithPKCE(
     fetch: globalThis.fetch,
   })
 
-  const authUrl = (await dbxAuth.getAuthenticationUrl(
+  const baseAuthUrl = (await dbxAuth.getAuthenticationUrl(
     redirectUri,
     state,
     'code',
@@ -34,9 +40,30 @@ export async function createAuthUrlWithPKCE(
     true // usePKCE
   )) as unknown as string
 
+  // The Dropbox SDK doesn't expose `force_reapprove` in its TS signature, so
+  // append it manually. Without it, an already-authorized user is silently
+  // re-linked to the same account on every Connect click.
+  const authUrl = baseAuthUrl + (baseAuthUrl.includes('?') ? '&' : '?') + 'force_reapprove=true'
+
   const codeVerifier = dbxAuth.getCodeVerifier()
 
   return { authUrl, codeVerifier }
+}
+
+/** Revoke an access token at Dropbox so it can no longer be used.
+ *  Best-effort: returns silently on failure (e.g. token already invalid). */
+export async function revokeAccessToken(accessToken: string): Promise<void> {
+  if (!accessToken) return
+  try {
+    await fetch(DROPBOX_REVOKE_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+  } catch {
+    // Token may already be invalid — disconnect should still succeed locally.
+  }
 }
 
 /** Exchange authorization code for tokens using direct fetch (not SDK, avoids this.fetch bug) */

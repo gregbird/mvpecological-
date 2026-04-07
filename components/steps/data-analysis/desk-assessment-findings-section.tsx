@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Database, MapPin, Bug, Droplets, Globe, Pencil, Plus } from 'lucide-react'
+import { Database, MapPin, Bug, Droplets, Globe, Pencil, Plus, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -38,6 +38,7 @@ const SOURCE_CONFIG: Record<string, { label: string; icon: typeof Database; colo
   epa: { label: 'EPA', icon: Droplets, color: 'text-cyan-600' },
   catchments: { label: 'Catchments', icon: Droplets, color: 'text-sky-600' },
   manual: { label: 'Manual', icon: Database, color: 'text-gray-600' },
+  company_reports: { label: 'Company Reports', icon: FileText, color: 'text-indigo-600' },
 }
 
 export function DeskAssessmentFindingsSection({

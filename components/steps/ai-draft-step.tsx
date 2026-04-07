@@ -276,8 +276,12 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
 
   const generateAllSections = async (onlyEmpty = false) => {
     for (const section of reportSectionDefs) {
-      if (onlyEmpty && sections.find((s) => s.id === section.id)?.content) {
-        continue
+      if (onlyEmpty) {
+        // "Generate All" only fills in untouched sections.
+        // Template-rendered content (aiGenerated=false, isEdited=false) is still "untouched"
+        // and should be replaced — we skip ONLY sections the user/AI has already populated.
+        const s = sections.find((sec) => sec.id === section.id)
+        if (s?.aiGenerated || s?.isEdited) continue
       }
       await generateSectionContent(section.id)
     }

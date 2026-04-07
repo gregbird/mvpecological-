@@ -24,7 +24,10 @@ function highlightMatch(text: string, searchQuery: string): React.ReactNode {
   const parts = text.split(pattern)
   return parts.map((part, i) =>
     pattern.test(part) ? (
-      <mark key={i} className="rounded bg-yellow-200 px-0.5">
+      <mark
+        key={i}
+        className="rounded bg-yellow-200 px-0.5 dark:bg-yellow-900 dark:text-yellow-100"
+      >
         {part}
       </mark>
     ) : (
@@ -40,7 +43,9 @@ function ExtensionBadge({ extension }: { extension: string | null }) {
     <Badge
       variant="outline"
       className={
-        isPdf ? 'border-red-200 bg-red-50 text-red-700' : 'border-blue-200 bg-blue-50 text-blue-700'
+        isPdf
+          ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/50 dark:text-red-300'
+          : 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-300'
       }
     >
       <File className="mr-1 h-3 w-3" />
@@ -62,7 +67,7 @@ function SearchResultCard({
   const displayText = expanded ? result.content : result.content.slice(0, PREVIEW_LEN)
 
   return (
-    <div className="border-border bg-card rounded-lg border p-4 transition-colors hover:border-emerald-200">
+    <div className="border-border bg-card rounded-lg border p-4 transition-colors hover:border-emerald-300 dark:hover:border-emerald-700">
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <FileText className="h-4 w-4 text-blue-500" />
         <span className="text-foreground text-sm font-medium">{result.file_name}</span>
@@ -86,7 +91,7 @@ function SearchResultCard({
       {isLong && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="mt-1 flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800"
+          className="mt-1 flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
         >
           {expanded ? (
             <>
@@ -101,7 +106,7 @@ function SearchResultCard({
           )}
         </button>
       )}
-      <p className="mt-2 text-xs text-gray-400">{result.file_path}</p>
+      <p className="text-muted-foreground/70 mt-2 text-xs">{result.file_path}</p>
     </div>
   )
 }
@@ -147,7 +152,7 @@ export function DocumentSearch({ organizationId }: DocumentSearchProps) {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="relative">
-          <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
           <Input
             placeholder="Search for species, habitats, site names..."
             value={query}
@@ -155,7 +160,7 @@ export function DocumentSearch({ organizationId }: DocumentSearchProps) {
             className="pl-10"
           />
           {isFetching && (
-            <Loader2 className="absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 animate-spin text-gray-400" />
+            <Loader2 className="text-muted-foreground absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 animate-spin" />
           )}
         </div>
 

@@ -61,19 +61,29 @@ export async function updateDropboxConnection(
   return data as DropboxConnectionRow
 }
 
+/** Disconnect a Dropbox connection.
+ *
+ * Calls the server route at `/api/auth/dropbox/disconnect` which:
+ *   1. Revokes the access token at Dropbox (so the bearer token dies),
+ *   2. Deletes indexed_documents (cascades to chunks),
+ *   3. Clears stored tokens + marks the row `disconnected`.
+ *
+ * Doing this client-side via Supabase would skip the Dropbox revoke and
+ * leave the token valid until the user manually un-authorises the app on
+ * dropbox.com — which is exactly the bug that lets a "Disconnect" → "Connect"
+ * cycle silently re-link the same account.
+ */
 export async function disconnectDropbox(connectionId: string): Promise<void> {
-  const supabase = createClient()
+  const response = await fetch('/api/auth/dropbox/disconnect', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ connectionId }),
+  })
 
-  // Delete all indexed documents (cascades to chunks)
-  await supabase.from('indexed_documents').delete().eq('connection_id', connectionId)
-
-  // Mark connection as disconnected
-  const { error } = await supabase
-    .from('dropbox_connections')
-    .update({ status: 'disconnected' })
-    .eq('id', connectionId)
-
-  if (error) throw new Error(`Failed to disconnect: ${error.message}`)
+  if (!response.ok) {
+    const data = (await response.json().catch(() => ({}))) as { error?: string }
+    throw new Error(data.error || 'Failed to disconnect')
+  }
 }
 
 // ─── Indexed Documents ──────────────────────────────────────────────

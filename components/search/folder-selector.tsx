@@ -121,7 +121,7 @@ export function FolderSelector({ connectionId }: FolderSelectorProps) {
     return fileEntries.map((entry) => (
       <div key={entry.path}>
         <div
-          className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800"
+          className="hover:bg-muted/50 flex items-center gap-2 rounded-lg px-3 py-2"
           style={{ paddingLeft: `${depth * 24 + 12}px` }}
         >
           {entry.isFolder ? (
@@ -130,14 +130,12 @@ export function FolderSelector({ connectionId }: FolderSelectorProps) {
               className="flex flex-1 items-center gap-2 text-left"
             >
               {expandedFolders.has(entry.path) ? (
-                <ChevronDown className="h-4 w-4 text-gray-400" />
+                <ChevronDown className="text-muted-foreground h-4 w-4" />
               ) : (
-                <ChevronRight className="h-4 w-4 text-gray-400" />
+                <ChevronRight className="text-muted-foreground h-4 w-4" />
               )}
               <Folder className="h-4 w-4 text-yellow-500" />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {entry.name}
-              </span>
+              <span className="text-foreground text-sm font-medium">{entry.name}</span>
             </button>
           ) : (
             <>
@@ -146,8 +144,8 @@ export function FolderSelector({ connectionId }: FolderSelectorProps) {
                 onCheckedChange={() => toggleFile(entry.path)}
               />
               <FileText className="h-4 w-4 text-blue-500" />
-              <span className="flex-1 text-sm text-gray-700 dark:text-gray-300">{entry.name}</span>
-              <span className="text-xs text-gray-400">{formatSize(entry.size)}</span>
+              <span className="text-foreground flex-1 text-sm">{entry.name}</span>
+              <span className="text-muted-foreground text-xs">{formatSize(entry.size)}</span>
             </>
           )}
         </div>
@@ -190,11 +188,11 @@ export function FolderSelector({ connectionId }: FolderSelectorProps) {
       <CardContent>
         {isLoading && entries.length === 0 ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-            <span className="ml-2 text-sm text-gray-500">Loading files...</span>
+            <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
+            <span className="text-muted-foreground ml-2 text-sm">Loading files...</span>
           </div>
         ) : entries.length === 0 ? (
-          <div className="py-8 text-center text-sm text-gray-500">
+          <div className="text-muted-foreground py-8 text-center text-sm">
             No PDF or DOCX files found in your Dropbox
           </div>
         ) : (

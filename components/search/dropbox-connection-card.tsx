@@ -48,8 +48,8 @@ export function DropboxConnectionCard({ connection }: DropboxConnectionCardProps
     return (
       <Card className="overflow-hidden">
         <CardContent className="p-0">
-          {/* Header band */}
-          <div className="bg-[#0061FE] px-8 py-10 text-center text-white">
+          {/* Header band — Dropbox brand blue (intentional in both modes) */}
+          <div className="bg-gradient-to-br from-[#0061FE] to-[#004BC4] px-8 py-10 text-center text-white">
             <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm">
               <DropboxIcon className="h-10 w-10 text-white" />
             </div>
@@ -80,10 +80,10 @@ export function DropboxConnectionCard({ connection }: DropboxConnectionCardProps
               ].map((f) => (
                 <div
                   key={f.title}
-                  className="rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-800"
+                  className="border-border bg-muted/40 dark:bg-muted/30 rounded-lg border p-4"
                 >
                   <h4 className="text-foreground text-sm font-semibold">{f.title}</h4>
-                  <p className="mt-1 text-xs text-gray-500">{f.desc}</p>
+                  <p className="text-muted-foreground mt-1 text-xs">{f.desc}</p>
                 </div>
               ))}
             </div>
@@ -93,12 +93,12 @@ export function DropboxConnectionCard({ connection }: DropboxConnectionCardProps
               <Button
                 onClick={handleConnect}
                 size="lg"
-                className="gap-2.5 bg-[#0061FE] px-8 text-base hover:bg-[#0050D4]"
+                className="gap-2.5 bg-[#0061FE] px-8 text-base text-white hover:bg-[#0050D4]"
               >
                 <DropboxIcon className="h-5 w-5" />
                 Connect Dropbox
               </Button>
-              <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-gray-400">
+              <p className="text-muted-foreground mt-3 flex items-center justify-center gap-1.5 text-xs">
                 <Shield className="h-3.5 w-3.5" />
                 Secure OAuth 2.0 — your password is never shared
               </p>
@@ -113,7 +113,7 @@ export function DropboxConnectionCard({ connection }: DropboxConnectionCardProps
     <Card className="overflow-hidden">
       <CardContent className="p-0">
         {/* Connected header */}
-        <div className="flex items-center justify-between border-b bg-gradient-to-r from-[#0061FE]/5 to-transparent px-6 py-5">
+        <div className="flex items-center justify-between border-b bg-gradient-to-r from-[#0061FE]/5 to-transparent px-6 py-5 dark:from-[#0061FE]/10">
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#0061FE]">
               <DropboxIcon className="h-6 w-6 text-white" />
@@ -123,13 +123,13 @@ export function DropboxConnectionCard({ connection }: DropboxConnectionCardProps
                 <h3 className="text-foreground font-semibold">Dropbox</h3>
                 <Badge
                   variant="outline"
-                  className="gap-1 border-green-200 bg-green-50 text-green-700"
+                  className="gap-1 border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950/40 dark:text-green-300"
                 >
                   <CheckCircle2 className="h-3 w-3" />
                   Connected
                 </Badge>
               </div>
-              <p className="mt-0.5 text-sm text-gray-500">{connection.account_email}</p>
+              <p className="text-muted-foreground mt-0.5 text-sm">{connection.account_email}</p>
             </div>
           </div>
 
@@ -143,7 +143,7 @@ export function DropboxConnectionCard({ connection }: DropboxConnectionCardProps
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-1.5 text-red-600 hover:bg-red-50 hover:text-red-700"
+                  className="gap-1.5 text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/40 dark:hover:text-red-300"
                 >
                   <Unlink className="h-3.5 w-3.5" />
                   Disconnect
@@ -179,17 +179,17 @@ export function DropboxConnectionCard({ connection }: DropboxConnectionCardProps
 
         {/* Stats */}
         <div className="px-6 py-4">
-          <div className="flex gap-6 text-sm text-gray-500">
+          <div className="text-muted-foreground flex gap-6 text-sm">
             <span>
               Connected:{' '}
-              <span className="font-medium text-gray-700 dark:text-gray-300">
+              <span className="text-foreground font-medium">
                 {new Date(connection.created_at).toLocaleDateString()}
               </span>
             </span>
             {connection.last_synced_at && (
               <span>
                 Last synced:{' '}
-                <span className="font-medium text-gray-700 dark:text-gray-300">
+                <span className="text-foreground font-medium">
                   {new Date(connection.last_synced_at).toLocaleDateString()}
                 </span>
               </span>

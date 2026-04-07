@@ -48,14 +48,44 @@ export function useCreateFinding() {
   return useMutation({
     mutationFn: (finding: InsertTables<'desk_research_findings'>) => createFinding(finding),
     onSuccess: (data, variables) => {
-      // Immediately add to cache so UI updates in sync with spinner
-      const key = ['saved-findings', variables.project_id]
-      const prev = queryClient.getQueryData<DeskResearchFinding[]>(key)
-      if (prev && data) {
-        queryClient.setQueryData(key, [data, ...prev])
-      } else {
-        queryClient.invalidateQueries({ queryKey: key })
+      if (!data) return
+
+      // saved-findings keys are 3-element: ['saved-findings', projectId, siteId]
+      // Use findAll() so we patch BOTH the per-site and the project-wide caches
+      // (matches `useDeleteFinding`'s pattern). A 2-element setQueryData would
+      // miss the actual queries entirely and the optimistic update would never
+      // fire.
+      const matchingQueries = queryClient
+        .getQueryCache()
+        .findAll({ queryKey: ['saved-findings', variables.project_id] })
+
+      let patched = false
+      for (const query of matchingQueries) {
+        const prev = query.state.data as DeskResearchFinding[] | undefined
+        if (!prev) continue
+
+        // Site-scoped query: only patch caches whose siteId matches the new
+        // finding's site_id (or whose siteId is null = "All Sites" view).
+        const cachedSiteId = query.queryKey[2] as string | null | undefined
+        if (cachedSiteId != null && cachedSiteId !== variables.site_id) continue
+
+        queryClient.setQueryData(query.queryKey, [data, ...prev])
+        patched = true
       }
+
+      // If no cache existed yet (e.g. first save before the list was fetched),
+      // fall back to invalidation so the next mount picks it up.
+      if (!patched) {
+        queryClient.invalidateQueries({
+          queryKey: ['saved-findings', variables.project_id],
+        })
+      }
+
+      // Stats counts always need a refresh (the cache patch above doesn't
+      // recompute byType/bySource).
+      queryClient.invalidateQueries({
+        queryKey: ['findings-stats', variables.project_id],
+      })
     },
   })
 }
@@ -122,12 +152,39 @@ export function useBulkSaveFindings() {
 
   return useMutation({
     mutationFn: (findings: InsertTables<'desk_research_findings'>[]) => bulkSaveFindings(findings),
-    onSuccess: (data) => {
-      if (data.length > 0) {
-        queryClient.invalidateQueries({ queryKey: ['findings'] })
-        queryClient.invalidateQueries({ queryKey: ['saved-findings'] })
-        queryClient.invalidateQueries({ queryKey: ['findings-stats'] })
+    onSuccess: (data, variables) => {
+      if (data.length === 0) return
+
+      const projectId = variables[0]?.project_id
+      if (!projectId) return
+
+      // saved-findings keys are 3-element: ['saved-findings', projectId, siteId]
+      // Patch every matching cache (per-site + "All Sites" null), filtering each
+      // bulk row by its own site_id so a multi-site batch doesn't leak rows
+      // into the wrong site's cache.
+      const matchingQueries = queryClient
+        .getQueryCache()
+        .findAll({ queryKey: ['saved-findings', projectId] })
+
+      let patched = false
+      for (const query of matchingQueries) {
+        const prev = query.state.data as DeskResearchFinding[] | undefined
+        if (!prev) continue
+
+        const cachedSiteId = query.queryKey[2] as string | null | undefined
+        // Null = "All Sites" cache → take everything; otherwise filter to this site.
+        const rowsForCache =
+          cachedSiteId == null ? data : data.filter((row) => row.site_id === cachedSiteId)
+        if (rowsForCache.length === 0) continue
+
+        queryClient.setQueryData(query.queryKey, [...rowsForCache, ...prev])
+        patched = true
       }
+
+      if (!patched) {
+        queryClient.invalidateQueries({ queryKey: ['saved-findings', projectId] })
+      }
+      queryClient.invalidateQueries({ queryKey: ['findings-stats', projectId] })
     },
   })
 }

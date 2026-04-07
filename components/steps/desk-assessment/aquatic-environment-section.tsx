@@ -250,15 +250,32 @@ export function AquaticEnvironmentSection({
       const raw = f.raw_data as Record<string, unknown> | null
       const metadata = raw?.metadata as Record<string, unknown> | null
       const siteType = (metadata?.siteType as string) || ''
-      const isLake = siteType.toLowerCase().includes('lake')
+
+      // Classify the feature so catchments don't get mislabeled as "River"
+      // (the previous logic only distinguished Lake vs. River).
+      let waterType: 'River' | 'Lake' | 'Catchment' = 'River'
+      let color = '#3b82f6'
+      if (siteType.toLowerCase().includes('lake')) {
+        waterType = 'Lake'
+        color = '#06b6d4'
+      } else if (siteType.toLowerCase().includes('catchment') || f.data_type === 'catchment') {
+        waterType = 'Catchment'
+        color = '#14b8a6'
+      }
 
       return {
         type: 'Feature',
         geometry: f.location as GeoJSON.Geometry,
         properties: {
           fossitt_name: f.title,
-          fossitt_code: isLake ? 'Lake' : 'River',
-          color: isLake ? '#06b6d4' : '#3b82f6',
+          // Catchments cover huge areas — skip the centered label so the map
+          // doesn't end up with "Catchment" painted across half the country.
+          // Rivers/lakes keep their label since they're small enough to read.
+          fossitt_code: waterType === 'Catchment' ? '\u2014' : waterType,
+          color,
+          // Drop the catchment fill so the basemap stays legible underneath.
+          // River/lake features keep the default 0.35 from habitatStyle.
+          fillOpacity: waterType === 'Catchment' ? 0.15 : 0.35,
         },
       }
     })

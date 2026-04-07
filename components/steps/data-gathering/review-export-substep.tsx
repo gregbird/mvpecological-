@@ -3,6 +3,7 @@
 import * as React from 'react'
 import {
   Check,
+  ChevronDown,
   Loader2,
   MapPin,
   Shield,
@@ -13,6 +14,8 @@ import {
   Sparkles,
   BookOpen,
   Plus,
+  Layers,
+  FileText,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
@@ -20,6 +23,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import {
   Dialog,
   DialogContent,
@@ -28,6 +32,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import { cn } from '@/lib/utils'
 import { TargetNoteForm } from './target-note-form'
 import { ReviewFindingsTable } from './review-findings-table'
 import { ExportPanel } from './export-panel'
@@ -107,6 +112,56 @@ const CATEGORY_LABELS: Record<string, string> = {
   ownership: 'Ownership',
 }
 
+// Saved-findings groups, ordered to mirror the Data Gathering wizard so the
+// review summary reads top-to-bottom in step order.
+type FindingGroupKey = 'sites' | 'species' | 'aquatic' | 'habitats' | 'reports' | 'other'
+
+interface FindingGroupConfig {
+  key: FindingGroupKey
+  label: string
+  icon: React.ElementType
+  iconClass: string
+  matches: (f: DeskResearchFinding) => boolean
+}
+
+const FINDING_GROUPS: FindingGroupConfig[] = [
+  {
+    key: 'sites',
+    label: 'Designated Sites',
+    icon: MapPin,
+    iconClass: 'text-emerald-600 dark:text-emerald-400',
+    matches: (f) => f.data_type === 'designated_site',
+  },
+  {
+    key: 'species',
+    label: 'Species Records',
+    icon: Bug,
+    iconClass: 'text-purple-600 dark:text-purple-400',
+    matches: (f) => f.data_type === 'species_record',
+  },
+  {
+    key: 'aquatic',
+    label: 'Aquatic Features',
+    icon: Waves,
+    iconClass: 'text-cyan-600 dark:text-cyan-400',
+    matches: (f) => f.data_type === 'water_quality' || f.data_type === 'catchment',
+  },
+  {
+    key: 'habitats',
+    label: 'Habitat Data',
+    icon: Layers,
+    iconClass: 'text-green-600 dark:text-green-400',
+    matches: (f) => f.data_type === 'habitat',
+  },
+  {
+    key: 'reports',
+    label: 'Company Reports',
+    icon: FileText,
+    iconClass: 'text-indigo-600 dark:text-indigo-400',
+    matches: (f) => f.data_type === 'company_report',
+  },
+]
+
 export function ReviewExportSubStep({
   project,
   projectBoundary,
@@ -173,6 +228,66 @@ export function ReviewExportSubStep({
     return groups
   }, [savedFindings])
 
+  // Group findings by wizard step (one bucket per substep) so the saved
+  // findings list can be rendered as collapsible toggles instead of one
+  // long flat list.
+  const findingsByGroup = React.useMemo(() => {
+    const groups: Record<FindingGroupKey, DeskResearchFinding[]> = {
+      sites: [],
+      species: [],
+      aquatic: [],
+      habitats: [],
+      reports: [],
+      other: [],
+    }
+    for (const finding of savedFindings) {
+      const matched = FINDING_GROUPS.find((g) => g.matches(finding))
+      if (matched) {
+        groups[matched.key].push(finding)
+      } else {
+        groups.other.push(finding)
+      }
+    }
+    return groups
+  }, [savedFindings])
+
+  // Track which finding groups are expanded — default collapsed so the user
+  // sees a clean overview and can drill into the steps they care about.
+  const [expandedGroups, setExpandedGroups] = React.useState<Set<FindingGroupKey>>(() => new Set())
+  const toggleGroup = React.useCallback((key: FindingGroupKey) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }, [])
+
+  // Map layer filter — controls which finding data_types render on the map.
+  // Defaults to designated sites + aquatic visible (clean view); habitats are
+  // hidden by default because their dense polygon coverage dominates the map.
+  type MapLayerKey = 'sites' | 'aquatic' | 'habitats'
+  const [visibleMapLayers, setVisibleMapLayers] = React.useState<Set<MapLayerKey>>(
+    () => new Set<MapLayerKey>(['sites', 'aquatic'])
+  )
+  const toggleMapLayer = React.useCallback((key: MapLayerKey) => {
+    setVisibleMapLayers((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }, [])
+
+  // Translate layer toggles into the data_type list ProjectMap accepts.
+  const visibleFindingTypes = React.useMemo(() => {
+    const types: string[] = []
+    if (visibleMapLayers.has('sites')) types.push('designated_site')
+    if (visibleMapLayers.has('aquatic')) types.push('water_quality', 'catchment')
+    if (visibleMapLayers.has('habitats')) types.push('habitat')
+    return types
+  }, [visibleMapLayers])
+
   // Use project-wide finding count for completion gating so a single-site
   // view with no findings doesn't disable the button while other sites do
   // have data. Falls back to the local count when the prop isn't supplied.
@@ -181,62 +296,56 @@ export function ReviewExportSubStep({
 
   return (
     <div className="flex h-full">
-      {/* Left Panel - Summary (60%) */}
-      <div className="bg-background flex w-[60%] shrink-0 flex-col border-r">
-        {/* Header */}
-        <div className="border-b p-4">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="text-lg font-semibold">Review & Export</h3>
-            {scopeLabel && (
-              <Badge variant="outline" className="text-[10px] font-medium">
-                {scopeLabel}
-              </Badge>
-            )}
-          </div>
-          <p className="text-muted-foreground text-sm">
-            {savedFindings.length} findings {scopeLabel ? `(${scopeLabel.toLowerCase()})` : ''}
-            {projectWideFindingsCount != null &&
-              projectWideFindingsCount !== savedFindings.length &&
-              ` · ${projectWideFindingsCount} project-wide`}
-          </p>
-        </div>
-
+      {/* Left Panel - Summary (55%) */}
+      <div className="bg-background flex w-[55%] shrink-0 flex-col border-r">
         {/* Scrollable Content */}
         <ScrollArea className="flex-1">
-          <div className="space-y-4 p-4">
-            {/* Quick Stats */}
-            <div className="grid grid-cols-4 gap-2">
-              <div className="rounded-lg border bg-emerald-50 p-3 text-center dark:bg-emerald-950">
-                <MapPin className="mx-auto mb-1 h-5 w-5 text-emerald-600" />
-                <div className="text-xl font-bold text-emerald-700 dark:text-emerald-400">
-                  {stats.designatedSites}
-                </div>
-                <div className="text-[10px] text-emerald-600 dark:text-emerald-500">
-                  Designated Sites
-                </div>
-              </div>
-              <div className="rounded-lg border bg-purple-50 p-3 text-center dark:bg-purple-950">
-                <Bug className="mx-auto mb-1 h-5 w-5 text-purple-600 dark:text-purple-400" />
-                <div className="text-xl font-bold text-purple-700 dark:text-purple-400">
-                  {stats.speciesRecords}
-                </div>
-                <div className="text-[10px] text-purple-600 dark:text-purple-500">
-                  Species Records
+          <div className="space-y-3 p-4">
+            {/* Compact stat strip — 4 inline cards instead of large p-3 boxes */}
+            <div className="grid grid-cols-4 gap-1.5">
+              <div className="flex items-center gap-1.5 rounded-md border bg-emerald-50 px-2 py-1.5 dark:bg-emerald-950">
+                <MapPin className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <div className="min-w-0 leading-tight">
+                  <div className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                    {stats.designatedSites}
+                  </div>
+                  <div className="truncate text-[9px] text-emerald-600 dark:text-emerald-500">
+                    Sites
+                  </div>
                 </div>
               </div>
-              <div className="rounded-lg border bg-cyan-50 p-3 text-center dark:bg-cyan-950">
-                <Waves className="mx-auto mb-1 h-5 w-5 text-cyan-600 dark:text-cyan-400" />
-                <div className="text-xl font-bold text-cyan-700 dark:text-cyan-400">
-                  {stats.waterFeatures}
+              <div className="flex items-center gap-1.5 rounded-md border bg-purple-50 px-2 py-1.5 dark:bg-purple-950">
+                <Bug className="h-3.5 w-3.5 shrink-0 text-purple-600 dark:text-purple-400" />
+                <div className="min-w-0 leading-tight">
+                  <div className="text-sm font-bold text-purple-700 dark:text-purple-400">
+                    {stats.speciesRecords}
+                  </div>
+                  <div className="truncate text-[9px] text-purple-600 dark:text-purple-500">
+                    Species
+                  </div>
                 </div>
-                <div className="text-[10px] text-cyan-600 dark:text-cyan-500">Aquatic Features</div>
               </div>
-              <div className="rounded-lg border bg-red-50 p-3 text-center dark:bg-red-950">
-                <Shield className="mx-auto mb-1 h-5 w-5 text-red-600 dark:text-red-400" />
-                <div className="text-xl font-bold text-red-700 dark:text-red-400">
-                  {stats.protectedItems}
+              <div className="flex items-center gap-1.5 rounded-md border bg-cyan-50 px-2 py-1.5 dark:bg-cyan-950">
+                <Waves className="h-3.5 w-3.5 shrink-0 text-cyan-600 dark:text-cyan-400" />
+                <div className="min-w-0 leading-tight">
+                  <div className="text-sm font-bold text-cyan-700 dark:text-cyan-400">
+                    {stats.waterFeatures}
+                  </div>
+                  <div className="truncate text-[9px] text-cyan-600 dark:text-cyan-500">
+                    Aquatic
+                  </div>
                 </div>
-                <div className="text-[10px] text-red-600">Protected</div>
+              </div>
+              <div className="flex items-center gap-1.5 rounded-md border bg-red-50 px-2 py-1.5 dark:bg-red-950">
+                <Shield className="h-3.5 w-3.5 shrink-0 text-red-600 dark:text-red-400" />
+                <div className="min-w-0 leading-tight">
+                  <div className="text-sm font-bold text-red-700 dark:text-red-400">
+                    {stats.protectedItems}
+                  </div>
+                  <div className="truncate text-[9px] text-red-600 dark:text-red-500">
+                    Protected
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -297,12 +406,92 @@ export function ReviewExportSubStep({
               <ScreenshotGallery projectId={project.id} isActive={isActive} />
             </div>
 
-            {/* Saved Findings List */}
+            {/* Saved Findings — grouped by wizard step, collapsible */}
             <div className="rounded-lg border p-3">
               <div className="mb-2 flex items-center justify-between">
                 <h4 className="text-sm font-medium">Saved Findings ({savedFindings.length})</h4>
               </div>
-              <ReviewFindingsTable savedFindings={savedFindings} />
+              {savedFindings.length === 0 ? (
+                <p className="text-muted-foreground py-3 text-center text-xs">
+                  No findings saved yet
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {FINDING_GROUPS.map((group) => {
+                    const items = findingsByGroup[group.key]
+                    if (items.length === 0) return null
+                    const Icon = group.icon
+                    const isOpen = expandedGroups.has(group.key)
+                    return (
+                      <Collapsible
+                        key={group.key}
+                        open={isOpen}
+                        onOpenChange={() => toggleGroup(group.key)}
+                      >
+                        <CollapsibleTrigger asChild>
+                          <button
+                            type="button"
+                            className={cn(
+                              'flex w-full items-center justify-between gap-2 rounded-md border bg-gray-50 px-3 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700',
+                              isOpen && 'bg-gray-100 dark:bg-gray-700'
+                            )}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Icon className={cn('h-4 w-4 shrink-0', group.iconClass)} />
+                              <span className="font-medium">{group.label}</span>
+                              <Badge variant="secondary" className="text-[10px]">
+                                {items.length}
+                              </Badge>
+                            </div>
+                            <ChevronDown
+                              className={cn(
+                                'h-4 w-4 shrink-0 text-gray-400 transition-transform',
+                                isOpen && 'rotate-180'
+                              )}
+                            />
+                          </button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="pt-2">
+                          <ReviewFindingsTable savedFindings={items} />
+                        </CollapsibleContent>
+                      </Collapsible>
+                    )
+                  })}
+                  {findingsByGroup.other.length > 0 && (
+                    <Collapsible
+                      open={expandedGroups.has('other')}
+                      onOpenChange={() => toggleGroup('other')}
+                    >
+                      <CollapsibleTrigger asChild>
+                        <button
+                          type="button"
+                          className={cn(
+                            'flex w-full items-center justify-between gap-2 rounded-md border bg-gray-50 px-3 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700',
+                            expandedGroups.has('other') && 'bg-gray-100 dark:bg-gray-700'
+                          )}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="h-4 w-4 shrink-0 text-gray-500" />
+                            <span className="font-medium">Other</span>
+                            <Badge variant="secondary" className="text-[10px]">
+                              {findingsByGroup.other.length}
+                            </Badge>
+                          </div>
+                          <ChevronDown
+                            className={cn(
+                              'h-4 w-4 shrink-0 text-gray-400 transition-transform',
+                              expandedGroups.has('other') && 'rotate-180'
+                            )}
+                          />
+                        </button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="pt-2">
+                        <ReviewFindingsTable savedFindings={findingsByGroup.other} />
+                      </CollapsibleContent>
+                    </Collapsible>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Target Notes */}
@@ -437,8 +626,61 @@ export function ReviewExportSubStep({
         </div>
       </div>
 
-      {/* Right - Map (40%) */}
-      <div className="w-[40%] shrink-0">
+      {/* Right - Map (45%) */}
+      <div className="relative w-[45%] shrink-0">
+        {/* Floating layer filter — sits above map controls so the user can
+            quickly cull the noisy habitat layer (or any other type) without
+            opening the full Layers dropdown. */}
+        <div
+          data-map-control="true"
+          className="bg-background/90 pointer-events-auto absolute top-4 left-1/2 z-9999 flex -translate-x-1/2 items-center gap-1 rounded-full border p-1 shadow-md backdrop-blur-sm"
+        >
+          {(
+            [
+              {
+                key: 'sites' as const,
+                label: 'Sites',
+                icon: MapPin,
+                activeClass:
+                  'bg-emerald-500 text-white border-emerald-500 dark:bg-emerald-600 dark:border-emerald-600',
+              },
+              {
+                key: 'aquatic' as const,
+                label: 'Aquatic',
+                icon: Waves,
+                activeClass:
+                  'bg-cyan-500 text-white border-cyan-500 dark:bg-cyan-600 dark:border-cyan-600',
+              },
+              {
+                key: 'habitats' as const,
+                label: 'Habitats',
+                icon: Layers,
+                activeClass:
+                  'bg-green-500 text-white border-green-500 dark:bg-green-600 dark:border-green-600',
+              },
+            ] as const
+          ).map(({ key, label, icon: Icon, activeClass }) => {
+            const active = visibleMapLayers.has(key)
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => toggleMapLayer(key)}
+                className={cn(
+                  'flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors',
+                  active
+                    ? activeClass
+                    : 'border-transparent text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
+                )}
+                title={`${active ? 'Hide' : 'Show'} ${label}`}
+              >
+                <Icon className="h-3 w-3" />
+                {label}
+              </button>
+            )
+          })}
+        </div>
+
         <ProjectMap
           className="h-full"
           center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
@@ -447,6 +689,7 @@ export function ReviewExportSubStep({
           otherBoundaries={otherBoundaries}
           allBoundaries={allBoundaries}
           bufferDistances={bufferDistances}
+          visibleFindingTypes={visibleFindingTypes}
           findings={savedFindings.map((f) => {
             const raw = f.raw_data as Record<string, unknown> | null
             const meta = raw?.metadata as Record<string, unknown> | undefined
@@ -465,6 +708,8 @@ export function ReviewExportSubStep({
                 | 'species_record'
                 | 'water_quality'
                 | 'catchment'
+                | 'habitat'
+                | 'company_report'
                 | 'other',
               title: f.title,
               content: f.content || undefined,

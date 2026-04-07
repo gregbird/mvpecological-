@@ -139,9 +139,21 @@ export const NLC_LEVEL1_COLORS: Record<string, string> = {
 
 /**
  * Fetch NLC 2018 polygons with geometry for map display.
- * Uses outSR=4326 and maxAllowableOffset for geometry simplification.
- * Paginates with resultOffset to retrieve all polygons (ArcGIS returns max 2000 per request).
- * Returns GeoJSON FeatureCollection for Leaflet rendering.
+ *
+ * NLC is a Triangulated Irregular Network (TIN) — every habitat polygon is
+ * shipped as hundreds of tiny triangles. We dissolve them per LEVEL_2_ID
+ * (habitat type) so the final feature collection only has ~28 features
+ * regardless of input size.
+ *
+ * Pagination details:
+ *  - ArcGIS caps each request at 2000 features (server-side limit)
+ *  - We page until exhaustion or until we hit MAX_FEATURES
+ *  - Page rows are dissolved into the running grouped map IMMEDIATELY so
+ *    memory stays bounded even when we fetch tens of thousands of triangles
+ *  - `orderByFields: 'LEVEL_2_ID'` ensures features come back in habitat
+ *    order, so a hard MAX_FEATURES cap loses entire trailing categories
+ *    rather than partial polygons of every category — but we set the cap
+ *    high enough that this only matters as a safety valve.
  */
 export async function fetchNlcPolygons(
   params: NlcSearchParams
@@ -149,15 +161,27 @@ export async function fetchNlcPolygons(
   const { bbox } = params
   const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] }
 
-  // Simplification tolerance scales with bbox — larger area = more aggressive simplification
-  // to keep polygon count and geometry size manageable
+  // Simplification tolerance scales with bbox — larger area = more aggressive
+  // simplification to keep polygon count and geometry size manageable
   const extent = Math.max(bbox.maxLng - bbox.minLng, bbox.maxLat - bbox.minLat)
   const simplifyTolerance = extent * 0.01
 
-  const PAGE_SIZE = 1000
-  const MAX_FEATURES = 5000
-  const allFeatures: GeoJSON.Feature[] = []
-  let offset = 0
+  const PAGE_SIZE = 2000 // ArcGIS server-side max per request
+  // Safety cap: large multi-site searches over Co. Louth-sized bboxes can
+  // return 30k+ TIN triangles. 5000 (the previous cap) silently dropped
+  // entire habitat categories like Lakes and Ponds, Scrub, Immature
+  // woodland — they fell off the end of the ObjectID ordering. 50k is
+  // generous enough for any realistic Irish project bbox while still
+  // bounding worst-case latency.
+  const MAX_FEATURES = 50000
+
+  // Running dissolve map — keyed by NLC LEVEL_2_ID so memory stays bounded
+  // regardless of how many TIN triangles we paginate through.
+  const grouped = new Map<
+    string,
+    { coords: GeoJSON.Position[][][]; props: Record<string, unknown>; totalArea: number }
+  >()
+  let totalFetched = 0
 
   const geometryJson = JSON.stringify({
     xmin: bbox.minLng,
@@ -168,6 +192,7 @@ export async function fetchNlcPolygons(
   })
 
   try {
+    let offset = 0
     while (offset < MAX_FEATURES) {
       const body = new URLSearchParams({
         f: 'geojson',
@@ -178,6 +203,9 @@ export async function fetchNlcPolygons(
         inSR: '4326',
         outSR: '4326',
         outFields: 'LEVEL_2_ID,LEVEL_2_VALUE,LEVEL_1_VALUE,AREA',
+        // Order by habitat category so paged dissolve happens in coherent
+        // batches and a hard cap clips trailing categories cleanly.
+        orderByFields: 'LEVEL_2_ID',
         maxAllowableOffset: simplifyTolerance.toString(),
         resultRecordCount: PAGE_SIZE.toString(),
         resultOffset: offset.toString(),
@@ -210,43 +238,46 @@ export async function fetchNlcPolygons(
       const fc = data as GeoJSON.FeatureCollection
       if (!fc.features || fc.features.length === 0) break
 
-      allFeatures.push(...fc.features)
+      // Dissolve this page into the running grouped map immediately so the
+      // raw triangles can be garbage-collected before the next page lands.
+      for (const feature of fc.features) {
+        const props = feature.properties ?? {}
+        const nlcId = String(props.LEVEL_2_ID || 'unknown')
+        const geom = feature.geometry
+
+        let polyCoords: GeoJSON.Position[][][] = []
+        if (geom.type === 'Polygon') {
+          polyCoords = [(geom as GeoJSON.Polygon).coordinates]
+        } else if (geom.type === 'MultiPolygon') {
+          polyCoords = (geom as GeoJSON.MultiPolygon).coordinates
+        }
+
+        const existing = grouped.get(nlcId)
+        if (existing) {
+          existing.coords.push(...polyCoords)
+          existing.totalArea += Number(props.AREA || 0)
+        } else {
+          grouped.set(nlcId, {
+            coords: [...polyCoords],
+            props,
+            totalArea: Number(props.AREA || 0),
+          })
+        }
+      }
+
+      totalFetched += fc.features.length
 
       // If we got fewer than PAGE_SIZE, we've reached the end
       if (fc.features.length < PAGE_SIZE) break
       offset += PAGE_SIZE
     }
 
-    if (allFeatures.length === 0) return empty
+    if (grouped.size === 0) return empty
 
-    // Dissolve: merge all triangle features with the same LEVEL_2_ID into a single
-    // MultiPolygon feature per habitat type. NLC returns a TIN (triangulated mesh),
-    // so without this step we'd have thousands of tiny triangles killing Leaflet.
-    const grouped = new Map<
-      string,
-      { coords: GeoJSON.Position[][][]; props: Record<string, unknown>; totalArea: number }
-    >()
-
-    for (const feature of allFeatures) {
-      const props = feature.properties ?? {}
-      const nlcId = String(props.LEVEL_2_ID || 'unknown')
-      const geom = feature.geometry
-
-      // Extract polygon coordinate rings
-      let polyCoords: GeoJSON.Position[][][] = []
-      if (geom.type === 'Polygon') {
-        polyCoords = [(geom as GeoJSON.Polygon).coordinates]
-      } else if (geom.type === 'MultiPolygon') {
-        polyCoords = (geom as GeoJSON.MultiPolygon).coordinates
-      }
-
-      const existing = grouped.get(nlcId)
-      if (existing) {
-        existing.coords.push(...polyCoords)
-        existing.totalArea += Number(props.AREA || 0)
-      } else {
-        grouped.set(nlcId, { coords: [...polyCoords], props, totalArea: Number(props.AREA || 0) })
-      }
+    if (totalFetched >= MAX_FEATURES) {
+      console.warn(
+        `NLC polygon fetch hit MAX_FEATURES cap (${MAX_FEATURES}). Trailing habitat categories may be missing.`
+      )
     }
 
     // Build merged features — one per habitat type
@@ -281,10 +312,30 @@ export async function fetchNlcPolygons(
     } else {
       console.error('NLC polygon query error:', error)
     }
-    // Return whatever we've collected so far
-    if (allFeatures.length > 0) {
-      return { type: 'FeatureCollection', features: allFeatures }
+    // Return whatever we've successfully dissolved so far
+    if (grouped.size === 0) return empty
+    const partialFeatures: GeoJSON.Feature[] = []
+    for (const [nlcId, { coords, props, totalArea }] of grouped) {
+      const level1 = String(props.LEVEL_1_VALUE || '')
+      const fossitt = mapNlcToFossitt(nlcId)
+      const fossittCode = fossitt?.fossittCode || ''
+      const fossittColor = fossittCode
+        ? HERITAGE_COUNCIL_COLORS[fossittCode[0] as keyof typeof HERITAGE_COUNCIL_COLORS]
+        : undefined
+      partialFeatures.push({
+        type: 'Feature',
+        geometry: { type: 'MultiPolygon', coordinates: coords },
+        properties: {
+          color: fossittColor || NLC_LEVEL1_COLORS[level1] || '#808080',
+          nlc_id: nlcId,
+          nlc_label: String(props.LEVEL_2_VALUE || ''),
+          nlc_level1: level1,
+          fossitt_code: fossittCode || nlcId,
+          fossitt_name: fossitt?.fossittName || String(props.LEVEL_2_VALUE || ''),
+          area_hectares: Math.round((totalArea / 10000) * 100) / 100,
+        },
+      })
     }
-    return empty
+    return { type: 'FeatureCollection', features: partialFeatures }
   }
 }
