@@ -5,6 +5,7 @@ import {
   getProjectHabitats,
   getSurveyHabitats,
   createHabitat,
+  createHabitatsBulk,
   updateHabitat,
   deleteHabitat,
   getHabitatStats,
@@ -49,6 +50,31 @@ export function useCreateHabitat() {
       if (data) {
         queryClient.invalidateQueries({ queryKey: ['habitats', variables.project_id] })
         queryClient.invalidateQueries({ queryKey: ['habitat-stats', variables.project_id] })
+      }
+    },
+  })
+}
+
+/**
+ * Bulk create habitats — single Supabase round-trip + single invalidation.
+ * Use this when inserting many habitats at once (ex: auto-import from findings)
+ * to avoid N sequential invalidations that re-render the map + re-run heavy
+ * useMemos for every row.
+ */
+export function useCreateHabitatsBulk() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      habitats,
+    }: {
+      habitats: InsertTables<'habitat_polygons'>[]
+      projectId: string
+    }) => createHabitatsBulk(habitats),
+    onSuccess: (data, variables) => {
+      if (data.length > 0) {
+        queryClient.invalidateQueries({ queryKey: ['habitats', variables.projectId] })
+        queryClient.invalidateQueries({ queryKey: ['habitat-stats', variables.projectId] })
       }
     },
   })

@@ -60,7 +60,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       const cached = sessionStorage.getItem(gridResolutionKey)
       if (cached === '10km' || cached === '2km' || cached === '1km') return cached
     }
-    return '2km'
+    return '10km'
   })
   React.useEffect(() => {
     sessionStorage.setItem(gridResolutionKey, gridResolution)

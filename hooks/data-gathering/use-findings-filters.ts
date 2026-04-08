@@ -9,8 +9,24 @@ interface FindingsFilterConfig {
   showSavedOnly: boolean
   sourceFilter?: 'all' | 'protected' | 'invasive' | 'threatened'
   distanceFilter?: 'all' | '0-1' | '1-5' | '5-10' | '10+'
-  sortBy: 'distance' | 'title' | 'type'
+  taxonGroupFilter?: string | null
+  sortBy: 'distance' | 'title' | 'type' | 'last_recorded' | 'records'
   sortOrder: 'asc' | 'desc'
+}
+
+/**
+ * Parse NBDC date strings (DD/MM/YYYY or ISO) to epoch ms.
+ * Undated records return 0 so they fall to the bottom on desc sort.
+ */
+function parseRecordDate(d?: string): number {
+  if (!d) return 0
+  const dmy = d.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  if (dmy) {
+    const t = new Date(`${dmy[3]}-${dmy[2]}-${dmy[1]}`).getTime()
+    return isNaN(t) ? 0 : t
+  }
+  const t = new Date(d).getTime()
+  return isNaN(t) ? 0 : t
 }
 
 /** Check if a finding is already saved by matching ID or title */
@@ -39,8 +55,15 @@ export function useFindingsFilters(
   savedFindings: DeskResearchFinding[],
   config: FindingsFilterConfig
 ) {
-  const { activeSiteTypeFilter, showSavedOnly, sourceFilter, distanceFilter, sortBy, sortOrder } =
-    config
+  const {
+    activeSiteTypeFilter,
+    showSavedOnly,
+    sourceFilter,
+    distanceFilter,
+    taxonGroupFilter,
+    sortBy,
+    sortOrder,
+  } = config
 
   // Sort findings - protected species always first
   const sortedFindings = React.useMemo(() => {
@@ -65,6 +88,18 @@ export function useFindingsFilters(
         case 'type':
           comparison = a.dataType.localeCompare(b.dataType)
           break
+        case 'last_recorded': {
+          comparison =
+            parseRecordDate(a.metadata?.newestRecordDate) -
+            parseRecordDate(b.metadata?.newestRecordDate)
+          break
+        }
+        case 'records': {
+          const rA = a.metadata?.recordCount ?? 0
+          const rB = b.metadata?.recordCount ?? 0
+          comparison = rA - rB
+          break
+        }
       }
       return sortOrder === 'asc' ? comparison : -comparison
     })
@@ -123,6 +158,9 @@ export function useFindingsFilters(
         }
       })
     }
+    if (taxonGroupFilter) {
+      result = result.filter((f) => f.metadata?.taxonGroup === taxonGroupFilter)
+    }
     return result
   }, [
     sortedFindings,
@@ -131,6 +169,7 @@ export function useFindingsFilters(
     savedFindings,
     sourceFilter,
     distanceFilter,
+    taxonGroupFilter,
   ])
 
   return { sortedFindings, filteredFindings, siteTypeCounts, savedCount }

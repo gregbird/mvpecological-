@@ -125,6 +125,14 @@ interface FindingsListProps {
 
 const RESULTS_PER_PAGE = 20
 
+type SortField = 'distance' | 'title' | 'type' | 'last_recorded' | 'records'
+
+/** Default direction for a sort field when user first clicks it. */
+function defaultOrderFor(field: SortField): 'asc' | 'desc' {
+  if (field === 'last_recorded' || field === 'records') return 'desc'
+  return 'asc'
+}
+
 export function FindingsList({
   findings,
   savedFindings,
@@ -169,16 +177,55 @@ export function FindingsList({
     },
     [onViewModeChange]
   )
-  const [sortBy, setSortBy] = React.useState<'distance' | 'title' | 'type'>('type')
-  const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>('asc')
+  const [sortBy, setSortBy] = React.useState<SortField>(
+    showSpeciesHeader ? 'last_recorded' : 'type'
+  )
+  const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>(
+    showSpeciesHeader ? 'desc' : 'asc'
+  )
+
+  /** Column-header click: toggle order if same field, else switch and reset order. */
+  const handleSortFieldClick = React.useCallback(
+    (field: SortField) => {
+      if (sortBy === field) {
+        setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'))
+      } else {
+        setSortBy(field)
+        setSortOrder(defaultOrderFor(field))
+      }
+    },
+    [sortBy]
+  )
   const [displayLimit, setDisplayLimit] = React.useState(RESULTS_PER_PAGE)
   const [activeSiteTypeFilter, setActiveSiteTypeFilter] = React.useState<string | null>(null)
   const [showSavedOnly, setShowSavedOnly] = React.useState(false)
+  const [taxonGroupFilter, setTaxonGroupFilter] = React.useState<string | null>(null)
+
+  // Available species groups with counts — derived from current findings
+  const taxonGroupOptions = React.useMemo(() => {
+    if (!showSpeciesHeader) return []
+    const counts = new Map<string, number>()
+    for (const f of findings) {
+      const g = f.metadata?.taxonGroup
+      if (g) counts.set(g, (counts.get(g) ?? 0) + 1)
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([value, count]) => ({ value, count }))
+  }, [findings, showSpeciesHeader])
 
   const { sortedFindings, filteredFindings, siteTypeCounts, savedCount } = useFindingsFilters(
     findings,
     savedFindings,
-    { activeSiteTypeFilter, showSavedOnly, sourceFilter, distanceFilter, sortBy, sortOrder }
+    {
+      activeSiteTypeFilter,
+      showSavedOnly,
+      sourceFilter,
+      distanceFilter,
+      taxonGroupFilter,
+      sortBy,
+      sortOrder,
+    }
   )
 
   // Paginated findings
@@ -188,7 +235,7 @@ export function FindingsList({
   // Reset display limit when findings or filter change
   React.useEffect(() => {
     setDisplayLimit(RESULTS_PER_PAGE)
-  }, [findings, activeSiteTypeFilter, showSavedOnly, distanceFilter])
+  }, [findings, activeSiteTypeFilter, showSavedOnly, distanceFilter, taxonGroupFilter])
 
   // When selectedFindingId changes (e.g. map marker click), ensure it's visible and scroll to it
   React.useEffect(() => {
@@ -260,8 +307,11 @@ export function FindingsList({
           onSiteTypeFilterChange={onSiteTypeFilterChange}
           distanceFilter={distanceFilter}
           onDistanceFilterChange={onDistanceFilterChange}
+          taxonGroupFilter={taxonGroupFilter}
+          onTaxonGroupFilterChange={setTaxonGroupFilter}
+          taxonGroupOptions={taxonGroupOptions}
           sortBy={sortBy}
-          onSortByChange={setSortBy}
+          onSortByChange={handleSortFieldClick}
           sortOrder={sortOrder}
           onSortOrderToggle={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
           onSummarizeAll={onSummarizeAll}
@@ -287,6 +337,12 @@ export function FindingsList({
             onDeepResearch={onDeepResearch}
             onUpdateNote={onUpdateNote}
             savingIds={savingIds}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSortFieldClick={handleSortFieldClick}
+            taxonGroupFilter={taxonGroupFilter}
+            onTaxonGroupFilterChange={setTaxonGroupFilter}
+            taxonGroupOptions={taxonGroupOptions}
           />
         </ScrollArea>
       ) : (

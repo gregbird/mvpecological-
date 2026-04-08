@@ -32,7 +32,7 @@ import { getUnsavedFindings } from '@/hooks/data-gathering/use-findings-filters'
 
 type SourceFilter = 'all' | 'protected' | 'invasive' | 'threatened'
 type DistanceFilter = 'all' | '0-1' | '1-5' | '5-10' | '10+'
-type SortField = 'distance' | 'title' | 'type'
+type SortField = 'distance' | 'title' | 'type' | 'last_recorded' | 'records'
 
 /** Reusable toggle badge for species filter categories */
 function SpeciesBadge({
@@ -105,6 +105,11 @@ interface FindingsHeaderProps {
   distanceFilter?: DistanceFilter
   onDistanceFilterChange?: (filter: DistanceFilter) => void
 
+  // Species group filter (species only)
+  taxonGroupFilter?: string | null
+  onTaxonGroupFilterChange?: (group: string | null) => void
+  taxonGroupOptions?: Array<{ value: string; count: number }>
+
   // Sort
   sortBy: SortField
   onSortByChange: (value: SortField) => void
@@ -147,6 +152,9 @@ export function FindingsHeader({
   onSiteTypeFilterChange,
   distanceFilter,
   onDistanceFilterChange,
+  taxonGroupFilter,
+  onTaxonGroupFilterChange,
+  taxonGroupOptions,
   sortBy,
   onSortByChange,
   sortOrder,
@@ -380,23 +388,51 @@ export function FindingsHeader({
           </SelectContent>
         </Select>
       )}
-      <Select value={sortBy} onValueChange={(v) => onSortByChange(v as typeof sortBy)}>
-        <SelectTrigger className="h-7 w-auto min-w-[80px] border-0 bg-transparent px-1.5 text-xs shadow-none">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="distance">Distance</SelectItem>
-          <SelectItem value="title">Title</SelectItem>
-          <SelectItem value="type">Type</SelectItem>
-        </SelectContent>
-      </Select>
-      <button
-        className="text-muted-foreground hover:text-foreground p-0.5"
-        onClick={onSortOrderToggle}
-        title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
-      >
-        <ArrowUpDown className="h-3.5 w-3.5" />
-      </button>
+      {/* Species group filter + sort dropdowns — hidden for species table view
+          because SpeciesTableView provides interactive column headers instead */}
+      {!(showSpeciesHeader && viewMode === 'table') && (
+        <>
+          {showSpeciesHeader &&
+            onTaxonGroupFilterChange &&
+            (taxonGroupOptions?.length ?? 0) > 0 && (
+              <Select
+                value={taxonGroupFilter || 'all'}
+                onValueChange={(v) => onTaxonGroupFilterChange(v === 'all' ? null : v)}
+              >
+                <SelectTrigger className="h-7 w-auto min-w-[90px] border-0 bg-transparent px-1.5 text-xs shadow-none">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Groups</SelectItem>
+                  {taxonGroupOptions?.map(({ value, count }) => (
+                    <SelectItem key={value} value={value}>
+                      {value} ({count})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          <Select value={sortBy} onValueChange={(v) => onSortByChange(v as typeof sortBy)}>
+            <SelectTrigger className="h-7 w-auto min-w-[80px] border-0 bg-transparent px-1.5 text-xs shadow-none">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="distance">Distance</SelectItem>
+              <SelectItem value="title">Title</SelectItem>
+              <SelectItem value="type">Type</SelectItem>
+              {showSpeciesHeader && <SelectItem value="records">Records</SelectItem>}
+              {showSpeciesHeader && <SelectItem value="last_recorded">Last Recorded</SelectItem>}
+            </SelectContent>
+          </Select>
+          <button
+            className="text-muted-foreground hover:text-foreground p-0.5"
+            onClick={onSortOrderToggle}
+            title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+          >
+            <ArrowUpDown className="h-3.5 w-3.5" />
+          </button>
+        </>
+      )}
       {/* Card/Table view toggle (only for species) */}
       {showSpeciesHeader && (
         <div className="ml-1 flex items-center rounded-md border">

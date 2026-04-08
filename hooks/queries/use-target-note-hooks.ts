@@ -45,9 +45,10 @@ export function useCreateTargetNote() {
 
   return useMutation({
     mutationFn: (note: InsertTables<'target_notes'>) => createTargetNote(note),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['target-notes'] })
-      queryClient.invalidateQueries({ queryKey: ['target-notes-stats'] })
+    onSuccess: (_data, variables) => {
+      // Scoped to the project being edited.
+      queryClient.invalidateQueries({ queryKey: ['target-notes', variables.project_id] })
+      queryClient.invalidateQueries({ queryKey: ['target-notes-stats', variables.project_id] })
     },
   })
 }

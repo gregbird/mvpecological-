@@ -15,8 +15,15 @@ export interface CustomFieldsData {
 
 // --- Zod schemas ---
 
+// NOTE: `species_name_latin` intentionally allows empty strings here. The
+// "Add Species" button appends an empty row (so users can fill it inline),
+// and empty rows are stripped in `handleSave` before being sent to Supabase.
+// Requiring min(1) here caused submit to silently fail whenever any pending
+// empty row existed — RHF's handleSubmit only runs onValid, and with no
+// onInvalid callback the user got no feedback at all, making it look like
+// "the form just doesn't save". See feedback-8-4-apr.md #8.
 const speciesSchema = z.object({
-  species_name_latin: z.string().min(1, 'Species name is required'),
+  species_name_latin: z.string(),
   species_name_english: z.string().optional(),
   species_cover_domin: z.number().min(1).max(10).nullable().optional(),
   species_cover_pct: z.number().min(0).max(100).nullable().optional(),

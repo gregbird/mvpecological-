@@ -49,10 +49,12 @@ export function useCreateSurvey() {
 
   return useMutation({
     mutationFn: (survey: InsertTables<'surveys'>) => createSurvey(survey),
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       if (data) {
-        queryClient.invalidateQueries({ queryKey: ['surveys'] })
-        queryClient.invalidateQueries({ queryKey: ['survey-stats'] })
+        // Scoped to the project being edited — unscoped invalidation would
+        // mark every cached project's surveys stale across the app.
+        queryClient.invalidateQueries({ queryKey: ['surveys', variables.project_id] })
+        queryClient.invalidateQueries({ queryKey: ['survey-stats', variables.project_id] })
         queryClient.invalidateQueries({ queryKey: ['survey-group'] })
       }
     },

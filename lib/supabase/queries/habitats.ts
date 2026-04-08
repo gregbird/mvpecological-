@@ -72,6 +72,26 @@ export async function createHabitat(habitat: InsertHabitat): Promise<HabitatPoly
   return data as unknown as HabitatPolygon
 }
 
+/**
+ * Bulk create habitat polygons in a single round-trip.
+ * Used by the auto-import flow to avoid N sequential inserts (and their
+ * associated React Query invalidations / re-renders).
+ */
+export async function createHabitatsBulk(habitats: InsertHabitat[]): Promise<HabitatPolygon[]> {
+  if (habitats.length === 0) return []
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('habitat_polygons')
+    .insert(habitats as Database['public']['Tables']['habitat_polygons']['Insert'][])
+    .select()
+
+  if (error) {
+    throw new Error(error.message || 'Failed to create habitats')
+  }
+
+  return (data as unknown as HabitatPolygon[]) ?? []
+}
+
 // Update habitat polygon
 export async function updateHabitat(
   habitatId: string,

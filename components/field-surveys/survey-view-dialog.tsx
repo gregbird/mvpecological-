@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Calendar, Clock, User, FileText, Hash, Loader2, Pencil, Mail } from 'lucide-react'
+import { Calendar, Clock, User, FileText, Loader2, Pencil, Mail } from 'lucide-react'
 import { format } from 'date-fns'
 
 import { Badge } from '@/components/ui/badge'
@@ -351,12 +351,6 @@ export function SurveyViewDialog({
           <InfoRow icon={Calendar} label="Survey Date" value={formatDate(survey.surveyDate)} />
 
           <InfoRow icon={User} label="Surveyor" value={survey.surveyor.name} />
-
-          <InfoRow
-            icon={Hash}
-            label="Expected Surveys"
-            value={survey.expectedSurveyCount ? String(survey.expectedSurveyCount) : undefined}
-          />
 
           {survey.startTime && <InfoRow icon={Clock} label="Start Time" value={survey.startTime} />}
 

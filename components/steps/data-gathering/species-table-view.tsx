@@ -9,6 +9,10 @@ import {
   Sparkles,
   MessageSquare,
   MessageSquareText,
+  ArrowUp,
+  ArrowDown,
+  ChevronsUpDown,
+  Filter,
 } from 'lucide-react'
 import {
   Table,
@@ -18,8 +22,17 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import type { FindingDisplay } from './findings-list'
 import type { DeskResearchFinding } from '@/types/database'
+
+type SortField = 'distance' | 'title' | 'type' | 'last_recorded' | 'records'
 
 interface SpeciesTableViewProps {
   findings: FindingDisplay[]
@@ -31,6 +44,26 @@ interface SpeciesTableViewProps {
   onDeepResearch?: (finding: FindingDisplay) => void
   onUpdateNote?: (findingId: string, notes: string) => void
   savingIds?: Set<string>
+  // Sort state + click handler (column-header driven)
+  sortBy?: SortField
+  sortOrder?: 'asc' | 'desc'
+  onSortFieldClick?: (field: SortField) => void
+  // Species group filter (column-header driven)
+  taxonGroupFilter?: string | null
+  onTaxonGroupFilterChange?: (group: string | null) => void
+  taxonGroupOptions?: Array<{ value: string; count: number }>
+}
+
+/** Sort indicator icon next to a sortable column header. */
+function SortIcon({ active, order }: { active: boolean; order?: 'asc' | 'desc' }) {
+  if (!active) {
+    return <ChevronsUpDown className="h-3 w-3 text-gray-300 dark:text-gray-600" />
+  }
+  return order === 'asc' ? (
+    <ArrowUp className="h-3 w-3 text-blue-600" />
+  ) : (
+    <ArrowDown className="h-3 w-3 text-blue-600" />
+  )
 }
 
 function formatDate(dateStr?: string): string {
@@ -50,16 +83,6 @@ function formatDate(dateStr?: string): string {
   }
 }
 
-function shortDesignation(raw?: string): string | null {
-  if (!raw) return null
-  const parts = raw
-    .split('||')
-    .map((s) => s.trim())
-    .filter(Boolean)
-  if (parts.length <= 2) return parts.join(' · ')
-  return `${parts.slice(0, 2).join(' · ')} +${parts.length - 2} more`
-}
-
 export function SpeciesTableView({
   findings,
   savedFindings = [],
@@ -70,17 +93,15 @@ export function SpeciesTableView({
   onDeepResearch,
   onUpdateNote,
   savingIds,
+  sortBy,
+  sortOrder,
+  onSortFieldClick,
+  taxonGroupFilter,
+  onTaxonGroupFilterChange,
+  taxonGroupOptions,
 }: SpeciesTableViewProps) {
   const [noteOpenId, setNoteOpenId] = React.useState<string | null>(null)
   const [noteDraft, setNoteDraft] = React.useState('')
-
-  if (findings.length === 0) {
-    return (
-      <div className="flex h-32 items-center justify-center">
-        <p className="text-muted-foreground text-sm">No results match the current filter</p>
-      </div>
-    )
-  }
 
   const isSaved = (finding: FindingDisplay) =>
     savedFindings.some(
@@ -89,28 +110,100 @@ export function SpeciesTableView({
         finding.metadata?.scientificName
     )
 
+  const sortableHeaderClass =
+    'flex items-center gap-1 select-none hover:text-foreground transition-colors'
+  const renderSortable = (field: SortField, label: string, align: 'left' | 'right' = 'left') => {
+    const active = sortBy === field
+    const content = (
+      <button
+        type="button"
+        onClick={() => onSortFieldClick?.(field)}
+        className={`${sortableHeaderClass} ${align === 'right' ? 'ml-auto' : ''} ${
+          active ? 'text-foreground font-semibold' : ''
+        }`}
+        title={`Sort by ${label}`}
+      >
+        {align === 'right' ? (
+          <>
+            <SortIcon active={active} order={sortOrder} />
+            {label}
+          </>
+        ) : (
+          <>
+            {label}
+            <SortIcon active={active} order={sortOrder} />
+          </>
+        )}
+      </button>
+    )
+    return content
+  }
+
+  const filterActive = !!taxonGroupFilter
+  const groupHeader = onTaxonGroupFilterChange ? (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className={`${sortableHeaderClass} ${filterActive ? 'font-semibold text-blue-600' : ''}`}
+          title={filterActive ? `Filtered: ${taxonGroupFilter}` : 'Filter by species group'}
+        >
+          {filterActive ? taxonGroupFilter : 'Species Group'}
+          <Filter
+            className={`h-3 w-3 ${filterActive ? 'text-blue-600' : 'text-gray-300 dark:text-gray-600'}`}
+          />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="max-h-[320px] overflow-y-auto">
+        <DropdownMenuRadioGroup
+          value={taxonGroupFilter ?? '__all__'}
+          onValueChange={(v) => onTaxonGroupFilterChange(v === '__all__' ? null : v)}
+        >
+          <DropdownMenuRadioItem value="__all__" className="text-xs">
+            All Groups
+          </DropdownMenuRadioItem>
+          {taxonGroupOptions?.map(({ value, count }) => (
+            <DropdownMenuRadioItem key={value} value={value} className="text-xs">
+              {value} ({count})
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  ) : (
+    <span>Species Group</span>
+  )
+
   return (
     <div>
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            <TableHead className="bg-background w-[70px] px-1.5 text-[11px]">
-              Species Group
+            <TableHead className="bg-background w-[90px] px-1.5 text-[11px]">
+              {groupHeader}
             </TableHead>
             <TableHead className="bg-background min-w-[180px] px-1.5 text-[11px]">
-              Species Name
+              {renderSortable('title', 'Species Name')}
             </TableHead>
-            <TableHead className="bg-background w-[40px] px-1 text-right text-[11px]">
-              Records
+            <TableHead className="bg-background w-[50px] px-1 text-right text-[11px]">
+              {renderSortable('records', 'Records', 'right')}
             </TableHead>
-            <TableHead className="bg-background w-[72px] px-1.5 text-[11px]">Last Record</TableHead>
+            <TableHead className="bg-background w-[86px] px-1.5 text-[11px]">
+              {renderSortable('last_recorded', 'Last Record')}
+            </TableHead>
             <TableHead className="bg-background w-[110px] px-1.5 text-[11px]">Dataset</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
+          {findings.length === 0 && (
+            <TableRow className="hover:bg-transparent">
+              <TableCell colSpan={5} className="py-8 text-center">
+                <p className="text-muted-foreground text-sm">No results match the current filter</p>
+              </TableCell>
+            </TableRow>
+          )}
           {findings.map((finding, idx) => {
             const isSelected = selectedFindingId === finding.id
-            const designation = shortDesignation(finding.metadata?.designations)
             const saved = isSaved(finding)
             const isSaving = savingIds?.has(finding.id) ?? false
 

@@ -42,9 +42,12 @@ export function useCreateObservation() {
   return useMutation({
     mutationFn: (observation: InsertTables<'species_observations'>) =>
       createObservation(observation),
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       if (data) {
-        queryClient.invalidateQueries({ queryKey: ['observations'] })
+        // Survey-scoped observations list can be scoped exactly.
+        queryClient.invalidateQueries({ queryKey: ['observations', variables.survey_id] })
+        // project_id is not on the species_observations insert type — fall
+        // back to an unscoped invalidation for the project-level views.
         queryClient.invalidateQueries({ queryKey: ['project-observations'] })
         queryClient.invalidateQueries({ queryKey: ['observation-stats'] })
       }

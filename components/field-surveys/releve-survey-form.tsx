@@ -136,6 +136,23 @@ export function ReleveSurveyForm({
   const speciesFieldArray = useFieldArray({ control: form.control, name: 'species' })
   const customDefs = form.watch('custom_field_definitions')
 
+  /**
+   * Surface RHF/Zod validation errors as a toast so the user isn't left
+   * staring at a dead Save button. Without this, a silent validation failure
+   * looks identical to "the form doesn't save" (the original feedback #8 bug).
+   */
+  const handleValidationError = (errors: Record<string, unknown>) => {
+    const firstField = Object.keys(errors)[0]
+    const firstError = errors[firstField] as { message?: string } | undefined
+    const message =
+      firstError?.message || `Please fix the highlighted field: ${firstField || 'unknown'}`
+    toast({
+      title: 'Cannot save — form has errors',
+      description: message,
+      variant: 'destructive',
+    })
+  }
+
   const handleSave = async (values: ReleveFormValues) => {
     const customFieldsData: CustomFieldsData = {
       definitions: values.custom_field_definitions,
@@ -228,7 +245,7 @@ export function ReleveSurveyForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSave)} className="space-y-2">
+      <form onSubmit={form.handleSubmit(handleSave, handleValidationError)} className="space-y-2">
         {/* Header actions */}
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold">

@@ -2,9 +2,9 @@
 
 import * as React from 'react'
 
-import type { useCreateHabitat } from '@/hooks/queries/use-habitat-hooks'
+import type { useCreateHabitatsBulk } from '@/hooks/queries/use-habitat-hooks'
 import type { useToast } from '@/hooks/use-toast'
-import type { DeskResearchFinding, HabitatPolygon, Json } from '@/types/database'
+import type { DeskResearchFinding, HabitatPolygon, InsertTables, Json } from '@/types/database'
 
 /**
  * Normalize any geometry to a single Polygon (DB column type is strictly Polygon).
@@ -43,7 +43,7 @@ interface UseAutoImportHabitatsParams {
   habitats: HabitatPolygon[]
   isLoading: boolean
   findingsLoading: boolean
-  createHabitat: ReturnType<typeof useCreateHabitat>
+  createHabitatsBulk: ReturnType<typeof useCreateHabitatsBulk>
   toast: ReturnType<typeof useToast>['toast']
 }
 
@@ -51,6 +51,10 @@ interface UseAutoImportHabitatsParams {
  * D2.3: Auto-pull habitat findings from data gathering into habitat_polygons.
  * Detects habitat findings with habitatFinding=true + fossittCode, checks for
  * duplicate (fossittCode + site_id), and creates habitat_polygons with normalized boundary.
+ *
+ * Uses a single bulk insert + single invalidation so switching to the Habitat
+ * Mapping tab with N unimported findings takes 1 round-trip instead of N
+ * sequential inserts + N map re-renders (which felt like a freeze).
  */
 export function useAutoImportHabitats({
   projectId,
@@ -58,12 +62,12 @@ export function useAutoImportHabitats({
   habitats,
   isLoading,
   findingsLoading,
-  createHabitat,
+  createHabitatsBulk,
   toast,
 }: UseAutoImportHabitatsParams) {
   // Refs keep mutation stable so the effect only re-runs on real data changes
-  const createHabitatRef = React.useRef(createHabitat)
-  createHabitatRef.current = createHabitat
+  const createHabitatsBulkRef = React.useRef(createHabitatsBulk)
+  createHabitatsBulkRef.current = createHabitatsBulk
   const toastRef = React.useRef(toast)
   toastRef.current = toast
   const importedFindingIds = React.useRef(new Set<string>())
@@ -94,37 +98,42 @@ export function useAutoImportHabitats({
     isPulling.current = true
     for (const f of newFindings) importedFindingIds.current.add(f.id)
 
-    // Use sequential creation to avoid N parallel invalidations.
-    const importSequentially = async () => {
-      let imported = 0
-      for (const f of newFindings) {
+    // Build the bulk payload and insert in one round-trip.
+    const importBulk = async () => {
+      const payload: InsertTables<'habitat_polygons'>[] = newFindings.map((f) => {
         const raw = f.raw_data as Record<string, unknown>
-        try {
-          await createHabitatRef.current.mutateAsync({
-            project_id: projectId,
-            site_id: f.site_id ?? null,
-            fossitt_code: raw.fossittCode as string,
-            fossitt_name: raw.fossittName as string,
-            boundary: toPolygon(f.location),
-            area_hectares: (raw.areaHectares as number) ?? null,
-            condition: 'moderate',
-            notes: 'Auto-imported from Data Gathering (NLC)',
-            include_in_report: true,
-          })
-          imported++
-        } catch {
-          importedFindingIds.current.delete(f.id)
+        return {
+          project_id: projectId,
+          site_id: f.site_id ?? null,
+          fossitt_code: raw.fossittCode as string,
+          fossitt_name: raw.fossittName as string,
+          boundary: toPolygon(f.location),
+          area_hectares: (raw.areaHectares as number) ?? null,
+          condition: 'moderate',
+          notes: 'Auto-imported from Data Gathering (NLC)',
+          include_in_report: true,
         }
-      }
-      if (imported > 0) {
-        toastRef.current({
-          title: 'Habitats imported',
-          description: `${imported} habitat${imported > 1 ? 's' : ''} auto-imported from Data Gathering.`,
+      })
+
+      try {
+        const created = await createHabitatsBulkRef.current.mutateAsync({
+          habitats: payload,
+          projectId,
         })
+        if (created.length > 0) {
+          toastRef.current({
+            title: 'Habitats imported',
+            description: `${created.length} habitat${created.length > 1 ? 's' : ''} auto-imported from Data Gathering.`,
+          })
+        }
+      } catch {
+        // Roll back the imported flag so a future render can retry
+        for (const f of newFindings) importedFindingIds.current.delete(f.id)
+      } finally {
+        isPulling.current = false
       }
-      isPulling.current = false
     }
 
-    importSequentially()
+    importBulk()
   }, [isLoading, findingsLoading, savedFindings, habitats, projectId])
 }

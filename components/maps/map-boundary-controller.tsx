@@ -25,6 +25,8 @@ interface MapBoundaryControllerProps {
   flyToLocation?: { center: [number, number]; zoom: number; key: string }
   allowMultipleDrawings: boolean
   habitatPolygons: HabitatPolygonOverlay[]
+  /** Other site boundaries also usable as trace-along targets (step 2 multi-site) */
+  otherBoundaries: GeoJSON.Feature<GeoJSON.Polygon>[]
   onOverlapDetected?: (info: {
     overlapAreaM2: number
     habitatName: string
@@ -67,6 +69,7 @@ export function MapBoundaryController({
   flyToLocation,
   allowMultipleDrawings,
   habitatPolygons,
+  otherBoundaries,
   onOverlapDetected,
   onMapReady,
   onDeleteConfirmChange,
@@ -170,15 +173,33 @@ export function MapBoundaryController({
       lastLoadedBoundaryRef.current = boundaryKey
 
       featureGroupRef.current.clearLayers()
+      // Explicitly mark the layer as a snap target — without these flags,
+      // vertex dragging in edit mode does not snap to the polygon's other
+      // edges/vertices because Leaflet's default GeoJSON layer is not
+      // registered as a snap candidate.
       const geoJsonLayer = L.geoJSON(boundary, {
         style: { color: '#ef4444', weight: 3, fillColor: '#ef4444', fillOpacity: 0.1 },
-      })
+        pmIgnore: false,
+        snapIgnore: false,
+      } as L.GeoJSONOptions)
       geoJsonLayer.eachLayer((layer: L.Layer) => {
         featureGroupRef.current?.addLayer(layer)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if ((layer as any).pm) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ;(layer as any).pm.setOptions({ snappable: true, snapDistance: 15 })
+        const anyLayer = layer as any
+        // Force snap options on the layer itself so it's picked up as a
+        // snap target even when editing its own vertices (self-snap).
+        if (anyLayer.options) {
+          anyLayer.options.pmIgnore = false
+          anyLayer.options.snapIgnore = false
+        }
+        if (anyLayer.pm) {
+          anyLayer.pm.setOptions({
+            snappable: true,
+            snapDistance: 20,
+            snapSegment: true,
+            snapVertex: true,
+            snapMiddle: true,
+          })
         }
       })
       const bounds = geoJsonLayer.getBounds()
@@ -223,6 +244,8 @@ export function MapBoundaryController({
     featureGroupRef,
     allowMultipleDrawings,
     habitatPolygons,
+    otherBoundaries,
+    boundary,
     onBoundaryChange,
     onOverlapDetected,
     isEditingRef,

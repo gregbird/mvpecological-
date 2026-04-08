@@ -3,7 +3,6 @@
 import * as React from 'react'
 import {
   Calendar,
-  Clock,
   MapPin,
   Eye,
   Pencil,
@@ -162,12 +161,6 @@ export function SurveyCard({
                 <Calendar className="h-3.5 w-3.5" />
                 <span>{formatDate(survey.surveyDate)}</span>
               </div>
-              {!!survey.expectedSurveyCount && (
-                <div className="flex items-center gap-1">
-                  <Clock className="h-3.5 w-3.5" />
-                  <span>{survey.expectedSurveyCount} survey(s) expected</span>
-                </div>
-              )}
             </div>
           </div>
         </div>

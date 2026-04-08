@@ -14,6 +14,11 @@ interface GeomanSetupConfig {
   allowMultipleDrawings: boolean
   /** Existing habitat polygons for trace-along and overlap detection */
   habitatPolygons: HabitatPolygonOverlay[]
+  /** Other site boundaries (step 2 multi-site) also usable as trace-along targets */
+  otherBoundaries: GeoJSON.Feature<GeoJSON.Polygon>[]
+  /** The active site's current boundary — also a valid trace target when
+      drawing a neighbor, since siteMgmt may create a new site on completion */
+  boundary?: GeoJSON.Feature<GeoJSON.Polygon>
   /** Callback when boundary changes */
   onBoundaryChange?: (features: GeoJSON.FeatureCollection, isEdit?: boolean) => void
   /** Callback when overlap with existing habitat is detected */
@@ -65,6 +70,8 @@ export function useGeomanSetup({
   featureGroupRef,
   allowMultipleDrawings,
   habitatPolygons,
+  otherBoundaries,
+  boundary,
   onBoundaryChange,
   onOverlapDetected,
   isEditingRef,
@@ -88,8 +95,23 @@ export function useGeomanSetup({
   onOverlapDetectedRef.current = onOverlapDetected
   const habitatPolygonsRef = React.useRef(habitatPolygons)
   habitatPolygonsRef.current = habitatPolygons
+  const otherBoundariesRef = React.useRef(otherBoundaries)
+  otherBoundariesRef.current = otherBoundaries
   const onHistoryPushRef = React.useRef(onHistoryPush)
   onHistoryPushRef.current = onHistoryPush
+
+  // Stable callback ref for trace-along: pm:create event handler is attached
+  // once (guarded by geomanReadyRef) so it captures the ref object at attach
+  // time. Under React StrictMode (Next.js dev), the hook may remount and
+  // create fresh ref objects, leaving the event handler holding a stale ref.
+  // The callback ref below is re-written on every render with the CURRENT
+  // prop values (see assignment after notifyChange is defined), and the
+  // event handler invokes it indirectly, so the trace implementation always
+  // sees fresh data regardless of which hook instance originally attached the
+  // handler.
+  const traceCallbackRef = React.useRef<(layer: L.Polygon, geoJSON: GeoJSON.Feature) => void>(
+    () => {}
+  )
 
   // Stable helpers exposed to consumers and used in event handlers
   const collectFeatures = React.useCallback((): GeoJSON.Feature[] => {
@@ -116,6 +138,32 @@ export function useGeomanSetup({
     },
     [setDrawnFeatures, lastLoadedBoundaryRef]
   )
+
+  // Refresh trace callback on every render with latest closure values.
+  // Event handler (pm:create) calls this indirectly via traceCallbackRef.current
+  // so it is immune to stale-closure issues from React StrictMode remounts.
+  // Include the currently active site's boundary as an additional trace
+  // target: when `active.boundary` already exists and the user draws a new
+  // polygon, siteMgmt auto-creates a new site (shifting the current boundary
+  // into "other"), but that shift happens AFTER pm:create fires. Treating
+  // the current `boundary` prop as a trace candidate lets the new polygon
+  // snap to its edges regardless of siteMgmt timing.
+  traceCallbackRef.current = (layer, geoJSON) => {
+    if (!map) return
+    const traceTargets: GeoJSON.Feature<GeoJSON.Polygon>[] = [...otherBoundaries]
+    if (boundary?.geometry?.type === 'Polygon') {
+      traceTargets.push(boundary)
+    }
+    handleTraceAlong(
+      map,
+      layer,
+      geoJSON,
+      featureGroupRef,
+      habitatPolygons,
+      traceTargets,
+      notifyChange
+    )
+  }
 
   React.useEffect(() => {
     if (!editable || !map) return
@@ -180,9 +228,16 @@ export function useGeomanSetup({
         if (cancelled) return
 
         // Always ensure controls are visible (addControls is idempotent)
+        // Snap-related options are important for edit-mode vertex dragging:
+        // - snapDistance 20 matches Geoman default (generous snap radius)
+        // - snapSegment: snap to polygon edges (enables "touch neighbor")
+        // - snapVertex:  snap to existing vertices (enables "share corner")
+        // - snapMiddle:  snap to middle-markers (enables "split segment cleanly")
         map.pm.setGlobalOptions({
           snappable: true,
-          snapDistance: 15,
+          snapDistance: 20,
+          snapSegment: true,
+          snapVertex: true,
           snapMiddle: true,
           allowSelfIntersection: false,
           finishOn: 'dblclick' as unknown as null,
@@ -262,16 +317,29 @@ export function useGeomanSetup({
           }
           featureGroupRef.current?.addLayer(layer)
 
-          // Trace-along: align new polygon edges with existing habitat boundaries
-          handleTraceAlong(
-            map,
-            layer,
-            geoJSON,
-            featureGroupRef,
-            habitatPolygonsRef,
-            allowMultipleDrawingsRef,
-            notifyChange
-          )
+          // Ensure the freshly drawn polygon is itself a valid snap target
+          // so subsequent edits (vertex drag) can snap to its own edges.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const anyDrawn = layer as any
+          if (anyDrawn.options) {
+            anyDrawn.options.pmIgnore = false
+            anyDrawn.options.snapIgnore = false
+          }
+          if (anyDrawn.pm) {
+            anyDrawn.pm.setOptions({
+              snappable: true,
+              snapDistance: 20,
+              snapSegment: true,
+              snapVertex: true,
+              snapMiddle: true,
+            })
+          }
+
+          // Trace-along: align new polygon edges with existing habitat
+          // boundaries (step 4) or with other site boundaries (step 2 multi-site).
+          // Routed through traceCallbackRef so the LATEST prop values are
+          // used (StrictMode-safe).
+          traceCallbackRef.current(layer, geoJSON)
 
           notifyChange([geoJSON], false)
 
@@ -421,43 +489,54 @@ export function useGeomanSetup({
 
 // ── Private helpers ──────────────────────────────────────────────────────────
 
-/** Align new polygon edges with existing habitat boundaries (trace-along) */
+/**
+ * Align new polygon edges with any existing neighboring polygon (trace-along).
+ * Trace targets come from two sources:
+ *   - habitatPolygons  — Step 4 field-research habitat mapping neighbors
+ *   - otherBoundaries  — Step 2 multi-site boundary neighbors
+ * If both are empty, tracing is skipped silently.
+ */
 function handleTraceAlong(
   map: LeafletMap,
   layer: L.Polygon,
   geoJSON: GeoJSON.Feature,
   featureGroupRef: React.RefObject<LeafletFeatureGroup | null>,
-  habitatPolygonsRef: React.RefObject<HabitatPolygonOverlay[]>,
-  allowMultipleDrawingsRef: React.RefObject<boolean>,
+  habitatPolygons: HabitatPolygonOverlay[],
+  otherBoundaries: GeoJSON.Feature<GeoJSON.Polygon>[],
   notifyChange: (features: GeoJSON.Feature[], isEdit: boolean) => void
 ) {
-  if (
-    !allowMultipleDrawingsRef.current ||
-    habitatPolygonsRef.current.length === 0 ||
-    geoJSON.geometry.type !== 'Polygon'
-  ) {
-    return
-  }
+  if (geoJSON.geometry.type !== 'Polygon') return
+
+  // Combine habitat polygons + other site boundaries as trace candidates
+  const habitatCandidates = habitatPolygons
+    .filter((hp) => hp.geometry.type === 'Polygon')
+    .map((hp) => ({
+      type: 'Feature' as const,
+      geometry: hp.geometry as GeoJSON.Polygon,
+      properties: {},
+    }))
+  const otherCandidates = otherBoundaries.filter((f) => f.geometry?.type === 'Polygon')
+  const existingPolygons: GeoJSON.Feature<GeoJSON.Polygon>[] = [
+    ...habitatCandidates,
+    ...otherCandidates,
+  ]
+  if (existingPolygons.length === 0) return
 
   import('@/lib/gis/trace-along-feature').then(({ findNearestPolygonEdge, traceEdge }) => {
     try {
-      const existingPolygons = habitatPolygonsRef.current
-        .filter((hp) => hp.geometry.type === 'Polygon')
-        .map((hp) => ({
-          type: 'Feature' as const,
-          geometry: hp.geometry as GeoJSON.Polygon,
-          properties: {},
-        }))
-      if (existingPolygons.length === 0) return
-
       const polyGeom = geoJSON.geometry as GeoJSON.Polygon
       const coords = polyGeom.coordinates[0] as [number, number][]
       let modified = false
       const newCoords: [number, number][] = [coords[0]]
 
+      // Snap radius for trace: 0.2 km (200 m). Previously 50 m was too strict
+      // for boundary drawing — users naturally click 100-200 m off the edge at
+      // typical zoom levels. Habitat mapping (smaller polygons) may be served
+      // better by a lower value in the future; tune per context if needed.
+      const TRACE_SNAP_KM = 0.2
       for (let i = 0; i < coords.length - 1; i++) {
-        const startResult = findNearestPolygonEdge(coords[i], existingPolygons, 0.05)
-        const endResult = findNearestPolygonEdge(coords[i + 1], existingPolygons, 0.05)
+        const startResult = findNearestPolygonEdge(coords[i], existingPolygons, TRACE_SNAP_KM)
+        const endResult = findNearestPolygonEdge(coords[i + 1], existingPolygons, TRACE_SNAP_KM)
 
         if (startResult && endResult && startResult.polygonIndex === endResult.polygonIndex) {
           const traced = traceEdge(
@@ -489,13 +568,32 @@ function handleTraceAlong(
               fillColor: '#ef4444',
               fillOpacity: 0.1,
             },
+            pmIgnore: false,
+            snapIgnore: false,
           })
-          updatedLayer.eachLayer((l: L.Layer) => featureGroupRef.current?.addLayer(l))
+          updatedLayer.eachLayer((l: L.Layer) => {
+            featureGroupRef.current?.addLayer(l)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const anyL = l as any
+            if (anyL.options) {
+              anyL.options.pmIgnore = false
+              anyL.options.snapIgnore = false
+            }
+            if (anyL.pm) {
+              anyL.pm.setOptions({
+                snappable: true,
+                snapDistance: 20,
+                snapSegment: true,
+                snapVertex: true,
+                snapMiddle: true,
+              })
+            }
+          })
         }
         notifyChange([geoJSON], false)
       }
-    } catch {
-      // Trace-along failed silently -- polygon stays as drawn
+    } catch (err) {
+      console.error('[trace] error:', err)
     }
   })
 }
