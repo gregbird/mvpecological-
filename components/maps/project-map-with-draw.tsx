@@ -84,6 +84,7 @@ interface BoundaryControllerBridgeProps {
   flyToLocation?: { center: [number, number]; zoom: number; key: string }
   allowMultipleDrawings: boolean
   habitatPolygons: import('@/components/maps/map-types').HabitatPolygonOverlay[]
+  otherBoundaries: GeoJSON.Feature<GeoJSON.Polygon>[]
   onOverlapDetected?: (info: {
     overlapAreaM2: number
     habitatName: string
@@ -108,6 +109,7 @@ function BoundaryControllerBridge({
   flyToLocation,
   allowMultipleDrawings,
   habitatPolygons,
+  otherBoundaries,
   onOverlapDetected,
   onMapReady,
   onDeleteConfirmChange,
@@ -140,6 +142,7 @@ function BoundaryControllerBridge({
       flyToLocation={flyToLocation}
       allowMultipleDrawings={allowMultipleDrawings}
       habitatPolygons={habitatPolygons}
+      otherBoundaries={otherBoundaries}
       onOverlapDetected={onOverlapDetected}
       onMapReady={onMapReady}
       onDeleteConfirmChange={onDeleteConfirmChange}
@@ -287,6 +290,7 @@ function MapComponentWithDraw(props: InternalMapProps) {
           flyToLocation={flyToLocation}
           allowMultipleDrawings={allowMultipleDrawings}
           habitatPolygons={habitatPolygons}
+          otherBoundaries={otherBoundaries}
           onOverlapDetected={onOverlapDetected}
           onMapReady={onMapReady}
           onDeleteConfirmChange={setShowDeleteConfirm}
@@ -577,7 +581,7 @@ export function ProjectMapWithDraw({
 
   if (!mapLoaded) {
     return (
-      <div className={cn('relative overflow-hidden rounded-lg', className)}>
+      <div className={cn('relative h-full overflow-hidden rounded-lg', className)}>
         <div className="bg-muted/50 flex h-full min-h-100 w-full items-center justify-center">
           <div className="border-primary h-8 w-8 animate-spin rounded-full border-b-2" />
         </div>
@@ -586,7 +590,7 @@ export function ProjectMapWithDraw({
   }
 
   return (
-    <div ref={containerRef} className={cn('relative overflow-hidden rounded-lg', className)}>
+    <div ref={containerRef} className={cn('relative h-full overflow-hidden rounded-lg', className)}>
       <div className="h-full min-h-100 w-full">
         <DynamicMapComponentWithDraw
           center={center}

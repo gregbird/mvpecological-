@@ -134,9 +134,13 @@ export default function ProjectDetailPage() {
     }
   }
 
-  // GIS Mapping and Data Gathering steps need full height without padding
+  // GIS Mapping, Data Gathering, Desk Assessment, and Field Research need
+  // full height without padding so their map + drawer layouts fill the screen
   const isFullHeightStep =
-    currentStepNumber === 1 || currentStepNumber === 2 || currentStepNumber === 3
+    currentStepNumber === 1 ||
+    currentStepNumber === 2 ||
+    currentStepNumber === 3 ||
+    currentStepNumber === 4
 
   const showNeedsReviewBanner =
     currentWorkflowStep.status === 'needs_review' && currentStepNumber > 1

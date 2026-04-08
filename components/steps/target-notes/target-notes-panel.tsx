@@ -53,9 +53,9 @@ export function TargetNotesPanel({
   projectCenter,
 }: TargetNotesPanelProps) {
   return (
-    <div className="grid min-h-0 grid-rows-[1fr] gap-4 lg:grid-cols-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       {/* Map */}
-      <Card className="flex min-h-0 flex-col">
+      <Card className="flex min-h-0 flex-1 flex-col">
         <CardHeader className="py-3">
           <CardTitle className="text-base">Target Notes Map</CardTitle>
         </CardHeader>
@@ -104,7 +104,7 @@ export function TargetNotesPanel({
       </Card>
 
       {/* Target Notes List */}
-      <Card className="flex min-h-0 flex-col">
+      <Card className="flex h-72 shrink-0 flex-col">
         <CardHeader className="py-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">Target Notes</CardTitle>

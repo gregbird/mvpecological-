@@ -150,46 +150,14 @@ export function TargetNotesStep({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Compact toolbar */}
-      <div className="flex items-center justify-between border-b px-6 py-3">
-        <div className="flex items-center gap-4">
-          <p className="text-muted-foreground text-sm">
-            Record field notes and species observations
-          </p>
-          <SiteSelector
-            projectId={project.id}
-            stepKey="field-research"
-            onSiteChange={setSelectedSite}
-            showAllOption
-          />
-          {/* Inline Stats */}
-          <div className="hidden items-center gap-4 border-l pl-4 md:flex">
-            <div className="text-center">
-              <div className="text-lg font-bold">{filteredTargetNotes.length}</div>
-              <div className="text-muted-foreground text-xs">Notes</div>
-            </div>
-            <div className="text-center">
-              <div className="text-lg font-bold">{filteredObservations.length}</div>
-              <div className="text-muted-foreground text-xs">Observations</div>
-            </div>
-            <div className="text-center">
-              <div className="text-lg font-bold text-green-600">
-                {targetNotesStats?.verified || 0}
-              </div>
-              <div className="text-muted-foreground text-xs">Verified</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content - Full Height */}
-      <div className="min-h-0 flex-1 p-4">
-        <Tabs
-          value={activeMainTab}
-          onValueChange={(v) => setActiveMainTab(v as 'target-notes' | 'observations')}
-          className="flex h-full flex-col"
-        >
-          <div className="mb-3 flex items-center justify-between">
+      {/* Combined toolbar: SiteSelector + stats + sub-tabs + add button */}
+      <Tabs
+        value={activeMainTab}
+        onValueChange={(v) => setActiveMainTab(v as 'target-notes' | 'observations')}
+        className="flex min-h-0 flex-1 flex-col"
+      >
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b px-6 py-1.5">
+          <div className="flex items-center gap-3">
             <TabsList>
               <TabsTrigger value="target-notes" className="flex items-center gap-2">
                 <Target className="h-4 w-4" />
@@ -200,108 +168,137 @@ export function TargetNotesStep({
                 Species Observations ({filteredObservations.length})
               </TabsTrigger>
             </TabsList>
-            {activeMainTab === 'target-notes' ? (
-              <Button
-                onClick={() => {
-                  setEditingTargetNote(null)
-                  setShowTargetNoteForm(true)
-                }}
-                size="sm"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Note
-              </Button>
-            ) : (
-              <div className="flex items-center gap-2">
-                {importableSpecies.length > 0 && (
-                  <Button
-                    onClick={handleImportSpecies}
-                    disabled={surveys.length === 0 || isImporting}
-                    size="sm"
-                    variant="outline"
-                  >
-                    {isImporting ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Download className="mr-2 h-4 w-4" />
-                    )}
-                    Import from Data Gathering ({importableSpecies.length})
-                  </Button>
-                )}
-                <span
-                  title={
-                    surveys.length === 0
-                      ? 'Create a survey first in Field Survey Planning'
-                      : !selectedSurveyId
-                        ? 'Select a survey from the dropdown above to add observations to it'
-                        : undefined
-                  }
-                  className="inline-block"
-                >
-                  <Button
-                    onClick={() => {
-                      setEditingObservation(null)
-                      setShowObservationForm(true)
-                    }}
-                    disabled={surveys.length === 0 || !selectedSurveyId}
-                    size="sm"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Observation
-                  </Button>
-                </span>
+            <SiteSelector
+              projectId={project.id}
+              stepKey="field-research"
+              onSiteChange={setSelectedSite}
+              showAllOption
+            />
+            {/* Inline Stats */}
+            <div className="hidden items-center gap-3 border-l pl-3 md:flex">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-base font-bold">{filteredTargetNotes.length}</span>
+                <span className="text-muted-foreground text-xs">Notes</span>
               </div>
-            )}
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-base font-bold">{filteredObservations.length}</span>
+                <span className="text-muted-foreground text-xs">Obs</span>
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-base font-bold text-green-600">
+                  {targetNotesStats?.verified || 0}
+                </span>
+                <span className="text-muted-foreground text-xs">Verified</span>
+              </div>
+            </div>
           </div>
-
-          {/* TARGET NOTES TAB */}
-          <TabsContent value="target-notes" className="mt-0 min-h-0 flex-1">
-            <TargetNotesPanel
-              targetNotes={filteredTargetNotes}
-              targetNotesByCategory={targetNotesByCategory}
-              selectedTargetNote={selectedTargetNote}
-              activeCategoryTab={activeCategoryTab}
-              onCategoryTabChange={setActiveCategoryTab}
-              onSelectNote={setSelectedTargetNote}
-              onEditNote={(note) => {
-                setEditingTargetNote(note)
-                setShowTargetNoteForm(true)
-              }}
-              onDeleteNote={setDeletingTargetNote}
-              onVerifyNote={handleVerifyTargetNote}
-              onMapClick={(latlng) => {
-                setMapClickLocation(latlng)
+          {activeMainTab === 'target-notes' ? (
+            <Button
+              onClick={() => {
                 setEditingTargetNote(null)
                 setShowTargetNoteForm(true)
               }}
-              projectBoundary={projectBoundary}
-              projectCenter={projectCenter}
-            />
-          </TabsContent>
+              size="sm"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Note
+            </Button>
+          ) : (
+            <div className="flex items-center gap-2">
+              {importableSpecies.length > 0 && (
+                <Button
+                  onClick={handleImportSpecies}
+                  disabled={surveys.length === 0 || isImporting}
+                  size="sm"
+                  variant="outline"
+                >
+                  {isImporting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="mr-2 h-4 w-4" />
+                  )}
+                  Import from Data Gathering ({importableSpecies.length})
+                </Button>
+              )}
+              <span
+                title={
+                  surveys.length === 0
+                    ? 'Create a survey first in Field Survey Planning'
+                    : !selectedSurveyId
+                      ? 'Select a survey from the dropdown above to add observations to it'
+                      : undefined
+                }
+                className="inline-block"
+              >
+                <Button
+                  onClick={() => {
+                    setEditingObservation(null)
+                    setShowObservationForm(true)
+                  }}
+                  disabled={surveys.length === 0 || !selectedSurveyId}
+                  size="sm"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Observation
+                </Button>
+              </span>
+            </div>
+          )}
+        </div>
 
-          {/* SPECIES OBSERVATIONS TAB */}
-          <TabsContent value="observations" className="mt-0 min-h-0 flex-1">
-            <ObservationsPanel
-              surveys={filteredSurveys}
-              filteredObservations={filteredObservations}
-              observationsByTaxon={observationsByTaxon}
-              selectedSurveyId={selectedSurveyId}
-              onSurveyChange={setSelectedSurveyId}
-              activeTab={activeTab}
-              onActiveTabChange={setActiveTab}
-              selectedObservation={selectedObservation}
-              onSelectObservation={setSelectedObservation}
-              onEditObservation={(obs) => {
-                setEditingObservation(obs)
-                setShowObservationForm(true)
-              }}
-              onDeleteObservation={setDeletingObservation}
-              projectBoundary={projectBoundary}
-              projectCenter={projectCenter}
-            />
-          </TabsContent>
-        </Tabs>
-      </div>
+        {/* TARGET NOTES TAB */}
+        <TabsContent
+          value="target-notes"
+          className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden p-2"
+        >
+          <TargetNotesPanel
+            targetNotes={filteredTargetNotes}
+            targetNotesByCategory={targetNotesByCategory}
+            selectedTargetNote={selectedTargetNote}
+            activeCategoryTab={activeCategoryTab}
+            onCategoryTabChange={setActiveCategoryTab}
+            onSelectNote={setSelectedTargetNote}
+            onEditNote={(note) => {
+              setEditingTargetNote(note)
+              setShowTargetNoteForm(true)
+            }}
+            onDeleteNote={setDeletingTargetNote}
+            onVerifyNote={handleVerifyTargetNote}
+            onMapClick={(latlng) => {
+              setMapClickLocation(latlng)
+              setEditingTargetNote(null)
+              setShowTargetNoteForm(true)
+            }}
+            projectBoundary={projectBoundary}
+            projectCenter={projectCenter}
+          />
+        </TabsContent>
+
+        {/* SPECIES OBSERVATIONS TAB */}
+        <TabsContent
+          value="observations"
+          className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden p-2"
+        >
+          <ObservationsPanel
+            surveys={filteredSurveys}
+            filteredObservations={filteredObservations}
+            observationsByTaxon={observationsByTaxon}
+            selectedSurveyId={selectedSurveyId}
+            onSurveyChange={setSelectedSurveyId}
+            activeTab={activeTab}
+            onActiveTabChange={setActiveTab}
+            selectedObservation={selectedObservation}
+            onSelectObservation={setSelectedObservation}
+            onEditObservation={(obs) => {
+              setEditingObservation(obs)
+              setShowObservationForm(true)
+            }}
+            onDeleteObservation={setDeletingObservation}
+            projectBoundary={projectBoundary}
+            projectCenter={projectCenter}
+          />
+        </TabsContent>
+      </Tabs>
 
       {/* Target Note Form Dialog */}
       <TargetNoteForm

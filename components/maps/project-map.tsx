@@ -365,7 +365,7 @@ export function ProjectMap({
 
   if (!mapLoaded) {
     return (
-      <div className={cn('relative overflow-hidden rounded-lg', className)}>
+      <div className={cn('relative h-full overflow-hidden rounded-lg', className)}>
         <div className="bg-muted/50 flex h-full min-h-100 w-full items-center justify-center">
           <div className="border-primary h-8 w-8 animate-spin rounded-full border-b-2" />
         </div>
@@ -374,7 +374,7 @@ export function ProjectMap({
   }
 
   return (
-    <div ref={containerRef} className={cn('relative overflow-hidden rounded-lg', className)}>
+    <div ref={containerRef} className={cn('relative h-full overflow-hidden rounded-lg', className)}>
       <div className="h-full min-h-100 w-full">
         <DynamicMapComponent
           {...mapProps}

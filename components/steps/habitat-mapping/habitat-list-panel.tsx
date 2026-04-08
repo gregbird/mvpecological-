@@ -116,8 +116,8 @@ export function HabitatListPanel({
   }, [activeTab, tabCacheKey])
 
   return (
-    <Card className="flex shrink-0 flex-col md:w-[38%]">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-1 flex-col">
+    <Card className="flex h-full w-full flex-col">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col">
         <div className="flex items-center gap-2 px-3 pt-3">
           <TabsList className="grid w-auto shrink-0 grid-cols-2">
             <TabsTrigger value="habitats" className="text-xs">

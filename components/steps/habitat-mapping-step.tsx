@@ -1,10 +1,9 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2, AlertCircle, Pentagon } from 'lucide-react'
+import { Loader2, AlertCircle } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
-import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   AlertDialog,
@@ -21,6 +20,7 @@ import {
   useHabitats,
   useHabitatStats,
   useCreateHabitat,
+  useCreateHabitatsBulk,
   useUpdateHabitat,
   useDeleteHabitat,
 } from '@/hooks/queries/use-habitat-hooks'
@@ -84,19 +84,21 @@ export function HabitatMappingStep({
     selectedSite?.id
   )
   const createHabitat = useCreateHabitat()
+  const createHabitatsBulk = useCreateHabitatsBulk()
   const updateHabitat = useUpdateHabitat()
   const deleteHabitat = useDeleteHabitat()
 
   const findingsByType = React.useMemo(() => groupFindingsByType(savedFindings), [savedFindings])
 
-  // D2.3: Auto-import habitat findings from data gathering
+  // D2.3: Auto-import habitat findings from data gathering (bulk — single
+  // round-trip to avoid the map freeze caused by N sequential inserts)
   useAutoImportHabitats({
     projectId: project.id,
     savedFindings,
     habitats,
     isLoading,
     findingsLoading,
-    createHabitat,
+    createHabitatsBulk,
     toast,
   })
 
@@ -248,11 +250,8 @@ export function HabitatMappingStep({
   return (
     <div className="flex h-full flex-col">
       {/* Compact toolbar */}
-      <div className="flex items-center justify-between border-b px-6 py-3">
+      <div className="flex shrink-0 items-center justify-between border-b px-6 py-1.5">
         <div className="flex items-center gap-4">
-          <p className="text-muted-foreground text-sm">
-            Draw polygons on the map, then select Fossitt code and condition
-          </p>
           <SiteSelector
             projectId={project.id}
             stepKey="field-research"
@@ -260,19 +259,19 @@ export function HabitatMappingStep({
             showAllOption
           />
           <div className="hidden items-center gap-4 border-l pl-4 md:flex">
-            <div className="text-center">
-              <div className="text-lg font-bold">{savedFindings.length}</div>
-              <div className="text-muted-foreground text-xs">Findings</div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-base font-bold">{savedFindings.length}</span>
+              <span className="text-muted-foreground text-xs">Findings</span>
             </div>
-            <div className="text-center">
-              <div className="text-lg font-bold">{filteredHabitats.length}</div>
-              <div className="text-muted-foreground text-xs">Habitats</div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-base font-bold">{filteredHabitats.length}</span>
+              <span className="text-muted-foreground text-xs">Habitats</span>
             </div>
-            <div className="text-center">
-              <div className="text-lg font-bold">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-base font-bold">
                 {(habitatStats?.totalArea || 0).toFixed(1)} ha
-              </div>
-              <div className="text-muted-foreground text-xs">Total Area</div>
+              </span>
+              <span className="text-muted-foreground text-xs">Total</span>
             </div>
           </div>
         </div>
@@ -289,59 +288,49 @@ export function HabitatMappingStep({
         </Alert>
       )}
 
-      {/* Main Content - Side-by-side Layout */}
-      <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 md:flex-row">
-        <HabitatListPanel
-          projectId={project.id}
-          filteredHabitats={filteredHabitats}
-          savedFindings={savedFindings}
-          findingsByType={findingsByType}
-          findingsLoading={findingsLoading}
-          selectedHabitat={selectedHabitat}
-          visibleFindingGroups={visibleFindingGroups}
-          toggleFindingGroup={toggleFindingGroup}
-          onSelectHabitat={setSelectedHabitat}
-          onEditHabitat={(habitat) => {
-            setEditingHabitat(habitat)
-            setShowHabitatForm(true)
-          }}
-          onDeleteHabitat={setDeletingHabitat}
-          onAddHabitat={() => {
-            setEditingHabitat(null)
-            setDrawnBoundary(null)
-            setShowHabitatForm(true)
-          }}
-          onFindingClick={handleFindingClick}
-        />
+      {/* Main Content - Stacked Layout: map on top (full-width), list below */}
+      <div className="flex min-h-0 flex-1 flex-col gap-2 p-2">
+        <div className="min-h-0 flex-1 overflow-hidden rounded-lg border">
+          <ProjectMapWithDraw
+            center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
+            zoom={projectCenter ? 14 : 7}
+            boundary={projectBoundary}
+            onBoundaryChange={handleBoundaryChange}
+            editable
+            findings={findingMarkers}
+            flyToLocation={flyToLocation ?? undefined}
+            habitatPolygons={habitatPolygonOverlays}
+            selectedHabitatId={selectedHabitat?.id}
+            onHabitatClick={(id) => setSelectedHabitat(handleHabitatMapClick(id))}
+            allowMultipleDrawings
+            visibleLayers={npwsVisibleLayers}
+          />
+        </div>
 
-        <Card className="flex min-h-80 flex-1 flex-col md:min-h-0">
-          <CardContent className="flex min-h-0 flex-1 flex-col p-3">
-            <div className="bg-muted/60 mb-2 flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
-              <Pentagon className="h-4 w-4 shrink-0 text-emerald-600" />
-              <span className="text-muted-foreground">
-                Use the <strong className="text-foreground">polygon</strong> or{' '}
-                <strong className="text-foreground">rectangle</strong> tool on the map to draw a
-                habitat boundary. The form will open automatically.
-              </span>
-            </div>
-            <div className="min-h-64 flex-1 overflow-hidden rounded-lg border">
-              <ProjectMapWithDraw
-                center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
-                zoom={projectCenter ? 14 : 7}
-                boundary={projectBoundary}
-                onBoundaryChange={handleBoundaryChange}
-                editable
-                findings={findingMarkers}
-                flyToLocation={flyToLocation ?? undefined}
-                habitatPolygons={habitatPolygonOverlays}
-                selectedHabitatId={selectedHabitat?.id}
-                onHabitatClick={(id) => setSelectedHabitat(handleHabitatMapClick(id))}
-                allowMultipleDrawings
-                visibleLayers={npwsVisibleLayers}
-              />
-            </div>
-          </CardContent>
-        </Card>
+        <div className="h-72 shrink-0">
+          <HabitatListPanel
+            projectId={project.id}
+            filteredHabitats={filteredHabitats}
+            savedFindings={savedFindings}
+            findingsByType={findingsByType}
+            findingsLoading={findingsLoading}
+            selectedHabitat={selectedHabitat}
+            visibleFindingGroups={visibleFindingGroups}
+            toggleFindingGroup={toggleFindingGroup}
+            onSelectHabitat={setSelectedHabitat}
+            onEditHabitat={(habitat) => {
+              setEditingHabitat(habitat)
+              setShowHabitatForm(true)
+            }}
+            onDeleteHabitat={setDeletingHabitat}
+            onAddHabitat={() => {
+              setEditingHabitat(null)
+              setDrawnBoundary(null)
+              setShowHabitatForm(true)
+            }}
+            onFindingClick={handleFindingClick}
+          />
+        </div>
       </div>
 
       <HabitatForm

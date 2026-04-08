@@ -103,10 +103,10 @@ export function ObservationsPanel({
         </Select>
       </div>
 
-      {/* Observations Content - Full Height Grid */}
-      <div className="grid min-h-0 flex-1 grid-rows-[1fr] gap-4 lg:grid-cols-2">
+      {/* Observations Content - Stacked: map on top, list below */}
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
         {/* Map */}
-        <Card className="flex min-h-0 flex-col">
+        <Card className="flex min-h-0 flex-1 flex-col">
           <CardHeader className="py-3">
             <CardTitle className="text-base">Observation Map</CardTitle>
           </CardHeader>
@@ -136,7 +136,7 @@ export function ObservationsPanel({
         </Card>
 
         {/* Observation List */}
-        <Card className="flex min-h-0 flex-col">
+        <Card className="flex h-72 shrink-0 flex-col">
           <CardHeader className="py-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">Species Observations</CardTitle>
