@@ -168,12 +168,6 @@ export function TargetNotesStep({
                 Species Observations ({filteredObservations.length})
               </TabsTrigger>
             </TabsList>
-            <SiteSelector
-              projectId={project.id}
-              stepKey="field-research"
-              onSiteChange={setSelectedSite}
-              showAllOption
-            />
             {/* Inline Stats */}
             <div className="hidden items-center gap-3 border-l pl-3 md:flex">
               <div className="flex items-baseline gap-1.5">
@@ -192,64 +186,72 @@ export function TargetNotesStep({
               </div>
             </div>
           </div>
-          {activeMainTab === 'target-notes' ? (
-            <Button
-              onClick={() => {
-                setEditingTargetNote(null)
-                setShowTargetNoteForm(true)
-              }}
-              size="sm"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Note
-            </Button>
-          ) : (
-            <div className="flex items-center gap-2">
-              {importableSpecies.length > 0 && (
-                <Button
-                  onClick={handleImportSpecies}
-                  disabled={surveys.length === 0 || isImporting}
-                  size="sm"
-                  variant="outline"
-                >
-                  {isImporting ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Download className="mr-2 h-4 w-4" />
-                  )}
-                  Import from Data Gathering ({importableSpecies.length})
-                </Button>
-              )}
-              <span
-                title={
-                  surveys.length === 0
-                    ? 'Create a survey first in Field Survey Planning'
-                    : !selectedSurveyId
-                      ? 'Select a survey from the dropdown above to add observations to it'
-                      : undefined
-                }
-                className="inline-block"
+          <div className="flex items-center gap-3">
+            <SiteSelector
+              projectId={project.id}
+              stepKey="field-research"
+              onSiteChange={setSelectedSite}
+              showAllOption
+            />
+            {activeMainTab === 'target-notes' ? (
+              <Button
+                onClick={() => {
+                  setEditingTargetNote(null)
+                  setShowTargetNoteForm(true)
+                }}
+                size="sm"
               >
-                <Button
-                  onClick={() => {
-                    setEditingObservation(null)
-                    setShowObservationForm(true)
-                  }}
-                  disabled={surveys.length === 0 || !selectedSurveyId}
-                  size="sm"
+                <Plus className="mr-2 h-4 w-4" />
+                Add Note
+              </Button>
+            ) : (
+              <div className="flex items-center gap-2">
+                {importableSpecies.length > 0 && (
+                  <Button
+                    onClick={handleImportSpecies}
+                    disabled={surveys.length === 0 || isImporting}
+                    size="sm"
+                    variant="outline"
+                  >
+                    {isImporting ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="mr-2 h-4 w-4" />
+                    )}
+                    Import from Data Gathering ({importableSpecies.length})
+                  </Button>
+                )}
+                <span
+                  title={
+                    surveys.length === 0
+                      ? 'Create a survey first in Field Survey Planning'
+                      : !selectedSurveyId
+                        ? 'Select a survey from the dropdown above to add observations to it'
+                        : undefined
+                  }
+                  className="inline-block"
                 >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Observation
-                </Button>
-              </span>
-            </div>
-          )}
+                  <Button
+                    onClick={() => {
+                      setEditingObservation(null)
+                      setShowObservationForm(true)
+                    }}
+                    disabled={surveys.length === 0 || !selectedSurveyId}
+                    size="sm"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Observation
+                  </Button>
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* TARGET NOTES TAB */}
         <TabsContent
           value="target-notes"
-          className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden p-2"
+          className="mt-0 min-h-0 flex-1 overflow-y-auto px-10 py-2"
         >
           <TargetNotesPanel
             targetNotes={filteredTargetNotes}
@@ -277,7 +279,7 @@ export function TargetNotesStep({
         {/* SPECIES OBSERVATIONS TAB */}
         <TabsContent
           value="observations"
-          className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden p-2"
+          className="mt-0 min-h-0 flex-1 overflow-y-auto px-10 py-2"
         >
           <ObservationsPanel
             surveys={filteredSurveys}

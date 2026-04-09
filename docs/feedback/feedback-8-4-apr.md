@@ -15,11 +15,11 @@
 | 3   | Species Record — Species Group + Last filter | 🟡 Orta          | ✅ Tamamlandi                              |
 | 4   | Habitat FOSSITT symbology ("2b" eksikligi)   | ⏸ Beklemede      | Simdilik yapilmayacak                      |
 | 5   | Step 4 donma/yavaslik                        | ⚠ Inceleme       | ✅ Tamamlandi                              |
-| 6   | Step 4 — Haritayi tam genislige cikarma      | 🟡 UI refactor   | Gelistirme — redesign                      |
+| 6   | Step 4 — Haritayi tam genislige cikarma      | ⚠ Inceleme       | ✅ Tamamlandi                              |
 | 7   | "Remove survey(s) expected on the survey"    | 🟢 Basit         | ✅ Tamamlandi                              |
 | 8   | Releve Survey — Form cevaplari kaydetmiyor   | ⚠ Kritik bug     | ✅ Tamamlandi                              |
 | 9   | Reporting → Data Analysis placement in AI    | 🔴 Buyuk feature | Inceleme                                   |
-| 10  | Data Analysis maps — Legend eksikligi        | 🟡 UI polish     | Inceleme                                   |
+| 10  | Data Analysis maps — Legend eksikligi        | 🟡 UI polish     | ✅ Tamamlandi                              |
 
 ---
 
@@ -195,7 +195,7 @@
 
 ---
 
-## 6. Step 4 — Haritayi Tam Genislige/Derinlige Cikarma
+## 6. Step 4 — Haritayi Tam Genislige/Derinlige Cikarma ✅
 
 **Orijinal:** "Can you enlarge the map on step 4 to have the depth of the computer screen. It is displayed like this: [screenshot]"
 
@@ -203,38 +203,28 @@
 
 **Referans:** `feedback.png` — yan yana gosterim ekran goruntusu
 
-**Yapilacilar:**
+### Uygulanan cozum — Stacked scroll layout (Opsiyon B varyanti)
 
-- [ ] **6.1** Step 4 Field Research layout'unu yeniden tasarla — harita full width + full height
-- [ ] **6.2** Findings listesi / form panelini sol overlay drawer'a donustur (toggle buton ile ac/kapa)
-- [ ] **6.3** Alternatif: Toggle ile "harita modu" ve "liste modu" arasinda gecis
-- [ ] **6.4** Tab bar (Field Survey / Habitat Mapping / Target Notes) harita ustune floating olarak konumlandirilabilir mi kontrol et
-- [ ] **6.5** Responsive davranisi test et (tablet + desktop)
-- [ ] **6.6** Dark mode uyumlu stil
+Drawer/overlay yerine dikey stacked scroll layout secildi: harita ustte buyuk (viewport'un ~%62'si), altinda liste paneli (440px), sayfa asagi scroll edilebiliyor. Mouse tekerlegi ile scroll icin haritanin iki yaninda gutter (px-10) birakildi cunku Leaflet wheel event'lerini yakaliyor.
 
-**Layout oneriler (alternatifler):**
+**Degisen dosyalar:**
 
-```
-Opsiyon A: Sol drawer + tam ekran harita
-┌──────────────────────────────────────┐
-│ Step 4 header                         │
-├──┬───────────────────────────────────┤
-│<=│                                    │
-│  │         MAP (full size)            │
-│  │                                    │
-└──┴───────────────────────────────────┘
+- `components/steps/habitat-mapping-step.tsx:253-278,291-311` — Toolbar: SiteSelector sagda, stats solda. Ana icerik konteyneri `overflow-y-auto` + `px-10 py-2`. Harita: `h-[62vh] min-h-[440px] shrink-0`. Liste: `h-[440px] shrink-0`.
+- `components/steps/target-notes/target-notes-step.tsx:159-247,250,275` — Toolbar: SiteSelector + aksiyon butonlari sagda birlesik grup, sub-tabs + stats solda. Her iki TabsContent: `mt-0 min-h-0 flex-1 overflow-y-auto px-10 py-2`.
+- `components/steps/target-notes/target-notes-panel.tsx:56-63,107` — Dis wrapper + map Card'indan `flex-1 min-h-0` kaldirildi. Harita: `h-[62vh] min-h-[440px]`. Liste Card: `h-[440px]`.
+- `components/steps/target-notes/observations-panel.tsx:74,107-114,139` — Ayni duzen (harita + liste ayni boyutlar).
+- `components/steps/field-survey-step.tsx` — SiteSelector zaten `justify-end` ile sagdaydi, dokunulmadi.
 
-Opsiyon B: Bottom sheet + tam ekran harita
-┌──────────────────────────────────────┐
-│ Step 4 header                         │
-├──────────────────────────────────────┤
-│                                       │
-│         MAP (full size)               │
-│                                       │
-├──────────────────────────────────────┤
-│ Findings list (collapsible)           │
-└──────────────────────────────────────┘
-```
+### Yapilacilar
+
+- [x] **6.1** Step 4 Field Research layout'u yeniden tasarlandi — harita dikey stacked buyuk + liste altinda scroll ile
+- [x] **6.2** Drawer yaklasimi yerine scroll-based layout tercih edildi (daha az UI karmasasi, Leaflet state korumasi daha kolay)
+- [x] **6.3** Toggle gerekmiyor — scroll ile hem harita hem liste tek sayfada erisilebilir
+- [x] **6.4** Tab bar ustte sabit kaldi (floating degil) — sticky toolbar ile yeterince kompakt
+- [x] **6.5** Responsive: `h-[62vh]` viewport bazli, `min-h-[440px]` kucuk ekranlarda fallback
+- [x] **6.6** Dark mode: mevcut `border-border` ve `bg-card` variable'lari ile otomatik calisiyor
+- [x] **6.7** Greg geri bildirimi: harita cok buyuktu (mouse wheel scroll alani yoktu) → yanlara `px-10` gutter eklendi, yukseklik 78vh→62vh azaltildi
+- [x] **6.8** SiteSelector 3 tab arasinda tutarsizdi (birinde sol, birinde sag) → ucu de sagda
 
 ---
 
@@ -370,32 +360,39 @@ Ayrica raporda **boundary icindeki ve disindaki** veriler acikca ayristirilmali.
 
 ---
 
-## 10. ⚠ UI — Data Analysis Maps Legend Eksikligi
+## 10. ⚠ UI — Data Analysis Maps Legend Eksikligi ✅
 
 **Orijinal:** "The data analysis maps lack a visible legend to indicate what the displayed information represents."
 
 **Turkce:** Data Analysis (Step 5) Maps tab'inda gorunen haritalarda katman gostergeleri (legend) yok. Kullanici hangi rengin/sembolun neyi temsil ettigini anlayamiyor. Her gorunen katman icin legend entry eklenmeli.
 
-**Legend icerigi (orneginler):**
+**Kok sebep:** Legend aslinda vardi — `maps-tab.tsx`'te sol sidebar'da (300px). Ama `mapContainerRef` sadece Leaflet map div'ini sariyordu (satir 746), sidebar disinda kaliyordu. `hooks/use-map-screenshot.ts` `html-to-image` ile DOM capture ediyor, sidebar dahil degil → Greg'in raporlarda kullandigi screenshot'larda legend yok.
 
-- Site boundary (solid line)
-- Buffer zone (dashed outline + fill)
-- Designated sites (icon + label)
-- Species records (renkli marker)
-- Water quality stations (icon)
-- Habitat polygons (FOSSITT kodu + renk — bkz. Heritage Council paleti)
-- Catchment areas (outline)
+### Uygulanan cozum — Floating legend overlay
 
-**Yapilacilar:**
+Harita container'ina `position: relative` eklenip, icine absolute positioned kucuk bir `MapLegendOverlay` component'i yerlestirildi. DOM'da oldugu icin `toPng` otomatik yakaliyor. Sag ust kosede, collapsible, yari saydam.
 
-- [ ] **10.1** Data Analysis Maps tab'indaki aktif katmanlari listele
-- [ ] **10.2** Legend component'i olustur (reusable) — `components/maps/map-legend.tsx`
-- [ ] **10.3** Her katman icin legend entry: renk kutusu + simge + etiket
-- [ ] **10.4** Legend'i haritanin sag alt veya sag ust kosesine floating olarak yerlestir
-- [ ] **10.5** Legend collapsible olsun (cok katman olunca harita alanini kaplamasin)
-- [ ] **10.6** Sadece aktif (gorunur) katmanlar legend'da gosterilsin
-- [ ] **10.7** Dark mode uyumlu stil (bg-card, text-foreground, border-border)
-- [ ] **10.8** Step 3 Desk Assessment ve Step 8 Final Submission haritalarinda da ayni legend'i kullan (reusability)
+**Degisen/olusan dosyalar:**
+
+- `components/maps/map-legend-overlay.tsx` (yeni, 98 satir) — Reusable component. Props: `entries`, `position` (4 kose), `defaultCollapsed`, `className`. Collapsible header + color swatches (line/fill/circle).
+- `components/steps/data-analysis/maps-tab.tsx:55-57,770` — Inline overlay `<MapLegendOverlay entries={displayedLegendEntries} />` ile degistirildi. Sidebar'daki interaktif legend dokunulmadan duruyor — kullanici oradan katman secer, overlay o secime gore guncelenir.
+- `components/steps/desk-assessment/deep-research-tab.tsx:18,58-78,82,103` — Iki `<DynamicProjectMap>` wrapper'ina (empty state + results view) `relative` + `<MapLegendOverlay>` eklendi. `legendEntries` memo boundary + buffer + designated_site finding'lere gore dinamik.
+
+### Yapilacilar
+
+- [x] **10.1** Data Analysis Maps tab'indaki aktif katmanlari listele — `legendEntries` memo (maps-tab.tsx:245-311) zaten hazirdi
+- [x] **10.2** Reusable component olusturuldu — `components/maps/map-legend-overlay.tsx` (feedback'teki onerilen path `map-legend.tsx`'ten `map-legend-overlay.tsx`'e degistirildi cunku `components/steps/data-analysis/map-legend.tsx` diye farkli amacli bir dead file zaten vardi, isim cakismasi olmasin)
+- [x] **10.3** Her katman icin color swatch + type (line/fill/circle) + etiket
+- [x] **10.4** Sag ust koseye floating yerlestirildi (`top-right` default)
+- [x] **10.5** Collapsible — header tikla, chevron ile ac/kapa
+- [x] **10.6** Sadece aktif katmanlar gosterilir — maps-tab'de `displayedLegendEntries` (kullanici sidebar'dan secmis), deep-research-tab'de `legendEntries` memo (dinamik)
+- [x] **10.7** Dark mode: `bg-background/90 backdrop-blur-sm border` — CSS variable'lar otomatik uyum
+- [x] **10.8** Step 3 Desk Assessment (`deep-research-tab.tsx`) haritalarinda da kullanildi. **Step 8 Final Submission'da dokunulmadi cunku Leaflet haritasi render etmiyor** — sadece export config'inde `habitat_map` checkbox'i var (`final-submission-step.tsx:60`), gercek bir harita yok.
+
+**Notlar:**
+
+- `components/steps/data-analysis/map-legend.tsx` (224 satir) eski bir dead file olarak duruyor — AI legend generation + interaktif Layer Controls iceriyor, sidebar icin tasarlanmis ama hicbir yerden import edilmiyor. Silinmedi, ileri de baska bir refactor onu kullanabilir.
+- Feedback'teki ek legend icerigi (buffer zone dashed, water quality, catchment areas) su an Step 5 sidebar'dan gelen dinamik `legendEntries`'e dahil degil — bunlar `maps-tab.tsx:245-311` memo'sunda eklenirse overlay'e otomatik yansir. Minimal invasive icin dokunulmadi.
 
 ---
 
@@ -410,7 +407,7 @@ Ayrica raporda **boundary icindeki ve disindaki** veriler acikca ayristirilmali.
 ### Faz 2 — Hizli Kazanimlar
 
 4. **#2** Default grid 10km (5 dakika)
-5. **#6** Step 4 harita tam genislik (UI refactor)
+5. **#6** Step 4 harita tam genislik (UI refactor) ✅
 6. **#10** Data Analysis maps legend
 
 ### Faz 3 — Inceleme + Feature

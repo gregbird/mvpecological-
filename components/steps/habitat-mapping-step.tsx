@@ -251,30 +251,28 @@ export function HabitatMappingStep({
     <div className="flex h-full flex-col">
       {/* Compact toolbar */}
       <div className="flex shrink-0 items-center justify-between border-b px-6 py-1.5">
-        <div className="flex items-center gap-4">
-          <SiteSelector
-            projectId={project.id}
-            stepKey="field-research"
-            onSiteChange={setSelectedSite}
-            showAllOption
-          />
-          <div className="hidden items-center gap-4 border-l pl-4 md:flex">
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-base font-bold">{savedFindings.length}</span>
-              <span className="text-muted-foreground text-xs">Findings</span>
-            </div>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-base font-bold">{filteredHabitats.length}</span>
-              <span className="text-muted-foreground text-xs">Habitats</span>
-            </div>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-base font-bold">
-                {(habitatStats?.totalArea || 0).toFixed(1)} ha
-              </span>
-              <span className="text-muted-foreground text-xs">Total</span>
-            </div>
+        <div className="hidden items-center gap-4 md:flex">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-base font-bold">{savedFindings.length}</span>
+            <span className="text-muted-foreground text-xs">Findings</span>
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-base font-bold">{filteredHabitats.length}</span>
+            <span className="text-muted-foreground text-xs">Habitats</span>
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-base font-bold">
+              {(habitatStats?.totalArea || 0).toFixed(1)} ha
+            </span>
+            <span className="text-muted-foreground text-xs">Total</span>
           </div>
         </div>
+        <SiteSelector
+          projectId={project.id}
+          stepKey="field-research"
+          onSiteChange={setSelectedSite}
+          showAllOption
+        />
       </div>
 
       {!projectBoundary && (
@@ -288,9 +286,13 @@ export function HabitatMappingStep({
         </Alert>
       )}
 
-      {/* Main Content - Stacked Layout: map on top (full-width), list below */}
-      <div className="flex min-h-0 flex-1 flex-col gap-2 p-2">
-        <div className="min-h-0 flex-1 overflow-hidden rounded-lg border">
+      {/* Main Content - Stacked Layout: map on top, list below.
+          The container scrolls so both map and list can have generous fixed
+          heights that exceed the viewport. Horizontal padding leaves gutter
+          space for mouse-wheel scroll (map intercepts wheel events over
+          itself, so the user needs clear area beside it). */}
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-10 py-2">
+        <div className="h-[62vh] min-h-[440px] shrink-0 overflow-hidden rounded-lg border">
           <ProjectMapWithDraw
             center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
             zoom={projectCenter ? 14 : 7}
@@ -307,7 +309,7 @@ export function HabitatMappingStep({
           />
         </div>
 
-        <div className="h-72 shrink-0">
+        <div className="h-[440px] shrink-0">
           <HabitatListPanel
             projectId={project.id}
             filteredHabitats={filteredHabitats}

@@ -1,5 +1,6 @@
 'use client'
 
+import * as React from 'react'
 import dynamic from 'next/dynamic'
 import { Loader2, Droplets, Bug, Layers } from 'lucide-react'
 
@@ -14,6 +15,7 @@ import {
   ResearchPanelHeader,
   ResearchEmptyState,
 } from '@/components/steps/desk-assessment/research-controls'
+import { MapLegendOverlay, type MapLegendEntry } from '@/components/maps/map-legend-overlay'
 import type { Project, DeskResearchFinding as DbFinding } from '@/types/database'
 
 const DynamicProjectMap = dynamic(
@@ -53,6 +55,28 @@ export function DeepResearchTab({ projectId, project, findings, siteId }: DeepRe
     handleBatchResearch,
   } = useDeepResearch(projectId, project, findings, siteId)
 
+  // Legend entries shown on the floating overlay. Only includes layers that
+  // are actually rendered on the map below (boundary, buffer, designated
+  // sites).
+  const legendEntries = React.useMemo<MapLegendEntry[]>(() => {
+    const entries: MapLegendEntry[] = []
+    if (boundary) {
+      entries.push({ id: 'boundary', label: 'Site Boundary', color: '#ef4444', type: 'line' })
+    }
+    if (bufferDistances && bufferDistances.length > 0) {
+      entries.push({ id: 'buffer', label: 'Buffer Zone', color: '#3b82f6', type: 'fill' })
+    }
+    if (mapFindings.some((f) => f.dataType === 'designated_site')) {
+      entries.push({
+        id: 'designated-site',
+        label: 'Designated Sites',
+        color: '#22c55e',
+        type: 'circle',
+      })
+    }
+    return entries
+  }, [boundary, bufferDistances, mapFindings])
+
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -64,7 +88,7 @@ export function DeepResearchTab({ projectId, project, findings, siteId }: DeepRe
   if (totalResearched === 0) {
     return (
       <div className="flex h-full">
-        <div className="w-[40%] min-w-[300px]">
+        <div className="relative w-[40%] min-w-[300px]">
           <DynamicProjectMap
             boundary={boundary}
             bufferDistances={bufferDistances}
@@ -72,6 +96,7 @@ export function DeepResearchTab({ projectId, project, findings, siteId }: DeepRe
             visibleFindingTypes={['designated_site']}
             zoom={13}
           />
+          <MapLegendOverlay entries={legendEntries} />
         </div>
         <ResearchEmptyState
           unresearchedSites={unresearchedSites}
@@ -87,7 +112,7 @@ export function DeepResearchTab({ projectId, project, findings, siteId }: DeepRe
   return (
     <div className="flex h-full">
       {/* Left: Map */}
-      <div className="w-1/2 min-w-[300px]">
+      <div className="relative w-1/2 min-w-[300px]">
         <DynamicProjectMap
           boundary={boundary}
           bufferDistances={bufferDistances}
@@ -95,6 +120,7 @@ export function DeepResearchTab({ projectId, project, findings, siteId }: DeepRe
           visibleFindingTypes={['designated_site']}
           zoom={13}
         />
+        <MapLegendOverlay entries={legendEntries} />
       </div>
 
       {/* Right: Deep Research Panel */}

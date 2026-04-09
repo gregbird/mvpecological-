@@ -51,6 +51,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
+import { MapLegendOverlay } from '@/components/maps/map-legend-overlay'
 import type { Project, DeskResearchFinding } from '@/types/database'
 import type { TargetNoteMarker } from '@/components/maps/map-types'
 
@@ -745,7 +746,7 @@ export function MapsTab({ projectId, siteId, userId, project }: MapsTabProps) {
           <CardContent className="flex min-h-0 flex-1 flex-col p-3">
             <div
               ref={mapContainerRef}
-              className="w-full overflow-hidden rounded-lg border"
+              className="relative w-full overflow-hidden rounded-lg border"
               style={mapContainerStyle}
             >
               <DynamicProjectMap
@@ -765,6 +766,12 @@ export function MapsTab({ projectId, siteId, userId, project }: MapsTabProps) {
                     : undefined
                 }
               />
+
+              {/* Floating legend overlay — rendered inside mapContainerRef so
+                  html-to-image captures it in exported screenshots. The sidebar
+                  legend is interactive (users toggle items); this overlay is
+                  display-only and shows whatever is currently selected. */}
+              <MapLegendOverlay entries={displayedLegendEntries} />
             </div>
           </CardContent>
         </Card>

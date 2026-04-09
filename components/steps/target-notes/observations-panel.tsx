@@ -71,7 +71,7 @@ export function ObservationsPanel({
   projectCenter,
 }: ObservationsPanelProps) {
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-col">
       {surveys.length === 0 ? (
         <Alert variant="destructive" className="mb-4">
           <AlertCircle className="h-4 w-4" />
@@ -104,14 +104,14 @@ export function ObservationsPanel({
       </div>
 
       {/* Observations Content - Stacked: map on top, list below */}
-      <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <div className="flex flex-col gap-4">
         {/* Map */}
-        <Card className="flex min-h-0 flex-1 flex-col">
+        <Card className="flex flex-col">
           <CardHeader className="py-3">
             <CardTitle className="text-base">Observation Map</CardTitle>
           </CardHeader>
-          <CardContent className="min-h-0 flex-1 p-3 pt-0">
-            <div className="h-full min-h-0 overflow-hidden rounded-lg border">
+          <CardContent className="p-3 pt-0">
+            <div className="h-[62vh] min-h-[440px] overflow-hidden rounded-lg border">
               <DynamicProjectMap
                 center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
                 zoom={projectCenter ? 14 : 7}
@@ -136,7 +136,7 @@ export function ObservationsPanel({
         </Card>
 
         {/* Observation List */}
-        <Card className="flex h-72 shrink-0 flex-col">
+        <Card className="flex h-[440px] shrink-0 flex-col">
           <CardHeader className="py-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">Species Observations</CardTitle>
