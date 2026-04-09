@@ -315,7 +315,7 @@ Ek tuzak: `handleSave` icinde `values.species.filter((s) => s.species_name_latin
 
 ---
 
-## 9. ⚠ BUYUK FEATURE — Reporting Data Analysis → AI Draft Report Placement
+## 9. ⚠ BUYUK FEATURE — Reporting Data Analysis → AI Draft Report Placement 🟡 (Relevé pass 1 done)
 
 **Orijinal:** "The primary function of the data analysis within the Reporting step is to allow the user to designate the placement of specific data within the AI-generated draft report. There should also be a reference to the data outside the boundary verse inside. In the case of a designated site outside the boundary but within the buffer zone, the report should acknowledge this the habitats, species and condition of this designated site.
 
@@ -341,22 +341,128 @@ Ayrica raporda **boundary icindeki ve disindaki** veriler acikca ayristirilmali.
 | Habitat Map (NLC)               | —                     | Harita + ozet                  |
 | Water Quality                   | Tablo                 | Ozet                           |
 
-**Referans:** Greg'den ornek rapor linki gelecek ("Refer to this completed Releve Survey report for an example")
+**Referans:** `docs/link/EWIC_Releve_Sample_Report.pdf` — Wetland Surveys Ireland EWIC Biodiversity Initiative Annual Report (2020), 36 sayfa. Main body = prose özet, Appendix I = her relevé için ayrı data card (GPS + Fossitt + full species table with DOMIN).
 
 **Yapilacilar:**
 
-- [ ] **9.1** Greg'den ornek Releve Survey report'unu al (mevcut değilse iste)
-- [ ] **9.2** Ornek rapor yapisini cikar — hangi veri nereye konulmus?
-- [ ] **9.3** Data Analysis (Step 5) UI'ina "Placement Designation" konsepti ekle:
-  - Her veri kaynagi icin "Appendix", "Ana Govde", "Her Ikisi", "Dahil Etme" secenekleri
-  - Varsayilanlar: Species list -> Appendix + Main summary, Field survey -> Appendix + Main summary
+- [x] **9.1** Greg'den ornek Releve Survey report'unu al (mevcut değilse iste) ✅ PDF indirildi, `docs/link/EWIC_Releve_Sample_Report.pdf`
+- [x] **9.2** Ornek rapor yapisini cikar — hangi veri nereye konulmus? ✅ Struktur memory'e ve bu feedback'e islendi
+- [x] **9.3** Data Analysis (Step 5) UI'ina "Placement Designation" konsepti ekle — **Relevé icin yapildi**, diger veri turleri icin pattern hazir (species / habitats / target notes / findings)
+  - Her veri kaynagi icin "Appendix", "Ana Govde", "Her Ikisi", "Dahil Etme" secenekleri ✅ (Relevé)
+  - Varsayilanlar: Species list -> Appendix + Main summary, Field survey -> Appendix + Main summary ✅
+  - Uygulama: `components/steps/data-analysis/releve-surveys-tab.tsx` + `hooks/steps/use-placement-preferences.ts`
 - [ ] **9.4** Inside/Outside boundary ayrimi: turf.js ile her finding'i boundary'ye gore etiketle (`location: "inside" | "buffer" | "outside"`)
-- [ ] **9.5** AI Draft (Step 6) prompt'una placement tercihlerini ve inside/outside ayrimini aktar
-- [ ] **9.6** `api/ai/report-section` endpoint'ine `placementPreferences` + `locationGrouping` parametreleri ekle
-- [ ] **9.7** Rapor template'inde Appendix bolumu olusturma/guncelleme mantigi ekle
-- [ ] **9.8** Buffer zone'daki designated site'lar icin ozel paragraf generator (habitats + species + condition)
-- [ ] **9.9** Ana govde ozet ve Appendix tam tablo arasinda otomatik ozetleme (AI)
+- [x] **9.5** AI Draft (Step 6) prompt'una placement tercihlerini ve inside/outside ayrimini aktar — **Relevé placement tercihleri yapildi** (Step 5 metadata'dan okunuyor), inside/outside ayrimi hala yapilmadi (9.4 ile birlikte)
+- [x] **9.6** `api/ai/report-section` endpoint'ine `placementPreferences` + `locationGrouping` parametreleri ekle — **`placementPreferences` yapildi** (Step 5 workflow metadata'dan fetch), `locationGrouping` hala yapilmadi (9.4 ile birlikte)
+- [x] **9.7** Rapor template'inde Appendix bolumu olusturma/guncelleme mantigi ekle — **Relevé icin prompt injection ile yapildi**: `route.ts` sectionPrompt'a runtime'da "3.5 Vegetation Survey" (main mode) veya "Appendix I detailed cards" (appendix mode) enjekte ediyor
+- [ ] **9.8** Buffer zone'daki designated site'lar icin ozel paragraf generator (habitats + species + condition) — 9.4 bekliyor
+- [x] **9.9** Ana govde ozet ve Appendix tam tablo arasinda otomatik ozetleme (AI) — **Relevé icin calisiyor**: Main mode'da AI aggregate prose summary yazar, Appendix mode'da tam per-relevé data cards yazar. Canli test ile dogrulandi
 - [ ] **9.10** Export (PDF/DOCX/HTML) ciktilarinda Appendix ve ana govdenin dogru bicimde yer aldigini dogrula
+- [ ] **9.11** (YENI) Placement pattern'ini diger veri turlerine genislet: species records, habitats, target notes, desk findings — hook ve pattern hazir, sadece her biri icin yeni Step 5 UI sekmeleri/kontrolleri + `route.ts` filtre mantigi + prompt injection eklenecek
+
+### ✅ Yapilanlar — Releve Survey Pass 1
+
+**Kapsam:** Sadece `releve_surveys` (field research vegetation plots) icin tam calisir durumda.
+
+**Kullanici akisi:**
+
+1. Kullanici Step 5 → yeni **Relevé Surveys** sekmesine girer
+2. Her relevé icin sag tarafta bir dropdown: "Main body + Appendix" (default) / "Main body only" / "Appendix only" / "Exclude from report"
+3. Secim otomatik kaydedilir (Step 5 workflow step metadata'sina JSON olarak)
+4. Kullanici Step 6'ya gecer ve "Results" veya "Appendices" bolumunu generate eder
+5. AI otomatik olarak dogru formatta cikar:
+   - **Results (main body):** "### 3.5 Vegetation Survey (Relevé Data)" alt bolumu — aggregate prose summary (toplam relevé, tur sayisi, baskin turler, cover %'leri, Fossitt kodu)
+   - **Appendices:** "Relevé Placement — Appendix I Full Data" bolumu — her relevé icin ayri detayli data card (metadata blogu + Latin/English/DOMIN tablosu + proximity/fauna/comment satirlari)
+
+**Degisen dosyalar:**
+
+- `hooks/steps/use-placement-preferences.ts` (YENI) — placement type + hook + default value
+- `components/steps/data-analysis/releve-surveys-tab.tsx` (YENI) — Step 5 tabi
+- `components/steps/data-analysis-step.tsx` — yeni tab entry eklendi
+- `app/api/ai/report-section/route.ts` — 4 degisiklik:
+  1. Step 5 workflow step metadata'si paralel Promise ile fetch ediliyor
+  2. `placementPreferences.releveSurveys` map parse edilip sectionId'ye gore filtre uygulaniyor (`results` → main/both, `appendices` → appendix/both, diger → exclude disindakiler hepsi)
+  3. Prompt injection: `sectionPrompt`'a runtime'da "### 3.5 Vegetation Survey" alt bolumu enjekte ediliyor (main mode) veya "Appendix I detailed cards" talimati (appendix mode)
+  4. Eksik releve alanlari API select/context'e eklendi: `recorder`, `survey_date`, `survey_x/y_coord`, `accuracy_m`, `max_height_bryophytes_cm`, `median_height_graminea_cm`, `median_height_forbs_cm`, `other_species_proximity`
+
+**Saklama yeri:** `workflow_steps.metadata.placementPreferences.releveSurveys = { [releveId]: "main"|"appendix"|"both"|"exclude" }` — genisletilebilir yapi, ileride diger veri turleri icin ayni key kullanilacak.
+
+**Test:** Canli projede REL 101 (5 gercek species: Agrostis capillaris, Cynosurus cristatus, Dactylis glomerata, Trifolium pratense, Trifolium repens) ile hem main hem appendix mode dogrulandi.
+
+---
+
+### ⏸ Yapilmayanlar — Kalan Isler
+
+#### 9.11 — Placement pattern'ini diger veri turlerine genislet
+
+Releve icin calisan pattern'i su veri turlerine uygulamak gerekiyor. Her biri icin **ayni 3 adim**: (1) Step 5 icinde yeni tab/kontrol, (2) API route filtresi, (3) prompt injection.
+
+| Veri Turu                 | Veri Kaynagi                                                                         | Step 5'te Nerede Gosterilecek                                                     | Ana Govde Format                                                     | Appendix Format                                 |
+| ------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------- |
+| **Species Records**       | `desk_research_findings` (data_type=species_record)                                  | Yeni "Species Records" tab veya mevcut "Desk Assessment" sekmesi icinde alt liste | Ozet tablo: en yuksek öneme sahip N tür (Latin + Common + kaynaklar) | Tam tablo: tum kayitlar + kaynak + yil + mesafe |
+| **Habitats**              | `habitat_polygons` (field-drawn) + `desk_research_findings` (data_type=habitat, NLC) | Mevcut "Habitats" sekmesine placement dropdown ekle                               | Fossitt kodu + alan + condition listesi                              | Ayrintili her polygon icin ayri satir/kart      |
+| **Target Notes**          | `target_notes`                                                                       | Mevcut "Target Notes" sekmesine placement dropdown ekle                           | Table 1 EWIC formatinda inline 2-sutun tablo (N1-N8 + text)          | Ayni formatla appendix'e ayri tablo             |
+| **Desk Findings (other)** | `desk_research_findings` (data_type=designated_site, water_quality, etc.)            | Mevcut "Desk Assessment" sekmesi alt listesi                                      | Prose ozet + key findings                                            | Tam tablo her finding icin detayli satir        |
+
+**Uygulama sirasi (onerilen):**
+
+1. **Species Records** ilk — en yuksek kullanim, EWIC Appendix'in ornek verdigi ana veri turu
+2. **Target Notes** ikinci — EWIC ornekte Table 1 olarak net yapi var
+3. **Habitats** ucuncu — zaten tabular gosterim var, sadece placement eklemek gerekli
+4. **Desk Findings (other)** en son — 9.4 (inside/outside) ile koordineli yapilmali
+
+**Her veri turu icin gerekli kod:**
+
+- `hooks/steps/use-placement-preferences.ts` icine yeni field: `placementPreferences.speciesRecords?`, `.habitats?`, vb.
+- Step 5 UI: ilgili sekmeye dropdown ekle (Releve tab pattern'i kopyala)
+- `app/api/ai/report-section/route.ts`: fetch → filter → inject prompt (Releve pattern'i kopyala, data turune ozel prompt yaz)
+
+**Tahmini efor:** Her veri turu ~1-2 saat (altyapi hazir, mostly kopyala-uyarla). 4 veri turu toplam yarim gun - 1 gun.
+
+#### 9.4 + 9.8 — Inside/Outside Boundary Ayrimi
+
+Bu ayri bir ozellik ve placement'tan bagimsiz calisir. turf.js ile spatial etiketleme gerekiyor.
+
+**Amac:** Greg raporlarda boundary icindeki ve disindaki finding'leri ayirsin. Ornek: bir SAC proje boundary'sinin icinde degilse ama buffer zone icindeyse (ornek 2km), rapor bu SAC'i ayri bir paragrafta "Nearby designated sites within X km buffer" baslgiyla anlatsin.
+
+**Yapilacaklar:**
+
+1. **Spatial etiketleme altyapisi:**
+   - `hooks/shared/use-spatial-filter.ts` zaten var (turf.js ile boundary + buffer filtreleme yapiyor)
+   - Bu hook'u genislet veya yeni bir `useLocationClassifier` olustur
+   - Her finding/habitat/observation icin etiket: `"inside"` (boundary icinde) | `"buffer"` (buffer zone icinde, boundary disinda) | `"outside"` (buffer disi)
+   - `distance_from_boundary_km` kolonu zaten var (`desk_research_findings` tablosunda), ama klasifikasyon mantigi eksik
+
+2. **API route guncellemesi (`route.ts`):**
+   - `buildReportContext` icinde her finding'i location'ina gore grupla: `insideFindings`, `bufferFindings`, `outsideFindings`
+   - Context'e ayri bloklar olarak yaz: `# FINDINGS WITHIN BOUNDARY`, `# FINDINGS WITHIN BUFFER ZONE (outside boundary)`
+   - `outside` olanlari tamamen atla (rapora konmaz)
+
+3. **Prompt guncellemesi:**
+   - Systeme eklenecek: "Findings within the project boundary should be described in primary subsections. Findings within the buffer zone (outside boundary) should be described in a separate 'Nearby sites' or 'Surrounding context' subsection acknowledging their habitats, species, and condition."
+   - Ornek prompt: "Create a subsection '3.1.1 Designated Sites Within Boundary' and '3.1.2 Designated Sites in Surrounding Buffer Zone' when both categories have data."
+
+4. **Buffer yaricapi nereden gelecek?**
+   - Her proje icin farkli buffer yaricapi olabilir (SAC icin 15km, species icin 2km, etc.)
+   - Suan sabit — `lib/config/` icinde veri turune gore default'lar var
+   - Kullanici projenin Step 2'sinde degistirebiliyor
+   - `projects.default_buffer_km` gibi bir kolon var mi kontrol et
+
+**Tahmini efor:** 1-2 gun. turf.js cagrilarini mevcut pattern'le yapilabilir, prompt degisiklikleri basit.
+
+#### 9.10 — Export Dogrulama
+
+**Amac:** Rapor PDF/DOCX/HTML olarak export edilince, main body ve Appendix'in dogru formatta cikmasini dogrula.
+
+**Yapilacaklar:**
+
+1. `lib/reports/exports/` altindaki PDF, DOCX, HTML exporter'larini test et
+2. Releve placement ile generate edilmis bir test raporu ile:
+   - Main body "3.5 Vegetation Survey" subsection'i dogru render ediliyor mu?
+   - Appendix'teki "Relevé Placement — Appendix I" bolumu markdown tablolari koruyup dogru gosteriyor mu?
+3. Sorun varsa exporter'larin markdown parsing'ini guncelle
+
+**Tahmini efor:** 2-4 saat, gercek bug bulunursa +1 gun.
 
 ---
 

@@ -332,7 +332,7 @@ export async function POST(request: NextRequest) {
     let releveSurveysQuery = supabase
       .from('releve_surveys')
       .select(
-        'releve_code, habitat_type, soil_type, soil_stability, aspect, slope_degrees, releve_area_sqm, total_vegetation_cover_pct, cover_graminea_pct, cover_forbs_pct, cover_mosses_liverworts_pct, cover_trees_pct, cover_shrubs_pct, cover_litter_pct, cover_bare_soil_pct, cover_bare_rock_pct, cover_open_water_pct, max_height_trees_m, max_height_shrubs_cm, max_height_graminea_cm, max_height_forbs_cm, fauna_observations, releve_comment, id, survey_id'
+        'releve_code, survey_date, recorder, accuracy_m, survey_x_coord, survey_y_coord, habitat_type, soil_type, soil_stability, aspect, slope_degrees, releve_area_sqm, total_vegetation_cover_pct, cover_graminea_pct, cover_forbs_pct, cover_mosses_liverworts_pct, cover_trees_pct, cover_shrubs_pct, cover_litter_pct, cover_bare_soil_pct, cover_bare_rock_pct, cover_open_water_pct, max_height_trees_m, max_height_shrubs_cm, max_height_bryophytes_cm, max_height_graminea_cm, max_height_forbs_cm, median_height_graminea_cm, median_height_forbs_cm, other_species_proximity, fauna_observations, releve_comment, id, survey_id'
       )
       .eq('project_id', projectId)
     if (siteId && siteFilteredSurveyIds && siteFilteredSurveyIds.length > 0) {
@@ -351,6 +351,7 @@ export async function POST(request: NextRequest) {
       aquaticResearchResult,
       workflowResult,
       releveSurveysResult,
+      dataAnalysisStepResult,
     ] = await Promise.all([
       supabase
         .from('projects')
@@ -371,6 +372,13 @@ export async function POST(request: NextRequest) {
         .eq('step_number', 3)
         .single(),
       releveNarrowsToEmpty ? Promise.resolve({ data: [], error: null }) : releveSurveysQuery,
+      // Step 5 (Data Analysis) metadata — source of placement preferences set by the ecologist
+      supabase
+        .from('workflow_steps')
+        .select('metadata')
+        .eq('project_id', projectId)
+        .eq('step_number', 5)
+        .maybeSingle(),
     ])
 
     if (projectResult.error) {
@@ -408,19 +416,53 @@ export async function POST(request: NextRequest) {
       undefined
 
     // Fetch releve species for all releve surveys
-    const releveSurveys = (releveSurveysResult.data || []) as ReleveData[]
-    const releveIds = releveSurveys.map((r) => r.id)
-    let releveSpecies: ReleveSpeciesData[] = []
-    if (releveIds.length > 0) {
+    const allReleveSurveys = (releveSurveysResult.data || []) as ReleveData[]
+    const allReleveIds = allReleveSurveys.map((r) => r.id)
+    let allReleveSpecies: ReleveSpeciesData[] = []
+    if (allReleveIds.length > 0) {
       const { data: speciesData } = await supabase
         .from('releve_species')
         .select(
           'releve_id, species_name_latin, species_name_english, species_cover_domin, species_cover_pct'
         )
-        .in('releve_id', releveIds)
+        .in('releve_id', allReleveIds)
         .order('species_name_latin')
-      releveSpecies = (speciesData || []) as ReleveSpeciesData[]
+      allReleveSpecies = (speciesData || []) as ReleveSpeciesData[]
     }
+
+    // Apply Step 5 placement preferences — filter relevés based on section context.
+    // EWIC Relevé report pattern:
+    //   - results section    → aggregate summary prose + charts (uses 'main' or 'both' relevés)
+    //   - appendices section → full per-relevé data cards (uses 'appendix' or 'both' relevés)
+    //   - other sections     → all non-excluded relevés (backward-compatible behaviour)
+    const dataAnalysisMetadata =
+      (dataAnalysisStepResult.data?.metadata as Record<string, unknown> | null) || {}
+    const placementPreferences = dataAnalysisMetadata.placementPreferences as
+      | { releveSurveys?: Record<string, 'main' | 'appendix' | 'both' | 'exclude'> }
+      | undefined
+    const relevePlacementMap = placementPreferences?.releveSurveys ?? {}
+    const getRelevePlacement = (releveId: string): 'main' | 'appendix' | 'both' | 'exclude' =>
+      relevePlacementMap[releveId] ?? 'both'
+
+    let releveSurveys: ReleveData[]
+    let releveSectionMode: 'main' | 'appendix' | 'default' = 'default'
+    if (sectionId === 'appendices') {
+      releveSectionMode = 'appendix'
+      releveSurveys = allReleveSurveys.filter((r) => {
+        const p = getRelevePlacement(r.id)
+        return p === 'appendix' || p === 'both'
+      })
+    } else if (sectionId === 'results') {
+      releveSectionMode = 'main'
+      releveSurveys = allReleveSurveys.filter((r) => {
+        const p = getRelevePlacement(r.id)
+        return p === 'main' || p === 'both'
+      })
+    } else {
+      releveSurveys = allReleveSurveys.filter((r) => getRelevePlacement(r.id) !== 'exclude')
+    }
+    const visibleReleveIds = new Set(releveSurveys.map((r) => r.id))
+    const releveSpecies = allReleveSpecies.filter((s) => visibleReleveIds.has(s.releve_id))
 
     // Build context (with optional per-site header override)
     const context = buildReportContext({
@@ -447,6 +489,34 @@ export async function POST(request: NextRequest) {
       sectionPrompt = `Write the ${sectionDef.title} section. Focus on: ${sectionDef.aiPrompt}.`
     }
 
+    // Inject relevé vegetation subsection directly into the sectionPrompt structure
+    // when Step 5 has designated relevés for the results/main body. We insert the new
+    // subsection BEFORE the closing "Use markdown sub-headings" sentence so the AI treats
+    // it as part of the core structure, not an afterthought.
+    if (sectionId === 'results' && releveSurveys.length > 0 && releveSectionMode === 'main') {
+      const releveSubsection = `
+### 3.5 Vegetation Survey (Relevé Data)
+- **MANDATORY:** This subsection must be included whenever the PROJECT DATA contains a \`RELEVÉ VEGETATION SURVEYS\` block. Relevé species are a **separate data source** from species_observations and MUST NOT be lumped under "Flora" as "no plant species recorded". Source: the \`RELEVÉ VEGETATION SURVEYS\` block in PROJECT DATA below.
+- State the number of relevés (${releveSurveys.length} in this report), survey date(s), recorder name(s), and habitat type(s) (Fossitt code)
+- Site characteristics: soil type, soil stability, aspect, slope, vegetation cover percentages (total/graminea/forbs), maximum and median heights
+- Total number of vascular plant species documented across all relevés
+- Name the dominant/constant species using Latin name + English common name + DOMIN cover value
+- End with: "Full per-relevé data cards are provided in Appendix I."
+- Write this as flowing prose with aggregate statistics — DO NOT list each relevé as a separate sub-heading and DO NOT reproduce raw species tables (those belong in Appendix I).
+`
+
+      // Insert the new subsection before the closing sentence if it exists, else append
+      const closingMarker = 'Use markdown sub-headings'
+      if (sectionPrompt.includes(closingMarker)) {
+        sectionPrompt = sectionPrompt.replace(
+          closingMarker,
+          `${releveSubsection}\n${closingMarker}`
+        )
+      } else {
+        sectionPrompt += `\n${releveSubsection}`
+      }
+    }
+
     // If org has a custom template, use its section content as additional guidance
     let customTemplateGuidance = ''
     if (organizationId) {
@@ -470,10 +540,45 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Placement-aware guidance for relevé vegetation data.
+    // When the ecologist has designated relevés for specific sections in Step 5,
+    // enforce the EWIC Relevé report template convention for how they're presented.
+    let placementGuidance = ''
+    if (releveSurveys.length > 0) {
+      if (releveSectionMode === 'main') {
+        placementGuidance = `\n\n**⚠ MANDATORY — RELEVÉ VEGETATION SUBSECTION (MAIN BODY):**
+The ecologist has designated ${releveSurveys.length} relevé(s) for inclusion in this Results section. You **MUST add a new subsection** at the end of the Results (after any existing Fauna subsection) with the heading:
+
+\`### 3.5 Vegetation Survey (Relevé Data)\`
+
+This subsection is **REQUIRED whenever relevé data is provided** — it is not optional and must NOT be omitted even if other data categories (species observations, fauna) are empty. The source data for this subsection is the \`RELEVÉ VEGETATION SURVEYS\` block in the PROJECT DATA below (NOT the species_observations table — relevé species are a SEPARATE data source). Present the relevé(s) as an **aggregate prose summary with statistics**, following the standard Relevé report format:
+
+- State the number of relevés recorded, survey date(s), and recorder name(s)
+- State the habitat type(s) (Fossitt code) of the relevé(s) and any site characteristics (soil, aspect, slope)
+- Report the total number of vascular plant species documented across all relevés
+- For each constant/dominant species, cite Latin name + English common name + DOMIN cover value
+- Summarise vegetation cover percentages (total, graminea, forbs) and maximum/median heights
+- Reference Fossitt (2000) habitat classification where applicable
+- End with: "Full per-relevé data cards are provided in Appendix I."
+
+**DO NOT list each relevé individually with its own sub-heading.** Do not reproduce raw species lists or per-relevé DOMIN tables in the main body — those belong in Appendix I. Write flowing prose summarising the aggregate findings.
+
+If the 3.3 Flora subsection says "no plant species observations were recorded", that refers ONLY to the species_observations table (casual field sightings). Relevé species are a DIFFERENT data source and MUST still be reported under 3.5.`
+      } else if (releveSectionMode === 'appendix') {
+        placementGuidance = `\n\n**RELEVÉ PLACEMENT — APPENDIX I FULL DATA:**
+The ecologist has designated ${releveSurveys.length} relevé(s) for inclusion in this Appendix section. Present them as **detailed per-relevé data cards** following the standard Appendix I format:
+- Create a separate subsection for each relevé, headed by its Relevé Code
+- For each relevé, provide a two-column metadata block covering: Area, Recorder, Habitat Type (Fossitt code), Soil Type, Soil Stability, Aspect, Slope, Maximum/Median heights (graminea & forbs), and all percentage covers (total vegetation, graminea, forbs, mosses, trees, shrubs, litter, bare soil, bare rock, open water)
+- Follow with a **Species Recorded** table listing every species with Latin name, English common name, and DOMIN cover value
+- End each card with Other Species in Proximity, Fauna Observations, and Relevé Comment lines where present
+- Use markdown tables for clarity. Do not paraphrase — present the raw field data in full.`
+      }
+    }
+
     const reportName = REPORT_TYPE_LABELS[reportType] || 'ecological report'
 
     const userPrompt = `You are writing the **${sectionDef.title}** section of a ${reportName}.
-
+${placementGuidance ? `\n${placementGuidance}\n\n---\n` : ''}
 ${sectionPrompt}${customTemplateGuidance}
 
 ${ecologistOpinion ? `\n**Ecologist's Professional Opinion:**\n${ecologistOpinion}\n\nIncorporate this professional opinion into the section where relevant.` : ''}
@@ -486,7 +591,7 @@ ${context}
 
 ---
 
-Write the section content now. Use markdown formatting (bold, bullet points, tables where appropriate). Do not include the section title as a heading — it will be added separately.`
+Write the section content now. Use markdown formatting (bold, bullet points, tables where appropriate). Do not include the section title as a heading — it will be added separately.${placementGuidance && releveSectionMode === 'main' ? '\n\n**FINAL REMINDER:** You MUST include a "### 3.5 Vegetation Survey (Relevé Data)" subsection at the end, summarising the relevé data from the RELEVÉ VEGETATION SURVEYS block above. This is mandatory whenever relevé data exists.' : ''}${placementGuidance && releveSectionMode === 'appendix' ? '\n\n**FINAL REMINDER:** You MUST include a "Relevé Data — Appendix I" section with detailed per-relevé data cards from the RELEVÉ VEGETATION SURVEYS block above.' : ''}`
 
     const maxTokens = getSectionMaxTokens(reportType, sectionId)
 
@@ -564,6 +669,11 @@ Write the section content now. Use markdown formatting (bold, bullet points, tab
 interface ReleveData {
   id: string
   releve_code: string
+  survey_date: string | null
+  recorder: string | null
+  accuracy_m: number | null
+  survey_x_coord: number | null
+  survey_y_coord: number | null
   habitat_type: string | null
   soil_type: string | null
   soil_stability: string | null
@@ -582,8 +692,12 @@ interface ReleveData {
   cover_open_water_pct: number | null
   max_height_trees_m: number | null
   max_height_shrubs_cm: number | null
+  max_height_bryophytes_cm: number | null
   max_height_graminea_cm: number | null
   max_height_forbs_cm: number | null
+  median_height_graminea_cm: number | null
+  median_height_forbs_cm: number | null
+  other_species_proximity: string | null
   fauna_observations: string | null
   releve_comment: string | null
 }
@@ -756,8 +870,20 @@ function buildReportContext(input: ReportContextInput): string {
     parts.push(`Total relevés: ${input.releveSurveys.length}`)
     for (const r of input.releveSurveys) {
       parts.push(`\n## Relevé ${r.releve_code}${r.habitat_type ? ` — ${r.habitat_type}` : ''}`)
+
+      // Survey metadata — recorder, date, area, coordinates
+      const metaParts: string[] = []
+      if (r.survey_date) metaParts.push(`Date: ${r.survey_date}`)
+      if (r.recorder) metaParts.push(`Recorder: ${r.recorder}`)
+      if (r.releve_area_sqm != null) metaParts.push(`Area: ${r.releve_area_sqm} sqm`)
+      if (r.survey_x_coord != null && r.survey_y_coord != null) {
+        metaParts.push(`GPS: ${r.survey_y_coord.toFixed(5)}, ${r.survey_x_coord.toFixed(5)}`)
+      }
+      if (r.accuracy_m != null) metaParts.push(`GPS accuracy: ±${r.accuracy_m}m`)
+      if (metaParts.length > 0) parts.push(metaParts.join(' | '))
+
+      // Physical site characteristics
       const siteParts: string[] = []
-      if (r.releve_area_sqm != null) siteParts.push(`Area: ${r.releve_area_sqm} sqm`)
       if (r.soil_type) siteParts.push(`Soil: ${r.soil_type}`)
       if (r.soil_stability) siteParts.push(`Stability: ${r.soil_stability}`)
       if (r.slope_degrees != null) siteParts.push(`Slope: ${r.slope_degrees}°`)
@@ -779,16 +905,28 @@ function buildReportContext(input: ReportContextInput): string {
       if (r.cover_open_water_pct != null) coverParts.push(`Open water: ${r.cover_open_water_pct}%`)
       if (coverParts.length > 0) parts.push(`Cover: ${coverParts.join(', ')}`)
 
-      const heightParts: string[] = []
-      if (r.max_height_trees_m != null) heightParts.push(`Trees: ${r.max_height_trees_m}m`)
-      if (r.max_height_shrubs_cm != null) heightParts.push(`Shrubs: ${r.max_height_shrubs_cm}cm`)
+      const maxHeightParts: string[] = []
+      if (r.max_height_trees_m != null) maxHeightParts.push(`Trees: ${r.max_height_trees_m}m`)
+      if (r.max_height_shrubs_cm != null) maxHeightParts.push(`Shrubs: ${r.max_height_shrubs_cm}cm`)
+      if (r.max_height_bryophytes_cm != null)
+        maxHeightParts.push(`Bryophytes: ${r.max_height_bryophytes_cm}cm`)
       if (r.max_height_graminea_cm != null)
-        heightParts.push(`Graminea: ${r.max_height_graminea_cm}cm`)
-      if (r.max_height_forbs_cm != null) heightParts.push(`Forbs: ${r.max_height_forbs_cm}cm`)
-      if (heightParts.length > 0) parts.push(`Max heights: ${heightParts.join(', ')}`)
+        maxHeightParts.push(`Graminea: ${r.max_height_graminea_cm}cm`)
+      if (r.max_height_forbs_cm != null) maxHeightParts.push(`Forbs: ${r.max_height_forbs_cm}cm`)
+      if (maxHeightParts.length > 0) parts.push(`Max heights: ${maxHeightParts.join(', ')}`)
 
-      if (r.fauna_observations) parts.push(`Fauna: ${r.fauna_observations}`)
-      if (r.releve_comment) parts.push(`Comment: ${r.releve_comment}`)
+      const medianHeightParts: string[] = []
+      if (r.median_height_graminea_cm != null)
+        medianHeightParts.push(`Graminea: ${r.median_height_graminea_cm}cm`)
+      if (r.median_height_forbs_cm != null)
+        medianHeightParts.push(`Forbs: ${r.median_height_forbs_cm}cm`)
+      if (medianHeightParts.length > 0)
+        parts.push(`Median heights: ${medianHeightParts.join(', ')}`)
+
+      if (r.other_species_proximity)
+        parts.push(`Other species in proximity: ${r.other_species_proximity}`)
+      if (r.fauna_observations) parts.push(`Fauna observations: ${r.fauna_observations}`)
+      if (r.releve_comment) parts.push(`Relevé comment: ${r.releve_comment}`)
 
       // Species for this releve
       const species = input.releveSpecies.filter((s) => s.releve_id === r.id)
