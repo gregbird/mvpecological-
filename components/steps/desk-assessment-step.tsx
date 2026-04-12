@@ -12,6 +12,9 @@ import { useUpdateWorkflowStep, useCompleteWorkflowStep } from '@/hooks/queries/
 import { useProjectContext } from '@/contexts/project-context'
 import { useAiInsights } from '@/hooks/steps/use-ai-insights'
 import { useDeskExport } from '@/hooks/steps/use-desk-export'
+import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
+import { useSpatialFilter } from '@/hooks/shared/use-spatial-filter'
+import { useProjectSites } from '@/hooks/queries/use-site-hooks'
 import { groupFindingsByType } from '@/lib/utils/group-findings-by-type'
 import { SiteSelector } from '@/components/project/site-selector'
 import {
@@ -27,7 +30,7 @@ import {
   type FindingWithRelevance,
   type Relevance,
 } from '@/components/steps/desk-assessment/assessment-dialog'
-import type { Project, WorkflowStep } from '@/types/database'
+import type { Project, WorkflowStep, DeskResearchFinding } from '@/types/database'
 
 interface DeskAssessmentStepProps {
   project: Project
@@ -44,10 +47,30 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
   const [habitatRows, setHabitatRows] = React.useState<HabitatRow[]>([])
   const [selectedSiteId, setSelectedSiteId] = React.useState<string | null>(null)
 
-  // React Query hooks (savedFindings is site-filtered when a site is active)
-  const { data: savedFindings = [], isLoading } = useSavedFindings(project.id, selectedSiteId)
+  // Findings are project-wide (designated sites, species, catchments have
+  // site_id=NULL). Spatial filtering narrows to the selected site's buffer.
+  const { data: allSavedFindings = [], isLoading } = useSavedFindings(project.id)
   const updateWorkflowStep = useUpdateWorkflowStep()
   const completeStep = useCompleteWorkflowStep()
+
+  // Resolve selected site for spatial filtering
+  const { data: projectSites = [] } = useProjectSites(project.id)
+  const selectedSite = React.useMemo(
+    () => (selectedSiteId ? (projectSites.find((s) => s.id === selectedSiteId) ?? null) : null),
+    [selectedSiteId, projectSites]
+  )
+  const { projectBoundary } = useProjectBoundary(project, selectedSite)
+  const getLocation = React.useCallback(
+    (f: DeskResearchFinding) => (f.location as GeoJSON.Geometry | null) ?? undefined,
+    []
+  )
+  const { filteredItems: savedFindings } = useSpatialFilter({
+    boundary: projectBoundary,
+    bufferKm: project.buffer_distances?.[project.buffer_distances.length - 1] ?? 15,
+    items: allSavedFindings,
+    getGeometry: getLocation,
+    disabled: !selectedSiteId,
+  })
 
   // AI insights hook
   const projectLocation =
