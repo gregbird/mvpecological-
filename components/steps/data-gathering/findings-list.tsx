@@ -204,18 +204,28 @@ export function FindingsList({
   const [showSavedOnly, setShowSavedOnly] = React.useState(false)
   const [taxonGroupFilter, setTaxonGroupFilter] = React.useState<string | null>(null)
 
-  // Available species groups with counts — derived from current findings
+  // Available species groups with counts — respects active source filter
+  // so that e.g. "Invasive Only" + "Moss" doesn't show Moss(297) when 0 are invasive
   const taxonGroupOptions = React.useMemo(() => {
     if (!showSpeciesHeader) return []
+    let base = findings
+    if (sourceFilter && sourceFilter !== 'all') {
+      base = findings.filter((f) => {
+        if (sourceFilter === 'protected') return f.metadata?.isProtected || f.metadata?.designations
+        if (sourceFilter === 'invasive') return f.metadata?.isInvasive
+        if (sourceFilter === 'threatened') return f.metadata?.isThreatened
+        return true
+      })
+    }
     const counts = new Map<string, number>()
-    for (const f of findings) {
+    for (const f of base) {
       const g = f.metadata?.taxonGroup
       if (g) counts.set(g, (counts.get(g) ?? 0) + 1)
     }
     return Array.from(counts.entries())
       .sort((a, b) => b[1] - a[1])
       .map(([value, count]) => ({ value, count }))
-  }, [findings, showSpeciesHeader])
+  }, [findings, showSpeciesHeader, sourceFilter])
 
   const { sortedFindings, filteredFindings, siteTypeCounts, savedCount } = useFindingsFilters(
     findings,

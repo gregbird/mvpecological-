@@ -179,19 +179,17 @@ export function SpeciesTableView({
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            <TableHead className="bg-background w-[90px] px-1.5 text-[11px]">
-              {groupHeader}
-            </TableHead>
-            <TableHead className="bg-background min-w-[180px] px-1.5 text-[11px]">
+            <TableHead className="bg-background w-[58px] px-1 text-[11px]">{groupHeader}</TableHead>
+            <TableHead className="bg-background px-1.5 text-[11px]">
               {renderSortable('title', 'Species Name')}
             </TableHead>
-            <TableHead className="bg-background w-[50px] px-1 text-right text-[11px]">
-              {renderSortable('records', 'Records', 'right')}
+            <TableHead className="bg-background w-[38px] px-1 text-right text-[11px]">
+              {renderSortable('records', 'Rec.', 'right')}
             </TableHead>
-            <TableHead className="bg-background w-[86px] px-1.5 text-[11px]">
-              {renderSortable('last_recorded', 'Last Record')}
+            <TableHead className="bg-background w-[72px] px-1 text-[11px]">
+              {renderSortable('last_recorded', 'Last Rec.')}
             </TableHead>
-            <TableHead className="bg-background w-[110px] px-1.5 text-[11px]">Dataset</TableHead>
+            <TableHead className="bg-background w-[90px] px-1 text-[11px]">Dataset</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -220,12 +218,12 @@ export function SpeciesTableView({
                   }`}
                   onClick={() => onRowClick?.(finding)}
                 >
-                  <TableCell className="px-1.5 py-1.5 align-top">
-                    <span className="text-muted-foreground text-[11px] leading-tight">
+                  <TableCell className="w-[58px] px-1 py-1.5 align-top">
+                    <span className="text-muted-foreground text-[10px] leading-tight">
                       {finding.metadata?.taxonGroup || '—'}
                     </span>
                   </TableCell>
-                  <TableCell className="max-w-[320px] px-1.5 py-1.5 align-top">
+                  <TableCell className="px-1.5 py-1.5 align-top">
                     <div className="flex items-start gap-1">
                       {finding.metadata?.isProtected && (
                         <Shield className="mt-0.5 h-3 w-3 shrink-0 text-red-500" />
@@ -341,12 +339,12 @@ export function SpeciesTableView({
                   <TableCell className="px-1 py-1.5 text-right align-top font-medium tabular-nums">
                     {finding.metadata?.recordCount ?? '—'}
                   </TableCell>
-                  <TableCell className="px-1.5 py-1.5 align-top">
-                    <span className="text-muted-foreground text-[11px]">
+                  <TableCell className="w-[72px] px-1 py-1.5 align-top">
+                    <span className="text-muted-foreground text-[10px]">
                       {formatDate(finding.metadata?.newestRecordDate)}
                     </span>
                   </TableCell>
-                  <TableCell className="max-w-[120px] px-1.5 py-1.5 align-top">
+                  <TableCell className="w-[90px] px-1 py-1.5 align-top">
                     <span className="text-muted-foreground line-clamp-2 text-[10px] leading-tight">
                       {finding.metadata?.datasetName || '—'}
                     </span>

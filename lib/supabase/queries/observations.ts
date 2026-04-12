@@ -43,31 +43,26 @@ export async function getProjectObservations(
   siteId?: string | null
 ): Promise<SpeciesObservation[]> {
   const supabase = createClient()
-  // First get all surveys for the project (optionally filtered by site)
-  let surveyQuery = supabase.from('surveys').select('id').eq('project_id', projectId)
-  if (siteId) surveyQuery = surveyQuery.eq('site_id', siteId)
-  const { data: surveys, error: surveysError } = await surveyQuery
 
-  if (surveysError || !surveys) {
-    console.error('Error fetching project surveys:', surveysError)
-    return []
-  }
-
-  const surveyIds = (surveys as Array<{ id: string }>).map((s) => s.id)
-  if (surveyIds.length === 0) return []
-
-  const { data, error } = await supabase
+  // Single query using inner join on surveys FK
+  let query = supabase
     .from('species_observations')
-    .select('*')
-    .in('survey_id', surveyIds)
-    .order('created_at', { ascending: false })
+    .select('*, surveys!inner(project_id, site_id)')
+    .eq('surveys.project_id', projectId)
+  if (siteId) query = query.eq('surveys.site_id', siteId)
+  query = query.order('created_at', { ascending: false })
+
+  const { data, error } = await query
 
   if (error) {
     console.error('Error fetching project observations:', error)
     return []
   }
 
-  return (data ?? []) as SpeciesObservation[]
+  // Strip joined surveys data to preserve SpeciesObservation return type
+  return ((data ?? []) as Array<SpeciesObservation & { surveys: unknown }>).map(
+    ({ surveys: _surveys, ...obs }) => obs as SpeciesObservation
+  )
 }
 
 // Get single observation by ID

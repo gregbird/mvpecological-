@@ -47,8 +47,8 @@ export function useCreateReport() {
     mutationFn: (report: InsertTables<'reports'>) => createReport(report),
     onSuccess: (data) => {
       if (data) {
-        queryClient.invalidateQueries({ queryKey: ['reports'] })
-        queryClient.invalidateQueries({ queryKey: ['latest-report'] })
+        queryClient.invalidateQueries({ queryKey: ['reports', data.project_id] })
+        queryClient.invalidateQueries({ queryKey: ['latest-report', data.project_id] })
       }
     },
   })
@@ -118,11 +118,17 @@ export function useUpdateVersionName() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ reportId, versionName }: { reportId: string; versionName: string }) =>
-      updateReportVersionName(reportId, versionName),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reports'] })
-      queryClient.invalidateQueries({ queryKey: ['latest-report'] })
+    mutationFn: ({
+      reportId,
+      versionName,
+    }: {
+      reportId: string
+      versionName: string
+      projectId: string
+    }) => updateReportVersionName(reportId, versionName),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['reports', variables.projectId] })
+      queryClient.invalidateQueries({ queryKey: ['latest-report', variables.projectId] })
     },
   })
 }

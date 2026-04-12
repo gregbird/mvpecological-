@@ -72,7 +72,7 @@ export function VersionHistoryPanel({
 
   const handleSaveEdit = async (reportId: string) => {
     const trimmed = editValue.trim()
-    await updateVersionName.mutateAsync({ reportId, versionName: trimmed })
+    await updateVersionName.mutateAsync({ reportId, versionName: trimmed, projectId })
     setEditingId(null)
   }
 

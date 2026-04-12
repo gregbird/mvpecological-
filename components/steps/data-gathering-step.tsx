@@ -106,6 +106,9 @@ export function DataGatheringStep({
 
   // Data hooks
   const { data: savedFindings = [] } = useSavedFindings(project.id, selectedSite?.id)
+  // Project-wide saved findings (no site filter) — species search is project-wide
+  // so the "already saved" check must also be project-wide to avoid inflated Save All counts.
+  const { data: projectWideSavedFindings = [] } = useSavedFindings(project.id)
   const { data: findingsStats } = useFindingsStats(project.id, selectedSite?.id)
   // Project-wide finding stats (no site filter) — used by Review & Export to
   // gate the Complete button so a single empty site can't block the step.
@@ -414,6 +417,7 @@ export function DataGatheringStep({
           allBoundaries={isAllSites ? allBoundaries : undefined}
           allSiteBoundaries={allSiteBoundaries}
           savedFindings={savedFindings}
+          projectWideSavedFindings={projectWideSavedFindings}
           targetNotes={targetNotes}
           findingsStats={findingsStats}
           projectWideFindingsCount={projectWideFindingsStats?.total}

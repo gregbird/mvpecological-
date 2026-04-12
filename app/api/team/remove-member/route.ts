@@ -68,20 +68,21 @@ export async function POST(request: NextRequest) {
 
     const adminClient = createAdminClient()
 
-    // Delete profile first (has FK constraints)
-    const { error: profileError } = await adminClient.from('profiles').delete().eq('id', memberId)
-
-    if (profileError) {
-      console.error('Error deleting profile:', profileError)
-      return NextResponse.json({ error: 'Failed to remove member profile' }, { status: 500 })
-    }
-
-    // Delete auth user
+    // Delete auth user first — if this fails, profile remains intact (no orphan state)
     const { error: authDeleteError } = await adminClient.auth.admin.deleteUser(memberId)
 
     if (authDeleteError) {
       console.error('Error deleting auth user:', authDeleteError)
-      // Profile is already deleted, log but don't fail
+      return NextResponse.json({ error: 'Failed to remove member' }, { status: 500 })
+    }
+
+    // Delete profile (FK cascades handle related records)
+    const { error: profileError } = await adminClient.from('profiles').delete().eq('id', memberId)
+
+    if (profileError) {
+      // Auth user already deleted — user can no longer log in.
+      // Profile orphan is recoverable; log for manual cleanup.
+      console.error('Error deleting profile (auth user already removed):', profileError)
     }
 
     return NextResponse.json({ success: true })

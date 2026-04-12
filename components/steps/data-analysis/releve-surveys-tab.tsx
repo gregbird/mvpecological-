@@ -1,10 +1,11 @@
 'use client'
 
 import * as React from 'react'
-import { Sprout, Leaf, Layers } from 'lucide-react'
+import { Sprout, Leaf, Layers, ChevronDown } from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import {
   Select,
   SelectContent,
@@ -224,6 +225,37 @@ export function ReleveSurveysTab({ projectId, siteId, workflowStep }: ReleveSurv
                     <p className="text-muted-foreground line-clamp-2 pt-1 text-xs italic">
                       {releve.releve_comment}
                     </p>
+                  )}
+
+                  {/* Dominant species (DOMIN scores) */}
+                  {speciesCount > 0 && (
+                    <Collapsible>
+                      <CollapsibleTrigger className="text-muted-foreground hover:text-foreground flex items-center gap-1 pt-1 text-xs">
+                        Top species
+                        <ChevronDown className="h-3 w-3" />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <div className="mt-1.5 space-y-0.5">
+                          {allSpecies
+                            .filter((s) => s.releve_id === releve.id)
+                            .sort(
+                              (a, b) => (b.species_cover_domin ?? 0) - (a.species_cover_domin ?? 0)
+                            )
+                            .slice(0, 5)
+                            .map((s) => (
+                              <div
+                                key={s.id}
+                                className="flex items-center justify-between gap-2 text-xs"
+                              >
+                                <span className="truncate italic">{s.species_name_latin}</span>
+                                <Badge variant="outline" className="shrink-0 text-[10px]">
+                                  DOMIN {s.species_cover_domin ?? '—'}
+                                </Badge>
+                              </div>
+                            ))}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
                   )}
                 </div>
 

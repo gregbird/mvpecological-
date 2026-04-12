@@ -354,7 +354,9 @@ async function blockToParagraphs(block: MdBlock): Promise<(Paragraph | Table)[]>
 
 const APPENDIX_LABELS: Record<string, string> = {
   habitat_map: 'Habitat Map',
+  habitat_data: 'Habitat Data',
   species_list: 'Species List',
+  aquatic_data: 'Aquatic Features',
   photographs: 'Site Photographs',
   survey_datasheets: 'Survey Datasheets',
   desk_study_data: 'Desk Study Data',
@@ -604,8 +606,43 @@ export async function generatePeaDocx(options: PeaExportOptions): Promise<Blob> 
         )
         children.push(new Paragraph({ text: '', spacing: { after: 120 } }))
 
+        // --- Habitat Data table ---
+      } else if (a === 'habitat_data' && ad && ad.habitats.length > 0) {
+        children.push(
+          buildDocxAppendixTable(
+            ['FOSSITT Code', 'Habitat', 'NLC Label', 'Area', 'Cover %'],
+            ad.habitats.map((h) => [
+              h.fossittCode,
+              h.habitatName,
+              h.nlcLabel,
+              h.areaHectares,
+              h.percentCover,
+            ])
+          )
+        )
+        children.push(new Paragraph({ text: '', spacing: { after: 120 } }))
+
+        // --- Aquatic Features table ---
+      } else if (a === 'aquatic_data' && ad && ad.aquaticFeatures.length > 0) {
+        children.push(
+          buildDocxAppendixTable(
+            ['Name', 'Type', 'WFD Status', 'Distance', 'AI Summary'],
+            ad.aquaticFeatures.map((f) => [
+              f.name,
+              f.waterBodyType,
+              f.wfdStatus,
+              f.distanceKm,
+              f.aiSummary,
+            ])
+          )
+        )
+        children.push(new Paragraph({ text: '', spacing: { after: 120 } }))
+
         // --- Other appendices: placeholder ---
-      } else if ((a !== 'desk_study_data' && a !== 'species_list') || !ad) {
+      } else if (
+        !['desk_study_data', 'species_list', 'habitat_data', 'aquatic_data'].includes(a) ||
+        !ad
+      ) {
         children.push(
           new Paragraph({
             children: [

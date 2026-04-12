@@ -383,6 +383,9 @@ export function HabitatTab({ projectId, siteId, siteCode, project }: HabitatTabP
                 <TableHead>Habitat</TableHead>
                 <TableHead className="text-right">Area (ha)</TableHead>
                 <TableHead>Condition</TableHead>
+                <TableHead>EU Annex</TableHead>
+                <TableHead>Threats</TableHead>
+                <TableHead>Notes</TableHead>
                 <TableHead className="w-20 text-center">Include</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
@@ -397,6 +400,20 @@ export function HabitatTab({ projectId, siteId, siteCode, project }: HabitatTabP
                       {(h.area_hectares ?? 0).toFixed(2)}
                     </TableCell>
                     <TableCell className="capitalize">{h.condition || '\u2014'}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {h.eu_annex_code || '\u2014'}
+                    </TableCell>
+                    <TableCell
+                      className="max-w-32 truncate text-xs"
+                      title={Array.isArray(h.threats) ? h.threats.join(', ') : ''}
+                    >
+                      {Array.isArray(h.threats) && h.threats.length > 0
+                        ? h.threats.join(', ')
+                        : '\u2014'}
+                    </TableCell>
+                    <TableCell className="max-w-40 truncate text-xs" title={h.notes || ''}>
+                      {h.notes || '\u2014'}
+                    </TableCell>
                     <TableCell className="text-center">
                       <Switch
                         checked={h.include_in_report}
@@ -417,7 +434,7 @@ export function HabitatTab({ projectId, siteId, siteCode, project }: HabitatTabP
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-muted-foreground text-center">
+                  <TableCell colSpan={9} className="text-muted-foreground text-center">
                     No habitat data
                   </TableCell>
                 </TableRow>

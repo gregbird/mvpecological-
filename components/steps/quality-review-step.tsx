@@ -18,6 +18,16 @@ import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Textarea } from '@/components/ui/textarea'
@@ -77,6 +87,7 @@ export function QualityReviewStep({
   const [addingNoteFor, setAddingNoteFor] = React.useState<string | null>(null)
   const [noteText, setNoteText] = React.useState('')
   const [selectedSiteId, setSelectedSiteId] = React.useState<string | null>(null)
+  const [showApproveConfirm, setShowApproveConfirm] = React.useState(false)
 
   // React Query hooks
   const { data: report, isLoading: loadingReport } = useLatestReportByType(project.id, reportType)
@@ -168,6 +179,30 @@ export function QualityReviewStep({
     }
     setSectionNotes(updated)
     await persistNotes(updated)
+  }
+
+  // Check for data completeness warnings (non-blocking)
+  const getApprovalWarnings = (): string[] => {
+    const warnings: string[] = []
+    const sections = reportContent?.sections
+    if (sections) {
+      const emptySections = sections.filter((s) => !s.content || s.content.trim().length < 50)
+      if (emptySections.length > 0) {
+        warnings.push(
+          `${emptySections.length} of ${totalSections} sections have minimal or no content`
+        )
+      }
+    }
+    if (!habitatStats?.total || habitatStats.total === 0) {
+      warnings.push('No habitat data recorded')
+    }
+    if (!observationStats?.total || observationStats.total === 0) {
+      warnings.push('No species observations recorded')
+    }
+    if (!findingsStats?.total || findingsStats.total === 0) {
+      warnings.push('No desk research findings saved')
+    }
+    return warnings
   }
 
   // Handle approval
@@ -696,7 +731,14 @@ export function QualityReviewStep({
                   </Button>
                   <Button
                     className="flex-1 bg-green-600 hover:bg-green-700"
-                    onClick={handleApprove}
+                    onClick={() => {
+                      const warnings = getApprovalWarnings()
+                      if (warnings.length > 0) {
+                        setShowApproveConfirm(true)
+                      } else {
+                        handleApprove()
+                      }
+                    }}
                     disabled={isComplete || reviewDecision === 'rejected'}
                   >
                     <CheckCircle2 className="mr-2 h-4 w-4" />
@@ -790,6 +832,30 @@ export function QualityReviewStep({
           </Card>
         </>
       )}
+      {/* Approval warnings dialog */}
+      <AlertDialog open={showApproveConfirm} onOpenChange={setShowApproveConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Approval Warnings</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div>
+                <p className="mb-2">The following items were noted before approval:</p>
+                <ul className="list-disc space-y-1 pl-4">
+                  {getApprovalWarnings().map((w, i) => (
+                    <li key={i}>{w}</li>
+                  ))}
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-green-600 hover:bg-green-700" onClick={handleApprove}>
+              Approve Anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

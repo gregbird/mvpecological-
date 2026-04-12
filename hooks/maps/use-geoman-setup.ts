@@ -355,8 +355,19 @@ export function useGeomanSetup({
         // --- pm:remove -- show delete confirmation ---
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         map.on('pm:remove', (e: any) => {
-          isEditingRef.current = false
           const layer = e.layer as L.Polygon
+
+          // If the removed layer is NOT in the FeatureGroup, it's a
+          // non-editable layer (e.g., another site's boundary rendered by
+          // React-Leaflet). Re-add it silently and skip the delete flow —
+          // otherwise onBoundaryChange would receive the active boundary
+          // and create a ghost site.
+          if (!featureGroupRef.current?.hasLayer(layer)) {
+            layer.addTo(map)
+            return
+          }
+
+          isEditingRef.current = false
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           if ((layer as any).setStyle) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -384,6 +395,14 @@ export function useGeomanSetup({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         map.on('pm:globaleditmodetoggled', (e: any) => {
           isEditingRef.current = e.enabled
+          if (e.enabled) {
+            // Disable editing on layers outside the FeatureGroup (e.g. other
+            // site boundaries managed by React-Leaflet). Without this, Geoman
+            // adds vertex markers to those layers and React-Leaflet re-renders
+            // corrupt Geoman's internal state, causing vertex edits to revert.
+            // The layers remain snap targets (pmIgnore is NOT set).
+            disableEditOnNonFeatureGroupLayers(map, featureGroupRef)
+          }
           if (!e.enabled) {
             notifyChange(collectFeatures(), true)
           }
@@ -398,6 +417,9 @@ export function useGeomanSetup({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         map.on('pm:globaldragmodetoggled', (e: any) => {
           isEditingRef.current = e.enabled
+          if (e.enabled) {
+            disableEditOnNonFeatureGroupLayers(map, featureGroupRef)
+          }
           if (!e.enabled) {
             notifyChange(collectFeatures(), true)
           }
@@ -651,6 +673,30 @@ function handleOverlapDetection(
           break // Report first overlap
         }
       }
+    }
+  })
+}
+
+/**
+ * After Geoman enters global edit/drag mode, disable editing on every layer
+ * that is NOT part of the drawing FeatureGroup. This prevents Geoman from
+ * adding vertex markers to other-site boundary layers (managed by
+ * React-Leaflet), which would corrupt Geoman's internal edit state and
+ * cause vertex edits on the active polygon to revert on release.
+ *
+ * These layers keep pmIgnore=false so they remain valid snap targets.
+ */
+function disableEditOnNonFeatureGroupLayers(
+  map: LeafletMap,
+  featureGroupRef: React.RefObject<LeafletFeatureGroup | null>
+) {
+  map.eachLayer((layer: L.Layer) => {
+    // Skip layers inside the FeatureGroup — those should stay editable
+    if (featureGroupRef.current?.hasLayer(layer)) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pm = (layer as any).pm
+    if (pm?.enabled?.()) {
+      pm.disable()
     }
   })
 }

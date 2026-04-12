@@ -1,5 +1,7 @@
 'use client'
 
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Bot, User, ClipboardCopy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -35,10 +37,7 @@ export function ChatMessage({ role, content, onInsertIntoDraft }: ChatMessagePro
           {isUser ? (
             <p className="whitespace-pre-wrap">{content}</p>
           ) : (
-            <div
-              className="whitespace-pre-wrap"
-              dangerouslySetInnerHTML={{ __html: formatMarkdown(content) }}
-            />
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
           )}
         </div>
         {!isUser && onInsertIntoDraft && (
@@ -55,14 +54,4 @@ export function ChatMessage({ role, content, onInsertIntoDraft }: ChatMessagePro
       </div>
     </div>
   )
-}
-
-/** Simple markdown-to-HTML for bold, bullet points, and line breaks */
-function formatMarkdown(text: string): string {
-  return text
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/^- (.+)$/gm, '<li>$1</li>')
-    .replace(/(<li>.*<\/li>\n?)+/g, '<ul class="list-disc pl-4 my-1">$&</ul>')
-    .replace(/\n/g, '<br />')
 }

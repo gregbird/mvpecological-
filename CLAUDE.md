@@ -53,7 +53,7 @@ npm run type-check       # TypeScript type checking
 
 - **Forms: always use React Hook Form + Zod** — `useForm({ resolver: zodResolver(schema) })` with shadcn `<Form>/<FormField>/<FormMessage>`
 - **Step root container: `flex h-full flex-col`** — ensures consistent dashboard panel layout
-- **Keep files under 400 lines** — extract logic into hooks (`hooks/`) and UI into sub-components in the step's subdirectory
+- **Keep files under 500 lines** — extract logic into hooks (`hooks/`) and UI into sub-components in the step's subdirectory
 - **Shared constants in `lib/config/`** — don't hardcode values in component files
 - **Dialog forms must `form.reset()` on open** — `useForm` only uses `defaultValues` on first mount
 

@@ -115,7 +115,9 @@ async function buildTabContext(
     case 'desk-assessment': {
       let query = supabase
         .from('desk_research_findings')
-        .select('title, source, data_type, distance_from_boundary_km, is_protected, notes')
+        .select(
+          'title, source, data_type, distance_from_boundary_km, is_protected, notes, raw_data'
+        )
         .eq('project_id', projectId)
         .eq('is_saved', true)
       if (siteId) query = query.eq('site_id', siteId)
@@ -137,6 +139,12 @@ async function buildTabContext(
         const dist =
           f.distance_from_boundary_km != null ? `${f.distance_from_boundary_km.toFixed(1)}km` : ''
         parts.push(`  - ${f.title} (${f.source}, ${f.data_type}) ${dist}`)
+        const raw = f.raw_data as Record<string, unknown> | null
+        if (raw) {
+          const meta = (raw.metadata ?? {}) as Record<string, unknown>
+          const aiSummary = raw.aiSummary || meta.aiSummary
+          if (aiSummary) parts.push(`    AI: ${String(aiSummary).substring(0, 200)}`)
+        }
       }
       break
     }
@@ -144,7 +152,7 @@ async function buildTabContext(
     case 'field-survey': {
       let query = supabase
         .from('surveys')
-        .select('id, survey_type, status, survey_date, notes')
+        .select('id, survey_type, status, survey_date, notes, start_time, end_time')
         .eq('project_id', projectId)
       if (siteId) query = query.eq('site_id', siteId)
       const { data: surveys = [] } = await query
@@ -154,7 +162,8 @@ async function buildTabContext(
       parts.push(`- Completed: ${completed}`)
 
       for (const s of surveys ?? []) {
-        parts.push(`- ${s.survey_type} (${s.status}) — ${s.survey_date}`)
+        const timing = s.start_time && s.end_time ? ` (${s.start_time}–${s.end_time})` : ''
+        parts.push(`- ${s.survey_type} (${s.status}) — ${s.survey_date}${timing}`)
         if (s.notes) parts.push(`  Notes: ${s.notes.substring(0, 200)}`)
       }
 
@@ -169,6 +178,38 @@ async function buildTabContext(
         parts.push(`\n## Species Observations (${obs?.length ?? 0} total)`)
         const protObs = (obs ?? []).filter((o) => o.is_protected).length
         if (protObs > 0) parts.push(`- Protected species observed: ${protObs}`)
+
+        // Taxon group breakdown
+        const byTaxon = new Map<string, number>()
+        for (const o of obs ?? []) {
+          const group = o.taxon_group || 'Unknown'
+          byTaxon.set(group, (byTaxon.get(group) || 0) + 1)
+        }
+        for (const [group, count] of byTaxon) {
+          parts.push(`- ${group}: ${count}`)
+        }
+      }
+
+      // Fetch dominant relevé species (DOMIN scores)
+      const { data: releveSurveys = [] } = await supabase
+        .from('releve_surveys')
+        .select('id')
+        .eq('project_id', projectId)
+      const releveIds = (releveSurveys ?? []).map((r) => r.id)
+      if (releveIds.length > 0) {
+        const { data: releveSpecies = [] } = await supabase
+          .from('releve_species')
+          .select('species_name_latin, species_cover_domin')
+          .in('releve_id', releveIds)
+          .order('species_cover_domin', { ascending: false })
+          .limit(15)
+
+        if (releveSpecies && releveSpecies.length > 0) {
+          parts.push(`\n## Dominant Relevé Species (DOMIN scale)`)
+          for (const rs of releveSpecies) {
+            parts.push(`- ${rs.species_name_latin}: DOMIN ${rs.species_cover_domin ?? '—'}`)
+          }
+        }
       }
       break
     }
@@ -176,7 +217,9 @@ async function buildTabContext(
     case 'habitats': {
       let query = supabase
         .from('habitat_polygons')
-        .select('fossitt_code, fossitt_name, area_hectares, condition')
+        .select(
+          'fossitt_code, fossitt_name, area_hectares, condition, threats, eu_annex_code, notes'
+        )
         .eq('project_id', projectId)
       if (siteId) query = query.eq('site_id', siteId)
       const { data: habitats = [] } = await query
@@ -189,6 +232,10 @@ async function buildTabContext(
         parts.push(
           `- [${h.fossitt_code}] ${h.fossitt_name} — ${(h.area_hectares || 0).toFixed(2)} ha (${h.condition || 'unknown'})`
         )
+        if (h.eu_annex_code) parts.push(`  EU Annex: ${h.eu_annex_code}`)
+        const threats = h.threats as string[] | null
+        if (threats?.length) parts.push(`  Threats: ${threats.join(', ')}`)
+        if (h.notes) parts.push(`  Notes: ${String(h.notes).substring(0, 150)}`)
       }
       break
     }
@@ -205,10 +252,23 @@ async function buildTabContext(
       const verified = (notes ?? []).filter((n) => n.is_verified).length
       parts.push(`- Verified: ${verified}`)
 
+      // Priority breakdown
+      const byPriority = new Map<string, number>()
+      for (const n of notes ?? []) {
+        const p = n.priority || 'normal'
+        byPriority.set(p, (byPriority.get(p) || 0) + 1)
+      }
+      parts.push('\n### Priority Distribution')
+      for (const [priority, count] of byPriority) {
+        parts.push(`- ${priority}: ${count}`)
+      }
+
+      // Category breakdown
       const byCat = new Map<string, number>()
       for (const n of notes ?? []) {
         byCat.set(n.category, (byCat.get(n.category) || 0) + 1)
       }
+      parts.push('\n### Categories')
       for (const [cat, count] of byCat) {
         parts.push(`- ${cat}: ${count}`)
       }

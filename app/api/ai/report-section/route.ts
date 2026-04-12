@@ -984,8 +984,32 @@ function buildReportContext(input: ReportContextInput): string {
       }
     }
 
+    // Company report findings — extract document content
+    const companyReports = byType['company_report'] || []
+    if (companyReports.length > 0) {
+      parts.push(`\n## COMPANY REPORT DATA (${companyReports.length} documents)`)
+      for (const f of companyReports) {
+        parts.push(`- **${f.title}** [${f.source.toUpperCase()}]`)
+        const raw = f.raw_data as Record<string, unknown> | null
+        if (raw) {
+          const content = raw.content || raw.textContent || raw.extractedText
+          if (content) {
+            parts.push(`  Content: ${String(content).substring(0, 500)}`)
+          }
+          const chunks = raw.chunks as Array<{ text: string }> | undefined
+          if (chunks?.length) {
+            parts.push(`  Key excerpts:`)
+            for (const chunk of chunks.slice(0, 3)) {
+              parts.push(`    - ${chunk.text.substring(0, 300)}`)
+            }
+          }
+        }
+        if (f.notes) parts.push(`  Notes: ${f.notes}`)
+      }
+    }
+
     for (const [type, items] of Object.entries(byType)) {
-      if (type === 'habitat') continue // already handled above
+      if (type === 'habitat' || type === 'company_report') continue // already handled above
       parts.push(`\n## ${type.replaceAll('_', ' ').toUpperCase()} (${items.length} records)`)
       for (const f of items) {
         parts.push(`- **${f.title}** [${f.source.toUpperCase()}]`)
