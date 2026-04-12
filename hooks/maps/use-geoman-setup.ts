@@ -239,7 +239,7 @@ export function useGeomanSetup({
           snapSegment: true,
           snapVertex: true,
           snapMiddle: true,
-          allowSelfIntersection: false,
+          allowSelfIntersection: true,
           finishOn: 'dblclick' as unknown as null,
           templineStyle: { color: '#ef4444', weight: 2 },
           hintlineStyle: { color: '#ef4444', weight: 2, dashArray: '5,5' },
@@ -381,6 +381,14 @@ export function useGeomanSetup({
         // --- pm:cut -- polygon clipped ---
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         map.on('pm:cut', (e: any) => {
+          // If the cut target is NOT in the FeatureGroup (e.g., another
+          // site's boundary), undo the cut silently — otherwise the cut
+          // result gets added to the FeatureGroup and creates a ghost site.
+          if (e.originalLayer && !featureGroupRef.current?.hasLayer(e.originalLayer)) {
+            if (e.layer) map.removeLayer(e.layer)
+            e.originalLayer.addTo(map)
+            return
+          }
           if (e.originalLayer && featureGroupRef.current?.hasLayer(e.originalLayer)) {
             featureGroupRef.current.removeLayer(e.originalLayer)
           }
@@ -691,7 +699,8 @@ function disableEditOnNonFeatureGroupLayers(
   featureGroupRef: React.RefObject<LeafletFeatureGroup | null>
 ) {
   map.eachLayer((layer: L.Layer) => {
-    // Skip layers inside the FeatureGroup — those should stay editable
+    // Skip the FeatureGroup itself and its child layers — those should stay editable
+    if (layer === featureGroupRef.current) return
     if (featureGroupRef.current?.hasLayer(layer)) return
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pm = (layer as any).pm

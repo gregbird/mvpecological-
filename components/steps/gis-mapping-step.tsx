@@ -41,6 +41,7 @@ import { SiteListPanel } from './gis-mapping/site-list-panel'
 import { SourceSelectionPanel, type GISSourceId } from './gis-mapping/source-selection-panel'
 import { BufferZonePanel } from './gis-mapping/buffer-zone-panel'
 import { WizardStepHeader } from './gis-mapping/wizard-step-header'
+import { BoundaryClipDialog, type ClipSource } from '@/components/maps/boundary-clip-dialog'
 
 // Dynamic import for map
 const ProjectMapWithDraw = dynamic(
@@ -189,6 +190,47 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
         !layers.ignoredItems.has(`npws-${site.SITE_TYPE}-${site.SITECODE}`)
     ).length
   }, [layers.layerData.npwsSites, layers.visibleLayers, layers.deletedItems, layers.ignoredItems])
+
+  // ── Clip-to-layer (cookie cutter) ─────────────────────────────────────────
+
+  const [clipDialogOpen, setClipDialogOpen] = React.useState(false)
+
+  const clipSources: ClipSource[] = React.useMemo(() => {
+    const sources: ClipSource[] = []
+    // Other site boundaries
+    siteMgmt.sites.forEach((s, i) => {
+      if (i !== siteMgmt.activeSiteIndex && s.boundary) {
+        sources.push({ label: s.siteCode, group: 'Other Sites', feature: s.boundary })
+      }
+    })
+    return sources
+  }, [siteMgmt.sites, siteMgmt.activeSiteIndex])
+
+  const handleClipApply = React.useCallback(
+    (source: ClipSource, mode: 'keep-inside' | 'remove-overlap') => {
+      const boundary = siteMgmt.activeSite?.boundary
+      if (!boundary) return
+
+      import('@/lib/gis/polygon-operations').then(({ clipToPolygon, clipPolygon }) => {
+        const result =
+          mode === 'keep-inside'
+            ? clipToPolygon(boundary, source.feature)
+            : clipPolygon(boundary, source.feature)
+
+        if (!result) {
+          toast({
+            variant: 'destructive',
+            title: 'Clip failed',
+            description: 'The selected polygon does not overlap the site boundary.',
+          })
+          return
+        }
+
+        handleBoundaryChange({ type: 'FeatureCollection', features: [result] }, true)
+      })
+    },
+    [siteMgmt.activeSite?.boundary, toast]
+  )
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -493,9 +535,20 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                 siteMgmt.updateSite(siteMgmt.activeSiteIndex, { attributes })
                 wizard.setHasUnsavedChanges(true)
               }}
+              onClipToLayer={
+                siteMgmt.activeSite?.boundary && clipSources.length > 0
+                  ? () => setClipDialogOpen(true)
+                  : undefined
+              }
               boundaryInfo={siteMgmt.boundaryInfo}
               locationInfo={siteMgmt.locationInfo}
               isLoadingLocation={siteMgmt.isLoadingLocation}
+            />
+            <BoundaryClipDialog
+              open={clipDialogOpen}
+              onOpenChange={setClipDialogOpen}
+              sources={clipSources}
+              onApply={handleClipApply}
             />
           </div>
         )}

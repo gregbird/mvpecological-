@@ -42,9 +42,6 @@ export interface WizardStepContentProps {
    *  a specific site never narrows the search scope. */
   allSiteBoundaries: GeoJSON.Feature<GeoJSON.Polygon>[]
   savedFindings: DeskResearchFinding[]
-  /** Project-wide saved findings (no site filter) — used by species substep
-   *  whose search is project-wide (multiSiteSearchMode: 'merged'). */
-  projectWideSavedFindings?: DeskResearchFinding[]
   targetNotes: TargetNote[]
   findingsStats: FindingsStatsResult | undefined
   /** Project-wide finding count (ignores siteId filter) — used so that the
@@ -94,7 +91,6 @@ export function WizardStepContent({
   allBoundaries,
   allSiteBoundaries,
   savedFindings,
-  projectWideSavedFindings,
   targetNotes,
   findingsStats,
   projectWideFindingsCount,
@@ -166,7 +162,7 @@ export function WizardStepContent({
             allBoundaries={allBoundaries}
             allSiteBoundaries={allSiteBoundaries}
             userId={userId}
-            savedFindings={projectWideSavedFindings ?? savedFindings}
+            savedFindings={savedFindings}
             showMap={showMap}
             onToggleMap={onToggleMap}
             isActive={currentStep === 'species'}

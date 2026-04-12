@@ -63,6 +63,60 @@ export function clipPolygon(subject: PolygonFeature, clip: PolygonFeature): Poly
 }
 
 /**
+ * Clip polygon A to the shape of polygon B — keep only the overlapping area.
+ * This is the "cookie cutter" operation: B acts as a mask/template.
+ * Returns the portion of A that IS inside B.
+ */
+export function clipToPolygon(
+  subject: PolygonFeature,
+  mask: PolygonFeature
+): PolygonFeature | null {
+  try {
+    const fc = featureCollection([subject, mask])
+    const result = turfIntersect(fc)
+    if (!result) return null
+
+    if (result.geometry.type === 'Polygon') {
+      return {
+        type: 'Feature',
+        geometry: result.geometry,
+        properties: subject.properties,
+      }
+    }
+
+    // MultiPolygon result — take largest piece
+    if (result.geometry.type === 'MultiPolygon') {
+      let largestIdx = 0
+      let largestArea = 0
+      for (let i = 0; i < result.geometry.coordinates.length; i++) {
+        const piece: PolygonFeature = {
+          type: 'Feature',
+          geometry: { type: 'Polygon', coordinates: result.geometry.coordinates[i] },
+          properties: {},
+        }
+        const a = turfArea(piece)
+        if (a > largestArea) {
+          largestArea = a
+          largestIdx = i
+        }
+      }
+      return {
+        type: 'Feature',
+        geometry: {
+          type: 'Polygon',
+          coordinates: result.geometry.coordinates[largestIdx],
+        },
+        properties: subject.properties,
+      }
+    }
+
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
  * Check if two polygons overlap.
  */
 export function polygonsOverlap(a: PolygonFeature, b: PolygonFeature): boolean {

@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Trash2, MapPin, Pencil } from 'lucide-react'
+import { Trash2, MapPin, Pencil, Scissors } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
@@ -19,6 +19,7 @@ interface SiteListPanelProps {
   onRemoveSite: (index: number) => void
   onRenameSite: (index: number, code: string) => void
   onUpdateAttributes: (attributes: Record<string, unknown>) => void
+  onClipToLayer?: () => void
   boundaryInfo: {
     centerLat: string
     centerLng: string
@@ -42,6 +43,7 @@ export function SiteListPanel({
   onRemoveSite,
   onRenameSite,
   onUpdateAttributes,
+  onClipToLayer,
   boundaryInfo,
   locationInfo,
   isLoadingLocation,
@@ -197,6 +199,16 @@ export function SiteListPanel({
             locationInfo={locationInfo}
             isLoadingLocation={isLoadingLocation}
           />
+          {onClipToLayer && (
+            <button
+              type="button"
+              className="text-muted-foreground hover:bg-muted hover:text-foreground mt-3 flex w-full items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors"
+              onClick={onClipToLayer}
+            >
+              <Scissors className="h-3 w-3" />
+              Clip to Layer
+            </button>
+          )}
           <div className="mt-4 border-t pt-3">
             <AttributeEditor
               attributes={activeAttributes}
