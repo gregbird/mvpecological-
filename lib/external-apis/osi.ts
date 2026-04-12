@@ -122,8 +122,75 @@ export async function searchNlcLandCover(params: NlcSearchParams): Promise<Aggre
   }
 }
 
+import * as turf from '@turf/turf'
 import { mapNlcToFossitt } from '@/lib/data/nlc-to-fossitt'
-import { HERITAGE_COUNCIL_COLORS } from '@/lib/config/map-constants'
+import { HERITAGE_COUNCIL_COLORS, NLC_LEVEL2_COLORS } from '@/lib/config/map-constants'
+
+/**
+ * Dissolve TIN triangles into smooth polygons using divide-and-conquer union,
+ * then simplify the result to remove leftover jagged edges.
+ *
+ * Strategy:
+ *  1. Batch polygons into groups of BATCH_SIZE
+ *  2. Union each batch → intermediate results
+ *  3. Repeat until single geometry remains
+ *  4. Simplify the dissolved result (turf.simplify) to smooth edges
+ *
+ * Falls back to raw MultiPolygon on error.
+ */
+function dissolveCoords(
+  coords: GeoJSON.Position[][][],
+  simplifyTolerance: number
+): GeoJSON.Geometry {
+  const raw: GeoJSON.Geometry = { type: 'MultiPolygon', coordinates: coords }
+  if (coords.length < 2) return raw
+
+  try {
+    let features: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>[] = coords.map(
+      (ring) => ({
+        type: 'Feature' as const,
+        properties: {},
+        geometry: { type: 'Polygon' as const, coordinates: ring },
+      })
+    )
+
+    const BATCH_SIZE = 50
+
+    // Divide-and-conquer: merge in batches until single feature
+    while (features.length > 1) {
+      const nextRound: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>[] = []
+      for (let i = 0; i < features.length; i += BATCH_SIZE) {
+        const batch = features.slice(i, i + BATCH_SIZE)
+        if (batch.length === 1) {
+          nextRound.push(batch[0])
+        } else {
+          const merged = turf.union(turf.featureCollection(batch))
+          if (merged) {
+            nextRound.push(merged)
+          } else {
+            nextRound.push(...batch)
+            break
+          }
+        }
+      }
+      if (nextRound.length >= features.length) break
+      features = nextRound
+    }
+
+    // Simplify the dissolved result to smooth jagged TIN remnants.
+    // tolerance is in degrees — scales with the bbox extent so larger
+    // areas get more aggressive smoothing.
+    const dissolved = features[0]
+    const simplified = turf.simplify(dissolved, {
+      tolerance: simplifyTolerance,
+      highQuality: true,
+    })
+
+    return simplified.geometry
+  } catch {
+    return raw
+  }
+}
 
 /** Color per NLC Level 1 category — Heritage Council standard (Appendix 6) */
 export const NLC_LEVEL1_COLORS: Record<string, string> = {
@@ -161,10 +228,12 @@ export async function fetchNlcPolygons(
   const { bbox } = params
   const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] }
 
-  // Simplification tolerance scales with bbox — larger area = more aggressive
-  // simplification to keep polygon count and geometry size manageable
+  // Simplification tolerance scales with bbox extent.
+  // Server-side: maxAllowableOffset removes small vertices during fetch.
+  // Client-side: post-dissolve turf.simplify smooths remaining TIN edges.
   const extent = Math.max(bbox.maxLng - bbox.minLng, bbox.maxLat - bbox.minLat)
-  const simplifyTolerance = extent * 0.01
+  const serverSimplify = extent * 0.015
+  const clientSimplify = extent * 0.003
 
   const PAGE_SIZE = 2000 // ArcGIS server-side max per request
   // Safety cap: large multi-site searches over Co. Louth-sized bboxes can
@@ -206,7 +275,7 @@ export async function fetchNlcPolygons(
         // Order by habitat category so paged dissolve happens in coherent
         // batches and a hard cap clips trailing categories cleanly.
         orderByFields: 'LEVEL_2_ID',
-        maxAllowableOffset: simplifyTolerance.toString(),
+        maxAllowableOffset: serverSimplify.toString(),
         resultRecordCount: PAGE_SIZE.toString(),
         resultOffset: offset.toString(),
         geometry: geometryJson,
@@ -284,19 +353,22 @@ export async function fetchNlcPolygons(
     const mergedFeatures: GeoJSON.Feature[] = []
     for (const [nlcId, { coords, props, totalArea }] of grouped) {
       const level1 = String(props.LEVEL_1_VALUE || '')
+      const nlcLabel = String(props.LEVEL_2_VALUE || '')
       const fossitt = mapNlcToFossitt(nlcId)
       const fossittCode = fossitt?.fossittCode || ''
+      // Priority: NLC Level 2 color (36 distinct) → FOSSITT Level 1 → NLC Level 1 → grey
+      const nlcColor = NLC_LEVEL2_COLORS[nlcLabel]
       const fossittColor = fossittCode
         ? HERITAGE_COUNCIL_COLORS[fossittCode[0] as keyof typeof HERITAGE_COUNCIL_COLORS]
         : undefined
 
       mergedFeatures.push({
         type: 'Feature',
-        geometry: { type: 'MultiPolygon', coordinates: coords },
+        geometry: dissolveCoords(coords, clientSimplify),
         properties: {
-          color: fossittColor || NLC_LEVEL1_COLORS[level1] || '#808080',
+          color: nlcColor || fossittColor || NLC_LEVEL1_COLORS[level1] || '#808080',
           nlc_id: nlcId,
-          nlc_label: String(props.LEVEL_2_VALUE || ''),
+          nlc_label: nlcLabel,
           nlc_level1: level1,
           fossitt_code: fossittCode || nlcId,
           fossitt_name: fossitt?.fossittName || String(props.LEVEL_2_VALUE || ''),
@@ -317,18 +389,20 @@ export async function fetchNlcPolygons(
     const partialFeatures: GeoJSON.Feature[] = []
     for (const [nlcId, { coords, props, totalArea }] of grouped) {
       const level1 = String(props.LEVEL_1_VALUE || '')
+      const nlcLabel = String(props.LEVEL_2_VALUE || '')
       const fossitt = mapNlcToFossitt(nlcId)
       const fossittCode = fossitt?.fossittCode || ''
+      const nlcColor = NLC_LEVEL2_COLORS[nlcLabel]
       const fossittColor = fossittCode
         ? HERITAGE_COUNCIL_COLORS[fossittCode[0] as keyof typeof HERITAGE_COUNCIL_COLORS]
         : undefined
       partialFeatures.push({
         type: 'Feature',
-        geometry: { type: 'MultiPolygon', coordinates: coords },
+        geometry: dissolveCoords(coords, clientSimplify),
         properties: {
-          color: fossittColor || NLC_LEVEL1_COLORS[level1] || '#808080',
+          color: nlcColor || fossittColor || NLC_LEVEL1_COLORS[level1] || '#808080',
           nlc_id: nlcId,
-          nlc_label: String(props.LEVEL_2_VALUE || ''),
+          nlc_label: nlcLabel,
           nlc_level1: level1,
           fossitt_code: fossittCode || nlcId,
           fossitt_name: fossitt?.fossittName || String(props.LEVEL_2_VALUE || ''),

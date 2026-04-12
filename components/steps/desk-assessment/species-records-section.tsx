@@ -22,6 +22,8 @@ import type { DeskResearchFinding } from '@/types/database'
 interface SpeciesRecordsSectionProps {
   findings: DeskResearchFinding[]
   boundary?: GeoJSON.Feature<GeoJSON.Polygon>
+  otherBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
+  allBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   onRemoveFinding?: (findingId: string) => void
 }
 
@@ -209,6 +211,8 @@ function buildBoundaryGridOverlay(
 export function SpeciesRecordsSection({
   findings,
   boundary,
+  otherBoundaries,
+  allBoundaries,
   onRemoveFinding,
 }: SpeciesRecordsSectionProps) {
   const species = React.useMemo(() => parseSpeciesRows(findings), [findings])
@@ -356,6 +360,8 @@ export function SpeciesRecordsSection({
                   findings={hasLocationData ? mapFindings : undefined}
                   gridOverlay={gridPolygons ?? undefined}
                   boundary={boundary}
+                  otherBoundaries={otherBoundaries}
+                  allBoundaries={allBoundaries}
                   bufferDistances={[2, 5, 15]}
                   showControls={false}
                 />

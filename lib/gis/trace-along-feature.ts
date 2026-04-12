@@ -83,6 +83,9 @@ export function traceEdge(polygon: GeoJSON.Polygon, startPoint: Coord, endPoint:
     const ring = (polygon.coordinates[0] as Coord[]).slice(0, -1)
     const n = ring.length
 
+    // Degenerate polygon — not enough vertices for tracing
+    if (n < 3) return [sCoord, eCoord]
+
     // Build both directions around the ring and pick the shorter one
     const forward = buildRingPath(sCoord, sIdx, eCoord, eIdx, ring, n, 1)
     const backward = buildRingPath(sCoord, sIdx, eCoord, eIdx, ring, n, -1)

@@ -23,6 +23,8 @@ interface DesignatedSitesMatrixProps {
   findings: DeskResearchFinding[]
   deepResearch: DeepResearchResult[]
   boundary?: GeoJSON.Feature<GeoJSON.Polygon>
+  otherBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
+  allBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   onRemoveFinding?: (findingId: string) => void
 }
 
@@ -297,6 +299,8 @@ export function DesignatedSitesMatrix({
   findings,
   deepResearch,
   boundary,
+  otherBoundaries,
+  allBoundaries,
   onRemoveFinding,
 }: DesignatedSitesMatrixProps) {
   const sites = React.useMemo(() => parseSiteRows(findings, deepResearch), [findings, deepResearch])
@@ -359,6 +363,8 @@ export function DesignatedSitesMatrix({
           <BaselineMap
             findings={hasLocationData ? mapFindings : undefined}
             boundary={boundary}
+            otherBoundaries={otherBoundaries}
+            allBoundaries={allBoundaries}
             bufferDistances={[2, 5, 15]}
             showControls={false}
           />

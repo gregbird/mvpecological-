@@ -26,27 +26,27 @@ import type { DeskResearchFinding } from '@/types/database'
 
 // Data type badge colors
 const DATA_TYPE_COLORS: Record<string, string> = {
-  designated_site: 'bg-emerald-100 text-emerald-700',
-  species_record: 'bg-purple-100 text-purple-700',
-  water_quality: 'bg-cyan-100 text-cyan-700',
-  catchment: 'bg-cyan-100 text-cyan-700',
+  designated_site: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300',
+  species_record: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
+  water_quality: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300',
+  catchment: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300',
 }
 
 // Site type badge colors
 const SITE_TYPE_COLORS: Record<string, string> = {
-  SAC: 'bg-blue-100 text-blue-700',
-  SPA: 'bg-amber-100 text-amber-700',
-  NHA: 'bg-green-100 text-green-700',
-  pNHA: 'bg-teal-100 text-teal-700',
+  SAC: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
+  SPA: 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300',
+  NHA: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
+  pNHA: 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300',
 }
 
 // Red list status badge colors
 const RED_LIST_COLORS: Record<string, string> = {
-  CR: 'bg-red-200 text-red-800',
-  EN: 'bg-red-100 text-red-700',
-  VU: 'bg-orange-100 text-orange-700',
-  NT: 'bg-yellow-100 text-yellow-700',
-  LC: 'bg-green-100 text-green-700',
+  CR: 'bg-red-200 text-red-800 dark:bg-red-900 dark:text-red-300',
+  EN: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
+  VU: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300',
+  NT: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
+  LC: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
 }
 
 interface ReviewFindingsTableProps {
@@ -101,7 +101,9 @@ export function ReviewFindingsTable({ savedFindings }: ReviewFindingsTableProps)
                 </div>
                 {/* Scientific name / taxon for species */}
                 {scientificName && scientificName !== finding.title && (
-                  <p className="text-xs text-gray-500 italic">{scientificName}</p>
+                  <p className="text-xs text-gray-500 italic dark:text-gray-400">
+                    {scientificName}
+                  </p>
                 )}
                 {/* Content preview */}
                 {finding.content && (
@@ -112,7 +114,7 @@ export function ReviewFindingsTable({ savedFindings }: ReviewFindingsTableProps)
                   <Badge
                     className={`text-[9px] ${DATA_TYPE_COLORS[finding.data_type] || 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
                   >
-                    {finding.data_type.replace('_', ' ')}
+                    {finding.data_type.replace(/_/g, ' ')}
                   </Badge>
                   <Badge variant="outline" className="text-[9px]">
                     {finding.source.toUpperCase()}
@@ -175,7 +177,7 @@ export function ReviewFindingsTable({ savedFindings }: ReviewFindingsTableProps)
                 {/* Full content */}
                 {finding.content && (
                   <div className="bg-background border-b p-3">
-                    <div className="mb-1 text-[10px] font-medium text-gray-500 uppercase">
+                    <div className="mb-1 text-[10px] font-medium text-gray-500 uppercase dark:text-gray-400">
                       Description
                     </div>
                     <p className="text-muted-foreground text-xs leading-relaxed whitespace-pre-line">

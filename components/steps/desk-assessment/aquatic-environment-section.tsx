@@ -24,6 +24,8 @@ interface AquaticEnvironmentSectionProps {
   findings: DeskResearchFinding[]
   aquaticResearch: AquaticResearchResult[]
   boundary?: GeoJSON.Feature<GeoJSON.Polygon>
+  otherBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
+  allBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   onRemoveFinding?: (findingId: string) => void
 }
 
@@ -233,6 +235,8 @@ export function AquaticEnvironmentSection({
   findings,
   aquaticResearch,
   boundary,
+  otherBoundaries,
+  allBoundaries,
   onRemoveFinding,
 }: AquaticEnvironmentSectionProps) {
   const waterBodies = React.useMemo(
@@ -386,6 +390,8 @@ export function AquaticEnvironmentSection({
                 <BaselineMap
                   habitatPolygons={aquaticFeatureCollection ?? undefined}
                   boundary={boundary}
+                  otherBoundaries={otherBoundaries}
+                  allBoundaries={allBoundaries}
                   bufferDistances={[2, 5]}
                   showControls={false}
                 />

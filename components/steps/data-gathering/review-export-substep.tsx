@@ -77,11 +77,6 @@ interface ReviewExportSubStepProps {
   userId: string
   savedFindings: DeskResearchFinding[]
   targetNotes: TargetNoteWithCreator[]
-  findingsStats?: {
-    total: number
-    byType: { type: string; count: number }[]
-    bySource: { source: string; count: number }[]
-  } | null
   /** True when this substep is currently visible — used to refresh data
    *  (e.g. ScreenshotGallery) since the substep stays mounted between visits. */
   isActive?: boolean

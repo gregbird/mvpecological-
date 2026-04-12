@@ -266,8 +266,13 @@ export function DataGatheringStep({
       })
       refetchWorkflowSteps()
       onComplete?.()
-    } catch (error) {
-      console.error('[DataGatheringStep] Complete step error:', error)
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Failed to complete step',
+        description:
+          'An error occurred while completing the data gathering step. Please try again.',
+      })
     }
   }
 
@@ -417,7 +422,6 @@ export function DataGatheringStep({
           allSiteBoundaries={allSiteBoundaries}
           savedFindings={savedFindings}
           targetNotes={targetNotes}
-          findingsStats={findingsStats}
           projectWideFindingsCount={projectWideFindingsStats?.total}
           showMap={showMap}
           onToggleMap={handleToggleMap}

@@ -14,13 +14,6 @@ import { HabitatDataSubStep } from './habitat-data-substep'
 
 type WizardStepId = 'info' | 'sites' | 'species' | 'aquatic' | 'habitats' | 'reports' | 'review'
 
-interface FindingsStatsResult {
-  total: number
-  saved: number
-  bySource: { source: string; count: number }[]
-  byType: { type: string; count: number }[]
-}
-
 export interface WizardStepContentProps {
   project: Project
   workflowStep: WorkflowStep
@@ -43,7 +36,6 @@ export interface WizardStepContentProps {
   allSiteBoundaries: GeoJSON.Feature<GeoJSON.Polygon>[]
   savedFindings: DeskResearchFinding[]
   targetNotes: TargetNote[]
-  findingsStats: FindingsStatsResult | undefined
   /** Project-wide finding count (ignores siteId filter) — used so that the
    *  Review & Export "Complete" button isn't disabled when the user views
    *  a single empty site while other sites have data. */
@@ -92,7 +84,6 @@ export function WizardStepContent({
   allSiteBoundaries,
   savedFindings,
   targetNotes,
-  findingsStats,
   projectWideFindingsCount,
   showMap,
   onToggleMap,
@@ -247,7 +238,6 @@ export function WizardStepContent({
             userId={userId}
             savedFindings={savedFindings}
             targetNotes={targetNotes}
-            findingsStats={findingsStats}
             isActive={currentStep === 'review'}
             onComplete={onComplete}
             isCompleting={isCompleting}

@@ -281,7 +281,13 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
           siteCode: finding.metadata?.siteCode,
           metadata: finding.metadata,
         } as unknown as Json,
-        location: finding.location as unknown as Json,
+        location: (finding.location ??
+          ((finding as unknown as Record<string, unknown>).locationCenter
+            ? {
+                type: 'Point',
+                coordinates: (finding as unknown as Record<string, unknown>).locationCenter,
+              }
+            : null)) as unknown as Json,
         is_saved: true,
         distance_from_boundary_km: finding.metadata?.distance || null,
         is_protected: true,

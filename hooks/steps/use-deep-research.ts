@@ -76,7 +76,12 @@ export function useDeepResearch(
     [siteId, projectSites]
   )
 
-  const { projectBoundary: boundary, bufferDistances } = useProjectBoundary(project, selectedSite)
+  const {
+    projectBoundary: boundary,
+    bufferDistances,
+    otherBoundaries,
+    allBoundaries,
+  } = useProjectBoundary(project, selectedSite)
 
   // When site-scoped, filter research tables (which lack site_id) via finding_id JOIN.
   // The `findings` prop is already site-filtered upstream by the parent component.
@@ -289,6 +294,8 @@ export function useDeepResearch(
     batchProgress,
     boundary,
     bufferDistances,
+    otherBoundaries,
+    allBoundaries,
     mapFindings,
     unresearchedSites,
     resultsByType,

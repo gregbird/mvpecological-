@@ -199,6 +199,50 @@ export const HERITAGE_COUNCIL_COLORS = {
   M: '#B57EDC', // Marine — Lavender
 } as const
 
+/**
+ * Official NLC 2018 Level 2 Colour Palette
+ * Source: ArcGIS FeatureServer renderer — MapGenieNationalLandCover2018ITM
+ * Keys are NLC LEVEL_2_VALUE labels (exactly as returned by the API)
+ */
+export const NLC_LEVEL2_COLORS: Record<string, string> = {
+  'Amenity Grassland': '#A2F14F',
+  'Artificial Waterbodies': '#004DA8',
+  'Bare Peat': '#846044',
+  'Bare Soil and Disturbed Ground': '#4A2D00',
+  'Blanket Bog': '#A87000',
+  Bracken: '#F4C7DA',
+  'Broadleaved Forest and Woodland': '#6BAD00',
+  Buildings: '#FF2D35',
+  'Burnt Areas': '#E6A700',
+  'Coastal Sediments': '#F9F382',
+  'Coniferous Forest': '#265000',
+  'Cultivated Land': '#FFFFAC',
+  'Cutover Bog': '#D49676',
+  'Dry Grassland': '#DEF3CC',
+  'Dry Heath': '#C190D0',
+  'Exposed Rock and Sediments': '#819498',
+  Fens: '#CDF57A',
+  Hedgerows: '#81516B',
+  'Improved Grassland': '#7CCC59',
+  'Lakes and Ponds': '#0099FF',
+  'Marine Water': '#BDF2FF',
+  'Mixed Forest': '#507C00',
+  Mudflats: '#D0C29E',
+  'Other Artificial Surfaces': '#DCDCDC',
+  'Raised Bog': '#732600',
+  'Rivers and Streams': '#73B2FF',
+  'Salt Marsh': '#AFB400',
+  'Sand Dunes': '#ECFF2E',
+  Scrub: '#A0D023',
+  Swamp: '#CDAA66',
+  'Transitional Forest': '#7A8F21',
+  'Transitional Waterbodies': '#73DFFF',
+  Treelines: '#E8E762',
+  Ways: '#808A8C',
+  'Wet Grassland': '#38A800',
+  'Wet Heath': '#7D00A2',
+}
+
 // Finding type colors (used for map markers by data type)
 export const FINDING_TYPE_COLORS: Record<string, string> = {
   designated_site: '#22c55e', // Green for protected sites

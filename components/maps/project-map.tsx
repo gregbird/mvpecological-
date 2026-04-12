@@ -153,7 +153,9 @@ function MapComponent({
 
   const visibleFindings = React.useMemo(() => {
     if (!findings) return []
-    if (!visibleFindingTypes || visibleFindingTypes.length === 0) return findings
+    // undefined/null = no filter (show all) — callers that don't pass the prop.
+    // [] = explicit empty filter (show nothing) — all floating buttons off.
+    if (!visibleFindingTypes) return findings
     return findings.filter((f) => visibleFindingTypes.includes(f.dataType))
   }, [findings, visibleFindingTypes])
 
@@ -284,13 +286,15 @@ function MapComponent({
             />
           ))}
 
-      {habitatPolygons && habitatLayer?.visible && (
-        <HabitatPolygonLayer
-          habitatPolygons={habitatPolygons}
-          habitatSelectionKey={habitatSelectionKey}
-          GeoJSON={GeoJSON}
-        />
-      )}
+      {habitatPolygons &&
+        habitatLayer?.visible &&
+        (!visibleFindingTypes || visibleFindingTypes.includes('habitat')) && (
+          <HabitatPolygonLayer
+            habitatPolygons={habitatPolygons}
+            habitatSelectionKey={habitatSelectionKey}
+            GeoJSON={GeoJSON}
+          />
+        )}
       {gridOverlay && <GridOverlayLayer gridOverlay={gridOverlay} GeoJSON={GeoJSON} />}
       {observationPoints && observationPoints.features.length > 0 && obsLayer?.visible && (
         <ObservationMarkers observationPoints={observationPoints} rl={{ CircleMarker, Popup }} />

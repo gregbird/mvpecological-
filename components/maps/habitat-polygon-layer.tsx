@@ -11,6 +11,9 @@ interface HabitatPolygonLayerProps {
 }
 
 // Style function stays at module scope — pure, references no closures.
+// NLC polygons are dissolved TIN triangles — stroke on every triangle edge
+// creates visual noise. Default state uses minimal stroke so adjacent
+// triangles of the same habitat type blend into a solid fill.
 function habitatStyle(feature: GeoJSON.Feature | undefined) {
   const props = feature?.properties
   const fill = (props?.fillOpacity as number) ?? 0.35
@@ -18,9 +21,11 @@ function habitatStyle(feature: GeoJSON.Feature | undefined) {
   const isFaded = fill < 0.1
   const habitatColor = (props?.color as string) || '#808080'
   return {
-    color: isHighlighted ? '#000000' : '#1e293b',
-    weight: isHighlighted ? 2.5 : isFaded ? 0 : 1.5,
-    opacity: isFaded ? 0 : 0.8,
+    // All states: stroke matches fill color so TIN triangle edges blend
+    // into the solid fill. Weight and opacity vary by state.
+    color: habitatColor,
+    weight: isFaded ? 0 : 0.5,
+    opacity: isFaded ? 0 : 0.4,
     fillColor: habitatColor,
     fillOpacity: fill,
   }

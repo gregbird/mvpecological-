@@ -274,17 +274,40 @@ export function useSubstepSearch(
           }
           keysToRemove.forEach((k) => sessionStorage.removeItem(k))
           const minimalResults = resultsToWrite.map(
-            ({ id, title, source, dataType, metadata }) => ({
-              id,
-              title,
-              source,
-              dataType,
-              metadata: Object.fromEntries(
-                minimalMetadataKeys
-                  .filter((k) => (metadata as Record<string, unknown>)?.[k] !== undefined)
-                  .map((k) => [k, (metadata as Record<string, unknown>)?.[k]])
-              ),
-            })
+            ({ id, title, source, dataType, location, metadata }) => {
+              // Compute centroid for non-Point geometries so map markers survive
+              // the minimal cache path (full geometry is too large for quota).
+              let locationCenter: number[] | undefined
+              if (location) {
+                if (location.type === 'Point') {
+                  locationCenter = (location as GeoJSON.Point).coordinates as number[]
+                } else {
+                  const coords: number[][] = []
+                  const extract = (c: unknown) => {
+                    if (!Array.isArray(c)) return
+                    if (typeof c[0] === 'number') coords.push(c as number[])
+                    else c.forEach(extract)
+                  }
+                  extract((location as GeoJSON.Geometry & { coordinates: unknown }).coordinates)
+                  if (coords.length > 0) {
+                    const s = coords.reduce((a, c) => [a[0] + c[0], a[1] + c[1]], [0, 0])
+                    locationCenter = [s[0] / coords.length, s[1] / coords.length]
+                  }
+                }
+              }
+              return {
+                id,
+                title,
+                source,
+                dataType,
+                ...(locationCenter ? { locationCenter } : {}),
+                metadata: Object.fromEntries(
+                  minimalMetadataKeys
+                    .filter((k) => (metadata as Record<string, unknown>)?.[k] !== undefined)
+                    .map((k) => [k, (metadata as Record<string, unknown>)?.[k]])
+                ),
+              }
+            }
           )
           sessionStorage.setItem(cacheKey, JSON.stringify(minimalResults))
         } catch {

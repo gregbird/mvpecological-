@@ -226,10 +226,14 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
           return
         }
 
-        handleBoundaryChange({ type: 'FeatureCollection', features: [result] }, true)
+        const changed = siteMgmt.handleBoundaryChange(
+          { type: 'FeatureCollection', features: [result] },
+          true
+        )
+        if (changed) wizard.setHasUnsavedChanges(true)
       })
     },
-    [siteMgmt.activeSite?.boundary, toast]
+    [siteMgmt, wizard, toast]
   )
 
   // ── Handlers ──────────────────────────────────────────────────────────────

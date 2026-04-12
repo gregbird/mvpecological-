@@ -25,6 +25,7 @@ import {
 import { getAllScreenshots } from '@/lib/map-screenshots/storage'
 import { fetchImageAsBase64 } from '@/lib/export/image-utils'
 import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
+import { useProjectSites } from '@/hooks/queries/use-site-hooks'
 import type { DeskResearchFinding, Project } from '@/types/database'
 
 export interface HabitatRow {
@@ -62,7 +63,16 @@ export function BaselineReportTab({
   const { data: allFindings = [] } = useFindings(project.id, siteId)
   const toggleSaved = useToggleFindingSaved()
 
-  const { projectBoundary: boundary } = useProjectBoundary(project)
+  const { data: projectSites = [] } = useProjectSites(project.id)
+  const selectedSite = React.useMemo(
+    () => (siteId ? (projectSites.find((s) => s.id === siteId) ?? null) : null),
+    [siteId, projectSites]
+  )
+  const {
+    projectBoundary: boundary,
+    otherBoundaries,
+    allBoundaries,
+  } = useProjectBoundary(project, selectedSite)
 
   // Lifted habitat state from HabitatInventorySection for use in export
   const [habitatRows, setHabitatRows] = React.useState<HabitatRow[]>([])
@@ -349,6 +359,8 @@ export function BaselineReportTab({
           findings={savedFindings}
           deepResearch={deepResearch}
           boundary={boundary}
+          otherBoundaries={otherBoundaries}
+          allBoundaries={allBoundaries}
           onRemoveFinding={handleRemoveFinding}
         />
       </section>
@@ -359,6 +371,8 @@ export function BaselineReportTab({
         <SpeciesRecordsSection
           findings={savedFindings}
           boundary={boundary}
+          otherBoundaries={otherBoundaries}
+          allBoundaries={allBoundaries}
           onRemoveFinding={handleRemoveFinding}
         />
       </section>
@@ -369,6 +383,8 @@ export function BaselineReportTab({
         <HabitatInventorySection
           findings={savedFindings}
           boundary={boundary}
+          otherBoundaries={otherBoundaries}
+          allBoundaries={allBoundaries}
           onHabitatData={handleHabitatData}
           onRemoveFinding={handleRemoveFinding}
           npwsVisibleLayers={
@@ -386,6 +402,8 @@ export function BaselineReportTab({
           findings={savedFindings}
           aquaticResearch={aquaticResearch}
           boundary={boundary}
+          otherBoundaries={otherBoundaries}
+          allBoundaries={allBoundaries}
           onRemoveFinding={handleRemoveFinding}
         />
       </section>

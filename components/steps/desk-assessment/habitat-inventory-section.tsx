@@ -15,6 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { getHabitatByCode } from '@/lib/data/fossitt-codes'
+import { NLC_LEVEL2_COLORS } from '@/lib/config/map-constants'
 import { BaselineMap } from './baseline-map-utils'
 import type { DeskResearchFinding } from '@/types/database'
 
@@ -32,6 +33,8 @@ export interface HabitatRow {
 interface HabitatInventorySectionProps {
   findings: DeskResearchFinding[]
   boundary?: GeoJSON.Feature<GeoJSON.Polygon>
+  otherBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
+  allBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   onHabitatData?: (habitats: HabitatRow[]) => void
   onRemoveFinding?: (findingId: string) => void
   /** NPWS layer IDs saved from GIS step (e.g. ['sac', 'spa']) */
@@ -164,6 +167,8 @@ function HabitatTable({
 export function HabitatInventorySection({
   findings,
   boundary,
+  otherBoundaries,
+  allBoundaries,
   onHabitatData,
   onRemoveFinding,
   npwsVisibleLayers,
@@ -202,7 +207,7 @@ export function HabitatInventorySection({
           findingId: f.id,
           fossittCode,
           fossittName,
-          color: habitat?.color || '#808080',
+          color: (nlcLabel && NLC_LEVEL2_COLORS[nlcLabel]) || habitat?.color || '#808080',
           nlcLabel,
           areaHa,
           percentage: total > 0 ? (areaHa / total) * 100 : 0,
@@ -221,6 +226,7 @@ export function HabitatInventorySection({
     const features: GeoJSON.Feature[] = withLocation.map((f) => {
       const raw = f.raw_data as Record<string, unknown> | null
       const fossittCode = String(raw?.fossittCode ?? '')
+      const nlcLabel = String(raw?.nlcLabel ?? '')
       const habitat = getHabitatByCode(fossittCode)
       return {
         type: 'Feature',
@@ -228,7 +234,7 @@ export function HabitatInventorySection({
         properties: {
           fossitt_name: String(raw?.fossittName ?? f.title),
           fossitt_code: fossittCode,
-          color: habitat?.color || '#22c55e',
+          color: (nlcLabel && NLC_LEVEL2_COLORS[nlcLabel]) || habitat?.color || '#22c55e',
         },
       }
     })
@@ -382,6 +388,8 @@ export function HabitatInventorySection({
                   habitatPolygons={styledPolygons ?? undefined}
                   habitatSelectionKey={selectedCode || 'all'}
                   boundary={boundary}
+                  otherBoundaries={otherBoundaries}
+                  allBoundaries={allBoundaries}
                   bufferDistances={[2, 5]}
                   showControls={false}
                   npwsVisibleLayers={npwsVisibleLayers}

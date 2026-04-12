@@ -627,13 +627,17 @@ function handleTraceAlong(
           })
         }
       }
+      // Notify exactly once — whether trace modified the polygon or not.
+      // The pm:create handler no longer calls notifyChange to prevent double
+      // notification that caused ghost site creation in multi-site mode.
+      notifyChange([geoJSON], false)
     } catch (err) {
       console.error('[trace] error:', err)
+      // On error, notify with the original (unmodified) geoJSON so the
+      // polygon is still saved — partial coordinate mutation cannot happen
+      // because polyGeom.coordinates is only reassigned inside `if (modified)`.
+      notifyChange([geoJSON], false)
     }
-    // Always notify exactly once — whether trace modified the polygon or not.
-    // The pm:create handler no longer calls notifyChange to prevent double
-    // notification that caused ghost site creation in multi-site mode.
-    notifyChange([geoJSON], false)
   })
 }
 

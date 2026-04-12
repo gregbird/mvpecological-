@@ -49,6 +49,8 @@ export function DeepResearchTab({ projectId, project, findings, siteId }: DeepRe
     batchProgress,
     boundary,
     bufferDistances,
+    otherBoundaries,
+    allBoundaries,
     mapFindings,
     unresearchedSites,
     resultsByType,
@@ -91,6 +93,8 @@ export function DeepResearchTab({ projectId, project, findings, siteId }: DeepRe
         <div className="relative w-[40%] min-w-[300px]">
           <DynamicProjectMap
             boundary={boundary}
+            otherBoundaries={otherBoundaries}
+            allBoundaries={allBoundaries}
             bufferDistances={bufferDistances}
             findings={mapFindings}
             visibleFindingTypes={['designated_site']}
