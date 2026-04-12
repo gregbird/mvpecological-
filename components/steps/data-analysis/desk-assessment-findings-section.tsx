@@ -64,6 +64,7 @@ export function DeskAssessmentFindingsSection({
         source: 'manual',
         data_type: 'other',
         is_saved: true,
+        site_id: siteId || undefined,
       })
       toast({ title: 'Manual finding added' })
     } catch {
@@ -75,6 +76,7 @@ export function DeskAssessmentFindingsSection({
     try {
       await updateFinding.mutateAsync({
         findingId: finding.id,
+        projectId,
         updates: { include_in_report: !finding.include_in_report },
       })
     } catch {
@@ -174,7 +176,7 @@ export function DeskAssessmentFindingsSection({
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-xs">
-                            {f.data_type.replace('_', ' ')}
+                            {f.data_type.replaceAll('_', ' ')}
                           </Badge>
                         </TableCell>
                         <TableCell>

@@ -31,6 +31,7 @@ export function useAutosave({
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isSavingRef = useRef(false)
+  const pendingSaveRef = useRef(false)
   const onSaveRef = useRef(onSave)
 
   // Keep onSave ref fresh to avoid stale closures
@@ -46,7 +47,10 @@ export function useAutosave({
   }, [])
 
   const performSave = useCallback(async () => {
-    if (isSavingRef.current) return
+    if (isSavingRef.current) {
+      pendingSaveRef.current = true
+      return
+    }
     isSavingRef.current = true
     setStatus('saving')
 
@@ -58,6 +62,10 @@ export function useAutosave({
       setStatus('error')
     } finally {
       isSavingRef.current = false
+      if (pendingSaveRef.current) {
+        pendingSaveRef.current = false
+        performSave()
+      }
     }
   }, [])
 

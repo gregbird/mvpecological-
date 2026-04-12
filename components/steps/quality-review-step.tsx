@@ -115,7 +115,7 @@ export function QualityReviewStep({
     if (extendedContent?.reviewSignature) {
       setReviewDecision(extendedContent.reviewSignature.decision)
     }
-  }, [extendedContent])
+  }, [report?.id, report?.updated_at])
 
   // Save section notes to report content
   const persistNotes = async (updated: Record<string, ReviewNote[]>) => {
@@ -129,6 +129,14 @@ export function QualityReviewStep({
 
   const handleAddNote = async (sectionId: string) => {
     if (!noteText.trim()) return
+    if (!report || !reportContent) {
+      toast({
+        variant: 'destructive',
+        title: 'Report not loaded',
+        description: 'Please wait for the report to load before adding notes.',
+      })
+      return
+    }
     const note: ReviewNote = {
       id: crypto.randomUUID(),
       text: noteText.trim(),
@@ -146,6 +154,14 @@ export function QualityReviewStep({
   }
 
   const handleDeleteNote = async (sectionId: string, noteId: string) => {
+    if (!report || !reportContent) {
+      toast({
+        variant: 'destructive',
+        title: 'Report not loaded',
+        description: 'Please wait for the report to load before deleting notes.',
+      })
+      return
+    }
     const updated = {
       ...sectionNotes,
       [sectionId]: (sectionNotes[sectionId] || []).filter((n) => n.id !== noteId),
@@ -156,6 +172,7 @@ export function QualityReviewStep({
 
   // Handle approval
   const handleApprove = async () => {
+    if (!permissions.canApproveReport) return
     if (!report || !reportContent) return
 
     try {
@@ -196,6 +213,7 @@ export function QualityReviewStep({
 
   // Handle rejection
   const handleReject = async () => {
+    if (!permissions.canApproveReport) return
     const hasNotes = Object.values(sectionNotes).some((notes) => notes.length > 0)
 
     if (!report || !hasNotes) {
@@ -288,7 +306,7 @@ export function QualityReviewStep({
   }
 
   const isComplete = workflowStep.status === 'approved'
-  const canComplete = reviewDecision === 'approved' && !isComplete
+  const canComplete = reviewDecision === 'approved' && !isComplete && permissions.canApproveReport
 
   if (loadingReport) {
     return (
@@ -379,7 +397,9 @@ export function QualityReviewStep({
               <div className="grid gap-4 sm:grid-cols-4">
                 <div>
                   <p className="text-muted-foreground text-sm">Report Type</p>
-                  <p className="font-medium capitalize">{report.report_type.replace('_', ' ')}</p>
+                  <p className="font-medium capitalize">
+                    {report.report_type.replaceAll('_', ' ')}
+                  </p>
                 </div>
                 <div>
                   <p className="text-muted-foreground text-sm">Version</p>
@@ -396,7 +416,7 @@ export function QualityReviewStep({
                           : 'secondary'
                     }
                   >
-                    {report.status.replace('_', ' ')}
+                    {report.status.replaceAll('_', ' ')}
                   </Badge>
                 </div>
                 <div>
@@ -667,7 +687,7 @@ export function QualityReviewStep({
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
-                    className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
+                    className="flex-1 border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/40"
                     onClick={handleReject}
                     disabled={isComplete || reviewDecision === 'approved'}
                   >

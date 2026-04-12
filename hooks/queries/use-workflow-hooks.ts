@@ -57,10 +57,18 @@ export function useUpdateWorkflowStep() {
     }: {
       stepId: string
       updates: UpdateTables<'workflow_steps'>
+      projectId?: string
     }) => updateWorkflowStep(stepId, updates),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['workflow-steps'] })
-      queryClient.invalidateQueries({ queryKey: ['workflow-step'] })
+    onSuccess: (_data, variables) => {
+      if (variables.projectId) {
+        queryClient.invalidateQueries({ queryKey: ['workflow-steps', variables.projectId] })
+        queryClient.invalidateQueries({
+          queryKey: ['workflow-step', variables.projectId],
+        })
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['workflow-steps'] })
+        queryClient.invalidateQueries({ queryKey: ['workflow-step'] })
+      }
     },
   })
 }

@@ -63,8 +63,13 @@ export function useUpdateReport() {
     onSuccess: (data, variables) => {
       if (data) {
         queryClient.invalidateQueries({ queryKey: ['report', variables.reportId] })
-        queryClient.invalidateQueries({ queryKey: ['reports'] })
-        queryClient.invalidateQueries({ queryKey: ['latest-report'] })
+        if (data.project_id) {
+          queryClient.invalidateQueries({ queryKey: ['latest-report', data.project_id] })
+          queryClient.invalidateQueries({ queryKey: ['reports', data.project_id] })
+        } else {
+          queryClient.invalidateQueries({ queryKey: ['latest-report'] })
+          queryClient.invalidateQueries({ queryKey: ['reports'] })
+        }
       }
     },
   })

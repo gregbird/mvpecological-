@@ -10,7 +10,6 @@
  */
 
 import nearestPointOnLine from '@turf/nearest-point-on-line'
-import lineSlice from '@turf/line-slice'
 import distance from '@turf/distance'
 import { lineString, point } from '@turf/helpers'
 
@@ -52,28 +51,97 @@ export function findNearestEdgePoint(
 }
 
 /**
- * Generate intermediate vertices along a polygon's edge between two points.
- * This is the core tracing operation — it "traces" the polygon boundary
- * between startPoint and endPoint, returning all vertices along that path.
+ * Generate intermediate vertices along a polygon's edge between two points,
+ * choosing the shorter of the two possible paths around the closed ring.
+ *
+ * A polygon ring is closed, so between any two points there are always two
+ * paths (clockwise and counter-clockwise). The previous implementation used
+ * lineSlice which always followed the ring's coordinate order, sometimes
+ * picking the long way around and producing merged/incorrect polygons.
  *
  * @param polygon - The polygon whose edge to trace
  * @param startPoint - Start coordinate on the edge [lng, lat]
  * @param endPoint - End coordinate on the edge [lng, lat]
- * @returns Array of coordinates along the edge, including start and end
+ * @returns Array of coordinates along the shorter path, including start and end
  */
 export function traceEdge(polygon: GeoJSON.Polygon, startPoint: Coord, endPoint: Coord): Coord[] {
   try {
     const line = polygonToLine(polygon)
-    const start = point(startPoint)
-    const end = point(endPoint)
+    const startSnap = nearestPointOnLine(line, point(startPoint))
+    const endSnap = nearestPointOnLine(line, point(endPoint))
+    if (!startSnap || !endSnap) return [startPoint, endPoint]
 
-    const sliced = lineSlice(start, end, line)
-    if (!sliced) return [startPoint, endPoint]
+    const sIdx = startSnap.properties?.index ?? 0
+    const eIdx = endSnap.properties?.index ?? 0
+    const sCoord = startSnap.geometry.coordinates as Coord
+    const eCoord = endSnap.geometry.coordinates as Coord
 
-    return sliced.geometry.coordinates as Coord[]
+    // Both points on the same segment — no intermediate vertices
+    if (sIdx === eIdx) return [sCoord, eCoord]
+
+    // Ring without closing duplicate
+    const ring = (polygon.coordinates[0] as Coord[]).slice(0, -1)
+    const n = ring.length
+
+    // Build both directions around the ring and pick the shorter one
+    const forward = buildRingPath(sCoord, sIdx, eCoord, eIdx, ring, n, 1)
+    const backward = buildRingPath(sCoord, sIdx, eCoord, eIdx, ring, n, -1)
+
+    return ringPathLength(forward) <= ringPathLength(backward) ? forward : backward
   } catch {
     return [startPoint, endPoint]
   }
+}
+
+/**
+ * Walk around a polygon ring from start to end in the given direction.
+ * direction = 1 follows ring coordinate order, -1 goes against it.
+ */
+function buildRingPath(
+  sCoord: Coord,
+  sIdx: number,
+  eCoord: Coord,
+  eIdx: number,
+  ring: Coord[],
+  n: number,
+  direction: 1 | -1
+): Coord[] {
+  const path: Coord[] = [sCoord]
+  // The vertex just past the end snap point's segment
+  const endVertex = (eIdx + 1) % n
+
+  if (direction === 1) {
+    // Forward: first vertex after the start snap point is ring[sIdx + 1]
+    let i = (sIdx + 1) % n
+    let safety = 0
+    while (i !== endVertex && safety < n) {
+      path.push(ring[i])
+      i = (i + 1) % n
+      safety++
+    }
+  } else {
+    // Backward: first vertex before the start snap point is ring[sIdx]
+    let i = sIdx
+    let safety = 0
+    while (safety <= n) {
+      path.push(ring[i])
+      if (i === endVertex) break
+      i = (i - 1 + n) % n
+      safety++
+    }
+  }
+
+  path.push(eCoord)
+  return path
+}
+
+/** Sum of great-circle distances between consecutive coordinates */
+function ringPathLength(coords: Coord[]): number {
+  let total = 0
+  for (let i = 1; i < coords.length; i++) {
+    total += distance(point(coords[i - 1]), point(coords[i]))
+  }
+  return total
 }
 
 /**

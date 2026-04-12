@@ -255,46 +255,46 @@ export function DataAnalysisStep({
 
       {/* Tab Content */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {activeTab === 'desk-assessment' && (
+        <div className={activeTab !== 'desk-assessment' ? 'hidden' : ''}>
           <DeskAssessmentCombinedTab
             projectId={project.id}
             siteId={selectedSiteId}
             userId={userId || ''}
             project={project}
           />
-        )}
-        {activeTab === 'field-survey' && (
+        </div>
+        <div className={activeTab !== 'field-survey' ? 'hidden' : ''}>
           <FieldSurveyTab projectId={project.id} siteId={selectedSiteId} />
-        )}
-        {activeTab === 'releve-surveys' && (
+        </div>
+        <div className={activeTab !== 'releve-surveys' ? 'hidden' : ''}>
           <ReleveSurveysTab
             projectId={project.id}
             siteId={selectedSiteId}
             workflowStep={workflowStep}
           />
-        )}
-        {activeTab === 'habitats' && (
+        </div>
+        <div className={activeTab !== 'habitats' ? 'hidden' : ''}>
           <HabitatTab
             projectId={project.id}
             siteId={selectedSiteId}
             siteCode={project.site_code}
             project={project}
           />
-        )}
-        {activeTab === 'target-notes' && (
+        </div>
+        <div className={activeTab !== 'target-notes' ? 'hidden' : ''}>
           <TargetNotesTab projectId={project.id} siteId={selectedSiteId} project={project} />
-        )}
-        {activeTab === 'maps' && (
+        </div>
+        <div className={activeTab !== 'maps' ? 'hidden' : ''}>
           <MapsTab
             projectId={project.id}
             siteId={selectedSiteId}
             userId={userId || ''}
             project={project}
           />
-        )}
-        {activeTab === 'photographs' && (
+        </div>
+        <div className={activeTab !== 'photographs' ? 'hidden' : ''}>
           <PhotographsTab projectId={project.id} siteId={selectedSiteId} />
-        )}
+        </div>
       </div>
 
       {/* Progress Panel */}

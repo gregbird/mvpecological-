@@ -339,9 +339,9 @@ export function useGeomanSetup({
           // boundaries (step 4) or with other site boundaries (step 2 multi-site).
           // Routed through traceCallbackRef so the LATEST prop values are
           // used (StrictMode-safe).
+          // notifyChange is called INSIDE handleTraceAlong (both modified and
+          // unmodified paths) to avoid double-notification that creates ghost sites.
           traceCallbackRef.current(layer, geoJSON)
-
-          notifyChange([geoJSON], false)
 
           // Check for overlap with existing habitat polygons
           handleOverlapDetection(
@@ -505,7 +505,10 @@ function handleTraceAlong(
   otherBoundaries: GeoJSON.Feature<GeoJSON.Polygon>[],
   notifyChange: (features: GeoJSON.Feature[], isEdit: boolean) => void
 ) {
-  if (geoJSON.geometry.type !== 'Polygon') return
+  if (geoJSON.geometry.type !== 'Polygon') {
+    notifyChange([geoJSON], false)
+    return
+  }
 
   // Combine habitat polygons + other site boundaries as trace candidates
   const habitatCandidates = habitatPolygons
@@ -520,7 +523,10 @@ function handleTraceAlong(
     ...habitatCandidates,
     ...otherCandidates,
   ]
-  if (existingPolygons.length === 0) return
+  if (existingPolygons.length === 0) {
+    notifyChange([geoJSON], false)
+    return
+  }
 
   import('@/lib/gis/trace-along-feature').then(({ findNearestPolygonEdge, traceEdge }) => {
     try {
@@ -590,11 +596,14 @@ function handleTraceAlong(
             }
           })
         }
-        notifyChange([geoJSON], false)
       }
     } catch (err) {
       console.error('[trace] error:', err)
     }
+    // Always notify exactly once — whether trace modified the polygon or not.
+    // The pm:create handler no longer calls notifyChange to prevent double
+    // notification that caused ghost site creation in multi-site mode.
+    notifyChange([geoJSON], false)
   })
 }
 

@@ -20,11 +20,16 @@ interface CreateSummaryButtonProps {
   stepNumber?: number
 }
 
-const METADATA_KEY_MAP: Record<TabContext, string> = {
+const BASE_METADATA_KEY_MAP: Record<TabContext, string> = {
   'desk-assessment': 'dataSummary_deskAssessment',
   'field-survey': 'dataSummary_fieldSurvey',
   habitats: 'dataSummary_habitats',
   'target-notes': 'dataSummary_targetNotes',
+}
+
+function getMetadataKey(tabContext: TabContext, siteId?: string | null): string {
+  const base = BASE_METADATA_KEY_MAP[tabContext]
+  return `${base}_${siteId ?? 'all'}`
 }
 
 export function CreateSummaryButton({
@@ -38,7 +43,7 @@ export function CreateSummaryButton({
   const updateStep = useUpdateWorkflowStep()
   const [isGenerating, setIsGenerating] = React.useState(false)
 
-  const metadataKey = METADATA_KEY_MAP[tabContext]
+  const metadataKey = getMetadataKey(tabContext, siteId)
 
   const existingSummary = React.useMemo(() => {
     const meta = workflowStep?.metadata as Record<string, unknown> | null

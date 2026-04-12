@@ -63,7 +63,7 @@ function SpeciesBadge({
       className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${isActive ? activeClass : inactiveClass}`}
     >
       <Icon className="h-2.5 w-2.5" />
-      {count}
+      {count} {label.split(' ')[0]}
     </button>
   )
 }
@@ -125,6 +125,9 @@ interface FindingsHeaderProps {
   viewMode: 'cards' | 'table'
   onViewModeChange: (mode: 'cards' | 'table') => void
 
+  // Extra inline controls (e.g. Grid Resolution for species)
+  renderExtraControls?: () => React.ReactNode
+
   // Save all
   onSaveAll?: (findings: FindingDisplay[]) => void
   isSavingAll?: boolean
@@ -164,14 +167,16 @@ export function FindingsHeader({
   isSummarizing,
   viewMode,
   onViewModeChange,
+  renderExtraControls,
   onSaveAll,
   isSavingAll,
 }: FindingsHeaderProps) {
-  return (
-    <div className="flex flex-wrap items-center gap-1.5 border-b px-3 py-2">
-      {/* Species header: enrichment status + count + filter badges */}
-      {showSpeciesHeader ? (
-        <>
+  // --- Species header: compact 2-row layout ---
+  if (showSpeciesHeader) {
+    return (
+      <div className="space-y-1.5 border-b px-3 py-2">
+        {/* Row 1: Stats + Badges + Grid Resolution + Save All + AI */}
+        <div className="flex flex-wrap items-center gap-1.5">
           {enrichmentStatus?.isEnriching ? (
             <span className="flex shrink-0 items-center gap-1.5 text-xs font-medium">
               <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
@@ -246,89 +251,189 @@ export function FindingsHeader({
               }`}
             >
               <Check className="h-2.5 w-2.5" />
-              {savedCount}
+              {savedCount} Saved
             </button>
           )}
-          {/* Save All button -- saves all currently filtered (unsaved) findings */}
-          {onSaveAll &&
-            filteredFindings.length > 0 &&
-            (() => {
-              const unsaved = getUnsavedFindings(filteredFindings, savedFindings)
-              return (
-                <button
-                  onClick={() => {
-                    if (unsaved.length > 0) onSaveAll(unsaved)
-                  }}
-                  disabled={isSavingAll}
-                  className="flex shrink-0 items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-blue-700 transition-colors hover:bg-blue-200 disabled:opacity-50"
-                  title={`Save all ${filteredFindings.length} filtered results`}
-                >
-                  <Save className="h-2.5 w-2.5" />
-                  {isSavingAll ? 'Saving...' : `Save All (${unsaved.length})`}
-                </button>
-              )
-            })()}
-        </>
-      ) : (
-        <>
-          <button
-            className={`shrink-0 text-sm font-medium ${activeSiteTypeFilter || showSavedOnly ? 'text-blue-600 hover:underline' : ''}`}
-            onClick={() => {
-              if (activeSiteTypeFilter || showSavedOnly) {
-                onActiveSiteTypeFilterChange(null)
-                onShowSavedOnlyChange(false)
-                onSiteTypeFilterChange?.(null)
-                onSavedFilterChange?.(false)
-              }
-            }}
-          >
-            {filteredFindings.length !== sortedFindings.length
-              ? `${filteredFindings.length} / ${sortedFindings.length}`
-              : sortedFindings.length}{' '}
-            results
-          </button>
-          {savedCount > 0 && (
-            <button
-              onClick={() => {
-                const next = !showSavedOnly
-                onShowSavedOnlyChange(next)
-                onSavedFilterChange?.(next)
-              }}
-              className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
-                showSavedOnly
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-              }`}
-            >
-              <Check className="h-2.5 w-2.5" />
-              Saved {savedCount}
-            </button>
-          )}
-          {/* Site type filter buttons */}
-          {showSiteTypeFilter && siteTypeCounts && Object.keys(siteTypeCounts).length > 0 && (
-            <>
-              {(siteTypeFilterOrder || ['SAC', 'SPA', 'NHA', 'pNHA']).map((siteType) => {
-                const count = siteTypeCounts[siteType]
-                if (!count) return null
-                const isActive = activeSiteTypeFilter === siteType
-                const config = siteTypeFilterConfig || SITE_TYPE_FILTER_COLORS
-                const colors = config[siteType] || FALLBACK_SITE_TYPE_FILTER_COLORS
+          {/* Right-aligned: Grid Resolution + Save All + AI */}
+          <div className="ml-auto flex items-center gap-1.5">
+            {renderExtraControls?.()}
+            {onSaveAll &&
+              filteredFindings.length > 0 &&
+              (() => {
+                const unsaved = getUnsavedFindings(filteredFindings, savedFindings)
                 return (
                   <button
-                    key={siteType}
                     onClick={() => {
-                      const newValue = isActive ? null : siteType
-                      onActiveSiteTypeFilterChange(newValue)
-                      onSiteTypeFilterChange?.(newValue)
+                      if (unsaved.length > 0) onSaveAll(unsaved)
                     }}
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${isActive ? colors.active : colors.inactive}`}
+                    disabled={isSavingAll}
+                    className="flex shrink-0 items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-blue-700 transition-colors hover:bg-blue-200 disabled:opacity-50"
+                    title={`Save all ${filteredFindings.length} filtered results`}
                   >
-                    {siteType} {count}
+                    <Save className="h-2.5 w-2.5" />
+                    {isSavingAll ? 'Saving...' : `Save All (${unsaved.length})`}
                   </button>
                 )
-              })}
-            </>
+              })()}
+            {onSummarizeAll && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`h-7 px-2 text-xs ${isSummarizing ? 'text-red-600 hover:text-red-700' : 'text-purple-600 hover:text-purple-700'}`}
+                onClick={isSummarizing ? onStopSummarize : onSummarizeAll}
+              >
+                {isSummarizing ? (
+                  <>
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    Stop
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="mr-1 h-3 w-3" />
+                    AI
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+        </div>
+        {/* Row 2: Filters + View toggle */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {onSourceFilterChange && (
+            <Select
+              value={sourceFilter || 'all'}
+              onValueChange={(v) =>
+                onSourceFilterChange(v as 'all' | 'protected' | 'invasive' | 'threatened')
+              }
+            >
+              <SelectTrigger className="h-7 w-auto min-w-[80px] border-0 bg-transparent px-1.5 text-xs shadow-none">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Species</SelectItem>
+                <SelectItem value="protected">Protected Only</SelectItem>
+                <SelectItem value="invasive">Invasive Only</SelectItem>
+                <SelectItem value="threatened">Threatened Only</SelectItem>
+              </SelectContent>
+            </Select>
           )}
+          {onTaxonGroupFilterChange && (taxonGroupOptions?.length ?? 0) > 0 && (
+            <Select
+              value={taxonGroupFilter || 'all'}
+              onValueChange={(v) => onTaxonGroupFilterChange(v === 'all' ? null : v)}
+            >
+              <SelectTrigger className="h-7 w-auto min-w-[90px] border-0 bg-transparent px-1.5 text-xs shadow-none">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Groups</SelectItem>
+                {taxonGroupOptions?.map(({ value, count }) => (
+                  <SelectItem key={value} value={value}>
+                    {value} ({count})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Select value={sortBy} onValueChange={(v) => onSortByChange(v as typeof sortBy)}>
+            <SelectTrigger className="h-7 w-auto min-w-[80px] border-0 bg-transparent px-1.5 text-xs shadow-none">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="distance">Distance</SelectItem>
+              <SelectItem value="title">Title</SelectItem>
+              <SelectItem value="type">Type</SelectItem>
+              <SelectItem value="records">Records</SelectItem>
+              <SelectItem value="last_recorded">Last Recorded</SelectItem>
+            </SelectContent>
+          </Select>
+          <button
+            className="text-muted-foreground hover:text-foreground p-0.5"
+            onClick={onSortOrderToggle}
+            title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+          >
+            <ArrowUpDown className="h-3.5 w-3.5" />
+          </button>
+          <div className="ml-auto flex items-center rounded-md border">
+            <button
+              className={`p-1 ${viewMode === 'cards' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+              onClick={() => onViewModeChange('cards')}
+              title="Card view"
+            >
+              <LayoutList className="h-3.5 w-3.5" />
+            </button>
+            <button
+              className={`p-1 ${viewMode === 'table' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+              onClick={() => onViewModeChange('table')}
+              title="Table view"
+            >
+              <Table2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // --- Non-species header: single row (unchanged) ---
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 border-b px-3 py-2">
+      <button
+        className={`shrink-0 text-sm font-medium ${activeSiteTypeFilter || showSavedOnly ? 'text-blue-600 hover:underline' : ''}`}
+        onClick={() => {
+          if (activeSiteTypeFilter || showSavedOnly) {
+            onActiveSiteTypeFilterChange(null)
+            onShowSavedOnlyChange(false)
+            onSiteTypeFilterChange?.(null)
+            onSavedFilterChange?.(false)
+          }
+        }}
+      >
+        {filteredFindings.length !== sortedFindings.length
+          ? `${filteredFindings.length} / ${sortedFindings.length}`
+          : sortedFindings.length}{' '}
+        results
+      </button>
+      {savedCount > 0 && (
+        <button
+          onClick={() => {
+            const next = !showSavedOnly
+            onShowSavedOnlyChange(next)
+            onSavedFilterChange?.(next)
+          }}
+          className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
+            showSavedOnly
+              ? 'bg-emerald-600 text-white'
+              : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+          }`}
+        >
+          <Check className="h-2.5 w-2.5" />
+          Saved {savedCount}
+        </button>
+      )}
+      {/* Site type filter buttons */}
+      {showSiteTypeFilter && siteTypeCounts && Object.keys(siteTypeCounts).length > 0 && (
+        <>
+          {(siteTypeFilterOrder || ['SAC', 'SPA', 'NHA', 'pNHA']).map((siteType) => {
+            const count = siteTypeCounts[siteType]
+            if (!count) return null
+            const isActive = activeSiteTypeFilter === siteType
+            const config = siteTypeFilterConfig || SITE_TYPE_FILTER_COLORS
+            const colors = config[siteType] || FALLBACK_SITE_TYPE_FILTER_COLORS
+            return (
+              <button
+                key={siteType}
+                onClick={() => {
+                  const newValue = isActive ? null : siteType
+                  onActiveSiteTypeFilterChange(newValue)
+                  onSiteTypeFilterChange?.(newValue)
+                }}
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${isActive ? colors.active : colors.inactive}`}
+              >
+                {siteType} {count}
+              </button>
+            )
+          })}
         </>
       )}
       {onSummarizeAll && (
@@ -351,7 +456,6 @@ export function FindingsHeader({
           )}
         </Button>
       )}
-      {/* Source filter dropdown for species */}
       {onSourceFilterChange && (
         <Select
           value={sourceFilter || 'all'}
@@ -370,7 +474,6 @@ export function FindingsHeader({
           </SelectContent>
         </Select>
       )}
-      {/* Distance/proximity filter dropdown */}
       {onDistanceFilterChange && (
         <Select
           value={distanceFilter || 'all'}
@@ -388,70 +491,23 @@ export function FindingsHeader({
           </SelectContent>
         </Select>
       )}
-      {/* Species group filter + sort dropdowns — hidden for species table view
-          because SpeciesTableView provides interactive column headers instead */}
-      {!(showSpeciesHeader && viewMode === 'table') && (
-        <>
-          {showSpeciesHeader &&
-            onTaxonGroupFilterChange &&
-            (taxonGroupOptions?.length ?? 0) > 0 && (
-              <Select
-                value={taxonGroupFilter || 'all'}
-                onValueChange={(v) => onTaxonGroupFilterChange(v === 'all' ? null : v)}
-              >
-                <SelectTrigger className="h-7 w-auto min-w-[90px] border-0 bg-transparent px-1.5 text-xs shadow-none">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Groups</SelectItem>
-                  {taxonGroupOptions?.map(({ value, count }) => (
-                    <SelectItem key={value} value={value}>
-                      {value} ({count})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          <Select value={sortBy} onValueChange={(v) => onSortByChange(v as typeof sortBy)}>
-            <SelectTrigger className="h-7 w-auto min-w-[80px] border-0 bg-transparent px-1.5 text-xs shadow-none">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="distance">Distance</SelectItem>
-              <SelectItem value="title">Title</SelectItem>
-              <SelectItem value="type">Type</SelectItem>
-              {showSpeciesHeader && <SelectItem value="records">Records</SelectItem>}
-              {showSpeciesHeader && <SelectItem value="last_recorded">Last Recorded</SelectItem>}
-            </SelectContent>
-          </Select>
-          <button
-            className="text-muted-foreground hover:text-foreground p-0.5"
-            onClick={onSortOrderToggle}
-            title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
-          >
-            <ArrowUpDown className="h-3.5 w-3.5" />
-          </button>
-        </>
-      )}
-      {/* Card/Table view toggle (only for species) */}
-      {showSpeciesHeader && (
-        <div className="ml-1 flex items-center rounded-md border">
-          <button
-            className={`p-1 ${viewMode === 'cards' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-            onClick={() => onViewModeChange('cards')}
-            title="Card view"
-          >
-            <LayoutList className="h-3.5 w-3.5" />
-          </button>
-          <button
-            className={`p-1 ${viewMode === 'table' ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-            onClick={() => onViewModeChange('table')}
-            title="Table view"
-          >
-            <Table2 className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      )}
+      <Select value={sortBy} onValueChange={(v) => onSortByChange(v as typeof sortBy)}>
+        <SelectTrigger className="h-7 w-auto min-w-[80px] border-0 bg-transparent px-1.5 text-xs shadow-none">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="distance">Distance</SelectItem>
+          <SelectItem value="title">Title</SelectItem>
+          <SelectItem value="type">Type</SelectItem>
+        </SelectContent>
+      </Select>
+      <button
+        className="text-muted-foreground hover:text-foreground p-0.5"
+        onClick={onSortOrderToggle}
+        title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+      >
+        <ArrowUpDown className="h-3.5 w-3.5" />
+      </button>
     </div>
   )
 }

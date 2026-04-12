@@ -110,6 +110,13 @@ export function ReleveSurveysTab({ projectId, siteId, workflowStep }: ReleveSurv
         </AlertDescription>
       </Alert>
 
+      {/* Site filtering disclaimer */}
+      {siteId && (
+        <p className="text-muted-foreground text-xs">
+          Showing relev&eacute;s from all sites — site filtering applies at report generation.
+        </p>
+      )}
+
       {/* Summary stats */}
       <div className="grid gap-3 sm:grid-cols-4">
         <Card>

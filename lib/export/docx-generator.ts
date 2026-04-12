@@ -18,6 +18,7 @@ import {
   UnderlineType,
 } from 'docx'
 import type { PeaExportOptions } from './pdf-generator'
+import { REPORT_TYPE_TITLES } from './pdf-generator'
 import { fetchImageAsBuffer } from './image-utils'
 import { sectionContentToMarkdown } from './tiptap-to-markdown'
 
@@ -428,7 +429,8 @@ export async function generatePeaDocx(options: PeaExportOptions): Promise<Blob> 
     new Paragraph({
       children: [
         new TextRun({
-          text: 'PRELIMINARY ECOLOGICAL APPRAISAL',
+          text:
+            (options.reportType && REPORT_TYPE_TITLES[options.reportType]) || 'ECOLOGICAL REPORT',
           bold: true,
           color: DARK_GREEN,
           size: 24,

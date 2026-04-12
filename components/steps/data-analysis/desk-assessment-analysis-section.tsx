@@ -84,7 +84,7 @@ export function DeskAssessmentAnalysisSection({
       ) : (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <Brain className="mb-4 h-12 w-12 text-gray-300" />
+            <Brain className="text-muted-foreground mb-4 h-12 w-12" />
             <p className="text-muted-foreground text-sm">
               No desk assessment insights available. Generate AI Analysis in Step 3 first.
             </p>

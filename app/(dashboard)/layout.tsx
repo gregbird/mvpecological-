@@ -26,6 +26,7 @@ import { useRole, type RolePermissions } from '@/contexts/role-context'
 import { ThemeToggle } from '@/components/layout/theme-toggle'
 import { createClient } from '@/lib/supabase/client'
 import { DulraLogo } from '@/components/ui/dulra-logo'
+import { OfflineBanner } from '@/components/ui/offline-banner'
 
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, permission: null },
@@ -103,7 +104,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // If on project detail page, render minimal layout (project has its own sidebar)
   if (isProjectDetailPage) {
     return (
-      <div className="bg-background flex h-screen">
+      <div className="bg-background flex h-screen flex-col">
+        <OfflineBanner />
         {/* Minimal Header for project pages */}
         <div className="flex flex-1 flex-col overflow-hidden">
           <header className="border-border bg-card flex h-14 items-center justify-between border-b px-4">
@@ -136,162 +138,165 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   // Regular dashboard layout for non-project pages
   return (
-    <div className="bg-background flex h-screen">
-      {/* Mobile sidebar overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside
-        className={cn(
-          'border-border bg-card fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r transition-transform duration-300 lg:static lg:translate-x-0',
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        )}
-      >
-        {/* Logo */}
-        <div className="border-border flex h-16 items-center justify-between border-b px-6">
-          <Link href="/dashboard" className="flex items-center">
-            <img src="/dulra-logo.jpg" alt="Dulra" className="h-7 dark:invert" />
-          </Link>
-          <button
+    <div className="bg-background flex h-screen flex-col">
+      <OfflineBanner />
+      <div className="flex min-h-0 flex-1">
+        {/* Mobile sidebar overlay */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-black/50 lg:hidden"
             onClick={() => setSidebarOpen(false)}
-            className="text-muted-foreground hover:bg-muted rounded-lg p-2 lg:hidden"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+          />
+        )}
 
-        {/* Navigation */}
-        <nav className="flex-1 space-y-1 p-4">
-          <p className="text-muted-foreground mb-3 px-3 text-xs font-semibold tracking-wider uppercase">
-            Menu
-          </p>
-          {visibleNavItems.map((item) => {
-            const Icon = item.icon
-            const isActive =
-              pathname === item.href ||
-              (item.href === '/projects' && pathname.startsWith('/projects'))
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setSidebarOpen(false)}
-                className={cn(
-                  'flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all',
-                  isActive
-                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                )}
-              >
-                <Icon
-                  className={cn(
-                    'h-5 w-5',
-                    isActive ? 'text-emerald-600 dark:text-emerald-400' : ''
-                  )}
-                />
-                <span>{item.label}</span>
-                {isActive && (
-                  <ChevronRight className="ml-auto h-4 w-4 text-emerald-500 dark:text-emerald-400" />
-                )}
-              </Link>
-            )
-          })}
-        </nav>
-
-        {/* User Section */}
-        <div className="border-border border-t p-4">
-          <div className="bg-muted mb-3 flex items-center gap-3 rounded-xl p-3">
-            <Avatar className="border-background h-10 w-10 border-2 shadow-sm">
-              <AvatarFallback className="bg-linear-to-br from-green-500 to-emerald-600 text-sm font-semibold text-white">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1">
-              <p className="text-foreground truncate text-sm font-semibold">
-                {user?.full_name || 'User'}
-              </p>
-              <p className="text-muted-foreground text-xs capitalize">
-                {user?.role || 'ecologist'}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground flex-1 justify-start gap-2"
-            >
-              <Settings className="h-4 w-4" />
-              Settings
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSignOut}
-              disabled={isSigningOut}
-              className="flex-1 justify-start gap-2 text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
-            >
-              {isSigningOut ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <LogOut className="h-4 w-4" />
-              )}
-              {isSigningOut ? 'Signing out...' : 'Logout'}
-            </Button>
-          </div>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        {/* Top Header */}
-        <header className="border-border bg-card flex h-16 items-center justify-between border-b px-4 lg:px-8">
-          <div className="flex items-center gap-4">
+        {/* Sidebar */}
+        <aside
+          className={cn(
+            'border-border bg-card fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r transition-transform duration-300 lg:static lg:translate-x-0',
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          )}
+        >
+          {/* Logo */}
+          <div className="border-border flex h-16 items-center justify-between border-b px-6">
+            <Link href="/dashboard" className="flex items-center">
+              <img src="/dulra-logo.jpg" alt="Dulra" className="h-7 dark:invert" />
+            </Link>
             <button
-              onClick={() => setSidebarOpen(true)}
+              onClick={() => setSidebarOpen(false)}
               className="text-muted-foreground hover:bg-muted rounded-lg p-2 lg:hidden"
             >
-              <Menu className="h-5 w-5" />
+              <X className="h-5 w-5" />
             </button>
-
-            {/* Search */}
-            <div className="relative hidden md:block">
-              <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-              <Input
-                placeholder="Search anything..."
-                className="border-border bg-muted focus:bg-background h-10 w-64 pl-10"
-              />
-            </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <Button variant="ghost" size="icon" className="text-muted-foreground relative">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500" />
-            </Button>
+          {/* Navigation */}
+          <nav className="flex-1 space-y-1 p-4">
+            <p className="text-muted-foreground mb-3 px-3 text-xs font-semibold tracking-wider uppercase">
+              Menu
+            </p>
+            {visibleNavItems.map((item) => {
+              const Icon = item.icon
+              const isActive =
+                pathname === item.href ||
+                (item.href === '/projects' && pathname.startsWith('/projects'))
 
-            <div className="hidden items-center gap-2 lg:flex">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-linear-to-br from-green-500 to-emerald-600 text-xs font-semibold text-white">
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setSidebarOpen(false)}
+                  className={cn(
+                    'flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all',
+                    isActive
+                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
+                >
+                  <Icon
+                    className={cn(
+                      'h-5 w-5',
+                      isActive ? 'text-emerald-600 dark:text-emerald-400' : ''
+                    )}
+                  />
+                  <span>{item.label}</span>
+                  {isActive && (
+                    <ChevronRight className="ml-auto h-4 w-4 text-emerald-500 dark:text-emerald-400" />
+                  )}
+                </Link>
+              )
+            })}
+          </nav>
+
+          {/* User Section */}
+          <div className="border-border border-t p-4">
+            <div className="bg-muted mb-3 flex items-center gap-3 rounded-xl p-3">
+              <Avatar className="border-background h-10 w-10 border-2 shadow-sm">
+                <AvatarFallback className="bg-linear-to-br from-green-500 to-emerald-600 text-sm font-semibold text-white">
                   {initials}
                 </AvatarFallback>
               </Avatar>
-              <span className="text-foreground text-sm font-medium">
-                {user?.full_name?.split(' ')[0] || 'User'}
-              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-foreground truncate text-sm font-semibold">
+                  {user?.full_name || 'User'}
+                </p>
+                <p className="text-muted-foreground text-xs capitalize">
+                  {user?.role || 'ecologist'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground flex-1 justify-start gap-2"
+              >
+                <Settings className="h-4 w-4" />
+                Settings
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSignOut}
+                disabled={isSigningOut}
+                className="flex-1 justify-start gap-2 text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
+              >
+                {isSigningOut ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <LogOut className="h-4 w-4" />
+                )}
+                {isSigningOut ? 'Signing out...' : 'Logout'}
+              </Button>
             </div>
           </div>
-        </header>
+        </aside>
 
-        {/* Page Content */}
-        <main className="min-w-0 flex-1 overflow-auto">{children}</main>
+        {/* Main Content */}
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          {/* Top Header */}
+          <header className="border-border bg-card flex h-16 items-center justify-between border-b px-4 lg:px-8">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="text-muted-foreground hover:bg-muted rounded-lg p-2 lg:hidden"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+
+              {/* Search */}
+              <div className="relative hidden md:block">
+                <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+                <Input
+                  placeholder="Search anything..."
+                  className="border-border bg-muted focus:bg-background h-10 w-64 pl-10"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <ThemeToggle />
+              <Button variant="ghost" size="icon" className="text-muted-foreground relative">
+                <Bell className="h-5 w-5" />
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500" />
+              </Button>
+
+              <div className="hidden items-center gap-2 lg:flex">
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="bg-linear-to-br from-green-500 to-emerald-600 text-xs font-semibold text-white">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-foreground text-sm font-medium">
+                  {user?.full_name?.split(' ')[0] || 'User'}
+                </span>
+              </div>
+            </div>
+          </header>
+
+          {/* Page Content */}
+          <main className="min-w-0 flex-1 overflow-auto">{children}</main>
+        </div>
       </div>
     </div>
   )

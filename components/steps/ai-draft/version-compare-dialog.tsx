@@ -97,6 +97,7 @@ export function VersionCompareDialog({
 }: VersionCompareDialogProps) {
   if (!currentReport || !compareReport) return null
 
+  // compareReport is the historical version (old), currentReport is the latest (new)
   const diffs = computeDiffs(compareReport, currentReport, sectionDefs)
   const changedCount = diffs.filter((d) => d.status !== 'unchanged').length
 

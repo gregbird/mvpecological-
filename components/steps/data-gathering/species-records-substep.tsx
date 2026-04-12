@@ -110,6 +110,30 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
     return { protectedCount: prot, invasiveCount: inv, threatenedCount: thr }
   }, [currentSearchResults])
 
+  const renderResolutionControls = React.useCallback(
+    () => (
+      <>
+        <span className="text-muted-foreground text-[11px]">Grid:</span>
+        <div className="flex gap-0.5">
+          {(['10km', '2km', '1km'] as const).map((res) => (
+            <button
+              key={res}
+              onClick={() => setGridResolution(res)}
+              className={`rounded px-1.5 py-0.5 text-[11px] font-medium transition-colors ${
+                gridResolution === res
+                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
+                  : 'text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}
+            >
+              {res}
+            </button>
+          ))}
+        </div>
+      </>
+    ),
+    [gridResolution]
+  )
+
   const config: SubstepShellConfig = React.useMemo(
     () => ({
       title: 'Species Records',
@@ -177,6 +201,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       showDistanceFilter: false,
       findingsListExtraProps: {
         showSpeciesHeader: true,
+        renderExtraControls: renderResolutionControls,
         speciesCounts: {
           total: currentSearchResults.length,
           protected: protectedCount,
@@ -231,32 +256,9 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       protectedCount,
       invasiveCount,
       threatenedCount,
+      renderResolutionControls,
       handleSpeciesDeepResearch,
     ]
-  )
-
-  const renderResolutionControls = React.useCallback(
-    () => (
-      <div className="flex items-center gap-2 border-b px-4 py-2">
-        <span className="text-muted-foreground text-xs">Grid Resolution:</span>
-        <div className="flex gap-1">
-          {(['10km', '2km', '1km'] as const).map((res) => (
-            <button
-              key={res}
-              onClick={() => setGridResolution(res)}
-              className={`rounded px-2 py-0.5 text-xs font-medium transition-colors ${
-                gridResolution === res
-                  ? 'bg-purple-100 text-purple-700'
-                  : 'text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800'
-              }`}
-            >
-              {res}
-            </button>
-          ))}
-        </div>
-      </div>
-    ),
-    [gridResolution]
   )
 
   return (
@@ -268,7 +270,6 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
         allBoundaries={allBoundaries}
         allSiteBoundaries={allSiteBoundaries}
         aiSummaryTriggerRef={aiSummaryTriggerRef}
-        renderExtraControls={renderResolutionControls}
       />
       <SpeciesResearchModal
         open={speciesResearchOpen}

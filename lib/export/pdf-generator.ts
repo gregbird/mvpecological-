@@ -16,11 +16,24 @@ export interface PeaExportOptions {
   activeSiteId?: string | null
   /** Friendly site code label, used as filename suffix and cover page banner */
   activeSiteCode?: string
+  /** Report type key (e.g. 'pea', 'ecia', 'aa_screening') for cover page title */
+  reportType?: string
   version: number
   date: string
   sections: ReportSection[]
   appendices: string[]
   appendixData?: AppendixData
+}
+
+export const REPORT_TYPE_TITLES: Record<string, string> = {
+  pea: 'PRELIMINARY ECOLOGICAL APPRAISAL',
+  ecia: 'ECOLOGICAL IMPACT ASSESSMENT',
+  aa_screening: 'APPROPRIATE ASSESSMENT SCREENING',
+  aa_stage2: 'NATURA IMPACT STATEMENT',
+  nia: 'NATURA IMPACT STATEMENT',
+  bat_survey: 'BAT SURVEY REPORT',
+  bird_survey: 'BIRD SURVEY REPORT',
+  habitat_survey: 'HABITAT SURVEY REPORT',
 }
 
 const APPENDIX_LABELS: Record<string, string> = {
@@ -535,7 +548,9 @@ export async function generatePeaPdf(options: PeaExportOptions): Promise<jsPDF> 
   doc.setFontSize(12)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(...GREEN)
-  doc.text('PRELIMINARY ECOLOGICAL APPRAISAL', pageWidth / 2, 68, { align: 'center' })
+  const coverTitle =
+    (options.reportType && REPORT_TYPE_TITLES[options.reportType]) || 'ECOLOGICAL REPORT'
+  doc.text(coverTitle, pageWidth / 2, 68, { align: 'center' })
 
   // Thin green underline under report type
   doc.setDrawColor(...GREEN)

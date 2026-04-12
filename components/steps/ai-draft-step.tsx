@@ -275,15 +275,18 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
   }
 
   const generateAllSections = async (onlyEmpty = false) => {
-    for (const section of reportSectionDefs) {
-      if (onlyEmpty) {
-        // "Generate All" only fills in untouched sections.
-        // Template-rendered content (aiGenerated=false, isEdited=false) is still "untouched"
-        // and should be replaced — we skip ONLY sections the user/AI has already populated.
-        const s = sections.find((sec) => sec.id === section.id)
-        if (s?.aiGenerated || s?.isEdited) continue
-      }
-      await generateSectionContent(section.id)
+    // Snapshot IDs to generate before the loop starts to avoid stale closure reads
+    const sectionIdsToGenerate = onlyEmpty
+      ? reportSectionDefs
+          .filter((def) => {
+            const s = sections.find((sec) => sec.id === def.id)
+            return !s?.content && !s?.aiGenerated && !s?.isEdited
+          })
+          .map((def) => def.id)
+      : reportSectionDefs.map((def) => def.id)
+
+    for (const sectionId of sectionIdsToGenerate) {
+      await generateSectionContent(sectionId)
     }
   }
 
@@ -308,7 +311,7 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
       metadata: {
         generatedAt: new Date().toISOString(),
         editedAt: new Date().toISOString(),
-        aiModel: 'gpt-4o',
+        aiModel: 'gpt-4o-mini',
       },
     }
 
@@ -341,25 +344,28 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
     enabled: sections.some((s) => s.content),
   })
 
-  // Manual save with toast notification
-  const handleSaveReport = async () => {
+  // Manual save with toast notification — returns success boolean for callers
+  const handleSaveReport = async (): Promise<boolean> => {
     try {
       await autosave.saveNow()
       toast({
         title: 'Report saved',
         description: 'Your draft report has been saved.',
       })
+      return true
     } catch {
       toast({
         variant: 'destructive',
         title: 'Error saving report',
         description: 'Failed to save the report.',
       })
+      return false
     }
   }
 
   const handleComplete = async () => {
-    await handleSaveReport()
+    const saved = await handleSaveReport()
+    if (!saved) return
 
     try {
       await completeStep.mutateAsync({
@@ -391,7 +397,7 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
             new Date().toISOString())
           : new Date().toISOString(),
         editedAt: new Date().toISOString(),
-        aiModel: 'gpt-4o',
+        aiModel: 'gpt-4o-mini',
       },
     }
 
@@ -449,7 +455,8 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
     (content: string) => {
       // Find first empty section or append to discussion
       const emptySection = sections.find((s) => !s.content)
-      const targetId = emptySection?.id || 'discussion'
+      const targetId =
+        emptySection?.id || reportSectionDefs[reportSectionDefs.length - 1]?.id || 'discussion'
 
       setSections((prev) =>
         prev.map((s) => {
@@ -463,12 +470,12 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
 
       toast({
         title: 'Inserted into draft',
-        description: `Content added to ${emptySection?.title || 'Discussion & Conclusions'} section.`,
+        description: `Content added to ${reportSectionDefs.find((d) => d.id === targetId)?.title || 'report section'} section.`,
       })
 
       setActiveTab('draft')
     },
-    [sections, toast]
+    [sections, toast, reportSectionDefs]
   )
 
   const nextVersion = (allReports?.length ?? 0) + 1

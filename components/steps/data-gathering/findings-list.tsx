@@ -118,6 +118,8 @@ interface FindingsListProps {
   onDistanceFilterChange?: (filter: 'all' | '0-1' | '1-5' | '5-10' | '10+') => void
   // View mode change callback (for grid overlay visibility)
   onViewModeChange?: (mode: 'cards' | 'table') => void
+  // Extra inline controls rendered inside the header (e.g. Grid Resolution)
+  renderExtraControls?: () => React.ReactNode
   // Save all filtered findings at once
   onSaveAll?: (findings: FindingDisplay[]) => void
   isSavingAll?: boolean
@@ -164,6 +166,7 @@ export function FindingsList({
   onDistanceFilterChange,
   onUpdateNote,
   onViewModeChange,
+  renderExtraControls,
   onSaveAll,
   isSavingAll,
 }: FindingsListProps) {
@@ -272,7 +275,7 @@ export function FindingsList({
     )
   }
 
-  if (findings.length === 0) {
+  if (findings.length === 0 && !showSpeciesHeader) {
     return (
       <div className="flex h-64 flex-col items-center justify-center text-center">
         <Search className="mb-4 h-12 w-12 text-gray-300" />
@@ -319,6 +322,7 @@ export function FindingsList({
           isSummarizing={isSummarizing}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
+          renderExtraControls={renderExtraControls}
           onSaveAll={onSaveAll}
           isSavingAll={isSavingAll}
         />
@@ -326,32 +330,48 @@ export function FindingsList({
 
       {/* Table view for species */}
       {showSpeciesHeader && viewMode === 'table' ? (
-        <ScrollArea className="flex-1">
-          <SpeciesTableView
-            findings={filteredFindings}
-            savedFindings={savedFindings}
-            onRowClick={onViewOnMap}
-            selectedFindingId={selectedFindingId}
-            onSave={onSave}
-            onFetchAiSummary={onFetchAiSummary}
-            onDeepResearch={onDeepResearch}
-            onUpdateNote={onUpdateNote}
-            savingIds={savingIds}
-            sortBy={sortBy}
-            sortOrder={sortOrder}
-            onSortFieldClick={handleSortFieldClick}
-            taxonGroupFilter={taxonGroupFilter}
-            onTaxonGroupFilterChange={setTaxonGroupFilter}
-            taxonGroupOptions={taxonGroupOptions}
-          />
-        </ScrollArea>
+        findings.length === 0 ? (
+          <div className="flex flex-1 flex-col items-center justify-center text-center">
+            <Search className="mb-3 h-10 w-10 text-gray-300" />
+            <p className="text-muted-foreground text-sm">{emptyMessage}</p>
+          </div>
+        ) : (
+          <ScrollArea className="flex-1">
+            <SpeciesTableView
+              findings={filteredFindings}
+              savedFindings={savedFindings}
+              onRowClick={onViewOnMap}
+              selectedFindingId={selectedFindingId}
+              onSave={onSave}
+              onFetchAiSummary={onFetchAiSummary}
+              onDeepResearch={onDeepResearch}
+              onUpdateNote={onUpdateNote}
+              savingIds={savingIds}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSortFieldClick={handleSortFieldClick}
+              taxonGroupFilter={taxonGroupFilter}
+              onTaxonGroupFilterChange={setTaxonGroupFilter}
+              taxonGroupOptions={taxonGroupOptions}
+            />
+          </ScrollArea>
+        )
       ) : (
         /* Findings list (card view) */
         <ScrollArea className="flex-1">
           <div className="space-y-1.5 p-2">
             {paginatedFindings.length === 0 && (
               <div className="flex h-32 flex-col items-center justify-center text-center">
-                <p className="text-muted-foreground text-sm">No results match the current filter</p>
+                {findings.length === 0 ? (
+                  <>
+                    <Search className="mb-3 h-10 w-10 text-gray-300" />
+                    <p className="text-muted-foreground text-sm">{emptyMessage}</p>
+                  </>
+                ) : (
+                  <p className="text-muted-foreground text-sm">
+                    No results match the current filter
+                  </p>
+                )}
               </div>
             )}
             {paginatedFindings.map((finding, findingIdx) => (

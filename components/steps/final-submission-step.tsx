@@ -113,6 +113,7 @@ export function FinalSubmissionStep({
     if (project) {
       const typeName = REPORT_TYPES.find((r) => r.id === reportType)?.name || 'Ecological Report'
       setCoverPageTitle(`${typeName} - ${project.name}`)
+      // TODO: client_id is a UUID — resolve to client/org display name once a client name column or join is available
       setPreparedFor(project.client_id || '')
     }
   }, [project, reportType])
@@ -151,6 +152,7 @@ export function FinalSubmissionStep({
       .filter((code): code is string => Boolean(code)),
     activeSiteId: selectedSiteId,
     activeSiteCode,
+    reportType,
     version: report?.version || 1,
     date: new Date().toLocaleDateString('en-IE'),
     sections: reportContent?.sections || [],
@@ -275,9 +277,15 @@ export function FinalSubmissionStep({
       }[] = []
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: habitatRows } = await (supabase.rpc as any)('get_habitat_polygons_geojson', {
-        p_project_id: project.id,
-      })
+      const { data: habitatRows, error: rpcError } = await (supabase.rpc as any)(
+        'get_habitat_polygons_geojson',
+        {
+          p_project_id: project.id,
+        }
+      )
+      if (rpcError) {
+        console.error('Failed to fetch habitat polygons:', rpcError)
+      }
 
       if (habitatRows && Array.isArray(habitatRows)) {
         habitatData = (habitatRows as Record<string, unknown>[])
@@ -291,9 +299,37 @@ export function FinalSubmissionStep({
           }))
       }
 
+      // Fetch target notes with PostGIS coordinates for shapefile export
+      // target_notes.location is a PostGIS geometry point — extract lon/lat via SQL
+      const { data: targetNotesData } = await supabase
+        .from('target_notes')
+        .select('id, title, category, description, location')
+        .eq('project_id', project.id)
+        .eq('include_in_report', true)
+
+      const targetNotes = (targetNotesData || [])
+        .filter((tn) => tn.location != null)
+        .map((tn) => {
+          // PostGIS returns location as GeoJSON when using PostgREST
+          const loc = tn.location as unknown as {
+            type: string
+            coordinates: [number, number]
+          } | null
+          const coords: [number, number] = loc?.coordinates ?? [0, 0]
+          return {
+            coordinates: coords,
+            noteNumber: tn.title,
+            category: tn.category,
+            label: tn.title,
+            description: tn.description || '',
+            date: undefined,
+          }
+        })
+
       const blob = await exportProjectShapefile({
         boundaries,
         habitats: habitatData,
+        targetNotes,
         projectName: project.name,
       })
 
@@ -328,17 +364,21 @@ export function FinalSubmissionStep({
     }
 
     const headers = ['Survey Date', 'Type', 'Status', 'Site', 'Start Time', 'End Time', 'Notes']
+    const escapeCSV = (val: string) => val.replace(/"/g, '""')
     const rows = surveys.map((s) => [
-      s.survey_date,
-      s.survey_type,
-      s.status,
-      sites?.find((site) => site.id === s.site_id)?.site_name || '',
-      s.start_time || '',
-      s.end_time || '',
-      (s.notes || '').replace(/"/g, '""'),
+      escapeCSV(s.survey_date || ''),
+      escapeCSV(s.survey_type || ''),
+      escapeCSV(s.status || ''),
+      escapeCSV(sites?.find((site) => site.id === s.site_id)?.site_name || ''),
+      escapeCSV(s.start_time || ''),
+      escapeCSV(s.end_time || ''),
+      escapeCSV(s.notes || ''),
     ])
 
-    const csv = [headers.join(','), ...rows.map((r) => r.map((v) => `"${v}"`).join(','))].join('\n')
+    const csv = [
+      headers.map((h) => `"${h}"`).join(','),
+      ...rows.map((r) => r.map((v) => `"${v}"`).join(',')),
+    ].join('\n')
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
@@ -350,9 +390,12 @@ export function FinalSubmissionStep({
 
   // E4.3 — AI survey summary
   const [generatingSummary, setGeneratingSummary] = React.useState(false)
-  const [surveySummary, setSurveySummary] = React.useState<string | null>(
-    () => (reportContent as ReportContent & { surveyAiSummary?: string })?.surveyAiSummary ?? null
-  )
+  const [surveySummary, setSurveySummary] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    const saved = (reportContent as ReportContent & { surveyAiSummary?: string })?.surveyAiSummary
+    if (saved) setSurveySummary(saved)
+  }, [reportContent])
 
   const handleGenerateSurveySummaries = async () => {
     if (!surveys || surveys.length === 0) {
@@ -396,31 +439,57 @@ export function FinalSubmissionStep({
   // Handle final submission
   const handleSubmit = async () => {
     if (!report) return
+    if (isSubmitting) return
 
     setIsSubmitting(true)
 
     try {
-      // Update report status to final
-      await updateReport.mutateAsync({
-        reportId: report.id,
-        updates: {
-          status: 'final',
-        },
-      })
+      // Step 1: Update report status
+      try {
+        await updateReport.mutateAsync({
+          reportId: report.id,
+          updates: {
+            status: 'final',
+          },
+        })
+      } catch {
+        toast({
+          variant: 'destructive',
+          title: 'Failed to update report status',
+        })
+        return
+      }
 
-      // Update project status to completed
-      await updateProject.mutateAsync({
-        projectId: project.id,
-        updates: {
-          status: 'completed',
-        },
-      })
+      // Step 2: Update project status
+      try {
+        await updateProject.mutateAsync({
+          projectId: project.id,
+          updates: {
+            status: 'completed',
+          },
+        })
+      } catch {
+        toast({
+          variant: 'destructive',
+          title: 'Failed to update project. Report status was updated — please try again.',
+        })
+        return
+      }
 
-      // Complete the workflow step
-      await completeStep.mutateAsync({
-        projectId: project.id,
-        stepNumber: workflowStep.step_number,
-      })
+      // Step 3: Complete workflow step
+      try {
+        await completeStep.mutateAsync({
+          projectId: project.id,
+          stepNumber: workflowStep.step_number,
+        })
+      } catch {
+        toast({
+          variant: 'destructive',
+          title:
+            'Failed to complete workflow step. Project and report were updated — please refresh.',
+        })
+        return
+      }
 
       toast({
         title: 'Project completed!',
@@ -428,12 +497,6 @@ export function FinalSubmissionStep({
       })
 
       onComplete?.()
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error submitting report',
-        description: 'Failed to finalize the report.',
-      })
     } finally {
       setIsSubmitting(false)
     }
@@ -458,7 +521,7 @@ export function FinalSubmissionStep({
       {/* Export overlay — prevents interaction + shows cancel */}
       {isExporting && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="flex flex-col items-center gap-4 rounded-xl bg-white p-8 shadow-xl dark:bg-gray-900">
+          <div className="bg-card flex flex-col items-center gap-4 rounded-xl p-8 shadow-xl">
             <Loader2 className="h-10 w-10 animate-spin text-green-600" />
             <p className="text-lg font-medium">Generating {exportFormat.toUpperCase()} report...</p>
             <p className="text-muted-foreground text-sm">
@@ -562,10 +625,12 @@ export function FinalSubmissionStep({
           </Alert>
 
           {isComplete && (
-            <Alert className="border-green-200 bg-green-50">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-              <AlertTitle className="text-green-800">Project Completed</AlertTitle>
-              <AlertDescription className="text-green-700">
+            <Alert className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20">
+              <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <AlertTitle className="text-green-800 dark:text-green-300">
+                Project Completed
+              </AlertTitle>
+              <AlertDescription className="text-green-700 dark:text-green-400">
                 This project has been completed and the final report has been submitted.
               </AlertDescription>
             </Alert>
@@ -583,7 +648,9 @@ export function FinalSubmissionStep({
               <div className="grid gap-4 sm:grid-cols-4">
                 <div>
                   <p className="text-muted-foreground text-sm">Report Type</p>
-                  <p className="font-medium capitalize">{report.report_type.replace('_', ' ')}</p>
+                  <p className="font-medium capitalize">
+                    {report.report_type.replaceAll('_', ' ')}
+                  </p>
                 </div>
                 <div>
                   <p className="text-muted-foreground text-sm">Version</p>
@@ -592,7 +659,7 @@ export function FinalSubmissionStep({
                 <div>
                   <p className="text-muted-foreground text-sm">Status</p>
                   <Badge className={report.status === 'final' ? 'bg-green-600' : ''}>
-                    {report.status === 'final' ? 'Finalized' : report.status.replace('_', ' ')}
+                    {report.status === 'final' ? 'Finalized' : report.status.replaceAll('_', ' ')}
                   </Badge>
                 </div>
                 <div>

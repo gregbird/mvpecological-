@@ -78,6 +78,7 @@ interface HabitatData {
 }
 
 interface ObservationData {
+  survey_id: string
   species_name_scientific: string
   species_name_common: string | null
   taxon_group: string | null
@@ -100,6 +101,7 @@ interface FindingData {
 }
 
 interface SurveyData {
+  id: string
   survey_date: string
   survey_type: string
   weather: Record<string, unknown> | null
@@ -294,7 +296,7 @@ export async function POST(request: NextRequest) {
     // Surveys — filter by site_id
     let surveysQuery = supabase
       .from('surveys')
-      .select('survey_date, survey_type, weather, status, notes, start_time, end_time')
+      .select('id, survey_date, survey_type, weather, status, notes, start_time, end_time')
       .eq('project_id', projectId)
     if (siteId) surveysQuery = surveysQuery.eq('site_id', siteId)
 
@@ -395,13 +397,11 @@ export async function POST(request: NextRequest) {
     // Filter surveys and observations by linked surveys (if links exist)
     const surveys =
       linkedSurveyIds.length > 0
-        ? allSurveys.filter((s) => linkedSurveyIds.includes((s as unknown as { id: string }).id))
+        ? allSurveys.filter((s) => linkedSurveyIds.includes(s.id))
         : allSurveys
     const observations =
       linkedSurveyIds.length > 0
-        ? allObservations.filter((o) =>
-            linkedSurveyIds.includes((o as unknown as { survey_id: string }).survey_id)
-          )
+        ? allObservations.filter((o) => linkedSurveyIds.includes(o.survey_id))
         : allObservations
     const deepResearch = (deepResearchResult.data || []) as unknown as DeepResearchData[]
     const aquaticResearch = (aquaticResearchResult.data || []) as unknown as AquaticResearchData[]
@@ -452,7 +452,7 @@ export async function POST(request: NextRequest) {
         const p = getRelevePlacement(r.id)
         return p === 'appendix' || p === 'both'
       })
-    } else if (sectionId === 'results') {
+    } else if (sectionId === 'results' || sectionId === 'baseline') {
       releveSectionMode = 'main'
       releveSurveys = allReleveSurveys.filter((r) => {
         const p = getRelevePlacement(r.id)
@@ -461,6 +461,12 @@ export async function POST(request: NextRequest) {
     } else {
       releveSurveys = allReleveSurveys.filter((r) => getRelevePlacement(r.id) !== 'exclude')
     }
+
+    // Filter relevé surveys by linked surveys when org-level links exist
+    if (linkedSurveyIds.length > 0) {
+      releveSurveys = releveSurveys.filter((r) => linkedSurveyIds.includes(r.survey_id))
+    }
+
     const visibleReleveIds = new Set(releveSurveys.map((r) => r.id))
     const releveSpecies = allReleveSpecies.filter((s) => visibleReleveIds.has(s.releve_id))
 
@@ -493,7 +499,11 @@ export async function POST(request: NextRequest) {
     // when Step 5 has designated relevés for the results/main body. We insert the new
     // subsection BEFORE the closing "Use markdown sub-headings" sentence so the AI treats
     // it as part of the core structure, not an afterthought.
-    if (sectionId === 'results' && releveSurveys.length > 0 && releveSectionMode === 'main') {
+    if (
+      (sectionId === 'results' || sectionId === 'baseline') &&
+      releveSectionMode === 'main' &&
+      releveSurveys.length > 0
+    ) {
       const releveSubsection = `
 ### 3.5 Vegetation Survey (Relevé Data)
 - **MANDATORY:** This subsection must be included whenever the PROJECT DATA contains a \`RELEVÉ VEGETATION SURVEYS\` block. Relevé species are a **separate data source** from species_observations and MUST NOT be lumped under "Flora" as "no plant species recorded". Source: the \`RELEVÉ VEGETATION SURVEYS\` block in PROJECT DATA below.
@@ -520,23 +530,19 @@ export async function POST(request: NextRequest) {
     // If org has a custom template, use its section content as additional guidance
     let customTemplateGuidance = ''
     if (organizationId) {
-      try {
-        const { data: orgTemplate } = await supabase
-          .from('report_templates')
-          .select('use_custom, sections')
-          .eq('organization_id', organizationId)
-          .eq('report_type', reportType)
-          .single()
+      const { data: orgTemplate } = await supabase
+        .from('report_templates')
+        .select('use_custom, sections')
+        .eq('organization_id', organizationId)
+        .eq('report_type', reportType)
+        .maybeSingle()
 
-        if (orgTemplate?.use_custom && orgTemplate.sections) {
-          const customSections = jsonToSections(orgTemplate.sections)
-          const customSection = customSections.find((s) => s.id === sectionId)
-          if (customSection?.template) {
-            customTemplateGuidance = `\n\n**IMPORTANT — Organization Custom Template for this section:**\n${customSection.template}\n\nYou MUST follow this template exactly. If the template says to skip or leave this section empty, output only a brief placeholder note (e.g. "This section is not required for this report."). Structure your output to match the template's format, headings, and content requirements.`
-          }
+      if (orgTemplate?.use_custom && orgTemplate.sections) {
+        const customSections = jsonToSections(orgTemplate.sections)
+        const customSection = customSections.find((s) => s.id === sectionId)
+        if (customSection?.template) {
+          customTemplateGuidance = `\n\n**IMPORTANT — Organization Custom Template for this section:**\n${customSection.template}\n\nYou MUST follow this template exactly. If the template says to skip or leave this section empty, output only a brief placeholder note (e.g. "This section is not required for this report."). Structure your output to match the template's format, headings, and content requirements.`
         }
-      } catch {
-        // Continue without custom template
       }
     }
 
@@ -601,6 +607,7 @@ Write the section content now. Use markdown formatting (bold, bullet points, tab
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
       },
+      signal: AbortSignal.timeout(55000),
       body: JSON.stringify({
         model: 'gpt-4o',
         messages: [
@@ -668,6 +675,7 @@ Write the section content now. Use markdown formatting (bold, bullet points, tab
 
 interface ReleveData {
   id: string
+  survey_id: string
   releve_code: string
   survey_date: string | null
   recorder: string | null
@@ -978,7 +986,7 @@ function buildReportContext(input: ReportContextInput): string {
 
     for (const [type, items] of Object.entries(byType)) {
       if (type === 'habitat') continue // already handled above
-      parts.push(`\n## ${type.replace('_', ' ').toUpperCase()} (${items.length} records)`)
+      parts.push(`\n## ${type.replaceAll('_', ' ').toUpperCase()} (${items.length} records)`)
       for (const f of items) {
         parts.push(`- **${f.title}** [${f.source.toUpperCase()}]`)
         if (f.distance_from_boundary_km != null) {

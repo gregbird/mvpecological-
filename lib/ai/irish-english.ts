@@ -20,6 +20,73 @@
 
 type Replacement = string | ((_match: string, ...groups: string[]) => string)
 
+// Words that already end in -ise/-ising/-ised in standard English and must NOT be
+// transformed by the catch-all -ize → -ise rules.
+const IZE_EXCEPTIONS = new Set([
+  'size',
+  'sized',
+  'sizes',
+  'sizing',
+  'prize',
+  'prized',
+  'prizes',
+  'prizing',
+  'capsize',
+  'capsized',
+  'capsizes',
+  'capsizing',
+  'seize',
+  'seized',
+  'seizes',
+  'seizing',
+  'rise',
+  'rising',
+  'surprise',
+  'surprised',
+  'surprises',
+  'surprising',
+  'advise',
+  'advised',
+  'advises',
+  'advising',
+  'comprise',
+  'comprised',
+  'comprises',
+  'comprising',
+  'devise',
+  'devised',
+  'devises',
+  'devising',
+  'exercise',
+  'exercised',
+  'exercises',
+  'exercising',
+  'revise',
+  'revised',
+  'revises',
+  'revising',
+  'supervise',
+  'supervised',
+  'supervises',
+  'supervising',
+  'improvise',
+  'improvised',
+  'improvises',
+  'improvising',
+  'disguise',
+  'disguised',
+  'disguises',
+  'disguising',
+  'promise',
+  'promised',
+  'promises',
+  'promising',
+  'surmise',
+  'surmised',
+  'surmises',
+  'surmising',
+])
+
 // Each entry: [American regex pattern, Irish/British replacement]
 // Patterns use word boundaries (\b) to avoid partial matches.
 // Ordered from most specific to least specific to prevent double-replacement.
@@ -49,10 +116,23 @@ const REPLACEMENTS: [RegExp, Replacement][] = [
   // symbolize, synchronize, systematize, traumatize, urbanize, vandalize
   //
   // Instead of listing every verb, we use suffix-based catch-all patterns:
-  [/\b(\w+)izing\b/g, (_m: string, p: string) => `${p}ising`],
-  [/\b(\w+)ized\b/g, (_m: string, p: string) => `${p}ised`],
-  [/\b(\w+)izes\b/g, (_m: string, p: string) => `${p}ises`],
-  [/\b(\w+)ize\b/g, (_m: string, p: string) => `${p}ise`],
+  // IZE_EXCEPTIONS guards words that already end in -ise in standard English.
+  [
+    /\b(\w+)izing\b/g,
+    (match: string, p: string) => (IZE_EXCEPTIONS.has(match.toLowerCase()) ? match : `${p}ising`),
+  ],
+  [
+    /\b(\w+)ized\b/g,
+    (match: string, p: string) => (IZE_EXCEPTIONS.has(match.toLowerCase()) ? match : `${p}ised`),
+  ],
+  [
+    /\b(\w+)izes\b/g,
+    (match: string, p: string) => (IZE_EXCEPTIONS.has(match.toLowerCase()) ? match : `${p}ises`),
+  ],
+  [
+    /\b(\w+)ize\b/g,
+    (match: string, p: string) => (IZE_EXCEPTIONS.has(match.toLowerCase()) ? match : `${p}ise`),
+  ],
   [/\b(\w+)ization\b/g, (_m: string, p: string) => `${p}isation`],
   [/\b(\w+)izations\b/g, (_m: string, p: string) => `${p}isations`],
 
@@ -86,7 +166,6 @@ const REPLACEMENTS: [RegExp, Replacement][] = [
   [/\bodors\b/gi, 'odours'],
   [/\brigor\b/gi, 'rigour'],
   [/\bvigor\b/gi, 'vigour'],
-  [/\bvigorous\b/gi, 'vigorous'], // same spelling, no change needed — but vigour changes
   [/\bsavor\b/gi, 'savour'],
   [/\bendeavor\b/gi, 'endeavour'],
   [/\bendeavors\b/gi, 'endeavours'],

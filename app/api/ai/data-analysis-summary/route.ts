@@ -36,11 +36,15 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
 
     // Fetch project info
-    const { data: project } = await supabase
+    const { data: project, error: projectError } = await supabase
       .from('projects')
       .select('name, site_code, county, townland')
       .eq('id', projectId)
       .single()
+
+    if (projectError || !project) {
+      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+    }
 
     const context = await buildTabContext(supabase, projectId, tabContext, siteId ?? null)
 

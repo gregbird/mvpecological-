@@ -13,6 +13,10 @@ function makeQueryClient() {
         staleTime: 60 * 1000, // 1 minute
         refetchOnWindowFocus: false,
         retry: 1,
+        networkMode: 'offlineFirst',
+      },
+      mutations: {
+        networkMode: 'offlineFirst',
       },
     },
   })

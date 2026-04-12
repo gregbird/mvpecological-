@@ -122,8 +122,11 @@ export function SectionEditor({
       }
     }
 
+    // Suppress onUpdate via isExternalUpdate guard to avoid race condition
+    // where the flag could be cleared before the async event fires.
     isExternalUpdate.current = true
-    editor.commands.setContent(newContent)
+    editor.commands.setContent(newContent, { emitUpdate: false })
+    isExternalUpdate.current = false
 
     // If incoming content was markdown (AI generate or legacy), immediately
     // convert to JSON so the parent state matches the editor's internal
@@ -131,7 +134,6 @@ export function SectionEditor({
     if (!isJson && content) {
       onContentChange(JSON.stringify(editor.getJSON()))
     }
-    isExternalUpdate.current = false
   }, [editor, content, onContentChange])
 
   // Cleanup debounce timer

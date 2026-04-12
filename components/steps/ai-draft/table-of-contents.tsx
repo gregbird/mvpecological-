@@ -41,9 +41,9 @@ export function TableOfContents({
             <span
               className={cn('h-2 w-2 shrink-0 rounded-full', {
                 'bg-muted-foreground/30': status === 'empty',
-                'bg-blue-500': status === 'template',
-                'bg-purple-500': status === 'ai',
-                'bg-green-500': status === 'edited',
+                'bg-blue-500 dark:bg-blue-400': status === 'template',
+                'bg-purple-500 dark:bg-purple-400': status === 'ai',
+                'bg-green-500 dark:bg-green-400': status === 'edited',
               })}
             />
             <span className="truncate">{def.title}</span>
@@ -55,13 +55,13 @@ export function TableOfContents({
           <span className="bg-muted-foreground/30 h-2 w-2 rounded-full" /> Empty
         </div>
         <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-blue-500" /> Template
+          <span className="h-2 w-2 rounded-full bg-blue-500 dark:bg-blue-400" /> Template
         </div>
         <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-purple-500" /> AI Generated
+          <span className="h-2 w-2 rounded-full bg-purple-500 dark:bg-purple-400" /> AI Generated
         </div>
         <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-green-500" /> Edited
+          <span className="h-2 w-2 rounded-full bg-green-500 dark:bg-green-400" /> Edited
         </div>
       </div>
     </nav>

@@ -35,8 +35,7 @@ export async function getProjectReports(projectId: string): Promise<Report[]> {
     .order('version', { ascending: false })
 
   if (error) {
-    console.error('Error fetching reports:', error)
-    return []
+    throw error
   }
 
   return (data ?? []) as Report[]
@@ -54,8 +53,7 @@ export async function getLatestReport(projectId: string): Promise<Report | null>
     .maybeSingle()
 
   if (error) {
-    console.error('Error fetching latest report:', error)
-    return null
+    throw error
   }
 
   return data as Report
@@ -71,8 +69,7 @@ export async function getReport(reportId: string): Promise<Report | null> {
     .maybeSingle()
 
   if (error) {
-    console.error('Error fetching report:', error)
-    return null
+    throw error
   }
 
   return data as Report
@@ -204,8 +201,7 @@ export async function getReportByVersion(
   const { data, error } = await query.maybeSingle()
 
   if (error) {
-    console.error('Error fetching report by version:', error)
-    return null
+    throw error
   }
 
   return data as Report
@@ -227,8 +223,7 @@ export async function getLatestReportByType(
     .maybeSingle()
 
   if (error) {
-    console.error('Error fetching latest report by type:', error)
-    return null
+    throw error
   }
 
   return data as Report
@@ -245,8 +240,7 @@ export async function getReportsByType(projectId: string, reportType: string): P
     .order('version', { ascending: false })
 
   if (error) {
-    console.error('Error fetching reports by type:', error)
-    return []
+    throw error
   }
 
   return (data ?? []) as Report[]

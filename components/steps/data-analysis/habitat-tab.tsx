@@ -163,9 +163,11 @@ export function HabitatTab({ projectId, siteId, siteCode, project }: HabitatTabP
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
-    link.href = URL.createObjectURL(blob)
+    const objectUrl = URL.createObjectURL(blob)
+    link.href = objectUrl
     link.download = filename
     link.click()
+    URL.revokeObjectURL(objectUrl)
 
     toast({
       title: 'Export complete',
@@ -321,7 +323,7 @@ export function HabitatTab({ projectId, siteId, siteCode, project }: HabitatTabP
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="text-muted-foreground flex h-75 items-center justify-center text-sm">
+              <div className="text-muted-foreground flex h-[300px] items-center justify-center text-sm">
                 No habitat data available
               </div>
             )}
@@ -355,7 +357,7 @@ export function HabitatTab({ projectId, siteId, siteCode, project }: HabitatTabP
                 </RechartsPieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="text-muted-foreground flex h-75 items-center justify-center text-sm">
+              <div className="text-muted-foreground flex h-[300px] items-center justify-center text-sm">
                 No condition data available
               </div>
             )}

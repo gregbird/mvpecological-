@@ -36,7 +36,7 @@ export function FieldSurveyTab({ projectId, siteId }: FieldSurveyTabProps) {
       <div className="grid gap-3 sm:grid-cols-3">
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
-            <ClipboardList className="h-5 w-5 shrink-0 text-blue-600" />
+            <ClipboardList className="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
             <div>
               <div className="text-xl font-bold">{surveyStats?.total || 0}</div>
               <div className="text-muted-foreground text-xs">
@@ -47,7 +47,7 @@ export function FieldSurveyTab({ projectId, siteId }: FieldSurveyTabProps) {
         </Card>
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
-            <Calendar className="h-5 w-5 shrink-0 text-green-600" />
+            <Calendar className="h-5 w-5 shrink-0 text-green-600 dark:text-green-400" />
             <div>
               <div className="text-xl font-bold">{observationStats?.total || 0}</div>
               <div className="text-muted-foreground text-xs">Species Observations</div>
@@ -56,8 +56,8 @@ export function FieldSurveyTab({ projectId, siteId }: FieldSurveyTabProps) {
         </Card>
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-100">
-              <span className="text-xs font-bold text-red-600">!</span>
+            <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-950">
+              <span className="text-xs font-bold text-red-600 dark:text-red-400">!</span>
             </div>
             <div>
               <div className="text-xl font-bold">{observationStats?.protected || 0}</div>

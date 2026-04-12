@@ -53,6 +53,7 @@ const SOURCES = [
   { value: 'epa', label: 'EPA' },
   { value: 'catchments', label: 'Catchments' },
   { value: 'manual', label: 'Manual' },
+  { value: 'company_reports', label: 'Company Reports' },
 ] as const
 
 const SOURCE_TYPE_MAP: Record<string, string[]> = {
@@ -62,6 +63,7 @@ const SOURCE_TYPE_MAP: Record<string, string[]> = {
   epa: ['water_quality', 'catchment', 'other'],
   catchments: ['catchment', 'other'],
   manual: ['designated_site', 'species_record', 'water_quality', 'catchment', 'other'],
+  company_reports: ['company_report'],
 }
 
 const SOURCE_DEFAULT_TYPE: Record<string, string> = {
@@ -71,6 +73,7 @@ const SOURCE_DEFAULT_TYPE: Record<string, string> = {
   epa: 'water_quality',
   catchments: 'catchment',
   manual: 'other',
+  company_reports: 'company_report',
 }
 
 const schema = z.object({

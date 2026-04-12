@@ -69,6 +69,11 @@ interface UsePlacementPreferencesOptions {
 export function usePlacementPreferences({ workflowStep }: UsePlacementPreferencesOptions) {
   const updateWorkflowStep = useUpdateWorkflowStep()
 
+  const metadataRef = React.useRef(workflowStep?.metadata)
+  React.useEffect(() => {
+    metadataRef.current = workflowStep?.metadata
+  }, [workflowStep?.metadata])
+
   const [releveMap, setReleveMap] = React.useState<Record<string, PlacementOption>>(() =>
     readReleveMap(workflowStep.metadata)
   )
@@ -80,7 +85,7 @@ export function usePlacementPreferences({ workflowStep }: UsePlacementPreference
 
   const persist = React.useCallback(
     async (nextReleveMap: Record<string, PlacementOption>) => {
-      const existingMeta = ((workflowStep.metadata as PlacementPreferencesMetadata | null) ??
+      const existingMeta = ((metadataRef.current as PlacementPreferencesMetadata | null) ??
         {}) as PlacementPreferencesMetadata & Record<string, unknown>
       const existingPrefs = existingMeta.placementPreferences ?? {}
 
@@ -99,7 +104,7 @@ export function usePlacementPreferences({ workflowStep }: UsePlacementPreference
         },
       })
     },
-    [workflowStep.id, workflowStep.metadata, updateWorkflowStep]
+    [workflowStep?.id, updateWorkflowStep]
   )
 
   const setRelevePlacement = React.useCallback(
