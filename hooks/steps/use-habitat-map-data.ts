@@ -3,6 +3,7 @@
 import * as React from 'react'
 
 import { getHabitatByCode } from '@/lib/data/fossitt-codes'
+import { getHeritageColor } from '@/lib/config/map-constants'
 import type { DeskResearchFinding, HabitatPolygon } from '@/types/database'
 import type { FindingMarker, HabitatPolygonOverlay } from '@/components/maps/map-types'
 import type { ProjectSiteWithGeoJSON } from '@/lib/supabase/queries/project-sites'
@@ -75,7 +76,7 @@ export function useHabitatMapData({
           fossittCode: h.fossitt_code,
           fossittName: h.fossitt_name,
           condition: h.condition,
-          color: fossittInfo?.color,
+          color: getHeritageColor(h.fossitt_code),
         }
       })
   }, [filteredHabitats])

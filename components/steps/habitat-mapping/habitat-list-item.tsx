@@ -5,6 +5,7 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { getHabitatByCode } from '@/lib/data/fossitt-codes'
+import { getHeritageColor } from '@/lib/config/map-constants'
 import type { HabitatPolygon } from '@/types/database'
 
 export const CONDITION_LABELS: Record<string, { label: string; color: string }> = {
@@ -46,7 +47,10 @@ export function HabitatListItem({
         <Badge
           variant="outline"
           className="font-mono"
-          style={{ borderColor: fossittInfo?.color, color: fossittInfo?.color }}
+          style={{
+            borderColor: getHeritageColor(habitat.fossitt_code),
+            color: getHeritageColor(habitat.fossitt_code),
+          }}
         >
           {habitat.fossitt_code}
         </Badge>

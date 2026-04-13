@@ -37,6 +37,7 @@ import { useHabitats, useHabitatStats, useUpdateHabitat } from '@/hooks/queries/
 import { useSavedFindings } from '@/hooks/queries/use-finding-hooks'
 import { HabitatEditDialog } from '@/components/steps/data-analysis/habitat-edit-dialog'
 import { getHabitatByCode } from '@/lib/data/fossitt-codes'
+import { getHeritageColor } from '@/lib/config/map-constants'
 import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
 import { CreateSummaryButton } from './create-summary-button'
 import type { HabitatPolygon, Project } from '@/types/database'
@@ -90,7 +91,7 @@ export function HabitatTab({ projectId, siteId, siteCode, project }: HabitatTabP
           fossittName: String(raw?.fossittName ?? f.title),
           nlcLabel: String(raw?.nlcLabel ?? ''),
           areaHa: Number(raw?.areaHectares) || 0,
-          color: info?.color || '#22c55e',
+          color: getHeritageColor(fossittCode),
         }
       })
       .sort((a, b) => b.areaHa - a.areaHa)

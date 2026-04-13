@@ -42,6 +42,7 @@ import { ScreenshotGallery } from '@/components/maps/screenshot-gallery'
 import { DATASET_GROUPS, getGroupColorClasses } from '@/lib/config/dataset-layers'
 import { downloadShapefile } from '@/lib/gis/shapefile-export'
 import { getHabitatByCode } from '@/lib/data/fossitt-codes'
+import { getHeritageColor } from '@/lib/config/map-constants'
 import {
   Dialog,
   DialogContent,
@@ -189,7 +190,7 @@ export function MapsTab({ projectId, siteId, userId, project }: MapsTabProps) {
           fossittCode: h.fossitt_code,
           fossittName: h.fossitt_name,
           condition: h.condition,
-          color: getHabitatByCode(h.fossitt_code)?.color || '#22c55e',
+          color: getHeritageColor(h.fossitt_code),
         },
         geometry: h.boundary as GeoJSON.Geometry,
       }))
@@ -258,7 +259,7 @@ export function MapsTab({ projectId, siteId, userId, project }: MapsTabProps) {
           entries.push({
             id: `habitat-${code}`,
             label: `${code} - ${info.name}`,
-            color: info.color || '#22c55e',
+            color: getHeritageColor(code),
             type: 'fill',
           })
         }

@@ -2,8 +2,7 @@
 
 import { Loader2, Sparkles, FlaskConical, MessageSquare, Save, Check } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { NLC_LEVEL1_COLORS } from '@/lib/external-apis/osi'
-import { NLC_LEVEL2_COLORS } from '@/lib/config/map-constants'
+import { getHeritageColor } from '@/lib/config/map-constants'
 import type { HabitatResult } from '@/components/steps/data-gathering/habitat-data-substep'
 
 interface HabitatResultCardProps {
@@ -47,7 +46,7 @@ export function HabitatResultCard({
   onNoteDraftChange,
   onSaveNote,
 }: HabitatResultCardProps) {
-  const color = NLC_LEVEL2_COLORS[r.nlcLabel] || NLC_LEVEL1_COLORS[r.nlcLevel1] || '#22c55e'
+  const color = getHeritageColor(r.fossittCode)
 
   return (
     <div

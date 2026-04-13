@@ -14,8 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { getHabitatByCode } from '@/lib/data/fossitt-codes'
-import { NLC_LEVEL2_COLORS } from '@/lib/config/map-constants'
+import { getHeritageColor } from '@/lib/config/map-constants'
 import { BaselineMap } from './baseline-map-utils'
 import type { DeskResearchFinding } from '@/types/database'
 
@@ -195,7 +194,6 @@ export function HabitatInventorySection({
         const fossittName = String(raw?.fossittName ?? f.title)
         const nlcLabel = String(raw?.nlcLabel ?? '')
         const areaHa = Number(raw?.areaHectares) || 0
-        const habitat = getHabitatByCode(fossittCode)
         const distanceKm =
           raw?.distance_from_boundary_km != null
             ? Number(raw.distance_from_boundary_km)
@@ -207,7 +205,7 @@ export function HabitatInventorySection({
           findingId: f.id,
           fossittCode,
           fossittName,
-          color: (nlcLabel && NLC_LEVEL2_COLORS[nlcLabel]) || habitat?.color || '#808080',
+          color: getHeritageColor(fossittCode),
           nlcLabel,
           areaHa,
           percentage: total > 0 ? (areaHa / total) * 100 : 0,
@@ -226,15 +224,13 @@ export function HabitatInventorySection({
     const features: GeoJSON.Feature[] = withLocation.map((f) => {
       const raw = f.raw_data as Record<string, unknown> | null
       const fossittCode = String(raw?.fossittCode ?? '')
-      const nlcLabel = String(raw?.nlcLabel ?? '')
-      const habitat = getHabitatByCode(fossittCode)
       return {
         type: 'Feature',
         geometry: f.location as GeoJSON.Geometry,
         properties: {
           fossitt_name: String(raw?.fossittName ?? f.title),
           fossitt_code: fossittCode,
-          color: (nlcLabel && NLC_LEVEL2_COLORS[nlcLabel]) || habitat?.color || '#22c55e',
+          color: getHeritageColor(fossittCode),
         },
       }
     })

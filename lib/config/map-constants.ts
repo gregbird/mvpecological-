@@ -185,62 +185,91 @@ export const TILE_LAYERS: Record<MapStyle, TileLayerConfig> = {
 /**
  * Heritage Council Standard Habitat Colour Coding (Appendix 6)
  * Source: Heritage Council — Habitat Survey Guidelines (Draft No.2, April 2005)
- * Keys are FOSSITT Level 1 codes
+ *
+ * FOSSITT Level 2 keys for specific groups, Level 1 keys as fallback.
+ * Usage: getHabitatColor(fossittCode) — tries Level 2 prefix first, then Level 1.
  */
-export const HERITAGE_COUNCIL_COLORS = {
-  F: '#87CEEB', // Freshwater — Sky blue
-  G: '#FFD700', // Grassland and Marsh — Yellow
-  H: '#8B4513', // Heath and Dense Bracken — Brown
-  P: '#9B59B6', // Peatlands — Violet/Purple
-  W: '#228B22', // Woodland and Scrub — Green (native), Bright green (mixed)
-  E: '#DC2626', // Exposed Rock and Disturbed Ground — Red
-  B: '#808080', // Cultivated and Built Land — Grey (50%)
-  C: '#FF8C00', // Coastland — Orange
-  M: '#B57EDC', // Marine — Lavender
-} as const
+export const HERITAGE_COUNCIL_COLORS: Record<string, string> = {
+  // ── Freshwater ──────────────────────────────────────────────
+  F: '#87CEEB', // Freshwater (fallback) — Sky blue
+  FL: '#87CEEB', // Lakes and ponds — Sky blue
+  FW: '#4B0082', // Watercourses — Indigo
+  FP: '#87CEEB', // Springs — Sky blue
+  FS: '#4B0082', // Swamps — Indigo
+
+  // ── Grassland & Marsh ───────────────────────────────────────
+  G: '#FFD700', // Grassland (fallback) — Yellow
+  GA: '#FFD700', // Improved grassland — Yellow
+  GS: '#FFD700', // Semi-natural grassland — Yellow
+  GM: '#FFD700', // Marsh — Yellow
+
+  // ── Heath & Dense Bracken ───────────────────────────────────
+  H: '#8B4513', // Heath (fallback) — Brown
+  HH: '#8B4513', // Heaths — Brown
+  HD: '#8B4513', // Dense bracken — Brown
+
+  // ── Peatlands ───────────────────────────────────────────────
+  P: '#9B59B6', // Peatlands (fallback) — Violet
+  PB: '#9B59B6', // Bogs — Violet
+  PF: '#9B59B6', // Fens — Violet
+
+  // ── Woodland & Scrub ────────────────────────────────────────
+  W: '#228B22', // Woodland (fallback) — Green
+  WN: '#228B22', // Semi-natural woodland — Green
+  WD: '#32CD32', // Highly modified woodland — Bright green
+  WS: '#228B22', // Scrub & transitional — Green
+  WL1: '#228B22', // Hedgerows — Green
+  WL2: '#8B4513', // Treelines — Brown
+
+  // ── Exposed Rock & Disturbed Ground ─────────────────────────
+  E: '#DC2626', // Exposed (fallback) — Red
+  ER: '#DC2626', // Exposed rock — Scarlet red
+  EU: '#DC2626', // Underground habitats — Red
+  ED: '#DC2626', // Disturbed ground — Red
+
+  // ── Cultivated & Built Land ─────────────────────────────────
+  B: '#808080', // Built land (fallback) — Grey 50%
+  BC: '#808080', // Cultivated land — Grey
+  BL: '#808080', // Built land — Grey
+
+  // ── Coastland ───────────────────────────────────────────────
+  C: '#FF8C00', // Coastland (fallback) — Orange
+  CS: '#FF8C00', // Rocky coast — Orange
+  CW: '#FF8C00', // Tidal rivers — Orange
+  CM: '#FF8C00', // Saltmarsh — Orange
+  CB: '#D2B48C', // Shingle & gravel — Tan
+  CD: '#D2B48C', // Dunes — Tan
+  CC: '#FF8C00', // Sea walls & artificial — Orange
+
+  // ── Littoral ────────────────────────────────────────────────
+  LR: '#FFB6C1', // Littoral rock — Pink
+  LS: '#DAA520', // Littoral sediments — Gold
+
+  // ── Sublittoral ─────────────────────────────────────────────
+  SR: '#FFB6C1', // Sublittoral rock — Pink
+  SS: '#DAA520', // Sublittoral sediments — Gold
+
+  // ── Marine ──────────────────────────────────────────────────
+  M: '#B57EDC', // Marine (fallback) — Lavender
+  MW: '#B57EDC', // Marine water — Lavender
+}
 
 /**
- * Official NLC 2018 Level 2 Colour Palette
- * Source: ArcGIS FeatureServer renderer — MapGenieNationalLandCover2018ITM
- * Keys are NLC LEVEL_2_VALUE labels (exactly as returned by the API)
+ * Get Heritage Council colour for a FOSSITT code.
+ * Tries Level 2 prefix first (e.g. "WD" from "WD3"), then Level 1 (e.g. "W").
+ * Returns fallback green if no match.
  */
-export const NLC_LEVEL2_COLORS: Record<string, string> = {
-  'Amenity Grassland': '#A2F14F',
-  'Artificial Waterbodies': '#004DA8',
-  'Bare Peat': '#846044',
-  'Bare Soil and Disturbed Ground': '#4A2D00',
-  'Blanket Bog': '#A87000',
-  Bracken: '#F4C7DA',
-  'Broadleaved Forest and Woodland': '#6BAD00',
-  Buildings: '#FF2D35',
-  'Burnt Areas': '#E6A700',
-  'Coastal Sediments': '#F9F382',
-  'Coniferous Forest': '#265000',
-  'Cultivated Land': '#FFFFAC',
-  'Cutover Bog': '#D49676',
-  'Dry Grassland': '#DEF3CC',
-  'Dry Heath': '#C190D0',
-  'Exposed Rock and Sediments': '#819498',
-  Fens: '#CDF57A',
-  Hedgerows: '#81516B',
-  'Improved Grassland': '#7CCC59',
-  'Lakes and Ponds': '#0099FF',
-  'Marine Water': '#BDF2FF',
-  'Mixed Forest': '#507C00',
-  Mudflats: '#D0C29E',
-  'Other Artificial Surfaces': '#DCDCDC',
-  'Raised Bog': '#732600',
-  'Rivers and Streams': '#73B2FF',
-  'Salt Marsh': '#AFB400',
-  'Sand Dunes': '#ECFF2E',
-  Scrub: '#A0D023',
-  Swamp: '#CDAA66',
-  'Transitional Forest': '#7A8F21',
-  'Transitional Waterbodies': '#73DFFF',
-  Treelines: '#E8E762',
-  Ways: '#808A8C',
-  'Wet Grassland': '#38A800',
-  'Wet Heath': '#7D00A2',
+export function getHeritageColor(fossittCode: string): string {
+  if (!fossittCode) return '#22c55e'
+  // Try exact match first (for WL1, WL2 special cases)
+  if (HERITAGE_COUNCIL_COLORS[fossittCode]) return HERITAGE_COUNCIL_COLORS[fossittCode]
+  // Try Level 2 prefix (first 2 chars)
+  const l2 = fossittCode.slice(0, 2)
+  if (HERITAGE_COUNCIL_COLORS[l2]) return HERITAGE_COUNCIL_COLORS[l2]
+  // Try Level 1 prefix (first char)
+  const l1 = fossittCode[0]
+  if (HERITAGE_COUNCIL_COLORS[l1]) return HERITAGE_COUNCIL_COLORS[l1]
+  return '#22c55e'
 }
 
 // Finding type colors (used for map markers by data type)

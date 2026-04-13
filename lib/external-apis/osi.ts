@@ -124,7 +124,7 @@ export async function searchNlcLandCover(params: NlcSearchParams): Promise<Aggre
 
 import * as turf from '@turf/turf'
 import { mapNlcToFossitt } from '@/lib/data/nlc-to-fossitt'
-import { HERITAGE_COUNCIL_COLORS, NLC_LEVEL2_COLORS } from '@/lib/config/map-constants'
+import { getHeritageColor } from '@/lib/config/map-constants'
 
 /**
  * Dissolve TIN triangles into smooth polygons using divide-and-conquer union,
@@ -192,16 +192,16 @@ function dissolveCoords(
   }
 }
 
-/** Color per NLC Level 1 category — Heritage Council standard (Appendix 6) */
+/** Color per NLC Level 1 category — fallback when FOSSITT code unavailable */
 export const NLC_LEVEL1_COLORS: Record<string, string> = {
-  'ARTIFICIAL SURFACES': HERITAGE_COUNCIL_COLORS.E, // Red (Exposed Rock / Disturbed Ground)
-  'CULTIVATED LAND': HERITAGE_COUNCIL_COLORS.B, // Grey
-  'FOREST, WOODLAND AND SCRUB': HERITAGE_COUNCIL_COLORS.W, // Green
-  'GRASSLAND, SALTMARSH and SWAMP': HERITAGE_COUNCIL_COLORS.G, // Yellow
-  PEATLAND: HERITAGE_COUNCIL_COLORS.P, // Violet/Purple
-  'HEATH and BRACKEN': HERITAGE_COUNCIL_COLORS.H, // Brown
-  WATERBODIES: HERITAGE_COUNCIL_COLORS.F, // Sky blue
-  'EXPOSED SURFACES': HERITAGE_COUNCIL_COLORS.E, // Red
+  'ARTIFICIAL SURFACES': '#DC2626',
+  'CULTIVATED LAND': '#808080',
+  'FOREST, WOODLAND AND SCRUB': '#228B22',
+  'GRASSLAND, SALTMARSH and SWAMP': '#FFD700',
+  PEATLAND: '#9B59B6',
+  'HEATH and BRACKEN': '#8B4513',
+  WATERBODIES: '#87CEEB',
+  'EXPOSED SURFACES': '#DC2626',
 }
 
 /**
@@ -356,17 +356,14 @@ export async function fetchNlcPolygons(
       const nlcLabel = String(props.LEVEL_2_VALUE || '')
       const fossitt = mapNlcToFossitt(nlcId)
       const fossittCode = fossitt?.fossittCode || ''
-      // Priority: NLC Level 2 color (36 distinct) → FOSSITT Level 1 → NLC Level 1 → grey
-      const nlcColor = NLC_LEVEL2_COLORS[nlcLabel]
-      const fossittColor = fossittCode
-        ? HERITAGE_COUNCIL_COLORS[fossittCode[0] as keyof typeof HERITAGE_COUNCIL_COLORS]
-        : undefined
 
       mergedFeatures.push({
         type: 'Feature',
         geometry: dissolveCoords(coords, clientSimplify),
         properties: {
-          color: nlcColor || fossittColor || NLC_LEVEL1_COLORS[level1] || '#808080',
+          color: fossittCode
+            ? getHeritageColor(fossittCode)
+            : NLC_LEVEL1_COLORS[level1] || '#808080',
           nlc_id: nlcId,
           nlc_label: nlcLabel,
           nlc_level1: level1,
@@ -392,15 +389,13 @@ export async function fetchNlcPolygons(
       const nlcLabel = String(props.LEVEL_2_VALUE || '')
       const fossitt = mapNlcToFossitt(nlcId)
       const fossittCode = fossitt?.fossittCode || ''
-      const nlcColor = NLC_LEVEL2_COLORS[nlcLabel]
-      const fossittColor = fossittCode
-        ? HERITAGE_COUNCIL_COLORS[fossittCode[0] as keyof typeof HERITAGE_COUNCIL_COLORS]
-        : undefined
       partialFeatures.push({
         type: 'Feature',
         geometry: dissolveCoords(coords, clientSimplify),
         properties: {
-          color: nlcColor || fossittColor || NLC_LEVEL1_COLORS[level1] || '#808080',
+          color: fossittCode
+            ? getHeritageColor(fossittCode)
+            : NLC_LEVEL1_COLORS[level1] || '#808080',
           nlc_id: nlcId,
           nlc_label: nlcLabel,
           nlc_level1: level1,

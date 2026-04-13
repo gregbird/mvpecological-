@@ -1,5 +1,4 @@
-import { getHabitatByCode } from '@/lib/data/fossitt-codes'
-import { NLC_LEVEL2_COLORS } from '@/lib/config/map-constants'
+import { getHeritageColor } from '@/lib/config/map-constants'
 import type { DeskResearchFinding } from '@/types/database'
 
 /**
@@ -25,9 +24,7 @@ export function buildHabitatPolygonsFromFindings(
     const fossittName = String(raw?.fossittName ?? f.title)
     const nlcLabel = String(raw?.nlcLabel ?? '')
     const areaHa = Number(raw?.areaHectares) || 0
-    const habitat = getHabitatByCode(fossittCode)
-    // Priority: NLC Level 2 color (official palette) → FOSSITT color → fallback green
-    const color = (nlcLabel && NLC_LEVEL2_COLORS[nlcLabel]) || habitat?.color || '#22c55e'
+    const color = getHeritageColor(fossittCode)
 
     return {
       type: 'Feature',
