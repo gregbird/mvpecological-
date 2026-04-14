@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
+import { toIrishEnglish } from '@/lib/ai/irish-english'
 
 /**
  * AI Species Deep Research API
@@ -123,7 +124,7 @@ export async function POST(request: NextRequest) {
           {
             role: 'system',
             content:
-              'You are an expert Irish ecological consultant with deep knowledge of protected species under the Wildlife Acts 1976-2021, EU Habitats Directive, EU Birds Directive, and Irish planning requirements for ecological assessments. Provide detailed, factual analyses suitable for Preliminary Ecological Appraisals (PEA) and Ecological Impact Assessments (EcIA).',
+              'You are an expert Irish ecological consultant with deep knowledge of protected species under the Wildlife Acts 1976-2021, EU Habitats Directive, EU Birds Directive, and Irish planning requirements for ecological assessments. Provide detailed, factual analyses suitable for Preliminary Ecological Appraisals (PEA) and Ecological Impact Assessments (EcIA). Use Irish English spelling (colour, behaviour, analyse, organisation, metre, favour).',
           },
           { role: 'user', content: contextParts.join('\n') },
         ],
@@ -141,7 +142,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await aiResponse.json()
-    const summary = data.choices[0]?.message?.content?.trim() || ''
+    const summary = toIrishEnglish(data.choices[0]?.message?.content?.trim() || '')
 
     return NextResponse.json({
       summary,

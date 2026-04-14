@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
+import { toIrishEnglish } from '@/lib/ai/irish-english'
 import {
   findMatchingSACs,
   getAquaticHabitats,
@@ -242,7 +243,7 @@ export async function POST(request: NextRequest) {
           {
             role: 'system',
             content:
-              'You are an expert Irish freshwater ecologist with deep knowledge of the Water Framework Directive (WFD), EU Habitats Directive, Irish rivers and lakes, aquatic habitats, and water quality assessment. You understand the ecological requirements of protected species like Atlantic Salmon, Freshwater Pearl Mussel, and Lamprey species. Provide detailed, factual analyses suitable for Ecological Impact Assessment reports and Appropriate Assessment screening. IMPORTANT: Base your analysis ONLY on the provided data. Do not speculate about species presence if no data confirms it. If data is limited, clearly state what is known and what is unknown.',
+              'You are an expert Irish freshwater ecologist with deep knowledge of the Water Framework Directive (WFD), EU Habitats Directive, Irish rivers and lakes, aquatic habitats, and water quality assessment. You understand the ecological requirements of protected species like Atlantic Salmon, Freshwater Pearl Mussel, and Lamprey species. Provide detailed, factual analyses suitable for Ecological Impact Assessment reports and Appropriate Assessment screening. IMPORTANT: Base your analysis ONLY on the provided data. Do not speculate about species presence if no data confirms it. If data is limited, clearly state what is known and what is unknown. Use Irish English spelling (colour, behaviour, analyse, organisation, metre, favour).',
           },
           { role: 'user', content: prompt },
         ],
@@ -260,7 +261,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await aiResponse.json()
-    const summary = data.choices[0]?.message?.content?.trim() || ''
+    const summary = toIrishEnglish(data.choices[0]?.message?.content?.trim() || '')
 
     // 7. Build resource URLs
     const resources: Record<string, string | undefined> = {

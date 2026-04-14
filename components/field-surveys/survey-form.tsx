@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useToast } from '@/hooks/use-toast'
 import {
   Dialog,
   DialogContent,
@@ -81,6 +82,8 @@ interface SurveyFormProps {
   initialData?: Partial<Survey>
   projectId: string
   organizationId?: string
+  /** Display-only site context for the dialog header (multi-site projects) */
+  siteName?: string | null
   /** When adding a visit to an existing group */
   addVisitMode?: {
     visitGroupId: string
@@ -109,6 +112,7 @@ export function SurveyForm({
   initialData,
   projectId,
   organizationId,
+  siteName,
   addVisitMode,
 }: SurveyFormProps) {
   const [isSubmitting, setIsSubmitting] = React.useState(false)
@@ -118,6 +122,7 @@ export function SurveyForm({
     {}
   )
   const { user } = useRole()
+  const { toast } = useToast()
   const [surveyPhotos, setSurveyPhotos] = React.useState<string[]>([])
 
   // Load existing photos when editing a survey
@@ -297,6 +302,18 @@ export function SurveyForm({
     setTemplateFieldValues((prev) => ({ ...prev, [key]: value }))
   }
 
+  const handleValidationError = (errors: Record<string, unknown>) => {
+    const firstField = Object.keys(errors)[0]
+    const firstError = errors[firstField] as { message?: string } | undefined
+    const message =
+      firstError?.message || `Please fix the highlighted field: ${firstField || 'unknown'}`
+    toast({
+      title: 'Cannot save — form has errors',
+      description: message,
+      variant: 'destructive',
+    })
+  }
+
   const handleSubmit = async (values: SurveyFormValues) => {
     setIsSubmitting(true)
     try {
@@ -362,10 +379,18 @@ export function SurveyForm({
                 ? 'Update the survey details below.'
                 : 'Enter the details for the new field survey.'}
           </DialogDescription>
+          {siteName && (
+            <p className="text-muted-foreground mt-1 text-xs">
+              Site: <span className="font-medium">{siteName}</span>
+            </p>
+          )}
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+          <form
+            onSubmit={form.handleSubmit(handleSubmit, handleValidationError)}
+            className="space-y-6"
+          >
             {/* Survey Type and Date */}
             <div className="grid gap-4 sm:grid-cols-2">
               <FormField

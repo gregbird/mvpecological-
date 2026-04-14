@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
+import { toIrishEnglish } from '@/lib/ai/irish-english'
 
 /**
  * AI Aquatic Summary API
@@ -86,7 +87,7 @@ Be specific and practical. Respond with ONLY the summary.`
           {
             role: 'system',
             content:
-              'You are an Irish ecological consultant preparing a Preliminary Ecological Appraisal. Summarise aquatic features for their ecological relevance to a proposed development. Reference WFD, EPA guidance, and Irish legislation where relevant.',
+              'You are an Irish ecological consultant preparing a Preliminary Ecological Appraisal. Summarise aquatic features for their ecological relevance to a proposed development. Reference WFD, EPA guidance, and Irish legislation where relevant. Use Irish English spelling (colour, behaviour, analyse, organisation, metre, favour).',
           },
           { role: 'user', content: prompt },
         ],
@@ -104,7 +105,7 @@ Be specific and practical. Respond with ONLY the summary.`
     }
 
     const data = await aiResponse.json()
-    const summary = data.choices[0]?.message?.content?.trim() || ''
+    const summary = toIrishEnglish(data.choices[0]?.message?.content?.trim() || '')
 
     return NextResponse.json({
       summary,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
+import { toIrishEnglish } from '@/lib/ai/irish-english'
 
 /**
  * AI Habitat Analysis API
@@ -79,7 +80,7 @@ Be specific to Irish ecological legislation and guidance (Wildlife Act, Habitats
           {
             role: 'system',
             content:
-              'You are a senior Irish ecological consultant preparing a desk study for a Preliminary Ecological Appraisal (PEA). Analyse habitat composition data from the National Land Cover 2018 dataset. Reference Irish/EU legislation, Fossitt classification, and best practice guidance. Be specific, practical, and avoid generic statements.',
+              'You are a senior Irish ecological consultant preparing a desk study for a Preliminary Ecological Appraisal (PEA). Analyse habitat composition data from the National Land Cover 2018 dataset. Reference Irish/EU legislation, Fossitt classification, and best practice guidance. Be specific, practical, and avoid generic statements. Use Irish English spelling (colour, behaviour, analyse, organisation, metre, favour).',
           },
           { role: 'user', content: prompt },
         ],
@@ -97,7 +98,7 @@ Be specific to Irish ecological legislation and guidance (Wildlife Act, Habitats
     }
 
     const data = await aiResponse.json()
-    const analysis = data.choices[0]?.message?.content?.trim() || ''
+    const analysis = toIrishEnglish(data.choices[0]?.message?.content?.trim() || '')
 
     return NextResponse.json({ analysis })
   } catch (error) {

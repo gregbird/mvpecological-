@@ -54,11 +54,15 @@ export function FieldSurveyStep({
   const { data: projectSites = [] } = useProjectSites(project.id)
   const isMultiSite = projectSites.length > 1
 
+  // For single-site projects, auto-assign the site ID on survey creation
+  const effectiveSiteId =
+    selectedSiteId || (projectSites.length === 1 ? (projectSites[0]?.id ?? null) : null)
+
   // Visit management hook
   const visit = useVisitManagement({
     projectId: project.id,
     userId,
-    selectedSiteId,
+    selectedSiteId: effectiveSiteId,
     surveys: surveys as SurveyWithSurveyor[],
     onSurveyCreated: (id) => {
       setActiveTab('all')
@@ -103,12 +107,15 @@ export function FieldSurveyStep({
           avatarUrl: undefined,
         },
         siteId: s.site_id,
+        siteName: s.site_id
+          ? (projectSites.find((ps) => ps.id === s.site_id)?.site_code ?? null)
+          : null,
         visitGroupId: s.visit_group_id,
         visitNumber: s.visit_number,
         totalVisitsInGroup: s.visit_group_id ? visitGroupCounts.get(s.visit_group_id) : undefined,
       })
     )
-  }, [surveys, userId, visitGroupCounts])
+  }, [surveys, userId, visitGroupCounts, projectSites])
 
   // Group surveys by visit_group_id (input is already site-scoped)
   const { groups: surveyGroups, standalone: standaloneSurveys } = React.useMemo(() => {
@@ -286,11 +293,19 @@ export function FieldSurveyStep({
                     weather: visit.editingSurvey.weather,
                     form_data: visit.editingSurvey.form_data,
                     notes: visit.editingSurvey.notes,
+                    siteId: visit.editingSurvey.siteId,
                   }
                 : undefined
             }
             projectId={project.id}
             organizationId={project.organization_id ?? undefined}
+            siteName={
+              visit.editingSurvey
+                ? visit.editingSurvey.siteName
+                : effectiveSiteId
+                  ? (projectSites.find((ps) => ps.id === effectiveSiteId)?.site_code ?? null)
+                  : null
+            }
             addVisitMode={visit.addVisitMode ?? undefined}
           />
 

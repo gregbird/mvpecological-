@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
+import { toIrishEnglish } from '@/lib/ai/irish-english'
 
 /**
  * AI Site Summary API
@@ -91,7 +92,7 @@ Respond with ONLY the 2-3 sentence summary, no headings or bullet points.`
           {
             role: 'system',
             content:
-              'You are an expert Irish ecological consultant with deep knowledge of NPWS designated sites, EU Habitats Directive, and EU Birds Directive. Provide concise, factual summaries.',
+              'You are an expert Irish ecological consultant with deep knowledge of NPWS designated sites, EU Habitats Directive, and EU Birds Directive. Provide concise, factual summaries. Use Irish English spelling (colour, behaviour, analyse, organisation, metre, favour).',
           },
           { role: 'user', content: prompt },
         ],
@@ -109,7 +110,7 @@ Respond with ONLY the 2-3 sentence summary, no headings or bullet points.`
     }
 
     const data = await aiResponse.json()
-    const summary = data.choices[0]?.message?.content?.trim() || ''
+    const summary = toIrishEnglish(data.choices[0]?.message?.content?.trim() || '')
 
     return NextResponse.json({
       summary,

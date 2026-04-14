@@ -150,7 +150,7 @@ export function useVisitManagement({
   const handleDeleteSurvey = React.useCallback(
     async (survey: SurveyCardType) => {
       try {
-        await deleteSurvey.mutateAsync(survey.id)
+        await deleteSurvey.mutateAsync({ surveyId: survey.id, projectId })
         toast({ title: 'Survey deleted', description: 'Survey has been removed.' })
       } catch {
         toast({
@@ -160,7 +160,7 @@ export function useVisitManagement({
         })
       }
     },
-    [deleteSurvey, toast]
+    [deleteSurvey, projectId, toast]
   )
 
   // Handle completing a survey

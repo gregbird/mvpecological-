@@ -70,8 +70,10 @@ export function useUpdateSurvey() {
     onSuccess: (data, variables) => {
       if (data) {
         queryClient.invalidateQueries({ queryKey: ['survey', variables.surveyId] })
-        queryClient.invalidateQueries({ queryKey: ['surveys'] })
-        queryClient.invalidateQueries({ queryKey: ['survey-stats'] })
+        // Scope to the project via the updated row so we don't stale every
+        // cached project's surveys across the app.
+        queryClient.invalidateQueries({ queryKey: ['surveys', data.project_id] })
+        queryClient.invalidateQueries({ queryKey: ['survey-stats', data.project_id] })
         queryClient.invalidateQueries({ queryKey: ['survey-group'] })
       }
     },
@@ -82,10 +84,17 @@ export function useDeleteSurvey() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (surveyId: string) => deleteSurvey(surveyId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['surveys'] })
-      queryClient.invalidateQueries({ queryKey: ['survey-stats'] })
+    // projectId is optional for call sites that don't have it handy, but
+    // providing it scopes the invalidation correctly for multi-project views.
+    mutationFn: ({ surveyId }: { surveyId: string; projectId?: string }) => deleteSurvey(surveyId),
+    onSuccess: (_data, variables) => {
+      if (variables.projectId) {
+        queryClient.invalidateQueries({ queryKey: ['surveys', variables.projectId] })
+        queryClient.invalidateQueries({ queryKey: ['survey-stats', variables.projectId] })
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['surveys'] })
+        queryClient.invalidateQueries({ queryKey: ['survey-stats'] })
+      }
       queryClient.invalidateQueries({ queryKey: ['survey-group'] })
     },
   })

@@ -17,6 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Label } from '@/components/ui/label'
 import { useReleveSurveys } from '@/hooks/queries/use-releve-hooks'
 import { useReleveSpeciesByProject } from '@/hooks/queries/use-releve-hooks'
+import { useSurveys } from '@/hooks/queries/use-survey-hooks'
 import {
   usePlacementPreferences,
   PLACEMENT_OPTIONS,
@@ -43,26 +44,28 @@ const PLACEMENT_BADGE_VARIANT: Record<
 export function ReleveSurveysTab({ projectId, siteId, workflowStep }: ReleveSurveysTabProps) {
   const { data: releveSurveys = [], isLoading } = useReleveSurveys(projectId)
   const { data: allSpecies = [] } = useReleveSpeciesByProject(projectId)
+  // Site-scoped surveys — used to filter relevés via survey_id → surveys.site_id.
+  const { data: siteSurveys = [] } = useSurveys(projectId, siteId)
   const { getPlacement, setRelevePlacement } = usePlacementPreferences({ workflowStep })
 
-  // Filter by site via the linked survey_id if siteId is set.
-  // Note: releve_surveys has a survey_id FK — site filtering is applied at
-  // the Step 6 API level, so here we show all project relevés for clarity.
-  // Mirror the current Field Survey tab behavior, which also shows full list.
+  // Filter relevés by site via survey_id → surveys.site_id. When a site is
+  // selected, only relevés linked to surveys in that site are shown.
   const visibleReleves = React.useMemo(() => {
     if (!siteId) return releveSurveys
-    // For now, don't filter by site in the UI — rely on survey_id join at the API layer.
-    return releveSurveys
-  }, [releveSurveys, siteId])
+    const siteSurveyIds = new Set(siteSurveys.map((s) => s.id))
+    return releveSurveys.filter((r) => r.survey_id && siteSurveyIds.has(r.survey_id))
+  }, [releveSurveys, siteSurveys, siteId])
 
-  // Count species per releve (in-memory grouping)
+  // Only count species belonging to visible relevés
   const speciesCountByReleve = React.useMemo(() => {
+    const visibleIds = new Set(visibleReleves.map((r) => r.id))
     const counts: Record<string, number> = {}
     for (const sp of allSpecies) {
+      if (!visibleIds.has(sp.releve_id)) continue
       counts[sp.releve_id] = (counts[sp.releve_id] ?? 0) + 1
     }
     return counts
-  }, [allSpecies])
+  }, [allSpecies, visibleReleves])
 
   // Aggregate placement stats (for summary card)
   const placementStats = React.useMemo(() => {
@@ -114,7 +117,7 @@ export function ReleveSurveysTab({ projectId, siteId, workflowStep }: ReleveSurv
       {/* Site filtering disclaimer */}
       {siteId && (
         <p className="text-muted-foreground text-xs">
-          Showing relev&eacute;s from all sites — site filtering applies at report generation.
+          Showing relev&eacute;s linked to surveys in the selected site only.
         </p>
       )}
 

@@ -93,7 +93,7 @@ export function PhotoGallery({ projectId, siteId, className }: PhotoGalleryProps
       await supabase.storage.from('project-photos').remove([photo.storage_path])
 
       // Delete DB record
-      await deletePhotoMutation.mutateAsync(photo.id)
+      await deletePhotoMutation.mutateAsync({ photoId: photo.id, projectId })
 
       setDeleteTarget(null)
       setSelectedPhoto(null)
@@ -120,6 +120,7 @@ export function PhotoGallery({ projectId, siteId, className }: PhotoGalleryProps
     try {
       await updatePhotoMutation.mutateAsync({
         photoId: photo.id,
+        projectId,
         updates: { tags: newTags },
       })
     } catch {

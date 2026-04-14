@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
+import { toIrishEnglish } from '@/lib/ai/irish-english'
 import { extractText } from 'unpdf'
 import { getNPWSSiteData, type NPWSSiteData } from '@/lib/data/npws-site-lookup'
+import { getArticle17Data } from '@/lib/data/article17-habitats'
 
 const NPWS_USER_AGENT = 'Mozilla/5.0 (compatible; DulraBot/1.0; Ecological Assessment Tool)'
 const NBDC_BASE_URL = 'https://maps.biodiversityireland.ie'
@@ -97,7 +99,7 @@ export async function POST(request: NextRequest) {
           {
             role: 'system',
             content:
-              'You are an expert Irish ecological consultant with deep knowledge of NPWS designated sites, EU Habitats Directive, EU Birds Directive, and Site-Specific Conservation Objectives (SSCO). Provide detailed, factual analyses suitable for Appropriate Assessment screening and Ecological Impact Assessment reports.',
+              'You are an expert Irish ecological consultant with deep knowledge of NPWS designated sites, EU Habitats Directive, EU Birds Directive, and Site-Specific Conservation Objectives (SSCO). Provide detailed, factual analyses suitable for Appropriate Assessment screening and Ecological Impact Assessment reports. Use Irish English spelling (colour, behaviour, analyse, organisation, metre, favour).',
           },
           { role: 'user', content: prompt },
         ],
@@ -115,7 +117,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await aiResponse.json()
-    const summary = data.choices[0]?.message?.content?.trim() || ''
+    const summary = toIrishEnglish(data.choices[0]?.message?.content?.trim() || '')
 
     return NextResponse.json({
       summary,
@@ -500,9 +502,30 @@ function buildNBDCContext(nbdcResults: NBDCEnrichedResult[]): string {
     .join('\n')
 }
 
+const STATUS_LABEL: Record<string, string> = {
+  FV: 'Favourable',
+  U1: 'Unfavourable-Inadequate',
+  U2: 'Unfavourable-Bad',
+  XX: 'Unknown',
+}
+
 function buildHabitatContext(siteData: NPWSSiteData | null): string {
   if (!siteData?.habitats?.length) return ''
-  return siteData.habitats.map((h) => `- [${h.code}] ${h.name}`).join('\n')
+  return siteData.habitats
+    .map((h) => {
+      const art17 = getArticle17Data(h.code)
+      if (!art17) return `- [${h.code}] ${h.name}`
+      const status = STATUS_LABEL[art17.status] || art17.status
+      const priority = art17.priorityHabitat ? ' [PRIORITY HABITAT]' : ''
+      const pressures = art17.pressures?.length
+        ? `\n    Main pressures: ${art17.pressures.slice(0, 5).join(', ')}`
+        : ''
+      const threats = art17.threats?.length
+        ? `\n    Main threats: ${art17.threats.slice(0, 5).join(', ')}`
+        : ''
+      return `- [${h.code}] ${h.name}${priority}\n    National status: ${status}, trend ${art17.trend}${pressures}${threats}`
+    })
+    .join('\n')
 }
 
 function buildSpeciesContext(siteData: NPWSSiteData | null): string {
@@ -579,22 +602,24 @@ function buildPrompt({
     parts.push(`\nNPWS Site Synopsis (scraped from web page):\n${webPageText}`)
   }
 
-  parts.push(`\nProvide your analysis in this exact format:
+  parts.push(`\nProvide your analysis in this exact format. Use ONLY the specific
+Article 17 National status/trend data given above — do NOT invent conditions.
+If a habitat lacks Article 17 data, say "status not assessed at national level".
 
 **Conservation Summary:**
 [3-4 sentences describing the site's ecological importance, key habitats, and conservation significance]
 
 **Key Habitats & Condition:**
-[For each qualifying habitat, one line: habitat name - current condition/status if known]
+[For each qualifying habitat, one line: "habitat name — Status: X (trend), Y" where X is the Article 17 status label and trend is the provided trend. Do not guess.]
 
 **Species of Interest:**
 [Key protected species and their significance at this site]
 
 **Threats & Pressures:**
-[Main threats and pressures affecting the site]
+[Derived from the pressures/threats listed for each habitat above, grouped by theme]
 
 **Implications for Development:**
-[What a developer/planner should consider if proposing works near this site]`)
+[What a developer/planner should consider if proposing works near this site, referencing specific habitats with Unfavourable (U1/U2) status as priority concerns]`)
 
   return parts.join('\n')
 }

@@ -101,6 +101,18 @@ export function TargetNoteForm({
     },
   })
 
+  const handleValidationError = (errors: Record<string, unknown>) => {
+    const firstField = Object.keys(errors)[0]
+    const firstError = errors[firstField] as { message?: string } | undefined
+    const message =
+      firstError?.message || `Please fix the highlighted field: ${firstField || 'unknown'}`
+    toast({
+      title: 'Cannot save — form has errors',
+      description: message,
+      variant: 'destructive',
+    })
+  }
+
   // Reset form when dialog opens with new data
   React.useEffect(() => {
     if (open) {
@@ -176,7 +188,10 @@ export function TargetNoteForm({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+          <form
+            onSubmit={form.handleSubmit(handleSubmit, handleValidationError)}
+            className="space-y-4"
+          >
             {/* Category */}
             <FormField
               control={form.control}

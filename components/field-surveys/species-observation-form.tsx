@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { useToast } from '@/hooks/use-toast'
 import {
   PROTECTED_SPECIES,
   SpeciesIdSection,
@@ -131,6 +132,7 @@ export function SpeciesObservationForm({
   surveyId,
   projectId,
 }: SpeciesObservationFormProps) {
+  const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [isGettingLocation, setIsGettingLocation] = React.useState(false)
   const [photos, setPhotos] = React.useState<string[]>(initialData?.photos || [])
@@ -158,6 +160,18 @@ export function SpeciesObservationForm({
       notes: '',
     },
   })
+
+  const handleValidationError = (errors: Record<string, unknown>) => {
+    const firstField = Object.keys(errors)[0]
+    const firstError = errors[firstField] as { message?: string } | undefined
+    const message =
+      firstError?.message || `Please fix the highlighted field: ${firstField || 'unknown'}`
+    toast({
+      title: 'Cannot save — form has errors',
+      description: message,
+      variant: 'destructive',
+    })
+  }
 
   // Reset form when dialog opens with new data
   React.useEffect(() => {
@@ -278,7 +292,10 @@ export function SpeciesObservationForm({
         )}
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+          <form
+            onSubmit={form.handleSubmit(handleSubmit, handleValidationError)}
+            className="space-y-6"
+          >
             <SpeciesIdSection form={form} />
             <EvidenceSection form={form} />
             <LocationSection

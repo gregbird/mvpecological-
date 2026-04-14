@@ -75,6 +75,7 @@ export interface Survey {
   observationCount?: number
   habitatCount?: number
   siteId?: string | null
+  siteName?: string | null
   visitGroupId?: string | null
   visitNumber?: number | null
   totalVisitsInGroup?: number
@@ -156,11 +157,17 @@ export function SurveyCard({
                 </Badge>
               )}
             </div>
-            <div className="text-muted-foreground mt-2 flex items-center gap-4 text-sm">
+            <div className="text-muted-foreground mt-2 flex flex-wrap items-center gap-4 text-sm">
               <div className="flex items-center gap-1">
                 <Calendar className="h-3.5 w-3.5" />
                 <span>{formatDate(survey.surveyDate)}</span>
               </div>
+              {survey.siteName && (
+                <div className="flex items-center gap-1">
+                  <MapPin className="h-3.5 w-3.5" />
+                  <span>{survey.siteName}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>

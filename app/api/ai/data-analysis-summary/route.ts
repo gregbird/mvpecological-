@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
+import { toIrishEnglish } from '@/lib/ai/irish-english'
 import { createClient } from '@/lib/supabase/server'
 
 /**
@@ -93,7 +94,7 @@ Summarise the key findings, highlight notable items (protected species, sensitiv
     }
 
     const data = await aiResponse.json()
-    const summary = data.choices[0]?.message?.content?.trim() || ''
+    const summary = toIrishEnglish(data.choices[0]?.message?.content?.trim() || '')
 
     return NextResponse.json({ summary })
   } catch (error) {

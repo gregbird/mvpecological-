@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { useToast } from '@/hooks/use-toast'
 import {
   Dialog,
   DialogContent,
@@ -136,6 +137,7 @@ export function HabitatForm({
   projectId,
   surveyId,
 }: HabitatFormProps) {
+  const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [codeSearchOpen, setCodeSearchOpen] = React.useState(false)
   const [photos, setPhotos] = React.useState<string[]>(initialData?.photos || [])
@@ -157,6 +159,18 @@ export function HabitatForm({
       listedSpecies: initialData?.listedSpecies || '',
     },
   })
+
+  const handleValidationError = (errors: Record<string, unknown>) => {
+    const firstField = Object.keys(errors)[0]
+    const firstError = errors[firstField] as { message?: string } | undefined
+    const message =
+      firstError?.message || `Please fix the highlighted field: ${firstField || 'unknown'}`
+    toast({
+      title: 'Cannot save — form has errors',
+      description: message,
+      variant: 'destructive',
+    })
+  }
 
   // Reset form when dialog opens with new initialData
   React.useEffect(() => {
@@ -239,7 +253,10 @@ export function HabitatForm({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+          <form
+            onSubmit={form.handleSubmit(handleSubmit, handleValidationError)}
+            className="space-y-4"
+          >
             {/* Fossitt Code Selection */}
             <FormField
               control={form.control}

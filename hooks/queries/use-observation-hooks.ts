@@ -65,11 +65,23 @@ export function useUpdateObservation() {
     }: {
       observationId: string
       updates: UpdateTables<'species_observations'>
+      // projectId scopes invalidation when the caller has it; optional for
+      // survey-scoped edits that don't need it.
+      projectId?: string
     }) => updateObservation(observationId, updates),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['observations'] })
-      queryClient.invalidateQueries({ queryKey: ['project-observations'] })
-      queryClient.invalidateQueries({ queryKey: ['observation-stats'] })
+      if (variables.projectId) {
+        queryClient.invalidateQueries({
+          queryKey: ['project-observations', variables.projectId],
+        })
+        queryClient.invalidateQueries({
+          queryKey: ['observation-stats', variables.projectId],
+        })
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['project-observations'] })
+        queryClient.invalidateQueries({ queryKey: ['observation-stats'] })
+      }
     },
   })
 }
@@ -78,11 +90,21 @@ export function useDeleteObservation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (observationId: string) => deleteObservation(observationId),
-    onSuccess: () => {
+    mutationFn: ({ observationId }: { observationId: string; projectId?: string }) =>
+      deleteObservation(observationId),
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['observations'] })
-      queryClient.invalidateQueries({ queryKey: ['project-observations'] })
-      queryClient.invalidateQueries({ queryKey: ['observation-stats'] })
+      if (variables.projectId) {
+        queryClient.invalidateQueries({
+          queryKey: ['project-observations', variables.projectId],
+        })
+        queryClient.invalidateQueries({
+          queryKey: ['observation-stats', variables.projectId],
+        })
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['project-observations'] })
+        queryClient.invalidateQueries({ queryKey: ['observation-stats'] })
+      }
     },
   })
 }
@@ -91,11 +113,23 @@ export function useVerifyObservation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ observationId, verifierId }: { observationId: string; verifierId: string }) =>
-      verifyObservation(observationId, verifierId),
-    onSuccess: () => {
+    mutationFn: ({
+      observationId,
+      verifierId,
+    }: {
+      observationId: string
+      verifierId: string
+      projectId?: string
+    }) => verifyObservation(observationId, verifierId),
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['observations'] })
-      queryClient.invalidateQueries({ queryKey: ['observation-stats'] })
+      if (variables.projectId) {
+        queryClient.invalidateQueries({
+          queryKey: ['observation-stats', variables.projectId],
+        })
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['observation-stats'] })
+      }
     },
   })
 }

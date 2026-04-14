@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
+import { toIrishEnglish } from '@/lib/ai/irish-english'
 import { createClient } from '@/lib/supabase/server'
 
 /**
@@ -217,7 +218,8 @@ Rules:
 - Clearly identify data gaps
 - Give specific, actionable field survey recommendations with optimal timing
 - Reference site codes, distances, and conservation status throughout
-- Use markdown formatting with headers, tables, and bullet points${siteScopeNote}`,
+- Use markdown formatting with headers, tables, and bullet points
+- Use Irish English spelling (colour, behaviour, analyse, organisation, metre, favour)${siteScopeNote}`,
           },
           { role: 'user', content: prompt },
         ],
@@ -236,7 +238,7 @@ Rules:
     }
 
     const data = await aiResponse.json()
-    const insights = data.choices[0]?.message?.content?.trim() || ''
+    const insights = toIrishEnglish(data.choices[0]?.message?.content?.trim() || '')
 
     return NextResponse.json({
       insights,

@@ -29,10 +29,20 @@ export function useUpdatePhoto() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ photoId, updates }: { photoId: string; updates: PhotoUpdate }) =>
-      updatePhoto(photoId, updates),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['photos'] })
+    mutationFn: ({
+      photoId,
+      updates,
+    }: {
+      photoId: string
+      updates: PhotoUpdate
+      projectId?: string
+    }) => updatePhoto(photoId, updates),
+    onSuccess: (_data, variables) => {
+      if (variables.projectId) {
+        queryClient.invalidateQueries({ queryKey: ['photos', variables.projectId] })
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['photos'] })
+      }
     },
   })
 }
@@ -41,9 +51,13 @@ export function useDeletePhoto() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (photoId: string) => deletePhoto(photoId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['photos'] })
+    mutationFn: ({ photoId }: { photoId: string; projectId?: string }) => deletePhoto(photoId),
+    onSuccess: (_data, variables) => {
+      if (variables.projectId) {
+        queryClient.invalidateQueries({ queryKey: ['photos', variables.projectId] })
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['photos'] })
+      }
     },
   })
 }

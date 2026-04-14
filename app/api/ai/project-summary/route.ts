@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
+import { toIrishEnglish } from '@/lib/ai/irish-english'
 import { PROJECT_TYPE_LABELS_LONG } from '@/lib/config/survey'
 import { createClient } from '@/lib/supabase/server'
 
@@ -87,7 +88,7 @@ Write exactly 3 sentences covering: (1) what the project is and where, (2) key e
           {
             role: 'system',
             content:
-              'You are an expert Irish ecological consultant. Write concise, professional project summaries.',
+              'You are an expert Irish ecological consultant. Write concise, professional project summaries. Use Irish English spelling (colour, behaviour, analyse, organisation, metre, favour).',
           },
           { role: 'user', content: prompt },
         ],
@@ -105,7 +106,7 @@ Write exactly 3 sentences covering: (1) what the project is and where, (2) key e
     }
 
     const data = await aiResponse.json()
-    const summary = data.choices[0]?.message?.content?.trim() || ''
+    const summary = toIrishEnglish(data.choices[0]?.message?.content?.trim() || '')
 
     return NextResponse.json({ summary })
   } catch (error) {

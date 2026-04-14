@@ -377,6 +377,7 @@ export function useTargetNotesHandlers({
 
       await updateObservation.mutateAsync({
         observationId: editingObs.id,
+        projectId,
         updates: {
           species_name_scientific: data.speciesNameScientific!,
           species_name_common: data.speciesNameCommon || null,
@@ -413,7 +414,7 @@ export function useTargetNotesHandlers({
   // Handle deleting an observation
   const handleDeleteObservation = async (observation: SpeciesObservation) => {
     try {
-      await deleteObservation.mutateAsync(observation.id)
+      await deleteObservation.mutateAsync({ observationId: observation.id, projectId })
       toast({ title: 'Observation deleted', description: 'Species observation has been removed.' })
     } catch {
       toast({
