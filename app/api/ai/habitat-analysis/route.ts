@@ -85,7 +85,7 @@ Be specific to Irish ecological legislation and guidance (Wildlife Act, Habitats
           },
           { role: 'user', content: prompt },
         ],
-        max_completion_tokens: 1500,
+        max_completion_tokens: 6000,
       }),
     })
 

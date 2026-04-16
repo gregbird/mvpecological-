@@ -93,7 +93,7 @@ Write exactly 3 sentences covering: (1) what the project is and where, (2) key e
           },
           { role: 'user', content: prompt },
         ],
-        max_completion_tokens: 150,
+        max_completion_tokens: 2000,
       }),
     })
 

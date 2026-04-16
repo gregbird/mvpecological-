@@ -11,6 +11,7 @@ import {
   ChevronUp,
   ChevronDown,
   MoreVertical,
+  Pencil,
   Settings,
   Trash2,
   Loader2,
@@ -60,7 +61,7 @@ import { Input } from '@/components/ui/input'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types/database'
 import { useToast } from '@/hooks/use-toast'
-import { useDeleteProject } from '@/hooks/queries/use-project-hooks'
+import { useDeleteProject, useUpdateProject } from '@/hooks/queries/use-project-hooks'
 import { useRole } from '@/contexts/role-context'
 import { useProjectContext } from '@/contexts/project-context'
 import {
@@ -75,6 +76,7 @@ export function ProjectWorkflowSidebar() {
   const { toast } = useToast()
   const { user: roleUser, permissions } = useRole()
   const deleteProject = useDeleteProject()
+  const updateProject = useUpdateProject()
   const {
     project,
     workflowSteps,
@@ -96,6 +98,58 @@ export function ProjectWorkflowSidebar() {
 
   // Delete confirmation dialog
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false)
+
+  // Inline rename state
+  const [isEditingName, setIsEditingName] = React.useState(false)
+  const [nameValue, setNameValue] = React.useState('')
+  const nameInputRef = React.useRef<HTMLInputElement>(null)
+  const canRenameProject = roleUser?.role !== 'client'
+
+  const startRename = () => {
+    if (!project) return
+    setNameValue(project.name)
+    setIsEditingName(true)
+    setIsHeaderCollapsed(false)
+  }
+
+  const cancelRename = React.useCallback(() => {
+    setIsEditingName(false)
+    setNameValue('')
+  }, [])
+
+  const commitRename = async () => {
+    if (!project) return
+    const trimmed = nameValue.trim()
+    if (!trimmed || trimmed === project.name) {
+      cancelRename()
+      return
+    }
+    try {
+      await updateProject.mutateAsync({
+        projectId: project.id,
+        updates: { name: trimmed },
+      })
+      toast({
+        title: 'Project renamed',
+        description: `Renamed to "${trimmed}"`,
+      })
+      setIsEditingName(false)
+    } catch (err) {
+      console.error('Rename project error:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: err instanceof Error ? err.message : 'Failed to rename project',
+      })
+    }
+  }
+
+  React.useEffect(() => {
+    if (isEditingName) {
+      nameInputRef.current?.focus()
+      nameInputRef.current?.select()
+    }
+  }, [isEditingName])
 
   // Team management dialog
   const [showTeamDialog, setShowTeamDialog] = React.useState(false)
@@ -504,35 +558,64 @@ export function ProjectWorkflowSidebar() {
       <div className="border-border border-b">
         {/* Collapsed Header - Always visible */}
         <div className="flex items-center gap-1 px-4 py-3">
-          <button
-            onClick={() => setIsHeaderCollapsed(!isHeaderCollapsed)}
-            className="hover:bg-muted/50 flex min-w-0 flex-1 items-center justify-between rounded-md px-1 py-1 transition-colors"
-          >
-            <div className="flex min-w-0 flex-1 items-center gap-2">
-              <h2 className="text-foreground truncate text-sm font-semibold">
-                {project?.name || 'Loading...'}
-              </h2>
-              <Badge
-                variant="outline"
-                className={cn('h-5 shrink-0 px-1.5 text-[10px] font-medium capitalize', {
-                  'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-400':
-                    project?.status === 'active',
-                  'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400':
-                    project?.status === 'archived',
-                  'border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-400':
-                    project?.status === 'completed',
-                  'border-border bg-muted text-muted-foreground': project?.status === 'draft',
-                })}
-              >
-                {project?.status}
-              </Badge>
+          {isEditingName ? (
+            <div className="flex min-w-0 flex-1 items-center gap-2 px-1 py-1">
+              <Input
+                ref={nameInputRef}
+                value={nameValue}
+                onChange={(e) => setNameValue(e.target.value)}
+                onBlur={commitRename}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    commitRename()
+                  }
+                  if (e.key === 'Escape') {
+                    e.preventDefault()
+                    cancelRename()
+                  }
+                }}
+                disabled={updateProject.isPending}
+                maxLength={200}
+                className="h-7 text-sm"
+                aria-label="Project name"
+              />
+              {updateProject.isPending && (
+                <Loader2 className="text-muted-foreground h-3.5 w-3.5 shrink-0 animate-spin" />
+              )}
             </div>
-            {isHeaderCollapsed ? (
-              <ChevronDown className="text-muted-foreground h-4 w-4 shrink-0" />
-            ) : (
-              <ChevronUp className="text-muted-foreground h-4 w-4 shrink-0" />
-            )}
-          </button>
+          ) : (
+            <button
+              onClick={() => setIsHeaderCollapsed(!isHeaderCollapsed)}
+              onDoubleClick={canRenameProject ? startRename : undefined}
+              className="hover:bg-muted/50 flex min-w-0 flex-1 items-center justify-between rounded-md px-1 py-1 transition-colors"
+            >
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <h2 className="text-foreground truncate text-sm font-semibold">
+                  {project?.name || 'Loading...'}
+                </h2>
+                <Badge
+                  variant="outline"
+                  className={cn('h-5 shrink-0 px-1.5 text-[10px] font-medium capitalize', {
+                    'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-400':
+                      project?.status === 'active',
+                    'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400':
+                      project?.status === 'archived',
+                    'border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-400':
+                      project?.status === 'completed',
+                    'border-border bg-muted text-muted-foreground': project?.status === 'draft',
+                  })}
+                >
+                  {project?.status}
+                </Badge>
+              </div>
+              {isHeaderCollapsed ? (
+                <ChevronDown className="text-muted-foreground h-4 w-4 shrink-0" />
+              ) : (
+                <ChevronUp className="text-muted-foreground h-4 w-4 shrink-0" />
+              )}
+            </button>
+          )}
 
           {/* Project Actions Menu */}
           <DropdownMenu>
@@ -542,6 +625,12 @@ export function ProjectWorkflowSidebar() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
+              {canRenameProject && (
+                <DropdownMenuItem onClick={startRename}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Rename Project
+                </DropdownMenuItem>
+              )}
               {permissions.canManageTeam && (
                 <DropdownMenuItem onClick={() => setShowTeamDialog(true)}>
                   <Users className="mr-2 h-4 w-4" />

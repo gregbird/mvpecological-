@@ -100,7 +100,7 @@ Be specific and practical — avoid generic statements. Respond with ONLY the su
           },
           { role: 'user', content: prompt },
         ],
-        max_completion_tokens: 300,
+        max_completion_tokens: 2000,
       }),
     })
 

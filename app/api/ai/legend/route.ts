@@ -44,7 +44,7 @@ Write a professional caption suitable for a figure in an ecological report. Incl
         model: CHEAP_MODEL,
         reasoning_effort: 'minimal',
         messages: [{ role: 'user', content: prompt }],
-        max_completion_tokens: 200,
+        max_completion_tokens: 2000,
       }),
     })
 

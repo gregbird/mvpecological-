@@ -46,7 +46,7 @@ Be specific and practical. Respond with ONLY the summary.`
           },
           { role: 'user', content: prompt },
         ],
-        max_completion_tokens: 300,
+        max_completion_tokens: 2000,
       }),
     })
 

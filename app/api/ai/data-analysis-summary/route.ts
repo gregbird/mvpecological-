@@ -80,7 +80,7 @@ ${context}
 Summarise the key findings, highlight notable items (protected species, sensitive habitats, constraints), and note any data gaps.`,
           },
         ],
-        max_completion_tokens: 2000,
+        max_completion_tokens: 6000,
       }),
     })
 

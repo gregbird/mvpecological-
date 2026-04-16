@@ -104,12 +104,18 @@ export async function POST(request: NextRequest) {
           },
           { role: 'user', content: prompt },
         ],
-        max_completion_tokens: 1000,
+        // GPT-5 reasoning models consume tokens for internal "thinking" before
+        // producing output — these count toward max_completion_tokens. A low
+        // limit (e.g. 1000) means reasoning eats the entire budget and we get
+        // empty content back. Bumped to leave headroom for both reasoning and
+        // a substantial conservation analysis.
+        max_completion_tokens: 6000,
       }),
     })
 
     if (!aiResponse.ok) {
       const error = await aiResponse.json()
+      console.error('[deep-research] OpenAI error:', error)
       return NextResponse.json(
         { error: error.error?.message || 'OpenAI API error' },
         { status: 500 }
@@ -117,7 +123,23 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await aiResponse.json()
-    const summary = toIrishEnglish(data.choices[0]?.message?.content?.trim() || '')
+    const rawContent = data.choices[0]?.message?.content?.trim() || ''
+    const finishReason = data.choices[0]?.finish_reason
+    if (!rawContent) {
+      console.error(
+        '[deep-research] Empty AI response. finish_reason:',
+        finishReason,
+        'usage:',
+        data.usage
+      )
+      return NextResponse.json(
+        {
+          error: `AI returned empty content (finish_reason: ${finishReason}). Likely token limit hit during reasoning. Try increasing max_completion_tokens.`,
+        },
+        { status: 500 }
+      )
+    }
+    const summary = toIrishEnglish(rawContent)
 
     return NextResponse.json({
       summary,
@@ -602,24 +624,29 @@ function buildPrompt({
     parts.push(`\nNPWS Site Synopsis (scraped from web page):\n${webPageText}`)
   }
 
-  parts.push(`\nProvide your analysis in this exact format. Use ONLY the specific
-Article 17 National status/trend data given above — do NOT invent conditions.
-If a habitat lacks Article 17 data, say "status not assessed at national level".
+  parts.push(`\nProvide your analysis in this exact format using the available
+data above plus your general knowledge of Irish ecology, NPWS designated sites,
+EU Habitats/Birds Directives, and CIEEM guidance. When Article 17 status data is
+provided for a habitat, reference it specifically (FV/U1/U2 + trend). When such
+data is not available (e.g. for NHA/pNHA sites that aren't in the Article 17
+report), use general ecological knowledge of the site type and habitats present.
+Do NOT ask the user for additional data — work with what is given plus your
+expertise. Output the analysis directly without preamble.
 
 **Conservation Summary:**
 [3-4 sentences describing the site's ecological importance, key habitats, and conservation significance]
 
 **Key Habitats & Condition:**
-[For each qualifying habitat, one line: "habitat name — Status: X (trend), Y" where X is the Article 17 status label and trend is the provided trend. Do not guess.]
+[For each qualifying habitat, one line. If Article 17 status was provided: "habitat name — Status: <FV/U1/U2 label> (<trend>)". Otherwise: "habitat name — typical condition / sensitivity for this habitat type in Ireland".]
 
 **Species of Interest:**
 [Key protected species and their significance at this site]
 
 **Threats & Pressures:**
-[Derived from the pressures/threats listed for each habitat above, grouped by theme]
+[Use pressures/threats from Article 17 data when available, otherwise list typical pressures for this site type and habitats]
 
 **Implications for Development:**
-[What a developer/planner should consider if proposing works near this site, referencing specific habitats with Unfavourable (U1/U2) status as priority concerns]`)
+[What a developer/planner should consider if proposing works near this site, prioritising any habitats with Unfavourable (U1/U2) status]`)
 
   return parts.join('\n')
 }

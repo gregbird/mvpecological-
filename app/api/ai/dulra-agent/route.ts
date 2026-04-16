@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
         model: CHEAP_MODEL,
         reasoning_effort: 'minimal',
         messages,
-        max_completion_tokens: 1000,
+        max_completion_tokens: 6000,
       }),
     })
 

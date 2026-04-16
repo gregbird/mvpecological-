@@ -84,7 +84,6 @@ Be specific and practical. Respond with ONLY the summary.`
       },
       body: JSON.stringify({
         model: CHEAP_MODEL,
-        reasoning_effort: 'minimal',
         messages: [
           {
             role: 'system',
@@ -93,7 +92,8 @@ Be specific and practical. Respond with ONLY the summary.`
           },
           { role: 'user', content: prompt },
         ],
-        max_completion_tokens: 300,
+        reasoning_effort: 'minimal',
+        max_completion_tokens: 2000,
       }),
     })
 

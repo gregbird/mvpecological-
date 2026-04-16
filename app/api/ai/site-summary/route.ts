@@ -98,7 +98,7 @@ Respond with ONLY the 2-3 sentence summary, no headings or bullet points.`
           },
           { role: 'user', content: prompt },
         ],
-        max_completion_tokens: 200,
+        max_completion_tokens: 2000,
       }),
     })
 

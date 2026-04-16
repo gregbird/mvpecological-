@@ -1,10 +1,24 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+const PROTECTED_PATHS = ['/dashboard', '/projects', '/settings']
+const AUTH_PATHS = ['/login', '/register']
+
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   })
+
+  const { pathname } = request.nextUrl
+  const isProtectedPath = PROTECTED_PATHS.some((path) => pathname.startsWith(path))
+  const isAuthPath = AUTH_PATHS.some((path) => pathname.startsWith(path))
+
+  // Skip auth.getUser() for routes that don't need redirection.
+  // API routes handle their own auth via requireAuth(); public pages don't need it.
+  // This avoids hammering /auth/v1/user on every static asset or API hit.
+  if (!isProtectedPath && !isAuthPath) {
+    return supabaseResponse
+  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,30 +49,19 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Dev mode bypass - check for dev_mode cookie
-  const isDevMode = process.env.NODE_ENV === 'development'
-  const hasDevCookie = request.cookies.get('dev_mode')?.value === 'true'
-
-  // Protected routes
-  const protectedPaths = ['/dashboard', '/projects', '/settings']
-  const isProtectedPath = protectedPaths.some((path) => request.nextUrl.pathname.startsWith(path))
-
   if (isProtectedPath && !user) {
-    // In dev mode with dev cookie, allow access without auth
+    // Dev mode bypass - check for dev_mode cookie
+    const isDevMode = process.env.NODE_ENV === 'development'
+    const hasDevCookie = request.cookies.get('dev_mode')?.value === 'true'
     if (isDevMode && hasDevCookie) {
       return supabaseResponse
     }
 
-    // Redirect to login if trying to access protected route without auth
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    url.searchParams.set('redirectTo', request.nextUrl.pathname)
+    url.searchParams.set('redirectTo', pathname)
     return NextResponse.redirect(url)
   }
-
-  // Redirect authenticated users away from auth pages
-  const authPaths = ['/login', '/register']
-  const isAuthPath = authPaths.some((path) => request.nextUrl.pathname.startsWith(path))
 
   if (isAuthPath && user) {
     const url = request.nextUrl.clone()
