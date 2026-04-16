@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
+import { CHEAP_MODEL } from '@/lib/ai/openai-models'
 import { toIrishEnglish } from '@/lib/ai/irish-english'
 import { createClient } from '@/lib/supabase/server'
 
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: CHEAP_MODEL,
         messages: [
           {
             role: 'system',
@@ -79,8 +80,7 @@ ${context}
 Summarise the key findings, highlight notable items (protected species, sensitive habitats, constraints), and note any data gaps.`,
           },
         ],
-        temperature: 0.3,
-        max_tokens: 2000,
+        max_completion_tokens: 2000,
       }),
     })
 

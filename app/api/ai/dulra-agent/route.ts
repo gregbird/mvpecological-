@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
+import { CHEAP_MODEL } from '@/lib/ai/openai-models'
 import { createClient } from '@/lib/supabase/server'
 
 /**
@@ -158,10 +159,10 @@ export async function POST(request: NextRequest) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: CHEAP_MODEL,
+        reasoning_effort: 'minimal',
         messages,
-        temperature: 0.3,
-        max_tokens: 1000,
+        max_completion_tokens: 1000,
       }),
     })
 
@@ -180,7 +181,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       reply,
-      metadata: { model: 'gpt-4o-mini', tokensUsed },
+      metadata: { model: CHEAP_MODEL, tokensUsed },
     })
   } catch (error) {
     console.error('Dulra Agent error:', error)

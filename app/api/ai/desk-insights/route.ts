@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
 import { toIrishEnglish } from '@/lib/ai/irish-english'
 import { createClient } from '@/lib/supabase/server'
+import { SYNTHESIS_MODEL } from '@/lib/ai/openai-models'
 
 /**
  * AI Desk Insights API
@@ -204,7 +205,7 @@ export async function POST(request: NextRequest) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: SYNTHESIS_MODEL,
         messages: [
           {
             role: 'system',
@@ -223,8 +224,7 @@ Rules:
           },
           { role: 'user', content: prompt },
         ],
-        temperature: 0.3,
-        max_tokens: 8000,
+        max_completion_tokens: 8000,
       }),
     })
 

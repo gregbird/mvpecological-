@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
+import { CHEAP_MODEL } from '@/lib/ai/openai-models'
 
 /**
  * AI Legend Generator API
@@ -40,10 +41,10 @@ Write a professional caption suitable for a figure in an ecological report. Incl
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: CHEAP_MODEL,
+        reasoning_effort: 'minimal',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 200,
-        temperature: 0.5,
+        max_completion_tokens: 200,
       }),
     })
 

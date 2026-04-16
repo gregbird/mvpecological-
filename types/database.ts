@@ -403,6 +403,47 @@ export type Database = {
           },
         ]
       }
+      document_chunk_mentions: {
+        Row: {
+          chunk_id: string
+          confidence: number | null
+          created_at: string
+          entity_canonical: string | null
+          entity_type: string
+          entity_value: string
+          id: string
+          raw_snippet: string | null
+        }
+        Insert: {
+          chunk_id: string
+          confidence?: number | null
+          created_at?: string
+          entity_canonical?: string | null
+          entity_type: string
+          entity_value: string
+          id?: string
+          raw_snippet?: string | null
+        }
+        Update: {
+          chunk_id?: string
+          confidence?: number | null
+          created_at?: string
+          entity_canonical?: string | null
+          entity_type?: string
+          entity_value?: string
+          id?: string
+          raw_snippet?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'document_chunk_mentions_chunk_id_fkey'
+            columns: ['chunk_id']
+            isOneToOne: false
+            referencedRelation: 'document_chunks'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       document_chunks: {
         Row: {
           chunk_index: number
@@ -609,6 +650,8 @@ export type Database = {
           last_indexed_at: string | null
           organization_id: string
           status: string
+          summary: string | null
+          summary_generated_at: string | null
           total_chunks: number | null
           updated_at: string
         }
@@ -626,6 +669,8 @@ export type Database = {
           last_indexed_at?: string | null
           organization_id: string
           status?: string
+          summary?: string | null
+          summary_generated_at?: string | null
           total_chunks?: number | null
           updated_at?: string
         }
@@ -643,6 +688,8 @@ export type Database = {
           last_indexed_at?: string | null
           organization_id?: string
           status?: string
+          summary?: string | null
+          summary_generated_at?: string | null
           total_chunks?: number | null
           updated_at?: string
         }
@@ -2367,6 +2414,17 @@ export type Database = {
         Returns: boolean
       }
       geomfromewkt: { Args: { '': string }; Returns: unknown }
+      get_habitat_polygons_geojson: {
+        Args: { p_project_id: string }
+        Returns: {
+          area_hectares: number
+          boundary_geojson: Json
+          condition: string
+          fossitt_code: string
+          fossitt_name: string
+          id: string
+        }[]
+      }
       get_habitats_with_geojson: {
         Args: { p_project_id: string }
         Returns: {
@@ -2490,6 +2548,8 @@ export type Database = {
           total_chunks: number
         }[]
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { '': string }; Returns: string[] }
       st_3dclosestpoint: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: unknown
@@ -3341,7 +3401,7 @@ export const Constants = {
   },
 } as const
 
-// ─── Table Row type aliases ─────────────────────────────────────────
+// ─── Table aliases ──────────────────────────────────────────────────
 export type Project = Database['public']['Tables']['projects']['Row']
 export type ProjectInsert = Database['public']['Tables']['projects']['Insert']
 export type ProjectUpdate = Database['public']['Tables']['projects']['Update']
@@ -3428,7 +3488,12 @@ export type DocumentChunk = Database['public']['Tables']['document_chunks']['Row
 export type DocumentChunkInsert = Database['public']['Tables']['document_chunks']['Insert']
 export type DocumentChunkUpdate = Database['public']['Tables']['document_chunks']['Update']
 
-// New: Project Sites (multi-site support)
+export type DocumentChunkMention = Database['public']['Tables']['document_chunk_mentions']['Row']
+export type DocumentChunkMentionInsert =
+  Database['public']['Tables']['document_chunk_mentions']['Insert']
+export type DocumentChunkMentionUpdate =
+  Database['public']['Tables']['document_chunk_mentions']['Update']
+
 export type ProjectSite = Database['public']['Tables']['project_sites']['Row']
 export type ProjectSiteInsert = Database['public']['Tables']['project_sites']['Insert']
 export type ProjectSiteUpdate = Database['public']['Tables']['project_sites']['Update']

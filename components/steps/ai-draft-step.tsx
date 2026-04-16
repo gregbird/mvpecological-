@@ -28,6 +28,7 @@ import { renderReportTemplate } from '@/lib/templates/template-renderer'
 import { getReportTemplateByType, jsonToSections } from '@/lib/supabase/queries/templates'
 import { DulraAgentTab } from '@/components/steps/ai-draft/dulra-agent-tab'
 import { AIDraftTab } from '@/components/steps/ai-draft/ai-draft-tab'
+import { SYNTHESIS_MODEL } from '@/lib/ai/openai-models'
 import { VersionCompareDialog } from '@/components/steps/ai-draft/version-compare-dialog'
 import { VersionViewDialog } from '@/components/steps/ai-draft/version-view-dialog'
 import { RestoreVersionDialog } from '@/components/steps/ai-draft/restore-version-dialog'
@@ -311,7 +312,7 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
       metadata: {
         generatedAt: new Date().toISOString(),
         editedAt: new Date().toISOString(),
-        aiModel: 'gpt-4o-mini',
+        aiModel: SYNTHESIS_MODEL,
       },
     }
 
@@ -397,7 +398,7 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
             new Date().toISOString())
           : new Date().toISOString(),
         editedAt: new Date().toISOString(),
-        aiModel: 'gpt-4o-mini',
+        aiModel: SYNTHESIS_MODEL,
       },
     }
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
+import { CHEAP_MODEL } from '@/lib/ai/openai-models'
 import { toIrishEnglish } from '@/lib/ai/irish-english'
 import { extractText } from 'unpdf'
 import { getNPWSSiteData, type NPWSSiteData } from '@/lib/data/npws-site-lookup'
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: CHEAP_MODEL,
         messages: [
           {
             role: 'system',
@@ -103,8 +104,7 @@ export async function POST(request: NextRequest) {
           },
           { role: 'user', content: prompt },
         ],
-        temperature: 0.3,
-        max_tokens: 1000,
+        max_completion_tokens: 1000,
       }),
     })
 

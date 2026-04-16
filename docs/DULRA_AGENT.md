@@ -167,7 +167,7 @@ Yardımcı sekme — ekolojist proje verileri hakkında sorular sorar, agent yan
 
 **Yanıt:** `{ reply: string, metadata: { model, tokensUsed } }`
 
-- Model: `gpt-4o-mini` (hızlı yanıt, düşük maliyet)
+- Model: `gpt-5-mini` (hızlı yanıt, düşük maliyet)
 - Max token: 1000
 - Tüm proje verilerini Supabase'den çekip context olarak gönderir
 - System prompt: İrlanda ekoloji uzmanı, sadece verilen proje verilerine dayanarak yanıt verir

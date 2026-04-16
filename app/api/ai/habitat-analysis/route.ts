@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
+import { CHEAP_MODEL } from '@/lib/ai/openai-models'
 import { toIrishEnglish } from '@/lib/ai/irish-english'
 
 /**
@@ -75,7 +76,7 @@ Be specific to Irish ecological legislation and guidance (Wildlife Act, Habitats
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: CHEAP_MODEL,
         messages: [
           {
             role: 'system',
@@ -84,8 +85,7 @@ Be specific to Irish ecological legislation and guidance (Wildlife Act, Habitats
           },
           { role: 'user', content: prompt },
         ],
-        temperature: 0.3,
-        max_tokens: 1500,
+        max_completion_tokens: 1500,
       }),
     })
 

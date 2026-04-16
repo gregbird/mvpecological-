@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
+import { CHEAP_MODEL } from '@/lib/ai/openai-models'
 import { toIrishEnglish } from '@/lib/ai/irish-english'
 
 /**
@@ -87,7 +88,8 @@ Respond with ONLY the 2-3 sentence summary, no headings or bullet points.`
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: CHEAP_MODEL,
+        reasoning_effort: 'minimal',
         messages: [
           {
             role: 'system',
@@ -96,8 +98,7 @@ Respond with ONLY the 2-3 sentence summary, no headings or bullet points.`
           },
           { role: 'user', content: prompt },
         ],
-        temperature: 0.3,
-        max_tokens: 200,
+        max_completion_tokens: 200,
       }),
     })
 

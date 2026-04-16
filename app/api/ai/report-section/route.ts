@@ -6,6 +6,7 @@ import { jsonToSections } from '@/lib/supabase/queries/templates'
 import { REPORT_TYPES } from '@/lib/config/template-types'
 import { getSectionPrompt, getSectionMaxTokens } from '@/lib/ai/report-section-prompts'
 import { toIrishEnglish } from '@/lib/ai/irish-english'
+import { SYNTHESIS_MODEL } from '@/lib/ai/openai-models'
 
 /**
  * AI Report Section Generator API
@@ -609,7 +610,7 @@ Write the section content now. Use markdown formatting (bold, bullet points, tab
       },
       signal: AbortSignal.timeout(55000),
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: SYNTHESIS_MODEL,
         messages: [
           {
             role: 'system',
@@ -622,8 +623,7 @@ Write the section content now. Use markdown formatting (bold, bullet points, tab
           },
           { role: 'user', content: userPrompt },
         ],
-        temperature: 0.3,
-        max_tokens: maxTokens,
+        max_completion_tokens: maxTokens,
       }),
     })
 
@@ -658,7 +658,7 @@ Write the section content now. Use markdown formatting (bold, bullet points, tab
       sectionId,
       content,
       metadata: {
-        model: 'gpt-4o',
+        model: SYNTHESIS_MODEL,
         tokensUsed,
         dataSources,
         generatedAt: new Date().toISOString(),

@@ -3,6 +3,8 @@ import { requireAuth } from '@/lib/supabase/auth-guard'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { generateEmbedding } from '@/lib/dropbox/embeddings'
+import { expandQuery } from '@/lib/dropbox/synonym-expander'
+import { rerankSearchResults } from '@/lib/dropbox/reranker'
 
 interface SearchResult {
   chunk_id: string
@@ -43,17 +45,26 @@ export async function POST(request: NextRequest) {
 
     const trimmedQuery = query.trim()
     const maxResults = Math.min(limit, 50)
+    // Retrieve a wider candidate pool than we'll return — the reranker uses
+    // the surplus to surface items hybrid retrieval ordered incorrectly.
+    const candidatePoolSize = Math.min(maxResults * 2, 50)
+
+    // Keyword search benefits from species synonym expansion (Latin↔common).
+    // Semantic search is left with the raw query — embeddings already handle
+    // synonymy through the vector space, and expanding the OR-clause version
+    // would add noise to the embedding of the query.
+    const expandedQuery = expandQuery(trimmedQuery)
 
     // Run keyword search and semantic search in parallel
     const adminSupabase = createAdminClient()
 
     const [keywordResults, semanticResults] = await Promise.all([
-      // Keyword search (tsvector + ILIKE fallback)
+      // Keyword search (tsvector + ILIKE + trigram fallback)
       adminSupabase
         .rpc('search_document_chunks', {
           p_organization_id: profile.organization_id,
-          p_query: trimmedQuery,
-          p_limit: maxResults,
+          p_query: expandedQuery,
+          p_limit: candidatePoolSize,
         })
         .then(({ data, error }) => {
           if (error) {
@@ -70,8 +81,8 @@ export async function POST(request: NextRequest) {
             .rpc('search_document_chunks_semantic', {
               p_organization_id: profile.organization_id,
               p_embedding: JSON.stringify(embedding),
-              p_match_threshold: 0.3,
-              p_limit: maxResults,
+              p_match_threshold: 0.45,
+              p_limit: candidatePoolSize,
             })
             .then(({ data, error }) => {
               if (error) {
@@ -110,7 +121,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ results: merged.slice(0, maxResults) })
+    // LLM rerank the candidate pool using the ORIGINAL user query (expanded
+    // OR-syntax would confuse the scorer). Failure falls back to the merged
+    // hybrid order without blocking the user.
+    const reranked = await rerankSearchResults(trimmedQuery, merged)
+
+    return NextResponse.json({ results: reranked.slice(0, maxResults) })
   } catch (error) {
     console.error('Search route error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

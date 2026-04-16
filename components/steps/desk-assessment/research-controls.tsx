@@ -6,7 +6,12 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import type { DeepResearchResult } from '@/hooks/queries/use-deep-research-hooks'
 import type { AquaticResearchResult } from '@/lib/supabase/queries/aquatic-research'
-import type { BatchProgress, UnresearchedSite } from '@/hooks/steps/use-deep-research'
+import type {
+  BatchProgress,
+  UnresearchedSite,
+  UnresearchedSpecies,
+  UnresearchedAquatic,
+} from '@/hooks/steps/use-deep-research'
 import type { DeskResearchFinding as DbFinding } from '@/types/database'
 
 /* ------------------------------------------------------------------ */
@@ -16,6 +21,8 @@ import type { DeskResearchFinding as DbFinding } from '@/types/database'
 interface ResearchPanelHeaderProps {
   totalResearched: number
   unresearchedSites: UnresearchedSite[]
+  unresearchedSpecies: UnresearchedSpecies[]
+  unresearchedAquatic: UnresearchedAquatic[]
   batchProgress: BatchProgress | null
   resultsByType: {
     byType: Record<string, DeepResearchResult[]>
@@ -25,58 +32,91 @@ interface ResearchPanelHeaderProps {
   speciesWithResearch: DbFinding[]
   habitatsWithResearch: DbFinding[]
   onBatchResearch: () => void
+  onBatchResearchSpecies: () => void
+  onBatchResearchAquatic: () => void
 }
 
 export function ResearchPanelHeader({
   totalResearched,
   unresearchedSites,
+  unresearchedSpecies,
+  unresearchedAquatic,
   batchProgress,
   resultsByType,
   aquaticResults,
   speciesWithResearch,
   habitatsWithResearch,
   onBatchResearch,
+  onBatchResearchSpecies,
+  onBatchResearchAquatic,
 }: ResearchPanelHeaderProps) {
   const { byType, sortedTypes } = resultsByType
 
   return (
-    <div className="flex items-center justify-between border-b px-4 py-3">
-      <div>
-        <h3 className="text-sm font-semibold">Deep Research</h3>
-        <p className="text-muted-foreground text-xs">
-          {totalResearched} item{totalResearched !== 1 ? 's' : ''} researched
-        </p>
+    <div className="space-y-2 border-b px-4 py-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold">Deep Research</h3>
+          <p className="text-muted-foreground text-xs">
+            {totalResearched} item{totalResearched !== 1 ? 's' : ''} researched
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {sortedTypes.map((type) => (
+            <Badge key={type} variant="outline" className="text-[10px]">
+              {byType[type].length} {type}
+            </Badge>
+          ))}
+          {aquaticResults.length > 0 && (
+            <Badge variant="outline" className="text-[10px]">
+              {aquaticResults.length} Aquatic
+            </Badge>
+          )}
+          {speciesWithResearch.length > 0 && (
+            <Badge variant="outline" className="text-[10px]">
+              {speciesWithResearch.length} Species
+            </Badge>
+          )}
+          {habitatsWithResearch.length > 0 && (
+            <Badge variant="outline" className="text-[10px]">
+              {habitatsWithResearch.length} Habitat
+            </Badge>
+          )}
+        </div>
       </div>
-      <div className="flex flex-wrap items-center gap-1.5">
-        {unresearchedSites.length > 0 && (
-          <BatchResearchButton
-            unresearchedCount={unresearchedSites.length}
-            batchProgress={batchProgress}
-            onResearch={onBatchResearch}
-            size="sm"
-          />
-        )}
-        {sortedTypes.map((type) => (
-          <Badge key={type} variant="outline" className="text-[10px]">
-            {byType[type].length} {type}
-          </Badge>
-        ))}
-        {aquaticResults.length > 0 && (
-          <Badge variant="outline" className="text-[10px]">
-            {aquaticResults.length} Aquatic
-          </Badge>
-        )}
-        {speciesWithResearch.length > 0 && (
-          <Badge variant="outline" className="text-[10px]">
-            {speciesWithResearch.length} Species
-          </Badge>
-        )}
-        {habitatsWithResearch.length > 0 && (
-          <Badge variant="outline" className="text-[10px]">
-            {habitatsWithResearch.length} Habitat
-          </Badge>
-        )}
-      </div>
+      {(unresearchedSites.length > 0 ||
+        unresearchedSpecies.length > 0 ||
+        unresearchedAquatic.length > 0) && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {unresearchedSites.length > 0 && (
+            <BatchResearchButton
+              unresearchedCount={unresearchedSites.length}
+              batchProgress={batchProgress}
+              onResearch={onBatchResearch}
+              label={`Research ${unresearchedSites.length} Site${unresearchedSites.length !== 1 ? 's' : ''}`}
+              size="sm"
+            />
+          )}
+          {unresearchedSpecies.length > 0 && (
+            <BatchResearchButton
+              unresearchedCount={unresearchedSpecies.length}
+              batchProgress={batchProgress}
+              onResearch={onBatchResearchSpecies}
+              label={`Research ${unresearchedSpecies.length} Species`}
+              size="sm"
+            />
+          )}
+          {unresearchedAquatic.length > 0 && (
+            <BatchResearchButton
+              unresearchedCount={unresearchedAquatic.length}
+              batchProgress={batchProgress}
+              onResearch={onBatchResearchAquatic}
+              label={`Research ${unresearchedAquatic.length} Water Bod${unresearchedAquatic.length !== 1 ? 'ies' : 'y'}`}
+              size="sm"
+            />
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -89,6 +129,8 @@ interface BatchResearchButtonProps {
   unresearchedCount: number
   batchProgress: BatchProgress | null
   onResearch: () => void
+  /** Optional custom label (overrides default "Research N More/Sites") */
+  label?: string
   size?: 'sm' | 'default'
 }
 
@@ -96,6 +138,7 @@ function BatchResearchButton({
   unresearchedCount,
   batchProgress,
   onResearch,
+  label,
   size = 'default',
 }: BatchResearchButtonProps) {
   const isRunning = batchProgress?.running
@@ -114,6 +157,8 @@ function BatchResearchButton({
           {batchProgress.current}/{batchProgress.total}
           {size === 'default' && ` — ${batchProgress.currentSite}`}
         </>
+      ) : label ? (
+        label
       ) : size === 'sm' ? (
         `Research ${unresearchedCount} More`
       ) : (

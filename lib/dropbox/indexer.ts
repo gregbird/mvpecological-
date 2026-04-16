@@ -1,12 +1,20 @@
-import pdfParse from 'pdf-parse'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { generateEmbeddingsBatch } from '@/lib/dropbox/embeddings'
+import { extractEntitiesFromChunks } from '@/lib/dropbox/entity-extractor'
+import { generateDocumentSummary } from '@/lib/dropbox/document-summary'
 
 export interface TextChunk {
   content: string
   chunkIndex: number
   pageStart: number | null
   pageEnd: number | null
+}
+
+/** Extraction result — pages[i] is the text of page i+1. DOCX files collapse to a
+ *  single "page" because the format has no reliable page boundaries. */
+export interface ExtractedDocument {
+  pages: string[]
+  extension: string
 }
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
@@ -26,7 +34,7 @@ export async function downloadAndExtractText(
   accessToken: string,
   filePath: string,
   fileSize: number
-): Promise<{ text: string; extension: string }> {
+): Promise<ExtractedDocument> {
   if (fileSize > MAX_FILE_SIZE) {
     throw new Error(`File exceeds ${MAX_FILE_SIZE / 1024 / 1024}MB limit`)
   }
@@ -51,79 +59,124 @@ export async function downloadAndExtractText(
   }
 
   const arrayBuffer = await response.arrayBuffer()
-  const buffer = Buffer.from(arrayBuffer)
   const extension = filePath.split('.').pop()?.toLowerCase() ?? ''
 
   if (extension === 'pdf') {
-    const result = await pdfParse(buffer)
-    return { text: sanitizeText(result.text), extension: 'pdf' }
+    // unpdf uses pdfjs-dist under the hood; with mergePages: false it returns
+    // text per page, letting us preserve page_start/page_end on chunks.
+    const { extractText, getDocumentProxy } = await import('unpdf')
+    const pdf = await getDocumentProxy(new Uint8Array(arrayBuffer))
+    const { text } = await extractText(pdf, { mergePages: false })
+    const pages = Array.isArray(text) ? text : [text]
+    return {
+      pages: pages.map((p) => sanitizeText(p)),
+      extension: 'pdf',
+    }
   }
 
   if (extension === 'docx' || extension === 'doc') {
-    // Use dynamic import for mammoth (CJS module)
+    // Use dynamic import for mammoth (CJS module).
+    // DOCX has no reliable page concept; collapse to a single logical page.
     const mammoth = await import('mammoth')
+    const buffer = Buffer.from(arrayBuffer)
     const result = await mammoth.extractRawText({ buffer })
-    return { text: sanitizeText(result.value), extension: extension === 'doc' ? 'doc' : 'docx' }
+    return {
+      pages: [sanitizeText(result.value)],
+      extension: extension === 'doc' ? 'doc' : 'docx',
+    }
   }
 
   throw new Error(`Unsupported file type: .${extension}`)
 }
 
-/** Split text into overlapping chunks of approximately targetWords words.
- *  Each chunk includes the last overlapWords from the previous chunk so
- *  context is not lost at boundaries. */
+interface RawSegment {
+  content: string
+  pageStart: number | null
+  pageEnd: number | null
+}
+
+/** Page-aware chunking. Each input page is split into paragraphs, paragraphs are
+ *  grouped greedily until chunk size targets are met, and page_start/page_end
+ *  are tracked by tagging every paragraph with its originating page number.
+ *
+ *  Pages = [] or single-page input both work. Pass a single-element array to
+ *  chunk documents with no page boundaries (e.g. DOCX).
+ */
 export function chunkText(
-  text: string,
+  input: string | string[],
   options?: { targetWords?: number; minWords?: number; overlapWords?: number }
 ): TextChunk[] {
   const targetWords = options?.targetWords ?? CHUNK_TARGET_WORDS
   const minWords = options?.minWords ?? CHUNK_MIN_WORDS
   const overlapWords = options?.overlapWords ?? CHUNK_OVERLAP_WORDS
 
-  // Split by paragraphs (double newline) to preserve natural boundaries
-  const paragraphs = text.split(/\n\s*\n/).filter((p) => p.trim().length > 0)
+  // Normalise input: always treat as an array of pages.
+  const pages = Array.isArray(input) ? input : [input]
+  // Track whether we have real page numbers. Single-page input (e.g. DOCX) has
+  // no page concept, so leave page_start/page_end null.
+  const hasPageNumbers = pages.length > 1
 
-  // First pass: group paragraphs into raw (non-overlapping) segments
-  const segments: string[] = []
+  // Collect paragraphs with their page number
+  const taggedParagraphs: Array<{ text: string; page: number | null }> = []
+  pages.forEach((pageText, idx) => {
+    const page = hasPageNumbers ? idx + 1 : null
+    const paragraphs = pageText.split(/\n\s*\n/).filter((p) => p.trim().length > 0)
+    for (const paragraph of paragraphs) {
+      taggedParagraphs.push({ text: paragraph.trim(), page })
+    }
+  })
+
+  // Group paragraphs into segments respecting word targets, tracking page range
+  const segments: RawSegment[] = []
   let currentContent = ''
   let currentWordCount = 0
+  let currentPageStart: number | null = null
+  let currentPageEnd: number | null = null
 
-  for (const paragraph of paragraphs) {
-    const paragraphWords = paragraph.trim().split(/\s+/).length
-    const trimmedParagraph = paragraph.trim()
+  for (const { text, page } of taggedParagraphs) {
+    const paragraphWords = text.split(/\s+/).length
 
     if (currentWordCount + paragraphWords > targetWords && currentWordCount >= minWords) {
-      segments.push(currentContent.trim())
-      currentContent = trimmedParagraph
+      segments.push({
+        content: currentContent.trim(),
+        pageStart: currentPageStart,
+        pageEnd: currentPageEnd,
+      })
+      currentContent = text
       currentWordCount = paragraphWords
+      currentPageStart = page
+      currentPageEnd = page
     } else {
-      currentContent += (currentContent ? '\n\n' : '') + trimmedParagraph
+      currentContent += (currentContent ? '\n\n' : '') + text
       currentWordCount += paragraphWords
+      if (currentPageStart === null) currentPageStart = page
+      currentPageEnd = page
     }
   }
 
   if (currentContent.trim().length > 0) {
-    segments.push(currentContent.trim())
+    segments.push({
+      content: currentContent.trim(),
+      pageStart: currentPageStart,
+      pageEnd: currentPageEnd,
+    })
   }
 
-  // Second pass: add overlap from previous segment
-  const chunks: TextChunk[] = []
-  for (let i = 0; i < segments.length; i++) {
-    let content = segments[i]
-
+  // Add overlap from previous segment to preserve cross-chunk context
+  const chunks: TextChunk[] = segments.map((segment, i) => {
+    let content = segment.content
     if (i > 0 && overlapWords > 0) {
-      const prevWords = segments[i - 1].split(/\s+/)
+      const prevWords = segments[i - 1].content.split(/\s+/)
       const overlap = prevWords.slice(-overlapWords).join(' ')
       content = overlap + '\n\n' + content
     }
-
-    chunks.push({
+    return {
       content,
       chunkIndex: i,
-      pageStart: null,
-      pageEnd: null,
-    })
-  }
+      pageStart: segment.pageStart,
+      pageEnd: segment.pageEnd,
+    }
+  })
 
   return chunks
 }
@@ -141,15 +194,17 @@ export async function indexDocument(params: {
 }): Promise<{ documentId: string; chunks: number }> {
   const supabase = createAdminClient()
 
-  // Check if already indexed with same content_hash
+  // Check if already indexed with same content_hash AND successful status.
+  // Re-index if previous attempt ended in 'error' even when hash matches — users
+  // should be able to retry a failed indexing without bumping the file version.
   const { data: existing } = await supabase
     .from('indexed_documents')
-    .select('id, content_hash')
+    .select('id, content_hash, status')
     .eq('connection_id', params.connectionId)
     .eq('file_path', params.filePath)
     .single()
 
-  if (existing && existing.content_hash === params.contentHash) {
+  if (existing && existing.content_hash === params.contentHash && existing.status === 'ready') {
     return { documentId: existing.id, chunks: 0 }
   }
 
@@ -181,17 +236,29 @@ export async function indexDocument(params: {
   }
 
   try {
-    // Extract text
-    const { text } = await downloadAndExtractText(
+    // Extract text (PDF → per-page, DOCX → single page)
+    const { pages } = await downloadAndExtractText(
       params.accessToken,
       params.filePath,
       params.fileSize
     )
 
-    // Chunk text
-    const chunks = chunkText(text)
+    // Chunk text with page tracking
+    const chunks = chunkText(pages)
 
-    // Store chunks
+    // Generate a short document-level summary (Contextual Retrieval).
+    // Non-fatal: if this fails we fall back to plain chunk embeddings.
+    let documentSummary: string | null = null
+    try {
+      documentSummary = await generateDocumentSummary({
+        fileName: params.fileName,
+        pages,
+      })
+    } catch (summaryError) {
+      console.error('Document summary generation failed (non-fatal):', summaryError)
+    }
+
+    // Store chunks + embeddings + entity mentions
     if (chunks.length > 0) {
       const chunkRows = chunks.map((chunk) => ({
         document_id: documentId,
@@ -204,32 +271,69 @@ export async function indexDocument(params: {
       const { error: chunkError } = await supabase.from('document_chunks').insert(chunkRows)
       if (chunkError) throw new Error(`Failed to insert chunks: ${chunkError.message}`)
 
-      // Generate embeddings and update chunks
-      try {
-        const embeddings = await generateEmbeddingsBatch(chunks.map((c) => c.content))
+      // Generate embeddings. Prepend the document summary to each chunk content
+      // so the embedding captures document-level context (Contextual Retrieval).
+      // The stored chunk.content stays clean so keyword search sees the pure text.
+      const embeddingInputs = chunks.map((c) =>
+        documentSummary ? `${documentSummary}\n\n---\n\n${c.content}` : c.content
+      )
+      const embeddings = await generateEmbeddingsBatch(embeddingInputs)
 
-        // Get inserted chunk IDs in order
-        const { data: insertedChunks } = await supabase
-          .from('document_chunks')
-          .select('id, chunk_index')
-          .eq('document_id', documentId)
-          .order('chunk_index')
+      // Get inserted chunk IDs in order
+      const { data: insertedChunks } = await supabase
+        .from('document_chunks')
+        .select('id, chunk_index')
+        .eq('document_id', documentId)
+        .order('chunk_index')
 
-        if (insertedChunks) {
-          for (let i = 0; i < insertedChunks.length; i++) {
-            await supabase
-              .from('document_chunks')
-              .update({ embedding: JSON.stringify(embeddings[i]) })
-              .eq('id', insertedChunks[i].id)
+      if (insertedChunks) {
+        for (let i = 0; i < insertedChunks.length; i++) {
+          const { error: updateError } = await supabase
+            .from('document_chunks')
+            .update({ embedding: JSON.stringify(embeddings[i]) })
+            .eq('id', insertedChunks[i].id)
+          if (updateError) {
+            throw new Error(`Failed to store embedding for chunk ${i}: ${updateError.message}`)
           }
         }
-      } catch (embeddingError) {
-        // Embedding failure is non-fatal — keyword search still works
-        console.error('Embedding generation failed (non-fatal):', embeddingError)
+
+        // Extract entity mentions per chunk. Non-fatal — if this fails the user
+        // still has full-text + semantic search, they just won't get structured
+        // comparative analysis over this document.
+        try {
+          const entityResults = await extractEntitiesFromChunks(
+            chunks.map((c) => ({ index: c.chunkIndex, content: c.content }))
+          )
+
+          const indexToChunkId = new Map(insertedChunks.map((c) => [c.chunk_index, c.id]))
+          const mentionRows = entityResults.flatMap((result) => {
+            const chunkId = indexToChunkId.get(result.chunkIndex)
+            if (!chunkId) return []
+            return result.entities.map((entity) => ({
+              chunk_id: chunkId,
+              entity_type: entity.type,
+              entity_value: entity.value,
+              entity_canonical: entity.canonical,
+              confidence: entity.confidence,
+              raw_snippet: entity.snippet,
+            }))
+          })
+
+          if (mentionRows.length > 0) {
+            const { error: mentionError } = await supabase
+              .from('document_chunk_mentions')
+              .insert(mentionRows)
+            if (mentionError) {
+              console.error('Failed to insert entity mentions (non-fatal):', mentionError)
+            }
+          }
+        } catch (extractionError) {
+          console.error('Entity extraction failed (non-fatal):', extractionError)
+        }
       }
     }
 
-    // Update document status
+    // Update document status (including the generated summary for future retrieval)
     await supabase
       .from('indexed_documents')
       .update({
@@ -237,6 +341,8 @@ export async function indexDocument(params: {
         total_chunks: chunks.length,
         content_hash: params.contentHash,
         last_indexed_at: new Date().toISOString(),
+        summary: documentSummary,
+        summary_generated_at: documentSummary ? new Date().toISOString() : null,
       })
       .eq('id', documentId)
 

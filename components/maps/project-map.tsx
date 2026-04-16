@@ -18,6 +18,7 @@ import { FindingMarkers } from '@/components/maps/finding-markers'
 import { MapController } from '@/components/maps/map-controller'
 import { BufferZoneLayer } from '@/components/maps/buffer-zone-layer'
 import { HabitatPolygonLayer } from '@/components/maps/habitat-polygon-layer'
+import { NlcTileLayer } from '@/components/maps/nlc-tile-layer'
 import { TargetNoteMarkers } from '@/components/maps/target-note-markers'
 import { ObservationMarkers } from '@/components/maps/observation-markers'
 import {
@@ -55,6 +56,8 @@ interface ProjectMapProps {
   skipFitBounds?: boolean
   /** NPWS designated site layers to show (e.g. ['sac', 'spa', 'nha', 'pnha']) */
   npwsVisibleLayers?: string[]
+  /** Show NLC vector tile layer (whole-Ireland NLC 2018 land cover overlay) */
+  showNlcOverlay?: boolean
 }
 
 /** Props for the inner MapComponent (adds runtime state that ProjectMap manages) */
@@ -123,6 +126,7 @@ function MapComponent({
   gridOverlay,
   skipFitBounds,
   npwsVisibleLayers,
+  showNlcOverlay,
 }: MapComponentProps) {
   const mapInstanceId = React.useId()
 
@@ -285,6 +289,9 @@ function MapComponent({
               style={OTHER_BOUNDARY_STYLE}
             />
           ))}
+
+      {/* NLC vector tile overlay — renders below user habitat polygons */}
+      {showNlcOverlay && <NlcTileLayer />}
 
       {habitatPolygons &&
         habitatLayer?.visible &&
