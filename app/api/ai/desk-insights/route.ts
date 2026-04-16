@@ -224,6 +224,7 @@ Rules:
           },
           { role: 'user', content: prompt },
         ],
+        reasoning_effort: 'medium',
         max_completion_tokens: 12000,
       }),
     })

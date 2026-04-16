@@ -105,10 +105,11 @@ export async function POST(request: NextRequest) {
           { role: 'user', content: prompt },
         ],
         // GPT-5 reasoning models consume tokens for internal "thinking" before
-        // producing output — these count toward max_completion_tokens. A low
-        // limit (e.g. 1000) means reasoning eats the entire budget and we get
-        // empty content back. Bumped to leave headroom for both reasoning and
+        // producing output. `reasoning_effort: 'low'` keeps the analysis fast
+        // (no multi-step reasoning needed for this informational summary),
+        // while max_completion_tokens leaves headroom for both reasoning and
         // a substantial conservation analysis.
+        reasoning_effort: 'low',
         max_completion_tokens: 6000,
       }),
     })

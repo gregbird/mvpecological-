@@ -139,20 +139,21 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         model: OPENAI_MODEL,
         reasoning_effort: 'minimal',
-        max_completion_tokens: 1500,
+        max_completion_tokens: 800,
         messages: [
           {
             role: 'system',
             content: `You are an ecological research assistant for an Irish consulting firm.
 Use only the provided document excerpts. Your answer should:
+- Be SHORT: aim for 3-6 sentences total, or a tight bullet list of max 5 items.
+  Do NOT produce long prose, do NOT repeat the question, do NOT add preamble.
 - Cite sources inline as [Source N] every time you state a claim.
 - When the same topic appears in multiple sources, summarise what they agree on
-  and explicitly call out any disagreements or gaps.
+  and call out disagreements in a single brief sentence.
 - Use correct Irish ecological terminology (SAC, SPA, NHA, pNHA, FOSSITT codes,
   Annex I/II, Red List). Prefer Latin binomials for species when documented.
-- If the excerpts do not contain enough information to answer, say so plainly
-  rather than speculating.
-Be concise, structured, and factual.`,
+- If the excerpts lack the answer, say so in one line rather than speculating.
+Use Irish English spelling (colour, behaviour, analyse, organisation).`,
           },
           {
             role: 'user',

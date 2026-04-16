@@ -248,6 +248,7 @@ export async function POST(request: NextRequest) {
           },
           { role: 'user', content: prompt },
         ],
+        reasoning_effort: 'low',
         max_completion_tokens: 6000,
       }),
     })

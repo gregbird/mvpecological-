@@ -129,6 +129,7 @@ export async function POST(request: NextRequest) {
           },
           { role: 'user', content: contextParts.join('\n') },
         ],
+        reasoning_effort: 'low',
         max_completion_tokens: 6000,
       }),
     })
