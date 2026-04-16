@@ -357,6 +357,30 @@ export function ProjectMap({
     setMapLoaded(true)
   }, [])
 
+  // When the container resizes (tab becomes visible, sidebar toggle, fullscreen,
+  // page-size change), Leaflet needs invalidateSize() or it keeps rendering at
+  // the dimensions it measured at init time — which is 0×0 if mounted inside a
+  // display:none parent (Step 5 Data Analysis tabs).
+  React.useEffect(() => {
+    if (!containerRef.current) return
+    const onResize = () => {
+      setTimeout(() => {
+        try {
+          mapRef.current?.invalidateSize()
+        } catch {
+          /* ignore */
+        }
+      }, 100)
+    }
+    window.addEventListener('resize', onResize)
+    const ro = new ResizeObserver(onResize)
+    ro.observe(containerRef.current)
+    return () => {
+      window.removeEventListener('resize', onResize)
+      ro.disconnect()
+    }
+  }, [mapLoaded])
+
   const toggleLayer = (layerId: string) => {
     setLayers((prev) =>
       prev.map((layer) => (layer.id === layerId ? { ...layer, visible: !layer.visible } : layer))

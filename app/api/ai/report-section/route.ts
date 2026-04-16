@@ -600,7 +600,11 @@ ${context}
 
 Write the section content now. Use markdown formatting (bold, bullet points, tables where appropriate). Do not include the section title as a heading — it will be added separately.${placementGuidance && releveSectionMode === 'main' ? '\n\n**FINAL REMINDER:** You MUST include a "### 3.5 Vegetation Survey (Relevé Data)" subsection at the end, summarising the relevé data from the RELEVÉ VEGETATION SURVEYS block above. This is mandatory whenever relevé data exists.' : ''}${placementGuidance && releveSectionMode === 'appendix' ? '\n\n**FINAL REMINDER:** You MUST include a "Relevé Data — Appendix I" section with detailed per-relevé data cards from the RELEVÉ VEGETATION SURVEYS block above.' : ''}`
 
-    const maxTokens = getSectionMaxTokens(reportType, sectionId)
+    const baseMaxTokens = getSectionMaxTokens(reportType, sectionId)
+    // GPT-5 reasoning models consume tokens for internal "thinking" before
+    // producing output. Add 4000 token headroom for reasoning so the actual
+    // section content isn't truncated.
+    const maxTokens = baseMaxTokens + 4000
 
     const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -608,9 +612,14 @@ Write the section content now. Use markdown formatting (bold, bullet points, tab
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
       },
-      signal: AbortSignal.timeout(55000),
+      // Bumped from 55s — GPT-5 with longer prompts + larger token budget can
+      // exceed 60s. 2 minutes leaves room for slow generations.
+      signal: AbortSignal.timeout(120000),
       body: JSON.stringify({
         model: SYNTHESIS_MODEL,
+        // 'low' keeps generation fast (no expensive multi-step reasoning) while
+        // preserving quality for report sections.
+        reasoning_effort: 'low',
         messages: [
           {
             role: 'system',
@@ -638,6 +647,21 @@ Write the section content now. Use markdown formatting (bold, bullet points, tab
 
     const data = await aiResponse.json()
     const rawContent = data.choices[0]?.message?.content?.trim() || ''
+    const finishReason = data.choices[0]?.finish_reason
+    if (!rawContent) {
+      console.error(
+        '[report-section] Empty AI response. finish_reason:',
+        finishReason,
+        'usage:',
+        data.usage
+      )
+      return NextResponse.json(
+        {
+          error: `AI returned empty content (finish_reason: ${finishReason}). Try regenerating — token limit hit during reasoning.`,
+        },
+        { status: 500 }
+      )
+    }
     // Post-process: ensure Irish/British English spelling
     const content = toIrishEnglish(rawContent)
     const tokensUsed = data.usage?.total_tokens || 0

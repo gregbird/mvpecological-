@@ -12,11 +12,14 @@ import {
 } from '@/lib/supabase/queries'
 import type { InsertTables, UpdateTables } from '@/types/database'
 
+const FIVE_MINUTES = 5 * 60 * 1000
+
 export function useProject(projectId: string) {
   return useQuery({
     queryKey: ['project', projectId],
     queryFn: () => getProject(projectId),
     enabled: !!projectId,
+    staleTime: FIVE_MINUTES,
   })
 }
 
@@ -25,6 +28,7 @@ export function useProjects(organizationId: string) {
     queryKey: ['projects', organizationId],
     queryFn: () => getProjects(organizationId),
     enabled: !!organizationId,
+    staleTime: FIVE_MINUTES,
   })
 }
 
@@ -33,6 +37,7 @@ export function useAssignedProjects(userId: string) {
     queryKey: ['assigned-projects', userId],
     queryFn: () => getAssignedProjects(userId),
     enabled: !!userId,
+    staleTime: FIVE_MINUTES,
   })
 }
 

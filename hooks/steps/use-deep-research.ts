@@ -21,8 +21,8 @@ import {
   type AquaticResearchHabitat,
   type AquaticResearchSpecies,
 } from '@/lib/supabase/queries/aquatic-research'
-import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/hooks/use-toast'
+import { useRole } from '@/contexts/role-context'
 import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
 import type { Project, DeskResearchFinding as DbFinding, Json } from '@/types/database'
 import type { DeskResearchFinding as MapFinding } from '@/components/desk-research/finding-card'
@@ -105,6 +105,7 @@ export function useDeepResearch(
   const updateFinding = useUpdateFinding()
   const queryClient = useQueryClient()
   const { toast } = useToast()
+  const { user: roleUser } = useRole()
 
   // Resolve the selected site so the map zooms to its boundary in single-site mode
   const selectedSite = React.useMemo(
@@ -470,12 +471,7 @@ export function useDeepResearch(
       currentSite: '',
     })
 
-    // Get current user for researched_by field
-    const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    const userId = user?.id || ''
+    const userId = roleUser?.id || ''
 
     let completed = 0
     for (const aquatic of unresearchedAquatic) {
@@ -566,7 +562,7 @@ export function useDeepResearch(
       title: 'Batch research complete',
       description: `${completed} water bodies researched.`,
     })
-  }, [unresearchedAquatic, projectId, projectCenter, queryClient, toast])
+  }, [unresearchedAquatic, projectId, projectCenter, queryClient, toast, roleUser?.id])
 
   return {
     researchResults,

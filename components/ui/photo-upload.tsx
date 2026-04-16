@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
+import { useRole } from '@/contexts/role-context'
 import { readExifMetadata } from '@/lib/photo-upload/exif'
 import type { PhotoInsert } from '@/types/database'
 
@@ -49,23 +50,13 @@ export function PhotoUpload({
 }: PhotoUploadProps) {
   const { toast } = useToast()
   const queryClient = useQueryClient()
+  const { user: roleUser } = useRole()
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = React.useState<UploadingPhoto[]>([])
   const [_isCapturing, setIsCapturing] = React.useState(false)
-  const [authUserId, setAuthUserId] = React.useState<string | null>(null)
+  const authUserId = userId ?? roleUser?.id ?? null
 
   const supabase = createClient()
-
-  // Auto-detect auth user for DB record creation
-  React.useEffect(() => {
-    if (userId) {
-      setAuthUserId(userId)
-      return
-    }
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) setAuthUserId(data.user.id)
-    })
-  }, [userId, supabase.auth])
 
   const canAddMore = photos.length + uploading.length < maxPhotos
 

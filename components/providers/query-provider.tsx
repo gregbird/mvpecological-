@@ -8,9 +8,11 @@ function makeQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        // With SSR, we usually want to set some default staleTime
-        // above 0 to avoid refetching immediately on the client
-        staleTime: 60 * 1000, // 1 minute
+        // 5 min stale keeps DB load low — data is mostly slow-changing
+        // (findings, projects, workflow_steps). Individual hooks can override
+        // when a shorter window is needed.
+        staleTime: 5 * 60 * 1000,
+        gcTime: 15 * 60 * 1000,
         refetchOnWindowFocus: false,
         retry: 1,
         networkMode: 'offlineFirst',

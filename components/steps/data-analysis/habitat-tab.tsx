@@ -35,6 +35,7 @@ import { ChevronDown } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useHabitats, useHabitatStats, useUpdateHabitat } from '@/hooks/queries/use-habitat-hooks'
 import { useSavedFindings } from '@/hooks/queries/use-finding-hooks'
+import { useProjectSites } from '@/hooks/queries/use-site-hooks'
 import { HabitatEditDialog } from '@/components/steps/data-analysis/habitat-edit-dialog'
 import { getHabitatByCode } from '@/lib/data/fossitt-codes'
 import { getHeritageColor } from '@/lib/config/map-constants'
@@ -74,8 +75,14 @@ export function HabitatTab({ projectId, siteId, siteCode, project }: HabitatTabP
   const { data: habitats = [] } = useHabitats(projectId, siteId)
   const { data: habitatStats } = useHabitatStats(projectId, siteId)
   const { data: savedFindings = [] } = useSavedFindings(projectId, siteId)
+  const { data: projectSites = [] } = useProjectSites(projectId)
   const updateHabitat = useUpdateHabitat()
   const [editingHabitat, setEditingHabitat] = React.useState<HabitatPolygon | null>(null)
+
+  const siteNameById = React.useMemo(
+    () => new Map(projectSites.map((s) => [s.id, s.site_name || s.site_code || '\u2014'])),
+    [projectSites]
+  )
 
   // Desk research habitat findings (NLC 2018 from Step 2)
   const deskHabitats = React.useMemo(() => {
@@ -128,6 +135,7 @@ export function HabitatTab({ projectId, siteId, siteCode, project }: HabitatTabP
           fossitt_code: h.fossitt_code,
           fossitt_name: h.fossitt_name,
           condition: h.condition,
+          color: getHeritageColor(h.fossitt_code),
         },
         geometry: h.boundary as GeoJSON.Polygon,
       }))
@@ -144,6 +152,7 @@ export function HabitatTab({ projectId, siteId, siteCode, project }: HabitatTabP
             fossitt_code: fossittCode,
             fossitt_name: String(raw?.fossittName ?? f.title),
             condition: info ? 'desk' : undefined,
+            color: getHeritageColor(fossittCode),
           },
           geometry: f.location as GeoJSON.Geometry,
         }
@@ -382,6 +391,7 @@ export function HabitatTab({ projectId, siteId, siteCode, project }: HabitatTabP
               <TableRow>
                 <TableHead>Code</TableHead>
                 <TableHead>Habitat</TableHead>
+                <TableHead>Site</TableHead>
                 <TableHead className="text-right">Area (ha)</TableHead>
                 <TableHead>Condition</TableHead>
                 <TableHead>EU Annex</TableHead>
@@ -397,6 +407,12 @@ export function HabitatTab({ projectId, siteId, siteCode, project }: HabitatTabP
                   <TableRow key={h.id} className={cn(!h.include_in_report && 'opacity-50')}>
                     <TableCell className="font-mono">{h.fossitt_code}</TableCell>
                     <TableCell className="max-w-50 truncate">{h.fossitt_name}</TableCell>
+                    <TableCell
+                      className="text-muted-foreground max-w-32 truncate text-xs"
+                      title={h.site_id ? siteNameById.get(h.site_id) : ''}
+                    >
+                      {h.site_id ? (siteNameById.get(h.site_id) ?? '\u2014') : '\u2014'}
+                    </TableCell>
                     <TableCell className="text-right">
                       {(h.area_hectares ?? 0).toFixed(2)}
                     </TableCell>
@@ -435,7 +451,7 @@ export function HabitatTab({ projectId, siteId, siteCode, project }: HabitatTabP
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-muted-foreground text-center">
+                  <TableCell colSpan={10} className="text-muted-foreground text-center">
                     No habitat data
                   </TableCell>
                 </TableRow>

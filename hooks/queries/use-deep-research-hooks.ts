@@ -14,11 +14,14 @@ import {
   getProjectAquaticResearch,
 } from '@/lib/supabase/queries/aquatic-research'
 
+const FIVE_MINUTES = 5 * 60 * 1000
+
 export function useProjectDeepResearch(projectId: string) {
   return useQuery({
     queryKey: ['deep-research', projectId],
     queryFn: () => getProjectDeepResearch(projectId),
     enabled: !!projectId,
+    staleTime: FIVE_MINUTES,
   })
 }
 
@@ -27,6 +30,7 @@ export function useSiteDeepResearch(projectId: string, siteCode: string) {
     queryKey: ['deep-research', projectId, siteCode],
     queryFn: () => getSiteDeepResearch(projectId, siteCode),
     enabled: !!projectId && !!siteCode,
+    staleTime: FIVE_MINUTES,
   })
 }
 
@@ -57,6 +61,7 @@ export function useProjectAquaticResearch(projectId: string) {
     queryKey: ['aquatic-research', projectId],
     queryFn: () => getProjectAquaticResearch(projectId),
     enabled: !!projectId,
+    staleTime: FIVE_MINUTES,
   })
 }
 
@@ -65,6 +70,7 @@ export function useWaterBodyResearch(projectId: string, waterBodyCode: string) {
     queryKey: ['aquatic-research', projectId, waterBodyCode],
     queryFn: () => getWaterBodyResearch(projectId, waterBodyCode),
     enabled: !!projectId && !!waterBodyCode,
+    staleTime: FIVE_MINUTES,
   })
 }
 

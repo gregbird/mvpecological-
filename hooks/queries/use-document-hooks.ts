@@ -9,11 +9,14 @@ import {
 } from '@/lib/supabase/queries/documents'
 import { searchDocuments, type DocumentSearchResult } from '@/lib/dropbox/search'
 
+const FIVE_MINUTES = 5 * 60 * 1000
+
 export function useDropboxConnection(organizationId: string) {
   return useQuery({
     queryKey: ['dropbox-connection', organizationId],
     queryFn: () => getDropboxConnection(organizationId),
     enabled: !!organizationId,
+    staleTime: FIVE_MINUTES,
   })
 }
 
@@ -22,6 +25,7 @@ export function useIndexedDocuments(connectionId: string) {
     queryKey: ['indexed-documents', connectionId],
     queryFn: () => getIndexedDocuments(connectionId),
     enabled: !!connectionId,
+    staleTime: FIVE_MINUTES,
   })
 }
 
