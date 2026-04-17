@@ -261,10 +261,15 @@ export function DataAnalysisStep({
             siteId={selectedSiteId}
             userId={userId || ''}
             project={project}
+            workflowStep={workflowStep}
           />
         </div>
         <div className={activeTab !== 'field-survey' ? 'hidden' : ''}>
-          <FieldSurveyTab projectId={project.id} siteId={selectedSiteId} />
+          <FieldSurveyTab
+            projectId={project.id}
+            siteId={selectedSiteId}
+            workflowStep={workflowStep}
+          />
         </div>
         <div className={activeTab !== 'releve-surveys' ? 'hidden' : ''}>
           <ReleveSurveysTab
@@ -279,10 +284,16 @@ export function DataAnalysisStep({
             siteId={selectedSiteId}
             siteCode={project.site_code}
             project={project}
+            workflowStep={workflowStep}
           />
         </div>
         <div className={activeTab !== 'target-notes' ? 'hidden' : ''}>
-          <TargetNotesTab projectId={project.id} siteId={selectedSiteId} project={project} />
+          <TargetNotesTab
+            projectId={project.id}
+            siteId={selectedSiteId}
+            project={project}
+            workflowStep={workflowStep}
+          />
         </div>
         <div className={activeTab !== 'maps' ? 'hidden' : ''}>
           <MapsTab

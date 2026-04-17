@@ -11,13 +11,14 @@ import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
 import { DeskAssessmentFindingsSection } from './desk-assessment-findings-section'
 import { DeskAssessmentAnalysisSection } from './desk-assessment-analysis-section'
 import { CreateSummaryButton } from './create-summary-button'
-import type { Project } from '@/types/database'
+import type { Project, WorkflowStep } from '@/types/database'
 
 interface DeskAssessmentCombinedTabProps {
   projectId: string
   siteId?: string | null
   userId: string
   project: Project
+  workflowStep: WorkflowStep
 }
 
 export function DeskAssessmentCombinedTab({
@@ -25,6 +26,7 @@ export function DeskAssessmentCombinedTab({
   siteId,
   userId,
   project,
+  workflowStep,
 }: DeskAssessmentCombinedTabProps) {
   const [projectInfoOpen, setProjectInfoOpen] = React.useState(false)
   const { projectBoundary } = useProjectBoundary(project)
@@ -141,7 +143,12 @@ export function DeskAssessmentCombinedTab({
       {/* Findings Section */}
       <section>
         <h3 className="mb-4 text-lg font-semibold">Desk Research Findings</h3>
-        <DeskAssessmentFindingsSection projectId={projectId} siteId={siteId} userId={userId} />
+        <DeskAssessmentFindingsSection
+          projectId={projectId}
+          siteId={siteId}
+          userId={userId}
+          workflowStep={workflowStep}
+        />
       </section>
 
       {/* Baseline Analysis Section */}

@@ -27,6 +27,8 @@ interface SurveyListProps {
   onComplete: (survey: SurveyCardType) => void
   onAssignStaff: (survey: SurveyCardType) => void
   onAddVisit: (survey: SurveyCardType) => void
+  /** When true, hide Add Visit affordances (multi-site, no site selected) */
+  disableAddVisit?: boolean
 }
 
 export function SurveyList({
@@ -44,7 +46,10 @@ export function SurveyList({
   onComplete,
   onAssignStaff,
   onAddVisit,
+  disableAddVisit = false,
 }: SurveyListProps) {
+  // Undefined → SurveyCard hides the dropdown item; group-level button also gated below.
+  const cardAddVisit = disableAddVisit ? undefined : onAddVisit
   return (
     <Tabs value={activeTab} onValueChange={onActiveTabChange}>
       <TabsList>
@@ -94,12 +99,13 @@ export function SurveyList({
                             onDelete={onDelete}
                             onComplete={onComplete}
                             onAssignStaff={canAssignStaff ? onAssignStaff : undefined}
+                            onAddVisit={cardAddVisit}
                             isHighlighted={survey.id === highlightedSurveyId}
                           />
                         ))}
                       </div>
                       {/* Add Visit button — group level */}
-                      {!groupCards.every((s) => s.status === 'completed') && (
+                      {!disableAddVisit && !groupCards.every((s) => s.status === 'completed') && (
                         <div className="border-t px-3 py-2">
                           <Button
                             variant="outline"
@@ -132,7 +138,7 @@ export function SurveyList({
                       onDelete={onDelete}
                       onComplete={onComplete}
                       onAssignStaff={canAssignStaff ? onAssignStaff : undefined}
-                      onAddVisit={onAddVisit}
+                      onAddVisit={cardAddVisit}
                       isHighlighted={survey.id === highlightedSurveyId}
                     />
                   ))}
@@ -162,7 +168,7 @@ export function SurveyList({
                       onDelete={onDelete}
                       onComplete={onComplete}
                       onAssignStaff={canAssignStaff ? onAssignStaff : undefined}
-                      onAddVisit={onAddVisit}
+                      onAddVisit={cardAddVisit}
                       isHighlighted={survey.id === highlightedSurveyId}
                     />
                   ))}

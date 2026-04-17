@@ -1,8 +1,9 @@
 'use client'
 
 import * as React from 'react'
-import { Plus, Loader2, Target, ClipboardList, Download } from 'lucide-react'
+import { AlertCircle, Plus, Loader2, Target, ClipboardList, Download } from 'lucide-react'
 
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -22,6 +23,7 @@ import {
 import { type TargetNoteCategory } from '@/components/field-surveys/target-note-card'
 import { TargetNoteForm } from '@/components/field-surveys/target-note-form'
 import { SiteSelector } from '@/components/project/site-selector'
+import { useProjectSites } from '@/hooks/queries/use-site-hooks'
 import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
 import type { ProjectSiteWithGeoJSON } from '@/lib/supabase/queries/project-sites'
 import type { Project, WorkflowStep, SpeciesObservation } from '@/types/database'
@@ -42,6 +44,13 @@ export function TargetNotesStep({
   userId,
 }: TargetNotesStepProps) {
   const [selectedSite, setSelectedSite] = React.useState<ProjectSiteWithGeoJSON | null>(null)
+  const { data: projectSites = [], isLoading: isLoadingSites } = useProjectSites(project.id)
+  const isMultiSite = projectSites.length > 1
+  // Multi-site projects must have a site picked before users can persist
+  // target notes / observations — keeps every record traceable to one site.
+  // Also block while sites load to avoid a brief window where Add buttons
+  // appear enabled before `isMultiSite` resolves.
+  const requiresSiteSelection = isLoadingSites || (isMultiSite && !selectedSite)
   const { projectBoundary, projectCenter } = useProjectBoundary(project, selectedSite)
   const [activeMainTab, setActiveMainTab] = React.useState<'target-notes' | 'observations'>(
     'target-notes'
@@ -100,6 +109,9 @@ export function TargetNotesStep({
     userId,
     selectedSite,
     selectedSurveyId,
+    // Single-site projects auto-resolve to that site (SiteSelector is hidden)
+    effectiveSiteId:
+      selectedSite?.id ?? (projectSites.length === 1 ? (projectSites[0]?.id ?? null) : null),
   })
 
   const onCreateTargetNote = async (data: Parameters<typeof handleCreateTargetNote>[0]) => {
@@ -194,22 +206,28 @@ export function TargetNotesStep({
               showAllOption
             />
             {activeMainTab === 'target-notes' ? (
-              <Button
-                onClick={() => {
-                  setEditingTargetNote(null)
-                  setShowTargetNoteForm(true)
-                }}
-                size="sm"
+              <span
+                title={requiresSiteSelection ? 'Select a site first to add a note.' : undefined}
+                className="inline-block"
               >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Note
-              </Button>
+                <Button
+                  onClick={() => {
+                    setEditingTargetNote(null)
+                    setShowTargetNoteForm(true)
+                  }}
+                  disabled={requiresSiteSelection}
+                  size="sm"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Note
+                </Button>
+              </span>
             ) : (
               <div className="flex items-center gap-2">
                 {importableSpecies.length > 0 && (
                   <Button
                     onClick={handleImportSpecies}
-                    disabled={surveys.length === 0 || isImporting}
+                    disabled={surveys.length === 0 || isImporting || requiresSiteSelection}
                     size="sm"
                     variant="outline"
                   >
@@ -223,11 +241,13 @@ export function TargetNotesStep({
                 )}
                 <span
                   title={
-                    surveys.length === 0
-                      ? 'Create a survey first in Field Survey Planning'
-                      : !selectedSurveyId
-                        ? 'Select a survey from the dropdown above to add observations to it'
-                        : undefined
+                    requiresSiteSelection
+                      ? 'Select a site first to add an observation.'
+                      : surveys.length === 0
+                        ? 'Create a survey first in Field Survey Planning'
+                        : !selectedSurveyId
+                          ? 'Select a survey from the dropdown above to add observations to it'
+                          : undefined
                   }
                   className="inline-block"
                 >
@@ -236,7 +256,7 @@ export function TargetNotesStep({
                       setEditingObservation(null)
                       setShowObservationForm(true)
                     }}
-                    disabled={surveys.length === 0 || !selectedSurveyId}
+                    disabled={surveys.length === 0 || !selectedSurveyId || requiresSiteSelection}
                     size="sm"
                   >
                     <Plus className="mr-2 h-4 w-4" />
@@ -247,6 +267,17 @@ export function TargetNotesStep({
             )}
           </div>
         </div>
+
+        {requiresSiteSelection && (
+          <Alert className="mx-6 mt-3 border-amber-500/50 text-amber-700 dark:text-amber-400 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-500">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Select a site first</AlertTitle>
+            <AlertDescription>
+              Pick a site from the selector above before adding notes or observations. Each record
+              must be associated with a single site.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* TARGET NOTES TAB */}
         <TabsContent
@@ -273,6 +304,7 @@ export function TargetNotesStep({
             }}
             projectBoundary={projectBoundary}
             projectCenter={projectCenter}
+            addDisabled={requiresSiteSelection}
           />
         </TabsContent>
 

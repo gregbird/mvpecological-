@@ -7,6 +7,10 @@ import { REPORT_TYPES } from '@/lib/config/template-types'
 import { getSectionPrompt, getSectionMaxTokens } from '@/lib/ai/report-section-prompts'
 import { toIrishEnglish } from '@/lib/ai/irish-english'
 import { SYNTHESIS_MODEL } from '@/lib/ai/openai-models'
+import { buildSpatialClassifier, type SpatialZone } from '@/lib/utils/spatial-classifier'
+
+type PlacementOption = 'main' | 'appendix' | 'both' | 'exclude'
+type PlacementCategory = 'releveSurveys' | 'findings' | 'habitats' | 'targetNotes' | 'surveys'
 
 /**
  * AI Report Section Generator API
@@ -64,9 +68,12 @@ interface ProjectData {
   county: string | null
   townland: string | null
   province: string | null
+  boundary: unknown
+  buffer_distances: unknown
 }
 
 interface HabitatData {
+  id: string
   fossitt_code: string
   fossitt_name: string
   area_hectares: number | null
@@ -92,6 +99,7 @@ interface ObservationData {
 }
 
 interface FindingData {
+  id: string
   title: string
   source: string
   data_type: string
@@ -99,6 +107,7 @@ interface FindingData {
   distance_from_boundary_km: number | null
   is_protected: boolean | null
   notes: string | null
+  location: GeoJSON.Geometry | null
 }
 
 interface SurveyData {
@@ -113,6 +122,7 @@ interface SurveyData {
 }
 
 interface TargetNoteData {
+  id: string
   category: string
   title: string
   description: string | null
@@ -196,10 +206,12 @@ export async function POST(request: NextRequest) {
       townland: string | null
       province: string | null
     } | null = null
+    let scopeBoundary: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> | null = null
+    let scopeBufferKm = 2
     if (siteId) {
       const { data: siteRow } = await supabase
         .from('project_sites')
-        .select('site_code, site_name, county, townland, province')
+        .select('site_code, site_name, county, townland, province, boundary, buffer_distances')
         .eq('id', siteId)
         .maybeSingle()
       if (siteRow) {
@@ -209,6 +221,10 @@ export async function POST(request: NextRequest) {
           county: siteRow.county,
           townland: siteRow.townland,
           province: siteRow.province,
+        }
+        scopeBoundary = normaliseBoundary(siteRow.boundary)
+        if (Array.isArray(siteRow.buffer_distances) && siteRow.buffer_distances.length > 0) {
+          scopeBufferKm = Number(siteRow.buffer_distances[0]) || 2
         }
       }
     }
@@ -261,7 +277,7 @@ export async function POST(request: NextRequest) {
     let habitatsQuery = supabase
       .from('habitat_polygons')
       .select(
-        'fossitt_code, fossitt_name, area_hectares, condition, notes, threats, eu_annex_code, evaluation, listed_species'
+        'id, fossitt_code, fossitt_name, area_hectares, condition, notes, threats, eu_annex_code, evaluation, listed_species'
       )
       .eq('project_id', projectId)
       .eq('include_in_report', true)
@@ -288,7 +304,9 @@ export async function POST(request: NextRequest) {
     // Findings — filter by site_id
     let findingsQuery = supabase
       .from('desk_research_findings')
-      .select('title, source, data_type, raw_data, distance_from_boundary_km, is_protected, notes')
+      .select(
+        'id, title, source, data_type, raw_data, distance_from_boundary_km, is_protected, notes, location'
+      )
       .eq('project_id', projectId)
       .eq('is_saved', true)
       .eq('include_in_report', true)
@@ -304,7 +322,7 @@ export async function POST(request: NextRequest) {
     // Target notes — filter by site_id
     let targetNotesQuery = supabase
       .from('target_notes')
-      .select('category, title, description, priority, is_verified')
+      .select('id, category, title, description, priority, is_verified')
       .eq('project_id', projectId)
       .eq('include_in_report', true)
     if (siteId) targetNotesQuery = targetNotesQuery.eq('site_id', siteId)
@@ -358,7 +376,9 @@ export async function POST(request: NextRequest) {
     ] = await Promise.all([
       supabase
         .from('projects')
-        .select('name, site_code, grid_reference, county, townland, province')
+        .select(
+          'name, site_code, grid_reference, county, townland, province, boundary, buffer_distances'
+        )
         .eq('id', projectId)
         .single(),
       habitatsQuery,
@@ -389,18 +409,26 @@ export async function POST(request: NextRequest) {
     }
 
     const project = projectResult.data as ProjectData
+    // Fall back to project-level boundary/buffer when no specific site is scoped.
+    if (!scopeBoundary) {
+      scopeBoundary = normaliseBoundary(project.boundary)
+      if (Array.isArray(project.buffer_distances) && project.buffer_distances.length > 0) {
+        scopeBufferKm = Number(project.buffer_distances[0]) || 2
+      }
+    }
+
     const habitats = (habitatsResult.data || []) as HabitatData[]
     const allObservations = (observationsResult.data || []) as ObservationData[]
-    const findings = (findingsResult.data || []) as FindingData[]
+    const allFindings = (findingsResult.data || []) as FindingData[]
     const allSurveys = (surveysResult.data || []) as SurveyData[]
-    const targetNotes = (targetNotesResult.data || []) as TargetNoteData[]
+    const allTargetNotes = (targetNotesResult.data || []) as TargetNoteData[]
 
     // Filter surveys and observations by linked surveys (if links exist)
-    const surveys =
+    const linkScopedSurveys =
       linkedSurveyIds.length > 0
         ? allSurveys.filter((s) => linkedSurveyIds.includes(s.id))
         : allSurveys
-    const observations =
+    const linkScopedObservations =
       linkedSurveyIds.length > 0
         ? allObservations.filter((o) => linkedSurveyIds.includes(o.survey_id))
         : allObservations
@@ -431,52 +459,92 @@ export async function POST(request: NextRequest) {
       allReleveSpecies = (speciesData || []) as ReleveSpeciesData[]
     }
 
-    // Apply Step 5 placement preferences — filter relevés based on section context.
-    // EWIC Relevé report pattern:
-    //   - results section    → aggregate summary prose + charts (uses 'main' or 'both' relevés)
-    //   - appendices section → full per-relevé data cards (uses 'appendix' or 'both' relevés)
-    //   - other sections     → all non-excluded relevés (backward-compatible behaviour)
+    // Apply Step 5 placement preferences — filter records by section context.
+    //   - results / baseline section → main or both
+    //   - appendices section         → appendix or both
+    //   - any other section          → exclude only the explicitly-excluded
+    // The same rules apply uniformly to relevés, findings, habitats, target notes, surveys.
     const dataAnalysisMetadata =
       (dataAnalysisStepResult.data?.metadata as Record<string, unknown> | null) || {}
     const placementPreferences = dataAnalysisMetadata.placementPreferences as
-      | { releveSurveys?: Record<string, 'main' | 'appendix' | 'both' | 'exclude'> }
+      | Partial<Record<PlacementCategory, Record<string, PlacementOption>>>
       | undefined
-    const relevePlacementMap = placementPreferences?.releveSurveys ?? {}
-    const getRelevePlacement = (releveId: string): 'main' | 'appendix' | 'both' | 'exclude' =>
-      relevePlacementMap[releveId] ?? 'both'
 
-    let releveSurveys: ReleveData[]
-    let releveSectionMode: 'main' | 'appendix' | 'default' = 'default'
-    if (sectionId === 'appendices') {
-      releveSectionMode = 'appendix'
-      releveSurveys = allReleveSurveys.filter((r) => {
-        const p = getRelevePlacement(r.id)
-        return p === 'appendix' || p === 'both'
-      })
-    } else if (sectionId === 'results' || sectionId === 'baseline') {
-      releveSectionMode = 'main'
-      releveSurveys = allReleveSurveys.filter((r) => {
-        const p = getRelevePlacement(r.id)
-        return p === 'main' || p === 'both'
-      })
-    } else {
-      releveSurveys = allReleveSurveys.filter((r) => getRelevePlacement(r.id) !== 'exclude')
+    const placementOf = (category: PlacementCategory, recordId: string): PlacementOption =>
+      placementPreferences?.[category]?.[recordId] ?? 'both'
+
+    const sectionMode: 'main' | 'appendix' | 'default' =
+      sectionId === 'appendices'
+        ? 'appendix'
+        : sectionId === 'results' || sectionId === 'baseline'
+          ? 'main'
+          : 'default'
+
+    function applyPlacement<T extends { id: string }>(
+      records: T[],
+      category: PlacementCategory
+    ): T[] {
+      if (sectionMode === 'appendix') {
+        return records.filter((r) => {
+          const p = placementOf(category, r.id)
+          return p === 'appendix' || p === 'both'
+        })
+      }
+      if (sectionMode === 'main') {
+        return records.filter((r) => {
+          const p = placementOf(category, r.id)
+          return p === 'main' || p === 'both'
+        })
+      }
+      return records.filter((r) => placementOf(category, r.id) !== 'exclude')
     }
 
-    // Filter relevé surveys by linked surveys when org-level links exist
+    // Relevé surveys — placement applied + linked-survey scoping
+    let releveSurveys = applyPlacement(allReleveSurveys, 'releveSurveys')
     if (linkedSurveyIds.length > 0) {
       releveSurveys = releveSurveys.filter((r) => linkedSurveyIds.includes(r.survey_id))
     }
-
+    const releveSectionMode = sectionMode
     const visibleReleveIds = new Set(releveSurveys.map((r) => r.id))
     const releveSpecies = allReleveSpecies.filter((s) => visibleReleveIds.has(s.releve_id))
+
+    // Findings — placement applied
+    const findings = applyPlacement(allFindings, 'findings')
+
+    // Habitats — placement applied
+    const placedHabitats = applyPlacement(habitats, 'habitats')
+
+    // Target notes — placement applied
+    const targetNotes = applyPlacement(allTargetNotes, 'targetNotes')
+
+    // Surveys — placement applied; observations inherit parent survey placement
+    const surveys = applyPlacement(linkScopedSurveys, 'surveys')
+    const visibleSurveyIds = new Set(surveys.map((s) => s.id))
+    const observations = linkScopedObservations.filter((o) => visibleSurveyIds.has(o.survey_id))
+
+    // Spatial classification — group findings by zone (inside / buffer / outside).
+    // Findings beyond the buffer are dropped from the report context entirely so
+    // the AI never references them. Inside vs buffer drive separate prose blocks.
+    const classifier = buildSpatialClassifier(scopeBoundary, scopeBufferKm)
+    const findingsByZone: Record<SpatialZone, FindingData[]> = {
+      inside: [],
+      buffer: [],
+      outside: [],
+    }
+    for (const f of findings) {
+      const { zone } = classifier.classify(f.location ?? null)
+      findingsByZone[zone].push(f)
+    }
+    const reportableFindings = [...findingsByZone.inside, ...findingsByZone.buffer]
+    const hasBufferFindings = findingsByZone.buffer.length > 0
 
     // Build context (with optional per-site header override)
     const context = buildReportContext({
       project,
-      habitats,
+      habitats: placedHabitats,
       observations,
-      findings,
+      findings: reportableFindings,
+      findingsByZone,
       surveys,
       targetNotes,
       deepResearch,
@@ -485,6 +553,7 @@ export async function POST(request: NextRequest) {
       releveSurveys,
       releveSpecies,
       siteContext,
+      bufferRadiusKm: scopeBufferKm,
     })
 
     // Build section-specific prompt from centralized prompt definitions
@@ -547,13 +616,96 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Placement-aware guidance for relevé vegetation data.
-    // When the ecologist has designated relevés for specific sections in Step 5,
-    // enforce the EWIC Relevé report template convention for how they're presented.
-    let placementGuidance = ''
+    // Placement-aware guidance — assembled from all data categories the
+    // ecologist designated in Step 5. Each block reinforces the EWIC report
+    // template convention: aggregate prose summaries in the main body,
+    // full per-record tables/cards in the appendix.
+    const guidanceBlocks: string[] = []
+
+    if (sectionMode === 'main' || sectionMode === 'appendix') {
+      // Findings (species records, designated sites, water quality, etc.)
+      if (findings.length > 0) {
+        if (sectionMode === 'main') {
+          guidanceBlocks.push(`**DESK FINDINGS PLACEMENT (MAIN BODY):**
+The ecologist has designated ${findings.length} desk research finding(s) for the main body. Within the relevant Results subsections (e.g. 3.1 Designated Sites, 3.2 Habitats, 3.3 Flora, 3.4 Fauna, 3.x Water Quality):
+- Provide a **summarised inline table or prose** of the most relevant findings — typically the top N by importance (highest legal protection, closest to boundary, or most ecologically significant)
+- Reference the source database for each (NPWS, NBDC, GBIF, EPA, Catchments)
+- Include a closing line: "A full list of recorded species/sites/water bodies is provided in the relevant Appendix."`)
+        } else {
+          guidanceBlocks.push(`**DESK FINDINGS PLACEMENT (APPENDIX):**
+The ecologist has designated ${findings.length} desk research finding(s) for the appendix. Present them as **full reference tables**, grouped by data type:
+- **Appendix — Species Records:** every species with Latin name, common name, source, year, distance from boundary
+- **Appendix — Designated Sites:** site code, name, type (SAC/SPA/NHA/pNHA), distance, qualifying interest features
+- **Appendix — Water Quality:** water body code, name, type, WFD status, risk
+- Use markdown tables. Do not paraphrase — present the raw data.`)
+        }
+      }
+
+      // Habitats
+      if (placedHabitats.length > 0) {
+        if (sectionMode === 'main') {
+          guidanceBlocks.push(`**HABITATS PLACEMENT (MAIN BODY):**
+The ecologist has designated ${placedHabitats.length} habitat polygon(s) for the main body. Within the Habitats subsection (typically 3.2):
+- Provide a **summary table**: Fossitt code, habitat name, area (ha), condition. Group by Fossitt category if there are many.
+- Reference Fossitt (2000) classification.
+- Add a closing line: "Detailed per-polygon data including threats and listed species is provided in the Appendix."`)
+        } else {
+          guidanceBlocks.push(`**HABITATS PLACEMENT (APPENDIX):**
+The ecologist has designated ${placedHabitats.length} habitat polygon(s) for the appendix. Present as **full per-polygon detail rows or cards**: Fossitt code, name, area (ha), condition, EU Annex code, evaluation, threats, listed species, ecologist notes. Use markdown tables.`)
+        }
+      }
+
+      // Target notes — EWIC Table 1 inline 2-column format
+      if (targetNotes.length > 0) {
+        if (sectionMode === 'main') {
+          guidanceBlocks.push(`**TARGET NOTES PLACEMENT (MAIN BODY):**
+The ecologist has designated ${targetNotes.length} target note(s) for the main body. Present them as an inline **EWIC Table 1 format** — a 2-column markdown table:
+| Note ID | Description |
+| --- | --- |
+| N1 | <description text> |
+| N2 | <description text> |
+…
+Use the note's category + title as the description prefix where helpful (e.g. "[habitat] Damaged drainage line near eastern boundary..."). Cross-reference any note that supports a finding in the prose above.`)
+        } else {
+          guidanceBlocks.push(`**TARGET NOTES PLACEMENT (APPENDIX):**
+The ecologist has designated ${targetNotes.length} target note(s) for the appendix. Present them as a full **EWIC Table 1 format** in a dedicated "Target Notes" appendix subsection — same 2-column structure (Note ID | Description) listing every designated note in full.`)
+        }
+      }
+
+      // Surveys + observations — EWIC Survey Results (main) vs Survey Data (appendix)
+      if (surveys.length > 0) {
+        if (sectionMode === 'main') {
+          guidanceBlocks.push(`**SURVEY RESULTS PLACEMENT (MAIN BODY):**
+The ecologist has designated ${surveys.length} field survey(s) for the main body. Add or expand a **"Survey Results"** subsection summarising:
+- Total surveys, dates, survey types, weather conditions
+- Aggregate species observations (${observations.length} records inherited from these surveys) — group by taxon, highlight protected species
+- DAFOR / count summaries where present
+- Closing line: "Full per-survey data and complete species observation tables are provided in the 'Survey Data' appendix."`)
+        } else {
+          guidanceBlocks.push(`**SURVEY DATA PLACEMENT (APPENDIX):**
+The ecologist has designated ${surveys.length} field survey(s) for the appendix. Present a **"Survey Data"** appendix section with:
+- Per-survey detail block: date, type, time, weather, surveyor notes
+- Full **species observations table** for each survey: scientific name, common name, taxon, count, abundance (DAFOR), evidence type, protected status, behaviour notes
+- Use markdown tables. Do not paraphrase.`)
+        }
+      }
+    }
+
+    // Buffer-zone awareness — only fires for main-body sections
+    // (results/baseline). Introduction/methodology/constraints etc. shouldn't
+    // gain a "Nearby Designated Sites" subsection.
+    if (hasBufferFindings && sectionMode === 'main') {
+      guidanceBlocks.push(`**BUFFER ZONE FINDINGS — MANDATORY SEPARATE SUBSECTION:**
+The PROJECT DATA below contains ${findingsByZone.buffer.length} finding(s) located **outside the project boundary but within the ${scopeBufferKm} km buffer zone**. These are grouped under "FINDINGS WITHIN BUFFER ZONE (outside boundary)".
+- Acknowledge these findings in a clearly-labelled separate paragraph or subsection — e.g. "### Nearby Designated Sites (within ${scopeBufferKm} km buffer)" or "### Surrounding Context".
+- Describe the habitats, species, and condition of these designated sites/records — they are not within the project but may be ecologically connected.
+- Do NOT treat buffer-zone findings as if they were inside the boundary, and do NOT silently merge them with on-site findings. Greg requires the spatial distinction to be explicit.`)
+    }
+
+    // Relevé vegetation — original rich block, preserved intact.
     if (releveSurveys.length > 0) {
       if (releveSectionMode === 'main') {
-        placementGuidance = `\n\n**⚠ MANDATORY — RELEVÉ VEGETATION SUBSECTION (MAIN BODY):**
+        guidanceBlocks.push(`**⚠ MANDATORY — RELEVÉ VEGETATION SUBSECTION (MAIN BODY):**
 The ecologist has designated ${releveSurveys.length} relevé(s) for inclusion in this Results section. You **MUST add a new subsection** at the end of the Results (after any existing Fauna subsection) with the heading:
 
 \`### 3.5 Vegetation Survey (Relevé Data)\`
@@ -570,17 +722,19 @@ This subsection is **REQUIRED whenever relevé data is provided** — it is not 
 
 **DO NOT list each relevé individually with its own sub-heading.** Do not reproduce raw species lists or per-relevé DOMIN tables in the main body — those belong in Appendix I. Write flowing prose summarising the aggregate findings.
 
-If the 3.3 Flora subsection says "no plant species observations were recorded", that refers ONLY to the species_observations table (casual field sightings). Relevé species are a DIFFERENT data source and MUST still be reported under 3.5.`
+If the 3.3 Flora subsection says "no plant species observations were recorded", that refers ONLY to the species_observations table (casual field sightings). Relevé species are a DIFFERENT data source and MUST still be reported under 3.5.`)
       } else if (releveSectionMode === 'appendix') {
-        placementGuidance = `\n\n**RELEVÉ PLACEMENT — APPENDIX I FULL DATA:**
+        guidanceBlocks.push(`**RELEVÉ PLACEMENT — APPENDIX I FULL DATA:**
 The ecologist has designated ${releveSurveys.length} relevé(s) for inclusion in this Appendix section. Present them as **detailed per-relevé data cards** following the standard Appendix I format:
 - Create a separate subsection for each relevé, headed by its Relevé Code
 - For each relevé, provide a two-column metadata block covering: Area, Recorder, Habitat Type (Fossitt code), Soil Type, Soil Stability, Aspect, Slope, Maximum/Median heights (graminea & forbs), and all percentage covers (total vegetation, graminea, forbs, mosses, trees, shrubs, litter, bare soil, bare rock, open water)
 - Follow with a **Species Recorded** table listing every species with Latin name, English common name, and DOMIN cover value
 - End each card with Other Species in Proximity, Fauna Observations, and Relevé Comment lines where present
-- Use markdown tables for clarity. Do not paraphrase — present the raw field data in full.`
+- Use markdown tables for clarity. Do not paraphrase — present the raw field data in full.`)
       }
     }
+
+    const placementGuidance = guidanceBlocks.length > 0 ? guidanceBlocks.join('\n\n') : ''
 
     const reportName = REPORT_TYPE_LABELS[reportType] || 'ecological report'
 
@@ -746,7 +900,10 @@ interface ReportContextInput {
   project: ProjectData
   habitats: HabitatData[]
   observations: ObservationData[]
+  /** All findings reportable in this section (inside + buffer). Used for source attribution. */
   findings: FindingData[]
+  /** Findings grouped by spatial zone — drives separate INSIDE / BUFFER blocks in the prompt. */
+  findingsByZone: Record<SpatialZone, FindingData[]>
   surveys: SurveyData[]
   targetNotes: TargetNoteData[]
   deepResearch: DeepResearchData[]
@@ -762,6 +919,8 @@ interface ReportContextInput {
     townland: string | null
     province: string | null
   } | null
+  /** Buffer radius (km) used for zone classification — referenced in section labels. */
+  bufferRadiusKm: number
 }
 
 function buildReportContext(input: ReportContextInput): string {
@@ -978,11 +1137,17 @@ function buildReportContext(input: ReportContextInput): string {
     parts.push('')
   }
 
-  // 5. Desk research findings
-  parts.push('# DESK RESEARCH FINDINGS')
-  if (input.findings.length > 0) {
+  // 5. Desk research findings — split into "inside boundary" and "buffer zone"
+  // blocks so the AI can produce distinct subsections per CIEEM convention.
+  const renderFindingsBlock = (label: string, items: FindingData[]) => {
+    parts.push(`# ${label}`)
+    if (items.length === 0) {
+      parts.push('No findings in this zone.')
+      parts.push('')
+      return
+    }
     const byType: Record<string, FindingData[]> = {}
-    for (const f of input.findings) {
+    for (const f of items) {
       if (!byType[f.data_type]) byType[f.data_type] = []
       byType[f.data_type].push(f)
     }
@@ -1032,17 +1197,16 @@ function buildReportContext(input: ReportContextInput): string {
       }
     }
 
-    for (const [type, items] of Object.entries(byType)) {
-      if (type === 'habitat' || type === 'company_report') continue // already handled above
-      parts.push(`\n## ${type.replaceAll('_', ' ').toUpperCase()} (${items.length} records)`)
-      for (const f of items) {
+    for (const [type, typeItems] of Object.entries(byType)) {
+      if (type === 'habitat' || type === 'company_report') continue
+      parts.push(`\n## ${type.replaceAll('_', ' ').toUpperCase()} (${typeItems.length} records)`)
+      for (const f of typeItems) {
         parts.push(`- **${f.title}** [${f.source.toUpperCase()}]`)
         if (f.distance_from_boundary_km != null) {
           parts.push(`  Distance: ${f.distance_from_boundary_km.toFixed(2)} km`)
         }
         if (f.is_protected) parts.push(`  Protected: Yes`)
         if (f.notes) {
-          // Parse assessment notes
           try {
             const parsed = JSON.parse(f.notes)
             if (parsed.relevance) parts.push(`  Relevance: ${parsed.relevance}`)
@@ -1051,26 +1215,39 @@ function buildReportContext(input: ReportContextInput): string {
             parts.push(`  Notes: ${f.notes}`)
           }
         }
-        // Extract AI summary from metadata
         const raw = f.raw_data as Record<string, unknown> | null
         const metadata = raw?.metadata as Record<string, unknown> | undefined
         const aiSummary = metadata?.aiSummary || raw?.aiSummary
         if (aiSummary) {
           parts.push(`  AI Summary: ${String(aiSummary).substring(0, 400)}`)
         }
-        // Extract deep research analysis
-        const deepResearch = (raw?.deepResearch || raw?.aquaticResearch) as
+        const deepResearchRaw = (raw?.deepResearch || raw?.aquaticResearch) as
           | Record<string, unknown>
           | undefined
-        if (deepResearch?.aiAnalysis) {
-          parts.push(`  Deep Research: ${String(deepResearch.aiAnalysis).substring(0, 500)}`)
+        if (deepResearchRaw?.aiAnalysis) {
+          parts.push(`  Deep Research: ${String(deepResearchRaw.aiAnalysis).substring(0, 500)}`)
         }
       }
     }
-  } else {
-    parts.push('No desk research findings saved.')
+    parts.push('')
   }
-  parts.push('')
+
+  const insideFindings = input.findingsByZone.inside
+  const bufferFindings = input.findingsByZone.buffer
+  const totalReportable = insideFindings.length + bufferFindings.length
+  if (totalReportable === 0) {
+    parts.push('# DESK RESEARCH FINDINGS')
+    parts.push('No desk research findings saved.')
+    parts.push('')
+  } else {
+    renderFindingsBlock('FINDINGS WITHIN BOUNDARY', insideFindings)
+    if (bufferFindings.length > 0) {
+      renderFindingsBlock(
+        `FINDINGS WITHIN BUFFER ZONE (outside boundary, within ${input.bufferRadiusKm} km)`,
+        bufferFindings
+      )
+    }
+  }
 
   // 6. Target notes
   parts.push('# TARGET NOTES')
@@ -1270,4 +1447,35 @@ function buildReportContext(input: ReportContextInput): string {
   parts.push('')
 
   return parts.join('\n')
+}
+
+/**
+ * Coerce a raw Supabase boundary value (Json | GeoJSON-like) into a Feature
+ * suitable for turf. Supabase serialises boundaries as either a bare Geometry
+ * (Polygon / MultiPolygon) or an already-wrapped Feature. We normalise here so
+ * callers can blindly pass to turf.buffer / classifier.
+ */
+function normaliseBoundary(
+  raw: unknown
+): GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> | null {
+  if (!raw || typeof raw !== 'object') return null
+  const obj = raw as { type?: string; geometry?: unknown; coordinates?: unknown }
+
+  if (obj.type === 'Feature' && obj.geometry) {
+    const geom = obj.geometry as { type?: string }
+    if (geom.type === 'Polygon' || geom.type === 'MultiPolygon') {
+      return raw as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>
+    }
+    return null
+  }
+
+  if (obj.type === 'Polygon' || obj.type === 'MultiPolygon') {
+    return {
+      type: 'Feature',
+      properties: {},
+      geometry: raw as GeoJSON.Polygon | GeoJSON.MultiPolygon,
+    }
+  }
+
+  return null
 }

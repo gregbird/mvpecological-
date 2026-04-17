@@ -28,6 +28,9 @@ interface UseTargetNotesHandlersOptions {
   userId: string
   selectedSite: ProjectSiteWithGeoJSON | null
   selectedSurveyId: string
+  /** Site ID to persist on new records — falls back to the only site in
+   * single-site projects so records aren't orphaned. */
+  effectiveSiteId: string | null
 }
 
 export function useTargetNotesHandlers({
@@ -35,6 +38,7 @@ export function useTargetNotesHandlers({
   userId,
   selectedSite,
   selectedSurveyId,
+  effectiveSiteId,
 }: UseTargetNotesHandlersOptions) {
   const { toast } = useToast()
 
@@ -128,7 +132,7 @@ export function useTargetNotesHandlers({
       await createTargetNote.mutateAsync({
         project_id: projectId,
         created_by: userId,
-        site_id: selectedSite?.id || null,
+        site_id: effectiveSiteId,
         category: data.category,
         title: data.title,
         description: data.description || null,
@@ -220,16 +224,22 @@ export function useTargetNotesHandlers({
 
   // Handle importing species from desk research
   const handleImportSpecies = async () => {
-    const surveyId = selectedSurveyId || surveys[0]?.id
-
-    if (!surveyId) {
+    // Require an explicit survey choice — never silently pick `surveys[0]`
+    // because in "All Sites" mode that would be a survey from an arbitrary
+    // (possibly wrong) site. UI already disables the button, but guard the
+    // handler for defense in depth.
+    if (!selectedSurveyId) {
       toast({
         variant: 'destructive',
-        title: 'No surveys available',
-        description: 'Please create a survey first in Field Survey Planning.',
+        title: 'Select a survey first',
+        description:
+          surveys.length === 0
+            ? 'Please create a survey first in Field Survey Planning.'
+            : 'Please choose a survey from the dropdown before importing species.',
       })
       return
     }
+    const surveyId = selectedSurveyId
 
     if (importableSpecies.length === 0) {
       toast({
@@ -308,24 +318,18 @@ export function useTargetNotesHandlers({
 
   // Handle creating an observation
   const handleCreateObservation = async (data: Partial<ObservationFormType>) => {
-    if (!selectedSurveyId && surveys.length > 0) {
+    if (!selectedSurveyId) {
       toast({
         variant: 'destructive',
-        title: 'No survey selected',
-        description: 'Please select a survey to add the observation to.',
+        title: 'Select a survey first',
+        description:
+          surveys.length === 0
+            ? 'Please create a survey first in Field Survey Planning.'
+            : 'Please choose a survey from the dropdown above.',
       })
       return
     }
-
-    const surveyId = selectedSurveyId || surveys[0]?.id
-    if (!surveyId) {
-      toast({
-        variant: 'destructive',
-        title: 'No surveys available',
-        description: 'Please create a survey first in Field Survey Planning.',
-      })
-      return
-    }
+    const surveyId = selectedSurveyId
 
     try {
       const locationData = data.location

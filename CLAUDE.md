@@ -134,12 +134,12 @@ OPENAI_API_KEY=                # Server-side AI
 NEXT_PUBLIC_OPENAI_API_KEY=    # Client-side AI (reports)
 ```
 
-## Known Issues to Fix
+## Performance Debt
 
-- [x] `habitat-mapping-step.tsx:539` — `disabled={false}` hardcoded → fixed: uses `workflowStep.status === 'approved'`
-- [x] Ireland center coords duplicated in 13 files → fixed: all use `IRELAND_CENTER` from `lib/config/map-constants.ts`
-- [x] `SURVEY_TYPE_LABELS` duplicated in 6 files → fixed: centralized in `lib/config/survey.ts`
-- [x] `findingsByType` grouping logic duplicated → fixed: `groupFindingsByType()` in `lib/utils/group-findings-by-type.ts`
-- [x] Two separate `TargetNoteForm` components exist → fixed: merged in multi-site refactoring
-- [x] Debug `console.log` in production code (5 files) → fixed: all removed
-- [x] Multi-site refactoring complete — modular hooks, context providers, 10-step → 8-step workflow
+Tracked items that would speed up the app or reduce cost. Tackle when touching the affected area.
+
+- **`select('*')` in list queries** — `findings.ts:30`, `projects.ts:71`, `releve-surveys.ts` and others return all columns. In list/badge views, switch to explicit column whitelist and keep `*` only for detail fetches. Audit each consumer before trimming — `raw_data` is used by AI summary and designation parsing.
+- **Client-side habitat stats reduce** — `getHabitatStats()` pulls all rows then reduces in JS. Move to a PostGIS RPC (`GROUP BY fossitt_code, condition`, `SUM(area_hectares)`) once habitat counts exceed a few hundred per project.
+- **React Query invalidation scope** — audit remaining `invalidateQueries(['X'])` calls and scope them with project/org/site IDs where the key shape allows. Single-org deployments are unaffected in practice but explicit scope is cleaner.
+- **EPA `Promise.all` without per-type fallback** — `lib/external-apis/epa.ts` fires rivers/lakes/catchments/water quality in parallel; one failing type produces an ambiguous empty UI. Switch to `Promise.allSettled` and surface which feature timed out.
+- **Supabase advisors unreviewed** — run `mcp__supabase__get_advisors` periodically; surface RLS/index/function `search_path` findings to Greg rather than acting blindly.

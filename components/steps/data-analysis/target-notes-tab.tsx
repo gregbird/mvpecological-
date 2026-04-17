@@ -8,14 +8,26 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { IRELAND_CENTER } from '@/lib/config/map-constants'
 import { useToast } from '@/hooks/use-toast'
 import { useTargetNotes, useUpdateTargetNote } from '@/hooks/queries/use-target-note-hooks'
 import { useProjectObservations } from '@/hooks/queries/use-observation-hooks'
 import { TargetNoteEditDialog } from '@/components/steps/data-analysis/target-note-edit-dialog'
 import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
+import {
+  usePlacementPreferences,
+  PLACEMENT_INCLUDE_OPTIONS,
+  type PlacementOption,
+} from '@/hooks/steps/use-placement-preferences'
 import { CreateSummaryButton } from './create-summary-button'
-import type { TargetNote, Project } from '@/types/database'
+import type { TargetNote, Project, WorkflowStep } from '@/types/database'
 
 const DynamicProjectMap = dynamic(
   () => import('@/components/maps/project-map').then((mod) => mod.ProjectMap),
@@ -33,6 +45,7 @@ interface TargetNotesTabProps {
   projectId: string
   siteId?: string | null
   project: Project
+  workflowStep: WorkflowStep
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -46,11 +59,12 @@ const CATEGORY_COLORS: Record<string, string> = {
   ownership: 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300',
 }
 
-export function TargetNotesTab({ projectId, siteId, project }: TargetNotesTabProps) {
+export function TargetNotesTab({ projectId, siteId, project, workflowStep }: TargetNotesTabProps) {
   const { toast } = useToast()
   const { data: targetNotes = [] } = useTargetNotes(projectId, siteId)
   const { data: observations = [] } = useProjectObservations(projectId, siteId)
   const updateNote = useUpdateTargetNote()
+  const { getPlacement, setPlacement } = usePlacementPreferences({ workflowStep })
   const [editingNote, setEditingNote] = React.useState<TargetNote | null>(null)
 
   const { projectBoundary, projectCenter } = useProjectBoundary(project)
@@ -138,47 +152,73 @@ export function TargetNotesTab({ projectId, siteId, project }: TargetNotesTabPro
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {targetNotes.map((note) => (
-                <div
-                  key={note.id}
-                  className={cn('rounded-lg border p-3', !note.include_in_report && 'opacity-50')}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <Badge
-                        className={`shrink-0 text-xs ${CATEGORY_COLORS[note.category] || CATEGORY_COLORS.other}`}
-                      >
-                        {note.category}
-                      </Badge>
-                      <span className="text-muted-foreground truncate text-xs font-medium">
-                        {note.title}
-                      </span>
-                      {note.priority && (
-                        <Badge variant="outline" className="shrink-0 text-xs">
-                          {note.priority}
+              {targetNotes.map((note) => {
+                const placement = getPlacement('targetNotes', note.id)
+                const placementValue = placement === 'exclude' ? 'both' : placement
+                return (
+                  <div
+                    key={note.id}
+                    className={cn('rounded-lg border p-3', !note.include_in_report && 'opacity-50')}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Badge
+                          className={`shrink-0 text-xs ${CATEGORY_COLORS[note.category] || CATEGORY_COLORS.other}`}
+                        >
+                          {note.category}
                         </Badge>
-                      )}
+                        <span className="text-muted-foreground truncate text-xs font-medium">
+                          {note.title}
+                        </span>
+                        {note.priority && (
+                          <Badge variant="outline" className="shrink-0 text-xs">
+                            {note.priority}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <Switch
+                          checked={note.include_in_report}
+                          onCheckedChange={() => handleToggleInclude(note)}
+                        />
+                        <Select
+                          value={placementValue}
+                          onValueChange={(value) =>
+                            setPlacement('targetNotes', note.id, value as PlacementOption)
+                          }
+                          disabled={!note.include_in_report}
+                        >
+                          <SelectTrigger className="h-8 w-40 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PLACEMENT_INCLUDE_OPTIONS.map((option) => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                                className="text-xs"
+                              >
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => setEditingNote(note)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <Switch
-                        checked={note.include_in_report}
-                        onCheckedChange={() => handleToggleInclude(note)}
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => setEditingNote(note)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    {note.description && (
+                      <p className="mt-2 line-clamp-2 text-sm">{note.description}</p>
+                    )}
                   </div>
-                  {note.description && (
-                    <p className="mt-2 line-clamp-2 text-sm">{note.description}</p>
-                  )}
-                </div>
-              ))}
+                )
+              })}
             </div>
           </CardContent>
         </Card>

@@ -48,7 +48,7 @@ export function useCreateProject() {
     mutationFn: (project: InsertTables<'projects'>) => createProject(project),
     onSuccess: (data) => {
       if (data) {
-        queryClient.invalidateQueries({ queryKey: ['projects'] })
+        queryClient.invalidateQueries({ queryKey: ['projects', data.organization_id] })
         queryClient.invalidateQueries({ queryKey: ['assigned-projects'] })
       }
     },
@@ -69,7 +69,7 @@ export function useUpdateProject() {
     onSuccess: (data, variables) => {
       if (data) {
         queryClient.invalidateQueries({ queryKey: ['project', variables.projectId] })
-        queryClient.invalidateQueries({ queryKey: ['projects'] })
+        queryClient.invalidateQueries({ queryKey: ['projects', data.organization_id] })
       }
     },
   })

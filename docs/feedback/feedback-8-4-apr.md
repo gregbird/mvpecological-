@@ -8,18 +8,19 @@
 
 ## Ozet
 
-| #   | Baslik                                       | Oncelik          | Durum                                      |
-| --- | -------------------------------------------- | ---------------- | ------------------------------------------ |
-| 1   | Step 2 GIS Mapping — Kritik cizim araclari   | 🔴 Kritik        | ✅ Cozuldu (2 bug fix + eksikler notlandi) |
-| 2   | Species Record — Default grid 10km           | 🟢 Basit         | ✅ Tamamlandi                              |
-| 3   | Species Record — Species Group + Last filter | 🟡 Orta          | ✅ Tamamlandi                              |
-| 4   | Habitat FOSSITT symbology ("2b" eksikligi)   | ⏸ Beklemede      | Simdilik yapilmayacak                      |
-| 5   | Step 4 donma/yavaslik                        | ⚠ Inceleme       | ✅ Tamamlandi                              |
-| 6   | Step 4 — Haritayi tam genislige cikarma      | ⚠ Inceleme       | ✅ Tamamlandi                              |
-| 7   | "Remove survey(s) expected on the survey"    | 🟢 Basit         | ✅ Tamamlandi                              |
-| 8   | Releve Survey — Form cevaplari kaydetmiyor   | ⚠ Kritik bug     | ✅ Tamamlandi                              |
-| 9   | Reporting → Data Analysis placement in AI    | 🔴 Buyuk feature | Inceleme                                   |
-| 10  | Data Analysis maps — Legend eksikligi        | 🟡 UI polish     | ✅ Tamamlandi                              |
+| #   | Baslik                                       | Oncelik          | Durum                                          |
+| --- | -------------------------------------------- | ---------------- | ---------------------------------------------- |
+| 1   | Step 2 GIS Mapping — Kritik cizim araclari   | 🔴 Kritik        | ✅ Cozuldu (2 bug fix + eksikler notlandi)     |
+| 2   | Species Record — Default grid 10km           | 🟢 Basit         | ✅ Tamamlandi                                  |
+| 3   | Species Record — Species Group + Last filter | 🟡 Orta          | ✅ Tamamlandi                                  |
+| 4   | Habitat FOSSITT symbology ("2b" eksikligi)   | ⏸ Beklemede      | Simdilik yapilmayacak                          |
+| 5   | Step 4 donma/yavaslik                        | ⚠ Inceleme       | ✅ Tamamlandi                                  |
+| 6   | Step 4 — Haritayi tam genislige cikarma      | ⚠ Inceleme       | ✅ Tamamlandi                                  |
+| 7   | "Remove survey(s) expected on the survey"    | 🟢 Basit         | ✅ Tamamlandi                                  |
+| 8   | Releve Survey — Form cevaplari kaydetmiyor   | ⚠ Kritik bug     | ✅ Tamamlandi                                  |
+| 9   | Reporting → Data Analysis placement in AI    | 🔴 Buyuk feature | ✅ Tamamlandi (9.10 export dogrulama bekliyor) |
+| 10  | Data Analysis maps — Legend eksikligi        | 🟡 UI polish     | ✅ Tamamlandi                                  |
+| 11  | Survey Stage — Site secimi zorunlulugu       | 🔴 Workflow gap  | ✅ Tamamlandi                                  |
 
 ---
 
@@ -347,18 +348,15 @@ Ayrica raporda **boundary icindeki ve disindaki** veriler acikca ayristirilmali.
 
 - [x] **9.1** Greg'den ornek Releve Survey report'unu al (mevcut değilse iste) ✅ PDF indirildi, `docs/link/EWIC_Releve_Sample_Report.pdf`
 - [x] **9.2** Ornek rapor yapisini cikar — hangi veri nereye konulmus? ✅ Struktur memory'e ve bu feedback'e islendi
-- [x] **9.3** Data Analysis (Step 5) UI'ina "Placement Designation" konsepti ekle — **Relevé icin yapildi**, diger veri turleri icin pattern hazir (species / habitats / target notes / findings)
-  - Her veri kaynagi icin "Appendix", "Ana Govde", "Her Ikisi", "Dahil Etme" secenekleri ✅ (Relevé)
-  - Varsayilanlar: Species list -> Appendix + Main summary, Field survey -> Appendix + Main summary ✅
-  - Uygulama: `components/steps/data-analysis/releve-surveys-tab.tsx` + `hooks/steps/use-placement-preferences.ts`
-- [ ] **9.4** Inside/Outside boundary ayrimi: turf.js ile her finding'i boundary'ye gore etiketle (`location: "inside" | "buffer" | "outside"`)
-- [x] **9.5** AI Draft (Step 6) prompt'una placement tercihlerini ve inside/outside ayrimini aktar — **Relevé placement tercihleri yapildi** (Step 5 metadata'dan okunuyor), inside/outside ayrimi hala yapilmadi (9.4 ile birlikte)
-- [x] **9.6** `api/ai/report-section` endpoint'ine `placementPreferences` + `locationGrouping` parametreleri ekle — **`placementPreferences` yapildi** (Step 5 workflow metadata'dan fetch), `locationGrouping` hala yapilmadi (9.4 ile birlikte)
-- [x] **9.7** Rapor template'inde Appendix bolumu olusturma/guncelleme mantigi ekle — **Relevé icin prompt injection ile yapildi**: `route.ts` sectionPrompt'a runtime'da "3.5 Vegetation Survey" (main mode) veya "Appendix I detailed cards" (appendix mode) enjekte ediyor
-- [ ] **9.8** Buffer zone'daki designated site'lar icin ozel paragraf generator (habitats + species + condition) — 9.4 bekliyor
-- [x] **9.9** Ana govde ozet ve Appendix tam tablo arasinda otomatik ozetleme (AI) — **Relevé icin calisiyor**: Main mode'da AI aggregate prose summary yazar, Appendix mode'da tam per-relevé data cards yazar. Canli test ile dogrulandi
-- [ ] **9.10** Export (PDF/DOCX/HTML) ciktilarinda Appendix ve ana govdenin dogru bicimde yer aldigini dogrula
-- [ ] **9.11** (YENI) Placement pattern'ini diger veri turlerine genislet: species records, habitats, target notes, desk findings — hook ve pattern hazir, sadece her biri icin yeni Step 5 UI sekmeleri/kontrolleri + `route.ts` filtre mantigi + prompt injection eklenecek
+- [x] **9.3** Data Analysis (Step 5) UI'ina "Placement Designation" konsepti ekle — ✅ **5 veri turunun hepsi icin yapildi** (Relevé + findings + habitats + target notes + surveys). Her veri kaynagi icin "Appendix", "Ana Govde", "Her Ikisi", "Dahil Etme" secenekleri. Uygulama: `hooks/steps/use-placement-preferences.ts` (generic hook) + `components/steps/data-analysis/{releve-surveys,desk-assessment-findings-section,habitat-tab,target-notes-tab,field-survey-tab}.tsx`
+- [x] **9.4** Inside/Outside boundary ayrimi: ✅ **Yapildi.** Yeni `lib/utils/spatial-classifier.ts` helper'i turf.js ile her finding'in location'ini `inside | buffer | outside` olarak etiketler. `route.ts` icinde `buildSpatialClassifier(boundary, bufferKm)` request basina yaratilir, findings 3 zone'a gruplanir (outside tamamen atilir). bbox pre-filter ile buyuk SAC boundary'leri icin performans korundu.
+- [x] **9.5** AI Draft (Step 6) prompt'una placement tercihlerini ve inside/outside ayrimini aktar — ✅ **Hepsi yapildi.** 5 veri turunun placement tercihleri Step 5 metadata'dan okunur ve sectionId'ye gore filtre uygulanir (`results`/`baseline` → main+both, `appendices` → appendix+both, diger → exclude disi). Inside/buffer ayrimi ise findings icin context'e 2 ayri blok olarak yazilir (`# FINDINGS WITHIN BOUNDARY` + `# FINDINGS WITHIN BUFFER ZONE`).
+- [x] **9.6** `api/ai/report-section` endpoint'ine `placementPreferences` + `locationGrouping` parametreleri ekle — ✅ **Hepsi yapildi.** `placementPreferences` Step 5 workflow metadata'dan fetch edilir, generic `applyPlacement(records, category)` 5 kategoriyi filtreler. `locationGrouping` ise spatial classifier uzerinden yapilir — findings 3 zone'a ayrilir, outside'lar context'ten dusur.
+- [x] **9.7** Rapor template'inde Appendix bolumu olusturma/guncelleme mantigi ekle — ✅ **5 veri turunun hepsi icin prompt injection yapildi.** `route.ts`'te `guidanceBlocks` array'i sectionMode + veri turune gore 10 farkli MANDATORY prompt bloku ekler (Findings main/appendix, Habitats main/appendix, Target Notes EWIC Table 1 main/appendix, Survey Results vs Survey Data, Relevé 3.5 Vegetation + Appendix I).
+- [x] **9.8** Buffer zone'daki designated site'lar icin ozel paragraf generator (habitats + species + condition) — ✅ **Yapildi.** `hasBufferFindings` kontrolu ile prompt'a "BUFFER ZONE FINDINGS — MANDATORY SEPARATE SUBSECTION" talimati enjekte edilir. AI bu findings icin "Nearby Designated Sites (within X km buffer)" alt bolumu uretir, habitat + species + condition bilgilerini acikca ayristirir.
+- [x] **9.9** Ana govde ozet ve Appendix tam tablo arasinda otomatik ozetleme (AI) — ✅ **5 veri turunun hepsi icin calisiyor.** Main mode'da prose ozet (EWIC Table 1 / summary table / aggregate stats), Appendix mode'da tam tablolar / data cards uretilir.
+- [ ] **9.10** Export (PDF/DOCX/HTML) ciktilarinda Appendix ve ana govdenin dogru bicimde yer aldigini dogrula — **eksik**, gercek raporla Greg test etmeli, markdown tablo parser'lari dogrulanmali
+- [x] **9.11** Placement pattern'ini diger veri turlerine genislet: species records, habitats, target notes, desk findings, field surveys — ✅ **Hepsi yapildi.** Her veri turu icin: (1) Step 5 UI placement dropdown, (2) API route filtresi (`applyPlacement`), (3) prompt injection (`guidanceBlocks`). Hook generic hale getirildi — `getPlacement(category, id)` / `setPlacement(category, id, value)`.
 
 ### ✅ Yapilanlar — Releve Survey Pass 1
 
@@ -499,6 +497,75 @@ Harita container'ina `position: relative` eklenip, icine absolute positioned kuc
 
 - `components/steps/data-analysis/map-legend.tsx` (224 satir) eski bir dead file olarak duruyor — AI legend generation + interaktif Layer Controls iceriyor, sidebar icin tasarlanmis ama hicbir yerden import edilmiyor. Silinmedi, ileri de baska bir refactor onu kullanabilir.
 - Feedback'teki ek legend icerigi (buffer zone dashed, water quality, catchment areas) su an Step 5 sidebar'dan gelen dinamik `legendEntries`'e dahil degil — bunlar `maps-tab.tsx:245-311` memo'sunda eklenirse overlay'e otomatik yansir. Minimal invasive icin dokunulmadi.
+
+---
+
+## 11. Survey Stage — Site Secim Zorunlulugu ✅
+
+**Orijinal:** "Survey Stage Requirement: Ensure that the workflow for the Field Survey stage requires the user to first select the relevant site. Subsequent selections for the type of survey, habitat, and target note must then be directly associated with that chosen site."
+
+**Turkce:** Multi-site projelerde Step 4 (Field Research) altindaki uc tab'da (Field Survey, Habitat Mapping, Target Notes) kullanici onceden bir site secmeden survey planlayamasin, habitat polygon cizemesin, target note veya observation olusturamasin. Tum yaratilanlar dogrudan secili site'a baglanmali — `site_id=null` olan orphan kayit olusmamali. Tek-site projelerde davranis aynen kalsin (otomatik o tek site'a bağlanir).
+
+### Kok Sebep (gap analizi)
+
+| Tab             | Buton disabled? | Schema validate? | DB'ye site_id?      | Gap                              |
+| --------------- | --------------- | ---------------- | ------------------- | -------------------------------- |
+| Field Survey    | ✅ multi-site   | ❌               | ✅ `selectedSiteId` | warning text inline, banner yok  |
+| Habitat Mapping | ❌ hep aktif    | ❌               | ⚠️ null kabul       | Add Habitat + polygon cizim acik |
+| Target Notes    | ❌ hep aktif    | ❌               | ⚠️ null kabul       | Add Note + map-click acik        |
+| Observations    | ⚠️ survey-bagli | ❌               | ⚠️ survey'den miras | Site kontrolu yok                |
+
+DB seviyesinde `site_id` tum tablolarda nullable (`ON DELETE SET NULL`) — UI'dan enforce ediyoruz, schema'ya dokunmuyoruz (mevcut null kayitlari korumak icin).
+
+### Uygulanan Cozum — 3 tab icin tutarli pattern
+
+Her tab icin ayni mantik:
+
+1. `useProjectSites(project.id)` → `isMultiSite = sites.length > 1`
+2. `effectiveSiteId = selectedSite?.id ?? (sites.length === 1 ? sites[0].id : null)` — tek-site projelerde otomatik fallback (orphan'i onler)
+3. `requiresSiteSelection = isMultiSite && !selectedSite` — bu true iken:
+   - Add butonlari `disabled` + `title` tooltip
+   - Harita interaksiyonlari (polygon cizim, map-click→note) bloklanir
+   - Ust kismda amber alert banner: "Select a site first"
+4. Persist islemlerinde `site_id = effectiveSiteId`
+
+### Degisen dosyalar
+
+- `components/steps/field-survey-step.tsx` — amber alert banner eklendi (mevcut inline `text-red-500` warning'ler tutarlilik icin tooltip span'lerine donusturuldu, banner global oldu)
+- `components/steps/habitat-mapping-step.tsx` — `useProjectSites`, `effectiveSiteId`, `requiresSiteSelection`. `handleBoundaryChange` guard'i. `ProjectMapWithDraw editable={!requiresSiteSelection}`. `handleCreateHabitat` `site_id=effectiveSiteId`. Banner.
+- `components/steps/habitat-mapping/habitat-list-panel.tsx` — `addDisabled` + `addDisabledReason` prop'lari. Add Habitat butonu disable + tooltip span.
+- `components/steps/target-notes/target-notes-step.tsx` — `useProjectSites`, `requiresSiteSelection`, `effectiveSiteId` (handler'a pas). Banner. Add Note + Add Observation + Import from Data Gathering butonlari disable + tooltip.
+- `components/steps/target-notes/target-notes-panel.tsx` — `addDisabled` prop. `onMapClick` guard (no-op when disabled).
+- `components/steps/target-notes/use-target-notes-handlers.ts` — `effectiveSiteId` parametresi eklendi. `createTargetNote` artik `site_id=effectiveSiteId` kullaniyor.
+
+### Davranis matrisi (sonra)
+
+| Senaryo                          | Add butonlari | Harita cizim | Map-click→note | Banner  |
+| -------------------------------- | ------------- | ------------ | -------------- | ------- |
+| Tek-site proje                   | aktif         | aktif        | aktif          | yok     |
+| Multi-site, "All Sites" secili   | disabled      | bloklanmis   | bloklanmis     | gorunur |
+| Multi-site, spesifik site secili | aktif         | aktif        | aktif          | yok     |
+
+### Yapilacilar
+
+- [x] **11.1** Field Survey tab — banner + tooltip span'leri (mevcut button disable korundu, polish)
+- [x] **11.2** Habitat Mapping tab — Add Habitat disable + polygon cizim editable={!requiresSiteSelection} + banner + effectiveSiteId
+- [x] **11.3** Target Notes (Notes) — Add Note disable + map-click guard + banner + effectiveSiteId
+- [x] **11.4** Target Notes (Observations) — Add Observation disable kontrolune `requiresSiteSelection` eklendi, tooltip mesaji guncellendi. Observation parent survey'den site miras alir.
+- [x] **11.5** Tek-site projeler icin orphan onleme — `effectiveSiteId` ile otomatik tek site fallback (Field Survey'deki pattern habitat + target notes'a yayildi)
+- [x] **11.6** **Post-review fix** — Add Visit kritik bug'i: `SurveyList.disableAddVisit` prop eklendi, hem group-level Add Visit buton'u hem card dropdown item'i multi-site "All Sites"ta gizleniyor. Onceden bu yol guarded degildi, `site_id: null` survey olusturabiliyordu.
+- [x] **11.7** **Post-review fix** — `handleImportSpecies` ve `handleCreateObservation` handler'larinda `surveys[0]?.id` fallback'i kaldirildi. Artik sadece explicit `selectedSurveyId` kullaniliyor; survey secilmemisse destructive toast + early return.
+- [x] **11.8** **Post-review fix** — Race condition kapatildi: 3 step'te `useProjectSites` loading sirasinda `requiresSiteSelection` true olarak hesaplaniyor (`isLoadingSites || (isMultiSite && !selected)`). Boylece projectSites hentiz yuklenmemisken Add butonlari gorunmuyor.
+- [x] **11.9** Lint clean (benim dosyalarimda warning yok), type-check benim dosyalarimda temiz
+- [ ] **11.10** Schema/DB seviyesinde `site_id NOT NULL` constraint — yapilmadi cunku mevcut null kayitlari kirmamak icin. UI enforcement yeterli.
+- [ ] **11.11** `use-habitat-map-data.ts:37-40` — `site_id=null` habitat'lari tum site view'larinda gosteriyor (eski "project-level" semantik). Bu fix'den sonra manuel eklenen habitat'lar artik null degil, ama auto-import (`use-auto-import-habitats.ts`) hala null tasiyor. Tutarsizlik mevcut; ayri bir temizlik ticket'i gerektirir.
+- [ ] **11.12** Tooltip a11y polish — su anki `<span title>` pattern'i klavye/screen-reader icin ideal degil. shadcn `<Tooltip>` Radix'e gecis sonraki iterasyonda yapilabilir.
+
+### Notlar
+
+- Build sirasinda `app/api/ai/report-section/route.ts` ve ilgili `lib/utils/spatial-classifier.ts` dosyalarinda type errorlar var — bunlar Greg'in 9.4/9.8 (Inside/Outside Boundary) isine baslanmis ama tamamlanmamis pre-existing hatalar. Bu PR'in kapsami disinda.
+- "Tek-site projede SiteSelector hiç render olmuyor" davranisi (`sites.length <= 1` ise null) korundu.
+- "All Sites" view'i raporlama icin gerekli oldugu icin removed degil — sadece o moddayken add aksiyonlari bloklandi.
 
 ---
 

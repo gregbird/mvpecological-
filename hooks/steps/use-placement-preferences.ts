@@ -12,16 +12,35 @@ import type { Json, WorkflowStep } from '@/types/database'
  */
 export type PlacementOption = 'main' | 'appendix' | 'both' | 'exclude'
 
+/** Categories of data the ecologist can designate placement for in Step 5. */
+export type PlacementCategory =
+  | 'releveSurveys'
+  | 'findings'
+  | 'habitats'
+  | 'targetNotes'
+  | 'surveys'
+
+/**
+ * Compact subset (3 values) for UIs where the existing include-toggle
+ * Switch handles the "exclude" path. Dropdown only decides *where* to place
+ * a record when it's included.
+ */
+export const PLACEMENT_INCLUDE_OPTIONS: { value: PlacementOption; label: string }[] = [
+  { value: 'both', label: 'Body + Appendix' },
+  { value: 'main', label: 'Body only' },
+  { value: 'appendix', label: 'Appendix only' },
+]
+
 export const PLACEMENT_OPTIONS: { value: PlacementOption; label: string; description: string }[] = [
   {
     value: 'both',
     label: 'Main body + Appendix',
-    description: 'Summarised in Survey Results section, full data in Appendix',
+    description: 'Summarised in the relevant Results subsection, full data in Appendix',
   },
   {
     value: 'main',
     label: 'Main body only',
-    description: 'Summarised in Survey Results section (no appendix entry)',
+    description: 'Summarised in the Results section (no appendix entry)',
   },
   {
     value: 'appendix',
@@ -41,20 +60,33 @@ export const DEFAULT_PLACEMENT: PlacementOption = 'both'
 export interface PlacementPreferencesMetadata {
   placementPreferences?: {
     releveSurveys?: Record<string, PlacementOption>
-    // Future: speciesRecords?, habitats?, targetNotes?, findings?
+    findings?: Record<string, PlacementOption>
+    habitats?: Record<string, PlacementOption>
+    targetNotes?: Record<string, PlacementOption>
+    surveys?: Record<string, PlacementOption>
   }
 }
 
-function readReleveMap(metadata: WorkflowStep['metadata']): Record<string, PlacementOption> {
+type CategoryMaps = NonNullable<PlacementPreferencesMetadata['placementPreferences']>
+
+function readCategoryMap(
+  metadata: WorkflowStep['metadata'],
+  category: PlacementCategory
+): Record<string, PlacementOption> {
   const meta = (metadata as PlacementPreferencesMetadata | null) || null
-  return meta?.placementPreferences?.releveSurveys ?? {}
+  return meta?.placementPreferences?.[category] ?? {}
 }
 
-export function getRelevePlacement(
+/**
+ * Server-side compatible getter — used in the report-section API route to
+ * resolve a record's placement from workflow metadata without React.
+ */
+export function getPlacementFromMetadata(
   metadata: WorkflowStep['metadata'],
-  releveId: string
+  category: PlacementCategory,
+  recordId: string
 ): PlacementOption {
-  return readReleveMap(metadata)[releveId] ?? DEFAULT_PLACEMENT
+  return readCategoryMap(metadata, category)[recordId] ?? DEFAULT_PLACEMENT
 }
 
 interface UsePlacementPreferencesOptions {
@@ -65,6 +97,9 @@ interface UsePlacementPreferencesOptions {
  * Hook for managing placement preferences stored on Step 5 (Data Analysis)
  * workflow step metadata. Provides setters that optimistically update local
  * state and persist to Supabase via useUpdateWorkflowStep.
+ *
+ * Supports five categories: releveSurveys, findings, habitats, targetNotes, surveys.
+ * Use the generic API: getPlacement('habitats', id), setPlacement('habitats', id, 'main').
  */
 export function usePlacementPreferences({ workflowStep }: UsePlacementPreferencesOptions) {
   const updateWorkflowStep = useUpdateWorkflowStep()
@@ -74,62 +109,100 @@ export function usePlacementPreferences({ workflowStep }: UsePlacementPreference
     metadataRef.current = workflowStep?.metadata
   }, [workflowStep?.metadata])
 
-  const [releveMap, setReleveMap] = React.useState<Record<string, PlacementOption>>(() =>
-    readReleveMap(workflowStep.metadata)
-  )
+  const [maps, setMaps] = React.useState<CategoryMaps>(() => ({
+    releveSurveys: readCategoryMap(workflowStep.metadata, 'releveSurveys'),
+    findings: readCategoryMap(workflowStep.metadata, 'findings'),
+    habitats: readCategoryMap(workflowStep.metadata, 'habitats'),
+    targetNotes: readCategoryMap(workflowStep.metadata, 'targetNotes'),
+    surveys: readCategoryMap(workflowStep.metadata, 'surveys'),
+  }))
 
   // Re-sync when the workflow step metadata changes from outside (e.g. on navigation)
   React.useEffect(() => {
-    setReleveMap(readReleveMap(workflowStep.metadata))
+    setMaps({
+      releveSurveys: readCategoryMap(workflowStep.metadata, 'releveSurveys'),
+      findings: readCategoryMap(workflowStep.metadata, 'findings'),
+      habitats: readCategoryMap(workflowStep.metadata, 'habitats'),
+      targetNotes: readCategoryMap(workflowStep.metadata, 'targetNotes'),
+      surveys: readCategoryMap(workflowStep.metadata, 'surveys'),
+    })
   }, [workflowStep.metadata])
 
-  const persist = React.useCallback(
-    async (nextReleveMap: Record<string, PlacementOption>) => {
-      const existingMeta = ((metadataRef.current as PlacementPreferencesMetadata | null) ??
-        {}) as PlacementPreferencesMetadata & Record<string, unknown>
-      const existingPrefs = existingMeta.placementPreferences ?? {}
+  // Debounced persistence — collapse bursts of rapid dropdown changes into a
+  // single Supabase write. The `pendingMapsRef` always holds the latest state
+  // the UI has committed, so when the debounce timer fires we persist the
+  // most-recent snapshot regardless of how many setPlacement calls happened.
+  const pendingMapsRef = React.useRef<CategoryMaps | null>(null)
+  const persistTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const mutateRef = React.useRef(updateWorkflowStep)
+  React.useEffect(() => {
+    mutateRef.current = updateWorkflowStep
+  }, [updateWorkflowStep])
 
-      const nextMeta: PlacementPreferencesMetadata & Record<string, unknown> = {
-        ...existingMeta,
-        placementPreferences: {
-          ...existingPrefs,
-          releveSurveys: nextReleveMap,
-        },
-      }
+  const flushPersist = React.useCallback(() => {
+    const nextMaps = pendingMapsRef.current
+    if (!nextMaps) return
+    pendingMapsRef.current = null
 
-      await updateWorkflowStep.mutateAsync({
+    // Read latest metadata AT persist time — not from a stale closure —
+    // so other unrelated metadata keys aren't clobbered by a late write.
+    const existingMeta = ((metadataRef.current as PlacementPreferencesMetadata | null) ??
+      {}) as PlacementPreferencesMetadata & Record<string, unknown>
+
+    const nextMeta: PlacementPreferencesMetadata & Record<string, unknown> = {
+      ...existingMeta,
+      placementPreferences: nextMaps,
+    }
+
+    mutateRef.current
+      .mutateAsync({
         stepId: workflowStep.id,
         updates: {
-          metadata: nextMeta as unknown as Json,
+          metadata: nextMeta as Json,
         },
       })
-    },
-    [workflowStep?.id, updateWorkflowStep]
-  )
+      .catch((err) => console.error('Failed to persist placement preferences:', err))
+  }, [workflowStep?.id])
 
-  const setRelevePlacement = React.useCallback(
-    (releveId: string, value: PlacementOption) => {
-      setReleveMap((prev) => {
-        const next = { ...prev, [releveId]: value }
-        // Persist in background — errors logged but UI stays responsive
-        persist(next).catch((err) =>
-          console.error('Failed to persist relevé placement preference:', err)
-        )
+  // Flush on unmount so pending changes aren't lost on navigation.
+  React.useEffect(() => {
+    return () => {
+      if (persistTimerRef.current) {
+        clearTimeout(persistTimerRef.current)
+        flushPersist()
+      }
+    }
+  }, [flushPersist])
+
+  const setPlacement = React.useCallback(
+    (category: PlacementCategory, recordId: string, value: PlacementOption) => {
+      setMaps((prev) => {
+        const prevCategoryMap = prev[category] ?? {}
+        const nextCategoryMap = { ...prevCategoryMap, [recordId]: value }
+        const next: CategoryMaps = { ...prev, [category]: nextCategoryMap }
+        pendingMapsRef.current = next
+        if (persistTimerRef.current) clearTimeout(persistTimerRef.current)
+        persistTimerRef.current = setTimeout(flushPersist, 300)
         return next
       })
     },
-    [persist]
+    [flushPersist]
   )
 
   const getPlacement = React.useCallback(
-    (releveId: string): PlacementOption => releveMap[releveId] ?? DEFAULT_PLACEMENT,
-    [releveMap]
+    (category: PlacementCategory, recordId: string): PlacementOption =>
+      maps[category]?.[recordId] ?? DEFAULT_PLACEMENT,
+    [maps]
   )
 
   return {
-    releveMap,
+    /** Generic getter — `getPlacement('habitats', id)`. */
     getPlacement,
-    setRelevePlacement,
+    /** Generic setter — `setPlacement('habitats', id, 'main')`. */
+    setPlacement,
+    /** All category maps in their current in-memory state. */
+    maps,
+    /** Persist-in-progress flag for spinner UI. */
     isSaving: updateWorkflowStep.isPending,
   }
 }

@@ -46,7 +46,7 @@ export function ReleveSurveysTab({ projectId, siteId, workflowStep }: ReleveSurv
   const { data: allSpecies = [] } = useReleveSpeciesByProject(projectId)
   // Site-scoped surveys — used to filter relevés via survey_id → surveys.site_id.
   const { data: siteSurveys = [] } = useSurveys(projectId, siteId)
-  const { getPlacement, setRelevePlacement } = usePlacementPreferences({ workflowStep })
+  const { getPlacement, setPlacement } = usePlacementPreferences({ workflowStep })
 
   // Filter relevés by site via survey_id → surveys.site_id. When a site is
   // selected, only relevés linked to surveys in that site are shown.
@@ -76,7 +76,7 @@ export function ReleveSurveysTab({ projectId, siteId, workflowStep }: ReleveSurv
       exclude: 0,
     }
     for (const r of visibleReleves) {
-      stats[getPlacement(r.id)]++
+      stats[getPlacement('releveSurveys', r.id)]++
     }
     return stats
   }, [visibleReleves, getPlacement])
@@ -176,7 +176,7 @@ export function ReleveSurveysTab({ projectId, siteId, workflowStep }: ReleveSurv
         </CardHeader>
         <CardContent className="space-y-3">
           {visibleReleves.map((releve) => {
-            const placement = getPlacement(releve.id)
+            const placement = getPlacement('releveSurveys', releve.id)
             const speciesCount = speciesCountByReleve[releve.id] ?? 0
             const placementOption = PLACEMENT_OPTIONS.find((o) => o.value === placement)
 
@@ -273,7 +273,7 @@ export function ReleveSurveysTab({ projectId, siteId, workflowStep }: ReleveSurv
                   <Select
                     value={placement}
                     onValueChange={(value) =>
-                      setRelevePlacement(releve.id, value as PlacementOption)
+                      setPlacement('releveSurveys', releve.id, value as PlacementOption)
                     }
                   >
                     <SelectTrigger id={`placement-${releve.id}`} className="h-9 w-full text-xs">

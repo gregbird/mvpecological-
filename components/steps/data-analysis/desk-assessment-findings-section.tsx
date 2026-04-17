@@ -8,6 +8,13 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   Table as UITable,
   TableBody,
   TableCell,
@@ -23,12 +30,18 @@ import {
   useUpdateFinding,
 } from '@/hooks/queries/use-finding-hooks'
 import { FindingEditDialog } from '@/components/steps/data-analysis/finding-edit-dialog'
-import type { DeskResearchFinding } from '@/types/database'
+import {
+  usePlacementPreferences,
+  PLACEMENT_INCLUDE_OPTIONS,
+  type PlacementOption,
+} from '@/hooks/steps/use-placement-preferences'
+import type { DeskResearchFinding, WorkflowStep } from '@/types/database'
 
 interface DeskAssessmentFindingsSectionProps {
   projectId: string
   siteId?: string | null
   userId: string
+  workflowStep: WorkflowStep
 }
 
 const SOURCE_CONFIG: Record<string, { label: string; icon: typeof Database; color: string }> = {
@@ -45,12 +58,14 @@ export function DeskAssessmentFindingsSection({
   projectId,
   siteId,
   userId,
+  workflowStep,
 }: DeskAssessmentFindingsSectionProps) {
   const { toast } = useToast()
   const { data: findings = [] } = useSavedFindings(projectId, siteId)
   const { data: stats } = useFindingsStats(projectId, siteId)
   const createFinding = useCreateFinding()
   const updateFinding = useUpdateFinding()
+  const { getPlacement, setPlacement } = usePlacementPreferences({ workflowStep })
   const [editingFinding, setEditingFinding] = React.useState<DeskResearchFinding | null>(null)
 
   const sourceStats = stats?.bySource || []
@@ -139,6 +154,7 @@ export function DeskAssessmentFindingsSection({
                     <TableHead>Source</TableHead>
                     <TableHead className="text-right">Distance (km)</TableHead>
                     <TableHead className="w-24 text-center">Add to Report</TableHead>
+                    <TableHead className="w-44">Placement</TableHead>
                     <TableHead className="w-12" />
                   </TableRow>
                 </TableHeader>
@@ -158,6 +174,8 @@ export function DeskAssessmentFindingsSection({
                           (raw?.species_name_common as string) ||
                           null
                         : null
+                    const placement = getPlacement('findings', f.id)
+                    const placementValue = placement === 'exclude' ? 'both' : placement
                     return (
                       <TableRow key={f.id} className={cn(!f.include_in_report && 'opacity-50')}>
                         <TableCell className="max-w-60">
@@ -194,6 +212,30 @@ export function DeskAssessmentFindingsSection({
                             checked={f.include_in_report}
                             onCheckedChange={() => handleToggleInclude(f)}
                           />
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={placementValue}
+                            onValueChange={(value) =>
+                              setPlacement('findings', f.id, value as PlacementOption)
+                            }
+                            disabled={!f.include_in_report}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {PLACEMENT_INCLUDE_OPTIONS.map((option) => (
+                                <SelectItem
+                                  key={option.value}
+                                  value={option.value}
+                                  className="text-xs"
+                                >
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell>
                           <Button

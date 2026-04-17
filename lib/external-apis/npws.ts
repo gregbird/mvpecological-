@@ -182,7 +182,15 @@ export async function getDesignatedSiteByCode(
 
     url.search = queryParams.toString()
 
-    const response = await fetch(url.toString())
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10000)
+
+    let response: Response
+    try {
+      response = await fetch(url.toString(), { signal: controller.signal })
+    } finally {
+      clearTimeout(timeoutId)
+    }
 
     if (!response.ok) {
       return null
@@ -236,7 +244,17 @@ export async function searchDesignatedSitesByName(
 
       url.search = queryParams.toString()
 
-      const response = await fetch(url.toString())
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000)
+
+      let response: Response
+      try {
+        response = await fetch(url.toString(), { signal: controller.signal })
+      } catch {
+        continue
+      } finally {
+        clearTimeout(timeoutId)
+      }
 
       if (!response.ok) continue
 

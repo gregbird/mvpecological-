@@ -5,15 +5,29 @@ import { Calendar, ClipboardList, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Label } from '@/components/ui/label'
 import { useSurveys, useSurveyStats } from '@/hooks/queries/use-survey-hooks'
 import { useObservationStats } from '@/hooks/queries/use-observation-hooks'
 import { SurveyEditDialog } from '@/components/steps/data-analysis/survey-edit-dialog'
+import {
+  usePlacementPreferences,
+  PLACEMENT_OPTIONS,
+  type PlacementOption,
+} from '@/hooks/steps/use-placement-preferences'
 import { CreateSummaryButton } from './create-summary-button'
-import type { Survey } from '@/types/database'
+import type { Survey, WorkflowStep } from '@/types/database'
 
 interface FieldSurveyTabProps {
   projectId: string
   siteId?: string | null
+  workflowStep: WorkflowStep
 }
 
 const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
@@ -21,10 +35,11 @@ const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'dest
   in_progress: 'secondary',
 }
 
-export function FieldSurveyTab({ projectId, siteId }: FieldSurveyTabProps) {
+export function FieldSurveyTab({ projectId, siteId, workflowStep }: FieldSurveyTabProps) {
   const { data: surveys = [] } = useSurveys(projectId, siteId)
   const { data: surveyStats } = useSurveyStats(projectId, siteId)
   const { data: observationStats } = useObservationStats(projectId, siteId)
+  const { getPlacement, setPlacement } = usePlacementPreferences({ workflowStep })
   const [editingSurvey, setEditingSurvey] = React.useState<Survey | null>(null)
 
   return (
@@ -72,15 +87,21 @@ export function FieldSurveyTab({ projectId, siteId }: FieldSurveyTabProps) {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Survey Records</CardTitle>
+            <p className="text-muted-foreground text-xs">
+              Placement designates where each survey&apos;s data lands in the AI draft. Species
+              observations recorded during the survey inherit the parent survey&apos;s placement.
+            </p>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               {surveys.map((survey) => {
                 const weather = survey.weather as Record<string, unknown> | null
+                const placement = getPlacement('surveys', survey.id)
+                const placementOption = PLACEMENT_OPTIONS.find((o) => o.value === placement)
                 return (
                   <div
                     key={survey.id}
-                    className="flex items-center justify-between rounded-lg border p-3"
+                    className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
@@ -109,14 +130,53 @@ export function FieldSurveyTab({ projectId, siteId }: FieldSurveyTabProps) {
                         </p>
                       )}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="ml-2 h-8 w-8 shrink-0"
-                      onClick={() => setEditingSurvey(survey)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
+                    <div className="flex shrink-0 flex-col gap-1.5 sm:w-56">
+                      <Label
+                        htmlFor={`survey-placement-${survey.id}`}
+                        className="text-muted-foreground text-xs"
+                      >
+                        Report placement
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={placement}
+                          onValueChange={(value) =>
+                            setPlacement('surveys', survey.id, value as PlacementOption)
+                          }
+                        >
+                          <SelectTrigger
+                            id={`survey-placement-${survey.id}`}
+                            className="h-9 flex-1 text-xs"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PLACEMENT_OPTIONS.map((option) => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                                className="text-xs"
+                              >
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 shrink-0"
+                          onClick={() => setEditingSurvey(survey)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      {placementOption && (
+                        <p className="text-muted-foreground text-[11px] leading-snug">
+                          {placementOption.description}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 )
               })}

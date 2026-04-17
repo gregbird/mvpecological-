@@ -21,6 +21,13 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   Table as UITable,
   TableBody,
   TableCell,
@@ -40,8 +47,13 @@ import { HabitatEditDialog } from '@/components/steps/data-analysis/habitat-edit
 import { getHabitatByCode } from '@/lib/data/fossitt-codes'
 import { getHeritageColor } from '@/lib/config/map-constants'
 import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
+import {
+  usePlacementPreferences,
+  PLACEMENT_INCLUDE_OPTIONS,
+  type PlacementOption,
+} from '@/hooks/steps/use-placement-preferences'
 import { CreateSummaryButton } from './create-summary-button'
-import type { HabitatPolygon, Project } from '@/types/database'
+import type { HabitatPolygon, Project, WorkflowStep } from '@/types/database'
 
 const DynamicProjectMap = dynamic(
   () => import('@/components/maps/project-map').then((mod) => mod.ProjectMap),
@@ -60,6 +72,7 @@ interface HabitatTabProps {
   siteId?: string | null
   siteCode: string | null
   project: Project
+  workflowStep: WorkflowStep
 }
 
 const CONDITION_COLORS: Record<string, string> = {
@@ -70,13 +83,20 @@ const CONDITION_COLORS: Record<string, string> = {
   bad: '#ef4444',
 }
 
-export function HabitatTab({ projectId, siteId, siteCode, project }: HabitatTabProps) {
+export function HabitatTab({
+  projectId,
+  siteId,
+  siteCode,
+  project,
+  workflowStep,
+}: HabitatTabProps) {
   const { toast } = useToast()
   const { data: habitats = [] } = useHabitats(projectId, siteId)
   const { data: habitatStats } = useHabitatStats(projectId, siteId)
   const { data: savedFindings = [] } = useSavedFindings(projectId, siteId)
   const { data: projectSites = [] } = useProjectSites(projectId)
   const updateHabitat = useUpdateHabitat()
+  const { getPlacement, setPlacement } = usePlacementPreferences({ workflowStep })
   const [editingHabitat, setEditingHabitat] = React.useState<HabitatPolygon | null>(null)
 
   const siteNameById = React.useMemo(
@@ -91,7 +111,6 @@ export function HabitatTab({ projectId, siteId, siteCode, project }: HabitatTabP
       .map((f) => {
         const raw = f.raw_data as Record<string, unknown> | null
         const fossittCode = String(raw?.fossittCode ?? '—')
-        const info = getHabitatByCode(fossittCode)
         return {
           id: f.id,
           fossittCode,
@@ -398,60 +417,89 @@ export function HabitatTab({ projectId, siteId, siteCode, project }: HabitatTabP
                 <TableHead>Threats</TableHead>
                 <TableHead>Notes</TableHead>
                 <TableHead className="w-20 text-center">Include</TableHead>
+                <TableHead className="w-44">Placement</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {habitats.length > 0 ? (
-                habitats.map((h) => (
-                  <TableRow key={h.id} className={cn(!h.include_in_report && 'opacity-50')}>
-                    <TableCell className="font-mono">{h.fossitt_code}</TableCell>
-                    <TableCell className="max-w-50 truncate">{h.fossitt_name}</TableCell>
-                    <TableCell
-                      className="text-muted-foreground max-w-32 truncate text-xs"
-                      title={h.site_id ? siteNameById.get(h.site_id) : ''}
-                    >
-                      {h.site_id ? (siteNameById.get(h.site_id) ?? '\u2014') : '\u2014'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {(h.area_hectares ?? 0).toFixed(2)}
-                    </TableCell>
-                    <TableCell className="capitalize">{h.condition || '\u2014'}</TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {h.eu_annex_code || '\u2014'}
-                    </TableCell>
-                    <TableCell
-                      className="max-w-32 truncate text-xs"
-                      title={Array.isArray(h.threats) ? h.threats.join(', ') : ''}
-                    >
-                      {Array.isArray(h.threats) && h.threats.length > 0
-                        ? h.threats.join(', ')
-                        : '\u2014'}
-                    </TableCell>
-                    <TableCell className="max-w-40 truncate text-xs" title={h.notes || ''}>
-                      {h.notes || '\u2014'}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Switch
-                        checked={h.include_in_report}
-                        onCheckedChange={() => handleToggleInclude(h)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => setEditingHabitat(h)}
+                habitats.map((h) => {
+                  const placement = getPlacement('habitats', h.id)
+                  const placementValue = placement === 'exclude' ? 'both' : placement
+                  return (
+                    <TableRow key={h.id} className={cn(!h.include_in_report && 'opacity-50')}>
+                      <TableCell className="font-mono">{h.fossitt_code}</TableCell>
+                      <TableCell className="max-w-50 truncate">{h.fossitt_name}</TableCell>
+                      <TableCell
+                        className="text-muted-foreground max-w-32 truncate text-xs"
+                        title={h.site_id ? siteNameById.get(h.site_id) : ''}
                       >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
+                        {h.site_id ? (siteNameById.get(h.site_id) ?? '\u2014') : '\u2014'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {(h.area_hectares ?? 0).toFixed(2)}
+                      </TableCell>
+                      <TableCell className="capitalize">{h.condition || '\u2014'}</TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {h.eu_annex_code || '\u2014'}
+                      </TableCell>
+                      <TableCell
+                        className="max-w-32 truncate text-xs"
+                        title={Array.isArray(h.threats) ? h.threats.join(', ') : ''}
+                      >
+                        {Array.isArray(h.threats) && h.threats.length > 0
+                          ? h.threats.join(', ')
+                          : '\u2014'}
+                      </TableCell>
+                      <TableCell className="max-w-40 truncate text-xs" title={h.notes || ''}>
+                        {h.notes || '\u2014'}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Switch
+                          checked={h.include_in_report}
+                          onCheckedChange={() => handleToggleInclude(h)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={placementValue}
+                          onValueChange={(value) =>
+                            setPlacement('habitats', h.id, value as PlacementOption)
+                          }
+                          disabled={!h.include_in_report}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PLACEMENT_INCLUDE_OPTIONS.map((option) => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                                className="text-xs"
+                              >
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => setEditingHabitat(h)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-muted-foreground text-center">
+                  <TableCell colSpan={11} className="text-muted-foreground text-center">
                     No habitat data
                   </TableCell>
                 </TableRow>

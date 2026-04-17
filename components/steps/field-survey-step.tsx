@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Plus, Loader2, Calendar, ImageIcon } from 'lucide-react'
+import { AlertCircle, Plus, Loader2, Calendar, ImageIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -51,12 +51,16 @@ export function FieldSurveyStep({
 
   // React Query hooks — surveys filtered by selected site for multi-site projects
   const { data: surveys = [], isLoading } = useSurveys(project.id, selectedSiteId)
-  const { data: projectSites = [] } = useProjectSites(project.id)
+  const { data: projectSites = [], isLoading: isLoadingSites } = useProjectSites(project.id)
   const isMultiSite = projectSites.length > 1
 
   // For single-site projects, auto-assign the site ID on survey creation
   const effectiveSiteId =
     selectedSiteId || (projectSites.length === 1 ? (projectSites[0]?.id ?? null) : null)
+
+  // Also block while sites load: in the loading window `isMultiSite=false`,
+  // which would otherwise briefly expose Schedule Survey / Add Visit.
+  const requiresSiteSelection = isLoadingSites || (isMultiSite && !selectedSiteId)
 
   // Visit management hook
   const visit = useVisitManagement({
@@ -172,6 +176,17 @@ export function FieldSurveyStep({
         />
       </div>
 
+      {requiresSiteSelection && (
+        <Alert className="border-amber-500/50 text-amber-700 dark:text-amber-400 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-500">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Select a site first</AlertTitle>
+          <AlertDescription>
+            Pick a site from the selector above before scheduling a survey. Each survey must be
+            associated with a single site.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Top-Level Tabs: Surveys vs Photos */}
       <Tabs value={topTab} onValueChange={(v) => setTopTab(v as 'surveys' | 'photos')}>
         <TabsList>
@@ -200,22 +215,24 @@ export function FieldSurveyStep({
                 walkover surveys.
               </AlertDescription>
               <div className="mt-3">
-                <Button
-                  size="sm"
-                  disabled={isMultiSite && !selectedSiteId}
-                  onClick={() => {
-                    visit.setEditingSurvey(null)
-                    visit.setShowSurveyForm(true)
-                  }}
+                <span
+                  title={
+                    requiresSiteSelection ? 'Select a site first to schedule a survey.' : undefined
+                  }
+                  className="inline-block"
                 >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Schedule Survey
-                </Button>
-                {isMultiSite && !selectedSiteId && (
-                  <p className="mt-1 text-xs text-red-500">
-                    Select a site first to schedule a survey.
-                  </p>
-                )}
+                  <Button
+                    size="sm"
+                    disabled={requiresSiteSelection}
+                    onClick={() => {
+                      visit.setEditingSurvey(null)
+                      visit.setShowSurveyForm(true)
+                    }}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Schedule Survey
+                  </Button>
+                </span>
               </div>
             </Alert>
           ) : (
@@ -227,10 +244,15 @@ export function FieldSurveyStep({
                     Manage and track all field surveys for this project
                   </CardDescription>
                 </div>
-                <div className="flex flex-col items-end">
+                <span
+                  title={
+                    requiresSiteSelection ? 'Select a site first to schedule a survey.' : undefined
+                  }
+                  className="inline-block"
+                >
                   <Button
                     size="sm"
-                    disabled={isMultiSite && !selectedSiteId}
+                    disabled={requiresSiteSelection}
                     onClick={() => {
                       visit.setEditingSurvey(null)
                       visit.setShowSurveyForm(true)
@@ -239,10 +261,7 @@ export function FieldSurveyStep({
                     <Plus className="mr-2 h-4 w-4" />
                     Schedule Survey
                   </Button>
-                  {isMultiSite && !selectedSiteId && (
-                    <p className="mt-1 text-xs text-red-500">Select a site first.</p>
-                  )}
-                </div>
+                </span>
               </CardHeader>
               <CardContent>
                 <SurveyList
@@ -260,6 +279,7 @@ export function FieldSurveyStep({
                   onComplete={handleCompleteSurvey}
                   onAssignStaff={setAssigningSurvey}
                   onAddVisit={visit.handleAddVisit}
+                  disableAddVisit={requiresSiteSelection}
                 />
               </CardContent>
             </Card>

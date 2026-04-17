@@ -34,6 +34,7 @@ import { IRELAND_CENTER } from '@/lib/config/map-constants'
 import { groupFindingsByType } from '@/lib/utils/group-findings-by-type'
 import { getHabitatByCode } from '@/lib/data/fossitt-codes'
 import { SiteSelector } from '@/components/project/site-selector'
+import { useProjectSites } from '@/hooks/queries/use-site-hooks'
 import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
 import { useAutoImportHabitats } from '@/hooks/steps/use-auto-import-habitats'
 import { useHabitatMapData } from '@/hooks/steps/use-habitat-map-data'
@@ -67,6 +68,17 @@ export function HabitatMappingStep({
 }: HabitatMappingStepProps) {
   const { toast } = useToast()
   const [selectedSite, setSelectedSite] = React.useState<ProjectSiteWithGeoJSON | null>(null)
+  const { data: projectSites = [], isLoading: isLoadingSites } = useProjectSites(project.id)
+  const isMultiSite = projectSites.length > 1
+  // Single-site projects auto-resolve to that site even when SiteSelector is hidden.
+  const effectiveSiteId =
+    selectedSite?.id ?? (projectSites.length === 1 ? (projectSites[0]?.id ?? null) : null)
+  // Multi-site projects must have a specific site selected before users can
+  // draw or persist habitats — required by Greg's "Survey Stage Requirement"
+  // so every habitat is unambiguously associated with a single site. While
+  // sites are loading we also block so a stale `isMultiSite=false` window
+  // can't briefly expose the Add button.
+  const requiresSiteSelection = isLoadingSites || (isMultiSite && !selectedSite)
   const { projectBoundary, projectCenter } = useProjectBoundary(project, selectedSite)
   const [showHabitatForm, setShowHabitatForm] = React.useState(false)
   const [editingHabitat, setEditingHabitat] = React.useState<HabitatPolygon | null>(null)
@@ -117,6 +129,7 @@ export function HabitatMappingStep({
 
   // Handle boundary drawn on map
   const handleBoundaryChange = (features: GeoJSON.FeatureCollection) => {
+    if (requiresSiteSelection) return
     if (features.features.length > 0) {
       const feature = features.features[0] as GeoJSON.Feature<GeoJSON.Polygon>
       setDrawnBoundary(feature)
@@ -158,7 +171,7 @@ export function HabitatMappingStep({
     try {
       await createHabitat.mutateAsync({
         project_id: project.id,
-        site_id: selectedSite?.id ?? null,
+        site_id: effectiveSiteId,
         ...fields,
         boundary: drawnBoundary ? (drawnBoundary.geometry as unknown as Json) : null,
         area_hectares: areaHectares,
@@ -286,6 +299,17 @@ export function HabitatMappingStep({
         </Alert>
       )}
 
+      {requiresSiteSelection && (
+        <Alert className="mx-6 mt-3 border-amber-500/50 text-amber-700 dark:text-amber-400 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-500">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Select a site first</AlertTitle>
+          <AlertDescription>
+            Pick a site from the selector above before drawing habitat polygons. Each habitat must
+            be associated with a single site.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Main Content - Stacked Layout: map on top, list below.
           The container scrolls so both map and list can have generous fixed
           heights that exceed the viewport. Horizontal padding leaves gutter
@@ -298,7 +322,7 @@ export function HabitatMappingStep({
             zoom={projectCenter ? 14 : 7}
             boundary={projectBoundary}
             onBoundaryChange={handleBoundaryChange}
-            editable
+            editable={!requiresSiteSelection}
             findings={findingMarkers}
             flyToLocation={flyToLocation ?? undefined}
             habitatPolygons={habitatPolygonOverlays}
@@ -331,6 +355,8 @@ export function HabitatMappingStep({
               setShowHabitatForm(true)
             }}
             onFindingClick={handleFindingClick}
+            addDisabled={requiresSiteSelection}
+            addDisabledReason="Select a site first to add a habitat."
           />
         </div>
       </div>

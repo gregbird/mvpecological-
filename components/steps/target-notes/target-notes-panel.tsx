@@ -36,6 +36,8 @@ interface TargetNotesPanelProps {
   onMapClick: (latlng: { lat: number; lng: number } | undefined) => void
   projectBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
   projectCenter?: { lat: number; lng: number }
+  /** When true, map clicks won't open the new-note dialog (multi-site, no site picked) */
+  addDisabled?: boolean
 }
 
 export function TargetNotesPanel({
@@ -51,6 +53,7 @@ export function TargetNotesPanel({
   onMapClick,
   projectBoundary,
   projectCenter,
+  addDisabled = false,
 }: TargetNotesPanelProps) {
   return (
     <div className="flex flex-col gap-4">
@@ -94,6 +97,7 @@ export function TargetNotesPanel({
                 if (found) onSelectNote(found)
               }}
               onMapClick={(latlng) => {
+                if (addDisabled) return
                 if (latlng) {
                   onMapClick(latlng)
                 }

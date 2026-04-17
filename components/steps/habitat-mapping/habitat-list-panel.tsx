@@ -84,6 +84,9 @@ interface HabitatListPanelProps {
   onDeleteHabitat: (habitat: HabitatPolygon) => void
   onAddHabitat: () => void
   onFindingClick: (finding: DeskResearchFinding) => void
+  /** Disable Add Habitat (multi-site projects with no site selected) */
+  addDisabled?: boolean
+  addDisabledReason?: string
 }
 
 export function HabitatListPanel({
@@ -100,6 +103,8 @@ export function HabitatListPanel({
   onDeleteHabitat,
   onAddHabitat,
   onFindingClick,
+  addDisabled = false,
+  addDisabledReason,
 }: HabitatListPanelProps) {
   // Persist active tab in sessionStorage
   const tabCacheKey = `habitat-mapping-tab-${projectId}`
@@ -127,10 +132,15 @@ export function HabitatListPanel({
               Desk Research ({savedFindings.length})
             </TabsTrigger>
           </TabsList>
-          <Button size="sm" className="ml-auto shrink-0" onClick={onAddHabitat}>
-            <Plus className="mr-1.5 h-4 w-4" />
-            Add Habitat
-          </Button>
+          <span
+            className="ml-auto inline-block shrink-0"
+            title={addDisabled ? addDisabledReason : undefined}
+          >
+            <Button size="sm" onClick={onAddHabitat} disabled={addDisabled}>
+              <Plus className="mr-1.5 h-4 w-4" />
+              Add Habitat
+            </Button>
+          </span>
         </div>
 
         {/* Keep both tabs mounted, toggle visibility via CSS */}
