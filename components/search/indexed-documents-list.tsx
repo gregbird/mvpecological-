@@ -6,6 +6,7 @@ import {
   Loader2,
   Trash2,
   RefreshCw,
+  RotateCw,
   CheckCircle2,
   AlertCircle,
   Clock,
@@ -13,7 +14,12 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { useIndexedDocuments, useDeleteIndexedDocument } from '@/hooks/queries/use-document-hooks'
+import {
+  useIndexedDocuments,
+  useDeleteIndexedDocument,
+  useIndexDocuments,
+} from '@/hooks/queries/use-document-hooks'
+import { useToast } from '@/hooks/use-toast'
 
 interface IndexedDocumentsListProps {
   connectionId: string
@@ -48,6 +54,28 @@ const STATUS_CONFIG: Record<string, { icon: React.ReactNode; badge: string; colo
 export function IndexedDocumentsList({ connectionId }: IndexedDocumentsListProps) {
   const { data: documents = [], isLoading } = useIndexedDocuments(connectionId)
   const deleteMutation = useDeleteIndexedDocument()
+  const indexMutation = useIndexDocuments()
+  const { toast } = useToast()
+  const [reprocessingPath, setReprocessingPath] = React.useState<string | null>(null)
+
+  const handleReprocess = async (filePath: string, fileName: string) => {
+    setReprocessingPath(filePath)
+    try {
+      await indexMutation.mutateAsync({ filePaths: [filePath], force: true })
+      toast({
+        title: 'Re-processing complete',
+        description: `${fileName} ran through the updated pipeline (new summary, entity mentions, embeddings).`,
+      })
+    } catch (error) {
+      toast({
+        title: 'Re-process failed',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      })
+    } finally {
+      setReprocessingPath(null)
+    }
+  }
 
   const readyCount = documents.filter((d) => d.status === 'ready').length
   const totalChunks = documents.reduce((sum, d) => sum + (d.total_chunks ?? 0), 0)
@@ -98,6 +126,20 @@ export function IndexedDocumentsList({ connectionId }: IndexedDocumentsListProps
                   {doc.total_chunks != null && doc.total_chunks > 0 && (
                     <span className="text-muted-foreground text-xs">{doc.total_chunks} chunks</span>
                   )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground hover:text-foreground h-8 w-8"
+                    onClick={() => handleReprocess(doc.file_path, doc.file_name)}
+                    disabled={reprocessingPath === doc.file_path || doc.status === 'indexing'}
+                    title="Re-process with latest pipeline (new summary, entity mentions)"
+                  >
+                    {reprocessingPath === doc.file_path ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RotateCw className="h-4 w-4" />
+                    )}
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"

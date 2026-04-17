@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2, Check, AlertCircle, FileText, MapPin } from 'lucide-react'
+import { Loader2, Check, AlertCircle, FileText, MapPin, Network } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -22,6 +22,7 @@ import {
   type HabitatRow,
 } from '@/components/steps/desk-assessment/baseline-report-tab'
 import { DeepResearchTab } from '@/components/steps/desk-assessment/deep-research-tab'
+import { EvidenceMatrixTab } from '@/components/steps/desk-assessment/evidence-matrix/evidence-matrix-tab'
 import { ExportMenu } from '@/components/steps/desk-assessment/export-menu'
 import { AiSummarySection } from '@/components/steps/desk-assessment/ai-summary-section'
 import { DataSummaryCards } from '@/components/steps/desk-assessment/data-summary-cards'
@@ -277,6 +278,13 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
               <MapPin className="mr-2 h-4 w-4" />
               Deep Research
             </TabsTrigger>
+            <TabsTrigger
+              value="evidence"
+              className="data-[state=active]:border-primary relative rounded-none border-b-2 border-transparent py-3 font-medium shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+            >
+              <Network className="mr-2 h-4 w-4" />
+              Evidence
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -344,6 +352,13 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
             findings={savedFindings}
             siteId={selectedSiteId}
           />
+        </TabsContent>
+
+        {/* Evidence Matrix Tab */}
+        <TabsContent value="evidence" className="mt-0 min-h-0 flex-1 overflow-y-auto">
+          <div className="p-6">
+            <EvidenceMatrixTab projectId={project.id} siteId={selectedSiteId} />
+          </div>
         </TabsContent>
       </Tabs>
 

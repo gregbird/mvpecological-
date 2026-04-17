@@ -5,6 +5,12 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { refreshAccessToken } from '@/lib/dropbox/client'
 import { indexDocument } from '@/lib/dropbox/indexer'
 
+// Allow up to 5 minutes. The new pipeline runs extract → chunk → summary →
+// embeddings → entity extraction per file sequentially; ecology PDFs with 20+
+// chunks + entity extraction in batches of 5 can easily exceed the default
+// 60-second serverless timeout when multiple files are submitted at once.
+export const maxDuration = 300
+
 export async function POST(request: NextRequest) {
   try {
     const { user, error: authError } = await requireAuth()
@@ -23,7 +29,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
-    const { filePaths } = (await request.json()) as { filePaths: string[] }
+    const { filePaths, force = false } = (await request.json()) as {
+      filePaths: string[]
+      force?: boolean
+    }
 
     if (!filePaths || filePaths.length === 0) {
       return NextResponse.json({ error: 'filePaths required' }, { status: 400 })
@@ -99,6 +108,7 @@ export async function POST(request: NextRequest) {
           fileSize: meta.size,
           contentHash: meta.content_hash ?? '',
           dropboxModifiedAt: meta.server_modified ?? '',
+          force,
         })
 
         results.push({

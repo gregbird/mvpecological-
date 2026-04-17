@@ -191,12 +191,21 @@ export async function indexDocument(params: {
   fileSize: number
   contentHash: string
   dropboxModifiedAt: string
+  /**
+   * Force re-processing even when the content hash matches a previously
+   * successful index. Used when pipeline changes (new extractor, new embedding
+   * model, new entity-extraction step) would benefit already-indexed documents
+   * that would otherwise be skipped by the hash short-circuit.
+   */
+  force?: boolean
 }): Promise<{ documentId: string; chunks: number }> {
   const supabase = createAdminClient()
 
   // Check if already indexed with same content_hash AND successful status.
   // Re-index if previous attempt ended in 'error' even when hash matches — users
   // should be able to retry a failed indexing without bumping the file version.
+  // The `force` flag bypasses this short-circuit entirely so pipeline upgrades
+  // (new extractor, new embeddings, new entity mentions) can re-populate docs.
   const { data: existing } = await supabase
     .from('indexed_documents')
     .select('id, content_hash, status')
@@ -204,7 +213,12 @@ export async function indexDocument(params: {
     .eq('file_path', params.filePath)
     .single()
 
-  if (existing && existing.content_hash === params.contentHash && existing.status === 'ready') {
+  if (
+    !params.force &&
+    existing &&
+    existing.content_hash === params.contentHash &&
+    existing.status === 'ready'
+  ) {
     return { documentId: existing.id, chunks: 0 }
   }
 

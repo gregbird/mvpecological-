@@ -64,7 +64,7 @@ export function useIndexDocuments() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (params: { filePaths: string[] }) => {
+    mutationFn: async (params: { filePaths: string[]; force?: boolean }) => {
       const response = await fetch('/api/dropbox/index', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
