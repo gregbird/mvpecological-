@@ -20,10 +20,16 @@ import { Card, CardContent } from '@/components/ui/card'
 interface EvidenceNarrativeProps {
   narrative: string | null
   isGenerating: boolean
+  error?: Error | null
   onGenerate: () => void
 }
 
-export function EvidenceNarrative({ narrative, isGenerating, onGenerate }: EvidenceNarrativeProps) {
+export function EvidenceNarrative({
+  narrative,
+  isGenerating,
+  error,
+  onGenerate,
+}: EvidenceNarrativeProps) {
   const hasNarrative = Boolean(narrative && narrative.trim().length > 0)
 
   return (
@@ -56,6 +62,15 @@ export function EvidenceNarrative({ narrative, isGenerating, onGenerate }: Evide
           <div className="flex items-center gap-2 py-4 text-sm text-purple-700 dark:text-purple-300">
             <Loader2 className="h-4 w-4 animate-spin" />
             Synthesising evidence across your findings and indexed reports…
+          </div>
+        ) : error ? (
+          <div className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300">
+            <p className="font-medium">Synthesis failed</p>
+            <p className="mt-1 text-xs opacity-80">{error.message}</p>
+            <p className="mt-1 text-xs opacity-70">
+              Click Regenerate to retry — this can happen if the model takes longer than the request
+              timeout.
+            </p>
           </div>
         ) : hasNarrative ? (
           <div className="prose prose-sm dark:prose-invert text-foreground max-w-none whitespace-pre-wrap">

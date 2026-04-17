@@ -104,6 +104,18 @@ export function EvidenceTable({ entities }: EvidenceTableProps) {
     return list
   }, [entities, viewMode, typeFilter])
 
+  // Hide columns that have zero hits across the currently visible rows.
+  // Reasoning: species never come from EPA/Catchments, sites never from
+  // NBDC/GBIF, etc. Rather than hard-coding per-type relevance, we let the
+  // data speak — if no row has a ✓ in a column, the column is noise for this
+  // view and shouldn't take screen real estate.
+  const visibleSourceColumns = React.useMemo(() => {
+    if (filtered.length === 0) return SOURCE_COLUMNS
+    return SOURCE_COLUMNS.filter((col) =>
+      filtered.some((entity) => entity.sources.some((source) => source.kind === col.key))
+    )
+  }, [filtered])
+
   const toggleType = (type: EntityType) => {
     setTypeFilter((prev) => {
       const next = new Set(prev)
@@ -171,7 +183,7 @@ export function EvidenceTable({ entities }: EvidenceTableProps) {
                 <TableRow>
                   <TableHead className="w-[320px]">Entity</TableHead>
                   <TableHead className="w-[110px]">Type</TableHead>
-                  {SOURCE_COLUMNS.map((col) => (
+                  {visibleSourceColumns.map((col) => (
                     <TableHead key={col.key} className="text-center text-xs">
                       {col.label}
                     </TableHead>
@@ -183,7 +195,7 @@ export function EvidenceTable({ entities }: EvidenceTableProps) {
                 {filtered.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={3 + SOURCE_COLUMNS.length}
+                      colSpan={3 + visibleSourceColumns.length}
                       className="text-muted-foreground py-8 text-center text-sm"
                     >
                       {viewMode === 'overlaps' && 'No entities with overlapping sources yet.'}
@@ -219,7 +231,7 @@ export function EvidenceTable({ entities }: EvidenceTableProps) {
                               {typeMeta.label}
                             </Badge>
                           </TableCell>
-                          {SOURCE_COLUMNS.map((col) => {
+                          {visibleSourceColumns.map((col) => {
                             const count = entity.sources.filter((s) => s.kind === col.key).length
                             return (
                               <TableCell key={col.key} className="text-center">
@@ -240,7 +252,7 @@ export function EvidenceTable({ entities }: EvidenceTableProps) {
                         </TableRow>
                         {isExpanded && (
                           <TableRow className="bg-muted/20">
-                            <TableCell colSpan={3 + SOURCE_COLUMNS.length} className="py-3">
+                            <TableCell colSpan={3 + visibleSourceColumns.length} className="py-3">
                               <div className="space-y-2 text-sm">
                                 <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
                                   Sources ({entity.sources.length})

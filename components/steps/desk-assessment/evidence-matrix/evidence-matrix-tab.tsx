@@ -102,6 +102,7 @@ export function EvidenceMatrixTab({ projectId, siteId }: EvidenceMatrixTabProps)
       <EvidenceNarrative
         narrative={narrative}
         isGenerating={generateNarrative.isPending}
+        error={generateNarrative.error as Error | null}
         onGenerate={() => generateNarrative.mutate()}
       />
       <EvidenceTable entities={entities} />

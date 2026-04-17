@@ -4,6 +4,10 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { toIrishEnglish } from '@/lib/ai/irish-english'
 import { SYNTHESIS_MODEL } from '@/lib/ai/openai-models'
+
+// Narrative generation with gpt-5 can easily run 30-60 seconds even at low
+// reasoning effort — bump past the default serverless timeout.
+export const maxDuration = 120
 import {
   canonicalKeyForFinding,
   canonicalKeyForMention,
@@ -236,14 +240,24 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // --- 4. Optional AI narrative ---
     let narrative: string | null = null
     if (generateNarrative && entities.length > 0) {
-      narrative = await generateEvidenceNarrative({
-        projectName: project.name,
-        entities,
-        metadata,
-      }).catch((err) => {
-        console.error('Evidence narrative generation failed (non-fatal):', err)
-        return null
-      })
+      // Narrative generation is user-triggered, so surface failures instead of
+      // silently returning null — the UI needs something to display in the
+      // narrative card so the user can retry.
+      try {
+        narrative = await generateEvidenceNarrative({
+          projectName: project.name,
+          entities,
+          metadata,
+        })
+      } catch (err) {
+        console.error('Evidence narrative generation failed:', err)
+        return NextResponse.json(
+          {
+            error: err instanceof Error ? err.message : 'Narrative generation failed',
+          },
+          { status: 500 }
+        )
+      }
     }
 
     const response: EvidenceMatrixResponse = { entities, narrative, metadata }
@@ -332,6 +346,10 @@ Rules:
     },
     body: JSON.stringify({
       model: SYNTHESIS_MODEL,
+      // The synthesis is bounded in size (top ~35 entities) and mostly
+      // structured rewriting — medium reasoning is overkill and blows the
+      // request past the timeout. `low` keeps quality solid while halving wait.
+      reasoning_effort: 'low',
       max_completion_tokens: 1500,
       messages: [
         { role: 'system', content: systemPrompt },
