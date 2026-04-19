@@ -60,6 +60,13 @@ export function TargetNotesStep({
     null
   )
   const [selectedSurveyId, setSelectedSurveyId] = React.useState<string>('')
+
+  // Switching sites invalidates the current survey choice — surveys are
+  // site-scoped, so the dropdown re-populates with a new list. Leaving the
+  // old id in state would attach imported species to a survey from the wrong site.
+  React.useEffect(() => {
+    setSelectedSurveyId('')
+  }, [selectedSite?.id])
   const [activeTab, setActiveTab] = React.useState('all')
   const [selectedObservation, setSelectedObservation] = React.useState<SpeciesObservation | null>(
     null

@@ -3,6 +3,7 @@
 import * as React from 'react'
 import type { Project, WorkflowStep } from '@/types/database'
 import { useWorkflowSteps } from '@/hooks/queries/use-workflow-hooks'
+import { useProjectSites } from '@/hooks/queries/use-site-hooks'
 
 export type WizardStep = 'source' | 'boundary' | 'sites' | 'buffers' | 'layers'
 export type ViewMode = 'preview' | 'wizard'
@@ -17,17 +18,33 @@ export const WIZARD_STEPS: { id: WizardStep; label: string }[] = [
 export function useGISWizard(project: Project, workflowStep: WorkflowStep) {
   const isStepCompleted =
     workflowStep.status === 'approved' || workflowStep.status === 'needs_review'
-  const hasSavedData = !!(project.boundary && project.grid_reference)
+  const { data: projectSites } = useProjectSites(project.id)
+  const hasMultiSiteData = !!projectSites?.some((s) => s.boundary)
+  const hasLegacyData = !!(project.boundary && project.grid_reference)
+  const hasSavedData = hasLegacyData || hasMultiSiteData
 
-  const [viewMode, setViewMode] = React.useState<ViewMode>(() => {
-    if (isStepCompleted && hasSavedData) return 'preview'
-    return 'wizard'
-  })
+  // Manual override trumps the derived default. Null means "follow the
+  // conditions below" — this way async-loading site data promotes the view
+  // to preview without a ref latch, and any status transition is reflected.
+  const [manualViewMode, setManualViewMode] = React.useState<ViewMode | null>(null)
+  const derivedViewMode: ViewMode = isStepCompleted && hasSavedData ? 'preview' : 'wizard'
+  const viewMode = manualViewMode ?? derivedViewMode
+  const setViewMode = React.useCallback((mode: ViewMode) => setManualViewMode(mode), [])
 
   const [currentStep, setCurrentStep] = React.useState<WizardStep>(() => {
-    if (project.boundary) return 'sites'
+    if (hasLegacyData) return 'sites'
     return 'source'
   })
+
+  // Advance past 'source' once multi-site boundaries load (async fetch)
+  const hasAdvancedStepRef = React.useRef(false)
+  React.useEffect(() => {
+    if (hasAdvancedStepRef.current) return
+    if (hasMultiSiteData && currentStep === 'source') {
+      setCurrentStep('sites')
+      hasAdvancedStepRef.current = true
+    }
+  }, [hasMultiSiteData, currentStep])
 
   const [showEditWarning, setShowEditWarning] = React.useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false)

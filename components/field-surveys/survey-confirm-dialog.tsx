@@ -18,6 +18,13 @@ import { createClient } from '@/lib/supabase/client'
 interface SurveyStats {
   observations: number
   photos: number
+  hasNotes: boolean
+  hasFormData: boolean
+  // Relevé-specific — null when survey isn't a relevé
+  releveRowExists: boolean | null
+  releveHasFields: boolean
+  releveSpeciesCount: number
+  isReleve: boolean
 }
 
 interface SurveyConfirmDialogProps {
@@ -27,6 +34,37 @@ interface SurveyConfirmDialogProps {
   action: 'complete'
   onConfirm: () => void
 }
+
+// Numeric/text fields on releve_surveys that count as "real data".
+// Excludes housekeeping columns (id, project_id, survey_id, created_at, site_name, etc.)
+const RELEVE_DATA_FIELDS = [
+  'habitat_type',
+  'soil_type',
+  'soil_stability',
+  'aspect',
+  'slope_degrees',
+  'releve_area_sqm',
+  'total_vegetation_cover_pct',
+  'cover_trees_pct',
+  'cover_shrubs_pct',
+  'cover_graminea_pct',
+  'cover_forbs_pct',
+  'cover_mosses_liverworts_pct',
+  'cover_litter_pct',
+  'cover_bare_soil_pct',
+  'cover_bare_rock_pct',
+  'cover_open_water_pct',
+  'max_height_trees_m',
+  'max_height_shrubs_cm',
+  'max_height_graminea_cm',
+  'max_height_forbs_cm',
+  'max_height_bryophytes_cm',
+  'median_height_graminea_cm',
+  'median_height_forbs_cm',
+  'fauna_observations',
+  'other_species_proximity',
+  'releve_comment',
+] as const
 
 export function SurveyConfirmDialog({
   open,
@@ -39,13 +77,24 @@ export function SurveyConfirmDialog({
   const [loading, setLoading] = React.useState(false)
 
   React.useEffect(() => {
-    if (!open || !surveyId) return
+    if (!open || !surveyId) {
+      setStats(null)
+      return
+    }
 
     const fetchStats = async () => {
       setLoading(true)
       const supabase = createClient()
 
-      const [obsResult, photoResult] = await Promise.all([
+      const { data: survey } = await supabase
+        .from('surveys')
+        .select('survey_type, notes, form_data, weather')
+        .eq('id', surveyId)
+        .maybeSingle()
+
+      const isReleve = survey?.survey_type === 'releve_survey'
+
+      const [obsResult, photoResult, releveResult] = await Promise.all([
         supabase
           .from('species_observations')
           .select('*', { count: 'exact', head: true })
@@ -54,11 +103,43 @@ export function SurveyConfirmDialog({
           .from('photos')
           .select('*', { count: 'exact', head: true })
           .eq('survey_id', surveyId),
+        isReleve
+          ? supabase.from('releve_surveys').select('*').eq('survey_id', surveyId).maybeSingle()
+          : Promise.resolve({ data: null }),
       ])
+
+      const releveRow = releveResult.data as Record<string, unknown> | null
+      const releveHasFields = Boolean(
+        releveRow &&
+        RELEVE_DATA_FIELDS.some((k) => {
+          const v = releveRow[k]
+          return v !== null && v !== undefined && v !== ''
+        })
+      )
+
+      let releveSpeciesCount = 0
+      if (isReleve && releveRow?.id) {
+        const { count } = await supabase
+          .from('releve_species')
+          .select('*', { count: 'exact', head: true })
+          .eq('releve_id', releveRow.id as string)
+        releveSpeciesCount = count ?? 0
+      }
+
+      // form_data: nested object of template-driven fields per section.
+      // Count it as "has data" if any leaf is non-empty.
+      const hasFormData = hasAnyLeafValue(survey?.form_data)
+      const hasNotes = Boolean(survey?.notes && survey.notes.trim().length > 0)
 
       setStats({
         observations: obsResult.count ?? 0,
         photos: photoResult.count ?? 0,
+        hasNotes,
+        hasFormData,
+        releveRowExists: isReleve ? Boolean(releveRow) : null,
+        releveHasFields,
+        releveSpeciesCount,
+        isReleve,
       })
       setLoading(false)
     }
@@ -66,10 +147,10 @@ export function SurveyConfirmDialog({
     fetchStats()
   }, [open, surveyId])
 
-  const hasData = stats && (stats.observations > 0 || stats.photos > 0)
+  const hasData = stats ? computeHasData(stats) : false
   const isComplete = action === 'complete'
 
-  // If data exists for complete action, skip dialog and confirm directly
+  // Data present: skip dialog and confirm directly.
   React.useEffect(() => {
     if (open && isComplete && stats && hasData) {
       onOpenChange(false)
@@ -77,7 +158,6 @@ export function SurveyConfirmDialog({
     }
   }, [open, isComplete, stats, hasData, onConfirm, onOpenChange])
 
-  // Don't render if complete action with data (auto-confirmed above)
   if (isComplete && stats && hasData) return null
 
   return (
@@ -86,28 +166,51 @@ export function SurveyConfirmDialog({
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <AlertCircle className="h-5 w-5 text-amber-500" />
-            Complete Survey?
+            {stats && !hasData ? 'Cannot Complete Empty Survey' : 'Complete Survey?'}
           </AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="space-y-3">
-              {loading ? (
+              {loading || !stats ? (
                 <div className="flex items-center gap-2 py-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span>Checking survey data...</span>
                 </div>
-              ) : stats ? (
+              ) : (
                 <>
-                  {/* Stats summary */}
                   <div className="space-y-1.5 rounded-md border p-3">
-                    <StatRow label="Species Observations" count={stats.observations} />
-                    <StatRow label="Photos" count={stats.photos} />
+                    {stats.isReleve ? (
+                      <>
+                        <StatRow
+                          label="Relevé fields filled"
+                          value={stats.releveHasFields ? 'Yes' : 'No'}
+                          positive={stats.releveHasFields}
+                        />
+                        <StatRow label="Species recorded" count={stats.releveSpeciesCount} />
+                        <StatRow label="Photos" count={stats.photos} />
+                      </>
+                    ) : (
+                      <>
+                        <StatRow label="Species Observations" count={stats.observations} />
+                        <StatRow label="Photos" count={stats.photos} />
+                        <StatRow
+                          label="Survey notes"
+                          value={stats.hasNotes ? 'Yes' : 'No'}
+                          positive={stats.hasNotes}
+                        />
+                        <StatRow
+                          label="Template fields filled"
+                          value={stats.hasFormData ? 'Yes' : 'No'}
+                          positive={stats.hasFormData}
+                        />
+                      </>
+                    )}
                   </div>
 
-                  {/* Warning or info message */}
                   {!hasData ? (
                     <p className="text-sm text-amber-600 dark:text-amber-400">
-                      This survey has no observations or photos recorded. Are you sure you want to
-                      mark it as complete?
+                      {stats.isReleve
+                        ? 'This relevé has no filled fields, species, or photos. Fill at least one section before completing.'
+                        : 'This survey has no observations, photos, notes, or template data. Add at least one before completing.'}
                     </p>
                   ) : (
                     <p className="text-sm">
@@ -115,7 +218,7 @@ export function SurveyConfirmDialog({
                     </p>
                   )}
                 </>
-              ) : null}
+              )}
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -123,7 +226,7 @@ export function SurveyConfirmDialog({
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
-            disabled={loading}
+            disabled={loading || !stats || !hasData}
             className="bg-amber-500 text-white hover:bg-amber-600"
           >
             <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
@@ -135,12 +238,43 @@ export function SurveyConfirmDialog({
   )
 }
 
-function StatRow({ label, count }: { label: string; count: number }) {
+function computeHasData(s: SurveyStats): boolean {
+  if (s.isReleve) {
+    return s.releveHasFields || s.releveSpeciesCount > 0 || s.photos > 0
+  }
+  return s.observations > 0 || s.photos > 0 || s.hasNotes || s.hasFormData
+}
+
+function hasAnyLeafValue(value: unknown): boolean {
+  if (value === null || value === undefined) return false
+  if (typeof value === 'string') return value.trim().length > 0
+  if (typeof value === 'number') return !Number.isNaN(value)
+  if (typeof value === 'boolean') return value
+  if (Array.isArray(value)) return value.some(hasAnyLeafValue)
+  if (typeof value === 'object') {
+    return Object.values(value as Record<string, unknown>).some(hasAnyLeafValue)
+  }
+  return false
+}
+
+function StatRow({
+  label,
+  count,
+  value,
+  positive,
+}: {
+  label: string
+  count?: number
+  value?: string
+  positive?: boolean
+}) {
+  const display = value ?? (count ?? 0).toString()
+  const isPositive = value !== undefined ? positive : (count ?? 0) > 0
   return (
     <div className="flex items-center justify-between text-sm">
       <span>{label}</span>
-      <span className={count > 0 ? 'font-medium text-green-600' : 'font-medium text-amber-500'}>
-        {count}
+      <span className={isPositive ? 'font-medium text-green-600' : 'font-medium text-amber-500'}>
+        {display}
       </span>
     </div>
   )

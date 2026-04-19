@@ -32,6 +32,15 @@ interface UseAutoSearchOptions {
   isStepCompleted: boolean
   viewMode: string
   boundaryChanged: boolean
+  /** Per-type finding counts from `useFindingsStats`. When a type already
+   * has saved findings we mark the source `skipped` without hitting the
+   * external API, even on a fresh tab (sessionStorage alone misses this). */
+  findingCounts?: {
+    designatedSites: number
+    speciesRecords: number
+    aquatic: number
+    habitats: number
+  }
 }
 
 interface UseAutoSearchReturn {
@@ -52,6 +61,7 @@ export function useAutoSearch({
   isStepCompleted,
   viewMode,
   boundaryChanged,
+  findingCounts,
 }: UseAutoSearchOptions): UseAutoSearchReturn {
   const [autoSearchStatus, setAutoSearchStatus] = useState<AutoSearchState>(INITIAL_STATE)
   const [showAutoSearchBanner, setShowAutoSearchBanner] = useState(false)
@@ -69,6 +79,15 @@ export function useAutoSearch({
     if (!boundary) return
     if (isStepCompleted) return
     if (viewMode !== 'wizard') return
+
+    // DB-first: if findings for a type are already persisted, there's
+    // nothing to re-search — even on a brand-new tab with empty
+    // sessionStorage. sessionStorage remains a secondary signal for
+    // mid-session cache hits before anything has been saved to DB.
+    const hasSitesDB = (findingCounts?.designatedSites ?? 0) > 0
+    const hasSpeciesDB = (findingCounts?.speciesRecords ?? 0) > 0
+    const hasAquaticDB = (findingCounts?.aquatic ?? 0) > 0
+    const hasHabitatsDB = (findingCounts?.habitats ?? 0) > 0
 
     const autoSearchKey = `auto-search-triggered-${projectId}`
     const hasSitesCache = !!sessionStorage.getItem(`npws-search-${projectId}`)
@@ -96,7 +115,12 @@ export function useAutoSearch({
       }
     }
 
-    if (hasSitesCache && hasSpeciesCache && hasAquaticCache && hasHabitatCache) return
+    const hasSites = hasSitesDB || hasSitesCache
+    const hasSpecies = hasSpeciesDB || hasSpeciesCache
+    const hasAquatic = hasAquaticDB || hasAquaticCache
+    const hasHabitats = hasHabitatsDB || hasHabitatCache
+
+    if (hasSites && hasSpecies && hasAquatic && hasHabitats) return
 
     sessionStorage.setItem(autoSearchKey, 'true')
     // Queue everything as 'idle' (cached sources are marked 'skipped'
@@ -105,13 +129,23 @@ export function useAutoSearch({
     // as each one completes.
     setAutoSearchStatus({
       triggered: true,
-      sites: hasSitesCache ? 'skipped' : 'idle',
-      species: hasSpeciesCache ? 'skipped' : 'idle',
-      aquatic: hasAquaticCache ? 'skipped' : 'idle',
-      habitats: hasHabitatCache ? 'skipped' : 'idle',
+      sites: hasSites ? 'skipped' : 'idle',
+      species: hasSpecies ? 'skipped' : 'idle',
+      aquatic: hasAquatic ? 'skipped' : 'idle',
+      habitats: hasHabitats ? 'skipped' : 'idle',
     })
     setShowAutoSearchBanner(true)
-  }, [boundary, projectId, autoSearchStatus.triggered, isStepCompleted, viewMode])
+  }, [
+    boundary,
+    projectId,
+    autoSearchStatus.triggered,
+    isStepCompleted,
+    viewMode,
+    findingCounts?.designatedSites,
+    findingCounts?.speciesRecords,
+    findingCounts?.aquatic,
+    findingCounts?.habitats,
+  ])
 
   // Sequential orchestration: only ONE source may be 'searching' at a time.
   // When the current source reaches a terminal state (done/skipped/error),

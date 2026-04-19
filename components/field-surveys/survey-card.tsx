@@ -16,7 +16,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +23,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { FIELD_SURVEY_TYPE_LABELS } from '@/lib/config/survey'
 
@@ -52,7 +52,6 @@ export interface WeatherData {
   cloud_cover_pct?: number
   precipitation?: string
   visibility?: string
-  expectedSurveyCount?: number
   templateFields?: Record<string, string | number | boolean | string[] | null>
 }
 
@@ -65,7 +64,6 @@ export interface Survey {
   status: SurveyStatus
   weather?: WeatherData
   form_data?: Record<string, Record<string, unknown>> | null
-  expectedSurveyCount?: number
   notes?: string
   surveyor: {
     id: string
@@ -176,19 +174,7 @@ export function SurveyCard({
       <CardContent>
         <div className="space-y-3">
           {/* Surveyor */}
-          <div className="flex items-center gap-2">
-            <Avatar className="h-6 w-6">
-              <AvatarImage src={survey.surveyor.avatarUrl} />
-              <AvatarFallback>
-                {survey.surveyor.name
-                  .split(' ')
-                  .map((n) => n[0])
-                  .join('')
-                  .slice(0, 2)}
-              </AvatarFallback>
-            </Avatar>
-            <span className="text-sm">{survey.surveyor.name}</span>
-          </div>
+          <div className="text-sm">{survey.surveyor.name}</div>
 
           {/* Counts */}
           <div className="flex items-center gap-4 text-sm">
@@ -219,66 +205,76 @@ export function SurveyCard({
         </div>
       </CardContent>
 
-      <CardFooter className="flex-col gap-2 pt-0">
-        {/* Status transition button */}
-        {survey.status === 'in_progress' && onComplete && (
-          <Button
-            size="sm"
-            className="w-full bg-amber-500 text-white hover:bg-amber-600"
-            onClick={() => onComplete(survey)}
-          >
-            <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-            Complete Survey
-          </Button>
-        )}
-        {/* View + overflow menu */}
-        <div className="flex w-full items-center gap-1.5">
-          {onView && (
+      <CardFooter className="flex w-full items-center gap-1.5 pt-0">
+        {/* Two labeled buttons keep the daily actions visible; View moves
+            to the "..." menu so the row fits even with the sidebar open. */}
+        {survey.status === 'in_progress' ? (
+          <>
+            {onEdit && (
+              <Button size="sm" className="flex-1" onClick={() => onEdit(survey)}>
+                <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                Fill Data
+              </Button>
+            )}
+            {onComplete && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => onComplete(survey)}
+              >
+                <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                Complete
+              </Button>
+            )}
+          </>
+        ) : (
+          onView && (
             <Button variant="outline" size="sm" className="flex-1" onClick={() => onView(survey)}>
               <Eye className="mr-1.5 h-3.5 w-3.5" />
               View
             </Button>
-          )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 w-8 p-0">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {onEdit && survey.status !== 'completed' && (
-                <DropdownMenuItem onClick={() => onEdit(survey)}>
-                  <Pencil className="mr-2 h-3.5 w-3.5" />
-                  Edit
+          )
+        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="More actions">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {survey.status === 'in_progress' && onView && (
+              <DropdownMenuItem onClick={() => onView(survey)}>
+                <Eye className="mr-2 h-3.5 w-3.5" />
+                View
+              </DropdownMenuItem>
+            )}
+            {onAddVisit && survey.status !== 'completed' && (
+              <DropdownMenuItem onClick={() => onAddVisit(survey)}>
+                <Plus className="mr-2 h-3.5 w-3.5" />
+                Add Visit
+              </DropdownMenuItem>
+            )}
+            {onAssignStaff && (
+              <DropdownMenuItem onClick={() => onAssignStaff(survey)}>
+                <Users className="mr-2 h-3.5 w-3.5" />
+                Assign Staff
+              </DropdownMenuItem>
+            )}
+            {onDelete && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-red-600 focus:text-red-600"
+                  onClick={() => onDelete(survey)}
+                >
+                  <Trash2 className="mr-2 h-3.5 w-3.5" />
+                  Delete
                 </DropdownMenuItem>
-              )}
-              {onAddVisit && survey.status !== 'completed' && (
-                <DropdownMenuItem onClick={() => onAddVisit(survey)}>
-                  <Plus className="mr-2 h-3.5 w-3.5" />
-                  Add Visit
-                </DropdownMenuItem>
-              )}
-              {onAssignStaff && (
-                <DropdownMenuItem onClick={() => onAssignStaff(survey)}>
-                  <Users className="mr-2 h-3.5 w-3.5" />
-                  Assign Staff
-                </DropdownMenuItem>
-              )}
-              {onDelete && survey.status !== 'completed' && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="text-red-600 focus:text-red-600"
-                    onClick={() => onDelete(survey)}
-                  >
-                    <Trash2 className="mr-2 h-3.5 w-3.5" />
-                    Delete
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </CardFooter>
     </Card>
   )

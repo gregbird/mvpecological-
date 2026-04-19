@@ -130,6 +130,7 @@ interface FindingsHeaderProps {
 
   // Save all
   onSaveAll?: (findings: FindingDisplay[]) => void
+  onStopSaveAll?: () => void
   isSavingAll?: boolean
 }
 
@@ -169,6 +170,7 @@ export function FindingsHeader({
   onViewModeChange,
   renderExtraControls,
   onSaveAll,
+  onStopSaveAll,
   isSavingAll,
 }: FindingsHeaderProps) {
   // --- Species header: compact 2-row layout ---
@@ -261,17 +263,33 @@ export function FindingsHeader({
               filteredFindings.length > 0 &&
               (() => {
                 const unsaved = getUnsavedFindings(filteredFindings, savedFindings)
+                // While a batch is running the button toggles to a red "Stop"
+                // that aborts the trailing AI summary loop — mirrors the
+                // Summarize All pattern so the two behave the same way.
+                const handleClick = () => {
+                  if (isSavingAll) {
+                    onStopSaveAll?.()
+                  } else if (unsaved.length > 0) {
+                    onSaveAll(unsaved)
+                  }
+                }
                 return (
                   <button
-                    onClick={() => {
-                      if (unsaved.length > 0) onSaveAll(unsaved)
-                    }}
-                    disabled={isSavingAll}
-                    className="flex shrink-0 items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-blue-700 transition-colors hover:bg-blue-200 disabled:opacity-50"
-                    title={`Save all ${filteredFindings.length} filtered results`}
+                    onClick={handleClick}
+                    disabled={isSavingAll && !onStopSaveAll}
+                    className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors disabled:opacity-50 ${
+                      isSavingAll
+                        ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                        : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                    }`}
+                    title={
+                      isSavingAll
+                        ? 'Stop the current save batch'
+                        : `Save all ${filteredFindings.length} filtered results`
+                    }
                   >
                     <Save className="h-2.5 w-2.5" />
-                    {isSavingAll ? 'Saving...' : `Save All (${unsaved.length})`}
+                    {isSavingAll ? 'Stop' : `Save All (${unsaved.length})`}
                   </button>
                 )
               })()}

@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { CalendarIcon, Loader2 } from 'lucide-react'
+import { CalendarIcon, ChevronDown, Loader2 } from 'lucide-react'
 import { format } from 'date-fns'
 
 import { Button } from '@/components/ui/button'
@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { useToast } from '@/hooks/use-toast'
 import {
   Dialog,
@@ -69,7 +70,6 @@ const surveyFormSchema = z.object({
   ]),
   surveyDate: z.date({ message: 'Survey date is required' }),
   surveyorId: z.string().min(1, 'Surveyor is required'),
-  expectedSurveyCount: z.string().optional(),
   notes: z.string().optional(),
 })
 
@@ -102,6 +102,7 @@ const SURVEY_TYPES: { value: SurveyType; label: string }[] = [
   { value: 'aquatic_survey', label: 'Aquatic Survey' },
   { value: 'botanical_survey', label: 'Botanical Survey' },
   { value: 'invertebrate_survey', label: 'Invertebrate Survey' },
+  { value: 'biodiversity_net_gain', label: 'Biodiversity Net Gain' },
   { value: 'other', label: 'Other Survey' },
 ]
 
@@ -125,12 +126,14 @@ export function SurveyForm({
   const { toast } = useToast()
   const [surveyPhotos, setSurveyPhotos] = React.useState<string[]>([])
 
-  // Load existing photos when editing a survey
+  // Load existing photos when editing a survey — cancellable so a quick
+  // close/reopen doesn't setState on an unmounted / stale effect.
   React.useEffect(() => {
     if (!open || !initialData?.id) {
       setSurveyPhotos([])
       return
     }
+    let cancelled = false
     const supabase = createClient()
     supabase
       .from('photos')
@@ -138,16 +141,18 @@ export function SurveyForm({
       .eq('survey_id', initialData.id)
       .order('created_at', { ascending: true })
       .then(({ data }) => {
-        if (data && data.length > 0) {
-          const urls = data.map((p) => {
-            const { data: urlData } = supabase.storage
-              .from('project-photos')
-              .getPublicUrl(p.storage_path)
-            return urlData.publicUrl
-          })
-          setSurveyPhotos(urls)
-        }
+        if (cancelled || !data || data.length === 0) return
+        const urls = data.map((p) => {
+          const { data: urlData } = supabase.storage
+            .from('project-photos')
+            .getPublicUrl(p.storage_path)
+          return urlData.publicUrl
+        })
+        setSurveyPhotos(urls)
       })
+    return () => {
+      cancelled = true
+    }
   }, [open, initialData?.id])
 
   const form = useForm<SurveyFormValues>({
@@ -156,12 +161,6 @@ export function SurveyForm({
       surveyType: addVisitMode?.surveyType || initialData?.surveyType || 'walkover',
       surveyDate: initialData?.surveyDate ? new Date(initialData.surveyDate) : new Date(),
       surveyorId: initialData?.surveyor?.id || user?.id || '',
-      expectedSurveyCount:
-        initialData?.expectedSurveyCount?.toString() ||
-        (
-          initialData?.weather as Record<string, unknown> | undefined
-        )?.expectedSurveyCount?.toString() ||
-        '',
       notes: initialData?.notes || '',
     },
   })
@@ -173,12 +172,6 @@ export function SurveyForm({
         surveyType: addVisitMode?.surveyType || initialData?.surveyType || 'walkover',
         surveyDate: initialData?.surveyDate ? new Date(initialData.surveyDate) : new Date(),
         surveyorId: initialData?.surveyor?.id || user?.id || '',
-        expectedSurveyCount:
-          initialData?.expectedSurveyCount?.toString() ||
-          (
-            initialData?.weather as Record<string, unknown> | undefined
-          )?.expectedSurveyCount?.toString() ||
-          '',
         notes: initialData?.notes || '',
       })
     }
@@ -186,6 +179,28 @@ export function SurveyForm({
 
   const selectedSurveyType = form.watch('surveyType')
   const orgId = organizationId ?? user?.organization_id
+
+  // Field data section defaults open when the current user is editing their own
+  // in-progress survey (they're filling field data), closed otherwise.
+  // Memoized because `user` resolves asynchronously — without memo + stable
+  // dependency the open state would freeze at the initial (user=undefined) value.
+  const isOwnInProgressEdit = React.useMemo(
+    () =>
+      Boolean(
+        initialData?.id &&
+        initialData?.status === 'in_progress' &&
+        initialData?.surveyor?.id &&
+        user?.id &&
+        initialData.surveyor.id === user.id
+      ),
+    [initialData?.id, initialData?.status, initialData?.surveyor?.id, user?.id]
+  )
+  const [fieldDataOpen, setFieldDataOpen] = React.useState(isOwnInProgressEdit)
+
+  // Sync open state when dialog reopens OR when user resolves after mount
+  React.useEffect(() => {
+    if (open) setFieldDataOpen(isOwnInProgressEdit)
+  }, [open, isOwnInProgressEdit])
 
   // Fetch all org survey templates to filter inactive types
   const { data: allOrgTemplates } = useSurveyTemplates(orgId ?? undefined)
@@ -320,11 +335,7 @@ export function SurveyForm({
       const surveyor = teamMembers.find((s) => s.id === values.surveyorId)
 
       // Build weather JSONB with template fields
-      const weatherData: WeatherData = {
-        expectedSurveyCount: values.expectedSurveyCount
-          ? parseInt(values.expectedSurveyCount)
-          : undefined,
-      }
+      const weatherData: WeatherData = {}
 
       // Include template field values if any exist
       const hasTemplateValues = Object.values(templateFieldValues).some(
@@ -341,9 +352,6 @@ export function SurveyForm({
         surveyor: surveyor
           ? { id: surveyor.id, name: surveyor.full_name }
           : { id: values.surveyorId, name: 'Unknown' },
-        expectedSurveyCount: values.expectedSurveyCount
-          ? parseInt(values.expectedSurveyCount)
-          : undefined,
         weather: weatherData,
         notes: values.notes || undefined,
         status: initialData?.status || 'in_progress',
@@ -401,7 +409,7 @@ export function SurveyForm({
                     <FormLabel>Survey Type</FormLabel>
                     <Select
                       onValueChange={field.onChange}
-                      defaultValue={field.value}
+                      value={field.value}
                       disabled={!!addVisitMode}
                     >
                       <FormControl>
@@ -463,7 +471,7 @@ export function SurveyForm({
               />
             </div>
 
-            {/* Surveyor and Expected Survey Count */}
+            {/* Surveyor */}
             <div className="grid gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}
@@ -502,7 +510,7 @@ export function SurveyForm({
                 )}
               />
 
-              {addVisitMode ? (
+              {addVisitMode && (
                 <FormItem>
                   <FormLabel>Visit Number</FormLabel>
                   <FormControl>
@@ -510,20 +518,6 @@ export function SurveyForm({
                   </FormControl>
                   <FormDescription>Auto-assigned based on existing visits.</FormDescription>
                 </FormItem>
-              ) : (
-                <FormField
-                  control={form.control}
-                  name="expectedSurveyCount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Number of Surveys Expected</FormLabel>
-                      <FormControl>
-                        <Input type="number" min="1" placeholder="e.g., 3" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               )}
             </div>
 
@@ -549,18 +543,41 @@ export function SurveyForm({
               )}
             />
 
-            {/* Template-driven fields */}
+            {/* Template-driven fields — collapsed by default when scheduling,
+                auto-opened when the assigned surveyor is editing their own
+                in-progress survey (i.e. entering field data). */}
             {effectiveTemplate && (
-              <div className="space-y-3 border-t pt-4">
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Survey-Specific Fields
-                </p>
-                <TemplateSectionsRenderer
-                  templateFields={effectiveTemplate}
-                  values={templateFieldValues}
-                  onChange={handleTemplateFieldChange}
-                />
-              </div>
+              <Collapsible
+                open={fieldDataOpen}
+                onOpenChange={setFieldDataOpen}
+                className="space-y-3 border-t pt-4"
+              >
+                <CollapsibleTrigger className="group flex w-full items-center justify-between text-left">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Field Data
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      {fieldDataOpen
+                        ? 'Weather, observations, and survey-specific fields.'
+                        : 'Fill on-site or later — click to expand.'}
+                    </p>
+                  </div>
+                  <ChevronDown
+                    className={cn(
+                      'text-muted-foreground h-4 w-4 shrink-0 transition-transform',
+                      fieldDataOpen && 'rotate-180'
+                    )}
+                  />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-3">
+                  <TemplateSectionsRenderer
+                    templateFields={effectiveTemplate}
+                    values={templateFieldValues}
+                    onChange={handleTemplateFieldChange}
+                  />
+                </CollapsibleContent>
+              </Collapsible>
             )}
 
             {/* Photos (only when editing an existing survey) */}

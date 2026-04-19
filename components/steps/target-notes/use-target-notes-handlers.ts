@@ -252,65 +252,79 @@ export function useTargetNotesHandlers({
     setIsImporting(true)
 
     try {
-      let imported = 0
-      for (const finding of importableSpecies) {
-        const raw = finding.raw_data as Record<string, unknown> | null
-        const metadata = raw?.metadata as Record<string, unknown> | undefined
-        const sampleRecord = (raw?.sampleRecords as Record<string, unknown>[])?.[0]
+      // Fire mutations in parallel — sequential await was a 50-species/50-RTT
+      // bottleneck. allSettled so a single failure doesn't drop the rest.
+      const results = await Promise.allSettled(
+        importableSpecies.map((finding) => {
+          const raw = finding.raw_data as Record<string, unknown> | null
+          const metadata = raw?.metadata as Record<string, unknown> | undefined
+          const sampleRecord = (raw?.sampleRecords as Record<string, unknown>[])?.[0]
 
-        const scientificName = (metadata?.scientificName as string) || finding.title
-        const commonName = (metadata?.commonName as string) || null
+          const scientificName = (metadata?.scientificName as string) || finding.title
+          const commonName = (metadata?.commonName as string) || null
 
-        const gbifClass = (sampleRecord?.class as string) || ''
-        const kingdom = (sampleRecord?.kingdom as string) || ''
-        let taxonGroup = 'other'
-        if (gbifClass === 'Aves') taxonGroup = 'bird'
-        else if (gbifClass === 'Mammalia') taxonGroup = 'mammal'
-        else if (gbifClass === 'Reptilia') taxonGroup = 'reptile'
-        else if (gbifClass === 'Amphibia') taxonGroup = 'amphibian'
-        else if (gbifClass === 'Actinopterygii' || gbifClass === 'Chondrichthyes')
-          taxonGroup = 'fish'
-        else if (
-          gbifClass === 'Insecta' ||
-          gbifClass === 'Arachnida' ||
-          gbifClass === 'Malacostraca'
-        )
-          taxonGroup = 'invertebrate'
-        else if (
-          gbifClass === 'Magnoliopsida' ||
-          gbifClass === 'Liliopsida' ||
-          kingdom === 'Plantae'
-        )
-          taxonGroup = 'plant'
-        else if (gbifClass === 'Pezizomycetes' || kingdom === 'Fungi') taxonGroup = 'fungi'
+          const gbifClass = (sampleRecord?.class as string) || ''
+          const kingdom = (sampleRecord?.kingdom as string) || ''
+          let taxonGroup = 'other'
+          if (gbifClass === 'Aves') taxonGroup = 'bird'
+          else if (gbifClass === 'Mammalia') taxonGroup = 'mammal'
+          else if (gbifClass === 'Reptilia') taxonGroup = 'reptile'
+          else if (gbifClass === 'Amphibia') taxonGroup = 'amphibian'
+          else if (gbifClass === 'Actinopterygii' || gbifClass === 'Chondrichthyes')
+            taxonGroup = 'fish'
+          else if (
+            gbifClass === 'Insecta' ||
+            gbifClass === 'Arachnida' ||
+            gbifClass === 'Malacostraca'
+          )
+            taxonGroup = 'invertebrate'
+          else if (
+            gbifClass === 'Magnoliopsida' ||
+            gbifClass === 'Liliopsida' ||
+            kingdom === 'Plantae'
+          )
+            taxonGroup = 'plant'
+          else if (gbifClass === 'Pezizomycetes' || kingdom === 'Fungi') taxonGroup = 'fungi'
 
-        const isProtected = finding.is_protected || !!(metadata?.isProtected as boolean | undefined)
-        const designation = (metadata?.designations as string) || null
+          const isProtected =
+            finding.is_protected || !!(metadata?.isProtected as boolean | undefined)
+          const designation = (metadata?.designations as string) || null
 
-        await createObservation.mutateAsync({
-          survey_id: surveyId,
-          species_name_scientific: scientificName,
-          species_name_common: commonName,
-          taxon_group: taxonGroup,
-          is_protected: isProtected,
-          designation: designation,
-          confidence_level: 'low',
-          needs_verification: true,
-          behavior_notes: `Imported from data gathering (${finding.source.toUpperCase()})`,
+          return createObservation.mutateAsync({
+            survey_id: surveyId,
+            species_name_scientific: scientificName,
+            species_name_common: commonName,
+            taxon_group: taxonGroup,
+            is_protected: isProtected,
+            designation: designation,
+            confidence_level: 'low',
+            needs_verification: true,
+            behavior_notes: `Imported from data gathering (${finding.source.toUpperCase()})`,
+          })
         })
-        imported++
-      }
+      )
 
-      toast({
-        title: 'Species imported',
-        description: `${imported} species imported from data gathering. Please verify in the field.`,
-      })
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Import failed',
-        description: 'Failed to import some species from data gathering.',
-      })
+      const imported = results.filter((r) => r.status === 'fulfilled').length
+      const failed = results.length - imported
+
+      if (imported > 0 && failed === 0) {
+        toast({
+          title: 'Species imported',
+          description: `${imported} species imported from data gathering. Please verify in the field.`,
+        })
+      } else if (imported > 0 && failed > 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Partial import',
+          description: `${imported} imported, ${failed} failed. You can retry the failed ones.`,
+        })
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Import failed',
+          description: 'No species could be imported. Please try again.',
+        })
+      }
     } finally {
       setIsImporting(false)
     }

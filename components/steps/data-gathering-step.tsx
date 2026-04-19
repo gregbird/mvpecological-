@@ -139,6 +139,20 @@ export function DataGatheringStep({
     isSitesLoading
   )
 
+  // Per-type counts from the project-wide stats so auto-search can skip
+  // sources that already have saved findings on a fresh tab. `byType` is
+  // a sorted array of { type, count } — pluck the four we care about.
+  const findingCounts = React.useMemo(() => {
+    const byType = projectWideFindingsStats?.byType ?? []
+    const countFor = (t: string) => byType.find((b) => b.type === t)?.count ?? 0
+    return {
+      designatedSites: countFor('designated_site'),
+      speciesRecords: countFor('species_record'),
+      aquatic: countFor('water_quality') + countFor('catchment'),
+      habitats: countFor('habitat'),
+    }
+  }, [projectWideFindingsStats?.byType])
+
   // Auto-search orchestration (trigger, banner, status)
   const { autoSearchStatus, setAutoSearchStatus, showAutoSearchBanner, isAutoSearchRunning } =
     useAutoSearch({
@@ -147,6 +161,7 @@ export function DataGatheringStep({
       isStepCompleted,
       viewMode,
       boundaryChanged,
+      findingCounts,
     })
 
   // Stable auto-search completion callback — prevents WizardStepContent

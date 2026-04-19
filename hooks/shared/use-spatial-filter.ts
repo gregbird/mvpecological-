@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 
 interface SpatialFilterOptions<T> {
-  boundary?: GeoJSON.Feature<GeoJSON.Polygon>
+  boundary?: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>
   bufferKm: number
   items: T[]
   getGeometry: (item: T) => GeoJSON.Geometry | null | undefined
@@ -13,7 +13,7 @@ interface SpatialFilterOptions<T> {
 
 interface SpatialFilterResult<T> {
   filteredItems: T[]
-  filterPolygon: GeoJSON.Feature<GeoJSON.Polygon> | null
+  filterPolygon: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> | null
 }
 
 export function useSpatialFilter<T>(options: SpatialFilterOptions<T>): SpatialFilterResult<T> {
@@ -26,7 +26,7 @@ export function useSpatialFilter<T>(options: SpatialFilterOptions<T>): SpatialFi
       const turf = require('@turf/turf')
       return turf.buffer(boundary, bufferKm, {
         units: 'kilometers',
-      }) as GeoJSON.Feature<GeoJSON.Polygon>
+      }) as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>
     } catch {
       return null
     }

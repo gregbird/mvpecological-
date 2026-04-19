@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useUpdateProjectBoundary } from '@/hooks/queries/use-project-hooks'
-import { useCompleteWorkflowStep, useUpdateWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
+import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { getDefaultVisibleLayers } from '@/lib/config/dataset-layers'
 import { getBufferColor } from '@/lib/config/map-constants'
 import { MapCaptureButton } from '@/components/maps/map-capture-button'
@@ -32,7 +32,8 @@ import { useSiteManagement } from '@/hooks/gis/use-site-management'
 import { useBufferConfiguration } from '@/hooks/gis/use-buffer-configuration'
 import { useLayerData } from '@/hooks/gis/use-layer-data'
 import { useMapViewPersistence } from '@/hooks/gis/use-map-view-persistence'
-import { useProjectSites, useUpsertSite } from '@/hooks/queries/use-site-hooks'
+import { useProjectSites, useUpsertSite, useDeleteSite } from '@/hooks/queries/use-site-hooks'
+import { useCascadeNeedsReview } from '@/hooks/use-cascade-needs-review'
 
 // Components
 import { PreviewPanel } from './gis-mapping/preview-panel'
@@ -82,10 +83,12 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
   // Mutations
   const updateBoundary = useUpdateProjectBoundary()
   const upsertSite = useUpsertSite()
+  const deleteSite = useDeleteSite()
   const completeStep = useCompleteWorkflowStep()
-  const updateWorkflowStep = useUpdateWorkflowStep()
+  const cascadeReview = useCascadeNeedsReview()
 
-  // Track original boundary/buffer for detecting changes on save
+  // Track original boundary/buffer/layer state for detecting changes on save.
+  // Any change here invalidates downstream steps.
   const originalBoundaryRef = React.useRef<string | null>(
     project.boundary
       ? JSON.stringify(
@@ -96,6 +99,10 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
   const originalBuffersRef = React.useRef<string>(
     JSON.stringify((project.buffer_distances as number[] | null) ?? [])
   )
+  const originalLayersRef = React.useRef<string>(
+    JSON.stringify((project.visible_layers as string[] | null) ?? [])
+  )
+  const originalSiteCountRef = React.useRef<number>(0)
 
   // Toggle map fullscreen mode
   React.useEffect(() => {
@@ -109,6 +116,32 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
       setMapFullscreen(false)
     }
   }, [wizard.viewMode, wizard.currentStep, setMapFullscreen])
+
+  // Hydrate buffer/layer state from saved site data (multi-site projects store
+  // these on project_sites rows, not on project.*). Runs once when sites load.
+  // Also snapshots the committed state into change-detection refs so the cascade
+  // only fires on real edits.
+  const hasHydratedFromSitesRef = React.useRef(false)
+  React.useEffect(() => {
+    if (hasHydratedFromSitesRef.current) return
+    const firstSite = existingSites[0]
+    if (!firstSite) return
+    const siteBuffers = firstSite.buffer_distances ?? []
+    const siteLayers = firstSite.visible_layers ?? []
+    if (bufferConfig.enabledBuffers.length === 0 && siteBuffers.length > 0) {
+      bufferConfig.setEnabledBuffers(siteBuffers)
+    }
+    if (layers.visibleLayers.length === 0 && siteLayers.length > 0) {
+      layers.setVisibleLayers(siteLayers)
+    }
+    originalBoundaryRef.current = JSON.stringify(
+      existingSites.map((s) => s.boundary?.geometry?.coordinates ?? null)
+    )
+    originalBuffersRef.current = JSON.stringify(siteBuffers)
+    originalLayersRef.current = JSON.stringify(siteLayers)
+    originalSiteCountRef.current = existingSites.length
+    hasHydratedFromSitesRef.current = true
+  }, [existingSites, bufferConfig, layers])
 
   // Active site boundary for buffer/layer operations
   const activeBoundary = siteMgmt.activeSite?.boundary ?? boundaryMgmt.boundary
@@ -330,28 +363,33 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
         })
       }
 
-      // Check if downstream steps need review
+      // Detect changes that should invalidate downstream steps.
       const newBoundaryKey = JSON.stringify(
-        siteMgmt.sites.map((s) => s.boundary?.geometry?.coordinates)
+        siteMgmt.sites.map((s) => s.boundary?.geometry?.coordinates ?? null)
       )
-      const boundaryChanged = newBoundaryKey !== originalBoundaryRef.current
       const newBuffersKey = JSON.stringify(bufferConfig.enabledBuffers)
+      const newLayersKey = JSON.stringify(layers.visibleLayers)
+      const boundaryChanged = newBoundaryKey !== originalBoundaryRef.current
       const buffersChanged = newBuffersKey !== originalBuffersRef.current
+      const layersChanged = newLayersKey !== originalLayersRef.current
+      const siteCountChanged = siteMgmt.sites.length !== originalSiteCountRef.current
 
-      if ((boundaryChanged || buffersChanged) && wizard.allWorkflowSteps) {
-        const laterSteps = wizard.allWorkflowSteps.filter(
-          (s) => s.step_number > 1 && (s.status === 'approved' || s.status === 'in_progress')
-        )
-        for (const step of laterSteps) {
-          await updateWorkflowStep.mutateAsync({
-            stepId: step.id,
-            updates: { status: 'needs_review' },
+      if (boundaryChanged || buffersChanged || layersChanged || siteCountChanged) {
+        try {
+          await cascadeReview.mutateAsync({
+            projectId: project.id,
+            stepNumber: 1,
           })
+        } catch (cascadeError) {
+          // Save already succeeded — don't roll back. Surface a soft warning.
+          console.error('[GISMappingStep] Post-save cascade failed:', cascadeError)
         }
       }
 
       originalBoundaryRef.current = newBoundaryKey
       originalBuffersRef.current = newBuffersKey
+      originalLayersRef.current = newLayersKey
+      originalSiteCountRef.current = siteMgmt.sites.length
       wizard.setHasUnsavedChanges(false)
       refetchProject()
       refetchWorkflowSteps()
@@ -365,6 +403,68 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
       })
       throw error
     }
+  }
+
+  const handleRemoveSite = async (index: number) => {
+    const target = siteMgmt.sites[index]
+    if (!target) return
+
+    // Unsaved site (no DB id) → local-only removal, no cascade needed.
+    if (!target.id) {
+      siteMgmt.removeSite(index)
+      return
+    }
+
+    // Step 1: DB delete. If this fails nothing else ran — safe to surface.
+    let result
+    try {
+      result = await deleteSite.mutateAsync({
+        siteId: target.id,
+        projectId: project.id,
+      })
+    } catch (error) {
+      console.error('[GISMappingStep] Delete site error:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Delete failed',
+        description: 'Could not delete the site. Please try again.',
+      })
+      throw error
+    }
+
+    // DB row is gone; drop it from local state immediately.
+    siteMgmt.removeSite(index)
+    originalSiteCountRef.current = Math.max(0, originalSiteCountRef.current - 1)
+
+    // Step 2: cascade is best-effort. Delete already succeeded — a cascade
+    // failure is a stale-flag issue, not data loss. cascadeNeedsReview fetches
+    // workflow_steps fresh from DB so no stale-cache risk.
+    try {
+      await cascadeReview.mutateAsync({
+        projectId: project.id,
+        stepNumber: 1,
+      })
+    } catch (cascadeError) {
+      console.error('[GISMappingStep] Post-delete cascade failed:', cascadeError)
+      toast({
+        variant: 'default',
+        title: 'Site deleted, review flags may be stale',
+        description: 'Downstream step statuses could not be updated automatically.',
+      })
+    }
+
+    refetchProject()
+    refetchWorkflowSteps()
+
+    const counts = result.orphaned_counts
+    const deletedCount = counts ? Object.values(counts).reduce((sum, n) => sum + (n ?? 0), 0) : 0
+    toast({
+      title: 'Site deleted',
+      description:
+        deletedCount > 0
+          ? `${target.siteCode} removed along with ${deletedCount} linked records.`
+          : `${target.siteCode} removed.`,
+    })
   }
 
   const handleComplete = async () => {
@@ -453,8 +553,8 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
         </div>
 
         <PreviewPanel
-          boundaryInfo={boundaryMgmt.boundaryInfo}
-          locationInfo={boundaryMgmt.locationInfo}
+          boundaryInfo={siteMgmt.boundaryInfo ?? boundaryMgmt.boundaryInfo}
+          locationInfo={siteMgmt.locationInfo ?? boundaryMgmt.locationInfo}
           enabledBuffers={bufferConfig.enabledBuffers}
           visibleLayers={layers.visibleLayers}
           workflowStatus={workflowStep.status}
@@ -533,7 +633,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
               sites={siteMgmt.sites}
               activeSiteIndex={siteMgmt.activeSiteIndex}
               onSelectSite={siteMgmt.setActiveSiteIndex}
-              onRemoveSite={siteMgmt.removeSite}
+              onRemoveSite={handleRemoveSite}
               onRenameSite={(index, code) => siteMgmt.updateSite(index, { siteCode: code })}
               onUpdateAttributes={(attributes) => {
                 siteMgmt.updateSite(siteMgmt.activeSiteIndex, { attributes })

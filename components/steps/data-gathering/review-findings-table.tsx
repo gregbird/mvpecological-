@@ -81,8 +81,10 @@ export function ReviewFindingsTable({ savedFindings }: ReviewFindingsTableProps)
         const isExpanded = expandedFindingId === finding.id
         const rawData = finding.raw_data as Record<string, unknown> | null
         const metadata = rawData?.metadata as Record<string, unknown> | undefined
-        const scientificName = metadata?.scientificName as string | undefined
-        const taxonGroup = metadata?.taxonGroup as string | undefined
+        // Prefer typed columns (populated by Aşama 1); fall back to raw_data for older rows.
+        const scientificName =
+          finding.scientific_name ?? (metadata?.scientificName as string | undefined)
+        const taxonGroup = finding.taxon_group ?? (metadata?.taxonGroup as string | undefined)
         const designations = metadata?.designations as string | undefined
         const totalRecords = metadata?.totalIrishRecords as number | undefined
 

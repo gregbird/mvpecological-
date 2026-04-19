@@ -182,9 +182,11 @@ export function getUnsavedFindings(
 ): FindingDisplay[] {
   return filtered.filter(
     (f) =>
-      !saved.some(
-        (sf) =>
-          (sf.raw_data as Record<string, unknown>)?.scientificName === f.metadata?.scientificName
-      )
+      !saved.some((sf) => {
+        // Prefer the typed column; fall back to raw_data for pre-migration rows.
+        const savedName =
+          sf.scientific_name ?? (sf.raw_data as Record<string, unknown> | null)?.scientificName
+        return savedName === f.metadata?.scientificName
+      })
   )
 }

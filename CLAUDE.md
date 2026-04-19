@@ -138,8 +138,13 @@ NEXT_PUBLIC_OPENAI_API_KEY=    # Client-side AI (reports)
 
 Tracked items that would speed up the app or reduce cost. Tackle when touching the affected area.
 
-- **`select('*')` in list queries** — `findings.ts:30`, `projects.ts:71`, `releve-surveys.ts` and others return all columns. In list/badge views, switch to explicit column whitelist and keep `*` only for detail fetches. Audit each consumer before trimming — `raw_data` is used by AI summary and designation parsing.
+- **`raw_data` normalization — Aşama 2 step 4 + 5-8** — typed columns exist and are dual-written (Aşama 1 done 2026-04-19). Read paths in Step 2 prefer columns already. Remaining work: narrow `useSavedFindings` to skip `raw_data` (the 310ms → 20ms win) + migrate reads in Step 3 desk-assessment, Step 5 data-analysis, Step 6 AI draft. Full plan in `docs/raw-data-migration-plan.md`.
+- **`select('*')` in non-findings list queries** — `projects.ts:71`, `releve-surveys.ts` and others still return all columns. Same refactor pattern as findings.
 - **Client-side habitat stats reduce** — `getHabitatStats()` pulls all rows then reduces in JS. Move to a PostGIS RPC (`GROUP BY fossitt_code, condition`, `SUM(area_hectares)`) once habitat counts exceed a few hundred per project.
-- **React Query invalidation scope** — audit remaining `invalidateQueries(['X'])` calls and scope them with project/org/site IDs where the key shape allows. Single-org deployments are unaffected in practice but explicit scope is cleaner.
 - **EPA `Promise.all` without per-type fallback** — `lib/external-apis/epa.ts` fires rivers/lakes/catchments/water quality in parallel; one failing type produces an ambiguous empty UI. Switch to `Promise.allSettled` and surface which feature timed out.
+- **FOSSITT em-dash save guard** — `mapNlcToFossitt` returns `'—'` when no mapping exists; that string survives into reports as an empty row. Add a save-time guard that warns or relabels "Unclassified NLC <id>".
 - **Supabase advisors unreviewed** — run `mcp__supabase__get_advisors` periodically; surface RLS/index/function `search_path` findings to Greg rather than acting blindly.
+
+## Known Dangerous Shapes
+
+- **Save All fires one AI request per saved finding** — default behaviour. Substeps that can return thousands of rows MUST configure `autoAiSummaryFilter` or Save All burns ~$3 + 30 min of UI lockup. See `step2-species-records.md` for the species filter and the 2026-04-19 incident that forced the guard.

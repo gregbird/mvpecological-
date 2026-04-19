@@ -60,17 +60,24 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
     () => (selectedSiteId ? (projectSites.find((s) => s.id === selectedSiteId) ?? null) : null),
     [selectedSiteId, projectSites]
   )
-  const { projectBoundary } = useProjectBoundary(project, selectedSite)
+  const { projectBoundary, unionBoundary, bufferDistances } = useProjectBoundary(
+    project,
+    selectedSite
+  )
   const getLocation = React.useCallback(
     (f: DeskResearchFinding) => (f.location as GeoJSON.Geometry | null) ?? undefined,
     []
   )
+  // Single-site selection uses that site's boundary; "All Sites" uses the
+  // union of every site boundary so findings outside the first site aren't
+  // silently dropped.
+  const spatialBoundary = selectedSiteId ? projectBoundary : unionBoundary
   const { filteredItems: savedFindings } = useSpatialFilter({
-    boundary: projectBoundary,
-    bufferKm: project.buffer_distances?.[project.buffer_distances.length - 1] ?? 15,
+    boundary: spatialBoundary,
+    bufferKm: bufferDistances[bufferDistances.length - 1] ?? 15,
     items: allSavedFindings,
     getGeometry: getLocation,
-    disabled: !selectedSiteId,
+    disabled: !selectedSiteId && !unionBoundary,
   })
 
   // AI insights hook

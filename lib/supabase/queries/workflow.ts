@@ -220,32 +220,43 @@ export async function submitForReview(
   return data as unknown as WorkflowStep
 }
 
-// Cascade needs_review to downstream dependent steps when an approved step is edited
+// Cascade needs_review transitively through the STEP_DEPENDENCIES graph.
+// Flags approved steps AND in_progress steps — both represent committed work
+// that may now be stale. Pending steps are untouched.
+//
+// Fetches workflow_steps fresh from the DB so callers can't pass stale data.
 export async function cascadeNeedsReview(
   projectId: string,
-  editedStepNumber: number,
-  allSteps: WorkflowStep[]
+  editedStepNumber: number
 ): Promise<void> {
-  const { STEP_DEPENDENCIES } = await import('@/lib/config/workflow')
-  const dependents = STEP_DEPENDENCIES[editedStepNumber] || []
-  if (dependents.length === 0) return
+  const { resolveDownstreamSteps } = await import('@/lib/config/workflow')
+  const dependents = resolveDownstreamSteps(editedStepNumber)
+  if (dependents.size === 0) return
 
   const supabase = createClient()
 
-  // Only flag steps that are currently approved (don't touch pending/in_progress)
-  const stepsToFlag = allSteps.filter(
-    (s) => dependents.includes(s.step_number) && s.status === 'approved'
-  )
+  const { data: steps, error: fetchError } = await supabase
+    .from('workflow_steps')
+    .select('id, step_number, status')
+    .eq('project_id', projectId)
+    .in('step_number', Array.from(dependents))
+    .in('status', ['approved', 'in_progress'])
 
-  for (const step of stepsToFlag) {
-    await supabase
-      .from('workflow_steps')
-      .update({
-        status: 'needs_review',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', step.id)
-  }
+  if (fetchError) throw new Error(`cascadeNeedsReview fetch failed: ${fetchError.message}`)
+  if (!steps || steps.length === 0) return
+
+  const { error } = await supabase
+    .from('workflow_steps')
+    .update({
+      status: 'needs_review',
+      updated_at: new Date().toISOString(),
+    })
+    .in(
+      'id',
+      steps.map((s) => s.id)
+    )
+
+  if (error) throw new Error(`cascadeNeedsReview update failed: ${error.message}`)
 }
 
 // Calculate project progress

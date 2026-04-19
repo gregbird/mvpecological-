@@ -154,8 +154,9 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       performSearch: buildPerformSearch(gridResolution, projectCenter, projectBoundary),
       onPostSearch: buildPostSearchHook(aiSummaryTriggerRef),
       matchPredicate: (sf, result) => {
-        const rawData = sf.raw_data as Record<string, unknown>
-        return rawData?.scientificName === result.metadata?.scientificName
+        const name =
+          sf.scientific_name ?? (sf.raw_data as Record<string, unknown> | null)?.scientificName
+        return name === result.metadata?.scientificName
       },
       minimalMetadataKeys: ['scientificName', 'recordCount'],
       buildCreatePayload: (finding, { projectId, userId: uid, siteId: sid }) => ({
@@ -181,6 +182,12 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
         distance_from_boundary_km: finding.metadata?.distance || null,
         is_protected: finding.metadata?.isProtected || false,
         red_list_status: finding.metadata?.redListStatus || null,
+        scientific_name: (finding.metadata?.scientificName as string | undefined) ?? null,
+        common_name: (finding.metadata?.commonName as string | undefined) ?? null,
+        taxon_group: (finding.metadata?.taxonGroup as string | undefined) ?? null,
+        is_invasive: (finding.metadata?.isInvasive as boolean | undefined) ?? null,
+        is_threatened: (finding.metadata?.isThreatened as boolean | undefined) ?? null,
+        ai_summary: (finding.metadata?.aiSummary as string | undefined) ?? null,
         created_by: uid,
       }),
       aiSummaryEndpoint: '/api/ai/species-summary',
@@ -204,6 +211,19 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
         relatedSitesCount: finding.metadata?.relatedSitesCount,
       }),
       summarizeFilter: (f) => f.dataType === 'species_record' && !f.metadata?.aiSummary,
+      // Save All on a 2000+ NBDC species result set used to fire one OpenAI
+      // request per row — minutes of loading, ~$2.50 of spend, and only a
+      // small subset is worth a narrative in the report anyway. Restrict
+      // auto-AI to the findings Greg actually cares about at report time:
+      // protected species, invasive species, and threatened species. Users
+      // who want summaries for the rest can still hit "Summarize All".
+      autoAiSummaryFilter: (f) =>
+        !!(
+          f.metadata?.isProtected ||
+          f.metadata?.isInvasive ||
+          f.metadata?.isThreatened ||
+          f.metadata?.designations
+        ),
       showDistanceFilter: false,
       findingsListExtraProps: {
         showSpeciesHeader: true,
@@ -221,7 +241,8 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       mapFindingsSavedFilter: (f, sf) =>
         sf.some(
           (saved) =>
-            (saved.raw_data as Record<string, unknown>)?.scientificName ===
+            (saved.scientific_name ??
+              (saved.raw_data as Record<string, unknown> | null)?.scientificName) ===
             f.metadata?.scientificName
         ),
       mapFindingsMapper: (f, sf) => ({
@@ -233,7 +254,8 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
         location: f.location,
         isSaved: sf.some(
           (saved) =>
-            (saved.raw_data as Record<string, unknown>)?.scientificName ===
+            (saved.scientific_name ??
+              (saved.raw_data as Record<string, unknown> | null)?.scientificName) ===
             f.metadata?.scientificName
         ),
         metadata: f.metadata,

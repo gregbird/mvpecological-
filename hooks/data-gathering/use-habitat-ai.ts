@@ -75,7 +75,10 @@ export function useHabitatAi({
       if (res.ok) {
         const data = await res.json()
         setAiSummaries((prev) => ({ ...prev, [r.nlcId]: data.summary }))
-        // Persist to DB if finding is already saved
+        // Persist to DB if finding is already saved. Dual-write to the typed
+        // ai_summary column AND raw_data.aiSummary so neither read path goes
+        // stale (habitat rows store aiSummary at the top level, not nested
+        // under metadata — matches the buildPayload shape).
         const existing = getSavedFinding(r.nlcId)
         if (existing) {
           const existingRaw = (existing.raw_data as Record<string, unknown>) || {}
@@ -83,6 +86,7 @@ export function useHabitatAi({
             findingId: existing.id,
             updates: {
               content: data.summary,
+              ai_summary: data.summary,
               raw_data: toJson({ ...existingRaw, aiSummary: data.summary }),
             },
           })

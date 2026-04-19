@@ -156,18 +156,36 @@ export function getPhaseColorClasses(phaseId: string): {
 export const TOTAL_STEPS = 8
 
 /**
- * Step dependency map — when a step is edited after approval,
+ * Step dependency map — when a step is edited after approval/during review,
  * its direct downstream dependents should be flagged as needs_review.
+ * The cascade resolver walks this graph transitively, so only direct edges
+ * need to be declared here.
  */
 export const STEP_DEPENDENCIES: Record<number, number[]> = {
   1: [2, 3], // GIS boundary → Data Gathering, Desk Assessment
   2: [3], // Findings → Desk Assessment
-  3: [], // Desk Assessment has no direct downstream
+  3: [5, 6], // Desk Assessment AI insights are read by Data Analysis + AI Draft
   4: [5], // Field Research → Data Analysis
   5: [6], // Data Analysis → AI Draft
   6: [7], // AI Draft → Quality Review
   7: [8], // Quality Review → Final Submission
   8: [], // Final step has no downstream
+}
+
+/**
+ * Walks STEP_DEPENDENCIES transitively starting from `stepNumber` and returns
+ * every downstream step that should be flagged for review.
+ */
+export function resolveDownstreamSteps(stepNumber: number): Set<number> {
+  const visited = new Set<number>()
+  const queue: number[] = [...(STEP_DEPENDENCIES[stepNumber] ?? [])]
+  while (queue.length > 0) {
+    const next = queue.shift()!
+    if (visited.has(next)) continue
+    visited.add(next)
+    queue.push(...(STEP_DEPENDENCIES[next] ?? []))
+  }
+  return visited
 }
 
 /**

@@ -71,6 +71,8 @@ function buildPayload(
     notes: params.notes[r.nlcId] || null,
     location: toJson(geometry),
     distance_from_boundary_km: distKm ?? null,
+    fossitt_code: r.fossittCode || null,
+    ai_summary: params.aiSummaries[r.nlcId] || null,
     raw_data: toJson({
       habitatFinding: true,
       nlcId: r.nlcId,
@@ -197,6 +199,8 @@ export function useHabitatSave(params: UseHabitatSaveParams) {
               notes: params.notes[r.nlcId] || null,
               location: toJson(siteGeom),
               distance_from_boundary_km: distKm ?? null,
+              fossitt_code: r.fossittCode || null,
+              ai_summary: params.aiSummaries[r.nlcId] || null,
               raw_data: toJson({
                 habitatFinding: true,
                 nlcId: r.nlcId,

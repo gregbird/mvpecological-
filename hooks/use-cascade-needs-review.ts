@@ -2,36 +2,24 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { cascadeNeedsReview } from '@/lib/supabase/queries/workflow'
-import type { WorkflowStep } from '@/types/database'
 
 /**
- * Hook to cascade needs_review to downstream steps when data is saved
- * in an already-approved step. Call after any data save operation.
+ * Flip downstream workflow steps to needs_review after upstream data changes.
+ * Cascade walks STEP_DEPENDENCIES transitively — every approved or in_progress
+ * step reachable from `stepNumber` is flagged. Pending steps are skipped.
+ *
+ * Fetches workflow_steps fresh from the DB, so callers cannot pass stale data.
  *
  * Usage:
  *   const cascade = useCascadeNeedsReview()
- *   // After saving data:
- *   cascade.mutate({ projectId, stepNumber, workflowSteps })
+ *   cascade.mutate({ projectId, stepNumber })
  */
 export function useCascadeNeedsReview() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({
-      projectId,
-      stepNumber,
-      workflowSteps,
-      currentStatus,
-    }: {
-      projectId: string
-      stepNumber: number
-      workflowSteps: WorkflowStep[]
-      currentStatus: string
-    }) => {
-      // Only cascade if the step being edited is already approved
-      if (currentStatus !== 'approved') return Promise.resolve()
-      return cascadeNeedsReview(projectId, stepNumber, workflowSteps)
-    },
+    mutationFn: ({ projectId, stepNumber }: { projectId: string; stepNumber: number }) =>
+      cascadeNeedsReview(projectId, stepNumber),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         queryKey: ['workflow-steps', variables.projectId],

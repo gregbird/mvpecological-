@@ -16,6 +16,7 @@ import { TemplateSectionsRenderer } from './survey-template-fields/template-sect
 import { getDefaultFieldsForType } from '@/lib/config/survey-field-definitions'
 import { PhotoUpload } from '@/components/ui/photo-upload'
 import { createClient } from '@/lib/supabase/client'
+import { cn } from '@/lib/utils'
 import { FIELD_SURVEY_TYPE_LABELS } from '@/lib/config/survey'
 import type { Survey, SurveyStatus } from './survey-card'
 
@@ -202,86 +203,124 @@ export function SurveyViewDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-h-[90vh] max-w-4xl p-0">
           <DialogHeader className="border-b px-6 py-4 pr-12">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <DialogTitle className="text-lg">
                 {releveEditing ? 'Edit Relevé Survey' : 'Relevé Survey Details'}
               </DialogTitle>
               <Badge variant={statusStyle.variant} className={statusStyle.className}>
                 {statusStyle.label}
               </Badge>
-              {!releveEditing && survey.status !== 'completed' && releveData && (
+            </div>
+          </DialogHeader>
+
+          <ScrollArea
+            className={cn(
+              'px-6 py-4',
+              releveEditing ? 'max-h-[calc(90vh-80px)]' : 'max-h-[calc(90vh-160px)]'
+            )}
+          >
+            {/* Metadata header — shown for both empty and populated states, matches walkover view */}
+            <div className="space-y-1 pb-4">
+              <InfoRow
+                icon={FileText}
+                label="Survey Type"
+                value={FIELD_SURVEY_TYPE_LABELS[survey.surveyType] || survey.surveyType}
+              />
+              <InfoRow icon={Calendar} label="Survey Date" value={formatDate(survey.surveyDate)} />
+              <InfoRow icon={User} label="Surveyor" value={survey.surveyor.name} />
+              {survey.startTime && (
+                <InfoRow icon={Clock} label="Start Time" value={survey.startTime} />
+              )}
+              {survey.endTime && <InfoRow icon={Clock} label="End Time" value={survey.endTime} />}
+            </div>
+
+            <Separator />
+
+            <div className="pt-4">
+              {releveLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
+                  <span className="text-muted-foreground ml-2 text-sm">Loading survey data...</span>
+                </div>
+              ) : !releveData && !releveEditing ? (
+                <div className="space-y-4 py-8 text-center">
+                  <p className="text-muted-foreground text-sm">
+                    No relevé data has been recorded for this survey yet.
+                  </p>
+                  {survey.status !== 'completed' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                      onClick={() => setReleveEditing(true)}
+                    >
+                      <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                      Start Relevé Survey
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <ReleveSurveyForm
+                    projectId={projectId}
+                    projectName={projectName ?? ''}
+                    surveyId={survey.id}
+                    existingData={releveData}
+                    readOnly={!releveEditing}
+                    onSaved={() => {
+                      setReleveEditing(false)
+                      onOpenChange(false)
+                    }}
+                    onClose={() => {
+                      if (releveEditing) {
+                        setReleveEditing(false)
+                      } else {
+                        onOpenChange(false)
+                      }
+                    }}
+                  />
+                  <div className="mt-6 space-y-2 border-t pt-4">
+                    <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                      Survey Photos
+                    </p>
+                    <PhotoUpload
+                      projectId={projectId}
+                      entityType="survey"
+                      entityId={survey.id}
+                      photos={surveyPhotos}
+                      onPhotosChange={setSurveyPhotos}
+                      maxPhotos={10}
+                      disabled={survey.status === 'completed'}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          </ScrollArea>
+
+          {/* Footer — hidden in edit mode (ReleveSurveyForm handles its own actions).
+              Matches walkover view: Email / Edit / Close */}
+          {!releveEditing && (
+            <div className="flex justify-end gap-2 border-t px-6 py-3">
+              <Button variant="outline" size="sm" onClick={handleEmail}>
+                <Mail className="mr-1.5 h-3.5 w-3.5" />
+                Email
+              </Button>
+              {releveData && (
                 <Button
                   variant="outline"
-                  size="sm"
-                  className="ml-auto border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                  className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-950"
                   onClick={() => setReleveEditing(true)}
                 >
                   <Pencil className="mr-1.5 h-3.5 w-3.5" />
                   Edit
                 </Button>
               )}
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Close
+              </Button>
             </div>
-          </DialogHeader>
-          <ScrollArea className="max-h-[calc(90vh-80px)] px-6 py-4">
-            {releveLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
-                <span className="text-muted-foreground ml-2 text-sm">Loading survey data...</span>
-              </div>
-            ) : !releveData && !releveEditing ? (
-              <div className="space-y-4 py-8 text-center">
-                <p className="text-muted-foreground text-sm">
-                  No relevé data has been recorded for this survey yet.
-                </p>
-                {survey.status !== 'completed' && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-                    onClick={() => setReleveEditing(true)}
-                  >
-                    <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                    Start Relevé Survey
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <>
-                <ReleveSurveyForm
-                  projectId={projectId}
-                  projectName={projectName ?? ''}
-                  surveyId={survey.id}
-                  existingData={releveData}
-                  readOnly={!releveEditing}
-                  onSaved={() => {
-                    setReleveEditing(false)
-                    onOpenChange(false)
-                  }}
-                  onClose={() => {
-                    if (releveEditing) {
-                      setReleveEditing(false)
-                    } else {
-                      onOpenChange(false)
-                    }
-                  }}
-                />
-                <div className="mt-6 space-y-2 border-t pt-4">
-                  <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                    Survey Photos
-                  </p>
-                  <PhotoUpload
-                    projectId={projectId}
-                    entityType="survey"
-                    entityId={survey.id}
-                    photos={surveyPhotos}
-                    onPhotosChange={setSurveyPhotos}
-                    maxPhotos={10}
-                    disabled={survey.status === 'completed'}
-                  />
-                </div>
-              </>
-            )}
-          </ScrollArea>
+          )}
         </DialogContent>
       </Dialog>
     )

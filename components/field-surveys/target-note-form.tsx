@@ -113,7 +113,10 @@ export function TargetNoteForm({
     })
   }
 
-  // Reset form when dialog opens with new data
+  // Reset form when dialog opens with new data. `form` is intentionally
+  // excluded from deps — it's a new object every render, which would make
+  // this effect re-run on every parent re-render. form.reset is stable.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   React.useEffect(() => {
     if (open) {
       form.reset({
@@ -126,7 +129,7 @@ export function TargetNoteForm({
       })
       setPhotos(initialData?.photos || [])
     }
-  }, [open, initialData, form])
+  }, [open, initialData])
 
   const handleGetLocation = async () => {
     if (!navigator.geolocation) {

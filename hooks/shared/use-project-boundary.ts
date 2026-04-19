@@ -1,6 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import union from '@turf/union'
+import type { FeatureCollection, Polygon, MultiPolygon } from 'geojson'
 import { useProjectSites } from '@/hooks/queries/use-site-hooks'
 import type { Project } from '@/types/database'
 import type { ProjectSiteWithGeoJSON } from '@/lib/supabase/queries/project-sites'
@@ -21,6 +23,12 @@ interface ProjectBoundaryResult {
   otherBoundaries: GeoJSON.Feature<GeoJSON.Polygon>[]
   /** Merged bounding box of all site boundaries (for multi-site search) — undefined if ≤1 site */
   searchBoundary: GeoJSON.Feature<GeoJSON.Polygon> | undefined
+  /**
+   * Precise polygon/multipolygon union of every site's boundary. Use this for
+   * spatial filtering across all sites. Undefined when zero sites have
+   * boundaries. For a single-site project, mirrors that site's boundary.
+   */
+  unionBoundary: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> | undefined
   /** Whether the project sites query is still loading */
   isSitesLoading: boolean
 }
@@ -132,6 +140,43 @@ export function useProjectBoundary(
     } as GeoJSON.Feature<GeoJSON.Polygon>
   }, [allSiteBoundaries])
 
+  // Precise union of all site boundaries. Memoized by a signature that
+  // actually captures polygon shape — coord-count alone is too weak because
+  // two different polygons with the same vertex count produce identical
+  // hashes. We fingerprint first + last ring coordinates per site.
+  const unionHash = React.useMemo(
+    () =>
+      allSiteBoundaries
+        .map((b, i) => {
+          const ring = b.geometry.coordinates?.[0] ?? []
+          const first = ring[0]
+          const last = ring[ring.length - 1]
+          const sig = (c?: GeoJSON.Position) => (c ? `${c[0].toFixed(6)},${c[1].toFixed(6)}` : '')
+          return `${i}:${ring.length}:${sig(first)}:${sig(last)}`
+        })
+        .join('|'),
+    [allSiteBoundaries]
+  )
+
+  const unionBoundary = React.useMemo<
+    GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> | undefined
+  >(() => {
+    if (allSiteBoundaries.length === 0) return undefined
+    if (allSiteBoundaries.length === 1) return allSiteBoundaries[0]
+    try {
+      const fc: FeatureCollection<Polygon | MultiPolygon> = {
+        type: 'FeatureCollection',
+        features: allSiteBoundaries,
+      }
+      const merged = union(fc)
+      return merged ?? allSiteBoundaries[0]
+    } catch {
+      return allSiteBoundaries[0]
+    }
+    // unionHash captures everything turf.union cares about
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unionHash])
+
   return {
     projectBoundary,
     projectCenter,
@@ -142,6 +187,7 @@ export function useProjectBoundary(
     allSiteBoundaries,
     otherBoundaries,
     searchBoundary,
+    unionBoundary,
     isSitesLoading,
   }
 }

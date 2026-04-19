@@ -104,11 +104,11 @@ export function SpeciesTableView({
   const [noteDraft, setNoteDraft] = React.useState('')
 
   const isSaved = (finding: FindingDisplay) =>
-    savedFindings.some(
-      (sf) =>
-        (sf.raw_data as Record<string, unknown>)?.scientificName ===
-        finding.metadata?.scientificName
-    )
+    savedFindings.some((sf) => {
+      const name =
+        sf.scientific_name ?? (sf.raw_data as Record<string, unknown> | null)?.scientificName
+      return name === finding.metadata?.scientificName
+    })
 
   const sortableHeaderClass =
     'flex items-center gap-1 select-none hover:text-foreground transition-colors'

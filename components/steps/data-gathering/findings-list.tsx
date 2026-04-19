@@ -122,6 +122,7 @@ interface FindingsListProps {
   renderExtraControls?: () => React.ReactNode
   // Save all filtered findings at once
   onSaveAll?: (findings: FindingDisplay[]) => void
+  onStopSaveAll?: () => void
   isSavingAll?: boolean
 }
 
@@ -168,6 +169,7 @@ export function FindingsList({
   onViewModeChange,
   renderExtraControls,
   onSaveAll,
+  onStopSaveAll,
   isSavingAll,
 }: FindingsListProps) {
   const [viewMode, setViewModeInternal] = React.useState<'cards' | 'table'>(
@@ -241,9 +243,20 @@ export function FindingsList({
     }
   )
 
-  // Paginated findings
-  const paginatedFindings = filteredFindings.slice(0, displayLimit)
+  // Paginated findings — memoized so FindingCard's React.memo isn't defeated
+  // by a fresh array reference on every parent render.
+  const paginatedFindings = React.useMemo(
+    () => filteredFindings.slice(0, displayLimit),
+    [filteredFindings, displayLimit]
+  )
   const hasMoreResults = filteredFindings.length > displayLimit
+
+  // Stable callback for FindingCard — without this the inline arrow creates a
+  // new reference every render, invalidating React.memo on every card.
+  const getDbId = React.useCallback(
+    (f: FindingDisplay) => getSavedFindingDbId(f, savedFindings),
+    [savedFindings]
+  )
 
   // Reset display limit when findings or filter change
   React.useEffect(() => {
@@ -334,6 +347,7 @@ export function FindingsList({
           onViewModeChange={setViewMode}
           renderExtraControls={renderExtraControls}
           onSaveAll={onSaveAll}
+          onStopSaveAll={onStopSaveAll}
           isSavingAll={isSavingAll}
         />
       )}
@@ -384,9 +398,9 @@ export function FindingsList({
                 )}
               </div>
             )}
-            {paginatedFindings.map((finding, findingIdx) => (
+            {paginatedFindings.map((finding) => (
               <FindingCard
-                key={`${finding.id}-${findingIdx}`}
+                key={finding.id}
                 finding={finding}
                 isSaved={isFindingSaved(finding, savedFindings)}
                 isSaving={savingIds?.has(finding.id) ?? false}
@@ -398,7 +412,7 @@ export function FindingsList({
                 onToggleVisibility={onToggleVisibility}
                 onFetchAiSummary={onFetchAiSummary}
                 onUpdateNote={onUpdateNote}
-                getSavedFindingDbId={(f) => getSavedFindingDbId(f, savedFindings)}
+                getSavedFindingDbId={getDbId}
               />
             ))}
 

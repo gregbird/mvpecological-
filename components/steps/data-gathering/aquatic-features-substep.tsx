@@ -79,8 +79,8 @@ export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
 
       const existingSaved = savedFindings.find(
         (f) =>
-          (f.raw_data as Record<string, unknown>)?.siteCode === data.waterBodyCode &&
-          f.source === 'epa'
+          (f.site_code ?? (f.raw_data as Record<string, unknown> | null)?.siteCode) ===
+            data.waterBodyCode && f.source === 'epa'
       )
 
       if (existingSaved) {
@@ -228,8 +228,8 @@ export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
 
       // Matching
       matchPredicate: (sf, result) => {
-        const rawData = sf.raw_data as Record<string, unknown>
-        return rawData?.siteCode === result.metadata?.siteCode && sf.source === 'epa'
+        const code = sf.site_code ?? (sf.raw_data as Record<string, unknown> | null)?.siteCode
+        return code === result.metadata?.siteCode && sf.source === 'epa'
       },
       minimalMetadataKeys: ['siteType', 'siteCode'],
 
@@ -255,6 +255,9 @@ export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
             : null)) as unknown as Json,
         is_saved: true,
         distance_from_boundary_km: finding.metadata?.distance || null,
+        site_code: (finding.metadata?.siteCode as string | undefined) ?? null,
+        site_type: (finding.metadata?.siteType as string | undefined) ?? null,
+        ai_summary: (finding.metadata?.aiSummary as string | undefined) ?? null,
         created_by: uid,
       }),
 
@@ -299,8 +302,8 @@ export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
       mapFindingsSavedFilter: (f, sf) =>
         sf.some(
           (saved) =>
-            (saved.raw_data as Record<string, unknown>)?.siteCode === f.metadata?.siteCode &&
-            saved.source === 'epa'
+            (saved.site_code ?? (saved.raw_data as Record<string, unknown> | null)?.siteCode) ===
+              f.metadata?.siteCode && saved.source === 'epa'
         ),
       mapFindingsMapper: (f, sf) => ({
         id: f.id,
@@ -311,8 +314,8 @@ export function AquaticFeaturesSubStep(props: AquaticFeaturesSubStepProps) {
         location: f.location,
         isSaved: sf.some(
           (saved) =>
-            (saved.raw_data as Record<string, unknown>)?.siteCode === f.metadata?.siteCode &&
-            saved.source === 'epa'
+            (saved.site_code ?? (saved.raw_data as Record<string, unknown> | null)?.siteCode) ===
+              f.metadata?.siteCode && saved.source === 'epa'
         ),
       }),
 

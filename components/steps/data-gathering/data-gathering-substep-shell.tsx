@@ -20,6 +20,7 @@ import { useSessionStorage } from '@/hooks/shared/use-session-storage'
 import { useSubstepSearch } from '@/hooks/shared/use-substep-search'
 import { useShellSearch } from '@/hooks/data-gathering/use-shell-search'
 import { useShellSave } from '@/hooks/data-gathering/use-shell-save'
+import { useProjectSites } from '@/hooks/queries/use-site-hooks'
 import { useShellAi } from '@/hooks/data-gathering/use-shell-ai'
 import { useSpatialFilter } from '@/hooks/shared/use-spatial-filter'
 import type { MapStepName } from '@/lib/map-screenshots/types'
@@ -114,6 +115,17 @@ export interface SubstepShellConfig {
   canFetchAiSummary?: (finding: FindingDisplay) => boolean
   /** Optional filter for which findings to batch-summarize */
   summarizeFilter?: (finding: FindingDisplay) => boolean
+  /**
+   * Optional filter for which saved findings should auto-trigger an AI
+   * summary after Save All. Without this, every saved finding fires an
+   * OpenAI request — fine for 5-20 designated sites, catastrophic for a
+   * 2000+ NBDC species batch. Substeps with large result sets should
+   * narrow this to "findings that actually need a narrative" (e.g.
+   * protected / invasive / threatened species).
+   * Default: fire for every saved finding (current behaviour preserved
+   * for designated sites, aquatic features, habitats).
+   */
+  autoAiSummaryFilter?: (finding: FindingDisplay) => boolean
 
   filterConfig?: {
     showSiteTypeFilter: boolean
@@ -273,7 +285,12 @@ export function DataGatheringSubstepShell({
       aiSummaryTriggerRef,
     })
 
-  const { handleSaveFinding, handleSaveAll, isSavingAll } = useShellSave({
+  // Pulled from the React Query cache (already populated by the parent step) —
+  // fuels the spatial distribution of saves across every site whose buffer
+  // intersects the finding's location when the user is in "All Sites" mode.
+  const { data: projectSites = [] } = useProjectSites(project.id)
+
+  const { handleSaveFinding, handleSaveAll, handleStopSaveAll, isSavingAll } = useShellSave({
     config,
     projectId: project.id,
     userId,
@@ -285,6 +302,8 @@ export function DataGatheringSubstepShell({
         console.error('[AI Summary] Auto-trigger failed:', err)
       )
     },
+    projectSites,
+    selectedBuffer,
   })
 
   // In "All Sites" mode we still want spatial filtering — but against every site boundary,
@@ -554,6 +573,7 @@ export function DataGatheringSubstepShell({
             {...(config.findingsListExtraProps || {})}
             onViewModeChange={setListViewMode}
             onSaveAll={handleSaveAll}
+            onStopSaveAll={handleStopSaveAll}
             isSavingAll={isSavingAll}
           />
         </div>

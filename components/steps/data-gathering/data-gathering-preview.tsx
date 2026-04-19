@@ -191,7 +191,7 @@ export function DataGatheringPreview({
                           const raw = f.raw_data as Record<string, unknown> | null
                           const badgeText =
                             row.badgeField === 'fossittCode'
-                              ? (raw?.fossittCode as string) || ''
+                              ? f.fossitt_code || (raw?.fossittCode as string) || ''
                               : f.source?.toUpperCase() || ''
                           return (
                             <div

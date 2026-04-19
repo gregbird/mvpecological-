@@ -722,18 +722,21 @@ export function ReviewExportSubStep({
               location: f.location as GeoJSON.Geometry | undefined,
               isSaved: true,
               metadata: {
-                siteCode: meta?.siteCode as string | undefined,
-                siteType: meta?.siteType as string | undefined,
-                scientificName: meta?.scientificName as string | undefined,
-                commonName: meta?.commonName as string | undefined,
+                // Prefer typed columns (Aşama 1); raw_data.metadata is the
+                // fallback for pre-migration rows and for fields that stay in
+                // raw_data (designation, designations, recordCount, totalIrishRecords).
+                siteCode: f.site_code ?? (meta?.siteCode as string | undefined),
+                siteType: f.site_type ?? (meta?.siteType as string | undefined),
+                scientificName: f.scientific_name ?? (meta?.scientificName as string | undefined),
+                commonName: f.common_name ?? (meta?.commonName as string | undefined),
                 recordCount: meta?.recordCount as number | undefined,
                 isProtected: f.is_protected || (meta?.isProtected as boolean | undefined),
-                isInvasive: meta?.isInvasive as boolean | undefined,
-                isThreatened: meta?.isThreatened as boolean | undefined,
+                isInvasive: f.is_invasive ?? (meta?.isInvasive as boolean | undefined),
+                isThreatened: f.is_threatened ?? (meta?.isThreatened as boolean | undefined),
                 designation: meta?.designation as string | undefined,
                 designations: meta?.designations as string | undefined,
                 distance: f.distance_from_boundary_km ?? (meta?.distance as number | undefined),
-                taxonGroup: meta?.taxonGroup as string | undefined,
+                taxonGroup: f.taxon_group ?? (meta?.taxonGroup as string | undefined),
                 totalIrishRecords: meta?.totalIrishRecords as number | undefined,
               },
             }

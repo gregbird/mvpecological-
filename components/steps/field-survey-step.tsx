@@ -101,9 +101,6 @@ export function FieldSurveyStep({
         status: s.status as SurveyCardType['status'],
         weather: s.weather as SurveyCardType['weather'],
         form_data: s.form_data as SurveyCardType['form_data'],
-        expectedSurveyCount: (s.weather as Record<string, unknown> | null)?.expectedSurveyCount as
-          | number
-          | undefined,
         notes: s.notes || undefined,
         surveyor: {
           id: s.surveyor?.id || userId,
@@ -166,8 +163,15 @@ export function FieldSurveyStep({
 
   return (
     <div className="space-y-6">
-      {/* Site Selector */}
-      <div className="flex items-center justify-end">
+      {/* Site Selector — warning sits inline on the left so the selector
+          never shifts when the alert toggles on/off. */}
+      <div className="flex items-center justify-end gap-3">
+        {requiresSiteSelection && (
+          <div className="flex items-center gap-2 rounded-md border border-amber-500/50 bg-amber-50 px-3 py-1.5 text-sm text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>Select a site first to schedule surveys.</span>
+          </div>
+        )}
         <SiteSelector
           projectId={project.id}
           stepKey="field-research"
@@ -175,17 +179,6 @@ export function FieldSurveyStep({
           showAllOption
         />
       </div>
-
-      {requiresSiteSelection && (
-        <Alert className="border-amber-500/50 text-amber-700 dark:text-amber-400 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-500">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Select a site first</AlertTitle>
-          <AlertDescription>
-            Pick a site from the selector above before scheduling a survey. Each survey must be
-            associated with a single site.
-          </AlertDescription>
-        </Alert>
-      )}
 
       {/* Top-Level Tabs: Surveys vs Photos */}
       <Tabs value={topTab} onValueChange={(v) => setTopTab(v as 'surveys' | 'photos')}>
@@ -309,7 +302,6 @@ export function FieldSurveyStep({
                     startTime: visit.editingSurvey.startTime,
                     endTime: visit.editingSurvey.endTime,
                     surveyor: visit.editingSurvey.surveyor,
-                    expectedSurveyCount: visit.editingSurvey.expectedSurveyCount,
                     weather: visit.editingSurvey.weather,
                     form_data: visit.editingSurvey.form_data,
                     notes: visit.editingSurvey.notes,

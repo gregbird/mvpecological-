@@ -130,6 +130,10 @@ export function useSubstepSearch(
     if (relevant.length === 0) return
 
     const restored: FindingDisplay[] = relevant.map((f) => {
+      // Prefer the typed columns populated by Aşama 1's dual-write; fall back
+      // to raw_data for rows that pre-date the migration (the backfill caught
+      // nearly all of them, but fallbacks cost nothing and guard against
+      // edge-case NULL columns like the SSCO-only designated_site row).
       const rawData = f.raw_data as Record<string, unknown> | undefined
       const rawMetadata = rawData?.metadata as Record<string, unknown> | undefined
       return {
@@ -142,13 +146,25 @@ export function useSubstepSearch(
         isSaved: true,
         notes: f.notes ?? undefined,
         metadata: {
-          siteCode: rawData?.siteCode as string | undefined,
-          siteType: rawData?.siteType as string | undefined,
-          scientificName: rawData?.scientificName as string | undefined,
-          commonName: rawData?.commonName as string | undefined,
+          siteCode:
+            f.site_code ??
+            (rawData?.siteCode as string | undefined) ??
+            (rawMetadata?.siteCode as string | undefined),
+          siteType:
+            f.site_type ??
+            (rawData?.siteType as string | undefined) ??
+            (rawMetadata?.siteType as string | undefined),
+          scientificName:
+            f.scientific_name ??
+            (rawData?.scientificName as string | undefined) ??
+            (rawMetadata?.scientificName as string | undefined),
+          commonName: f.common_name ?? (rawMetadata?.commonName as string | undefined),
+          taxonGroup: f.taxon_group ?? (rawMetadata?.taxonGroup as string | undefined),
+          isInvasive: f.is_invasive ?? (rawMetadata?.isInvasive as boolean | undefined),
+          isThreatened: f.is_threatened ?? (rawMetadata?.isThreatened as boolean | undefined),
           distance: f.distance_from_boundary_km ?? undefined,
           isProtected: f.is_protected ?? undefined,
-          aiSummary: rawMetadata?.aiSummary as string | undefined,
+          aiSummary: f.ai_summary ?? (rawMetadata?.aiSummary as string | undefined),
         },
       }
     })

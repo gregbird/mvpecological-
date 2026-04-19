@@ -10,13 +10,14 @@ import { calculateAreaHa } from '@/lib/gis'
 import { AttributeEditor } from '@/components/gis/attribute-editor'
 import { SITE_ATTRIBUTE_FIELDS } from '@/lib/config/site-attributes'
 import { SiteInfoCard } from './site-info-card'
+import { SiteDeleteDialog } from './site-delete-dialog'
 import type { SiteState } from '@/hooks/gis/use-site-management'
 
 interface SiteListPanelProps {
   sites: SiteState[]
   activeSiteIndex: number
   onSelectSite: (index: number) => void
-  onRemoveSite: (index: number) => void
+  onRemoveSite: (index: number) => void | Promise<void>
   onRenameSite: (index: number, code: string) => void
   onUpdateAttributes: (attributes: Record<string, unknown>) => void
   onClipToLayer?: () => void
@@ -50,7 +51,25 @@ export function SiteListPanel({
 }: SiteListPanelProps) {
   const [editingIndex, setEditingIndex] = React.useState<number | null>(null)
   const [editValue, setEditValue] = React.useState('')
+  const [pendingDeleteIndex, setPendingDeleteIndex] = React.useState<number | null>(null)
+  const [isDeleting, setIsDeleting] = React.useState(false)
   const activeItemRef = React.useRef<HTMLDivElement>(null)
+
+  const pendingDeleteSite = pendingDeleteIndex !== null ? sites[pendingDeleteIndex] : null
+
+  const confirmDelete = async () => {
+    if (pendingDeleteIndex === null) return
+    setIsDeleting(true)
+    try {
+      await onRemoveSite(pendingDeleteIndex)
+    } catch {
+      // Parent already surfaced a toast; we just need to close the dialog
+      // so the user isn't stuck re-submitting a delete that already failed.
+    } finally {
+      setIsDeleting(false)
+      setPendingDeleteIndex(null)
+    }
+  }
 
   // Extra attribute keys from shapefile that aren't in the predefined field list
   const activeAttributes = sites[activeSiteIndex]?.attributes ?? {}
@@ -172,7 +191,7 @@ export function SiteListPanel({
                         className="flex h-6 w-6 items-center justify-center rounded-md text-red-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950"
                         onClick={(e) => {
                           e.stopPropagation()
-                          onRemoveSite(index)
+                          setPendingDeleteIndex(index)
                         }}
                       >
                         <Trash2 className="h-3 w-3" />
@@ -218,6 +237,18 @@ export function SiteListPanel({
           </div>
         </div>
       </div>
+
+      <SiteDeleteDialog
+        open={pendingDeleteIndex !== null}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) setPendingDeleteIndex(null)
+        }}
+        siteId={pendingDeleteSite?.id}
+        siteCode={pendingDeleteSite?.siteCode ?? ''}
+        isUnsaved={!pendingDeleteSite?.id}
+        isDeleting={isDeleting}
+        onConfirm={confirmDelete}
+      />
     </div>
   )
 }

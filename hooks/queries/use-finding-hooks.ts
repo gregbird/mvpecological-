@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import {
   getProjectFindings,
   getSavedFindings,
@@ -11,9 +11,22 @@ import {
   getFindingsStats,
   bulkSaveFindings,
 } from '@/lib/supabase/queries'
+import { cascadeNeedsReview } from '@/lib/supabase/queries/workflow'
 import type { DeskResearchFinding, InsertTables, UpdateTables } from '@/types/database'
 
 const FIVE_MINUTES = 5 * 60 * 1000
+
+// Any mutation that changes findings is treated as an edit to Step 2
+// (Data Gathering). cascadeNeedsReview fetches workflow_steps fresh from the
+// DB so the cascade is correct even on a cold React Query cache.
+async function cascadeFromFindings(queryClient: QueryClient, projectId: string) {
+  try {
+    await cascadeNeedsReview(projectId, 2)
+    queryClient.invalidateQueries({ queryKey: ['workflow-steps', projectId] })
+  } catch (error) {
+    console.error('[useFindingHooks] cascade failed:', error)
+  }
+}
 
 export function useFindings(projectId: string, siteId?: string | null) {
   return useQuery({
@@ -86,6 +99,8 @@ export function useCreateFinding() {
       queryClient.invalidateQueries({
         queryKey: ['findings-stats', variables.project_id],
       })
+
+      void cascadeFromFindings(queryClient, variables.project_id)
     },
   })
 }
@@ -108,6 +123,8 @@ export function useUpdateFinding() {
       queryClient.invalidateQueries({ queryKey: ['findings', ...scope] })
       queryClient.invalidateQueries({ queryKey: ['saved-findings', ...scope] })
       queryClient.invalidateQueries({ queryKey: ['findings-stats', ...scope] })
+
+      if (variables.projectId) void cascadeFromFindings(queryClient, variables.projectId)
     },
   })
 }
@@ -118,16 +135,23 @@ export function useDeleteFinding() {
   return useMutation({
     mutationFn: (findingId: string) => deleteFinding(findingId),
     onSuccess: (_data, findingId) => {
-      // Immediately remove from cache so UI updates in sync with spinner
+      // Immediately remove from cache so UI updates in sync with spinner.
+      // Also remember which project the deleted row belonged to so we can
+      // cascade needs_review downstream (delete vars only carry the id).
       const queries = queryClient.getQueryCache().findAll({ queryKey: ['saved-findings'] })
+      const affectedProjectIds = new Set<string>()
       for (const query of queries) {
         const data = query.state.data as DeskResearchFinding[] | undefined
-        if (data?.some((f) => f.id === findingId)) {
-          queryClient.setQueryData(
-            query.queryKey,
-            data.filter((f) => f.id !== findingId)
-          )
-        }
+        const match = data?.find((f) => f.id === findingId)
+        if (!match) continue
+        if (match.project_id) affectedProjectIds.add(match.project_id)
+        queryClient.setQueryData(
+          query.queryKey,
+          data!.filter((f) => f.id !== findingId)
+        )
+      }
+      for (const projectId of affectedProjectIds) {
+        void cascadeFromFindings(queryClient, projectId)
       }
     },
   })
@@ -185,6 +209,8 @@ export function useBulkSaveFindings() {
         queryClient.invalidateQueries({ queryKey: ['saved-findings', projectId] })
       }
       queryClient.invalidateQueries({ queryKey: ['findings-stats', projectId] })
+
+      void cascadeFromFindings(queryClient, projectId)
     },
   })
 }

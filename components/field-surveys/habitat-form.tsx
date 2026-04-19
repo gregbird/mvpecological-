@@ -200,16 +200,28 @@ export function HabitatForm({
   }
 
   const handleSubmit = async (values: HabitatFormValues) => {
+    const habitat = getHabitatByCode(values.fossittCode)
+    if (!habitat) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid FOSSITT code',
+        description: `"${values.fossittCode}" is not a recognised FOSSITT habitat code. Pick one from the list.`,
+      })
+      form.setError('fossittCode', {
+        type: 'manual',
+        message: 'Select a valid FOSSITT code',
+      })
+      return
+    }
+
     setIsSubmitting(true)
     try {
-      const habitat = getHabitatByCode(values.fossittCode)
-
       await onSubmit({
         id: initialData?.id,
         projectId,
         surveyId,
         fossittCode: values.fossittCode,
-        fossittName: habitat?.name || values.fossittCode,
+        fossittName: habitat.name,
         condition: values.condition,
         areaHectares: values.areaHectares ? parseFloat(values.areaHectares) : undefined,
         notes: values.notes || undefined,
@@ -377,7 +389,7 @@ export function HabitatForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Condition *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value || ''}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select condition" />

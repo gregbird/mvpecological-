@@ -36,7 +36,7 @@ interface FindingCardProps {
   getSavedFindingDbId: (finding: FindingDisplay) => string | null
 }
 
-export function FindingCard({
+function FindingCardComponent({
   finding,
   isSaved,
   isSaving,
@@ -344,3 +344,5 @@ export function FindingCard({
     </div>
   )
 }
+
+export const FindingCard = React.memo(FindingCardComponent)

@@ -19,9 +19,12 @@ export function useHabitatMapData({
   savedFindings,
   selectedSite,
 }: UseHabitatMapDataParams) {
-  // Visibility toggles for finding groups on the map
+  // Visibility toggles for finding groups on the map.
+  // 'habitats' is the drawn habitat_polygons layer — ON by default since
+  // this is the primary object in Step 5. Others match the Review & Export
+  // pill set so the two maps share vocabulary.
   const [visibleFindingGroups, setVisibleFindingGroups] = React.useState<Set<string>>(
-    () => new Set(['designated_site', 'species_record', 'aquatic'])
+    () => new Set(['designated_site', 'species_record', 'aquatic', 'habitats'])
   )
 
   const toggleFindingGroup = React.useCallback((group: string) => {
@@ -64,10 +67,19 @@ export function useHabitatMapData({
     return ['sac', 'spa', 'nha', 'pnha']
   }, [visibleFindingGroups])
 
-  // Convert saved habitats to map overlay format
+  // Convert saved habitats to map overlay format. FOSSITT Level-1 'F' =
+  // freshwater habitats (FL Lakes, FW Watercourses, FP Ponds, etc.) —
+  // route those through the Aquatic pill so water features stay grouped.
+  // All other FOSSITT prefixes follow the Habitats pill.
   const habitatPolygonOverlays: HabitatPolygonOverlay[] = React.useMemo(() => {
+    const aquaticOn = visibleFindingGroups.has('aquatic')
+    const habitatsOn = visibleFindingGroups.has('habitats')
     return filteredHabitats
       .filter((h) => h.boundary != null)
+      .filter((h) => {
+        const isAquaticHabitat = h.fossitt_code?.toUpperCase().startsWith('F')
+        return isAquaticHabitat ? aquaticOn : habitatsOn
+      })
       .map((h) => {
         const fossittInfo = getHabitatByCode(h.fossitt_code)
         return {
@@ -79,7 +91,7 @@ export function useHabitatMapData({
           color: getHeritageColor(h.fossitt_code),
         }
       })
-  }, [filteredHabitats])
+  }, [filteredHabitats, visibleFindingGroups])
 
   // Fly-to state for clicking a finding
   const [flyToLocation, setFlyToLocation] = React.useState<{

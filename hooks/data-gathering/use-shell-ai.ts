@@ -120,7 +120,10 @@ export function useShellAi({
           )
         )
 
-        // Persist AI summary to DB if finding is already saved
+        // Persist AI summary to DB if finding is already saved. Dual-write to
+        // the typed `ai_summary` column AND `raw_data.metadata.aiSummary` so
+        // neither the Aşama 2 read path nor any remaining raw_data consumer
+        // goes stale.
         const existingSaved = savedFindings.find((f) => config.matchPredicate(f, finding))
         if (existingSaved) {
           const existingRawData = (existingSaved.raw_data as Record<string, unknown>) || {}
@@ -129,6 +132,7 @@ export function useShellAi({
             .mutateAsync({
               findingId: existingSaved.id,
               updates: {
+                ai_summary: data.summary,
                 raw_data: {
                   ...existingRawData,
                   metadata: { ...existingMetadata, aiSummary: data.summary },

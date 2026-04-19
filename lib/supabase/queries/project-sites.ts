@@ -112,7 +112,35 @@ export async function upsertProjectSite(params: UpsertSiteParams): Promise<strin
   return data as string
 }
 
-export async function deleteProjectSite(siteId: string): Promise<boolean> {
+export interface SiteImpactCounts {
+  findings: number
+  surveys: number
+  habitats: number
+  target_notes: number
+  releve_surveys: number
+  species_observations: number
+  photos: number
+}
+
+export interface DeleteSiteResult {
+  deleted: boolean
+  site_id?: string
+  orphaned_counts?: SiteImpactCounts
+  reason?: string
+}
+
+export async function getSiteImpactCounts(siteId: string): Promise<SiteImpactCounts> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase.rpc('get_site_impact_counts', {
+    p_site_id: siteId,
+  })
+
+  if (error) throw new Error(`Failed to fetch site impact counts: ${error.message}`)
+  return data as unknown as SiteImpactCounts
+}
+
+export async function deleteProjectSite(siteId: string): Promise<DeleteSiteResult> {
   const supabase = createClient()
 
   const { data, error } = await supabase.rpc('delete_project_site', {
@@ -120,5 +148,5 @@ export async function deleteProjectSite(siteId: string): Promise<boolean> {
   })
 
   if (error) throw new Error(`Failed to delete site: ${error.message}`)
-  return data as boolean
+  return data as unknown as DeleteSiteResult
 }

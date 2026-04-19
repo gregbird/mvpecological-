@@ -83,7 +83,8 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
 
       const existingSaved = savedFindings.find(
         (f) =>
-          (f.raw_data as Record<string, unknown>)?.siteCode === data.siteCode && f.source === 'npws'
+          (f.site_code ?? (f.raw_data as Record<string, unknown> | null)?.siteCode) ===
+            data.siteCode && f.source === 'npws'
       )
 
       if (existingSaved) {
@@ -121,6 +122,9 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
             is_saved: true,
             distance_from_boundary_km: deepResearchFinding.metadata?.distance || null,
             is_protected: true,
+            site_code: deepResearchFinding.metadata?.siteCode ?? null,
+            site_type: deepResearchFinding.metadata?.siteType ?? null,
+            ai_summary: deepResearchFinding.metadata?.aiSummary ?? null,
             created_by: userId,
           }
           await createFinding.mutateAsync(payload)
@@ -265,10 +269,12 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
 
       // Matching
       matchPredicate: (sf, result) =>
-        (sf.raw_data as Record<string, unknown>)?.siteCode === result.metadata?.siteCode,
+        (sf.site_code ?? (sf.raw_data as Record<string, unknown> | null)?.siteCode) ===
+        result.metadata?.siteCode,
       minimalMetadataKeys: ['siteCode', 'siteType'],
 
-      // Save payload
+      // Save payload — dual-write: raw_data kept for now (Aşama 2 reads will
+      // migrate to typed columns, Aşama 3 will shrink raw_data).
       buildCreatePayload: (finding, { projectId, userId: uid, siteId }) => ({
         project_id: projectId,
         site_id: siteId ?? null,
@@ -291,6 +297,9 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
         is_saved: true,
         distance_from_boundary_km: finding.metadata?.distance || null,
         is_protected: true,
+        site_code: finding.metadata?.siteCode ?? null,
+        site_type: finding.metadata?.siteType ?? null,
+        ai_summary: finding.metadata?.aiSummary ?? null,
         created_by: uid,
       }),
 
@@ -336,7 +345,9 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
       // Map findings customization
       mapFindingsSavedFilter: (f, sf) =>
         sf.some(
-          (saved) => (saved.raw_data as Record<string, unknown>)?.siteCode === f.metadata?.siteCode
+          (saved) =>
+            (saved.site_code ?? (saved.raw_data as Record<string, unknown> | null)?.siteCode) ===
+            f.metadata?.siteCode
         ),
       mapFindingsMapper: (f, sf) => ({
         id: f.id,
@@ -346,7 +357,9 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
         content: f.content,
         location: f.location,
         isSaved: sf.some(
-          (saved) => (saved.raw_data as Record<string, unknown>)?.siteCode === f.metadata?.siteCode
+          (saved) =>
+            (saved.site_code ?? (saved.raw_data as Record<string, unknown> | null)?.siteCode) ===
+            f.metadata?.siteCode
         ),
       }),
 

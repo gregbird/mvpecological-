@@ -317,65 +317,92 @@ export type Database = {
       }
       desk_research_findings: {
         Row: {
+          ai_summary: string | null
+          common_name: string | null
           content: string | null
           created_at: string
           created_by: string
           data_type: Database['public']['Enums']['finding_data_type']
           distance_from_boundary_km: number | null
+          fossitt_code: string | null
           id: string
           include_in_report: boolean
+          is_invasive: boolean | null
           is_protected: boolean | null
           is_saved: boolean
+          is_threatened: boolean | null
           location: unknown
           notes: string | null
           project_id: string
           raw_data: Json | null
           red_list_status: string | null
           relevance_level: string | null
+          scientific_name: string | null
+          site_code: string | null
           site_id: string | null
+          site_type: string | null
           source: Database['public']['Enums']['data_source']
+          taxon_group: string | null
           title: string
           updated_at: string
         }
         Insert: {
+          ai_summary?: string | null
+          common_name?: string | null
           content?: string | null
           created_at?: string
           created_by: string
           data_type: Database['public']['Enums']['finding_data_type']
           distance_from_boundary_km?: number | null
+          fossitt_code?: string | null
           id?: string
           include_in_report?: boolean
+          is_invasive?: boolean | null
           is_protected?: boolean | null
           is_saved?: boolean
+          is_threatened?: boolean | null
           location?: unknown
           notes?: string | null
           project_id: string
           raw_data?: Json | null
           red_list_status?: string | null
           relevance_level?: string | null
+          scientific_name?: string | null
+          site_code?: string | null
           site_id?: string | null
+          site_type?: string | null
           source: Database['public']['Enums']['data_source']
+          taxon_group?: string | null
           title: string
           updated_at?: string
         }
         Update: {
+          ai_summary?: string | null
+          common_name?: string | null
           content?: string | null
           created_at?: string
           created_by?: string
           data_type?: Database['public']['Enums']['finding_data_type']
           distance_from_boundary_km?: number | null
+          fossitt_code?: string | null
           id?: string
           include_in_report?: boolean
+          is_invasive?: boolean | null
           is_protected?: boolean | null
           is_saved?: boolean
+          is_threatened?: boolean | null
           location?: unknown
           notes?: string | null
           project_id?: string
           raw_data?: Json | null
           red_list_status?: string | null
           relevance_level?: string | null
+          scientific_name?: string | null
+          site_code?: string | null
           site_id?: string | null
+          site_type?: string | null
           source?: Database['public']['Enums']['data_source']
+          taxon_group?: string | null
           title?: string
           updated_at?: string
         }
@@ -1364,6 +1391,7 @@ export type Database = {
           releve_area_sqm: number | null
           releve_code: string
           releve_comment: string | null
+          site_id: string | null
           site_name: string | null
           slope_degrees: number | null
           soil_stability: string | null
@@ -1407,6 +1435,7 @@ export type Database = {
           releve_area_sqm?: number | null
           releve_code: string
           releve_comment?: string | null
+          site_id?: string | null
           site_name?: string | null
           slope_degrees?: number | null
           soil_stability?: string | null
@@ -1450,6 +1479,7 @@ export type Database = {
           releve_area_sqm?: number | null
           releve_code?: string
           releve_comment?: string | null
+          site_id?: string | null
           site_name?: string | null
           slope_degrees?: number | null
           soil_stability?: string | null
@@ -1474,6 +1504,13 @@ export type Database = {
             columns: ['project_id']
             isOneToOne: false
             referencedRelation: 'projects'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'releve_surveys_site_id_fkey'
+            columns: ['site_id']
+            isOneToOne: false
+            referencedRelation: 'project_sites'
             referencedColumns: ['id']
           },
           {
@@ -2282,7 +2319,8 @@ export type Database = {
             }
             Returns: string
           }
-      delete_project_site: { Args: { p_site_id: string }; Returns: boolean }
+      delete_project_site: { Args: { p_site_id: string }; Returns: Json }
+      get_site_impact_counts: { Args: { p_site_id: string }; Returns: Json }
       disablelongtransactions: { Args: never; Returns: string }
       dropgeometrycolumn:
         | {
