@@ -338,14 +338,11 @@ function buildContext(input: ContextInput): string {
     if (distanceKm != null) {
       parts.push(`- Distance from site: ${Number(distanceKm).toFixed(2)} km`)
     }
-    parts.push(`- Assessment Relevance: ${assessment.relevance.toUpperCase()}`)
+    if (assessment.relevance !== 'unassessed') {
+      parts.push(`- Ecologist Priority: ${assessment.relevance.toUpperCase()}`)
+    }
     if (assessment.notes) {
       parts.push(`- Ecologist Notes: "${assessment.notes}"`)
-    }
-
-    // Include AI Summary if available in metadata
-    if (siteMetadataObj?.aiSummary) {
-      parts.push(`- AI Summary: ${String(siteMetadataObj.aiSummary).substring(0, 400)}`)
     }
 
     // Find matching deep research - first check database, then raw_data
@@ -356,15 +353,15 @@ function buildContext(input: ContextInput): string {
     const rawDeepResearch = rawData?.deepResearch
 
     if (deepData) {
-      parts.push(`\n  **Deep Research Results (from DB):**`)
+      parts.push(`\n  **NPWS Conservation Profile:**`)
 
       if (deepData.habitats?.length > 0) {
         parts.push(`  Qualifying Interest Habitats:`)
-        for (const h of deepData.habitats.slice(0, 5)) {
+        for (const h of deepData.habitats.slice(0, 10)) {
           parts.push(`    - [${h.habitatCode}] ${h.habitatName}${h.status ? ` (${h.status})` : ''}`)
         }
-        if (deepData.habitats.length > 5) {
-          parts.push(`    - ... and ${deepData.habitats.length - 5} more`)
+        if (deepData.habitats.length > 10) {
+          parts.push(`    - ... and ${deepData.habitats.length - 10} more`)
         }
       }
 
@@ -389,15 +386,15 @@ function buildContext(input: ContextInput): string {
 
       if (deepData.ai_analysis) {
         const summary = deepData.ai_analysis.substring(0, 500)
-        parts.push(`  AI Conservation Summary: ${summary}...`)
+        parts.push(`  Conservation Context: ${summary}`)
       }
     } else if (rawDeepResearch) {
       // Fallback to raw_data.deepResearch if not in DB
-      parts.push(`\n  **Deep Research Results:**`)
+      parts.push(`\n  **NPWS Conservation Profile:**`)
 
       if (rawDeepResearch.aiAnalysis) {
         const summary = rawDeepResearch.aiAnalysis.substring(0, 500)
-        parts.push(`  AI Analysis: ${summary}...`)
+        parts.push(`  Conservation Context: ${summary}`)
       }
 
       if (rawDeepResearch.habitats?.length > 0) {
@@ -461,23 +458,20 @@ function buildContext(input: ContextInput): string {
         parts.push(`  Total Irish records: ${nbdc.totalRecordsInIreland}`)
       }
       if (nbdc?.isInvasive) {
-        parts.push(`  ⚠ INVASIVE SPECIES`)
+        parts.push(`  ⚠ INVASIVE / NON-NATIVE SPECIES`)
       }
-      parts.push(`  Assessment: ${assessment.relevance.toUpperCase()}`)
+      if (assessment.relevance !== 'unassessed') {
+        parts.push(`  Ecologist Priority: ${assessment.relevance.toUpperCase()}`)
+      }
       if (assessment.notes) {
         parts.push(`  Ecologist Notes: "${assessment.notes}"`)
       }
 
-      // Include AI Summary if available
-      if (speciesMeta?.aiSummary) {
-        parts.push(`  AI Summary: ${String(speciesMeta.aiSummary).substring(0, 400)}`)
-      }
-
-      // Include Deep Research AI Analysis if available
+      // Include Deep Research AI Analysis if available (authoritative source)
       const deepResearch = rawData?.deepResearch
       if (deepResearch?.aiAnalysis) {
         const summary = deepResearch.aiAnalysis.substring(0, 600)
-        parts.push(`  **Species Deep Research:**`)
+        parts.push(`  **Species Conservation Profile:**`)
         parts.push(`  ${summary}${deepResearch.aiAnalysis.length > 600 ? '...' : ''}`)
       }
     }
@@ -492,16 +486,34 @@ function buildContext(input: ContextInput): string {
       const otherMeta = rawData?.metadata as Record<string, unknown> | undefined
       const otherNbdc = rawData?.nbdcData as Record<string, unknown> | undefined
       const dist = species.distance_from_boundary_km ?? otherMeta?.distance ?? null
-      const distStr = dist != null ? ` - ${Number(dist).toFixed(1)}km` : ''
       const taxon =
         rawData?.taxonGroup || otherNbdc?.taxonGroup || otherMeta?.taxonGroup || 'Unknown'
-      parts.push(`- ${species.title} (${taxon})${distStr} - ${assessment.relevance}`)
+      const sciName = rawData?.scientificName || otherMeta?.scientificName
+      const recCount = rawData?.recordCount || otherMeta?.recordCount
+      const designationStr = rawData?.designations?.length
+        ? rawData.designations.join(', ')
+        : otherNbdc?.designations || otherMeta?.designations || null
+      const redList = rawData?.redListStatus
+      const isInvasive = !!otherNbdc?.isInvasive
+
+      const bits: string[] = []
+      bits.push(`(${taxon})`)
+      if (dist != null) bits.push(`${Number(dist).toFixed(1)}km`)
+      if (recCount) bits.push(`${recCount} records`)
+      if (isInvasive) bits.push('⚠ INVASIVE/NON-NATIVE')
+      if (redList) bits.push(`Red List: ${redList}`)
+      if (designationStr) bits.push(`Designations: ${designationStr}`)
+      if (assessment.relevance !== 'unassessed') {
+        bits.push(`Priority: ${assessment.relevance.toUpperCase()}`)
+      }
+
+      parts.push(`- **${species.title}**${sciName ? ` (*${sciName}*)` : ''} — ${bits.join(' · ')}`)
 
       // Include Deep Research AI Analysis if available for other species too
       const deepResearch = rawData?.deepResearch
       if (deepResearch?.aiAnalysis) {
         const summary = deepResearch.aiAnalysis.substring(0, 300)
-        parts.push(`  Deep Research: ${summary}...`)
+        parts.push(`  Species Conservation Profile: ${summary}`)
       }
     }
     parts.push('')
@@ -552,21 +564,18 @@ function buildContext(input: ContextInput): string {
     if (rawData?.CatchmentName) {
       parts.push(`- Catchment: ${rawData.CatchmentName}`)
     }
-    parts.push(`- Assessment: ${assessment.relevance.toUpperCase()}`)
+    if (assessment.relevance !== 'unassessed') {
+      parts.push(`- Ecologist Priority: ${assessment.relevance.toUpperCase()}`)
+    }
     if (assessment.notes) {
       parts.push(`- Ecologist Notes: "${assessment.notes}"`)
-    }
-
-    // Include AI Summary if available
-    if (aquaticMetadata?.aiSummary) {
-      parts.push(`- AI Summary: ${String(aquaticMetadata.aiSummary).substring(0, 400)}`)
     }
 
     // Find matching aquatic research
     const aquaticData = input.aquaticResearch.find((a) => a.water_body_code === waterCode)
 
     if (aquaticData) {
-      parts.push(`\n  **WFD Research Results:**`)
+      parts.push(`\n  **EPA WFD Profile:**`)
       if (aquaticData.current_status) {
         parts.push(`  Current WFD Status: ${aquaticData.current_status}`)
       }
@@ -583,7 +592,7 @@ function buildContext(input: ContextInput): string {
 
       if (aquaticData.trends?.length > 0) {
         parts.push(`  Water Quality Trends:`)
-        for (const t of aquaticData.trends.slice(0, 3)) {
+        for (const t of aquaticData.trends.slice(0, 6)) {
           parts.push(`    - ${t.ParameterName}: ${t.TrendDesc}`)
         }
       }
@@ -596,6 +605,11 @@ function buildContext(input: ContextInput): string {
 
       if (aquaticData.linked_sac_name) {
         parts.push(`  Linked SAC: ${aquaticData.linked_sac_name} (${aquaticData.linked_sac_code})`)
+        if (aquaticData.linked_sac_habitats?.length > 0) {
+          parts.push(
+            `  SAC Qualifying Habitats: ${aquaticData.linked_sac_habitats.map((h) => `[${h.code}] ${h.name}`).join(', ')}`
+          )
+        }
         if (aquaticData.linked_sac_species?.length > 0) {
           parts.push(
             `  SAC Aquatic Species: ${aquaticData.linked_sac_species.map((s) => s.commonName || s.name).join(', ')}`
@@ -605,32 +619,64 @@ function buildContext(input: ContextInput): string {
 
       if (aquaticData.ai_analysis) {
         const summary = aquaticData.ai_analysis.substring(0, 400)
-        parts.push(`  AI Analysis Summary: ${summary}...`)
+        parts.push(`  Conservation Context: ${summary}`)
       }
     }
     parts.push('')
   }
 
   // === HABITAT DATA ===
+  // Multi-site projects may save the same habitat polygon once per site buffer;
+  // dedupe identical (fossittCode + areaHa + bufferKm) entries before handing to AI.
   const habitatFindings = input.findings.filter((f) => f.data_type === 'habitat')
   if (habitatFindings.length > 0) {
-    parts.push('## HABITAT DATA (NLC 2018)')
-    parts.push(`Total: ${habitatFindings.length} habitat types identified`)
-    parts.push('')
+    const seen = new Map<
+      string,
+      {
+        fossittCode: string
+        title: string
+        nlcLabel: string
+        areaHa: string
+        pct: string | number
+        bufferKm: string | number
+        aiSummary?: string
+        notes?: string
+      }
+    >()
 
     for (const h of habitatFindings) {
       const raw = h.raw_data as Record<string, unknown> | null
-      const fossittCode = raw?.fossittCode || '\u2014'
-      const nlcLabel = raw?.nlcLabel || ''
+      const fossittCode = String(raw?.fossittCode || '\u2014')
+      const nlcLabel = String(raw?.nlcLabel || '')
       const areaHa = raw?.areaHectares != null ? Number(raw.areaHectares).toFixed(2) : '?'
-      const pct = raw?.percentCover || '?'
-      const bufferKm = raw?.bufferKm || '?'
+      const pct = (raw?.percentCover as string | number) ?? '?'
+      const bufferKm = (raw?.bufferKm as string | number) ?? '?'
+      const key = `${fossittCode}|${areaHa}|${bufferKm}`
 
-      parts.push(`### [${fossittCode}] ${h.title}`)
-      parts.push(`- NLC Label: ${nlcLabel}`)
-      parts.push(`- Area: ${areaHa} ha (${pct}% of ${bufferKm} km buffer)`)
-      if (raw?.aiSummary) {
-        parts.push(`- AI Summary: ${String(raw.aiSummary).substring(0, 400)}`)
+      if (!seen.has(key)) {
+        seen.set(key, {
+          fossittCode,
+          title: h.title,
+          nlcLabel,
+          areaHa,
+          pct,
+          bufferKm,
+          aiSummary: raw?.aiSummary as string | undefined,
+          notes: h.notes || undefined,
+        })
+      }
+    }
+
+    parts.push('## HABITAT DATA (NLC 2018)')
+    parts.push(`Total: ${seen.size} unique habitat types identified`)
+    parts.push('')
+
+    for (const h of seen.values()) {
+      parts.push(`### [${h.fossittCode}] ${h.title}`)
+      parts.push(`- NLC Label: ${h.nlcLabel}`)
+      parts.push(`- Area: ${h.areaHa} ha (${h.pct}% of ${h.bufferKm} km buffer)`)
+      if (h.aiSummary) {
+        parts.push(`- AI Summary: ${h.aiSummary.substring(0, 400)}`)
       }
       if (h.notes) parts.push(`- Ecologist Notes: ${h.notes}`)
       parts.push('')
@@ -659,60 +705,74 @@ function buildContext(input: ContextInput): string {
 }
 
 function buildPrompt(context: string): string {
-  return `You are writing a desk study ecological summary for a PEA report in Ireland. Analyze the following data and produce a comprehensive structured summary.
+  return `You are writing a desk study ecological summary for a PEA report in Ireland. Analyse the provided data and produce a comprehensive structured summary.
 
 ${context}
 
 ---
 
-Write the summary using the following markdown headings. Each category should list ALL findings as bullet points, followed by a 1-2 sentence assessment paragraph. Only include categories that have data.
+Write the summary using the following markdown headings. Each category lists every finding as a bullet point, followed by a 1–2 sentence assessment paragraph. Only include categories that have data in the context above.
 
 ## Designated Areas
 
-- **[Site Name]** ([Site Code]) — [Type: SAC/SPA/NHA/pNHA] — [Distance] km from site. [Key qualifying interests or conservation features if known]
+- **[Site Name]** ([Site Code]) — [Type: SAC/SPA/NHA/pNHA] — [Distance] km from site. [Qualifying interests and conservation status if available from the NPWS Conservation Profile]
 - [Continue for ALL designated sites from the data]
 
-[1-2 sentence assessment: summarize proximity risks, AA Screening implications, and connectivity concerns]
+[Assessment: proximity risks, likely AA Screening determination (Required / Possibly Required / Unlikely) with brief justification, and hydrological/functional connectivity concerns]
 
 ## Habitats
 
-- **[FOSSITT Code] [Habitat Name]** — [Area in hectares, % cover]. [Ecological significance and survey recommendations]
-- [List ALL habitat types from the data with their FOSSITT codes]
-- [Note any Annex I habitats that may be present]
+- **[FOSSITT Code] [Habitat Name]** — [Area in hectares, % cover of buffer]. [Ecological sensitivity tier and survey recommendation with timing]
+- [List ALL habitat types from the provided HABITAT DATA section — they have already been de-duplicated]
+- [Flag any FOSSITT codes that may correspond to EU Habitats Directive Annex I habitats]
 
-[1-2 sentence assessment: summarize habitat sensitivity and survey needs]
+[Assessment: habitat sensitivity summary, Annex I analogues requiring verification, and priority survey windows]
 
-## Species
+## Protected & Notable Species
 
-- **[Common Name]** (*[Scientific Name]*) — [Conservation status: e.g., Annex II/IV, Wildlife Acts, Red List]. [Number of records]. [Taxon group]
-- [List ALL species from the data — group by taxon: birds, mammals, amphibians, invertebrates, flora]
-- [Protected/notable species first within each group]
+- **[Common Name]** (*[Scientific Name]*) — [Legal designations and Red List status exactly as given; if the context has neither, write "No statutory designation — recorded presence only"]. [Record count]. [Taxon group]
+- [List species that have statutory protection (Wildlife Acts, Habitats Directive Annex II/IV, Birds Directive Annex I, BoCCI Amber/Red, FPO 2022) OR a Red List status]
 
-[1-2 sentence assessment: summarize protected species concerns and targeted survey requirements with optimal timing]
+[Assessment: protected species concerns and targeted survey requirements with optimal timing windows]
+
+## Invasive / Non-Native Species
+
+- **[Common Name]** (*[Scientific Name]*) — [Invasive listing, e.g., "S.I. 477/2011 Third Schedule", "High Risk 2013", "S.I. 374/2024"; if the context only flags "INVASIVE/NON-NATIVE" without a statute, write "Non-native — not Red List assessed"]. [Taxon group]
+- [List every species marked with the ⚠ INVASIVE / NON-NATIVE flag in the context]
+- [NEVER write "Conservation status: Unassessed" for invasives — they are not Red List candidates]
+
+[Assessment: biosecurity implications, priority species for management/eradication, and pre-works invasive species survey requirements]
 
 ## Aquatic Features
 
-- **[Water Body Name]** ([EPA Code]) — [Type: River/Lake/Transitional/Catchment]. WFD Status: [Status]. [Risk level if known]
-- [Include status trends, linked SACs, and key pressures where available]
+- **[Water Body Name]** ([EPA Code]) — [Type]. WFD Status: [Status]. Risk: [Risk level]. [Linked SAC qualifying habitats/species if listed in the EPA WFD Profile]
+- [Include status history trends and environmental failures where available]
 
-[1-2 sentence assessment: summarize water quality concerns and hydrological connectivity to designated sites]
+[Assessment: surface water pathways, hydrological connectivity to European sites, and construction-phase water protection priorities]
 
 ## Document Review
 
-- **[Document/File Name]** — [Key findings or relevant excerpts from company reports and indexed documents]
+- **[Document/File Name]** — [Key findings or relevant excerpts]
+- [ONLY include this section if the context contains a "## COMPANY REPORTS & DOCUMENTS" section with actual uploaded files. Do NOT fabricate this section from NPWS Conservation Profiles or EPA WFD Profiles — those belong to their parent sections above]
 
-[1-2 sentence assessment: summarize how existing company reports inform the current assessment]
+[Assessment: how uploaded company reports inform the current assessment]
+
+## Data Gaps & Field Survey Priorities
+
+- [Specific desk-study gaps that require field verification — e.g., Annex I habitat confirmation, breeding bird surveys, bat roost potential, otter/badger signs, protected flora]
+- [For each gap: recommended method and optimal survey window]
+- [Note any data sources that were absent or returned no records where presence was expected]
 
 ---
 
 RULES:
-- Each heading must start with "## " (h2 markdown)
-- CRITICAL: Include EVERY species, site, habitat, and water body from the provided data — do NOT summarize, group, or skip any records. Each record must be its own bullet point
-- Only include a category heading if data exists for it — omit empty categories entirely
-- Base ALL conclusions on provided data only — do not invent species, sites, or habitats
-- Reference site codes, FOSSITT codes, distances, and conservation status throughout
-- Use ecologist assessment notes and AI summaries to inform analysis
-- Each bullet should be concise (1-2 lines max)
-- Bold the primary name/title in each bullet
-- For species: always include the scientific name in italics, taxon group, record count, and conservation designations`
+- Each heading starts with "## " (h2 markdown)
+- Include EVERY designated site, habitat (after de-dup), protected species, invasive species, and water body from the provided data — one bullet per record
+- Only include a category heading if the context actually contains data for it
+- Base ALL conclusions strictly on the provided data — do not invent species, sites, habitats, or designations
+- Reference site codes, FOSSITT codes, distances, and conservation designations throughout
+- Never write "Conservation status: Unassessed" — that value refers to ecologist workflow state, not species biology. If no statutory designation exists, state "No statutory designation" for native species or "Non-native — not Red List assessed" for invasives
+- Each bullet is concise (1–2 lines)
+- Bold the primary name/title; italicise scientific names
+- Use Irish English spelling throughout`
 }
