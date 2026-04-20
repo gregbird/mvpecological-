@@ -71,12 +71,17 @@ export function TargetNotesStep({
     null
   )
   const [selectedSurveyId, setSelectedSurveyId] = React.useState<string>('')
+  // Tracks whether the user explicitly chose "All surveys". Prevents the
+  // auto-select effect from immediately re-picking a survey when the user
+  // intentionally switched back to the aggregate view.
+  const [userClearedSurvey, setUserClearedSurvey] = React.useState(false)
 
   // Switching sites invalidates the current survey choice — surveys are
   // site-scoped, so the dropdown re-populates with a new list. Leaving the
   // old id in state would attach imported species to a survey from the wrong site.
   React.useEffect(() => {
     setSelectedSurveyId('')
+    setUserClearedSurvey(false)
   }, [selectedSite?.id])
   const [activeTab, setActiveTab] = React.useState('all')
   const [selectedObservation, setSelectedObservation] = React.useState<SpeciesObservation | null>(
@@ -131,6 +136,23 @@ export function TargetNotesStep({
     effectiveSiteId:
       selectedSite?.id ?? (projectSites.length === 1 ? (projectSites[0]?.id ?? null) : null),
   })
+
+  // When the user lands on the Observations sub-tab and surveys exist but
+  // none is picked, auto-select the most recent survey. Unsticks the
+  // "Add disabled with no obvious reason" state — the ecologist's default
+  // intent is working against their latest field visit. The user can still
+  // switch back to "All surveys" via the dropdown (tracked via
+  // userClearedSurvey to avoid immediate re-selection).
+  React.useEffect(() => {
+    if (activeMainTab !== 'observations') return
+    if (userClearedSurvey) return
+    if (selectedSurveyId) return
+    if (surveys.length === 0) return
+    const mostRecent = [...surveys].sort(
+      (a, b) => new Date(b.survey_date).getTime() - new Date(a.survey_date).getTime()
+    )[0]
+    if (mostRecent) setSelectedSurveyId(mostRecent.id)
+  }, [activeMainTab, surveys, selectedSurveyId, userClearedSurvey])
 
   const onCreateTargetNote = async (data: Parameters<typeof handleCreateTargetNote>[0]) => {
     const success = await handleCreateTargetNote(data)
@@ -198,23 +220,17 @@ export function TargetNotesStep({
                 Species Observations ({filteredObservations.length})
               </TabsTrigger>
             </TabsList>
-            {/* Inline Stats */}
-            <div className="hidden items-center gap-3 border-l pl-3 md:flex">
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-base font-bold">{filteredTargetNotes.length}</span>
-                <span className="text-muted-foreground text-xs">Notes</span>
-              </div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-base font-bold">{filteredObservations.length}</span>
-                <span className="text-muted-foreground text-xs">Obs</span>
-              </div>
-              <div className="flex items-baseline gap-1.5">
+            {/* Verified count — only surfaced when it adds information. Notes
+                and Obs counts are already on the sub-tab triggers; duplicating
+                them in a separate stats block was clutter. */}
+            {(targetNotesStats?.verified ?? 0) > 0 && (
+              <div className="hidden items-center gap-1.5 border-l pl-3 md:flex">
                 <span className="text-base font-bold text-green-600">
-                  {targetNotesStats?.verified || 0}
+                  {targetNotesStats?.verified}
                 </span>
                 <span className="text-muted-foreground text-xs">Verified</span>
               </div>
-            </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {/* Survey filter — only relevant for Species Observations. Lives
@@ -223,7 +239,15 @@ export function TargetNotesStep({
             {activeMainTab === 'observations' && surveys.length > 0 && (
               <Select
                 value={selectedSurveyId || 'all'}
-                onValueChange={(value) => setSelectedSurveyId(value === 'all' ? '' : value)}
+                onValueChange={(value) => {
+                  if (value === 'all') {
+                    setSelectedSurveyId('')
+                    setUserClearedSurvey(true)
+                  } else {
+                    setSelectedSurveyId(value)
+                    setUserClearedSurvey(false)
+                  }
+                }}
               >
                 <SelectTrigger className="h-8 w-44 text-xs">
                   <SelectValue placeholder="All surveys" />
