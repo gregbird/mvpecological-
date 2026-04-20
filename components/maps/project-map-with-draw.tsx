@@ -22,6 +22,10 @@ import { useEPALayers } from './epa-layer-overlay'
 import { useIWebsLayers } from './iwebs-layer-overlay'
 import { useAdministrativeBoundaries } from '@/hooks/maps/use-administrative-boundaries'
 import { MapLayersDropdown } from '@/components/maps/map-layers-dropdown'
+import { MapControlSidebar } from '@/components/maps/map-control-sidebar'
+import { BufferControl } from '@/components/maps/buffer-control'
+import { ZoomControl } from '@/components/maps/zoom-control'
+import { useVisibleBuffers } from '@/hooks/shared/use-visible-buffers'
 import { DeleteConfirmDialog } from '@/components/maps/delete-confirm-dialog'
 import { DrawMeasurementOverlay } from '@/components/maps/draw-measurement-overlay'
 import type { DrawMeasurement } from '@/components/maps/draw-measurement-overlay'
@@ -96,6 +100,7 @@ interface BoundaryControllerBridgeProps {
   pendingDeleteLayerRef: React.MutableRefObject<L.Layer | null>
   onDrawMeasurementChange: (measurement: DrawMeasurement | null) => void
   collectFeaturesRef: React.MutableRefObject<() => GeoJSON.Feature[]>
+  bufferDistances?: number[]
 }
 
 function BoundaryControllerBridge({
@@ -116,6 +121,7 @@ function BoundaryControllerBridge({
   pendingDeleteLayerRef,
   onDrawMeasurementChange,
   collectFeaturesRef,
+  bufferDistances,
 }: BoundaryControllerBridgeProps) {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { useMap } = require('react-leaflet')
@@ -149,6 +155,7 @@ function BoundaryControllerBridge({
       pendingDeleteLayerRef={pendingDeleteLayerRef}
       onDrawMeasurementChange={onDrawMeasurementChange}
       onCollectFeaturesReady={handleCollectFeaturesReady}
+      bufferDistances={bufferDistances}
     />
   )
 }
@@ -297,6 +304,7 @@ function MapComponentWithDraw(props: InternalMapProps) {
           pendingDeleteLayerRef={pendingDeleteLayerRef}
           onDrawMeasurementChange={setDrawMeasurement}
           collectFeaturesRef={collectFeaturesRef}
+          bufferDistances={bufferZones ? Array.from(bufferZones.keys()) : undefined}
         />
 
         {showCounties && countiesData && (
@@ -497,6 +505,23 @@ export function ProjectMapWithDraw({
   }, [editable, boundary])
 
   const [showBatRecords, setShowBatRecords] = React.useState(false)
+  const bufferDistancesList = React.useMemo(
+    () => (bufferZones ? Array.from(bufferZones.keys()) : []),
+    [bufferZones]
+  )
+  const {
+    visible: visibleBuffers,
+    toggle: toggleBuffer,
+    setAll: setAllBuffers,
+  } = useVisibleBuffers(bufferDistancesList)
+  const filteredBufferZones = React.useMemo(() => {
+    if (!bufferZones) return undefined
+    const next = new Map<number, GeoJSON.Feature<GeoJSON.Polygon>>()
+    for (const [distance, feature] of bufferZones.entries()) {
+      if (visibleBuffers.has(distance)) next.set(distance, feature)
+    }
+    return next
+  }, [bufferZones, visibleBuffers])
   const {
     showCounties,
     setShowCounties,
@@ -596,7 +621,7 @@ export function ProjectMapWithDraw({
           center={center}
           zoom={zoom}
           boundary={boundary}
-          bufferZones={bufferZones}
+          bufferZones={filteredBufferZones}
           bufferColors={bufferColors}
           currentStyle={currentStyle}
           onBoundaryChange={onBoundaryChange}
@@ -648,51 +673,53 @@ export function ProjectMapWithDraw({
         </div>
       )}
 
-      <div data-map-control="true" className="absolute top-4 left-4 z-1000 flex flex-col gap-2">
-        {showLayersControl && (
-          <MapLayersDropdown
-            currentStyle={currentStyle}
-            setCurrentStyle={setCurrentStyle}
-            mapRef={mapRef}
+      <div className="absolute top-4 left-4 z-1000">
+        <MapControlSidebar>
+          {showLayersControl && (
+            <MapLayersDropdown
+              currentStyle={currentStyle}
+              setCurrentStyle={setCurrentStyle}
+              mapRef={mapRef}
+              portalContainer={containerRef.current}
+              showCounties={showCounties}
+              onToggleCounties={() => setShowCounties(!showCounties)}
+              showTownlands={showTownlands}
+              onToggleTownlands={() => setShowTownlands(!showTownlands)}
+              showBatRecords={showBatRecords}
+              onToggleBatRecords={setShowBatRecords}
+              iwebsVisibleLayers={iwebsVisibleLayers}
+              onToggleIwebsLayer={(layerId, checked) =>
+                setIwebsVisibleLayers((prev) =>
+                  checked ? [...prev, layerId] : prev.filter((id) => id !== layerId)
+                )
+              }
+            />
+          )}
+          <BufferControl
+            bufferDistances={bufferDistancesList}
+            visibleBuffers={visibleBuffers}
+            onToggleBuffer={toggleBuffer}
+            onToggleAll={setAllBuffers}
             portalContainer={containerRef.current}
-            showCounties={showCounties}
-            onToggleCounties={() => setShowCounties(!showCounties)}
-            showTownlands={showTownlands}
-            onToggleTownlands={() => setShowTownlands(!showTownlands)}
-            showBatRecords={showBatRecords}
-            onToggleBatRecords={setShowBatRecords}
-            iwebsVisibleLayers={iwebsVisibleLayers}
-            onToggleIwebsLayer={(layerId, checked) =>
-              setIwebsVisibleLayers((prev) =>
-                checked ? [...prev, layerId] : prev.filter((id) => id !== layerId)
-              )
-            }
           />
-        )}
-        <Button variant="secondary" size="icon" className="shadow-md" onClick={toggleFullscreen}>
-          {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-        </Button>
-        {showMeasureTool && <MeasureControl map={mapRef.current} />}
+          <Button
+            variant="secondary"
+            size="icon"
+            className="h-7 w-7 shadow-md"
+            onClick={toggleFullscreen}
+            aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+          >
+            {isFullscreen ? (
+              <Minimize2 className="h-3.5 w-3.5" />
+            ) : (
+              <Maximize2 className="h-3.5 w-3.5" />
+            )}
+          </Button>
+          {showMeasureTool && <MeasureControl map={mapRef.current} />}
+        </MapControlSidebar>
       </div>
 
-      <div data-map-control="true" className="absolute right-4 bottom-4 z-1000 flex flex-col gap-1">
-        <Button
-          variant="secondary"
-          size="icon"
-          className="h-8 w-8 shadow-md"
-          onClick={() => mapRef.current?.zoomIn()}
-        >
-          <span className="text-lg font-bold">+</span>
-        </Button>
-        <Button
-          variant="secondary"
-          size="icon"
-          className="h-8 w-8 shadow-md"
-          onClick={() => mapRef.current?.zoomOut()}
-        >
-          <span className="text-lg font-bold">&minus;</span>
-        </Button>
-      </div>
+      <ZoomControl mapRef={mapRef} className="absolute right-4 bottom-4 z-1000" />
 
       <DataLayersIndicator
         visibleLayers={visibleLayers}

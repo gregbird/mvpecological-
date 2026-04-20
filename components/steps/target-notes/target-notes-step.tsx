@@ -1,10 +1,9 @@
 'use client'
 
 import * as React from 'react'
-import { AlertCircle, Plus, Loader2, Target, ClipboardList, Download } from 'lucide-react'
+import { AlertCircle, Loader2, Target, ClipboardList } from 'lucide-react'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,6 +16,13 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   SpeciesObservationForm,
   type SpeciesObservation as ObservationFormType,
 } from '@/components/field-surveys/species-observation-form'
@@ -25,6 +31,7 @@ import { TargetNoteForm } from '@/components/field-surveys/target-note-form'
 import { SiteSelector } from '@/components/project/site-selector'
 import { useProjectSites } from '@/hooks/queries/use-site-hooks'
 import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
+import { useToast } from '@/hooks/use-toast'
 import type { ProjectSiteWithGeoJSON } from '@/lib/supabase/queries/project-sites'
 import type { Project, WorkflowStep, SpeciesObservation } from '@/types/database'
 import type { TargetNoteWithCreator } from '@/lib/supabase/queries/target-notes'
@@ -43,6 +50,7 @@ export function TargetNotesStep({
   workflowStep: _workflowStep,
   userId,
 }: TargetNotesStepProps) {
+  const { toast } = useToast()
   const [selectedSite, setSelectedSite] = React.useState<ProjectSiteWithGeoJSON | null>(null)
   const { data: projectSites = [], isLoading: isLoadingSites } = useProjectSites(project.id)
   const isMultiSite = projectSites.length > 1
@@ -51,7 +59,10 @@ export function TargetNotesStep({
   // Also block while sites load to avoid a brief window where Add buttons
   // appear enabled before `isMultiSite` resolves.
   const requiresSiteSelection = isLoadingSites || (isMultiSite && !selectedSite)
-  const { projectBoundary, projectCenter } = useProjectBoundary(project, selectedSite)
+  const { projectBoundary, projectCenter, bufferDistances } = useProjectBoundary(
+    project,
+    selectedSite
+  )
   const [activeMainTab, setActiveMainTab] = React.useState<'target-notes' | 'observations'>(
     'target-notes'
   )
@@ -205,73 +216,38 @@ export function TargetNotesStep({
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {/* Survey filter — only relevant for Species Observations. Lives
+                in the toolbar (next to SiteSelector) instead of consuming a
+                whole row inside the panel. */}
+            {activeMainTab === 'observations' && surveys.length > 0 && (
+              <Select
+                value={selectedSurveyId || 'all'}
+                onValueChange={(value) => setSelectedSurveyId(value === 'all' ? '' : value)}
+              >
+                <SelectTrigger className="h-8 w-44 text-xs">
+                  <SelectValue placeholder="All surveys" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All surveys</SelectItem>
+                  {surveys.map((survey) => (
+                    <SelectItem key={survey.id} value={survey.id}>
+                      {survey.survey_type}
+                      {survey.visit_number != null ? ` · V${survey.visit_number}` : ''} ·{' '}
+                      {new Date(survey.survey_date).toLocaleDateString()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <SiteSelector
               projectId={project.id}
               stepKey="field-research"
               onSiteChange={setSelectedSite}
               showAllOption
             />
-            {activeMainTab === 'target-notes' ? (
-              <span
-                title={requiresSiteSelection ? 'Select a site first to add a note.' : undefined}
-                className="inline-block"
-              >
-                <Button
-                  onClick={() => {
-                    setEditingTargetNote(null)
-                    setShowTargetNoteForm(true)
-                  }}
-                  disabled={requiresSiteSelection}
-                  size="sm"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Note
-                </Button>
-              </span>
-            ) : (
-              <div className="flex items-center gap-2">
-                {importableSpecies.length > 0 && (
-                  <Button
-                    onClick={handleImportSpecies}
-                    disabled={surveys.length === 0 || isImporting || requiresSiteSelection}
-                    size="sm"
-                    variant="outline"
-                  >
-                    {isImporting ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Download className="mr-2 h-4 w-4" />
-                    )}
-                    Import from Data Gathering ({importableSpecies.length})
-                  </Button>
-                )}
-                <span
-                  title={
-                    requiresSiteSelection
-                      ? 'Select a site first to add an observation.'
-                      : surveys.length === 0
-                        ? 'Create a survey first in Field Survey Planning'
-                        : !selectedSurveyId
-                          ? 'Select a survey from the dropdown above to add observations to it'
-                          : undefined
-                  }
-                  className="inline-block"
-                >
-                  <Button
-                    onClick={() => {
-                      setEditingObservation(null)
-                      setShowObservationForm(true)
-                    }}
-                    disabled={surveys.length === 0 || !selectedSurveyId || requiresSiteSelection}
-                    size="sm"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Observation
-                  </Button>
-                </span>
-              </div>
-            )}
+            {/* Add buttons live inside their respective panels,
+                matching the Habitat Mapping pattern. */}
           </div>
         </div>
 
@@ -305,13 +281,42 @@ export function TargetNotesStep({
             onDeleteNote={setDeletingTargetNote}
             onVerifyNote={handleVerifyTargetNote}
             onMapClick={(latlng) => {
+              if (!latlng) return
+              // Warn (but don't block) when the click lands outside the
+              // selected site boundary. A note saved from an outside-boundary
+              // click gets the selected site_id regardless, so silently
+              // accepting would silently misattribute field observations.
+              if (projectBoundary) {
+                try {
+                  // eslint-disable-next-line @typescript-eslint/no-require-imports
+                  const turf = require('@turf/turf')
+                  const point = turf.point([latlng.lng, latlng.lat])
+                  const inside = turf.booleanPointInPolygon(point, projectBoundary)
+                  if (!inside) {
+                    toast({
+                      variant: 'destructive',
+                      title: 'Click outside site boundary',
+                      description:
+                        'This note will still be saved to the selected site. Adjust the location if this is unintended.',
+                    })
+                  }
+                } catch {
+                  // Fall through — treat as valid if the check fails
+                }
+              }
               setMapClickLocation(latlng)
               setEditingTargetNote(null)
               setShowTargetNoteForm(true)
             }}
             projectBoundary={projectBoundary}
             projectCenter={projectCenter}
+            bufferDistances={bufferDistances}
             addDisabled={requiresSiteSelection}
+            onAddNote={() => {
+              setEditingTargetNote(null)
+              setMapClickLocation(undefined)
+              setShowTargetNoteForm(true)
+            }}
           />
         </TabsContent>
 
@@ -324,8 +329,6 @@ export function TargetNotesStep({
             surveys={filteredSurveys}
             filteredObservations={filteredObservations}
             observationsByTaxon={observationsByTaxon}
-            selectedSurveyId={selectedSurveyId}
-            onSurveyChange={setSelectedSurveyId}
             activeTab={activeTab}
             onActiveTabChange={setActiveTab}
             selectedObservation={selectedObservation}
@@ -337,6 +340,26 @@ export function TargetNotesStep({
             onDeleteObservation={setDeletingObservation}
             projectBoundary={projectBoundary}
             projectCenter={projectCenter}
+            bufferDistances={bufferDistances}
+            onAddObservation={() => {
+              setEditingObservation(null)
+              setShowObservationForm(true)
+            }}
+            addObservationDisabled={
+              surveys.length === 0 || !selectedSurveyId || requiresSiteSelection
+            }
+            addObservationDisabledReason={
+              requiresSiteSelection
+                ? 'Select a site first to add an observation.'
+                : surveys.length === 0
+                  ? 'Create a survey in the Field Survey tab first.'
+                  : !selectedSurveyId
+                    ? 'Select a survey from the dropdown to add observations to it.'
+                    : undefined
+            }
+            onImportSpecies={handleImportSpecies}
+            importableCount={importableSpecies.length}
+            isImporting={isImporting}
           />
         </TabsContent>
       </Tabs>

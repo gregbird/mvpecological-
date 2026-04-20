@@ -1,10 +1,10 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Plus } from 'lucide-react'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { IRELAND_CENTER } from '@/lib/config/map-constants'
 import { TargetNoteCard, TARGET_NOTE_CATEGORIES } from '@/components/field-surveys/target-note-card'
@@ -36,8 +36,12 @@ interface TargetNotesPanelProps {
   onMapClick: (latlng: { lat: number; lng: number } | undefined) => void
   projectBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
   projectCenter?: { lat: number; lng: number }
+  /** Buffer distances (km) resolved from the project / selected site */
+  bufferDistances?: number[]
   /** When true, map clicks won't open the new-note dialog (multi-site, no site picked) */
   addDisabled?: boolean
+  /** Called when the user clicks the panel's Add Note button */
+  onAddNote?: () => void
 }
 
 export function TargetNotesPanel({
@@ -53,75 +57,21 @@ export function TargetNotesPanel({
   onMapClick,
   projectBoundary,
   projectCenter,
+  bufferDistances,
   addDisabled = false,
+  onAddNote,
 }: TargetNotesPanelProps) {
   return (
-    <div className="flex flex-col gap-4">
-      {/* Map */}
-      <Card className="flex flex-col">
-        <CardHeader className="py-3">
-          <CardTitle className="text-base">Target Notes Map</CardTitle>
-        </CardHeader>
-        <CardContent className="p-3 pt-0">
-          <div className="h-[62vh] min-h-[440px] overflow-hidden rounded-lg border">
-            <DynamicProjectMap
-              center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
-              zoom={projectCenter ? 14 : 7}
-              boundary={projectBoundary}
-              targetNotes={targetNotes.map((n) => ({
-                id: n.id,
-                category: n.category,
-                title: n.title,
-                description: n.description,
-                priority: n.priority,
-                isVerified: n.is_verified,
-                location: n.location as { coordinates: [number, number] } | null,
-              }))}
-              selectedTargetNote={
-                selectedTargetNote
-                  ? {
-                      id: selectedTargetNote.id,
-                      category: selectedTargetNote.category,
-                      title: selectedTargetNote.title,
-                      description: selectedTargetNote.description,
-                      priority: selectedTargetNote.priority,
-                      isVerified: selectedTargetNote.is_verified,
-                      location: selectedTargetNote.location as {
-                        coordinates: [number, number]
-                      } | null,
-                    }
-                  : null
-              }
-              onTargetNoteClick={(note) => {
-                const found = targetNotes.find((t) => t.id === note.id)
-                if (found) onSelectNote(found)
-              }}
-              onMapClick={(latlng) => {
-                if (addDisabled) return
-                if (latlng) {
-                  onMapClick(latlng)
-                }
-              }}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Target Notes List */}
-      <Card className="flex h-[440px] shrink-0 flex-col">
-        <CardHeader className="py-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Target Notes</CardTitle>
-            <Badge variant="secondary">{targetNotes.length}</Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="min-h-0 flex-1 overflow-auto p-3 pt-0">
-          <Tabs
-            value={activeCategoryTab}
-            onValueChange={onCategoryTabChange}
-            className="flex h-full flex-col"
-          >
-            <TabsList className="flex h-auto flex-wrap gap-1">
+    <div className="flex h-full flex-col gap-4 lg:flex-row">
+      {/* Target Notes List — left column (matches Habitat Mapping list structure) */}
+      <Card className="flex h-[440px] shrink-0 flex-col lg:order-1 lg:h-full lg:w-[500px]">
+        <Tabs
+          value={activeCategoryTab}
+          onValueChange={onCategoryTabChange}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          <div className="flex items-center gap-2 px-3 pt-3">
+            <TabsList className="flex h-auto shrink-0 flex-wrap gap-1">
               <TabsTrigger value="all" className="text-xs">
                 All ({targetNotes.length})
               </TabsTrigger>
@@ -134,14 +84,31 @@ export function TargetNotesPanel({
                   </TabsTrigger>
                 ))}
             </TabsList>
+            {onAddNote && (
+              <span
+                className="ml-auto inline-block shrink-0"
+                title={addDisabled ? 'Select a site first to add a note.' : 'Add note'}
+              >
+                <Button
+                  size="icon"
+                  onClick={onAddNote}
+                  disabled={addDisabled}
+                  aria-label="Add note"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </span>
+            )}
+          </div>
 
-            <TabsContent value="all" className="mt-3 min-h-0 flex-1 overflow-auto">
+          <div className="min-h-0 flex-1 px-3 pb-3">
+            <TabsContent value="all" className="mt-3 h-full min-h-0 overflow-auto">
               {targetNotes.length === 0 ? (
                 <div className="text-muted-foreground py-8 text-center text-sm">
-                  No target notes yet. Click &quot;Add Note&quot; to create one.
+                  No target notes yet. Click &quot;Add Note&quot; or tap the map to create one.
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-2 pr-1">
                   {targetNotes.map((note) => (
                     <TargetNoteCard
                       key={note.id}
@@ -162,9 +129,9 @@ export function TargetNotesPanel({
               <TabsContent
                 key={category}
                 value={category}
-                className="mt-3 min-h-0 flex-1 overflow-auto"
+                className="mt-3 h-full min-h-0 overflow-auto"
               >
-                <div className="space-y-2">
+                <div className="space-y-2 pr-1">
                   {notes.map((note) => (
                     <TargetNoteCard
                       key={note.id}
@@ -180,9 +147,53 @@ export function TargetNotesPanel({
                 </div>
               </TabsContent>
             ))}
-          </Tabs>
-        </CardContent>
+          </div>
+        </Tabs>
       </Card>
+
+      {/* Map — right column (no Card wrapper so it matches habitat-mapping-step) */}
+      <div className="relative h-[62vh] min-h-[440px] shrink-0 overflow-hidden rounded-lg border lg:order-2 lg:h-full lg:min-h-0 lg:flex-1">
+        <DynamicProjectMap
+          center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
+          zoom={projectCenter ? 14 : 7}
+          boundary={projectBoundary}
+          bufferDistances={bufferDistances}
+          targetNotes={targetNotes.map((n) => ({
+            id: n.id,
+            category: n.category,
+            title: n.title,
+            description: n.description,
+            priority: n.priority,
+            isVerified: n.is_verified,
+            location: n.location as { coordinates: [number, number] } | null,
+          }))}
+          selectedTargetNote={
+            selectedTargetNote
+              ? {
+                  id: selectedTargetNote.id,
+                  category: selectedTargetNote.category,
+                  title: selectedTargetNote.title,
+                  description: selectedTargetNote.description,
+                  priority: selectedTargetNote.priority,
+                  isVerified: selectedTargetNote.is_verified,
+                  location: selectedTargetNote.location as {
+                    coordinates: [number, number]
+                  } | null,
+                }
+              : null
+          }
+          onTargetNoteClick={(note) => {
+            const found = targetNotes.find((t) => t.id === note.id)
+            if (found) onSelectNote(found)
+          }}
+          onMapClick={(latlng) => {
+            if (addDisabled) return
+            if (latlng) {
+              onMapClick(latlng)
+            }
+          }}
+        />
+      </div>
     </div>
   )
 }

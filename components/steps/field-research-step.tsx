@@ -132,18 +132,16 @@ export function FieldResearchStep({
                 ? 'In Progress'
                 : 'Pending'}
           </Badge>
-          <Button
-            size="sm"
-            onClick={handleComplete}
-            disabled={isComplete || completeStep.isPending}
-          >
-            {completeStep.isPending ? (
-              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Check className="mr-1.5 h-3.5 w-3.5" />
-            )}
-            {isComplete ? 'Completed' : 'Complete Step'}
-          </Button>
+          {!isComplete && (
+            <Button size="sm" onClick={handleComplete} disabled={completeStep.isPending}>
+              {completeStep.isPending ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Check className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Complete Step
+            </Button>
+          )}
         </div>
       </div>
 

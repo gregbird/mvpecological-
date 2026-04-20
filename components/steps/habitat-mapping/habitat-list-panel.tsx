@@ -134,11 +134,15 @@ export function HabitatListPanel({
           </TabsList>
           <span
             className="ml-auto inline-block shrink-0"
-            title={addDisabled ? addDisabledReason : undefined}
+            title={addDisabled ? addDisabledReason : 'Add habitat'}
           >
-            <Button size="sm" onClick={onAddHabitat} disabled={addDisabled}>
-              <Plus className="mr-1.5 h-4 w-4" />
-              Add Habitat
+            <Button
+              size="icon"
+              onClick={onAddHabitat}
+              disabled={addDisabled}
+              aria-label="Add habitat"
+            >
+              <Plus className="h-4 w-4" />
             </Button>
           </span>
         </div>

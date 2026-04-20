@@ -42,6 +42,9 @@ interface MapBoundaryControllerProps {
   onDrawMeasurementChange: (measurement: DrawMeasurement | null) => void
   /** Called when collectFeatures is available (for delete confirmation) */
   onCollectFeaturesReady: (fn: () => GeoJSON.Feature[]) => void
+  /** Buffer distances (km). When provided, initial fit expands to the
+   * largest buffer ring so users see buffer context on first load. */
+  bufferDistances?: number[]
 }
 
 /**
@@ -76,6 +79,7 @@ export function MapBoundaryController({
   pendingDeleteLayerRef,
   onDrawMeasurementChange,
   onCollectFeaturesReady,
+  bufferDistances,
 }: MapBoundaryControllerProps) {
   // Register map instance
   React.useEffect(() => {
@@ -202,18 +206,37 @@ export function MapBoundaryController({
           })
         }
       })
-      const bounds = geoJsonLayer.getBounds()
+      // For the initial fit, expand the extent by the largest buffer so
+      // users see the buffer rings on load. Subsequent re-fits (site switch)
+      // use the raw boundary bounds for a precise zoom.
+      let bounds = geoJsonLayer.getBounds()
+      const maxBufferKm =
+        bufferDistances && bufferDistances.length > 0 ? Math.max(...bufferDistances) : 0
+      if (!hasFitToBoundaryRef.current && maxBufferKm > 0) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const turf = require('@turf/turf')
+          const buffered = turf.buffer(boundary, maxBufferKm, {
+            units: 'kilometers',
+          }) as GeoJSON.Feature
+          const bufferedLayer = L.geoJSON(buffered)
+          const bufferedBounds = bufferedLayer.getBounds()
+          if (bufferedBounds.isValid()) bounds = bufferedBounds
+        } catch {
+          // Fall back to the boundary bounds
+        }
+      }
       if (bounds.isValid()) {
         isInternalMoveRef.current = true
         if (hasFitToBoundaryRef.current) {
           map.flyToBounds(bounds, { padding: [50, 50], duration: 0.6 })
         } else {
-          map.fitBounds(bounds, { padding: [50, 50] })
+          map.fitBounds(bounds, { padding: [30, 30] })
         }
         hasFitToBoundaryRef.current = true
       }
     }
-  }, [boundary, map, featureGroupRef])
+  }, [boundary, map, featureGroupRef, bufferDistances])
 
   // flyToLocation
   const lastFlyToKeyRef = React.useRef<string | null>(null)

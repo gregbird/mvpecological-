@@ -32,7 +32,8 @@ import {
   type HabitatPolygon as HabitatFormType,
 } from '@/components/field-surveys/habitat-form'
 import { calculateAreaHectares } from '@/lib/supabase/queries/habitats'
-import { IRELAND_CENTER } from '@/lib/config/map-constants'
+import { IRELAND_CENTER, getBufferColor } from '@/lib/config/map-constants'
+import { createBuffer } from '@/lib/gis'
 import { groupFindingsByType } from '@/lib/utils/group-findings-by-type'
 import { getHabitatByCode } from '@/lib/data/fossitt-codes'
 import { SiteSelector } from '@/components/project/site-selector'
@@ -81,7 +82,28 @@ export function HabitatMappingStep({
   // sites are loading we also block so a stale `isMultiSite=false` window
   // can't briefly expose the Add button.
   const requiresSiteSelection = isLoadingSites || (isMultiSite && !selectedSite)
-  const { projectBoundary, projectCenter } = useProjectBoundary(project, selectedSite)
+  const { projectBoundary, projectCenter, bufferDistances, otherBoundaries } = useProjectBoundary(
+    project,
+    selectedSite
+  )
+
+  // Compute buffer zones from the project's configured distances so Step 4
+  // mirrors what Step 1 / Step 2 show. Without this, the map silently drops
+  // the buffers even though the project has them saved.
+  const bufferZones = React.useMemo(() => {
+    const map = new Map<number, GeoJSON.Feature<GeoJSON.Polygon>>()
+    if (!projectBoundary) return map
+    for (const d of bufferDistances) {
+      const buffered = createBuffer(projectBoundary, d, 'kilometers')
+      if (buffered) map.set(d, buffered)
+    }
+    return map
+  }, [projectBoundary, bufferDistances])
+
+  const bufferColors = React.useMemo(
+    () => Object.fromEntries(bufferDistances.map((d) => [d, getBufferColor(d)])),
+    [bufferDistances]
+  )
   const [showHabitatForm, setShowHabitatForm] = React.useState(false)
   const [editingHabitat, setEditingHabitat] = React.useState<HabitatPolygon | null>(null)
   const [deletingHabitat, setDeletingHabitat] = React.useState<HabitatPolygon | null>(null)
@@ -134,6 +156,28 @@ export function HabitatMappingStep({
     if (requiresSiteSelection) return
     if (features.features.length > 0) {
       const feature = features.features[0] as GeoJSON.Feature<GeoJSON.Polygon>
+      // Warn (but don't block) when the drawn polygon's centroid falls
+      // outside the selected site boundary. The habitat is still saved
+      // with the current site_id — silent acceptance would misattribute
+      // polygons drawn on adjacent sites.
+      if (projectBoundary) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const turf = require('@turf/turf')
+          const centroid = turf.centroid(feature)
+          const inside = turf.booleanPointInPolygon(centroid, projectBoundary)
+          if (!inside) {
+            toast({
+              variant: 'destructive',
+              title: 'Polygon outside site boundary',
+              description:
+                'The drawn habitat falls outside the selected site. It will still be saved to the selected site — adjust the polygon if this is unintended.',
+            })
+          }
+        } catch {
+          // Fall through
+        }
+      }
       setDrawnBoundary(feature)
       setShowHabitatForm(true)
     }
@@ -312,13 +356,39 @@ export function HabitatMappingStep({
         </Alert>
       )}
 
-      {/* Main Content - Stacked Layout: map on top, list below.
-          The container scrolls so both map and list can have generous fixed
-          heights that exceed the viewport. Horizontal padding leaves gutter
-          space for mouse-wheel scroll (map intercepts wheel events over
-          itself, so the user needs clear area beside it). */}
-      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-10 py-2">
-        <div className="relative h-[62vh] min-h-[440px] shrink-0 overflow-hidden rounded-lg border">
+      {/* Main Content — side-by-side: findings/habitats list on the LEFT,
+          map on the RIGHT. The `lg:` breakpoint keeps the stacked layout
+          on narrower screens where side-by-side would squeeze the list
+          into an unreadable column. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden px-6 py-2 lg:flex-row">
+        <div className="h-[440px] shrink-0 lg:h-full lg:w-[500px]">
+          <HabitatListPanel
+            projectId={project.id}
+            filteredHabitats={filteredHabitats}
+            savedFindings={savedFindings}
+            findingsByType={findingsByType}
+            findingsLoading={findingsLoading}
+            selectedHabitat={selectedHabitat}
+            visibleFindingGroups={visibleFindingGroups}
+            toggleFindingGroup={toggleFindingGroup}
+            onSelectHabitat={setSelectedHabitat}
+            onEditHabitat={(habitat) => {
+              setEditingHabitat(habitat)
+              setShowHabitatForm(true)
+            }}
+            onDeleteHabitat={setDeletingHabitat}
+            onAddHabitat={() => {
+              setEditingHabitat(null)
+              setDrawnBoundary(null)
+              setShowHabitatForm(true)
+            }}
+            onFindingClick={handleFindingClick}
+            addDisabled={requiresSiteSelection}
+            addDisabledReason="Select a site first to add a habitat."
+          />
+        </div>
+
+        <div className="relative h-[62vh] min-h-[440px] shrink-0 overflow-hidden rounded-lg border lg:h-full lg:min-h-0 lg:flex-1">
           {/* Floating layer filter — shared vocabulary with Review & Export
               (Sites / Aquatic / Habitats). Keys map to the internal
               finding-group ids used by the map overlay logic. */}
@@ -373,9 +443,13 @@ export function HabitatMappingStep({
           </div>
 
           <ProjectMapWithDraw
+            className="h-full"
             center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
             zoom={projectCenter ? 14 : 7}
             boundary={projectBoundary}
+            otherBoundaries={otherBoundaries}
+            bufferZones={bufferZones}
+            bufferColors={bufferColors}
             onBoundaryChange={handleBoundaryChange}
             editable={!requiresSiteSelection}
             findings={findingMarkers}
@@ -385,33 +459,6 @@ export function HabitatMappingStep({
             onHabitatClick={(id) => setSelectedHabitat(handleHabitatMapClick(id))}
             allowMultipleDrawings
             visibleLayers={npwsVisibleLayers}
-          />
-        </div>
-
-        <div className="h-[440px] shrink-0">
-          <HabitatListPanel
-            projectId={project.id}
-            filteredHabitats={filteredHabitats}
-            savedFindings={savedFindings}
-            findingsByType={findingsByType}
-            findingsLoading={findingsLoading}
-            selectedHabitat={selectedHabitat}
-            visibleFindingGroups={visibleFindingGroups}
-            toggleFindingGroup={toggleFindingGroup}
-            onSelectHabitat={setSelectedHabitat}
-            onEditHabitat={(habitat) => {
-              setEditingHabitat(habitat)
-              setShowHabitatForm(true)
-            }}
-            onDeleteHabitat={setDeletingHabitat}
-            onAddHabitat={() => {
-              setEditingHabitat(null)
-              setDrawnBoundary(null)
-              setShowHabitatForm(true)
-            }}
-            onFindingClick={handleFindingClick}
-            addDisabled={requiresSiteSelection}
-            addDisabledReason="Select a site first to add a habitat."
           />
         </div>
       </div>

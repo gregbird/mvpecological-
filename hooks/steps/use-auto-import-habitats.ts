@@ -7,6 +7,40 @@ import type { useToast } from '@/hooks/use-toast'
 import type { DeskResearchFinding, HabitatPolygon, InsertTables, Json } from '@/types/database'
 
 /**
+ * Persist the set of finding IDs that have already been auto-imported into
+ * habitat_polygons. Without this, deleting an imported habitat causes the
+ * next tab visit to silently recreate it (the DB-level dedupe key
+ * `fossittCode::site_id` loses its match the moment the polygon is deleted).
+ *
+ * localStorage is scoped per project per browser. Cross-device the re-import
+ * still happens — acceptable for now; a DB-level dismissal flag is the
+ * durable fix (tracked as R1 in the risk review).
+ */
+function loadImportedFindingIds(projectId: string): Set<string> {
+  if (typeof window === 'undefined') return new Set()
+  try {
+    const raw = window.localStorage.getItem(`habitat-imported-findings:${projectId}`)
+    if (!raw) return new Set()
+    const arr = JSON.parse(raw) as unknown
+    return Array.isArray(arr) ? new Set(arr.filter((x) => typeof x === 'string')) : new Set()
+  } catch {
+    return new Set()
+  }
+}
+
+function saveImportedFindingIds(projectId: string, ids: Set<string>): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(
+      `habitat-imported-findings:${projectId}`,
+      JSON.stringify(Array.from(ids))
+    )
+  } catch {
+    // Quota exceeded / unavailable — skip persistence
+  }
+}
+
+/**
  * Normalize any geometry to a single Polygon (DB column type is strictly Polygon).
  * For GeometryCollection / MultiPolygon, pick the largest polygon by coordinate count.
  */
@@ -70,7 +104,14 @@ export function useAutoImportHabitats({
   createHabitatsBulkRef.current = createHabitatsBulk
   const toastRef = React.useRef(toast)
   toastRef.current = toast
-  const importedFindingIds = React.useRef(new Set<string>())
+  // Hydrate the in-memory dedupe set from localStorage on mount so findings
+  // imported in a previous session (and since deleted) are not re-imported.
+  const importedFindingIds = React.useRef<Set<string>>(new Set())
+  const hydrated = React.useRef(false)
+  if (!hydrated.current) {
+    importedFindingIds.current = loadImportedFindingIds(projectId)
+    hydrated.current = true
+  }
   const isPulling = React.useRef(false)
 
   React.useEffect(() => {
@@ -87,6 +128,9 @@ export function useAutoImportHabitats({
     const existingKeys = new Set(habitats.map((h) => `${h.fossitt_code}::${h.site_id ?? ''}`))
 
     const newFindings = habitatFindings.filter((f) => {
+      // Once a finding has been imported (even if the user later deleted
+      // the resulting polygon), never auto-reimport it. The user deleted
+      // it intentionally — respect that decision.
       if (importedFindingIds.current.has(f.id)) return false
       const raw = f.raw_data as Record<string, unknown>
       const key = `${raw.fossittCode as string}::${f.site_id ?? ''}`
@@ -97,6 +141,7 @@ export function useAutoImportHabitats({
     // Mark as importing immediately to prevent duplicate runs
     isPulling.current = true
     for (const f of newFindings) importedFindingIds.current.add(f.id)
+    saveImportedFindingIds(projectId, importedFindingIds.current)
 
     // Build the bulk payload and insert in one round-trip.
     const importBulk = async () => {
@@ -109,7 +154,11 @@ export function useAutoImportHabitats({
           fossitt_name: raw.fossittName as string,
           boundary: toPolygon(f.location),
           area_hectares: (raw.areaHectares as number) ?? null,
-          condition: 'moderate',
+          // Condition is intentionally null for auto-imports — NLC 2018 is a
+          // remote-sensing source, not a field condition survey. Hardcoding
+          // 'moderate' fabricated a value that flowed straight into AI prose.
+          // Ecologists must set condition manually after field verification.
+          condition: null,
           notes: 'Auto-imported from Data Gathering (NLC)',
           include_in_report: true,
         }
@@ -127,8 +176,10 @@ export function useAutoImportHabitats({
           })
         }
       } catch {
-        // Roll back the imported flag so a future render can retry
+        // Roll back the imported flag so a future render can retry.
+        // Persist the rolled-back set so localStorage matches in-memory state.
         for (const f of newFindings) importedFindingIds.current.delete(f.id)
+        saveImportedFindingIds(projectId, importedFindingIds.current)
       } finally {
         isPulling.current = false
       }

@@ -42,6 +42,28 @@ function readInsightsFromMetadata(
   return meta.aiInsights ?? null
 }
 
+/**
+ * Does site-specific insights content exist for this site?
+ *
+ * Used by the auto-trigger so that switching to a site for the first time
+ * still fires generation — even when `readInsightsFromMetadata` returned the
+ * project-level fallback for display. Without this split, a multi-site
+ * project with project-level insights would NEVER auto-generate per-site
+ * summaries: the fallback makes the UI look satisfied, the auto-trigger
+ * sees non-null insights and bails out.
+ */
+function hasSiteSpecificInsights(
+  metadata: WorkflowStep['metadata'],
+  siteId: string | null | undefined
+): boolean {
+  const meta = (metadata as AiInsightsMetadata | null) || null
+  if (!meta) return false
+  if (siteId) {
+    return Boolean(meta.aiInsightsBySite?.[siteId]?.content)
+  }
+  return Boolean(meta.aiInsights)
+}
+
 export function useAiInsights({
   workflowStep,
   projectId,
@@ -171,12 +193,16 @@ export function useAiInsights({
     siteId,
   ])
 
-  // Auto-trigger on mount (or after site switch) if no insights for current site/scope.
-  // Tracks the previously auto-triggered siteId so switching site re-arms the auto-trigger.
-  // 800ms debounce prevents a storm of OpenAI calls when the user rapidly clicks between sites.
+  // Auto-trigger on mount (or after site switch) if no SITE-SPECIFIC insights
+  // for current scope exist. Checking `insights` alone would falsely skip
+  // generation whenever the project-level fallback is being displayed —
+  // breaking multi-site projects completely.
+  // Tracks the previously auto-triggered siteId so switching site re-arms.
+  // 800ms debounce prevents a storm of OpenAI calls on rapid site clicks.
   const autoTriggeredForRef = React.useRef<string | null | undefined>(undefined)
+  const siteHasOwnInsights = hasSiteSpecificInsights(workflowStep.metadata, siteId)
   React.useEffect(() => {
-    if (insights || isGenerating || savedFindings.length === 0) return
+    if (siteHasOwnInsights || isGenerating || savedFindings.length === 0) return
     if (autoTriggeredForRef.current === siteId) return
 
     const timer = window.setTimeout(() => {
@@ -184,7 +210,7 @@ export function useAiInsights({
       generate()
     }, 800)
     return () => window.clearTimeout(timer)
-  }, [insights, savedFindings.length, isGenerating, generate, siteId])
+  }, [siteHasOwnInsights, savedFindings.length, isGenerating, generate, siteId])
 
   return {
     insights,

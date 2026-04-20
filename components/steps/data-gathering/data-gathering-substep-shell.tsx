@@ -23,6 +23,7 @@ import { useShellSave } from '@/hooks/data-gathering/use-shell-save'
 import { useProjectSites } from '@/hooks/queries/use-site-hooks'
 import { useShellAi } from '@/hooks/data-gathering/use-shell-ai'
 import { useSpatialFilter } from '@/hooks/shared/use-spatial-filter'
+import { STANDARD_BUFFER_DISTANCES } from '@/lib/gis/buffer'
 import type { MapStepName } from '@/lib/map-screenshots/types'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -507,11 +508,15 @@ export function DataGatheringSubstepShell({
                 <SelectValue placeholder="Buffer" />
               </SelectTrigger>
               <SelectContent>
-                {(bufferDistances.length > 0 ? bufferDistances : [2, 5]).map((d) => (
-                  <SelectItem key={d} value={d.toString()}>
-                    {d} km buffer
-                  </SelectItem>
-                ))}
+                {Array.from(
+                  new Set([...STANDARD_BUFFER_DISTANCES.map((b) => b.value), ...bufferDistances])
+                )
+                  .sort((a, b) => a - b)
+                  .map((d) => (
+                    <SelectItem key={d} value={d.toString()}>
+                      {d < 1 ? `${d * 1000}m buffer` : `${d} km buffer`}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
 

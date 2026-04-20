@@ -58,8 +58,8 @@ export function MapLayersDropdown({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="secondary" size="sm" className="shadow-md">
-          <Layers className="mr-2 h-4 w-4" />
+        <Button variant="secondary" size="sm" className="h-7 px-2 text-xs shadow-md">
+          <Layers className="mr-1.5 h-3.5 w-3.5" />
           Layers
         </Button>
       </DropdownMenuTrigger>

@@ -36,6 +36,7 @@ import { ReportTypeSelector } from '@/components/steps/report-type-selector'
 import { SurveyLinkPanel } from '@/components/steps/ai-draft/survey-link-panel'
 import { SiteSelector } from '@/components/project/site-selector'
 import { useProjectSites } from '@/hooks/queries/use-site-hooks'
+import { useHabitats } from '@/hooks/queries/use-habitat-hooks'
 import type { Project, Report, WorkflowStep, Json } from '@/types/database'
 
 interface AIDraftStepProps {
@@ -65,6 +66,19 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
 
   // Dynamic report section definitions based on report type
   const reportSectionDefs = React.useMemo(() => getReportSectionsForType(reportType), [reportType])
+
+  // Habitat count — drives the "no habitat data" warning so the ecologist
+  // knows the habitat subsection will silently be skipped in the generated
+  // section (see route.ts:645 — the `placedHabitats.length > 0` guard).
+  const { data: habitats = [] } = useHabitats(project.id, selectedSiteId ?? undefined)
+  const habitatCount = habitats.length
+  const reportHasHabitatSection = React.useMemo(
+    () =>
+      reportSectionDefs.some(
+        (s) => s.id === 'results_habitats' || s.id === 'habitats' || s.id === 'baseline_habitats'
+      ),
+    [reportSectionDefs]
+  )
 
   const [compareReport, setCompareReport] = React.useState<Report | null>(null)
   const [viewReport, setViewReport] = React.useState<Report | null>(null)
@@ -526,6 +540,24 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
           </Badge>
         </div>
       </div>
+
+      {/* No habitat data warning — when the report template has a habitat
+          subsection but the project has zero habitat polygons, the section
+          will be silently skipped in the generated prompt. Surface it so
+          the ecologist knows before clicking Generate. */}
+      {reportHasHabitatSection && habitatCount === 0 && (
+        <Alert className="mx-1 mb-3 border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30">
+          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <AlertTitle className="text-amber-800 dark:text-amber-300">
+            No habitat data mapped
+          </AlertTitle>
+          <AlertDescription className="text-amber-700 dark:text-amber-400">
+            The habitat subsection will be skipped in the generated draft because no habitat
+            polygons are saved for this {selectedSiteId ? 'site' : 'project'}. Map habitats in Step
+            4 (Habitat Mapping) before generating the habitats section.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Multi-site generation warning */}
       {selectedSiteId && (

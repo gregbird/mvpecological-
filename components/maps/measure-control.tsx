@@ -215,10 +215,13 @@ export function MeasureControl({ map, className }: MeasureControlProps) {
       <Button
         variant={isActive ? 'default' : 'secondary'}
         size="sm"
-        className={cn('shadow-md', isActive && 'bg-emerald-600 hover:bg-emerald-700')}
+        className={cn(
+          'h-7 px-2 text-xs shadow-md',
+          isActive && 'bg-emerald-600 hover:bg-emerald-700'
+        )}
         onClick={toggleMeasure}
       >
-        {isActive ? <X className="mr-2 h-4 w-4" /> : <Ruler className="mr-2 h-4 w-4" />}
+        {isActive ? <X className="mr-1.5 h-3.5 w-3.5" /> : <Ruler className="mr-1.5 h-3.5 w-3.5" />}
         {isActive ? 'Exit' : 'Measure'}
       </Button>
 

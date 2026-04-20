@@ -29,6 +29,9 @@ export interface MapControllerProps {
   npwsVisibleLayers: string[]
   /** react-leaflet useMap hook — must be called in the component using it */
   useMap: () => LeafletMap
+  /** Buffer distances (km). When provided, the initial fit expands to the
+   * largest buffer ring so users see the full buffer context on load. */
+  bufferDistances?: number[]
 }
 
 /**
@@ -51,6 +54,7 @@ export function MapController({
   iwebsVisibleLayers,
   npwsVisibleLayers,
   useMap,
+  bufferDistances,
 }: MapControllerProps) {
   const map = useMap()
 
@@ -112,17 +116,35 @@ export function MapController({
 
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const L = require('leaflet')
+
+    // Expand fit extent by the largest buffer so users see buffer context
+    // on first load. Without this the initial zoom clips the buffer rings.
+    const maxBufferKm =
+      bufferDistances && bufferDistances.length > 0 ? Math.max(...bufferDistances) : 0
+    let featuresToFit: GeoJSON.Feature[] = boundariesToFit
+    if (maxBufferKm > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const turf = require('@turf/turf')
+      featuresToFit = boundariesToFit.map((b) => {
+        try {
+          return turf.buffer(b, maxBufferKm, { units: 'kilometers' }) as GeoJSON.Feature
+        } catch {
+          return b
+        }
+      })
+    }
+
     const featureCollection: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
-      features: boundariesToFit,
+      features: featuresToFit,
     }
     const geoJsonLayer = L.geoJSON(featureCollection)
     const bounds = geoJsonLayer.getBounds()
     if (bounds.isValid()) {
-      map.fitBounds(bounds, { padding: [50, 50] })
+      map.fitBounds(bounds, { padding: [30, 30] })
     }
     hasFitToBoundaryRef.current = true
-  }, [boundary, allBoundaries, map, hasFitToBoundaryRef, skipFitBounds])
+  }, [boundary, allBoundaries, bufferDistances, map, hasFitToBoundaryRef, skipFitBounds])
 
   // ── Store map reference ──────────────────────────────────────────────────
   React.useEffect(() => {

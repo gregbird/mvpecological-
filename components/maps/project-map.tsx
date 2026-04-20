@@ -14,6 +14,10 @@ import type { MapLayer, TargetNoteMarker } from '@/components/maps/map-types'
 export type { MapStyle } from '@/lib/config/map-constants'
 export type { MapLayer, TargetNoteMarker } from '@/components/maps/map-types'
 import { MapLayersDropdown } from '@/components/maps/map-layers-dropdown'
+import { MapControlSidebar } from '@/components/maps/map-control-sidebar'
+import { BufferControl } from '@/components/maps/buffer-control'
+import { ZoomControl } from '@/components/maps/zoom-control'
+import { useVisibleBuffers } from '@/hooks/shared/use-visible-buffers'
 import { FindingMarkers } from '@/components/maps/finding-markers'
 import { MapController } from '@/components/maps/map-controller'
 import { BufferZoneLayer } from '@/components/maps/buffer-zone-layer'
@@ -230,6 +234,7 @@ function MapComponent({
         iwebsVisibleLayers={iwebsVisibleLayers ?? []}
         npwsVisibleLayers={npwsVisibleLayers ?? []}
         useMap={rl.useMap}
+        bufferDistances={bufferDistances}
       />
 
       {/* ── County boundaries ──────────────────────────────────────────── */}
@@ -341,6 +346,15 @@ export function ProjectMap({
   const [isFullscreen, setIsFullscreen] = React.useState(false)
   const [showBatRecords, setShowBatRecords] = React.useState(false)
   const [iwebsVisibleLayers, setIwebsVisibleLayers] = React.useState<string[]>([])
+  const {
+    visible: visibleBuffers,
+    toggle: toggleBuffer,
+    setAll: setAllBuffers,
+  } = useVisibleBuffers(mapProps.bufferDistances)
+  const filteredBufferDistances = React.useMemo(
+    () => (mapProps.bufferDistances ?? []).filter((d) => visibleBuffers.has(d)),
+    [mapProps.bufferDistances, visibleBuffers]
+  )
   const containerRef = React.useRef<HTMLDivElement>(null)
   const mapRef = React.useRef<LeafletMap | null>(null)
   const [layers, setLayers] = React.useState<MapLayer[]>([
@@ -413,6 +427,7 @@ export function ProjectMap({
       <div className="h-full min-h-100 w-full">
         <DynamicMapComponent
           {...mapProps}
+          bufferDistances={filteredBufferDistances}
           center={center}
           zoom={zoom}
           skipFitBounds={skipFitBounds}
@@ -425,30 +440,53 @@ export function ProjectMap({
       </div>
 
       {showControls && (
-        <div
-          data-map-control="true"
-          className="pointer-events-auto absolute top-4 left-4 z-9999 flex flex-col gap-2"
-        >
-          <MapLayersDropdown
-            currentStyle={currentStyle}
-            setCurrentStyle={setCurrentStyle}
-            mapRef={mapRef}
-            portalContainer={containerRef.current}
-            dataLayers={layers}
-            onToggleLayer={toggleLayer}
-            showBatRecords={showBatRecords}
-            onToggleBatRecords={setShowBatRecords}
-            iwebsVisibleLayers={iwebsVisibleLayers}
-            onToggleIwebsLayer={(layerId, checked) =>
-              setIwebsVisibleLayers((prev) =>
-                checked ? [...prev, layerId] : prev.filter((id) => id !== layerId)
-              )
-            }
-          />
-          <Button variant="secondary" size="icon" className="shadow-md" onClick={toggleFullscreen}>
-            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-          </Button>
+        <div className="pointer-events-auto absolute top-4 left-4 z-9999">
+          <MapControlSidebar>
+            <MapLayersDropdown
+              currentStyle={currentStyle}
+              setCurrentStyle={setCurrentStyle}
+              mapRef={mapRef}
+              portalContainer={containerRef.current}
+              dataLayers={layers}
+              onToggleLayer={toggleLayer}
+              showBatRecords={showBatRecords}
+              onToggleBatRecords={setShowBatRecords}
+              iwebsVisibleLayers={iwebsVisibleLayers}
+              onToggleIwebsLayer={(layerId, checked) =>
+                setIwebsVisibleLayers((prev) =>
+                  checked ? [...prev, layerId] : prev.filter((id) => id !== layerId)
+                )
+              }
+            />
+            <BufferControl
+              bufferDistances={mapProps.bufferDistances ?? []}
+              visibleBuffers={visibleBuffers}
+              onToggleBuffer={toggleBuffer}
+              onToggleAll={setAllBuffers}
+              portalContainer={containerRef.current}
+            />
+            <Button
+              variant="secondary"
+              size="icon"
+              className="h-7 w-7 shadow-md"
+              onClick={toggleFullscreen}
+              aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+            >
+              {isFullscreen ? (
+                <Minimize2 className="h-3.5 w-3.5" />
+              ) : (
+                <Maximize2 className="h-3.5 w-3.5" />
+              )}
+            </Button>
+          </MapControlSidebar>
         </div>
+      )}
+
+      {showControls && (
+        <ZoomControl
+          mapRef={mapRef}
+          className="pointer-events-auto absolute right-4 bottom-4 z-1000"
+        />
       )}
     </div>
   )

@@ -13,14 +13,21 @@ interface FindingItemProps {
 export function FindingItem({ finding, onClick }: FindingItemProps) {
   const rawData = finding.raw_data as Record<string, unknown> | null
 
-  // Get site type for designated sites
-  const siteType =
-    rawData?.siteType || rawData?.SITETYPE || rawData?.type || finding.source?.toUpperCase()
+  // Prefer a meaningful dataset label (NPWS site type, EPA risk class, etc).
+  // `finding.source === 'manual'` is just the save-origin flag — hiding it here
+  // stops the useless "MANUAL" badge from showing up on NLC-imported habitats.
+  const rawSiteType = rawData?.siteType || rawData?.SITETYPE || rawData?.type
+  const sourceLabel =
+    finding.source && finding.source !== 'manual' ? finding.source.toUpperCase() : null
+  const habitatSource =
+    finding.data_type === 'habitat' && rawData?.habitatFinding === true ? 'NLC 2018' : null
+  const displayLabel = rawSiteType ? String(rawSiteType) : (habitatSource ?? sourceLabel)
 
-  // Get distance
+  // Distance is null/undefined for findings whose geometry sits inside the
+  // project boundary (there is no meaningful distance). Render "Inside"
+  // instead of leaving the slot blank so users can tell missing vs inside.
   const distance = finding.distance_from_boundary_km
-
-  // Check if finding has a location
+  const hasDistance = distance !== null && distance !== undefined
   const hasLocation = !!(finding.location as { coordinates?: unknown } | null)?.coordinates
 
   return (
@@ -33,9 +40,9 @@ export function FindingItem({ finding, onClick }: FindingItemProps) {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            {siteType && (
+            {displayLabel && (
               <Badge variant="outline" className="text-[10px]">
-                {String(siteType)}
+                {displayLabel}
               </Badge>
             )}
             {finding.is_protected && (
@@ -49,10 +56,10 @@ export function FindingItem({ finding, onClick }: FindingItemProps) {
             <p className="text-muted-foreground mt-0.5 line-clamp-2 text-xs">{finding.content}</p>
           )}
         </div>
-        {distance !== null && distance !== undefined && (
+        {hasLocation && (
           <div className="text-muted-foreground flex shrink-0 items-center gap-1 text-xs">
             <MapPin className="h-3 w-3" />
-            {distance.toFixed(1)} km
+            {hasDistance && distance > 0 ? `${distance.toFixed(1)} km` : 'Inside'}
           </div>
         )}
       </div>
