@@ -1,6 +1,7 @@
 // Survey template field definitions for each field survey type
 // Used by survey-template-editor and survey-form for dynamic field rendering
 
+import { z } from 'zod'
 import type { Json } from '@/types/database'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -1375,11 +1376,53 @@ export function getDefaultFieldsForType(surveyType: string): SurveyTemplateField
 
 // ─── JSON Helpers ─────────────────────────────────────────────────────────────
 
+// Runtime schema guards DB-stored templates. A malformed row (hand-edited JSON,
+// schema migration skew) would otherwise reach the form renderer and crash React.
+const FIELD_TYPES = [
+  'text',
+  'number',
+  'textarea',
+  'select',
+  'date',
+  'time',
+  'boolean',
+  'multi-select',
+] as const
+
+const surveyFieldSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  key: z.string(),
+  type: z.enum(FIELD_TYPES),
+  required: z.boolean(),
+  placeholder: z.string().optional(),
+  helpText: z.string().optional(),
+  options: z.array(z.object({ value: z.string(), label: z.string() })).optional(),
+  unit: z.string().optional(),
+  min: z.number().optional(),
+  max: z.number().optional(),
+  isCustom: z.boolean().optional(),
+})
+
+const surveySectionSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string().optional(),
+  enabled: z.boolean(),
+  fields: z.array(surveyFieldSchema),
+})
+
+const surveyTemplateFieldsSchema = z.object({
+  sections: z.array(surveySectionSchema),
+  methodologyGuidance: z.string().optional(),
+  targetSpecies: z.array(z.string()).optional(),
+  requiredEquipment: z.array(z.string()).optional(),
+})
+
 export function parseTemplateFields(json: Json | null): SurveyTemplateFields | null {
-  if (!json || typeof json !== 'object' || Array.isArray(json)) return null
-  const obj = json as Record<string, unknown>
-  if (!Array.isArray(obj.sections)) return null
-  return obj as unknown as SurveyTemplateFields
+  if (!json) return null
+  const parsed = surveyTemplateFieldsSchema.safeParse(json)
+  return parsed.success ? parsed.data : null
 }
 
 export function templateFieldsToJson(fields: SurveyTemplateFields): Json {

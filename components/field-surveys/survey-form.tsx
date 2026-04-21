@@ -302,7 +302,12 @@ export function SurveyForm({
         if (error) throw error
         setTeamMembers(members || [])
       } catch (err) {
-        console.error('Error fetching team members:', err)
+        toast({
+          variant: 'destructive',
+          title: 'Failed to load team members',
+          description:
+            err instanceof Error ? err.message : 'Surveyor list may be incomplete — please retry.',
+        })
       } finally {
         setIsLoadingMembers(false)
       }
@@ -363,7 +368,12 @@ export function SurveyForm({
       form.reset()
       setTemplateFieldValues({})
     } catch (error) {
-      console.error('Error submitting survey:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Failed to save survey',
+        description:
+          error instanceof Error ? error.message : 'Could not save the survey. Please try again.',
+      })
     } finally {
       setIsSubmitting(false)
     }

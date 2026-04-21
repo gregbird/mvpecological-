@@ -4,12 +4,11 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { ArrowLeft, Plus, Sparkles, Download, Pencil, Loader2, FileText } from 'lucide-react'
+import { ArrowLeft, Plus, Sparkles, Download, Pencil, FileText, Info } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
 import {
   Select,
   SelectContent,
@@ -34,6 +33,10 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useToast } from '@/hooks/use-toast'
+import { useRole } from '@/contexts/role-context'
+import { REPORT_TYPES, type ReportTypeDefinition } from '@/lib/config/template-types'
+import { useReportTemplates } from '@/hooks/queries/use-template-management-hooks'
+import { resolveReportSections } from '@/lib/supabase/queries/templates'
 
 const SectionEditor = dynamic(
   () =>
@@ -42,10 +45,9 @@ const SectionEditor = dynamic(
     })),
   { ssr: false, loading: () => <div className="bg-muted/30 h-48 animate-pulse rounded-md" /> }
 )
-import { generateFullReportDraft } from '@/lib/ai/report-generator'
 
 type ReportStatus = 'draft' | 'internal_review' | 'client_review' | 'approved' | 'final'
-type ReportType = 'ecia' | 'nia' | 'aa_screening' | 'aa' | 'bat_report' | 'bird_report' | 'other'
+type ReportType = ReportTypeDefinition['id']
 
 interface ReportSection {
   id: string
@@ -67,52 +69,14 @@ interface Report {
   updatedAt: string
 }
 
-// Mock project data
+// Standalone template-preview page; the full report flow lives in Step 6 (AI Draft).
+// Uses the org's stored report_templates when available, falling back to defaults.
 const mockProject = {
   id: '1',
-  name: 'Ballymore Wind Farm EcIA',
-  site_code: 'BWF-2024-001',
-  grid_reference: 'N 23456 12345',
+  name: 'Sample Project',
+  site_code: 'SMP-001',
+  grid_reference: 'N 00000 00000',
 }
-
-// Mock report data
-const mockReports: Report[] = [
-  {
-    id: '1',
-    reportType: 'ecia',
-    version: 1,
-    status: 'draft',
-    sections: [
-      {
-        id: '1',
-        title: 'Introduction',
-        content: 'This Ecological Impact Assessment (EcIA) has been prepared...',
-        isEdited: false,
-        aiGenerated: true,
-      },
-      {
-        id: '2',
-        title: 'Methodology',
-        content: 'The assessment methodology follows CIEEM guidelines...',
-        isEdited: true,
-        aiGenerated: true,
-      },
-    ],
-    generatedBy: 'AI Draft',
-    createdAt: '2024-04-15T10:30:00Z',
-    updatedAt: '2024-04-15T14:45:00Z',
-  },
-]
-
-const REPORT_TYPES: { value: ReportType; label: string }[] = [
-  { value: 'ecia', label: 'Ecological Impact Assessment (EcIA)' },
-  { value: 'nia', label: 'Natura Impact Assessment (NIA)' },
-  { value: 'aa_screening', label: 'Appropriate Assessment Screening' },
-  { value: 'aa', label: 'Appropriate Assessment (Stage 2)' },
-  { value: 'bat_report', label: 'Bat Survey Report' },
-  { value: 'bird_report', label: 'Bird Survey Report' },
-  { value: 'other', label: 'Other Technical Report' },
-]
 
 const STATUS_STYLES: Record<
   ReportStatus,
@@ -125,115 +89,75 @@ const STATUS_STYLES: Record<
   final: { label: 'Final', variant: 'default' },
 }
 
+function interpolateTemplate(
+  text: string,
+  vars: { project_name: string; site_location: string }
+): string {
+  return text
+    .replaceAll('{{project_name}}', vars.project_name)
+    .replaceAll('{{site_location}}', vars.site_location)
+}
+
 export default function ReportsPage() {
   const params = useParams()
   const projectId = params.id as string
   const { toast } = useToast()
+  const { user } = useRole()
+  const orgId = user?.organization_id
 
-  const [reports, setReports] = React.useState<Report[]>(mockReports)
+  const { data: reportTemplates } = useReportTemplates(orgId ?? undefined)
+
+  const [reports, setReports] = React.useState<Report[]>([])
   const [selectedReport, setSelectedReport] = React.useState<Report | null>(null)
-  const [isGenerating, setIsGenerating] = React.useState(false)
-  const [generationProgress, setGenerationProgress] = React.useState(0)
-  const [currentSection, setCurrentSection] = React.useState('')
   const [showNewReportDialog, setShowNewReportDialog] = React.useState(false)
   const [newReportType, setNewReportType] = React.useState<ReportType>('ecia')
   const [editingSection, setEditingSection] = React.useState<string | null>(null)
   const [editedContent, setEditedContent] = React.useState('')
 
-  // Generate AI report draft
-  const handleGenerateReport = async () => {
-    setIsGenerating(true)
-    setGenerationProgress(0)
-    setCurrentSection('Starting...')
+  // Seed report sections from the org's template for this type, or defaults.
+  const handleGenerateReport = () => {
+    const template = reportTemplates?.find((t) => t.report_type === newReportType) ?? null
+    const sectionDefs = resolveReportSections(newReportType, template)
 
-    try {
-      const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY
-      if (!apiKey) {
-        throw new Error('OpenAI API key not configured')
-      }
-
-      const sections = await generateFullReportDraft(
-        {
-          projectName: mockProject.name,
-          siteCode: mockProject.site_code,
-          gridReference: mockProject.grid_reference,
-          habitats: [
-            { code: 'GS2', name: 'Dry meadows and grassy verges', condition: 'Good', area: 15.2 },
-            { code: 'WS1', name: 'Scrub', condition: 'Moderate', area: 3.5 },
-            {
-              code: 'GA1',
-              name: 'Improved agricultural grassland',
-              condition: 'Moderate',
-              area: 45.0,
-            },
-          ],
-          species: [
-            {
-              scientificName: 'Lutra lutra',
-              commonName: 'European Otter',
-              isProtected: true,
-              recordCount: 2,
-            },
-            {
-              scientificName: 'Falco tinnunculus',
-              commonName: 'Kestrel',
-              isProtected: false,
-              recordCount: 5,
-            },
-          ],
-          designatedSites: [
-            { name: 'River Shannon Callows', code: 'SAC000216', type: 'SAC', distance: 2.5 },
-            { name: 'Middle Shannon Callows', code: 'SPA004096', type: 'SPA', distance: 2.8 },
-          ],
-          surveys: [
-            { type: 'Walkover', date: '2024-03-15', surveyor: "Dr. Sarah O'Brien" },
-            { type: 'Habitat Mapping', date: '2024-04-02', surveyor: 'Michael Murphy' },
-          ],
-        },
-        apiKey,
-        (section, progress) => {
-          setCurrentSection(section)
-          setGenerationProgress(progress)
-        }
-      )
-
-      const newReport: Report = {
-        id: `${Date.now()}`,
-        reportType: newReportType,
-        version: 1,
-        status: 'draft',
-        sections: sections.map((s, i) => ({
-          id: `${i + 1}`,
-          title: s.title,
-          content: s.content,
-          isEdited: false,
-          aiGenerated: true,
-        })),
-        generatedBy: 'AI (GPT-4)',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }
-
-      setReports((prev) => [...prev, newReport])
-      setSelectedReport(newReport)
-      setShowNewReportDialog(false)
-
-      toast({
-        title: 'Report generated',
-        description: 'AI draft has been created. Review and edit as needed.',
-      })
-    } catch (error) {
-      console.error('Error generating report:', error)
+    if (sectionDefs.length === 0) {
       toast({
         variant: 'destructive',
-        title: 'Generation failed',
-        description: error instanceof Error ? error.message : 'Failed to generate report',
+        title: 'No template sections available',
+        description: 'Configure sections for this report type in Templates first.',
       })
-    } finally {
-      setIsGenerating(false)
-      setGenerationProgress(0)
-      setCurrentSection('')
+      return
     }
+
+    const vars = {
+      project_name: mockProject.name,
+      site_location: mockProject.site_code,
+    }
+
+    const newReport: Report = {
+      id: `${Date.now()}`,
+      reportType: newReportType,
+      version: 1,
+      status: 'draft',
+      sections: sectionDefs.map((s, i) => ({
+        id: `${i + 1}`,
+        title: s.title,
+        content: interpolateTemplate(s.defaultTemplate, vars),
+        isEdited: false,
+        aiGenerated: false,
+      })),
+      generatedBy: template?.use_custom ? 'Custom Template' : 'Dulra Standard',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+
+    setReports((prev) => [...prev, newReport])
+    setSelectedReport(newReport)
+    setShowNewReportDialog(false)
+
+    toast({
+      title: 'Draft seeded from template',
+      description: `${sectionDefs.length} sections created. Edit as needed.`,
+    })
   }
 
   // Save section edit
@@ -331,11 +255,11 @@ export default function ReportsPage() {
                 <FileText className="text-muted-foreground mb-4 h-12 w-12" />
                 <h3 className="mb-2 font-semibold">No reports yet</h3>
                 <p className="text-muted-foreground mb-4 text-center text-sm">
-                  Generate an AI draft to get started with your ecological report.
+                  Seed a draft from your report templates to get started.
                 </p>
                 <Button onClick={() => setShowNewReportDialog(true)}>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Generate AI Draft
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Report
                 </Button>
               </CardContent>
             </Card>
@@ -353,7 +277,7 @@ export default function ReportsPage() {
                     <div className="flex items-start justify-between">
                       <div>
                         <CardTitle className="text-base">
-                          {REPORT_TYPES.find((t) => t.value === report.reportType)?.label}
+                          {REPORT_TYPES.find((t) => t.id === report.reportType)?.name}
                         </CardTitle>
                         <CardDescription>Version {report.version}</CardDescription>
                       </div>
@@ -388,7 +312,7 @@ export default function ReportsPage() {
                 <div className="flex items-start justify-between">
                   <div>
                     <CardTitle>
-                      {REPORT_TYPES.find((t) => t.value === selectedReport.reportType)?.label}
+                      {REPORT_TYPES.find((t) => t.id === selectedReport.reportType)?.name}
                     </CardTitle>
                     <CardDescription>
                       Version {selectedReport.version} • {selectedReport.sections.length} sections
@@ -496,8 +420,8 @@ export default function ReportsPage() {
                 <FileText className="text-muted-foreground mb-4 h-16 w-16" />
                 <h3 className="mb-2 text-lg font-semibold">Select a Report</h3>
                 <p className="text-muted-foreground max-w-sm text-center">
-                  Choose a report from the list to view and edit, or create a new AI-generated
-                  draft.
+                  Choose a report from the list to view and edit, or seed a new draft from a
+                  template.
                 </p>
               </CardContent>
             </Card>
@@ -509,68 +433,51 @@ export default function ReportsPage() {
       <Dialog open={showNewReportDialog} onOpenChange={setShowNewReportDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Generate New Report</DialogTitle>
+            <DialogTitle>New Report from Template</DialogTitle>
             <DialogDescription>
-              Create an AI-powered draft report based on your project data.
+              Seeds a report with your organisation&apos;s template sections for this type.
             </DialogDescription>
           </DialogHeader>
 
-          {isGenerating ? (
-            <div className="space-y-4 py-4">
-              <div className="flex items-center gap-3">
-                <Loader2 className="text-primary h-5 w-5 animate-spin" />
-                <span className="text-sm">Generating {currentSection}...</span>
-              </div>
-              <Progress value={generationProgress} />
-              <p className="text-muted-foreground text-xs">
-                AI is analyzing project data and generating report sections. This may take a few
-                moments.
-              </p>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Report Type</label>
+              <Select
+                value={newReportType}
+                onValueChange={(value) => setNewReportType(value as ReportType)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {REPORT_TYPES.map((type) => (
+                    <SelectItem key={type.id} value={type.id}>
+                      {type.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          ) : (
-            <>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Report Type</label>
-                  <Select
-                    value={newReportType}
-                    onValueChange={(value) => setNewReportType(value as ReportType)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {REPORT_TYPES.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
 
-                <Alert>
-                  <Sparkles className="h-4 w-4" />
-                  <AlertTitle>AI-Powered Generation</AlertTitle>
-                  <AlertDescription>
-                    The report will be generated using GPT-4 based on your project&apos;s desk
-                    research findings, habitat data, and species records. You can edit all sections
-                    after generation.
-                  </AlertDescription>
-                </Alert>
-              </div>
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertTitle>Template-based draft</AlertTitle>
+              <AlertDescription>
+                Sections are seeded from the org template when customised, otherwise from Dulra
+                defaults. For AI-generated content tied to project data, use the AI Draft step.
+              </AlertDescription>
+            </Alert>
+          </div>
 
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setShowNewReportDialog(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleGenerateReport}>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Generate Draft
-                </Button>
-              </DialogFooter>
-            </>
-          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNewReportDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleGenerateReport}>
+              <Sparkles className="mr-2 h-4 w-4" />
+              Seed Draft
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

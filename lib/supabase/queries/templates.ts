@@ -1,5 +1,7 @@
+import { z } from 'zod'
 import { createClient } from '@/lib/supabase/client'
 import type { Database, Json } from '@/types/database'
+import { DEFAULT_SECTIONS_BY_TYPE, type ReportSectionDefinition } from '@/lib/config/template-types'
 
 type SurveyTemplate = Database['public']['Tables']['survey_templates']['Row']
 type SurveyTemplateInsert = Database['public']['Tables']['survey_templates']['Insert']
@@ -117,7 +119,46 @@ export function sectionsToJson(sections: TemplateSectionData[]): Json {
   return sections as unknown as Json
 }
 
+const templateSectionSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  template: z.string(),
+})
+
 export function jsonToSections(json: Json | null): TemplateSectionData[] {
   if (!json || !Array.isArray(json)) return []
-  return json as unknown as TemplateSectionData[]
+  const parsed = z.array(templateSectionSchema).safeParse(json)
+  return parsed.success ? parsed.data : []
+}
+
+/**
+ * Resolves the effective section definitions for a report type.
+ *
+ * Precedence:
+ * 1. Stored template with `use_custom=true` — uses its sections; aiPrompt
+ *    is merged back from defaults (by section id) since the template editor
+ *    only persists `title` + `template`.
+ * 2. Otherwise — `DEFAULT_SECTIONS_BY_TYPE[reportType]` or an empty array
+ *    for unknown types.
+ */
+export function resolveReportSections(
+  reportType: string,
+  template: ReportTemplate | null | undefined
+): ReportSectionDefinition[] {
+  const defaults = DEFAULT_SECTIONS_BY_TYPE[reportType] ?? []
+
+  if (template?.use_custom) {
+    const stored = jsonToSections(template.sections)
+    if (stored.length > 0) {
+      const promptByDefaultId = new Map(defaults.map((s) => [s.id, s.aiPrompt]))
+      return stored.map((s) => ({
+        id: s.id,
+        title: s.title,
+        aiPrompt: promptByDefaultId.get(s.id) ?? '',
+        defaultTemplate: s.template,
+      }))
+    }
+  }
+
+  return defaults
 }

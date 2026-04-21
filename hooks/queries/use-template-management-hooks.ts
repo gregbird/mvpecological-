@@ -5,6 +5,7 @@ import {
   upsertSurveyTemplate,
   deleteSurveyTemplate,
   getReportTemplates,
+  getReportTemplateByType,
   upsertReportTemplate,
   deleteReportTemplate,
 } from '@/lib/supabase/queries/templates'
@@ -67,6 +68,17 @@ export function useSurveyTemplateByType(
     queryKey: ['survey-template', organizationId, surveyType],
     queryFn: () => getSurveyTemplateByType(organizationId!, surveyType!),
     enabled: !!organizationId && !!surveyType,
+  })
+}
+
+export function useReportTemplateByType(
+  organizationId: string | undefined,
+  reportType: string | undefined
+) {
+  return useQuery({
+    queryKey: ['report-template', organizationId, reportType],
+    queryFn: () => getReportTemplateByType(organizationId!, reportType!),
+    enabled: !!organizationId && !!reportType,
   })
 }
 
