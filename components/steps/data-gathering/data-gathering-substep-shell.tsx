@@ -593,6 +593,7 @@ export function DataGatheringSubstepShell({
         otherBoundaries={otherBoundaries}
         allBoundaries={allBoundaries}
         selectedBuffer={selectedBuffer}
+        bufferDistances={bufferDistances}
         computedGridOverlay={computedGridOverlay}
         config={config}
         projectId={project.id}

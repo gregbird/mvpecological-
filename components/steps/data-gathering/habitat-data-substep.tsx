@@ -299,7 +299,7 @@ export function HabitatDataSubStep({
             boundary={projectBoundary}
             otherBoundaries={otherBoundaries}
             allBoundaries={allBoundaries}
-            bufferDistances={[selectedBuffer]}
+            bufferDistances={bufferDistances.length > 0 ? bufferDistances : [selectedBuffer]}
             habitatPolygons={styledPolygons}
             habitatSelectionKey={selectedHabitat?.nlcId || 'all'}
             findings={[]}

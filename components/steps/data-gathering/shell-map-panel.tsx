@@ -43,6 +43,7 @@ interface ShellMapPanelProps {
   otherBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   allBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   selectedBuffer: number
+  bufferDistances: number[]
   gridOverlay?: GeoJSON.FeatureCollection
   computedGridOverlay?: GeoJSON.FeatureCollection
   config: Pick<
@@ -106,6 +107,7 @@ export function ShellMapPanel({
   otherBoundaries,
   allBoundaries,
   selectedBuffer,
+  bufferDistances,
   computedGridOverlay,
   config,
   projectId,
@@ -175,7 +177,7 @@ export function ShellMapPanel({
         boundary={projectBoundary}
         otherBoundaries={otherBoundaries}
         allBoundaries={allBoundaries}
-        bufferDistances={[selectedBuffer]}
+        bufferDistances={bufferDistances.length > 0 ? bufferDistances : [selectedBuffer]}
         gridOverlay={activeGridOverlay}
         findings={displayFindings
           .filter((f) => !hiddenIds.has(f.id))
