@@ -16,6 +16,7 @@ export type MapStepName =
   | 'designated_sites'
   | 'species_records'
   | 'aquatic_features'
+  | 'habitat_data'
   | 'data_analysis'
 
 export const STEP_LABELS: Record<MapStepName, string> = {
@@ -23,5 +24,6 @@ export const STEP_LABELS: Record<MapStepName, string> = {
   designated_sites: 'Designated Sites',
   species_records: 'Species Records',
   aquatic_features: 'Aquatic Features',
+  habitat_data: 'Habitat Data',
   data_analysis: 'Data Analysis',
 }

@@ -1,11 +1,12 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { Loader2, Eye, AlertCircle } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { MapCaptureButton } from '@/components/maps/map-capture-button'
 import { useSessionStorage } from '@/hooks/shared/use-session-storage'
 import { IRELAND_CENTER } from '@/lib/config/map-constants'
 import { useProjectSites } from '@/hooks/queries/use-site-hooks'
@@ -80,6 +81,8 @@ export function HabitatDataSubStep({
   autoSearchTrigger,
   onAutoSearchComplete,
 }: HabitatDataSubStepProps) {
+  const mapContainerRef = React.useRef<HTMLDivElement>(null)
+
   // ── Search hook ──
   const {
     cacheKey,
@@ -291,7 +294,7 @@ export function HabitatDataSubStep({
 
       {/* Map — only render when active to avoid Leaflet container conflicts */}
       {showMap && isActive && (
-        <div className="relative flex-1">
+        <div className="relative flex-1" ref={mapContainerRef}>
           <ProjectMap
             className="h-full"
             center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
@@ -304,16 +307,15 @@ export function HabitatDataSubStep({
             habitatSelectionKey={selectedHabitat?.nlcId || 'all'}
             findings={[]}
           />
-          <Button
-            variant="secondary"
-            size="sm"
-            className="absolute top-4 right-4 z-1000"
-            onClick={onToggleMap}
-            data-map-control="true"
-          >
-            <EyeOff className="mr-1 h-4 w-4" />
-            Hide Map
-          </Button>
+          <div className="absolute top-4 right-4 z-1000 flex items-center gap-2">
+            <MapCaptureButton
+              containerRef={mapContainerRef}
+              projectId={project.id}
+              stepName="habitat_data"
+              userId={userId}
+              className="shadow-md"
+            />
+          </div>
         </div>
       )}
 
