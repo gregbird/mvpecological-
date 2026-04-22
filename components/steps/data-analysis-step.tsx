@@ -5,7 +5,6 @@ import {
   Loader2,
   Check,
   AlertCircle,
-  Info,
   Sparkles,
   ClipboardList,
   TreePine,
@@ -159,16 +158,6 @@ export function DataAnalysisStep({
           </div>
         </div>
       </div>
-
-      {/* Instructions */}
-      <Alert className="shrink-0">
-        <Info className="h-4 w-4" />
-        <AlertTitle>Data Analysis</AlertTitle>
-        <AlertDescription>
-          Review the summary statistics and visualizations of your field data. Export data as CSV
-          for further analysis if needed. This analysis will inform the AI-generated report draft.
-        </AlertDescription>
-      </Alert>
 
       {!hasData && (
         <Alert variant="destructive" className="shrink-0">

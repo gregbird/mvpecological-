@@ -40,7 +40,18 @@ export function DynamicFieldRenderer({
     )
   }
 
-  switch (field.type) {
+  // Guard against legacy/bad template data where a numeric field was saved as type:"select"
+  // without any options — would render as an empty dropdown. Coerce it to a usable input.
+  const hasNumericMetadata =
+    typeof field.min === 'number' || typeof field.max === 'number' || Boolean(field.unit)
+  const effectiveType: typeof field.type =
+    field.type === 'select' && (!field.options || field.options.length === 0)
+      ? hasNumericMetadata
+        ? 'number'
+        : 'text'
+      : field.type
+
+  switch (effectiveType) {
     case 'text':
       return (
         <div className="space-y-1.5">

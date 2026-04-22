@@ -234,7 +234,7 @@ export function HabitatTab({
           <DynamicProjectMap
             className="h-72"
             center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
-            zoom={projectCenter ? 14 : 7}
+            zoom={projectCenter ? 11 : 7}
             boundary={projectBoundary}
             habitatPolygons={habitatFeatureCollection}
             showControls={false}
@@ -394,120 +394,133 @@ export function HabitatTab({
         </Card>
       </div>
 
-      {/* Habitat Detail Table */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <CardTitle className="text-base">Field-Verified Habitat Details</CardTitle>
-            <Badge variant="outline" className="text-xs">
-              Step 5
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <UITable>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Code</TableHead>
-                <TableHead>Habitat</TableHead>
-                <TableHead>Site</TableHead>
-                <TableHead className="text-right">Area (ha)</TableHead>
-                <TableHead>Condition</TableHead>
-                <TableHead>EU Annex</TableHead>
-                <TableHead>Threats</TableHead>
-                <TableHead>Notes</TableHead>
-                <TableHead className="w-20 text-center">Include</TableHead>
-                <TableHead className="w-44">Placement</TableHead>
-                <TableHead className="w-12" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {habitats.length > 0 ? (
-                habitats.map((h) => {
-                  const placement = getPlacement('habitats', h.id)
-                  const placementValue = placement === 'exclude' ? 'both' : placement
-                  return (
-                    <TableRow key={h.id} className={cn(!h.include_in_report && 'opacity-50')}>
-                      <TableCell className="font-mono">{h.fossitt_code}</TableCell>
-                      <TableCell className="max-w-50 truncate">{h.fossitt_name}</TableCell>
-                      <TableCell
-                        className="text-muted-foreground max-w-32 truncate text-xs"
-                        title={h.site_id ? siteNameById.get(h.site_id) : ''}
-                      >
-                        {h.site_id ? (siteNameById.get(h.site_id) ?? '\u2014') : '\u2014'}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {(h.area_hectares ?? 0).toFixed(2)}
-                      </TableCell>
-                      <TableCell className="capitalize">{h.condition || '\u2014'}</TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {h.eu_annex_code || '\u2014'}
-                      </TableCell>
-                      <TableCell
-                        className="max-w-32 truncate text-xs"
-                        title={Array.isArray(h.threats) ? h.threats.join(', ') : ''}
-                      >
-                        {Array.isArray(h.threats) && h.threats.length > 0
-                          ? h.threats.join(', ')
-                          : '\u2014'}
-                      </TableCell>
-                      <TableCell className="max-w-40 truncate text-xs" title={h.notes || ''}>
-                        {h.notes || '\u2014'}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Switch
-                          checked={h.include_in_report}
-                          onCheckedChange={() => handleToggleInclude(h)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          value={placementValue}
-                          onValueChange={(value) =>
-                            setPlacement('habitats', h.id, value as PlacementOption)
-                          }
-                          disabled={!h.include_in_report}
-                        >
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {PLACEMENT_INCLUDE_OPTIONS.map((option) => (
-                              <SelectItem
-                                key={option.value}
-                                value={option.value}
-                                className="text-xs"
-                              >
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => setEditingHabitat(h)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
+      {/* Habitat Detail Table — collapsible, closed by default */}
+      <Collapsible>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="hover:bg-muted/50 cursor-pointer pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-base">Field-Verified Habitat Details</CardTitle>
+                  <Badge variant="outline" className="text-xs">
+                    Step 5
+                  </Badge>
+                  <Badge variant="secondary" className="text-xs">
+                    {habitats.length} habitats
+                  </Badge>
+                </div>
+                <ChevronDown className="text-muted-foreground h-4 w-4 transition-transform [[data-state=open]_&]:rotate-180" />
+              </div>
+              <p className="text-muted-foreground text-xs">Click to expand the details table</p>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              <UITable>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Code</TableHead>
+                    <TableHead>Habitat</TableHead>
+                    <TableHead>Site</TableHead>
+                    <TableHead className="text-right">Area (ha)</TableHead>
+                    <TableHead>Condition</TableHead>
+                    <TableHead>EU Annex</TableHead>
+                    <TableHead>Threats</TableHead>
+                    <TableHead>Notes</TableHead>
+                    <TableHead className="w-20 text-center">Include</TableHead>
+                    <TableHead className="w-44">Placement</TableHead>
+                    <TableHead className="w-12" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {habitats.length > 0 ? (
+                    habitats.map((h) => {
+                      const placement = getPlacement('habitats', h.id)
+                      const placementValue = placement === 'exclude' ? 'both' : placement
+                      return (
+                        <TableRow key={h.id} className={cn(!h.include_in_report && 'opacity-50')}>
+                          <TableCell className="font-mono">{h.fossitt_code}</TableCell>
+                          <TableCell className="max-w-50 truncate">{h.fossitt_name}</TableCell>
+                          <TableCell
+                            className="text-muted-foreground max-w-32 truncate text-xs"
+                            title={h.site_id ? siteNameById.get(h.site_id) : ''}
+                          >
+                            {h.site_id ? (siteNameById.get(h.site_id) ?? '\u2014') : '\u2014'}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {(h.area_hectares ?? 0).toFixed(2)}
+                          </TableCell>
+                          <TableCell className="capitalize">{h.condition || '\u2014'}</TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {h.eu_annex_code || '\u2014'}
+                          </TableCell>
+                          <TableCell
+                            className="max-w-32 truncate text-xs"
+                            title={Array.isArray(h.threats) ? h.threats.join(', ') : ''}
+                          >
+                            {Array.isArray(h.threats) && h.threats.length > 0
+                              ? h.threats.join(', ')
+                              : '\u2014'}
+                          </TableCell>
+                          <TableCell className="max-w-40 truncate text-xs" title={h.notes || ''}>
+                            {h.notes || '\u2014'}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Switch
+                              checked={h.include_in_report}
+                              onCheckedChange={() => handleToggleInclude(h)}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={placementValue}
+                              onValueChange={(value) =>
+                                setPlacement('habitats', h.id, value as PlacementOption)
+                              }
+                              disabled={!h.include_in_report}
+                            >
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {PLACEMENT_INCLUDE_OPTIONS.map((option) => (
+                                  <SelectItem
+                                    key={option.value}
+                                    value={option.value}
+                                    className="text-xs"
+                                  >
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => setEditingHabitat(h)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={11} className="text-muted-foreground text-center">
+                        No habitat data
                       </TableCell>
                     </TableRow>
-                  )
-                })
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={11} className="text-muted-foreground text-center">
-                    No habitat data
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </UITable>
-        </CardContent>
-      </Card>
+                  )}
+                </TableBody>
+              </UITable>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       <HabitatEditDialog
         habitat={editingHabitat}

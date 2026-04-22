@@ -753,7 +753,7 @@ export function MapsTab({ projectId, siteId, userId, project }: MapsTabProps) {
               <DynamicProjectMap
                 className="h-full"
                 center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
-                zoom={projectCenter ? 14 : 7}
+                zoom={projectCenter ? 12 : 7}
                 boundary={visibleOverlays.has('boundary') ? projectBoundary : undefined}
                 bufferDistances={project.buffer_distances ?? undefined}
                 habitatPolygons={habitatGeoJson}

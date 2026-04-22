@@ -140,10 +140,30 @@ export function MapController({
     }
     const geoJsonLayer = L.geoJSON(featureCollection)
     const bounds = geoJsonLayer.getBounds()
-    if (bounds.isValid()) {
+    if (!bounds.isValid()) return
+
+    const tryFit = () => {
+      const size = map.getSize()
+      // Container is 0×0 when the map is mounted inside a hidden tab. Fit
+      // would center on an arbitrary point. Retry once the container has
+      // real dimensions (invalidateSize fires a 'resize' event).
+      if (size.x <= 0 || size.y <= 0) return false
       map.fitBounds(bounds, { padding: [30, 30] })
+      hasFitToBoundaryRef.current = true
+      return true
     }
-    hasFitToBoundaryRef.current = true
+
+    if (tryFit()) return
+
+    const onResize = () => {
+      if (tryFit()) {
+        map.off('resize', onResize)
+      }
+    }
+    map.on('resize', onResize)
+    return () => {
+      map.off('resize', onResize)
+    }
   }, [boundary, allBoundaries, bufferDistances, map, hasFitToBoundaryRef, skipFitBounds])
 
   // ── Store map reference ──────────────────────────────────────────────────

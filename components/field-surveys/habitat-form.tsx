@@ -42,7 +42,6 @@ import {
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { PhotoUpload } from '@/components/ui/photo-upload'
 import { FOSSITT_HABITATS, getHabitatByCode, type FossittHabitat } from '@/lib/data/fossitt-codes'
@@ -304,51 +303,51 @@ export function HabitatForm({
                     <PopoverContent className="w-125 p-0" align="start">
                       <Command>
                         <CommandInput placeholder="Search by code or name..." />
-                        <CommandList>
+                        <CommandList
+                          className="dulra-scroll max-h-75"
+                          onWheel={(e) => {
+                            e.currentTarget.scrollTop += e.deltaY
+                          }}
+                        >
                           <CommandEmpty>No habitat found.</CommandEmpty>
-                          <ScrollArea className="h-75">
-                            {groupedHabitats.map((group) => (
-                              <CommandGroup
-                                key={group.category.code}
-                                heading={
-                                  <div className="flex items-center gap-2">
-                                    <span
-                                      className="h-2 w-2 rounded-full"
-                                      style={{ backgroundColor: group.category.color }}
-                                    />
-                                    {group.category.name}
+                          {groupedHabitats.map((group) => (
+                            <CommandGroup
+                              key={group.category.code}
+                              heading={
+                                <div
+                                  className="flex items-center border-l-4 pl-2"
+                                  style={{ borderColor: group.category.color }}
+                                >
+                                  {group.category.name}
+                                </div>
+                              }
+                            >
+                              {group.habitats.map((habitat) => (
+                                <CommandItem
+                                  key={habitat.code}
+                                  value={`${habitat.code} ${habitat.name}`}
+                                  onSelect={() => handleSelectHabitat(habitat)}
+                                  className="border-l-4 pl-3"
+                                  style={{ borderColor: habitat.color }}
+                                >
+                                  <div className="flex w-full items-center gap-2">
+                                    <span className="w-10 shrink-0 font-mono text-sm">
+                                      {habitat.code}
+                                    </span>
+                                    <span className="truncate">{habitat.name}</span>
+                                    {habitat.annex1 && (
+                                      <Badge
+                                        variant="secondary"
+                                        className="ml-auto shrink-0 text-xs"
+                                      >
+                                        Annex I
+                                      </Badge>
+                                    )}
                                   </div>
-                                }
-                              >
-                                {group.habitats.map((habitat) => (
-                                  <CommandItem
-                                    key={habitat.code}
-                                    value={`${habitat.code} ${habitat.name}`}
-                                    onSelect={() => handleSelectHabitat(habitat)}
-                                  >
-                                    <div className="flex w-full items-center gap-2">
-                                      <span
-                                        className="h-2 w-2 shrink-0 rounded-full"
-                                        style={{ backgroundColor: habitat.color }}
-                                      />
-                                      <span className="w-10 shrink-0 font-mono text-sm">
-                                        {habitat.code}
-                                      </span>
-                                      <span className="truncate">{habitat.name}</span>
-                                      {habitat.annex1 && (
-                                        <Badge
-                                          variant="secondary"
-                                          className="ml-auto shrink-0 text-xs"
-                                        >
-                                          Annex I
-                                        </Badge>
-                                      )}
-                                    </div>
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            ))}
-                          </ScrollArea>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          ))}
                         </CommandList>
                       </Command>
                     </PopoverContent>

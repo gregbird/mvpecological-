@@ -136,7 +136,7 @@ export function TargetNotesTab({ projectId, siteId, project, workflowStep }: Tar
           <DynamicProjectMap
             className="h-72"
             center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
-            zoom={projectCenter ? 14 : 7}
+            zoom={projectCenter ? 12 : 7}
             boundary={projectBoundary}
             targetNotes={targetNoteMarkers}
             showControls={false}
