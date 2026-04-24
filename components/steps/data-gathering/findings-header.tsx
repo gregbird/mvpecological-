@@ -28,7 +28,7 @@ import {
   SITE_TYPE_FILTER_COLORS,
   FALLBACK_SITE_TYPE_FILTER_COLORS,
 } from '@/lib/config/finding-colors'
-import { getUnsavedFindings } from '@/hooks/data-gathering/use-findings-filters'
+import { getUnsavedFindings, type RecencyFilter } from '@/hooks/data-gathering/use-findings-filters'
 
 type SourceFilter = 'all' | 'protected' | 'invasive' | 'threatened'
 type DistanceFilter = 'all' | '0-1' | '1-5' | '5-10' | '10+'
@@ -105,6 +105,10 @@ interface FindingsHeaderProps {
   distanceFilter?: DistanceFilter
   onDistanceFilterChange?: (filter: DistanceFilter) => void
 
+  // Recency filter (species only — uses metadata.newestRecordDate)
+  recencyFilter?: RecencyFilter
+  onRecencyFilterChange?: (filter: RecencyFilter) => void
+
   // Species group filter (species only)
   taxonGroupFilter?: string | null
   onTaxonGroupFilterChange?: (group: string | null) => void
@@ -156,6 +160,8 @@ export function FindingsHeader({
   onSiteTypeFilterChange,
   distanceFilter,
   onDistanceFilterChange,
+  recencyFilter,
+  onRecencyFilterChange,
   taxonGroupFilter,
   onTaxonGroupFilterChange,
   taxonGroupOptions,
@@ -188,17 +194,19 @@ export function FindingsHeader({
             </span>
           ) : (
             <button
-              className={`shrink-0 text-sm font-medium ${showSavedOnly || sourceFilter !== 'all' || (distanceFilter && distanceFilter !== 'all') ? 'text-blue-600 hover:underline' : ''}`}
+              className={`shrink-0 text-sm font-medium ${showSavedOnly || sourceFilter !== 'all' || (distanceFilter && distanceFilter !== 'all') || (recencyFilter && recencyFilter !== 'all') ? 'text-blue-600 hover:underline' : ''}`}
               onClick={() => {
                 if (
                   showSavedOnly ||
                   (sourceFilter && sourceFilter !== 'all') ||
-                  (distanceFilter && distanceFilter !== 'all')
+                  (distanceFilter && distanceFilter !== 'all') ||
+                  (recencyFilter && recencyFilter !== 'all')
                 ) {
                   onShowSavedOnlyChange(false)
                   onSavedFilterChange?.(false)
                   onSourceFilterChange?.('all')
                   onDistanceFilterChange?.('all')
+                  onRecencyFilterChange?.('all')
                 }
               }}
             >
@@ -215,7 +223,7 @@ export function FindingsHeader({
             activeFilter={sourceFilter}
             onToggle={onSourceFilterChange}
             activeClass="bg-red-600 text-white"
-            inactiveClass="bg-red-100 text-red-700 hover:bg-red-200"
+            inactiveClass="bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-950/60 dark:text-red-300 dark:hover:bg-red-900/60"
             icon={Shield}
           />
           <SpeciesBadge
@@ -225,7 +233,7 @@ export function FindingsHeader({
             activeFilter={sourceFilter}
             onToggle={onSourceFilterChange}
             activeClass="bg-orange-600 text-white"
-            inactiveClass="bg-orange-100 text-orange-700 hover:bg-orange-200"
+            inactiveClass="bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-950/60 dark:text-orange-300 dark:hover:bg-orange-900/60"
             icon={AlertCircle}
           />
           <SpeciesBadge
@@ -235,7 +243,7 @@ export function FindingsHeader({
             activeFilter={sourceFilter}
             onToggle={onSourceFilterChange}
             activeClass="bg-amber-600 text-white"
-            inactiveClass="bg-amber-100 text-amber-700 hover:bg-amber-200"
+            inactiveClass="bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:hover:bg-amber-900/60"
             icon={AlertTriangle}
           />
           {savedCount > 0 && (
@@ -249,7 +257,7 @@ export function FindingsHeader({
               className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
                 showSavedOnly
                   ? 'bg-emerald-600 text-white'
-                  : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                  : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-900/60'
               }`}
             >
               <Check className="h-2.5 w-2.5" />
@@ -279,8 +287,8 @@ export function FindingsHeader({
                     disabled={isSavingAll && !onStopSaveAll}
                     className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors disabled:opacity-50 ${
                       isSavingAll
-                        ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                        : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                        ? 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-950/60 dark:text-red-300 dark:hover:bg-red-900/60'
+                        : 'bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:hover:bg-blue-900/60'
                     }`}
                     title={
                       isSavingAll
@@ -353,6 +361,23 @@ export function FindingsHeader({
               </SelectContent>
             </Select>
           )}
+          {onRecencyFilterChange && (
+            <Select
+              value={recencyFilter || 'all'}
+              onValueChange={(v) => onRecencyFilterChange(v as RecencyFilter)}
+            >
+              <SelectTrigger className="h-7 w-auto min-w-[90px] border-0 bg-transparent px-1.5 text-xs shadow-none">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Any date</SelectItem>
+                <SelectItem value="1y">Last 1 year</SelectItem>
+                <SelectItem value="5y">Last 5 years</SelectItem>
+                <SelectItem value="10y">Last 10 years</SelectItem>
+                <SelectItem value="20y">Last 20 years</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
           <Select value={sortBy} onValueChange={(v) => onSortByChange(v as typeof sortBy)}>
             <SelectTrigger className="h-7 w-auto min-w-[80px] border-0 bg-transparent px-1.5 text-xs shadow-none">
               <SelectValue />
@@ -422,7 +447,7 @@ export function FindingsHeader({
           className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
             showSavedOnly
               ? 'bg-emerald-600 text-white'
-              : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+              : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-900/60'
           }`}
         >
           <Check className="h-2.5 w-2.5" />

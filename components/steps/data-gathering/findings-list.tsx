@@ -13,6 +13,8 @@ import {
   useFindingsFilters,
   isFindingSaved,
   getSavedFindingDbId,
+  filterByRecency,
+  type RecencyFilter,
 } from '@/hooks/data-gathering/use-findings-filters'
 
 // Finding type for display
@@ -205,14 +207,44 @@ export function FindingsList({
   const [activeSiteTypeFilter, setActiveSiteTypeFilter] = React.useState<string | null>(null)
   const [showSavedOnly, setShowSavedOnly] = React.useState(false)
   const [taxonGroupFilter, setTaxonGroupFilter] = React.useState<string | null>(null)
+  const [recencyFilter, setRecencyFilter] = React.useState<RecencyFilter>('all')
+
+  // Recompute species counts whenever recency or taxon-group filters narrow the
+  // set — badges should reflect what the user has actually filtered to.
+  const effectiveSpeciesCounts = React.useMemo(() => {
+    if (!showSpeciesHeader || !speciesCounts) return speciesCounts
+    const recencyActive = recencyFilter && recencyFilter !== 'all'
+    const groupActive = !!taxonGroupFilter
+    if (!recencyActive && !groupActive) return speciesCounts
+    let subset = filterByRecency(findings, recencyFilter)
+    if (taxonGroupFilter) {
+      subset = subset.filter((f) => f.metadata?.taxonGroup === taxonGroupFilter)
+    }
+    let protectedCount = 0
+    let invasiveCount = 0
+    let threatenedCount = 0
+    for (const f of subset) {
+      if (f.metadata?.isProtected || f.metadata?.designations) protectedCount++
+      if (f.metadata?.isInvasive) invasiveCount++
+      if (f.metadata?.isThreatened) threatenedCount++
+    }
+    return {
+      ...speciesCounts,
+      total: subset.length,
+      protected: protectedCount,
+      invasive: invasiveCount,
+      threatened: threatenedCount,
+      enriched: subset.length,
+    }
+  }, [findings, recencyFilter, taxonGroupFilter, showSpeciesHeader, speciesCounts])
 
   // Available species groups with counts — respects active source filter
   // so that e.g. "Invasive Only" + "Moss" doesn't show Moss(297) when 0 are invasive
   const taxonGroupOptions = React.useMemo(() => {
     if (!showSpeciesHeader) return []
-    let base = findings
+    let base = filterByRecency(findings, recencyFilter)
     if (sourceFilter && sourceFilter !== 'all') {
-      base = findings.filter((f) => {
+      base = base.filter((f) => {
         if (sourceFilter === 'protected') return f.metadata?.isProtected || f.metadata?.designations
         if (sourceFilter === 'invasive') return f.metadata?.isInvasive
         if (sourceFilter === 'threatened') return f.metadata?.isThreatened
@@ -227,7 +259,7 @@ export function FindingsList({
     return Array.from(counts.entries())
       .sort((a, b) => b[1] - a[1])
       .map(([value, count]) => ({ value, count }))
-  }, [findings, showSpeciesHeader, sourceFilter])
+  }, [findings, showSpeciesHeader, sourceFilter, recencyFilter])
 
   const { sortedFindings, filteredFindings, siteTypeCounts, savedCount } = useFindingsFilters(
     findings,
@@ -237,6 +269,7 @@ export function FindingsList({
       showSavedOnly,
       sourceFilter,
       distanceFilter,
+      recencyFilter,
       taxonGroupFilter,
       sortBy,
       sortOrder,
@@ -261,7 +294,14 @@ export function FindingsList({
   // Reset display limit when findings or filter change
   React.useEffect(() => {
     setDisplayLimit(RESULTS_PER_PAGE)
-  }, [findings, activeSiteTypeFilter, showSavedOnly, distanceFilter, taxonGroupFilter])
+  }, [
+    findings,
+    activeSiteTypeFilter,
+    showSavedOnly,
+    distanceFilter,
+    recencyFilter,
+    taxonGroupFilter,
+  ])
 
   // When selectedFindingId changes (e.g. map marker click), ensure it's visible and scroll to it
   React.useEffect(() => {
@@ -318,7 +358,7 @@ export function FindingsList({
           savedCount={savedCount}
           siteTypeCounts={showSiteTypeFilter ? siteTypeCounts : null}
           showSpeciesHeader={showSpeciesHeader}
-          speciesCounts={speciesCounts}
+          speciesCounts={effectiveSpeciesCounts}
           enrichmentStatus={enrichmentStatus}
           sourceFilter={sourceFilter}
           onSourceFilterChange={onSourceFilterChange}
@@ -333,6 +373,8 @@ export function FindingsList({
           onSiteTypeFilterChange={onSiteTypeFilterChange}
           distanceFilter={distanceFilter}
           onDistanceFilterChange={onDistanceFilterChange}
+          recencyFilter={recencyFilter}
+          onRecencyFilterChange={setRecencyFilter}
           taxonGroupFilter={taxonGroupFilter}
           onTaxonGroupFilterChange={setTaxonGroupFilter}
           taxonGroupOptions={taxonGroupOptions}

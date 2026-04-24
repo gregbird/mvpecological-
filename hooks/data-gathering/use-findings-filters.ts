@@ -4,14 +4,38 @@ import * as React from 'react'
 import type { FindingDisplay } from '@/components/steps/data-gathering/findings-list'
 import type { DeskResearchFinding } from '@/types/database'
 
+export type RecencyFilter = 'all' | '1y' | '5y' | '10y' | '20y'
+
 interface FindingsFilterConfig {
   activeSiteTypeFilter: string | null
   showSavedOnly: boolean
   sourceFilter?: 'all' | 'protected' | 'invasive' | 'threatened'
   distanceFilter?: 'all' | '0-1' | '1-5' | '5-10' | '10+'
+  recencyFilter?: RecencyFilter
   taxonGroupFilter?: string | null
   sortBy: 'distance' | 'title' | 'type' | 'last_recorded' | 'records'
   sortOrder: 'asc' | 'desc'
+}
+
+const RECENCY_YEARS: Record<Exclude<RecencyFilter, 'all'>, number> = {
+  '1y': 1,
+  '5y': 5,
+  '10y': 10,
+  '20y': 20,
+}
+
+/** Filter findings to those with a newest-record date within the given recency window. */
+export function filterByRecency(
+  findings: FindingDisplay[],
+  recencyFilter: RecencyFilter | undefined
+): FindingDisplay[] {
+  if (!recencyFilter || recencyFilter === 'all') return findings
+  const years = RECENCY_YEARS[recencyFilter]
+  const cutoff = Date.now() - years * 365.25 * 24 * 60 * 60 * 1000
+  return findings.filter((f) => {
+    const t = parseRecordDate(f.metadata?.newestRecordDate)
+    return t > 0 && t >= cutoff
+  })
 }
 
 /**
@@ -60,6 +84,7 @@ export function useFindingsFilters(
     showSavedOnly,
     sourceFilter,
     distanceFilter,
+    recencyFilter,
     taxonGroupFilter,
     sortBy,
     sortOrder,
@@ -161,6 +186,7 @@ export function useFindingsFilters(
     if (taxonGroupFilter) {
       result = result.filter((f) => f.metadata?.taxonGroup === taxonGroupFilter)
     }
+    result = filterByRecency(result, recencyFilter)
     return result
   }, [
     sortedFindings,
@@ -169,6 +195,7 @@ export function useFindingsFilters(
     savedFindings,
     sourceFilter,
     distanceFilter,
+    recencyFilter,
     taxonGroupFilter,
   ])
 

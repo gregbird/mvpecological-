@@ -47,19 +47,23 @@ export function StatusTab({
                 habitats.
               </p>
               <div className="grid grid-cols-4 gap-2">
-                <div className="rounded bg-green-50 p-2 text-center">
-                  <div className="text-lg font-bold text-green-700">{summary.favourable}</div>
-                  <div className="text-[10px] text-green-600">Favourable</div>
+                <div className="rounded bg-green-50 p-2 text-center dark:bg-green-950/50">
+                  <div className="text-lg font-bold text-green-700 dark:text-green-300">
+                    {summary.favourable}
+                  </div>
+                  <div className="text-[10px] text-green-600 dark:text-green-400">Favourable</div>
                 </div>
-                <div className="rounded bg-amber-50 p-2 text-center">
-                  <div className="text-lg font-bold text-amber-700">
+                <div className="rounded bg-amber-50 p-2 text-center dark:bg-amber-950/50">
+                  <div className="text-lg font-bold text-amber-700 dark:text-amber-300">
                     {summary.unfavourableInadequate}
                   </div>
-                  <div className="text-[10px] text-amber-600">Inadequate</div>
+                  <div className="text-[10px] text-amber-600 dark:text-amber-400">Inadequate</div>
                 </div>
-                <div className="rounded bg-red-50 p-2 text-center">
-                  <div className="text-lg font-bold text-red-700">{summary.unfavourableBad}</div>
-                  <div className="text-[10px] text-red-600">Bad</div>
+                <div className="rounded bg-red-50 p-2 text-center dark:bg-red-950/50">
+                  <div className="text-lg font-bold text-red-700 dark:text-red-300">
+                    {summary.unfavourableBad}
+                  </div>
+                  <div className="text-[10px] text-red-600 dark:text-red-400">Bad</div>
                 </div>
                 <div className="rounded bg-gray-50 p-2 text-center dark:bg-gray-800">
                   <div className="text-lg font-bold text-gray-700 dark:text-gray-300">
@@ -104,7 +108,11 @@ export function StatusTab({
                     </p>
                     <div className="flex flex-wrap gap-1">
                       {Array.from(allPressures).map((pressure, idx) => (
-                        <Badge key={idx} variant="outline" className="bg-orange-50 text-xs">
+                        <Badge
+                          key={idx}
+                          variant="outline"
+                          className="bg-orange-50 text-xs text-orange-900 dark:bg-orange-950/60 dark:text-orange-200"
+                        >
                           {pressure}
                         </Badge>
                       ))}
@@ -118,7 +126,11 @@ export function StatusTab({
                     </p>
                     <div className="flex flex-wrap gap-1">
                       {Array.from(allThreats).map((threat, idx) => (
-                        <Badge key={idx} variant="outline" className="bg-red-50 text-xs">
+                        <Badge
+                          key={idx}
+                          variant="outline"
+                          className="bg-red-50 text-xs text-red-900 dark:bg-red-950/60 dark:text-red-200"
+                        >
                           {threat}
                         </Badge>
                       ))}

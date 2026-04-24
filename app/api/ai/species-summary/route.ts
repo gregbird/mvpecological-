@@ -105,9 +105,17 @@ Be specific and practical — avoid generic statements. Respond with ONLY the su
     })
 
     if (!aiResponse.ok) {
-      const error = await aiResponse.json()
+      const rawBody = await aiResponse.text()
+      let detail = rawBody
+      try {
+        const parsed = JSON.parse(rawBody)
+        detail = parsed?.error?.message || rawBody
+      } catch {
+        // OpenAI returned non-JSON (rate-limit HTML, gateway error, etc.)
+      }
+      console.error('OpenAI species-summary non-OK:', aiResponse.status, detail)
       return NextResponse.json(
-        { error: error.error?.message || 'OpenAI API error' },
+        { error: `OpenAI ${aiResponse.status}: ${detail.slice(0, 500)}` },
         { status: 500 }
       )
     }
@@ -120,7 +128,11 @@ Be specific and practical — avoid generic statements. Respond with ONLY the su
       scientificName,
     })
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
     console.error('Species summary error:', error)
-    return NextResponse.json({ error: 'Failed to generate species summary' }, { status: 500 })
+    return NextResponse.json(
+      { error: `Failed to generate species summary: ${message}` },
+      { status: 500 }
+    )
   }
 }
