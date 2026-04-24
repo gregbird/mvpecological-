@@ -25,7 +25,7 @@ export function SacTab({ bestMatch, linkedSACs, isLoading, riverDistance }: SacT
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm">{bestMatch.siteName}</CardTitle>
                 {riverDistance?.sacReached && (
-                  <Badge className="border-blue-300 bg-blue-100 text-xs text-blue-700">
+                  <Badge className="border-blue-300 bg-blue-100 text-xs text-blue-700 dark:border-blue-800 dark:bg-blue-950/60 dark:text-blue-300">
                     <Navigation className="mr-1 h-3 w-3" />
                     {riverDistance.sacReached.distanceKm} km along river
                   </Badge>
@@ -48,7 +48,7 @@ export function SacTab({ bestMatch, linkedSACs, isLoading, riverDistance }: SacT
                     {bestMatch.aquaticSpecies.map((s) => (
                       <div
                         key={s.code}
-                        className="flex items-center justify-between rounded bg-cyan-50 px-2 py-1 text-sm"
+                        className="flex items-center justify-between rounded bg-cyan-50 px-2 py-1 text-sm dark:bg-cyan-950/40"
                       >
                         <span className="font-medium">{s.commonName}</span>
                         <span className="text-muted-foreground text-xs italic">
@@ -69,7 +69,10 @@ export function SacTab({ bestMatch, linkedSACs, isLoading, riverDistance }: SacT
                   </h4>
                   <div className="space-y-1">
                     {bestMatch.aquaticHabitats.map((h) => (
-                      <div key={h.code} className="rounded bg-green-50 px-2 py-1 text-sm">
+                      <div
+                        key={h.code}
+                        className="rounded bg-green-50 px-2 py-1 text-sm dark:bg-green-950/40"
+                      >
                         <span className="font-medium">[{h.code}]</span> <span>{h.name}</span>
                       </div>
                     ))}
@@ -162,7 +165,7 @@ function RiverDistanceCard({ riverDistance }: { riverDistance: RiverDistanceData
             River Network Distance
           </CardTitle>
           {isWithinZoI && (
-            <Badge className="border-amber-300 bg-amber-100 text-xs text-amber-700">
+            <Badge className="border-amber-300 bg-amber-100 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
               <AlertTriangle className="mr-1 h-3 w-3" />
               Within 15km ZoI
             </Badge>
@@ -203,7 +206,9 @@ function RiverDistanceCard({ riverDistance }: { riverDistance: RiverDistanceData
               {sacReached && (
                 <span className="flex items-center gap-1">
                   <ChevronRight className="h-3 w-3 text-gray-400" />
-                  <Badge className="bg-emerald-100 text-[10px] text-emerald-700">SAC</Badge>
+                  <Badge className="bg-emerald-100 text-[10px] text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                    SAC
+                  </Badge>
                 </span>
               )}
             </div>

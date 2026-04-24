@@ -53,9 +53,9 @@ export function WfdTab({ wfdData, isLoading, result }: WfdTabProps) {
                       variant="outline"
                       className={
                         wfdData.risk === 'At risk'
-                          ? 'border-red-300 bg-red-50 text-red-700'
+                          ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/50 dark:text-red-300'
                           : wfdData.risk === 'Not at risk'
-                            ? 'border-green-300 bg-green-50 text-green-700'
+                            ? 'border-green-300 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950/50 dark:text-green-300'
                             : ''
                       }
                     >
@@ -167,9 +167,9 @@ export function WfdTab({ wfdData, isLoading, result }: WfdTabProps) {
 
           {/* Failures */}
           {wfdData.failures.length > 0 && (
-            <Card className="border-red-200 bg-red-50/30">
+            <Card className="border-red-200 bg-red-50/30 dark:border-red-900 dark:bg-red-950/20">
               <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm text-red-700">
+                <CardTitle className="flex items-center gap-2 text-sm text-red-700 dark:text-red-300">
                   <AlertTriangle className="h-4 w-4" />
                   Environmental Failures
                 </CardTitle>
@@ -179,7 +179,7 @@ export function WfdTab({ wfdData, isLoading, result }: WfdTabProps) {
                   {wfdData.failures.map((f, idx) => (
                     <div
                       key={idx}
-                      className="flex items-center gap-2 rounded bg-red-100 px-3 py-2 text-sm text-red-700"
+                      className="flex items-center gap-2 rounded bg-red-100 px-3 py-2 text-sm text-red-700 dark:bg-red-950/50 dark:text-red-300"
                     >
                       <AlertCircle className="h-4 w-4 shrink-0" />
                       {f.Name}
@@ -209,7 +209,7 @@ export function WfdTab({ wfdData, isLoading, result }: WfdTabProps) {
                         .map((c, idx) => (
                           <div
                             key={idx}
-                            className="rounded bg-blue-50 px-2 py-1 text-sm text-blue-700"
+                            className="rounded bg-blue-50 px-2 py-1 text-sm text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
                           >
                             {c.Name}
                           </div>
@@ -227,7 +227,7 @@ export function WfdTab({ wfdData, isLoading, result }: WfdTabProps) {
                         .map((c, idx) => (
                           <div
                             key={idx}
-                            className="rounded bg-green-50 px-2 py-1 text-sm text-green-700"
+                            className="rounded bg-green-50 px-2 py-1 text-sm text-green-700 dark:bg-green-950/40 dark:text-green-300"
                           >
                             {c.Name}
                           </div>
@@ -249,11 +249,13 @@ export function WfdTab({ wfdData, isLoading, result }: WfdTabProps) {
           </CardContent>
         </Card>
       ) : (
-        <Card className="border-amber-200 bg-amber-50/50">
+        <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20">
           <CardContent className="flex items-start gap-2 pt-4">
             <Info className="h-4 w-4 shrink-0 text-amber-600" />
             <div className="text-sm">
-              <p className="font-medium text-amber-700">No WFD Data Available</p>
+              <p className="font-medium text-amber-700 dark:text-amber-300">
+                No WFD Data Available
+              </p>
               <p className="text-muted-foreground">
                 {result
                   ? 'Detailed WFD data was not available from Catchments.ie for this water body.'

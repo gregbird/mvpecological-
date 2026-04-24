@@ -157,8 +157,9 @@ export function useHabitatSearch({
           features: allFeatures,
         })
       } catch (error) {
-        console.error('Failed to re-fetch NLC polygons:', error)
-        // Allow a retry on the next mount / effect run
+        // Re-fetch failure is non-fatal: stats are already in sessionStorage,
+        // only the polygon map overlay is missing. Allow a retry next mount.
+        console.warn('Failed to re-fetch NLC polygons:', error)
         hasFetchedRef.current = false
       }
     })()

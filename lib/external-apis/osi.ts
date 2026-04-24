@@ -114,9 +114,9 @@ export async function searchNlcLandCover(params: NlcSearchParams): Promise<Aggre
   } catch (error) {
     clearTimeout(timeoutId)
     if (error instanceof Error && error.name === 'AbortError') {
-      console.error('NLC query timeout')
+      console.warn('NLC query timeout')
     } else {
-      console.error('NLC query error:', error)
+      console.warn('NLC query network error:', error)
     }
     return []
   }
@@ -377,9 +377,9 @@ export async function fetchNlcPolygons(
     return { type: 'FeatureCollection', features: mergedFeatures }
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      console.error('NLC polygon query timeout')
+      console.warn('NLC polygon query timeout')
     } else {
-      console.error('NLC polygon query error:', error)
+      console.warn('NLC polygon query network error:', error)
     }
     // Return whatever we've successfully dissolved so far
     if (grouped.size === 0) return empty
