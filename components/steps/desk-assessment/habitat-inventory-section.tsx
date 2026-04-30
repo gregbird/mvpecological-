@@ -1,7 +1,9 @@
 'use client'
 
 import * as React from 'react'
-import { Info, Layers, MapPin, TreePine, X } from 'lucide-react'
+import { Info, Layers, MapPin, Sparkles, TreePine, X } from 'lucide-react'
+
+import { cn } from '@/lib/utils'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -16,6 +18,7 @@ import {
 } from '@/components/ui/table'
 import { getHeritageColor } from '@/lib/config/map-constants'
 import { BaselineMap } from './baseline-map-utils'
+import { FindingDetailDialog } from './finding-detail-dialog'
 import type { DeskResearchFinding } from '@/types/database'
 
 export interface HabitatRow {
@@ -27,6 +30,7 @@ export interface HabitatRow {
   areaHa: number
   percentage: number
   distanceKm: number | null
+  finding?: DeskResearchFinding
 }
 
 interface HabitatInventorySectionProps {
@@ -40,47 +44,73 @@ interface HabitatInventorySectionProps {
   npwsVisibleLayers?: string[]
 }
 
-function SummaryCards({ habitats, totalArea }: { habitats: HabitatRow[]; totalArea: number }) {
-  const cards = [
-    {
-      label: 'Habitat Types',
-      value: habitats.length.toString(),
-      color:
-        'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950 dark:border-emerald-700 dark:text-emerald-200',
-      iconColor: 'text-emerald-500',
-      icon: Layers,
-    },
-    {
-      label: 'Total Area',
-      value: `${totalArea.toFixed(0)} ha`,
-      color:
-        'bg-green-50 border-green-200 text-green-800 dark:bg-green-950 dark:border-green-700 dark:text-green-200',
-      iconColor: 'text-green-500',
-      icon: MapPin,
-    },
-    {
-      label: 'Data Source',
-      value: 'NLC 2018',
-      color:
-        'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-200',
-      iconColor: 'text-blue-500',
-      icon: TreePine,
-    },
-  ]
+type DistanceFilter = 'all' | 'within' | 'adjacent'
 
+interface DistanceCard {
+  key: DistanceFilter
+  label: string
+  count: number
+  area: number
+  color: string
+  activeColor: string
+  iconColor: string
+  icon: typeof Layers
+}
+
+function FilterCards({
+  cards,
+  activeFilter,
+  onFilterChange,
+}: {
+  cards: DistanceCard[]
+  activeFilter: DistanceFilter
+  onFilterChange: (filter: DistanceFilter) => void
+}) {
   return (
-    <div className="grid grid-cols-3 gap-3">
-      {cards.map((c) => (
-        <Card key={c.label} className={`border ${c.color}`}>
-          <CardContent className="flex items-center gap-3 p-4">
-            <c.icon className={`h-5 w-5 shrink-0 ${c.iconColor}`} />
-            <div>
-              <div className="text-2xl font-bold">{c.value}</div>
-              <div className="text-xs font-medium">{c.label}</div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      {cards.map((c) => {
+        const isActive = activeFilter === c.key
+        const isDisabled = c.count === 0 && c.key !== 'all'
+        const Icon = c.icon
+        return (
+          <button
+            key={c.key}
+            type="button"
+            onClick={() => {
+              if (isDisabled) return
+              onFilterChange(c.key)
+            }}
+            aria-pressed={isActive}
+            disabled={isDisabled}
+            className="text-left disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Card
+              className={cn(
+                'border transition-all',
+                c.color,
+                isActive && c.activeColor,
+                !isDisabled && 'hover:brightness-110'
+              )}
+            >
+              <CardContent className="flex items-center gap-3 p-4">
+                <Icon className={`h-6 w-6 shrink-0 ${c.iconColor}`} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold">{c.count}</span>
+                    <span className="text-xs font-medium opacity-70">types</span>
+                  </div>
+                  <div className="text-xs font-medium">
+                    {c.label}
+                    {c.area > 0 && (
+                      <span className="ml-1 opacity-60">· {c.area.toFixed(0)} ha</span>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -90,11 +120,13 @@ function HabitatTable({
   selectedCode,
   onSelect,
   onRemoveFinding,
+  onSelectFinding,
 }: {
   habitats: HabitatRow[]
   selectedCode: string | null
   onSelect: (code: string | null) => void
   onRemoveFinding?: (findingId: string) => void
+  onSelectFinding: (finding: DeskResearchFinding) => void
 }) {
   if (habitats.length === 0) return null
 
@@ -135,7 +167,23 @@ function HabitatTable({
                     <span className="font-mono text-sm font-medium">{h.fossittCode}</span>
                   </div>
                 </TableCell>
-                <TableCell className="font-medium">{h.fossittName}</TableCell>
+                <TableCell className="font-medium">
+                  {h.finding ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onSelectFinding(h.finding!)
+                      }}
+                      className="inline-flex items-center gap-1 text-left text-emerald-700 hover:underline dark:text-emerald-400"
+                    >
+                      {h.fossittName}
+                      <Sparkles className="h-3 w-3 shrink-0 text-purple-500" />
+                    </button>
+                  ) : (
+                    h.fossittName
+                  )}
+                </TableCell>
                 <TableCell className="text-muted-foreground text-sm">{h.nlcLabel}</TableCell>
                 <TableCell className="text-right">{h.areaHa.toFixed(1)}</TableCell>
                 <TableCell className="text-right">{groupPct.toFixed(1)}%</TableCell>
@@ -173,13 +221,15 @@ export function HabitatInventorySection({
   npwsVisibleLayers,
 }: HabitatInventorySectionProps) {
   const [selectedCode, setSelectedCode] = React.useState<string | null>(null)
+  const [selectedFinding, setSelectedFinding] = React.useState<DeskResearchFinding | null>(null)
+  const [distanceFilter, setDistanceFilter] = React.useState<'all' | 'within' | 'adjacent'>('all')
 
   const habitatFindings = React.useMemo(
     () => findings.filter((f) => f.data_type === 'habitat'),
     [findings]
   )
 
-  const { habitats, totalArea } = React.useMemo(() => {
+  const { habitats } = React.useMemo(() => {
     if (habitatFindings.length === 0) return { habitats: [], totalArea: 0 }
 
     const total = habitatFindings.reduce((sum, f) => {
@@ -210,6 +260,7 @@ export function HabitatInventorySection({
           areaHa,
           percentage: total > 0 ? (areaHa / total) * 100 : 0,
           distanceKm,
+          finding: f,
         }
       })
       .sort((a, b) => b.areaHa - a.areaHa)
@@ -283,8 +334,8 @@ export function HabitatInventorySection({
     )
   }
 
-  // Within boundary: distance computed and < 10m (epsilon for float comparison)
-  // Null distance = not computed — shown in a separate "Unknown distance" bucket if needed
+  // Within boundary: distance computed and < 10m (epsilon for float comparison).
+  // Null distance = not computed — bucketed with "within" (most likely inside).
   const WITHIN_EPSILON_KM = 0.01
   const withinBoundary = habitats.filter(
     (h) => h.distanceKm != null && h.distanceKm < WITHIN_EPSILON_KM
@@ -292,94 +343,94 @@ export function HabitatInventorySection({
   const adjacent = habitats.filter(
     (h) => h.distanceKm != null && h.distanceKm >= WITHIN_EPSILON_KM && h.distanceKm <= 0.1
   )
-  const beyondAdjacent = habitats.filter((h) => h.distanceKm != null && h.distanceKm > 0.1)
   const unknownDistance = habitats.filter((h) => h.distanceKm === null)
-  // Merge unknown distance habitats into "within boundary" for display (most likely within)
   const withinDisplay = [...withinBoundary, ...unknownDistance]
+
+  // Distance filter pre-aggregates the rows shown in the unified table.
+  // "Beyond 100m" is no longer surfaced — those rows fall outside both
+  // "within" and "adjacent" buckets and are excluded from the table when
+  // a filter other than "all" is active.
+  const filteredHabitats = React.useMemo(() => {
+    if (distanceFilter === 'within') return withinDisplay
+    if (distanceFilter === 'adjacent') return adjacent
+    return [...withinDisplay, ...adjacent]
+  }, [distanceFilter, withinDisplay, adjacent])
 
   const showMap = !!habitatPolygons || !!boundary
 
+  const withinArea = withinDisplay.reduce((sum, h) => sum + h.areaHa, 0)
+  const adjacentArea = adjacent.reduce((sum, h) => sum + h.areaHa, 0)
+
+  const filterCards: DistanceCard[] = [
+    {
+      key: 'all',
+      label: 'All Habitats',
+      count: withinDisplay.length + adjacent.length,
+      area: withinArea + adjacentArea,
+      color:
+        'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200',
+      activeColor: 'ring-2 ring-emerald-500 dark:ring-emerald-400',
+      iconColor: 'text-emerald-500',
+      icon: Layers,
+    },
+    {
+      key: 'within',
+      label: 'Within Site Boundary',
+      count: withinDisplay.length,
+      area: withinArea,
+      color:
+        'border-green-200 bg-green-50 text-green-800 dark:border-green-700 dark:bg-green-950 dark:text-green-200',
+      activeColor: 'ring-2 ring-green-500 dark:ring-green-400',
+      iconColor: 'text-green-500',
+      icon: TreePine,
+    },
+    {
+      key: 'adjacent',
+      label: 'Within 100m',
+      count: adjacent.length,
+      area: adjacentArea,
+      color:
+        'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200',
+      activeColor: 'ring-2 ring-amber-500 dark:ring-amber-400',
+      iconColor: 'text-amber-500',
+      icon: MapPin,
+    },
+  ]
+
   return (
     <div className="space-y-6">
-      <SummaryCards habitats={habitats} totalArea={totalArea} />
+      <FilterCards
+        cards={filterCards}
+        activeFilter={distanceFilter}
+        onFilterChange={setDistanceFilter}
+      />
 
-      <div className={`grid auto-rows-fr grid-cols-1 gap-4 ${showMap ? 'xl:grid-cols-2' : ''}`}>
-        <div className="flex max-h-[520px] flex-col gap-4 overflow-y-auto">
-          {/* Primary: Habitats within site boundary */}
-          <Card className="flex flex-col">
-            <CardHeader className="shrink-0 pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Layers className="h-5 w-5 text-emerald-600" />
-                Within Site Boundary
-                <Badge variant="secondary" className="ml-auto">
-                  {withinDisplay.length}
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="min-h-0 flex-1 overflow-y-auto p-0">
-              <HabitatTable
-                habitats={withinDisplay}
-                selectedCode={selectedCode}
-                onSelect={setSelectedCode}
-                onRemoveFinding={onRemoveFinding}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Adjacent: Habitats within 100m of boundary */}
-          {adjacent.length > 0 && (
-            <Card className="flex flex-col">
-              <CardHeader className="shrink-0 pb-3">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <MapPin className="h-5 w-5 text-amber-600" />
-                  Adjacent (within 100m)
-                  <Badge
-                    variant="outline"
-                    className="ml-auto border-amber-300 text-amber-700 dark:border-amber-600 dark:text-amber-400"
-                  >
-                    {adjacent.length}
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="min-h-0 flex-1 overflow-y-auto p-0">
-                <HabitatTable
-                  habitats={adjacent}
-                  selectedCode={selectedCode}
-                  onSelect={setSelectedCode}
-                  onRemoveFinding={onRemoveFinding}
-                />
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Beyond 100m */}
-          {beyondAdjacent.length > 0 && (
-            <Card className="flex flex-col">
-              <CardHeader className="shrink-0 pb-3">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <MapPin className="h-5 w-5 text-gray-500" />
-                  Beyond 100m
-                  <Badge variant="outline" className="ml-auto">
-                    {beyondAdjacent.length}
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="min-h-0 flex-1 overflow-y-auto p-0">
-                <HabitatTable
-                  habitats={beyondAdjacent}
-                  selectedCode={selectedCode}
-                  onSelect={setSelectedCode}
-                  onRemoveFinding={onRemoveFinding}
-                />
-              </CardContent>
-            </Card>
-          )}
-        </div>
+      <div className={`grid grid-cols-1 gap-4 ${showMap ? 'xl:grid-cols-2' : ''}`}>
+        <Card className="flex h-[520px] flex-col">
+          <CardHeader className="shrink-0 pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Layers className="h-5 w-5 text-emerald-600" />
+              Habitats
+              <Badge variant="secondary" className="ml-auto">
+                {filteredHabitats.length}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="min-h-0 flex-1 overflow-y-auto p-0">
+            <HabitatTable
+              habitats={filteredHabitats}
+              selectedCode={selectedCode}
+              onSelect={setSelectedCode}
+              onRemoveFinding={onRemoveFinding}
+              onSelectFinding={setSelectedFinding}
+            />
+          </CardContent>
+        </Card>
 
         {showMap && (
-          <Card className="flex max-h-[420px] flex-col overflow-hidden [&_.leaflet-control-attribution]:hidden">
+          <Card className="relative flex h-[520px] flex-col overflow-hidden [&_.leaflet-control-attribution]:hidden">
             <CardContent className="flex min-h-0 flex-1 p-0">
-              <div className="h-full min-h-[250px] w-full">
+              <div className="h-full w-full">
                 <BaselineMap
                   habitatPolygons={styledPolygons ?? undefined}
                   habitatSelectionKey={selectedCode || 'all'}
@@ -392,6 +443,42 @@ export function HabitatInventorySection({
                 />
               </div>
             </CardContent>
+
+            {/* Floating distance filter pills — overlay on map, mirror tablo
+                üstündeki kart filtresi state'ini. Field Research habitat
+                mapping stilindeki pill toolbar. */}
+            <div className="bg-background/90 absolute top-3 left-3 z-[400] flex flex-wrap items-center gap-1 rounded-full border p-1 shadow-md backdrop-blur">
+              {filterCards.map((c) => {
+                const isActive = distanceFilter === c.key
+                const isDisabled = c.count === 0 && c.key !== 'all'
+                const Icon = c.icon
+                return (
+                  <button
+                    key={c.key}
+                    type="button"
+                    onClick={() => {
+                      if (isDisabled) return
+                      setDistanceFilter(c.key)
+                    }}
+                    disabled={isDisabled}
+                    aria-pressed={isActive}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+                      isActive ? 'bg-foreground text-background' : 'text-foreground hover:bg-accent'
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {c.label}
+                    <Badge
+                      variant={isActive ? 'secondary' : 'outline'}
+                      className="px-1.5 py-0 text-[10px]"
+                    >
+                      {c.count}
+                    </Badge>
+                  </button>
+                )
+              })}
+            </div>
           </Card>
         )}
       </div>
@@ -403,6 +490,8 @@ export function HabitatInventorySection({
           habitat types require field verification using FOSSITT Level 3 classification.
         </p>
       </div>
+
+      <FindingDetailDialog finding={selectedFinding} onClose={() => setSelectedFinding(null)} />
     </div>
   )
 }

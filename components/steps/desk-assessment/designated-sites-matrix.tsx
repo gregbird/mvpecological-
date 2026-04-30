@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { ChevronDown, ChevronUp, MapPin, Shield, ExternalLink, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, MapPin, Shield, Sparkles, X } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,8 +14,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { getFindingSourceUrl } from '@/lib/utils/finding-source-url'
 import { toMapFindings, BaselineMap } from './baseline-map-utils'
+import { FindingDetailDialog } from './finding-detail-dialog'
 import type { DeskResearchFinding } from '@/types/database'
 import type { DeepResearchResult } from '@/lib/supabase/queries/deep-research'
 
@@ -37,7 +37,7 @@ interface SiteRow {
   distanceKm: number | null
   qualifyingInterests: string[]
   isStatutory: boolean
-  sourceUrl: string | null
+  finding: DeskResearchFinding
 }
 
 const SITE_TYPE_COLORS: Record<string, string> = {
@@ -97,7 +97,7 @@ function parseSiteRows(
         distanceKm: f.distance_from_boundary_km ?? (metadata?.distance as number) ?? null,
         qualifyingInterests: qualifyingInterests.filter(Boolean),
         isStatutory,
-        sourceUrl: getFindingSourceUrl(f),
+        finding: f,
       }
     })
     .sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999))
@@ -205,11 +205,13 @@ function SitesTable({
   title,
   icon,
   onRemoveFinding,
+  onSelectFinding,
 }: {
   sites: SiteRow[]
   title: string
   icon: React.ReactNode
   onRemoveFinding?: (findingId: string) => void
+  onSelectFinding: (finding: DeskResearchFinding) => void
 }) {
   if (sites.length === 0) return null
 
@@ -242,19 +244,14 @@ function SitesTable({
               {sites.map((site) => (
                 <TableRow key={site.id}>
                   <TableCell className="font-medium">
-                    {site.sourceUrl ? (
-                      <a
-                        href={site.sourceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-emerald-700 hover:underline"
-                      >
-                        {site.name}
-                        <ExternalLink className="h-3 w-3 shrink-0" />
-                      </a>
-                    ) : (
-                      site.name
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => onSelectFinding(site.finding)}
+                      className="inline-flex items-center gap-1 text-left text-emerald-700 hover:underline dark:text-emerald-400"
+                    >
+                      {site.name}
+                      <Sparkles className="h-3 w-3 shrink-0 text-purple-500" />
+                    </button>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">{site.code}</TableCell>
                   <TableCell>
@@ -304,6 +301,7 @@ export function DesignatedSitesMatrix({
   onRemoveFinding,
 }: DesignatedSitesMatrixProps) {
   const sites = React.useMemo(() => parseSiteRows(findings, deepResearch), [findings, deepResearch])
+  const [selectedFinding, setSelectedFinding] = React.useState<DeskResearchFinding | null>(null)
   const mapFindings = React.useMemo(() => {
     // First try normal toMapFindings (uses f.location)
     const withLocation = toMapFindings(findings, 'designated_site')
@@ -390,9 +388,12 @@ export function DesignatedSitesMatrix({
           title="Designated Sites"
           icon={<Shield className="h-5 w-5 text-emerald-600" />}
           onRemoveFinding={onRemoveFinding}
+          onSelectFinding={setSelectedFinding}
         />
         {mapCard}
       </div>
+
+      <FindingDetailDialog finding={selectedFinding} onClose={() => setSelectedFinding(null)} />
     </div>
   )
 }

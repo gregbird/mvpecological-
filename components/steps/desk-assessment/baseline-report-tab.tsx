@@ -290,29 +290,35 @@ export function BaselineReportTab({
     <div className="space-y-8 p-6">
       {/* Excluded Findings Panel */}
       {showExcluded && excludedFindings.length > 0 && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-          <h4 className="mb-3 text-sm font-semibold text-amber-800">
-            Excluded Findings — click Restore to add back
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800/60 dark:bg-amber-950/30">
+          <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-200">
+            <EyeOff className="h-4 w-4" />
+            Excluded Findings
+            <span className="text-xs font-normal text-amber-700 dark:text-amber-300/80">
+              click Restore to add back
+            </span>
           </h4>
           <div className="space-y-2">
             {excludedFindings.map((f) => (
               <div
                 key={f.id}
-                className="bg-card flex items-center justify-between rounded-md border px-3 py-2"
+                className="bg-card flex items-center gap-3 rounded-md border px-3 py-2"
               >
-                <div className="mr-3 min-w-0 flex-1">
-                  <span className="text-sm font-medium">{f.title}</span>
-                  <Badge variant="outline" className="ml-2 text-xs">
-                    {f.source.toUpperCase()}
-                  </Badge>
-                  <Badge variant="outline" className="ml-1 text-xs">
-                    {f.data_type.replace('_', ' ')}
-                  </Badge>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">{f.title}</div>
+                  <div className="mt-1 flex flex-wrap items-center gap-1">
+                    <Badge variant="outline" className="text-xs uppercase">
+                      {f.source}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      {f.data_type.replace('_', ' ')}
+                    </Badge>
+                  </div>
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="shrink-0 text-emerald-700 hover:text-emerald-800"
+                  className="shrink-0 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-950/50 dark:hover:text-emerald-300"
                   onClick={() => handleRestoreFinding(f.id)}
                 >
                   <Undo2 className="mr-1 h-4 w-4" />

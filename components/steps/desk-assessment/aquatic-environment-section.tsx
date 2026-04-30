@@ -1,7 +1,9 @@
 'use client'
 
 import * as React from 'react'
-import { Droplets, Waves, Map, GitBranch, ArrowRight, ExternalLink, X } from 'lucide-react'
+import { Droplets, Waves, Map, GitBranch, ArrowRight, Sparkles, X } from 'lucide-react'
+
+import { cn } from '@/lib/utils'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -15,8 +17,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { getWFDStatusColor, getWFDStatusDisplayName } from '@/lib/external-apis/epa'
-import { getFindingSourceUrl } from '@/lib/utils/finding-source-url'
-import { BaselineMap } from './baseline-map-utils'
+import { BaselineMap, toMapFindings } from './baseline-map-utils'
+import { FindingDetailDialog } from './finding-detail-dialog'
 import type { DeskResearchFinding } from '@/types/database'
 import type { AquaticResearchResult } from '@/lib/supabase/queries/aquatic-research'
 
@@ -38,7 +40,7 @@ interface WaterBodyRow {
   distance: number | null
   detail: string | null
   source: string
-  sourceUrl: string | null
+  finding: DeskResearchFinding
 }
 
 function parseWaterBodyRows(
@@ -91,53 +93,114 @@ function parseWaterBodyRows(
       distance: f.distance_from_boundary_km,
       detail,
       source: f.source,
-      sourceUrl: getFindingSourceUrl(f),
+      finding: f,
     }
   })
 }
 
-function SummaryCards({ waterBodies }: { waterBodies: WaterBodyRow[] }) {
+type AquaticFilter = 'all' | 'River' | 'Lake' | 'Catchment'
+
+function SummaryCards({
+  waterBodies,
+  activeFilter,
+  onFilterChange,
+}: {
+  waterBodies: WaterBodyRow[]
+  activeFilter: AquaticFilter
+  onFilterChange: (filter: AquaticFilter) => void
+}) {
+  const total = waterBodies.length
   const rivers = waterBodies.filter((w) => w.type === 'River').length
   const lakes = waterBodies.filter((w) => w.type === 'Lake').length
   const catchments = waterBodies.filter((w) => w.type === 'Catchment').length
 
-  const cards = [
+  const cards: Array<{
+    filter: AquaticFilter
+    label: string
+    count: number
+    color: string
+    activeColor: string
+    iconColor: string
+    icon: typeof Waves
+  }> = [
     {
+      filter: 'all',
+      label: 'Total',
+      count: total,
+      color:
+        'border-slate-200 bg-slate-50 text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200',
+      activeColor: 'ring-2 ring-slate-500 dark:ring-slate-400',
+      iconColor: 'text-slate-500',
+      icon: Droplets,
+    },
+    {
+      filter: 'River',
       label: 'Rivers',
       count: rivers,
-      color: 'bg-blue-50 border-blue-200 text-blue-800',
+      color:
+        'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-200',
+      activeColor: 'ring-2 ring-blue-500 dark:ring-blue-400',
       iconColor: 'text-blue-500',
       icon: Waves,
     },
     {
+      filter: 'Lake',
       label: 'Lakes',
       count: lakes,
-      color: 'bg-cyan-50 border-cyan-200 text-cyan-800',
+      color:
+        'border-cyan-200 bg-cyan-50 text-cyan-800 dark:border-cyan-700 dark:bg-cyan-950 dark:text-cyan-200',
+      activeColor: 'ring-2 ring-cyan-500 dark:ring-cyan-400',
       iconColor: 'text-cyan-500',
       icon: Droplets,
     },
     {
+      filter: 'Catchment',
       label: 'Catchments',
       count: catchments,
-      color: 'bg-teal-50 border-teal-200 text-teal-800',
+      color:
+        'border-teal-200 bg-teal-50 text-teal-800 dark:border-teal-700 dark:bg-teal-950 dark:text-teal-200',
+      activeColor: 'ring-2 ring-teal-500 dark:ring-teal-400',
       iconColor: 'text-teal-500',
       icon: Map,
     },
   ]
 
   return (
-    <div className="grid grid-cols-3 gap-3">
-      {cards.map((c) => (
-        <Card key={c.label} className={`border ${c.color}`}>
-          <CardContent className="flex items-center gap-3 p-4">
-            <c.icon className={`h-5 w-5 shrink-0 ${c.iconColor}`} />
-            <div>
-              <div className="text-2xl font-bold">{c.count}</div>
-              <div className="text-xs font-medium">{c.label}</div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {cards.map((c) => {
+        const isActive = activeFilter === c.filter
+        const isDisabled = c.count === 0 && c.filter !== 'all'
+        return (
+          <button
+            key={c.filter}
+            type="button"
+            onClick={() => {
+              if (isDisabled) return
+              onFilterChange(isActive ? 'all' : c.filter)
+            }}
+            aria-pressed={isActive}
+            disabled={isDisabled}
+            className="text-left disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Card
+              className={cn(
+                'border transition-all',
+                c.color,
+                isActive && c.activeColor,
+                !isDisabled && 'hover:brightness-110'
+              )}
+            >
+              <CardContent className="flex items-center gap-3 p-4">
+                <c.icon className={`h-5 w-5 shrink-0 ${c.iconColor}`} />
+                <div>
+                  <div className="text-2xl font-bold">{c.count}</div>
+                  <div className="text-xs font-medium">{c.label}</div>
+                </div>
+              </CardContent>
+            </Card>
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -243,8 +306,26 @@ export function AquaticEnvironmentSection({
     () => parseWaterBodyRows(findings, aquaticResearch),
     [findings, aquaticResearch]
   )
+  const [selectedFinding, setSelectedFinding] = React.useState<DeskResearchFinding | null>(null)
+  const [activeFilter, setActiveFilter] = React.useState<AquaticFilter>('all')
 
-  const aquaticFeatureCollection = React.useMemo<GeoJSON.FeatureCollection | null>(() => {
+  const filteredWaterBodies = React.useMemo(
+    () =>
+      activeFilter === 'all' ? waterBodies : waterBodies.filter((w) => w.type === activeFilter),
+    [waterBodies, activeFilter]
+  )
+
+  // Aquatic findings render through FindingMarkers (Polygon + LineString +
+  // Point support) — matches data-gathering rendering. Habitat layer was
+  // stamping "Lake"/"River" labels at polygon center which was misleading.
+  const aquaticMapFindings = React.useMemo(
+    () => [...toMapFindings(findings, 'water_quality'), ...toMapFindings(findings, 'catchment')],
+    [findings]
+  )
+
+  // Legacy: kept for reference but no longer used after switching to FindingMarkers.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _aquaticFeatureCollection = React.useMemo<GeoJSON.FeatureCollection | null>(() => {
     const aquaticFindings = findings.filter(
       (f) => (f.data_type === 'water_quality' || f.data_type === 'catchment') && f.location != null
     )
@@ -275,10 +356,13 @@ export function AquaticEnvironmentSection({
           // Catchments cover huge areas — skip the centered label so the map
           // doesn't end up with "Catchment" painted across half the country.
           // Rivers/lakes keep their label since they're small enough to read.
-          fossitt_code: waterType === 'Catchment' ? '\u2014' : waterType,
+          // Em-dash signals HabitatPolygonLayer to skip the permanent label.
+          // Aquatic features were getting "Lake"/"River" stamped at polygon
+          // center which is misleading \u2014 the table beside the map already
+          // identifies each feature.
+          fossitt_code: '\u2014',
+          waterType,
           color,
-          // Drop the catchment fill so the basemap stays legible underneath.
-          // River/lake features keep the default 0.35 from habitatStyle.
           fillOpacity: waterType === 'Catchment' ? 0.15 : 0.35,
         },
       }
@@ -305,7 +389,11 @@ export function AquaticEnvironmentSection({
 
   return (
     <div className="space-y-6">
-      <SummaryCards waterBodies={waterBodies} />
+      <SummaryCards
+        waterBodies={waterBodies}
+        activeFilter={activeFilter}
+        onFilterChange={setActiveFilter}
+      />
 
       {/* Table + Map side by side */}
       <div className="grid auto-rows-fr grid-cols-1 gap-4 xl:grid-cols-2">
@@ -314,8 +402,22 @@ export function AquaticEnvironmentSection({
             <CardTitle className="flex items-center gap-2 text-base">
               <Droplets className="h-5 w-5 text-blue-600" />
               Water Bodies
+              {activeFilter !== 'all' && (
+                <Badge variant="outline" className="ml-1 text-xs">
+                  {activeFilter}
+                  <button
+                    type="button"
+                    onClick={() => setActiveFilter('all')}
+                    className="hover:text-foreground ml-1"
+                    aria-label="Clear filter"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
               <Badge variant="secondary" className="ml-auto">
-                {waterBodies.length}
+                {filteredWaterBodies.length}
+                {activeFilter !== 'all' ? ` of ${waterBodies.length}` : ''}
               </Badge>
             </CardTitle>
           </CardHeader>
@@ -333,22 +435,17 @@ export function AquaticEnvironmentSection({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {waterBodies.map((wb) => (
+                  {filteredWaterBodies.map((wb) => (
                     <TableRow key={wb.id}>
                       <TableCell className="font-medium">
-                        {wb.sourceUrl ? (
-                          <a
-                            href={wb.sourceUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-blue-700 hover:underline"
-                          >
-                            {wb.name}
-                            <ExternalLink className="h-3 w-3 shrink-0" />
-                          </a>
-                        ) : (
-                          wb.name
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedFinding(wb.finding)}
+                          className="inline-flex items-center gap-1 text-left text-blue-700 hover:underline dark:text-blue-400"
+                        >
+                          {wb.name}
+                          <Sparkles className="h-3 w-3 shrink-0 text-purple-500" />
+                        </button>
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className={TYPE_COLORS[wb.type] || ''}>
@@ -383,12 +480,13 @@ export function AquaticEnvironmentSection({
         </Card>
 
         {/* Map beside table */}
-        {(aquaticFeatureCollection || boundary) && (
+        {(aquaticMapFindings.length > 0 || boundary) && (
           <Card className="flex max-h-[420px] flex-col overflow-hidden [&_.leaflet-control-attribution]:hidden">
             <CardContent className="flex min-h-0 flex-1 p-0">
               <div className="h-full min-h-[250px] w-full">
                 <BaselineMap
-                  habitatPolygons={aquaticFeatureCollection ?? undefined}
+                  findings={aquaticMapFindings.length > 0 ? aquaticMapFindings : undefined}
+                  visibleFindingTypes={['water_quality', 'catchment']}
                   boundary={boundary}
                   otherBoundaries={otherBoundaries}
                   allBoundaries={allBoundaries}
@@ -402,6 +500,8 @@ export function AquaticEnvironmentSection({
       </div>
 
       <ConnectivityCard aquaticResearch={aquaticResearch} />
+
+      <FindingDetailDialog finding={selectedFinding} onClose={() => setSelectedFinding(null)} />
     </div>
   )
 }

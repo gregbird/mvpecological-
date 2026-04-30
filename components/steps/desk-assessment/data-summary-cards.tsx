@@ -7,13 +7,13 @@ import {
   Droplets,
   Layers,
   ChevronDown,
-  ExternalLink,
+  Sparkles,
   AlertTriangle,
   BarChart3,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
-import { getFindingSourceUrl } from '@/lib/utils/finding-source-url'
+import { FindingDetailDialog } from './finding-detail-dialog'
 import type { DeskResearchFinding } from '@/types/database'
 
 interface FindingsByType {
@@ -80,14 +80,15 @@ const CARD_CONFIGS: CardConfig[] = [
 
 export function DataSummaryCards({ findingsByType, protectedSpeciesCount }: DataSummaryCardsProps) {
   const [expandedCard, setExpandedCard] = React.useState<string | null>(null)
+  const [selectedFinding, setSelectedFinding] = React.useState<DeskResearchFinding | null>(null)
 
   return (
-    <div className="mt-8 border-t pt-6">
+    <div>
       <h3 className="mb-4 flex items-center gap-2 font-semibold">
         <BarChart3 className="h-5 w-5" />
         Data Summary
       </h3>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {CARD_CONFIGS.map((config) => {
           const findings = findingsByType[config.findingsKey] || []
           const Icon = config.icon
@@ -120,30 +121,22 @@ export function DataSummaryCards({ findingsByType, protectedSpeciesCount }: Data
                 </button>
                 {expandedCard === config.key && findings.length > 0 && (
                   <ul className="mt-3 space-y-1 border-t pt-2">
-                    {findings.map((f) => {
-                      const url = getFindingSourceUrl(f)
-                      return (
-                        <li key={f.id} className="flex items-start gap-1.5 text-xs">
-                          <span className="text-muted-foreground mt-0.5">•</span>
-                          {url ? (
-                            <a
-                              href={url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={cn(
-                                'inline-flex items-center gap-1 hover:underline',
-                                config.linkColor
-                              )}
-                            >
-                              <span className="line-clamp-1">{f.title}</span>
-                              <ExternalLink className="h-3 w-3 shrink-0" />
-                            </a>
-                          ) : (
-                            <span className="line-clamp-1">{f.title}</span>
+                    {findings.map((f) => (
+                      <li key={f.id} className="flex items-start gap-1.5 text-xs">
+                        <span className="text-muted-foreground mt-0.5">•</span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedFinding(f)}
+                          className={cn(
+                            'inline-flex items-center gap-1 text-left hover:underline',
+                            config.linkColor
                           )}
-                        </li>
-                      )
-                    })}
+                        >
+                          <span className="line-clamp-1">{f.title}</span>
+                          <Sparkles className="h-3 w-3 shrink-0 text-purple-500" />
+                        </button>
+                      </li>
+                    ))}
                   </ul>
                 )}
               </CardContent>
@@ -168,6 +161,8 @@ export function DataSummaryCards({ findingsByType, protectedSpeciesCount }: Data
           </CardContent>
         </Card>
       )}
+
+      <FindingDetailDialog finding={selectedFinding} onClose={() => setSelectedFinding(null)} />
     </div>
   )
 }

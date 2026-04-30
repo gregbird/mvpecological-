@@ -59,11 +59,11 @@ const EXPORT_FORMATS = [
 const APPENDIX_OPTIONS = [
   { id: 'habitat_map', label: 'Habitat Map' },
   { id: 'habitat_data', label: 'Habitat Data' },
+  { id: 'designated_sites', label: 'Designated Sites' },
   { id: 'species_list', label: 'Species List' },
   { id: 'aquatic_data', label: 'Aquatic Features' },
   { id: 'photographs', label: 'Site Photographs' },
   { id: 'survey_datasheets', label: 'Survey Datasheets' },
-  { id: 'desk_study_data', label: 'Desk Study Data' },
   { id: 'legislation', label: 'Legislation References' },
 ]
 
@@ -83,7 +83,9 @@ export function FinalSubmissionStep({
   const [exportFormat, setExportFormat] = React.useState('pdf')
   const [selectedAppendices, setSelectedAppendices] = React.useState<string[]>([
     'habitat_map',
+    'designated_sites',
     'species_list',
+    'aquatic_data',
     'photographs',
   ])
   const [coverPageTitle, setCoverPageTitle] = React.useState('')

@@ -84,6 +84,7 @@ export function DocumentSection({
           editable={true}
           onContentChange={onContentChange}
           projectId={projectId}
+          sectionId={id}
         />
       ) : (
         <div className="bg-muted/30 text-muted-foreground rounded-lg p-6 text-center text-sm">

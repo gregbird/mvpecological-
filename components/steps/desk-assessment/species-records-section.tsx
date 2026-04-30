@@ -1,7 +1,9 @@
 'use client'
 
 import * as React from 'react'
-import { Bug, Shield, AlertTriangle, ExternalLink, X } from 'lucide-react'
+import { Bug, Shield, AlertTriangle, Sparkles, TrendingDown, X } from 'lucide-react'
+
+import { cn } from '@/lib/utils'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,9 +16,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { getFindingSourceUrl } from '@/lib/utils/finding-source-url'
 import { wgs84ToItm, itmToWgs84, itmToGridRef } from '@/lib/utils/grid-reference'
 import { toMapFindings, BaselineMap } from './baseline-map-utils'
+import { FindingDetailDialog } from './finding-detail-dialog'
 import type { DeskResearchFinding } from '@/types/database'
 
 interface SpeciesRecordsSectionProps {
@@ -27,6 +29,10 @@ interface SpeciesRecordsSectionProps {
   onRemoveFinding?: (findingId: string) => void
 }
 
+type SpeciesFilter = 'all' | 'protected' | 'invasive' | 'threatened'
+
+const THREATENED_STATUSES = new Set(['Critically Endangered', 'Endangered', 'Vulnerable'])
+
 interface SpeciesRow {
   id: string
   name: string
@@ -35,10 +41,11 @@ interface SpeciesRow {
   source: string
   isProtected: boolean
   isInvasive: boolean
+  isThreatened: boolean
   redListStatus: string | null
   recordCount: number
   designation: string | null
-  sourceUrl: string | null
+  finding: DeskResearchFinding
 }
 
 function parseSpeciesRows(findings: DeskResearchFinding[]): SpeciesRow[] {
@@ -48,6 +55,11 @@ function parseSpeciesRows(findings: DeskResearchFinding[]): SpeciesRow[] {
       const raw = f.raw_data as Record<string, unknown> | null
       const metadata = raw?.metadata as Record<string, unknown> | null
 
+      const redListStatus = f.red_list_status || (metadata?.redListStatus as string) || null
+      const isThreatened =
+        (metadata?.isThreatened as boolean) ||
+        (redListStatus != null && THREATENED_STATUSES.has(redListStatus))
+
       return {
         id: f.id,
         name: f.title,
@@ -56,59 +68,116 @@ function parseSpeciesRows(findings: DeskResearchFinding[]): SpeciesRow[] {
         source: f.source,
         isProtected: (metadata?.isProtected as boolean) || f.is_protected || false,
         isInvasive: (metadata?.isInvasive as boolean) || false,
-        redListStatus: f.red_list_status || (metadata?.redListStatus as string) || null,
+        isThreatened,
+        redListStatus,
         recordCount: (metadata?.recordCount as number) || 1,
         designation: (metadata?.designation as string) || null,
-        sourceUrl: getFindingSourceUrl(f),
+        finding: f,
       }
     })
 }
 
-function SummaryCards({ species }: { species: SpeciesRow[] }) {
+function SummaryCards({
+  species,
+  activeFilter,
+  onFilterChange,
+}: {
+  species: SpeciesRow[]
+  activeFilter: SpeciesFilter
+  onFilterChange: (filter: SpeciesFilter) => void
+}) {
   const totalSpecies = species.length
   const protectedSpecies = species.filter((s) => s.isProtected).length
   const invasiveSpecies = species.filter((s) => s.isInvasive).length
+  const threatenedSpecies = species.filter((s) => s.isThreatened).length
 
-  const cards = [
+  const cards: Array<{
+    filter: SpeciesFilter
+    label: string
+    count: number
+    color: string
+    activeColor: string
+    iconColor: string
+    icon: typeof Bug
+  }> = [
     {
+      filter: 'all',
       label: 'Total Species',
       count: totalSpecies,
       color:
-        'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-200',
+        'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-200',
+      activeColor: 'ring-2 ring-blue-500 dark:ring-blue-400',
       iconColor: 'text-blue-500',
       icon: Bug,
     },
     {
+      filter: 'protected',
       label: 'Protected',
       count: protectedSpecies,
       color:
-        'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950 dark:border-emerald-700 dark:text-emerald-200',
+        'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200',
+      activeColor: 'ring-2 ring-emerald-500 dark:ring-emerald-400',
       iconColor: 'text-emerald-500',
       icon: Shield,
     },
     {
+      filter: 'threatened',
+      label: 'Threatened',
+      count: threatenedSpecies,
+      color:
+        'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200',
+      activeColor: 'ring-2 ring-amber-500 dark:ring-amber-400',
+      iconColor: 'text-amber-500',
+      icon: TrendingDown,
+    },
+    {
+      filter: 'invasive',
       label: 'Invasive',
       count: invasiveSpecies,
       color:
-        'bg-red-50 border-red-200 text-red-800 dark:bg-red-950 dark:border-red-700 dark:text-red-200',
+        'border-red-200 bg-red-50 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200',
+      activeColor: 'ring-2 ring-red-500 dark:ring-red-400',
       iconColor: 'text-red-500',
       icon: AlertTriangle,
     },
   ]
 
   return (
-    <div className="grid grid-cols-3 gap-3">
-      {cards.map((c) => (
-        <Card key={c.label} className={`border ${c.color}`}>
-          <CardContent className="flex items-center gap-3 p-4">
-            <c.icon className={`h-5 w-5 shrink-0 ${c.iconColor}`} />
-            <div>
-              <div className="text-2xl font-bold">{c.count}</div>
-              <div className="text-xs font-medium">{c.label}</div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {cards.map((c) => {
+        const isActive = activeFilter === c.filter
+        const isDisabled = c.count === 0 && c.filter !== 'all'
+        return (
+          <button
+            key={c.filter}
+            type="button"
+            onClick={() => {
+              if (isDisabled) return
+              onFilterChange(isActive ? 'all' : c.filter)
+            }}
+            aria-pressed={isActive}
+            disabled={isDisabled}
+            className="text-left disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Card
+              className={cn(
+                'border transition-all',
+                c.color,
+                isActive && c.activeColor,
+                !isDisabled && 'hover:brightness-110'
+              )}
+            >
+              <CardContent className="flex items-center gap-3 p-4">
+                <c.icon className={`h-5 w-5 shrink-0 ${c.iconColor}`} />
+                <div>
+                  <div className="text-2xl font-bold">{c.count}</div>
+                  <div className="text-xs font-medium">{c.label}</div>
+                </div>
+              </CardContent>
+            </Card>
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -216,6 +285,16 @@ export function SpeciesRecordsSection({
   onRemoveFinding,
 }: SpeciesRecordsSectionProps) {
   const species = React.useMemo(() => parseSpeciesRows(findings), [findings])
+  const [selectedFinding, setSelectedFinding] = React.useState<DeskResearchFinding | null>(null)
+  const [activeFilter, setActiveFilter] = React.useState<SpeciesFilter>('all')
+
+  const filteredSpecies = React.useMemo(() => {
+    if (activeFilter === 'all') return species
+    if (activeFilter === 'protected') return species.filter((s) => s.isProtected)
+    if (activeFilter === 'invasive') return species.filter((s) => s.isInvasive)
+    if (activeFilter === 'threatened') return species.filter((s) => s.isThreatened)
+    return species
+  }, [species, activeFilter])
   const mapFindings = React.useMemo(() => toMapFindings(findings, 'species_record'), [findings])
   const gridPolygons = React.useMemo(() => buildBoundaryGridOverlay(boundary, 2), [boundary])
   const hasLocationData = mapFindings.length > 0
@@ -239,7 +318,11 @@ export function SpeciesRecordsSection({
 
   return (
     <div className="space-y-6">
-      <SummaryCards species={species} />
+      <SummaryCards
+        species={species}
+        activeFilter={activeFilter}
+        onFilterChange={setActiveFilter}
+      />
 
       {/* Table + Map side by side */}
       <div className="grid auto-rows-fr grid-cols-1 gap-4 xl:grid-cols-2">
@@ -248,8 +331,22 @@ export function SpeciesRecordsSection({
             <CardTitle className="flex items-center gap-2 text-base">
               <Bug className="h-5 w-5 text-blue-600" />
               Species Records
+              {activeFilter !== 'all' && (
+                <Badge variant="outline" className="ml-1 text-xs capitalize">
+                  {activeFilter}
+                  <button
+                    type="button"
+                    onClick={() => setActiveFilter('all')}
+                    className="hover:text-foreground ml-1"
+                    aria-label="Clear filter"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
               <Badge variant="secondary" className="ml-auto">
-                {species.length}
+                {filteredSpecies.length}
+                {activeFilter !== 'all' ? ` of ${species.length}` : ''}
               </Badge>
             </CardTitle>
           </CardHeader>
@@ -268,24 +365,19 @@ export function SpeciesRecordsSection({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {species.map((s) => (
+                  {filteredSpecies.map((s) => (
                     <TableRow key={s.id}>
                       <TableCell>
                         <div>
                           <div className="font-medium">
-                            {s.sourceUrl ? (
-                              <a
-                                href={s.sourceUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-blue-700 hover:underline"
-                              >
-                                {s.name}
-                                <ExternalLink className="h-3 w-3 shrink-0" />
-                              </a>
-                            ) : (
-                              s.name
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedFinding(s.finding)}
+                              className="inline-flex items-center gap-1 text-left text-blue-700 hover:underline dark:text-blue-400"
+                            >
+                              {s.name}
+                              <Sparkles className="h-3 w-3 shrink-0 text-purple-500" />
+                            </button>
                           </div>
                           {s.scientificName !== s.name && (
                             <div className="text-muted-foreground text-xs italic">
@@ -370,6 +462,8 @@ export function SpeciesRecordsSection({
           </Card>
         )}
       </div>
+
+      <FindingDetailDialog finding={selectedFinding} onClose={() => setSelectedFinding(null)} />
     </div>
   )
 }

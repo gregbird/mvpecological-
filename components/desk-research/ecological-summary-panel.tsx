@@ -16,6 +16,8 @@ import {
   Loader2,
   FileText,
   Trees,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -97,6 +99,7 @@ export function EcologicalSummaryPanel({
 }: EcologicalSummaryPanelProps) {
   const [isEditing, setIsEditing] = React.useState(false)
   const [editedContent, setEditedContent] = React.useState('')
+  const [isExpanded, setIsExpanded] = React.useState(false)
 
   const parsedCategories = React.useMemo(() => {
     if (!insights) return []
@@ -131,14 +134,26 @@ export function EcologicalSummaryPanel({
     )
   }
 
+  const totalBullets = parsedCategories.reduce((sum, c) => sum + c.bulletCount, 0)
+
   return (
     <div className={cn('max-w-none', isEditing && 'flex min-h-0 flex-1 flex-col')}>
       {/* Header with actions */}
       <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => !isEditing && setIsExpanded(!isExpanded)}
+          disabled={isEditing}
+          className="flex items-center gap-2 text-left disabled:cursor-default"
+        >
           <Sparkles className="h-5 w-5 text-purple-500" />
           <h3 className="m-0 text-lg font-semibold">Ecological Summary</h3>
-        </div>
+          {!isEditing && parsedCategories.length > 0 && (
+            <Badge variant="secondary" className="text-xs">
+              {parsedCategories.length} sections · {totalBullets} bullets
+            </Badge>
+          )}
+        </button>
         <div className="flex items-center gap-1">
           {isEditing ? (
             <>
@@ -175,6 +190,24 @@ export function EcologicalSummaryPanel({
                 <RefreshCw className="mr-1 h-3 w-3" />
                 Regenerate
               </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsExpanded(!isExpanded)}
+                aria-label={isExpanded ? 'Collapse summary' : 'Expand summary'}
+              >
+                {isExpanded ? (
+                  <>
+                    <ChevronUp className="mr-1 h-3 w-3" />
+                    Collapse
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="mr-1 h-3 w-3" />
+                    Expand
+                  </>
+                )}
+              </Button>
             </>
           )}
         </div>
@@ -188,7 +221,7 @@ export function EcologicalSummaryPanel({
           className="h-full min-h-[600px] w-full flex-1 resize-none font-mono text-sm"
           placeholder="Edit the AI analysis in markdown..."
         />
-      ) : parsedCategories.length > 0 ? (
+      ) : !isExpanded ? null : parsedCategories.length > 0 ? (
         <div className="space-y-6 rounded-lg border bg-gray-50 p-4 dark:bg-gray-800">
           {parsedCategories.map((category) => {
             const config = CATEGORY_CONFIG[category.title]

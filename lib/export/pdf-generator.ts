@@ -39,10 +39,10 @@ export const REPORT_TYPE_TITLES: Record<string, string> = {
 const APPENDIX_LABELS: Record<string, string> = {
   habitat_map: 'Habitat Map',
   habitat_data: 'Habitat Data',
+  designated_sites: 'Designated Sites',
   species_list: 'Species List',
   photographs: 'Site Photographs',
   survey_datasheets: 'Survey Datasheets',
-  desk_study_data: 'Desk Study Data',
   aquatic_data: 'Aquatic Features',
   legislation: 'Legislation References',
 }
@@ -879,7 +879,7 @@ export async function generatePeaPdf(options: PeaExportOptions): Promise<jsPDF> 
       y += 10
 
       // --- Designated Sites table ---
-      if (key === 'desk_study_data' && ad && ad.designatedSites.length > 0) {
+      if (key === 'designated_sites' && ad && ad.designatedSites.length > 0) {
         await yieldToBrowser()
         const dsTable: MdTable = {
           type: 'table',
@@ -934,7 +934,7 @@ export async function generatePeaPdf(options: PeaExportOptions): Promise<jsPDF> 
 
         // --- Other appendices: placeholder ---
       } else if (
-        (key !== 'desk_study_data' &&
+        (key !== 'designated_sites' &&
           key !== 'species_list' &&
           key !== 'habitat_data' &&
           key !== 'aquatic_data') ||
@@ -1126,7 +1126,7 @@ export function generatePeaHtml(options: PeaExportOptions): string {
           const label = APPENDIX_LABELS[a] || a
           const heading = `<h3>Appendix ${String.fromCharCode(65 + i)}: ${label}</h3>`
 
-          if (a === 'desk_study_data' && ad && ad.designatedSites.length > 0) {
+          if (a === 'designated_sites' && ad && ad.designatedSites.length > 0) {
             const rows = ad.designatedSites
               .map(
                 (s) =>

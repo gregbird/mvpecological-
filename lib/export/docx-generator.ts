@@ -355,11 +355,11 @@ async function blockToParagraphs(block: MdBlock): Promise<(Paragraph | Table)[]>
 const APPENDIX_LABELS: Record<string, string> = {
   habitat_map: 'Habitat Map',
   habitat_data: 'Habitat Data',
+  designated_sites: 'Designated Sites',
   species_list: 'Species List',
   aquatic_data: 'Aquatic Features',
   photographs: 'Site Photographs',
   survey_datasheets: 'Survey Datasheets',
-  desk_study_data: 'Desk Study Data',
   legislation: 'Legislation References',
 }
 
@@ -582,7 +582,7 @@ export async function generatePeaDocx(options: PeaExportOptions): Promise<Blob> 
       )
 
       // --- Designated Sites table ---
-      if (a === 'desk_study_data' && ad && ad.designatedSites.length > 0) {
+      if (a === 'designated_sites' && ad && ad.designatedSites.length > 0) {
         children.push(
           buildDocxAppendixTable(
             ['Name', 'Site Number', 'Distance', 'AI Summary'],
@@ -640,7 +640,7 @@ export async function generatePeaDocx(options: PeaExportOptions): Promise<Blob> 
 
         // --- Other appendices: placeholder ---
       } else if (
-        !['desk_study_data', 'species_list', 'habitat_data', 'aquatic_data'].includes(a) ||
+        !['designated_sites', 'species_list', 'habitat_data', 'aquatic_data'].includes(a) ||
         !ad
       ) {
         children.push(

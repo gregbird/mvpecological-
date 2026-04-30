@@ -10,6 +10,7 @@ import { Markdown } from 'tiptap-markdown'
 import { X } from 'lucide-react'
 import { EditorToolbar } from './editor-toolbar'
 import { PhotoPickerModal } from './photo-picker-modal'
+import { useEditorRegistry } from './editor-registry'
 import './tiptap-styles.css'
 
 declare module '@tiptap/core' {
@@ -23,6 +24,10 @@ interface SectionEditorProps {
   editable: boolean
   onContentChange: (content: string) => void
   projectId?: string
+  /** When provided, this editor registers itself with the AssetPanel insert
+   *  registry so "Insert as Table" buttons can target the section the user
+   *  is currently working in. */
+  sectionId?: string
 }
 
 export function SectionEditor({
@@ -30,6 +35,7 @@ export function SectionEditor({
   editable,
   onContentChange,
   projectId,
+  sectionId,
 }: SectionEditorProps) {
   const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const isExternalUpdate = React.useRef(false)
@@ -144,6 +150,20 @@ export function SectionEditor({
       }
     }
   }, [])
+
+  // Register with the AssetPanel insert registry so external "Insert Table"
+  // actions can target the editor for the section the user is focused on.
+  const registry = useEditorRegistry()
+  React.useEffect(() => {
+    if (!editor || !sectionId || !registry) return
+    registry.register(sectionId, editor)
+    const handleFocus = () => registry.setActive(sectionId)
+    editor.on('focus', handleFocus)
+    return () => {
+      editor.off('focus', handleFocus)
+      registry.unregister(sectionId)
+    }
+  }, [editor, sectionId, registry])
 
   const [selectedImgEl, setSelectedImgEl] = React.useState<HTMLImageElement | null>(null)
 

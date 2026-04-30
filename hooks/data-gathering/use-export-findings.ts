@@ -6,33 +6,7 @@ import type { TargetNoteWithCreator } from '@/lib/supabase/queries/target-notes'
 import type { ProjectSiteWithGeoJSON } from '@/lib/supabase/queries/project-sites'
 import { useProjectSites } from '@/hooks/queries/use-site-hooks'
 import { useToast } from '@/hooks/use-toast'
-
-// Helpers to extract display data. Prefer the typed columns populated by
-// Aşama 1's dual-write; fall back to raw_data for rows that pre-date the
-// migration (or for fields not yet migrated, like deepResearch).
-function getAISummary(finding: DeskResearchFinding): string | null {
-  if (finding.ai_summary) return finding.ai_summary
-  const rawData = finding.raw_data as Record<string, unknown> | null
-  if (!rawData) return null
-  // Habitat stores at top level; everything else nests under metadata.
-  if (typeof rawData.aiSummary === 'string') return rawData.aiSummary
-  const metadata = rawData.metadata as Record<string, unknown> | undefined
-  if (metadata?.aiSummary && typeof metadata.aiSummary === 'string') {
-    return metadata.aiSummary
-  }
-  return null
-}
-
-function getDeepResearch(finding: DeskResearchFinding): string | null {
-  // deepResearch.aiAnalysis is NOT migrated to a column — stays in raw_data.
-  const rawData = finding.raw_data as Record<string, unknown> | null
-  if (!rawData) return null
-  const deepResearch = rawData.deepResearch as Record<string, unknown> | undefined
-  if (deepResearch?.aiAnalysis && typeof deepResearch.aiAnalysis === 'string') {
-    return deepResearch.aiAnalysis
-  }
-  return null
-}
+import { getAISummary, getDeepResearch } from '@/lib/utils/finding-display'
 
 function getSiteType(finding: DeskResearchFinding): string | null {
   if (finding.site_type) return finding.site_type

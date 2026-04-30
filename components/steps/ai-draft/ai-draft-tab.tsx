@@ -7,6 +7,7 @@ import { DocumentShell } from './document-shell'
 import { DocumentTopBar } from './document-top-bar'
 import { AssetPanel } from './asset-panel'
 import { VersionHistoryPanel } from './version-history-panel'
+import { EditorRegistryProvider } from './editor-registry'
 import type { Project, Report } from '@/types/database'
 
 interface SectionDef {
@@ -118,24 +119,26 @@ export function AIDraftTab({
       />
 
       {/* Three-column layout */}
-      <div className="flex min-h-0 flex-1 p-4">
-        <TableOfContents
-          sectionDefs={sectionDefs}
-          sections={sections}
-          activeSectionId={activeSectionId}
-          onSectionClick={handleSectionClick}
-        />
-        <DocumentShell
-          sectionDefs={sectionDefs}
-          sections={sections}
-          generatingSection={generatingSection}
-          onGenerate={onGenerate}
-          onContentChange={onContentChange}
-          onOpinionChange={onOpinionChange}
-          projectId={project.id}
-        />
-        <AssetPanel project={project} />
-      </div>
+      <EditorRegistryProvider>
+        <div className="flex min-h-0 flex-1 p-4">
+          <TableOfContents
+            sectionDefs={sectionDefs}
+            sections={sections}
+            activeSectionId={activeSectionId}
+            onSectionClick={handleSectionClick}
+          />
+          <DocumentShell
+            sectionDefs={sectionDefs}
+            sections={sections}
+            generatingSection={generatingSection}
+            onGenerate={onGenerate}
+            onContentChange={onContentChange}
+            onOpinionChange={onOpinionChange}
+            projectId={project.id}
+          />
+          <AssetPanel project={project} />
+        </div>
+      </EditorRegistryProvider>
     </div>
   )
 }
