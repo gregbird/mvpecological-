@@ -38,6 +38,7 @@ import { useProjectSites } from '@/hooks/queries/use-site-hooks'
 import { SiteSelector } from '@/components/project/site-selector'
 import { prepareAppendixData } from '@/lib/export/appendix-data'
 import { getReportSectionsForType } from '@/lib/config/template-types'
+import { useExportWorker } from '@/hooks/use-export-worker'
 import type { ReportContent } from '@/lib/supabase/queries/reports'
 import type { Project, WorkflowStep, Json } from '@/types/database'
 
@@ -109,6 +110,7 @@ export function FinalSubmissionStep({
   const updateReport = useUpdateReport()
   const updateProject = useUpdateProject()
   const completeStep = useCompleteWorkflowStep()
+  const { runExport, cancelExport } = useExportWorker()
 
   // Initialize form with project data
   React.useEffect(() => {
@@ -141,6 +143,7 @@ export function FinalSubmissionStep({
 
   const handleCancelExport = () => {
     abortRef.current = true
+    cancelExport()
     setIsExporting(false)
     toast({ title: 'Export cancelled' })
   }
@@ -170,10 +173,9 @@ export function FinalSubmissionStep({
     await yieldToBrowser()
 
     try {
-      const { generatePeaPdf } = await import('@/lib/export/pdf-generator')
-      const doc = await generatePeaPdf(buildExportOptions())
+      const blob = await runExport('pdf', buildExportOptions())
       if (abortRef.current) return
-      const url = URL.createObjectURL(doc.output('blob'))
+      const url = URL.createObjectURL(blob)
       const win = window.open(url, '_blank')
       if (win) win.focus()
       setTimeout(() => URL.revokeObjectURL(url), 60000)
@@ -201,33 +203,12 @@ export function FinalSubmissionStep({
       const siteSuffix = activeSiteCode ? `_${activeSiteCode.replace(/\s+/g, '-')}` : ''
       const baseFilename = `${project.site_code || project.id}_${report?.report_type || 'report'}_v${report?.version || 1}${siteSuffix}`
 
-      if (exportFormat === 'pdf') {
-        const { generatePeaPdf } = await import('@/lib/export/pdf-generator')
-        const doc = await generatePeaPdf(exportOptions)
-        if (abortRef.current) return
-        const blob = doc.output('blob')
-        const link = document.createElement('a')
-        link.href = URL.createObjectURL(blob)
-        link.download = `${baseFilename}.pdf`
-        link.click()
-        URL.revokeObjectURL(link.href)
-      } else if (exportFormat === 'html') {
-        const { generatePeaHtml } = await import('@/lib/export/pdf-generator')
-        const html = generatePeaHtml(exportOptions)
-        if (abortRef.current) return
-        const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
-        const link = document.createElement('a')
-        link.href = URL.createObjectURL(blob)
-        link.download = `${baseFilename}.html`
-        link.click()
-        URL.revokeObjectURL(link.href)
-      } else if (exportFormat === 'docx') {
-        const { generatePeaDocx } = await import('@/lib/export/docx-generator')
-        const blob = await generatePeaDocx(exportOptions)
+      if (exportFormat === 'pdf' || exportFormat === 'html' || exportFormat === 'docx') {
+        const blob = await runExport(exportFormat, exportOptions)
         if (abortRef.current) return
         const link = document.createElement('a')
         link.href = URL.createObjectURL(blob)
-        link.download = `${baseFilename}.docx`
+        link.download = `${baseFilename}.${exportFormat}`
         link.click()
         URL.revokeObjectURL(link.href)
       }

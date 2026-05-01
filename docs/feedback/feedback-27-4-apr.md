@@ -14,31 +14,40 @@
 
 ## Ozet
 
-| #   | Baslik                                                                 | Oncelik          | Durum             |
-| --- | ---------------------------------------------------------------------- | ---------------- | ----------------- |
-| 1   | Step 2'de kaydedilen AI summary / deep research, Step 3 + 5'te yok     | 🔴 Kritik        | ⏸ Triage bekliyor |
-| 2   | Designated sites / NBDC species / Aquatic — table generate edilebilsin | 🟡 Feature       | ⏸ Triage bekliyor |
-| 3   | Mobile app — GPS auto-detect / prompt                                  | 🟡 Mobile        | ⏸ Triage bekliyor |
-| 4   | Mobile app — Survey GPS auto-populate + Data Analysis GIS plot         | 🟡 Mobile + Web  | ⏸ Triage bekliyor |
-| 5   | Foto cekme — proje seviyesi + survey seviyesi ayrimi                   | 🟡 Mobile + Web  | ⏸ Triage bekliyor |
-| 6   | Customizable report structure (sections + look & feel + branding)      | 🟠 Buyuk feature | ⏸ Triage bekliyor |
-| 7   | Dashboard — "not started" → "overdue" yeniden adlandirma               | 🟢 Quick win     | ⏸ Triage bekliyor |
-| 8   | Dashboard — Settings tab'i (sol alt) kaldirilsin                       | 🟢 Quick win     | ⏸ Triage bekliyor |
-| 9   | Dashboard — Sol ust search bar kaldirilsin (non-functional)            | 🟢 Quick win     | ⏸ Triage bekliyor |
-| 10  | Platform user guide hazirlanmali                                       | 🟡 Docs          | ⏸ Triage bekliyor |
-| 11  | Team member ekleme — davet maili gonderilmiyor                         | 🔴 Bug           | ⏸ Triage bekliyor |
-| 12  | 2FA tum kullanicilar icin aktif edilebilsin mi?                        | 🟡 Security      | ⏸ Triage bekliyor |
-| 13  | New Project — Client name free-form text alani                         | 🟢 Quick win     | ⏸ Triage bekliyor |
+| #   | Baslik                                                                 | Oncelik          | Durum                      |
+| --- | ---------------------------------------------------------------------- | ---------------- | -------------------------- |
+| 1   | Step 2'de kaydedilen AI summary / deep research, Step 3 + 5'te yok     | 🔴 Kritik        | ✅ Tamamlandi (2026-05-01) |
+| 2   | Designated sites / NBDC species / Aquatic — table generate edilebilsin | 🟡 Feature       | ⏸ Triage bekliyor          |
+| 3   | Mobile app — GPS auto-detect / prompt                                  | 🟡 Mobile        | ⏸ Triage bekliyor          |
+| 4   | Mobile app — Survey GPS auto-populate + Data Analysis GIS plot         | 🟡 Mobile + Web  | ⏸ Triage bekliyor          |
+| 5   | Foto cekme — proje seviyesi + survey seviyesi ayrimi                   | 🟡 Mobile + Web  | ⏸ Triage bekliyor          |
+| 6   | Customizable report structure (sections + look & feel + branding)      | 🟠 Buyuk feature | ⏸ Triage bekliyor          |
+| 7   | Dashboard — "not started" → "overdue" yeniden adlandirma               | 🟢 Quick win     | ⏸ Triage bekliyor          |
+| 8   | Dashboard — Settings tab'i (sol alt) kaldirilsin                       | 🟢 Quick win     | ⏸ Triage bekliyor          |
+| 9   | Dashboard — Sol ust search bar kaldirilsin (non-functional)            | 🟢 Quick win     | ⏸ Triage bekliyor          |
+| 10  | Platform user guide hazirlanmali                                       | 🟡 Docs          | ⏸ Triage bekliyor          |
+| 11  | Team member ekleme — davet maili gonderilmiyor                         | 🔴 Bug           | ⏸ Triage bekliyor          |
+| 12  | 2FA tum kullanicilar icin aktif edilebilsin mi?                        | 🟡 Security      | ⏸ Triage bekliyor          |
+| 13  | New Project — Client name free-form text alani                         | 🟢 Quick win     | ⏸ Triage bekliyor          |
 
 ---
 
-## 1. AI summary / Deep research erişilebilirlik 🔴
+## 1. AI summary / Deep research erişilebilirlik 🔴 ✅ Tamamlandi (2026-05-01)
 
 **Orijinal:**
 
 > "When a user saves the ai summary or deep research data during the data gathering process they should have access to this in the desk assessment and in the data analysis stage. Users should be able to access the saved AI summary or deep research data — captured during the initial data gathering phase — throughout both the desk assessment and the subsequent data analysis stages."
 
 **Turkce:** Step 2 (Data Gathering) sirasinda kaydedilen AI summary ve deep research ciktilari, Step 3 (Desk Assessment) ve Step 5 (Data Analysis) icinde de gorulebilir / kullanilabilir olmali. Su an sadece Step 2'ye scope'lu kaliyor.
+
+**Yapilanlar (2026-05-01):**
+
+- `lib/utils/finding-display.ts` — yeni helper. `getAISummary(finding)` 5 fallback kaynagi tariyor: `ai_summary` kolonu → `raw_data.aiSummary` (habitat) → `raw_data.metadata.aiSummary` (species/sites) → `raw_data.aquaticResearch.aiAnalysis` (aquatic) → `raw_data.deepResearch.aiAnalysis` (designated). `getDeepResearch()` benzer fallback'lerle.
+- `components/steps/desk-assessment/finding-detail-dialog.tsx` — yeni reusable modal. Sparkles ikonuyla AI Summary + Microscope ikonuyla Deep Research bolumleri, "Open in source" linki. Designated case'inde duplicate render'i engelliyor.
+- Step 3 entegrasyonu: `designated-sites-matrix.tsx`, `species-records-section.tsx`, `aquatic-environment-section.tsx`, `habitat-inventory-section.tsx`, `data-summary-cards.tsx` — finding adina tiklanca dialog acilir.
+- Step 5 entegrasyonu: `desk-assessment-findings-section.tsx` — finding adi → dialog + source kart filtreleri.
+- **Race condition fix** (`hooks/data-gathering/use-shell-ai.ts`): auto-trigger AI fetch sonrasi DB persist'e gitmiyordu (savedFindings closure stale). `savedFindingsRef.current` pattern ile cozuldu — artik save sonrasi AI summary DB'ye yaziliyor, Step 3 dialog'unda goruluyor.
+- **Cascade fix** (`hooks/queries/use-finding-hooks.ts` + `hooks/steps/use-deep-research.ts`): species deep research yapilirken Step 3 kendisini needs_review olarak isaretliyor + yanlis "GIS Mapping" banner cikiyordu. `useUpdateFinding`'e `skipCascade` flag, banner mesaji generic. Detay: `.claude/rules/cascade-needs-review.md`.
 
 **Triage notlari:**
 

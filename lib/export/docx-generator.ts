@@ -214,7 +214,12 @@ function runsToTextRuns(runs: RunSpec[], overrideColor?: string): TextRun[] {
   )
 }
 
-async function blockToParagraphs(block: MdBlock): Promise<(Paragraph | Table)[]> {
+type CachedImageBuffer = Awaited<ReturnType<typeof fetchImageAsBuffer>>
+
+async function blockToParagraphs(
+  block: MdBlock,
+  imageCache?: Map<string, CachedImageBuffer>
+): Promise<(Paragraph | Table)[]> {
   switch (block.type) {
     case 'heading': {
       const level =
@@ -309,7 +314,9 @@ async function blockToParagraphs(block: MdBlock): Promise<(Paragraph | Table)[]>
     }
 
     case 'image': {
-      const imgData = await fetchImageAsBuffer(block.src)
+      const imgData = imageCache?.has(block.src)
+        ? imageCache.get(block.src)
+        : await fetchImageAsBuffer(block.src)
       if (!imgData) return []
 
       const maxW = 600 // ~6 inches in points (docx uses EMU but ImageRun takes pixels)
@@ -417,7 +424,12 @@ function buildDocxAppendixTable(headers: string[], rows: string[][]): Table {
   })
 }
 
-export async function generatePeaDocx(options: PeaExportOptions): Promise<Blob> {
+export async function generatePeaDocx(
+  options: PeaExportOptions,
+  onProgress?: (step: string) => void
+): Promise<Blob> {
+  const progress = onProgress ?? (() => {})
+  progress('docx: build cover + TOC')
   const contentSections = options.sections.filter((s) => s.content)
 
   const children: (Paragraph | Table)[] = []
@@ -529,8 +541,30 @@ export async function generatePeaDocx(options: PeaExportOptions): Promise<Blob> 
 
   children.push(new Paragraph({ children: [new PageBreak()] }))
 
+  // Pre-parse blocks and prefetch all images in parallel — see pdf-generator
+  // for the rationale (sequential await per image was the 2.5 min stall).
+  const sectionBlocks = contentSections.map((s) =>
+    parseMarkdown(sectionContentToMarkdown(s.content))
+  )
+  const imageSrcs = new Set<string>()
+  for (const blocks of sectionBlocks) {
+    for (const block of blocks) {
+      if (block.type === 'image' && block.src) imageSrcs.add(block.src)
+    }
+  }
+  progress(`docx: prefetching ${imageSrcs.size} unique images`)
+  const imageCache = new Map<string, CachedImageBuffer>()
+  await Promise.all(
+    Array.from(imageSrcs).map(async (src) => {
+      imageCache.set(src, await fetchImageAsBuffer(src))
+    })
+  )
+  progress(`docx: images prefetched, rendering ${contentSections.length} sections`)
+
   // ===== REPORT SECTIONS =====
-  for (const section of contentSections) {
+  for (let sectionIdx = 0; sectionIdx < contentSections.length; sectionIdx++) {
+    const section = contentSections[sectionIdx]
+    progress(`docx: section ${sectionIdx + 1}/${contentSections.length}: ${section.title}`)
     // Section heading with underline style
     children.push(
       new Paragraph({
@@ -547,9 +581,9 @@ export async function generatePeaDocx(options: PeaExportOptions): Promise<Blob> 
       })
     )
 
-    const blocks = parseMarkdown(sectionContentToMarkdown(section.content))
+    const blocks = sectionBlocks[sectionIdx]
     for (const block of blocks) {
-      const converted = await blockToParagraphs(block)
+      const converted = await blockToParagraphs(block, imageCache)
       for (const item of converted) {
         children.push(item)
       }
@@ -655,6 +689,7 @@ export async function generatePeaDocx(options: PeaExportOptions): Promise<Blob> 
     })
   }
 
+  progress('docx: building Document tree')
   // ===== BUILD DOCUMENT =====
   const doc = new Document({
     styles: {
@@ -689,5 +724,8 @@ export async function generatePeaDocx(options: PeaExportOptions): Promise<Blob> 
     ],
   })
 
-  return await Packer.toBlob(doc)
+  progress('docx: packing to blob (Packer.toBlob)')
+  const blob = await Packer.toBlob(doc)
+  progress('docx: done')
+  return blob
 }

@@ -1,6 +1,9 @@
 /**
- * Utility functions for fetching and converting images for PDF/DOCX export.
- * Uses HTML Image + Canvas for broad browser compatibility.
+ * Image fetching utilities for PDF/DOCX export.
+ *
+ * Worker-compatible: uses `fetch + createImageBitmap + OffscreenCanvas`
+ * instead of HTMLImageElement / HTMLCanvasElement so the export pipeline
+ * can run inside a Web Worker (where DOM APIs are unavailable).
  */
 
 interface FetchedImage {
@@ -10,38 +13,23 @@ interface FetchedImage {
   format: 'JPEG' | 'PNG'
 }
 
-/** Max dimensions for exported images — 1600x1200 keeps good print quality (~200 DPI on A4 half-width) */
 const MAX_EXPORT_WIDTH = 1600
 const MAX_EXPORT_HEIGHT = 1200
 const FETCH_TIMEOUT_MS = 5000
 const JPEG_QUALITY = 0.92
 
-/**
- * Load an image URL via HTMLImageElement and draw to canvas.
- * This avoids CORS issues that fetch+createImageBitmap can cause
- * because img.crossOrigin = 'anonymous' handles it properly.
- */
-function loadImage(url: string, timeoutMs: number): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new window.Image()
-    img.crossOrigin = 'anonymous'
-
-    const timer = setTimeout(() => {
-      img.src = ''
-      reject(new Error('Image load timeout'))
-    }, timeoutMs)
-
-    img.onload = () => {
-      clearTimeout(timer)
-      resolve(img)
-    }
-    img.onerror = () => {
-      clearTimeout(timer)
-      reject(new Error('Image load failed'))
-    }
-
-    img.src = url
-  })
+/** Fetch URL with timeout and decode to ImageBitmap. Throws on failure. */
+async function loadImageBitmap(url: string, timeoutMs: number): Promise<ImageBitmap> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const response = await fetch(url, { signal: controller.signal })
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    const blob = await response.blob()
+    return await createImageBitmap(blob)
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 /** Check if a Supabase signed URL has an expired JWT token */
@@ -50,12 +38,43 @@ function isSignedUrlExpired(url: string): boolean {
     const parsed = new URL(url)
     const token = parsed.searchParams.get('token')
     if (!token) return false
-    // JWT has 3 parts; payload is the second, base64url-encoded
     const payload = JSON.parse(atob(token.split('.')[1]))
     return typeof payload.exp === 'number' && payload.exp * 1000 < Date.now()
   } catch {
     return false
   }
+}
+
+/** Convert ArrayBuffer to base64 in chunks to avoid stack overflow on large images. */
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer)
+  let binary = ''
+  const chunkSize = 0x8000
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize)))
+  }
+  return btoa(binary)
+}
+
+/** Compute scaled dimensions that fit within MAX_EXPORT_WIDTH x MAX_EXPORT_HEIGHT. */
+function scaleDimensions(origW: number, origH: number) {
+  const scale = Math.min(MAX_EXPORT_WIDTH / origW, MAX_EXPORT_HEIGHT / origH, 1)
+  return { width: Math.round(origW * scale), height: Math.round(origH * scale) }
+}
+
+/** Render bitmap to OffscreenCanvas at scaled dimensions, return canvas + final size. */
+function renderToCanvas(bitmap: ImageBitmap): {
+  canvas: OffscreenCanvas
+  width: number
+  height: number
+} | null {
+  const { width, height } = scaleDimensions(bitmap.width, bitmap.height)
+  const canvas = new OffscreenCanvas(width, height)
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+  ctx.drawImage(bitmap, 0, 0, width, height)
+  bitmap.close()
+  return { canvas, width, height }
 }
 
 /**
@@ -65,29 +84,17 @@ function isSignedUrlExpired(url: string): boolean {
 export async function fetchImageAsBase64(url: string): Promise<FetchedImage | null> {
   try {
     if (isSignedUrlExpired(url)) return null
-    const img = await loadImage(url, FETCH_TIMEOUT_MS)
+    const bitmap = await loadImageBitmap(url, FETCH_TIMEOUT_MS)
+    const rendered = renderToCanvas(bitmap)
+    if (!rendered) return null
 
-    const origW = img.naturalWidth
-    const origH = img.naturalHeight
-
-    // Calculate scaled dimensions
-    const scale = Math.min(MAX_EXPORT_WIDTH / origW, MAX_EXPORT_HEIGHT / origH, 1)
-    const width = Math.round(origW * scale)
-    const height = Math.round(origH * scale)
-
-    const canvas = document.createElement('canvas')
-    canvas.width = width
-    canvas.height = height
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return null
-
-    ctx.drawImage(img, 0, 0, width, height)
-
-    // toDataURL is synchronous but fast for small canvas sizes
-    const dataUrl = canvas.toDataURL('image/jpeg', JPEG_QUALITY)
-    const base64 = dataUrl.split(',')[1]
-
-    return { base64, width, height, format: 'JPEG' }
+    const blob = await rendered.canvas.convertToBlob({
+      type: 'image/jpeg',
+      quality: JPEG_QUALITY,
+    })
+    const buffer = await blob.arrayBuffer()
+    const base64 = arrayBufferToBase64(buffer)
+    return { base64, width: rendered.width, height: rendered.height, format: 'JPEG' }
   } catch {
     return null
   }
@@ -103,30 +110,16 @@ export async function fetchImageAsBuffer(
 ): Promise<{ buffer: ArrayBuffer; width: number; height: number } | null> {
   try {
     if (isSignedUrlExpired(url)) return null
-    const img = await loadImage(url, FETCH_TIMEOUT_MS)
+    const bitmap = await loadImageBitmap(url, FETCH_TIMEOUT_MS)
+    const rendered = renderToCanvas(bitmap)
+    if (!rendered) return null
 
-    const origW = img.naturalWidth
-    const origH = img.naturalHeight
-
-    const scale = Math.min(MAX_EXPORT_WIDTH / origW, MAX_EXPORT_HEIGHT / origH, 1)
-    const width = Math.round(origW * scale)
-    const height = Math.round(origH * scale)
-
-    const canvas = document.createElement('canvas')
-    canvas.width = width
-    canvas.height = height
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return null
-
-    ctx.drawImage(img, 0, 0, width, height)
-
-    const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob((b) => resolve(b), 'image/jpeg', JPEG_QUALITY)
+    const blob = await rendered.canvas.convertToBlob({
+      type: 'image/jpeg',
+      quality: JPEG_QUALITY,
     })
-    if (!blob) return null
-
     const buffer = await blob.arrayBuffer()
-    return { buffer, width, height }
+    return { buffer, width: rendered.width, height: rendered.height }
   } catch {
     return null
   }

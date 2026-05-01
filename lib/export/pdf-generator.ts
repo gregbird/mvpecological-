@@ -375,7 +375,12 @@ function segmentsToWords(segments: TextSegment[]): StyledWord[] {
 // PDF Generator
 // ============================================================
 
-export async function generatePeaPdf(options: PeaExportOptions): Promise<jsPDF> {
+export async function generatePeaPdf(
+  options: PeaExportOptions,
+  onProgress?: (step: string) => void
+): Promise<jsPDF> {
+  const progress = onProgress ?? (() => {})
+  progress('init jsPDF')
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
 
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -738,9 +743,46 @@ export async function generatePeaPdf(options: PeaExportOptions): Promise<jsPDF> 
   const yieldToBrowser = () => new Promise<void>((r) => setTimeout(r, 0))
 
   // ===== REPORT SECTIONS (continuous flow) =====
+  progress('cover + TOC done, starting sections')
   let y = newPage()
 
-  for (const section of contentSections) {
+  // Pre-parse blocks and prefetch all images in parallel. Without this, a
+  // serial `await fetchImageAsBase64` per image meant a report with 30
+  // photos × 5s timeout could stall the export for 2.5 minutes.
+  // Parse one-by-one with progress logging so we can pinpoint slow sections
+  // (large sections / pathological regex backtracking surface as a stall on
+  // a specific section title here).
+  const sectionBlocks: MdBlock[][] = []
+  for (let i = 0; i < contentSections.length; i++) {
+    const s = contentSections[i]
+    const contentLen = s.content?.length ?? 0
+    progress(`parse ${i + 1}/${contentSections.length} "${s.title}" (${contentLen} chars)`)
+    await yieldToBrowser()
+    const md = sectionContentToMarkdown(s.content)
+    progress(`  ${i + 1}: tiptap→md done (${md.length} chars), parsing markdown…`)
+    await yieldToBrowser()
+    sectionBlocks.push(parseMarkdown(md))
+    progress(`  ${i + 1}: parsed ${sectionBlocks[i].length} blocks`)
+  }
+  const imageSrcs = new Set<string>()
+  for (const blocks of sectionBlocks) {
+    for (const block of blocks) {
+      if (block.type === 'image' && block.src) imageSrcs.add(block.src)
+    }
+  }
+  progress(`prefetching ${imageSrcs.size} unique images`)
+  type CachedImage = Awaited<ReturnType<typeof fetchImageAsBase64>>
+  const imageCache = new Map<string, CachedImage>()
+  await Promise.all(
+    Array.from(imageSrcs).map(async (src) => {
+      imageCache.set(src, await fetchImageAsBase64(src))
+    })
+  )
+  progress(`images prefetched, rendering ${contentSections.length} sections`)
+
+  for (let sectionIdx = 0; sectionIdx < contentSections.length; sectionIdx++) {
+    const section = contentSections[sectionIdx]
+    progress(`section ${sectionIdx + 1}/${contentSections.length}: ${section.title}`)
     // Let the browser breathe between sections
     await yieldToBrowser()
     // Ensure at least 35mm space for a new section heading
@@ -766,8 +808,7 @@ export async function generatePeaPdf(options: PeaExportOptions): Promise<jsPDF> 
     doc.setTextColor(0, 0, 0)
     y += 10
 
-    // Parse and render content (Tiptap JSON → markdown if needed)
-    const blocks = parseMarkdown(sectionContentToMarkdown(section.content))
+    const blocks = sectionBlocks[sectionIdx]
 
     for (let blockIdx = 0; blockIdx < blocks.length; blockIdx++) {
       // Yield every 10 blocks to keep the UI responsive
@@ -805,12 +846,14 @@ export async function generatePeaPdf(options: PeaExportOptions): Promise<jsPDF> 
         }
 
         case 'table':
+          progress(`  inline table: ${block.headers.length} cols × ${block.rows.length} rows`)
           y = renderTable(doc, block, y, margin, contentWidth, ensureSpace, newPage)
+          progress('  inline table rendered')
           y += paraSpacing
           break
 
         case 'image': {
-          const imgData = await fetchImageAsBase64(block.src)
+          const imgData = imageCache.get(block.src) ?? null
           if (imgData) {
             // Convert pixel dimensions to mm (assume 96 DPI: 1px ≈ 0.2646mm)
             const pxToMm = 0.2646
@@ -852,12 +895,14 @@ export async function generatePeaPdf(options: PeaExportOptions): Promise<jsPDF> 
 
   // ===== APPENDICES =====
   if (options.appendices.length > 0) {
+    progress(`rendering ${options.appendices.length} appendices`)
     const letters = 'ABCDEFGHIJ'
     const ad = options.appendixData
 
     for (let i = 0; i < options.appendices.length; i++) {
       const key = options.appendices[i]
       const label = APPENDIX_LABELS[key] || key
+      progress(`appendix ${letters[i] || i + 1}: ${label}`)
 
       // Each appendix starts on a new page
       y = newPage()
