@@ -397,7 +397,7 @@ export function AquaticEnvironmentSection({
 
       {/* Table + Map side by side */}
       <div className="grid auto-rows-fr grid-cols-1 gap-4 xl:grid-cols-2">
-        <Card className="flex max-h-[420px] flex-col">
+        <Card className="flex h-[450px] flex-col">
           <CardHeader className="shrink-0 pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <Droplets className="h-5 w-5 text-blue-600" />
@@ -481,7 +481,7 @@ export function AquaticEnvironmentSection({
 
         {/* Map beside table */}
         {(aquaticMapFindings.length > 0 || boundary) && (
-          <Card className="flex max-h-[420px] flex-col overflow-hidden [&_.leaflet-control-attribution]:hidden">
+          <Card className="flex h-[450px] flex-col overflow-hidden [&_.leaflet-control-attribution]:hidden">
             <CardContent className="flex min-h-0 flex-1 p-0">
               <div className="h-full min-h-[250px] w-full">
                 <BaselineMap

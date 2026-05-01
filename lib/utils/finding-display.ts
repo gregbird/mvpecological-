@@ -9,6 +9,19 @@ export function getAISummary(finding: DeskResearchFinding): string | null {
   if (metadata?.aiSummary && typeof metadata.aiSummary === 'string') {
     return metadata.aiSummary
   }
+  // Aquatic: deep research save writes to raw_data.aquaticResearch.aiAnalysis
+  // but never to ai_summary column. Use it as the displayed summary.
+  const aquaticResearch = rawData.aquaticResearch as Record<string, unknown> | undefined
+  if (aquaticResearch?.aiAnalysis && typeof aquaticResearch.aiAnalysis === 'string') {
+    return aquaticResearch.aiAnalysis
+  }
+  // Designated sites: there is no separate "AI summary" — the multi-section
+  // AI Analysis panel in Step 2 is the deep research output. Surface it here
+  // so Step 3's dialog has something to show.
+  const deepResearch = rawData.deepResearch as Record<string, unknown> | undefined
+  if (deepResearch?.aiAnalysis && typeof deepResearch.aiAnalysis === 'string') {
+    return deepResearch.aiAnalysis
+  }
   return null
 }
 

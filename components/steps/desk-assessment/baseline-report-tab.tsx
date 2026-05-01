@@ -287,7 +287,7 @@ export function BaselineReportTab({
   }
 
   return (
-    <div className="space-y-8 p-6">
+    <div className="space-y-6 p-4">
       {/* Excluded Findings Panel */}
       {showExcluded && excludedFindings.length > 0 && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800/60 dark:bg-amber-950/30">

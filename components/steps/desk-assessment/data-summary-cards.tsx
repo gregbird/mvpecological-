@@ -1,16 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import {
-  MapPin,
-  Bug,
-  Droplets,
-  Layers,
-  ChevronDown,
-  Sparkles,
-  AlertTriangle,
-  BarChart3,
-} from 'lucide-react'
+import { MapPin, Bug, Droplets, Layers, ChevronDown, AlertTriangle, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { FindingDetailDialog } from './finding-detail-dialog'
@@ -120,20 +111,16 @@ export function DataSummaryCards({ findingsByType, protectedSpeciesCount }: Data
                   />
                 </button>
                 {expandedCard === config.key && findings.length > 0 && (
-                  <ul className="mt-3 space-y-1 border-t pt-2">
+                  <ul className="mt-3 max-h-48 space-y-1 overflow-y-auto border-t pt-2">
                     {findings.map((f) => (
                       <li key={f.id} className="flex items-start gap-1.5 text-xs">
                         <span className="text-muted-foreground mt-0.5">•</span>
                         <button
                           type="button"
                           onClick={() => setSelectedFinding(f)}
-                          className={cn(
-                            'inline-flex items-center gap-1 text-left hover:underline',
-                            config.linkColor
-                          )}
+                          className={cn('text-left hover:underline', config.linkColor)}
                         >
                           <span className="line-clamp-1">{f.title}</span>
-                          <Sparkles className="h-3 w-3 shrink-0 text-purple-500" />
                         </button>
                       </li>
                     ))}

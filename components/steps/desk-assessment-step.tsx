@@ -242,7 +242,7 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="border-border bg-card shrink-0 border-b px-6 py-4">
+      <div className="border-border bg-card shrink-0 border-b px-4 py-3">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold">Desk Assessment</h2>
@@ -297,7 +297,7 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
 
         {/* Desk Assessment Tab */}
         <TabsContent value="desk-assessment" className="mt-0 min-h-0 flex-1 overflow-y-auto">
-          <div className="p-6">
+          <div className="p-4">
             <AiSummarySection
               insights={insights}
               isGenerating={isGenerating}
@@ -332,7 +332,7 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
 
             {/* Complete Button */}
             {!isGenerating && (
-              <div className="px-6 pb-6">
+              <div className="px-2 pb-4">
                 <Button
                   onClick={handleComplete}
                   disabled={isComplete || completeStep.isPending}
@@ -363,7 +363,7 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
 
         {/* Evidence Matrix Tab */}
         <TabsContent value="evidence" className="mt-0 min-h-0 flex-1 overflow-y-auto">
-          <div className="p-6">
+          <div className="p-4">
             <EvidenceMatrixTab projectId={project.id} siteId={selectedSiteId} />
           </div>
         </TabsContent>

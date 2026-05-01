@@ -35,7 +35,10 @@ interface FindingDetailDialogProps {
 
 export function FindingDetailDialog({ finding, onClose }: FindingDetailDialogProps) {
   const aiSummary = finding ? getAISummary(finding) : null
-  const deepResearch = finding ? getDeepResearch(finding) : null
+  const rawDeepResearch = finding ? getDeepResearch(finding) : null
+  // If aiSummary already falls back to deep research (designated sites case),
+  // don't render the same content twice in a separate "Deep Research" section.
+  const deepResearch = rawDeepResearch && rawDeepResearch !== aiSummary ? rawDeepResearch : null
   const sourceUrl = finding ? getFindingSourceUrl(finding) : null
 
   return (

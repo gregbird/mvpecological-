@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Info, Layers, MapPin, Sparkles, TreePine, X } from 'lucide-react'
+import { Droplets, Info, Layers, MapPin, Sparkles, TreePine, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
@@ -17,7 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { getHeritageColor } from '@/lib/config/map-constants'
-import { BaselineMap } from './baseline-map-utils'
+import { BaselineMap, toMapFindings } from './baseline-map-utils'
 import { FindingDetailDialog } from './finding-detail-dialog'
 import type { DeskResearchFinding } from '@/types/database'
 
@@ -223,6 +223,29 @@ export function HabitatInventorySection({
   const [selectedCode, setSelectedCode] = React.useState<string | null>(null)
   const [selectedFinding, setSelectedFinding] = React.useState<DeskResearchFinding | null>(null)
   const [distanceFilter, setDistanceFilter] = React.useState<'all' | 'within' | 'adjacent'>('all')
+  const [layerToggles, setLayerToggles] = React.useState({
+    sites: true,
+    aquatic: true,
+    habitats: true,
+  })
+
+  // Multi-source map findings (designated sites + aquatic) so the habitat
+  // map can overlay them with the layer toggle pills.
+  const overlayMapFindings = React.useMemo(
+    () => [
+      ...toMapFindings(findings, 'designated_site'),
+      ...toMapFindings(findings, 'water_quality'),
+      ...toMapFindings(findings, 'catchment'),
+    ],
+    [findings]
+  )
+
+  const visibleFindingTypes = React.useMemo(() => {
+    const types: string[] = []
+    if (layerToggles.sites) types.push('designated_site')
+    if (layerToggles.aquatic) types.push('water_quality', 'catchment')
+    return types
+  }, [layerToggles])
 
   const habitatFindings = React.useMemo(
     () => findings.filter((f) => f.data_type === 'habitat'),
@@ -405,8 +428,8 @@ export function HabitatInventorySection({
         onFilterChange={setDistanceFilter}
       />
 
-      <div className={`grid grid-cols-1 gap-4 ${showMap ? 'xl:grid-cols-2' : ''}`}>
-        <Card className="flex h-[520px] flex-col">
+      <div className={`grid auto-rows-fr grid-cols-1 gap-4 ${showMap ? 'xl:grid-cols-2' : ''}`}>
+        <Card className="flex h-[450px] flex-col">
           <CardHeader className="shrink-0 pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <Layers className="h-5 w-5 text-emerald-600" />
@@ -428,53 +451,69 @@ export function HabitatInventorySection({
         </Card>
 
         {showMap && (
-          <Card className="relative flex h-[520px] flex-col overflow-hidden [&_.leaflet-control-attribution]:hidden">
+          <Card className="relative flex h-[450px] flex-col overflow-hidden [&_.leaflet-control-attribution]:hidden">
             <CardContent className="flex min-h-0 flex-1 p-0">
               <div className="h-full w-full">
                 <BaselineMap
-                  habitatPolygons={styledPolygons ?? undefined}
+                  habitatPolygons={
+                    layerToggles.habitats ? (styledPolygons ?? undefined) : undefined
+                  }
                   habitatSelectionKey={selectedCode || 'all'}
+                  findings={overlayMapFindings.length > 0 ? overlayMapFindings : undefined}
+                  visibleFindingTypes={visibleFindingTypes}
                   boundary={boundary}
                   otherBoundaries={otherBoundaries}
                   allBoundaries={allBoundaries}
                   bufferDistances={[2, 5]}
                   showControls={false}
-                  npwsVisibleLayers={npwsVisibleLayers}
+                  npwsVisibleLayers={layerToggles.sites ? npwsVisibleLayers : []}
                 />
               </div>
             </CardContent>
 
-            {/* Floating distance filter pills — overlay on map, mirror tablo
-                üstündeki kart filtresi state'ini. Field Research habitat
-                mapping stilindeki pill toolbar. */}
-            <div className="bg-background/90 absolute top-3 left-3 z-[400] flex flex-wrap items-center gap-1 rounded-full border p-1 shadow-md backdrop-blur">
-              {filterCards.map((c) => {
-                const isActive = distanceFilter === c.key
-                const isDisabled = c.count === 0 && c.key !== 'all'
-                const Icon = c.icon
+            {/* Layer toggle pills — same pattern as Target Notes / Habitat
+                Mapping in Field Research. Click to show/hide each data layer
+                on the map. */}
+            <div className="absolute top-3 left-1/2 z-[400] flex -translate-x-1/2 items-center gap-2">
+              {(
+                [
+                  {
+                    key: 'sites',
+                    label: 'Sites',
+                    icon: MapPin,
+                    activeColor: 'bg-emerald-500 text-white hover:bg-emerald-600',
+                  },
+                  {
+                    key: 'aquatic',
+                    label: 'Aquatic',
+                    icon: Droplets,
+                    activeColor: 'bg-sky-500 text-white hover:bg-sky-600',
+                  },
+                  {
+                    key: 'habitats',
+                    label: 'Habitats',
+                    icon: Layers,
+                    activeColor: 'bg-green-500 text-white hover:bg-green-600',
+                  },
+                ] as const
+              ).map((l) => {
+                const isActive = layerToggles[l.key]
+                const Icon = l.icon
                 return (
                   <button
-                    key={c.key}
+                    key={l.key}
                     type="button"
-                    onClick={() => {
-                      if (isDisabled) return
-                      setDistanceFilter(c.key)
-                    }}
-                    disabled={isDisabled}
+                    onClick={() => setLayerToggles((prev) => ({ ...prev, [l.key]: !prev[l.key] }))}
                     aria-pressed={isActive}
                     className={cn(
-                      'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-                      isActive ? 'bg-foreground text-background' : 'text-foreground hover:bg-accent'
+                      'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold shadow-md transition-all',
+                      isActive
+                        ? l.activeColor
+                        : 'bg-background/90 text-muted-foreground hover:bg-background backdrop-blur'
                     )}
                   >
-                    <Icon className="h-3.5 w-3.5" />
-                    {c.label}
-                    <Badge
-                      variant={isActive ? 'secondary' : 'outline'}
-                      className="px-1.5 py-0 text-[10px]"
-                    >
-                      {c.count}
-                    </Badge>
+                    <Icon className="h-4 w-4" />
+                    {l.label}
                   </button>
                 )
               })}

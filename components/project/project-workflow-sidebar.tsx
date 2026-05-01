@@ -397,7 +397,7 @@ export function ProjectWorkflowSidebar() {
           isSidebarCollapsed ? 'w-15' : 'w-75'
         )}
       >
-        <div className="border-border/50 flex h-14 items-center border-b px-4">
+        <div className="border-border/50 flex h-12 items-center border-b px-3">
           <div className="bg-muted h-4 w-32 animate-pulse rounded" />
         </div>
         <div className="flex-1 p-4">
@@ -419,11 +419,11 @@ export function ProjectWorkflowSidebar() {
       <TooltipProvider delayDuration={0}>
         <aside className="border-border bg-card flex h-full w-15 flex-col border-r transition-all duration-300">
           {/* Toggle Button */}
-          <div className="border-border flex h-14 items-center justify-center border-b">
+          <div className="border-border flex h-12 items-center justify-center border-b">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={toggleSidebar} className="h-9 w-9">
-                  <PanelLeft className="h-4 w-4" />
+                <Button variant="ghost" size="icon" onClick={toggleSidebar} className="h-7 w-7">
+                  <PanelLeft className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="right">Expand sidebar</TooltipContent>
@@ -541,16 +541,16 @@ export function ProjectWorkflowSidebar() {
   return (
     <aside className="border-border bg-card flex h-full w-70 flex-col border-r transition-all duration-300">
       {/* Back Link + Toggle */}
-      <div className="border-border flex h-14 items-center justify-between border-b px-4">
+      <div className="border-border flex h-12 items-center justify-between border-b px-3">
         <Link
           href="/projects"
-          className="text-muted-foreground hover:text-foreground flex items-center gap-2 text-sm transition-colors"
+          className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 text-xs transition-colors"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-3.5 w-3.5" />
           <span>Back to Projects</span>
         </Link>
-        <Button variant="ghost" size="icon" onClick={toggleSidebar} className="h-8 w-8">
-          <PanelLeftClose className="h-4 w-4" />
+        <Button variant="ghost" size="icon" onClick={toggleSidebar} className="h-7 w-7">
+          <PanelLeftClose className="h-3.5 w-3.5" />
         </Button>
       </div>
 

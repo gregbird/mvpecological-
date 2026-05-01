@@ -216,7 +216,7 @@ function SitesTable({
   if (sites.length === 0) return null
 
   return (
-    <Card className="flex max-h-[420px] flex-col">
+    <Card className="flex h-[450px] flex-col">
       <CardHeader className="shrink-0 pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           {icon}
@@ -355,7 +355,7 @@ export function DesignatedSitesMatrix({
 
   const showMap = hasLocationData || !!boundary
   const mapCard = showMap ? (
-    <Card className="flex max-h-[420px] flex-col overflow-hidden [&_.leaflet-control-attribution]:hidden">
+    <Card className="flex h-[450px] flex-col overflow-hidden [&_.leaflet-control-attribution]:hidden">
       <CardContent className="flex min-h-0 flex-1 p-0">
         <div className="h-full min-h-[250px] w-full">
           <BaselineMap
