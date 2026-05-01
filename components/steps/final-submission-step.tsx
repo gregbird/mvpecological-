@@ -395,6 +395,7 @@ export function FinalSubmissionStep({
           projectId: project.id,
           tabContext: 'field-survey',
           siteId: selectedSiteId,
+          tier: 'final',
         }),
       })
 

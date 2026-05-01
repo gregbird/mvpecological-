@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
-import { CHEAP_MODEL } from '@/lib/ai/openai-models'
+import { CLAUDE_CHEAP_MODEL } from '@/lib/ai/anthropic-models'
+import { callClaude } from '@/lib/ai/call-claude'
 import { toIrishEnglish } from '@/lib/ai/irish-english'
 
 /**
  * AI Site Summary API
- * Fetches an NPWS designated site page and uses OpenAI to generate
+ * Fetches an NPWS designated site page and uses Claude to generate
  * a 2-3 line summary of key habitats and species.
  */
 export async function POST(request: NextRequest) {
@@ -17,11 +18,6 @@ export async function POST(request: NextRequest) {
 
     if (!siteUrl || !siteName) {
       return NextResponse.json({ error: 'siteUrl and siteName are required' }, { status: 400 })
-    }
-
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) {
-      return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 })
     }
 
     // Fetch the NPWS site page
@@ -80,38 +76,15 @@ Respond with ONLY the 2-3 sentence summary, no headings or bullet points.`
 
 Respond with ONLY the 2-3 sentence summary, no headings or bullet points.`
 
-    // Call OpenAI
-    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: CHEAP_MODEL,
-        reasoning_effort: 'minimal',
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are an expert Irish ecological consultant with deep knowledge of NPWS designated sites, EU Habitats Directive, and EU Birds Directive. Provide concise, factual summaries. Use Irish English spelling (colour, behaviour, analyse, organisation, metre, favour).',
-          },
-          { role: 'user', content: prompt },
-        ],
-        max_completion_tokens: 2000,
-      }),
+    const raw = await callClaude({
+      model: CLAUDE_CHEAP_MODEL,
+      system:
+        'You are an expert Irish ecological consultant with deep knowledge of NPWS designated sites, EU Habitats Directive, and EU Birds Directive. Provide concise, factual summaries. Use Irish English spelling (colour, behaviour, analyse, organisation, metre, favour).',
+      messages: [{ role: 'user', content: prompt }],
+      maxTokens: 2000,
     })
 
-    if (!aiResponse.ok) {
-      const error = await aiResponse.json()
-      return NextResponse.json(
-        { error: error.error?.message || 'OpenAI API error' },
-        { status: 500 }
-      )
-    }
-
-    const data = await aiResponse.json()
-    const summary = toIrishEnglish(data.choices[0]?.message?.content?.trim() || '')
+    const summary = toIrishEnglish(raw.trim())
 
     return NextResponse.json({
       summary,

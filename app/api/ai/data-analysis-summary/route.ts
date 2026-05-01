@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
-import { CHEAP_MODEL } from '@/lib/ai/openai-models'
+import { CLAUDE_CHEAP_MODEL, CLAUDE_SYNTHESIS_MODEL } from '@/lib/ai/anthropic-models'
+import { callClaude } from '@/lib/ai/call-claude'
 import { toIrishEnglish } from '@/lib/ai/irish-english'
 import { createClient } from '@/lib/supabase/server'
 
@@ -20,19 +21,20 @@ export async function POST(request: NextRequest) {
     const { user: _authUser, error: authError } = await requireAuth()
     if (authError) return authError
 
-    const { projectId, tabContext, siteId } = (await request.json()) as {
+    const {
+      projectId,
+      tabContext,
+      siteId,
+      tier = 'cheap',
+    } = (await request.json()) as {
       projectId: string
       tabContext: TabContext
       siteId?: string | null
+      tier?: 'cheap' | 'final'
     }
 
     if (!projectId || !tabContext) {
       return NextResponse.json({ error: 'projectId and tabContext are required' }, { status: 400 })
-    }
-
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) {
-      return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 })
     }
 
     const supabase = await createClient()
@@ -50,18 +52,11 @@ export async function POST(request: NextRequest) {
 
     const context = await buildTabContext(supabase, projectId, tabContext, siteId ?? null)
 
-    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: CHEAP_MODEL,
-        messages: [
-          {
-            role: 'system',
-            content: `You are a senior Irish ecological consultant writing a concise data summary for a Preliminary Ecological Appraisal (PEA) report.
+    const model = tier === 'final' ? CLAUDE_SYNTHESIS_MODEL : CLAUDE_CHEAP_MODEL
+
+    const raw = await callClaude({
+      model,
+      system: `You are a senior Irish ecological consultant writing a concise data summary for a Preliminary Ecological Appraisal (PEA) report.
 
 Rules:
 - Write in Irish English (colour, favour, analyse, etc.)
@@ -70,32 +65,19 @@ Rules:
 - Use markdown formatting: headers, bullet points, tables where appropriate
 - Keep the summary concise (300-500 words)
 - Reference specific sites, species, habitats, and distances`,
-          },
-          {
-            role: 'user',
-            content: `Write a concise summary for the "${tabContext}" section of the Data Analysis for project "${project?.name || 'Unknown'}" in ${project?.county || 'Ireland'}.
+      messages: [
+        {
+          role: 'user',
+          content: `Write a concise summary for the "${tabContext}" section of the Data Analysis for project "${project?.name || 'Unknown'}" in ${project?.county || 'Ireland'}.
 
 ${context}
 
 Summarise the key findings, highlight notable items (protected species, sensitive habitats, constraints), and note any data gaps.`,
-          },
-        ],
-        reasoning_effort: 'low',
-        max_completion_tokens: 6000,
-      }),
+        },
+      ],
+      maxTokens: 6000,
     })
-
-    if (!aiResponse.ok) {
-      const error = await aiResponse.json()
-      console.error('OpenAI error:', error)
-      return NextResponse.json(
-        { error: error.error?.message || 'OpenAI API error' },
-        { status: 500 }
-      )
-    }
-
-    const data = await aiResponse.json()
-    const summary = toIrishEnglish(data.choices[0]?.message?.content?.trim() || '')
+    const summary = toIrishEnglish(raw.trim())
 
     return NextResponse.json({ summary })
   } catch (error) {
@@ -104,7 +86,6 @@ Summarise the key findings, highlight notable items (protected species, sensitiv
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function buildTabContext(
   supabase: Awaited<ReturnType<typeof createClient>>,
   projectId: string,

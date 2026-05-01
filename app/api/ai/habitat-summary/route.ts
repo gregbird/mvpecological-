@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
-import { CHEAP_MODEL } from '@/lib/ai/openai-models'
+import { CLAUDE_CHEAP_MODEL } from '@/lib/ai/anthropic-models'
+import { callClaude } from '@/lib/ai/call-claude'
 import { toIrishEnglish } from '@/lib/ai/irish-english'
 
 /**
@@ -19,47 +20,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'fossittCode is required' }, { status: 400 })
     }
 
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) {
-      return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 })
-    }
-
     const prompt = `Summarise the ecological significance of Fossitt habitat "${fossittCode} — ${fossittName}" (NLC: ${nlcLabel}) for a project-level ecological assessment in Ireland in 2-3 sentences.
 It covers ${areaHectares?.toLocaleString() || 'unknown'} ha (${percentCover || '?'}%) within ${bufferKm || 5}km of the project site.
 Focus on: conservation importance, any EU Habitats Directive Annex I relevance, key species associations, and whether this habitat requires field verification.
 Be specific and practical. Respond with ONLY the summary.`
 
-    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: CHEAP_MODEL,
-        reasoning_effort: 'minimal',
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are an Irish ecological consultant. Summarise habitat types for their ecological relevance using Fossitt classification. Reference EU Habitats Directive and Irish legislation where relevant. Use Irish English spelling (colour, behaviour, analyse, organisation, metre, favour).',
-          },
-          { role: 'user', content: prompt },
-        ],
-        max_completion_tokens: 2000,
-      }),
+    const raw = await callClaude({
+      model: CLAUDE_CHEAP_MODEL,
+      system:
+        'You are an Irish ecological consultant. Summarise habitat types for their ecological relevance using Fossitt classification. Reference EU Habitats Directive and Irish legislation where relevant. Use Irish English spelling (colour, behaviour, analyse, organisation, metre, favour).',
+      messages: [{ role: 'user', content: prompt }],
+      maxTokens: 2000,
     })
 
-    if (!aiResponse.ok) {
-      const error = await aiResponse.json()
-      return NextResponse.json(
-        { error: error.error?.message || 'OpenAI API error' },
-        { status: 500 }
-      )
-    }
-
-    const data = await aiResponse.json()
-    const summary = toIrishEnglish(data.choices[0]?.message?.content?.trim() || '')
+    const summary = toIrishEnglish(raw.trim())
 
     return NextResponse.json({ summary })
   } catch (error) {

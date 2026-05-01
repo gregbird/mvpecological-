@@ -13,16 +13,10 @@
  * clean content. Uses a cheap LLM for cost (~$0.0005 per document).
  */
 
-import { CHEAP_MODEL } from '@/lib/ai/openai-models'
+import { CLAUDE_CHEAP_MODEL } from '@/lib/ai/anthropic-models'
+import { callClaude } from '@/lib/ai/call-claude'
 
-const SUMMARY_MODEL = CHEAP_MODEL
 const MAX_INPUT_CHARS = 12000
-
-function getOpenAIKey(): string {
-  const key = process.env.OPENAI_API_KEY
-  if (!key) throw new Error('Missing OPENAI_API_KEY environment variable')
-  return key
-}
 
 const SYSTEM_PROMPT = `You write concise contextual summaries of Irish ecological consulting reports.
 The summary is used as retrieval context prepended to individual chunks, so it
@@ -62,34 +56,17 @@ export async function generateDocumentSummary(params: {
     return `${params.fileName} — no extractable text to summarise.`
   }
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${getOpenAIKey()}`,
-    },
-    body: JSON.stringify({
-      model: SUMMARY_MODEL,
-      reasoning_effort: 'minimal',
-      max_completion_tokens: 250,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        {
-          role: 'user',
-          content: `Filename: ${params.fileName}\n\nSample text:\n\n${sample}`,
-        },
-      ],
-    }),
+  const summary = await callClaude({
+    model: CLAUDE_CHEAP_MODEL,
+    system: SYSTEM_PROMPT,
+    messages: [
+      {
+        role: 'user',
+        content: `Filename: ${params.fileName}\n\nSample text:\n\n${sample}`,
+      },
+    ],
+    maxTokens: 500,
   })
 
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Document summary failed (${response.status}): ${errorText}`)
-  }
-
-  const data = (await response.json()) as {
-    choices: Array<{ message: { content: string } }>
-  }
-
-  return (data.choices[0]?.message?.content ?? '').trim()
+  return summary.trim()
 }

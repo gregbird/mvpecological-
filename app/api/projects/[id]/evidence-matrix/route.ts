@@ -3,10 +3,11 @@ import { requireAuth } from '@/lib/supabase/auth-guard'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { toIrishEnglish } from '@/lib/ai/irish-english'
-import { SYNTHESIS_MODEL } from '@/lib/ai/openai-models'
+import { CLAUDE_CHEAP_MODEL } from '@/lib/ai/anthropic-models'
+import { callClaude } from '@/lib/ai/call-claude'
 
-// Narrative generation with gpt-5 can easily run 30-60 seconds even at low
-// reasoning effort — bump past the default serverless timeout.
+// Claude narrative generation can run long on big matrices —
+// bump past the default serverless timeout.
 export const maxDuration = 120
 import {
   canonicalKeyForFinding,
@@ -278,9 +279,6 @@ async function generateEvidenceNarrative(input: {
   entities: EvidenceEntity[]
   metadata: EvidenceMatrixResponse['metadata']
 }): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) throw new Error('Missing OPENAI_API_KEY')
-
   // Give the model the top overlaps and a sample of gaps — enough to reason
   // across sources without blowing the context window on low-signal entries.
   const topOverlaps = input.entities.filter((e) => e.overlapCount > 1).slice(0, 15)
@@ -338,34 +336,11 @@ Rules:
 - Irish/British English spelling.
 - No bullet lists — prose only. No headings beyond what the four sections naturally suggest.`
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: SYNTHESIS_MODEL,
-      // The synthesis is bounded in size (top ~35 entities) and mostly
-      // structured rewriting — medium reasoning is overkill and blows the
-      // request past the timeout. `low` keeps quality solid while halving wait.
-      reasoning_effort: 'low',
-      max_completion_tokens: 1500,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: contextParts.join('\n') },
-      ],
-    }),
+  const raw = await callClaude({
+    model: CLAUDE_CHEAP_MODEL,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: contextParts.join('\n') }],
+    maxTokens: 1500,
   })
-
-  if (!response.ok) {
-    const errText = await response.text()
-    throw new Error(`OpenAI narrative failed (${response.status}): ${errText}`)
-  }
-
-  const data = (await response.json()) as {
-    choices: Array<{ message: { content: string | null } }>
-  }
-  const raw = data.choices[0]?.message?.content ?? ''
   return toIrishEnglish(raw.trim())
 }

@@ -28,17 +28,11 @@ export interface ChunkEntities {
   entities: ExtractedEntity[]
 }
 
-import { CHEAP_MODEL } from '@/lib/ai/openai-models'
+import { CLAUDE_CHEAP_MODEL } from '@/lib/ai/anthropic-models'
+import { callClaude } from '@/lib/ai/call-claude'
 
-const EXTRACTION_MODEL = CHEAP_MODEL
 const MAX_CHUNKS_PER_CALL = 5
 const MAX_CONTENT_CHARS = 2000
-
-function getOpenAIKey(): string {
-  const key = process.env.OPENAI_API_KEY
-  if (!key) throw new Error('Missing OPENAI_API_KEY environment variable')
-  return key
-}
 
 const SYSTEM_PROMPT = `You are an ecological-text entity extractor for Irish consulting reports.
 
@@ -107,33 +101,12 @@ ${body}`
 async function extractBatch(
   chunks: Array<{ index: number; content: string }>
 ): Promise<ChunkEntities[]> {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${getOpenAIKey()}`,
-    },
-    body: JSON.stringify({
-      model: EXTRACTION_MODEL,
-      reasoning_effort: 'minimal',
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: buildUserPrompt(chunks) },
-      ],
-    }),
+  const content = await callClaude({
+    model: CLAUDE_CHEAP_MODEL,
+    system: SYSTEM_PROMPT,
+    messages: [{ role: 'user', content: buildUserPrompt(chunks) }],
+    maxTokens: 4000,
   })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Entity extraction failed (${response.status}): ${errorText}`)
-  }
-
-  const data = (await response.json()) as {
-    choices: Array<{ message: { content: string } }>
-  }
-
-  const content = data.choices[0]?.message?.content ?? '{"chunks":[]}'
   let parsed: ExtractionResponse
   try {
     parsed = JSON.parse(content) as ExtractionResponse

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
 import { toIrishEnglish } from '@/lib/ai/irish-english'
 import { createClient } from '@/lib/supabase/server'
-import { SYNTHESIS_MODEL } from '@/lib/ai/openai-models'
+import { CLAUDE_SYNTHESIS_MODEL } from '@/lib/ai/anthropic-models'
+import { callClaude } from '@/lib/ai/call-claude'
 
 /**
  * AI Desk Insights API
@@ -78,11 +79,6 @@ export async function POST(request: NextRequest) {
 
     if (!projectId) {
       return NextResponse.json({ error: 'projectId is required' }, { status: 400 })
-    }
-
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) {
-      return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 })
     }
 
     const supabase = await createClient()
@@ -198,18 +194,9 @@ export async function POST(request: NextRequest) {
         }) of a multi-site project. All data provided has already been filtered to this site. Restrict your analysis to this site only — do not reference other sites in the project.`
       : ''
 
-    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: SYNTHESIS_MODEL,
-        messages: [
-          {
-            role: 'system',
-            content: `You are a senior Irish ecological consultant writing a desk study assessment for a Preliminary Ecological Appraisal (PEA) under CIEEM guidelines.
+    const raw = await callClaude({
+      model: CLAUDE_SYNTHESIS_MODEL,
+      system: `You are a senior Irish ecological consultant writing a desk study assessment for a Preliminary Ecological Appraisal (PEA) under CIEEM guidelines.
 
 Expertise: Irish designated sites (SAC, SPA, NHA, pNHA), EU Habitats & Birds Directives, Water Framework Directive, Wildlife Acts 1976-2021, AA Screening, FOSSITT habitat classification, Irish Red Lists.
 
@@ -221,25 +208,10 @@ Rules:
 - Reference site codes, distances, and conservation status throughout
 - Use markdown formatting with headers, tables, and bullet points
 - Use Irish English spelling (colour, behaviour, analyse, organisation, metre, favour)${siteScopeNote}`,
-          },
-          { role: 'user', content: prompt },
-        ],
-        reasoning_effort: 'medium',
-        max_completion_tokens: 12000,
-      }),
+      messages: [{ role: 'user', content: prompt }],
+      maxTokens: 12000,
     })
-
-    if (!aiResponse.ok) {
-      const error = await aiResponse.json()
-      console.error('OpenAI error:', error)
-      return NextResponse.json(
-        { error: error.error?.message || 'OpenAI API error' },
-        { status: 500 }
-      )
-    }
-
-    const data = await aiResponse.json()
-    const insights = toIrishEnglish(data.choices[0]?.message?.content?.trim() || '')
+    const insights = toIrishEnglish(raw.trim())
 
     return NextResponse.json({
       insights,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
-import { CHEAP_MODEL } from '@/lib/ai/openai-models'
+import { CLAUDE_CHEAP_MODEL } from '@/lib/ai/anthropic-models'
+import { callClaude } from '@/lib/ai/call-claude'
 import { toIrishEnglish } from '@/lib/ai/irish-english'
 import { extractText } from 'unpdf'
 import { getNPWSSiteData, type NPWSSiteData } from '@/lib/data/npws-site-lookup'
@@ -29,11 +30,6 @@ export async function POST(request: NextRequest) {
 
     if (!siteCode || !siteName) {
       return NextResponse.json({ error: 'siteCode and siteName are required' }, { status: 400 })
-    }
-
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) {
-      return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 })
     }
 
     // 1. Get site data from Excel-derived JSON (SAC/SPA only)
@@ -87,59 +83,16 @@ export async function POST(request: NextRequest) {
       nbdcContext: buildNBDCContext(nbdcResults),
     })
 
-    // 8. Call OpenAI
-    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: CHEAP_MODEL,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are an expert Irish ecological consultant with deep knowledge of NPWS designated sites, EU Habitats Directive, EU Birds Directive, and Site-Specific Conservation Objectives (SSCO). Provide detailed, factual analyses suitable for Appropriate Assessment screening and Ecological Impact Assessment reports. Use Irish English spelling (colour, behaviour, analyse, organisation, metre, favour).',
-          },
-          { role: 'user', content: prompt },
-        ],
-        // GPT-5 reasoning models consume tokens for internal "thinking" before
-        // producing output. `reasoning_effort: 'low'` keeps the analysis fast
-        // (no multi-step reasoning needed for this informational summary),
-        // while max_completion_tokens leaves headroom for both reasoning and
-        // a substantial conservation analysis.
-        reasoning_effort: 'low',
-        max_completion_tokens: 6000,
-      }),
-    })
-
-    if (!aiResponse.ok) {
-      const error = await aiResponse.json()
-      console.error('[deep-research] OpenAI error:', error)
-      return NextResponse.json(
-        { error: error.error?.message || 'OpenAI API error' },
-        { status: 500 }
-      )
-    }
-
-    const data = await aiResponse.json()
-    const rawContent = data.choices[0]?.message?.content?.trim() || ''
-    const finishReason = data.choices[0]?.finish_reason
-    if (!rawContent) {
-      console.error(
-        '[deep-research] Empty AI response. finish_reason:',
-        finishReason,
-        'usage:',
-        data.usage
-      )
-      return NextResponse.json(
-        {
-          error: `AI returned empty content (finish_reason: ${finishReason}). Likely token limit hit during reasoning. Try increasing max_completion_tokens.`,
-        },
-        { status: 500 }
-      )
-    }
+    // 8. Call Claude
+    const rawContent = (
+      await callClaude({
+        model: CLAUDE_CHEAP_MODEL,
+        system:
+          'You are an expert Irish ecological consultant with deep knowledge of NPWS designated sites, EU Habitats Directive, EU Birds Directive, and Site-Specific Conservation Objectives (SSCO). Provide detailed, factual analyses suitable for Appropriate Assessment screening and Ecological Impact Assessment reports. Use Irish English spelling (colour, behaviour, analyse, organisation, metre, favour).',
+        messages: [{ role: 'user', content: prompt }],
+        maxTokens: 6000,
+      })
+    ).trim()
     const summary = toIrishEnglish(rawContent)
 
     return NextResponse.json({

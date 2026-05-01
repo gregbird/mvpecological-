@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
-import { CHEAP_MODEL } from '@/lib/ai/openai-models'
+import { CLAUDE_CHEAP_MODEL } from '@/lib/ai/anthropic-models'
+import { callClaude } from '@/lib/ai/call-claude'
 import { toIrishEnglish } from '@/lib/ai/irish-english'
 import {
   findMatchingSACs,
@@ -41,11 +42,6 @@ export async function POST(request: NextRequest) {
 
     if (!waterBodyName) {
       return NextResponse.json({ error: 'waterBodyName is required' }, { status: 400 })
-    }
-
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) {
-      return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 })
     }
 
     // 1. Find matching SACs (with geographic filtering when coordinates available)
@@ -231,38 +227,15 @@ export async function POST(request: NextRequest) {
       aquaticSpecies,
     })
 
-    // 6. Call OpenAI
-    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: CHEAP_MODEL,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are an expert Irish freshwater ecologist with deep knowledge of the Water Framework Directive (WFD), EU Habitats Directive, Irish rivers and lakes, aquatic habitats, and water quality assessment. You understand the ecological requirements of protected species like Atlantic Salmon, Freshwater Pearl Mussel, and Lamprey species. Provide detailed, factual analyses suitable for Ecological Impact Assessment reports and Appropriate Assessment screening. IMPORTANT: Base your analysis ONLY on the provided data. Do not speculate about species presence if no data confirms it. If data is limited, clearly state what is known and what is unknown. Use Irish English spelling (colour, behaviour, analyse, organisation, metre, favour).',
-          },
-          { role: 'user', content: prompt },
-        ],
-        reasoning_effort: 'low',
-        max_completion_tokens: 6000,
-      }),
+    // 6. Call Claude
+    const raw = await callClaude({
+      model: CLAUDE_CHEAP_MODEL,
+      system:
+        'You are an expert Irish freshwater ecologist with deep knowledge of the Water Framework Directive (WFD), EU Habitats Directive, Irish rivers and lakes, aquatic habitats, and water quality assessment. You understand the ecological requirements of protected species like Atlantic Salmon, Freshwater Pearl Mussel, and Lamprey species. Provide detailed, factual analyses suitable for Ecological Impact Assessment reports and Appropriate Assessment screening. IMPORTANT: Base your analysis ONLY on the provided data. Do not speculate about species presence if no data confirms it. If data is limited, clearly state what is known and what is unknown. Use Irish English spelling (colour, behaviour, analyse, organisation, metre, favour).',
+      messages: [{ role: 'user', content: prompt }],
+      maxTokens: 6000,
     })
-
-    if (!aiResponse.ok) {
-      const error = await aiResponse.json()
-      return NextResponse.json(
-        { error: error.error?.message || 'OpenAI API error' },
-        { status: 500 }
-      )
-    }
-
-    const data = await aiResponse.json()
-    const summary = toIrishEnglish(data.choices[0]?.message?.content?.trim() || '')
+    const summary = toIrishEnglish(raw.trim())
 
     // 7. Build resource URLs
     const resources: Record<string, string | undefined> = {

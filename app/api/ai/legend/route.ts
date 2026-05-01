@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
-import { CHEAP_MODEL } from '@/lib/ai/openai-models'
+import { CLAUDE_CHEAP_MODEL } from '@/lib/ai/anthropic-models'
+import { callClaude } from '@/lib/ai/call-claude'
 
 /**
  * AI Legend Generator API
- * Uses OpenAI to generate a descriptive legend/caption for map screenshots.
+ * Uses Claude to generate a descriptive legend/caption for map screenshots.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -18,11 +19,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'projectName is required' }, { status: 400 })
     }
 
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) {
-      return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 })
-    }
-
     const prompt = `You are an ecological consultant assistant. Generate a concise map legend description (2-3 sentences) for a Preliminary Ecological Appraisal (PEA) report map.
 
 Project: ${projectName}
@@ -34,28 +30,13 @@ Target notes: ${targetNotesCount || 0}
 
 Write a professional caption suitable for a figure in an ecological report. Include what the map shows and its relevance to the assessment. Do not use bullet points. Keep it factual and brief.`
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: CHEAP_MODEL,
-        reasoning_effort: 'minimal',
+    const legend = (
+      await callClaude({
+        model: CLAUDE_CHEAP_MODEL,
         messages: [{ role: 'user', content: prompt }],
-        max_completion_tokens: 2000,
-      }),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      console.error('OpenAI API error:', errorData)
-      return NextResponse.json({ error: 'AI generation failed' }, { status: 500 })
-    }
-
-    const data = await response.json()
-    const legend = data.choices?.[0]?.message?.content?.trim() || ''
+        maxTokens: 2000,
+      })
+    ).trim()
 
     return NextResponse.json({ legend })
   } catch (error) {

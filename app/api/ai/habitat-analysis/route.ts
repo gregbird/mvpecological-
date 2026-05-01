@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
-import { CHEAP_MODEL } from '@/lib/ai/openai-models'
+import { CLAUDE_CHEAP_MODEL } from '@/lib/ai/anthropic-models'
+import { callClaude } from '@/lib/ai/call-claude'
 import { toIrishEnglish } from '@/lib/ai/irish-english'
 
 /**
@@ -17,11 +18,6 @@ export async function POST(request: NextRequest) {
 
     if (!habitats || !Array.isArray(habitats) || habitats.length === 0) {
       return NextResponse.json({ error: 'habitats array is required' }, { status: 400 })
-    }
-
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) {
-      return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 })
     }
 
     // Build habitat summary table for the prompt
@@ -69,37 +65,15 @@ Provide a structured ecological analysis covering:
 
 Be specific to Irish ecological legislation and guidance (Wildlife Act, Habitats Directive, EcIA guidelines). Keep the analysis practical and focused on what an ecological consultant needs for a PEA or EcIA.`
 
-    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: CHEAP_MODEL,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are a senior Irish ecological consultant preparing a desk study for a Preliminary Ecological Appraisal (PEA). Analyse habitat composition data from the National Land Cover 2018 dataset. Reference Irish/EU legislation, Fossitt classification, and best practice guidance. Be specific, practical, and avoid generic statements. Use Irish English spelling (colour, behaviour, analyse, organisation, metre, favour).',
-          },
-          { role: 'user', content: prompt },
-        ],
-        reasoning_effort: 'low',
-        max_completion_tokens: 6000,
-      }),
+    const raw = await callClaude({
+      model: CLAUDE_CHEAP_MODEL,
+      system:
+        'You are a senior Irish ecological consultant preparing a desk study for a Preliminary Ecological Appraisal (PEA). Analyse habitat composition data from the National Land Cover 2018 dataset. Reference Irish/EU legislation, Fossitt classification, and best practice guidance. Be specific, practical, and avoid generic statements. Use Irish English spelling (colour, behaviour, analyse, organisation, metre, favour).',
+      messages: [{ role: 'user', content: prompt }],
+      maxTokens: 6000,
     })
 
-    if (!aiResponse.ok) {
-      const error = await aiResponse.json()
-      return NextResponse.json(
-        { error: error.error?.message || 'OpenAI API error' },
-        { status: 500 }
-      )
-    }
-
-    const data = await aiResponse.json()
-    const analysis = toIrishEnglish(data.choices[0]?.message?.content?.trim() || '')
+    const analysis = toIrishEnglish(raw.trim())
 
     return NextResponse.json({ analysis })
   } catch (error) {

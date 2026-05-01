@@ -12,17 +12,11 @@
  * the original ordering unchanged rather than blocking the user.
  */
 
-import { CHEAP_MODEL } from '@/lib/ai/openai-models'
+import { CLAUDE_CHEAP_MODEL } from '@/lib/ai/anthropic-models'
+import { callClaude } from '@/lib/ai/call-claude'
 
-const RERANK_MODEL = CHEAP_MODEL
 const MAX_CONTENT_CHARS = 800
 const SCORE_CUTOFF = 3
-
-function getOpenAIKey(): string {
-  const key = process.env.OPENAI_API_KEY
-  if (!key) throw new Error('Missing OPENAI_API_KEY environment variable')
-  return key
-}
 
 export interface RerankCandidate {
   chunk_id: string
@@ -72,33 +66,12 @@ export async function rerankSearchResults<T extends RerankCandidate>(
   ].join('\n\n')
 
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${getOpenAIKey()}`,
-      },
-      body: JSON.stringify({
-        model: RERANK_MODEL,
-        reasoning_effort: 'minimal',
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: userPrompt },
-        ],
-      }),
+    const content = await callClaude({
+      model: CLAUDE_CHEAP_MODEL,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: userPrompt }],
+      maxTokens: 4000,
     })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`Rerank failed (${response.status}):`, errorText)
-      return candidates
-    }
-
-    const data = (await response.json()) as {
-      choices: Array<{ message: { content: string } }>
-    }
-    const content = data.choices[0]?.message?.content ?? '{"scores":[]}'
     const parsed = JSON.parse(content) as RerankResponse
 
     const scoreMap = new Map<string, number>()

@@ -88,7 +88,7 @@ npm run type-check       # TypeScript type checking
 - Supabase (Auth & PostgreSQL with PostGIS)
 - Tailwind CSS 4+ with shadcn/ui, React Hook Form + Zod
 - Leaflet for mapping, Turf.js for geospatial calculations
-- TanStack React Query, OpenAI GPT-4o-mini, jsPDF
+- TanStack React Query, Anthropic Claude (Sonnet/Haiku) via Supabase Edge Function proxy, OpenAI text-embedding-3-small (Company Reports RAG only), jsPDF
 
 ### Path Alias
 
@@ -130,9 +130,21 @@ Use `@/` for all imports: `import { Button } from '@/components/ui/button'`
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
-OPENAI_API_KEY=                # Server-side AI
-NEXT_PUBLIC_OPENAI_API_KEY=    # Client-side AI (reports)
+OPENAI_API_KEY=                # Embeddings only — Company Reports RAG (text-embedding-3-small)
+DROPBOX_APP_KEY=               # Dropbox OAuth — Company Reports document sync
+DROPBOX_APP_SECRET=
+NEXT_PUBLIC_APP_URL=           # e.g. http://localhost:3000 — used by Dropbox OAuth callback
 ```
+
+**AI provider note:** All chat/synthesis goes through Anthropic Claude via the
+`claude-proxy` Supabase Edge Function (key in Edge Function Secret
+`ANTHROPIC_API_KEY`, not in `.env.local`). Two tiers in `lib/ai/anthropic-models.ts`:
+`CLAUDE_SYNTHESIS_MODEL` (Sonnet — Step 3 desk-insights, Step 8 final-tier
+data-analysis-summary) and `CLAUDE_CHEAP_MODEL` (Haiku — everything else).
+OpenAI is retained only for embeddings in `lib/dropbox/embeddings.ts` because
+Anthropic does not offer an embedding API; re-indexing risk made migration
+unjustified. See `docs/feedback/feedback-1-5-may-claude-migration.md` for the
+full migration record.
 
 ## Performance Debt
 

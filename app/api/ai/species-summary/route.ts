@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
-import { CHEAP_MODEL } from '@/lib/ai/openai-models'
+import { CLAUDE_CHEAP_MODEL } from '@/lib/ai/anthropic-models'
+import { callClaude } from '@/lib/ai/call-claude'
 import { toIrishEnglish } from '@/lib/ai/irish-english'
 
 /**
@@ -32,11 +33,6 @@ export async function POST(request: NextRequest) {
 
     if (!scientificName) {
       return NextResponse.json({ error: 'scientificName is required' }, { status: 400 })
-    }
-
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) {
-      return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 })
     }
 
     // Build structured context
@@ -83,45 +79,15 @@ export async function POST(request: NextRequest) {
 Include: what it is, its conservation status, and what it means for this project (e.g. survey implications, seasonal constraints, or habitat requirements).
 Be specific and practical — avoid generic statements. Respond with ONLY the summary.`
 
-    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: CHEAP_MODEL,
-        reasoning_effort: 'minimal',
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are an Irish ecological consultant preparing a Preliminary Ecological Appraisal. Give concise, practical species summaries that help the ecologist understand survey and mitigation implications. Reference Irish legislation and guidance where relevant. Use Irish English spelling (colour, behaviour, analyse, organisation, metre, favour).',
-          },
-          { role: 'user', content: prompt },
-        ],
-        max_completion_tokens: 2000,
-      }),
+    const raw = await callClaude({
+      model: CLAUDE_CHEAP_MODEL,
+      system:
+        'You are an Irish ecological consultant preparing a Preliminary Ecological Appraisal. Give concise, practical species summaries that help the ecologist understand survey and mitigation implications. Reference Irish legislation and guidance where relevant. Use Irish English spelling (colour, behaviour, analyse, organisation, metre, favour).',
+      messages: [{ role: 'user', content: prompt }],
+      maxTokens: 2000,
     })
 
-    if (!aiResponse.ok) {
-      const rawBody = await aiResponse.text()
-      let detail = rawBody
-      try {
-        const parsed = JSON.parse(rawBody)
-        detail = parsed?.error?.message || rawBody
-      } catch {
-        // OpenAI returned non-JSON (rate-limit HTML, gateway error, etc.)
-      }
-      console.error('OpenAI species-summary non-OK:', aiResponse.status, detail)
-      return NextResponse.json(
-        { error: `OpenAI ${aiResponse.status}: ${detail.slice(0, 500)}` },
-        { status: 500 }
-      )
-    }
-
-    const data = await aiResponse.json()
-    const summary = toIrishEnglish(data.choices[0]?.message?.content?.trim() || '')
+    const summary = toIrishEnglish(raw.trim())
 
     return NextResponse.json({
       summary,

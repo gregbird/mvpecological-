@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
-import { CHEAP_MODEL } from '@/lib/ai/openai-models'
+import { CLAUDE_CHEAP_MODEL } from '@/lib/ai/anthropic-models'
+import { callClaude } from '@/lib/ai/call-claude'
 import { createClient } from '@/lib/supabase/server'
 
 /**
@@ -47,11 +48,6 @@ export async function POST(request: NextRequest) {
 
     if (!projectId || !message) {
       return NextResponse.json({ error: 'projectId and message are required' }, { status: 400 })
-    }
-
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) {
-      return NextResponse.json({ error: 'OpenAI API key not configured.' }, { status: 500 })
     }
 
     const supabase = await createClient()
@@ -134,14 +130,9 @@ export async function POST(request: NextRequest) {
       observations: observationsResult.data || [],
     })
 
-    // Build messages array with chat history
-    const messages: Array<{ role: string; content: string }> = [
-      { role: 'system', content: SYSTEM_PROMPT },
-      {
-        role: 'system',
-        content: `PROJECT DATA:\n\n${context}`,
-      },
-    ]
+    // Build messages array (system prompt + project data go to Claude's system param)
+    const fullSystem = `${SYSTEM_PROMPT}\n\nPROJECT DATA:\n\n${context}`
+    const messages: Array<{ role: 'user' | 'assistant'; content: string }> = []
 
     // Add chat history (last 10 messages for context window management)
     const recentHistory = (chatHistory || []).slice(-10)
@@ -152,36 +143,18 @@ export async function POST(request: NextRequest) {
     // Add current message
     messages.push({ role: 'user', content: message })
 
-    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: CHEAP_MODEL,
-        reasoning_effort: 'minimal',
+    const reply = (
+      await callClaude({
+        model: CLAUDE_CHEAP_MODEL,
+        system: fullSystem,
         messages,
-        max_completion_tokens: 6000,
-      }),
-    })
-
-    if (!aiResponse.ok) {
-      const error = await aiResponse.json()
-      console.error('OpenAI error:', error)
-      return NextResponse.json(
-        { error: error.error?.message || 'OpenAI API error' },
-        { status: 500 }
-      )
-    }
-
-    const data = await aiResponse.json()
-    const reply = data.choices[0]?.message?.content?.trim() || ''
-    const tokensUsed = data.usage?.total_tokens || 0
+        maxTokens: 6000,
+      })
+    ).trim()
 
     return NextResponse.json({
       reply,
-      metadata: { model: CHEAP_MODEL, tokensUsed },
+      metadata: { model: CLAUDE_CHEAP_MODEL, tokensUsed: 0 },
     })
   } catch (error) {
     console.error('Dulra Agent error:', error)

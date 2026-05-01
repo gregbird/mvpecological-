@@ -5,19 +5,10 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { generateEmbedding } from '@/lib/dropbox/embeddings'
 import { expandQuery } from '@/lib/dropbox/synonym-expander'
 import { rerankSearchResults } from '@/lib/dropbox/reranker'
-import { SYNTHESIS_MODEL } from '@/lib/ai/openai-models'
+import { CLAUDE_CHEAP_MODEL } from '@/lib/ai/anthropic-models'
+import { callClaude } from '@/lib/ai/call-claude'
 
-// Synthesis model for cross-document reasoning and ecological domain nuance
-// that the comparative analysis feature depends on. Cheap tier (reranker,
-// entity extraction, summaries) lives behind CHEAP_MODEL in the same module.
-const OPENAI_MODEL = SYNTHESIS_MODEL
 const MAX_CONTEXT_CHARS = 24000
-
-function getOpenAIKey(): string {
-  const key = process.env.OPENAI_API_KEY
-  if (!key) throw new Error('Missing OPENAI_API_KEY environment variable')
-  return key
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -130,20 +121,11 @@ export async function POST(request: NextRequest) {
     // citation discipline, encourage cross-source synthesis (which feeds into
     // Greg's comparative analysis feature), and prevent the model from
     // fabricating content when evidence is thin.
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${getOpenAIKey()}`,
-      },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        reasoning_effort: 'minimal',
-        max_completion_tokens: 800,
-        messages: [
-          {
-            role: 'system',
-            content: `You are an ecological research assistant for an Irish consulting firm.
+    let answer: string
+    try {
+      answer = await callClaude({
+        model: CLAUDE_CHEAP_MODEL,
+        system: `You are an ecological research assistant for an Irish consulting firm.
 Use only the provided document excerpts. Your answer should:
 - Be SHORT: aim for 3-6 sentences total, or a tight bullet list of max 5 items.
   Do NOT produce long prose, do NOT repeat the question, do NOT add preamble.
@@ -154,29 +136,21 @@ Use only the provided document excerpts. Your answer should:
   Annex I/II, Red List). Prefer Latin binomials for species when documented.
 - If the excerpts lack the answer, say so in one line rather than speculating.
 Use Irish English spelling (colour, behaviour, analyse, organisation).`,
-          },
+        messages: [
           {
             role: 'user',
             content: `Question: ${trimmedQuery}\n\nDocument excerpts:\n\n${context}`,
           },
         ],
-      }),
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('OpenAI answer generation failed:', errorText)
+        maxTokens: 1500,
+      })
+    } catch (err) {
+      console.error('Claude answer generation failed:', err)
       return NextResponse.json({
         answer: 'Failed to generate AI answer. Search results are still available below.',
         sources: contextChunks.map((c) => ({ fileName: c.file_name, section: c.chunk_index + 1 })),
       })
     }
-
-    const data = (await response.json()) as {
-      choices: Array<{ message: { content: string } }>
-    }
-
-    const answer = data.choices[0]?.message?.content ?? 'No answer generated.'
     const sources = contextChunks.map((c) => ({
       fileName: c.file_name,
       section: c.chunk_index + 1,
