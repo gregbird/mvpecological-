@@ -141,6 +141,12 @@ export function useDeepResearch(
   )
 
   const [batchProgress, setBatchProgress] = React.useState<BatchProgress | null>(null)
+  // Per-finding loading state for the "research one item" flow exposed in the
+  // split-button popover. Kept separate from `batchProgress` so a user can
+  // research a single item without it looking like a batch is running.
+  const [singleResearchingIds, setSingleResearchingIds] = React.useState<Set<string>>(
+    () => new Set()
+  )
 
   // Species findings with deep research
   const speciesWithResearch = React.useMemo(
@@ -431,6 +437,9 @@ export function useDeepResearch(
           await updateFinding.mutateAsync({
             findingId: species.findingId,
             projectId,
+            // Step 3 deep research output — does NOT change Step 2 core data,
+            // so don't cascade Step 3 itself into needs_review.
+            skipCascade: true,
             updates: {
               raw_data: {
                 ...existingRawData,
@@ -564,6 +573,245 @@ export function useDeepResearch(
     })
   }, [unresearchedAquatic, projectId, projectCenter, queryClient, toast, roleUser?.id])
 
+  const markSingleStart = React.useCallback((id: string) => {
+    setSingleResearchingIds((prev) => {
+      const next = new Set(prev)
+      next.add(id)
+      return next
+    })
+  }, [])
+
+  const markSingleEnd = React.useCallback((id: string) => {
+    setSingleResearchingIds((prev) => {
+      if (!prev.has(id)) return prev
+      const next = new Set(prev)
+      next.delete(id)
+      return next
+    })
+  }, [])
+
+  const handleResearchSingleSite = React.useCallback(
+    async (site: UnresearchedSite) => {
+      markSingleStart(site.findingId)
+      try {
+        const response = await fetch('/api/ai/deep-research', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            siteCode: site.siteCode,
+            siteName: site.siteName,
+            siteType: site.siteType,
+          }),
+        })
+        const data = (await response.json()) as { summary?: string }
+
+        const excelData = getNPWSSiteData(site.siteCode)
+        const habitatList =
+          excelData?.habitats?.map((h) => ({ habitatCode: h.code, habitatName: h.name })) || []
+        const habitatsWithArticle17 = habitatList.map((h) => ({
+          ...h,
+          article17: getArticle17Data(h.habitatCode),
+        }))
+        const habitatCodes = habitatList.map((h) => h.habitatCode)
+        const summary = getHabitatsSummary(habitatCodes)
+
+        const allPressures = new Set<string>()
+        const allThreats = new Set<string>()
+        habitatsWithArticle17.forEach((h) => {
+          h.article17?.pressures.forEach((p: string) => allPressures.add(p))
+          h.article17?.threats.forEach((t: string) => allThreats.add(t))
+        })
+
+        await saveResearch.mutateAsync({
+          project_id: projectId,
+          finding_id: site.findingId,
+          site_code: site.siteCode,
+          site_name: site.siteName,
+          site_type: site.siteType,
+          habitats: habitatsWithArticle17.map((h) => ({
+            habitatCode: h.habitatCode,
+            habitatName: h.habitatName,
+            status: h.article17?.status,
+            trend: h.article17?.trend,
+            priorityHabitat: h.article17?.priorityHabitat,
+          })),
+          conservation_summary: {
+            total: summary.total,
+            favourable: summary.favourable,
+            unfavourableInadequate: summary.unfavourableInadequate,
+            unfavourableBad: summary.unfavourableBad,
+            improving: summary.improving,
+            declining: summary.declining,
+            priorityCount: summary.priorityCount,
+          },
+          threats_pressures: {
+            pressures: Array.from(allPressures),
+            threats: Array.from(allThreats),
+          },
+          ai_analysis: response.ok ? data.summary || null : null,
+        })
+
+        toast({ title: 'Researched', description: site.siteName })
+      } catch {
+        toast({
+          variant: 'destructive',
+          title: `Failed: ${site.siteName}`,
+          description: 'Try again or use the batch button.',
+        })
+      } finally {
+        markSingleEnd(site.findingId)
+      }
+    },
+    [projectId, saveResearch, toast, markSingleStart, markSingleEnd]
+  )
+
+  const handleResearchSingleSpecies = React.useCallback(
+    async (species: UnresearchedSpecies) => {
+      markSingleStart(species.findingId)
+      try {
+        const response = await fetch('/api/ai/species-research', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            scientificName: species.scientificName,
+            commonName: species.commonName,
+            recordCount: species.recordCount,
+            designations: species.designations,
+            taxonGroup: species.taxonGroup,
+            isProtected: species.isProtected,
+            isInvasive: species.isInvasive,
+            isThreatened: species.isThreatened,
+          }),
+        })
+        const data = (await response.json()) as { summary?: string }
+
+        if (response.ok && data.summary) {
+          const finding = findings.find((f) => f.id === species.findingId)
+          const existingRawData = (finding?.raw_data as Record<string, unknown>) || {}
+
+          await updateFinding.mutateAsync({
+            findingId: species.findingId,
+            projectId,
+            // Step 3 deep research output — does NOT change Step 2 core data,
+            // so don't cascade Step 3 itself into needs_review.
+            skipCascade: true,
+            updates: {
+              raw_data: {
+                ...existingRawData,
+                deepResearch: {
+                  aiAnalysis: data.summary,
+                  generatedAt: new Date().toISOString(),
+                },
+              } as unknown as Json,
+            },
+          })
+          toast({ title: 'Researched', description: species.scientificName })
+        } else {
+          toast({
+            variant: 'destructive',
+            title: `Failed: ${species.scientificName}`,
+            description: 'Try again or use the batch button.',
+          })
+        }
+      } catch {
+        toast({
+          variant: 'destructive',
+          title: `Failed: ${species.scientificName}`,
+          description: 'Try again or use the batch button.',
+        })
+      } finally {
+        markSingleEnd(species.findingId)
+      }
+    },
+    [findings, projectId, updateFinding, toast, markSingleStart, markSingleEnd]
+  )
+
+  const handleResearchSingleAquatic = React.useCallback(
+    async (aquatic: UnresearchedAquatic) => {
+      markSingleStart(aquatic.findingId)
+      const userId = roleUser?.id || ''
+      try {
+        const response = await fetch('/api/ai/aquatic-research', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            waterBodyName: aquatic.waterBodyName,
+            waterBodyType: aquatic.waterBodyType,
+            waterBodyCode: aquatic.waterBodyCode,
+            wfdStatus: aquatic.wfdStatus,
+            catchmentName: aquatic.catchmentName,
+            catchmentId: aquatic.catchmentId,
+            projectLat: projectCenter?.lat,
+            projectLng: projectCenter?.lng,
+          }),
+        })
+        const data = (await response.json()) as {
+          summary?: string
+          wfdData?: Record<string, unknown>
+          linkedSACs?: Array<Record<string, unknown>>
+        }
+
+        if (response.ok) {
+          const bestMatch = data.linkedSACs?.[0]
+          const wfd = data.wfdData as
+            | {
+                currentStatus?: string
+                risk?: string
+                statusHistory?: unknown[]
+                trends?: unknown[]
+                failures?: unknown[]
+                connectivity?: unknown[]
+                catchmentName?: string
+                subCatchmentName?: string
+              }
+            | undefined
+
+          await saveAquaticResearch({
+            project_id: projectId,
+            finding_id: aquatic.findingId,
+            water_body_code: aquatic.waterBodyCode,
+            water_body_name: aquatic.waterBodyName,
+            water_body_type: aquatic.waterBodyType,
+            current_status: wfd?.currentStatus || null,
+            risk_level: wfd?.risk || null,
+            status_history: (wfd?.statusHistory || []) as AquaticResearchStatusHistory[],
+            trends: (wfd?.trends || []) as AquaticResearchTrend[],
+            failures: (wfd?.failures || []) as AquaticResearchFailure[],
+            connectivity: (wfd?.connectivity || []) as AquaticResearchConnectivity[],
+            catchment_name: wfd?.catchmentName || aquatic.catchmentName || null,
+            sub_catchment_name: wfd?.subCatchmentName || null,
+            river_basin_district: null,
+            linked_sac_code: (bestMatch?.siteCode as string) || null,
+            linked_sac_name: (bestMatch?.siteName as string) || null,
+            linked_sac_match_score: (bestMatch?.matchScore as number) || null,
+            linked_sac_habitats: (bestMatch?.aquaticHabitats || []) as AquaticResearchHabitat[],
+            linked_sac_species: (bestMatch?.aquaticSpecies || []) as AquaticResearchSpecies[],
+            ai_analysis: data.summary || null,
+            researched_by: userId,
+          })
+
+          queryClient.invalidateQueries({ queryKey: ['aquatic-research', projectId] })
+          toast({ title: 'Researched', description: aquatic.waterBodyName })
+        } else {
+          toast({
+            variant: 'destructive',
+            title: `Failed: ${aquatic.waterBodyName}`,
+            description: 'Try again or use the batch button.',
+          })
+        }
+      } catch {
+        toast({
+          variant: 'destructive',
+          title: `Failed: ${aquatic.waterBodyName}`,
+          description: 'Try again or use the batch button.',
+        })
+      } finally {
+        markSingleEnd(aquatic.findingId)
+      }
+    },
+    [projectId, projectCenter, queryClient, toast, roleUser?.id, markSingleStart, markSingleEnd]
+  )
+
   return {
     researchResults,
     aquaticResults,
@@ -584,5 +832,9 @@ export function useDeepResearch(
     handleBatchResearch,
     handleBatchResearchSpecies,
     handleBatchResearchAquatic,
+    singleResearchingIds,
+    handleResearchSingleSite,
+    handleResearchSingleSpecies,
+    handleResearchSingleAquatic,
   }
 }

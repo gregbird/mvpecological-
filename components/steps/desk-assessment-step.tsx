@@ -15,6 +15,7 @@ import { useDeskExport } from '@/hooks/steps/use-desk-export'
 import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
 import { useSpatialFilter } from '@/hooks/shared/use-spatial-filter'
 import { useProjectSites } from '@/hooks/queries/use-site-hooks'
+import { getPrimaryBuffer } from '@/lib/gis'
 import { groupFindingsByType } from '@/lib/utils/group-findings-by-type'
 import { SiteSelector } from '@/components/project/site-selector'
 import {
@@ -74,7 +75,7 @@ export function DeskAssessmentStep({ project, workflowStep, onComplete }: DeskAs
   const spatialBoundary = selectedSiteId ? projectBoundary : unionBoundary
   const { filteredItems: savedFindings } = useSpatialFilter({
     boundary: spatialBoundary,
-    bufferKm: bufferDistances[bufferDistances.length - 1] ?? 15,
+    bufferKm: getPrimaryBuffer(bufferDistances),
     items: allSavedFindings,
     getGeometry: getLocation,
     disabled: !selectedSiteId && !unionBoundary,

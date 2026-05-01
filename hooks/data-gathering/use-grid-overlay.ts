@@ -4,6 +4,7 @@ import * as React from 'react'
 
 import { wgs84ToItm, itmToGridRef, itmToWgs84 } from '@/lib/utils/grid-reference'
 import { getBoundingBox } from '@/lib/gis/bounding-box'
+import { getPrimaryBuffer } from '@/lib/gis'
 import type { FindingDisplay } from '@/components/steps/data-gathering/findings-list'
 
 /**
@@ -169,8 +170,8 @@ export function useGridOverlay({
   const selectedSiteGridRefs = React.useMemo((): Set<string> | null => {
     if (!searchBoundary || (allBoundaries && allBoundaries.length > 0) || !projectBoundary)
       return null // No filtering needed
-    const maxBuffer = Math.max(...(bufferDistances || [2, 5]))
-    const result = computeGridData(maxBuffer, [projectBoundary])
+    const primaryBuffer = getPrimaryBuffer(bufferDistances)
+    const result = computeGridData(primaryBuffer, [projectBoundary])
     return result?.validRefs ?? null
   }, [searchBoundary, allBoundaries, projectBoundary, bufferDistances, computeGridData])
 

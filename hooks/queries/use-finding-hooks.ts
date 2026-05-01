@@ -116,6 +116,15 @@ export function useUpdateFinding() {
       findingId: string
       updates: UpdateTables<'desk_research_findings'>
       projectId?: string
+      /**
+       * Skip the Step 2 → downstream needs_review cascade. Pass `true` for
+       * derived-data updates (AI summary persist, deep research persist) that
+       * don't change Step 2's core findings — only the side data attached to
+       * them. Without this flag, persisting an AI summary or saving a Step 3
+       * deep research result reflagged Step 3 as needs_review and showed the
+       * "previous step changed" banner against the user's own action.
+       */
+      skipCascade?: boolean
     }) => updateFinding(findingId, updates),
     onSuccess: (_data, variables) => {
       // Always scope invalidation to the project to avoid refetching all projects' data
@@ -124,7 +133,8 @@ export function useUpdateFinding() {
       queryClient.invalidateQueries({ queryKey: ['saved-findings', ...scope] })
       queryClient.invalidateQueries({ queryKey: ['findings-stats', ...scope] })
 
-      if (variables.projectId) void cascadeFromFindings(queryClient, variables.projectId)
+      if (variables.projectId && !variables.skipCascade)
+        void cascadeFromFindings(queryClient, variables.projectId)
     },
   })
 }

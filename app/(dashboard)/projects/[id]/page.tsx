@@ -152,8 +152,8 @@ export default function ProjectDetailPage() {
           <div className="flex items-center gap-2 text-sm text-amber-800">
             <AlertTriangle className="h-4 w-4 shrink-0" />
             <span>
-              The GIS Mapping configuration has been updated. Please review the data in this step to
-              ensure it is still accurate.
+              An earlier step in this project has been updated. Please review the data in this step
+              to ensure it is still accurate.
             </span>
           </div>
         </div>

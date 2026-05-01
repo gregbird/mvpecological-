@@ -115,7 +115,9 @@ export function SiteCard({ site }: { site: DeepResearchResult }) {
             {totalConservation > 0 && ` · ${totalConservation} assessments`}
           </p>
           {siteSummary && !expanded && (
-            <p className="mt-0.5 line-clamp-2 text-xs text-gray-600">{siteSummary}</p>
+            <p className="mt-0.5 line-clamp-2 text-xs text-gray-600 dark:text-gray-400">
+              {siteSummary}
+            </p>
           )}
         </div>
         <ChevronDown
@@ -161,7 +163,7 @@ function SiteHabitats({ habitats }: { habitats: HabitatItem[] }) {
             key={i}
             className="flex items-center justify-between rounded bg-gray-50 px-2 py-1 text-xs dark:bg-gray-800"
           >
-            <span className="text-gray-800">
+            <span className="text-gray-800 dark:text-gray-100">
               {h.habitatCode && (
                 <span className="mr-1.5 font-mono font-semibold text-emerald-700">
                   {h.habitatCode}
@@ -226,7 +228,7 @@ function SiteSpecies({
             key={`sp-${i}`}
             className="flex items-center justify-between rounded bg-gray-50 px-2 py-1 text-xs dark:bg-gray-800"
           >
-            <span className="text-gray-800 italic">{s.name}</span>
+            <span className="text-gray-800 italic dark:text-gray-100">{s.name}</span>
             {s.code && <span className="font-mono text-[10px] text-gray-500">{s.code}</span>}
           </div>
         ))}
@@ -235,7 +237,7 @@ function SiteSpecies({
             key={`bird-${i}`}
             className="flex items-center justify-between rounded bg-gray-50 px-2 py-1 text-xs dark:bg-gray-800"
           >
-            <span className="text-gray-800">{s.name}</span>
+            <span className="text-gray-800 dark:text-gray-100">{s.name}</span>
             {s.code && <span className="font-mono text-[10px] text-gray-500">{s.code}</span>}
           </div>
         ))}
@@ -359,7 +361,7 @@ function NpwsDocuments({ npwsData }: { npwsData: ReturnType<typeof getNPWSSiteDa
   return (
     <div className="mt-2">
       <h4 className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
-        <FileText className="h-3.5 w-3.5 text-gray-600" />
+        <FileText className="h-3.5 w-3.5 text-gray-600 dark:text-gray-400" />
         NPWS Documents
       </h4>
       <div className="flex flex-wrap gap-2">

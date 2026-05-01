@@ -4,6 +4,7 @@ import * as React from 'react'
 import union from '@turf/union'
 import type { FeatureCollection, Polygon, MultiPolygon } from 'geojson'
 import { useProjectSites } from '@/hooks/queries/use-site-hooks'
+import { DEFAULT_BUFFER_DISTANCES } from '@/lib/gis'
 import type { Project } from '@/types/database'
 import type { ProjectSiteWithGeoJSON } from '@/lib/supabase/queries/project-sites'
 
@@ -80,7 +81,8 @@ export function useProjectBoundary(
   const bufferDistances = React.useMemo(
     () =>
       (effectiveSite?.buffer_distances as number[] | null) ??
-      (project.buffer_distances as number[] | null) ?? [2, 5],
+      (project.buffer_distances as number[] | null) ??
+      DEFAULT_BUFFER_DISTANCES,
     [effectiveSite?.buffer_distances, project.buffer_distances]
   )
 

@@ -59,6 +59,10 @@ export function DeepResearchTab({ projectId, project, findings, siteId }: DeepRe
     handleBatchResearch,
     handleBatchResearchSpecies,
     handleBatchResearchAquatic,
+    singleResearchingIds,
+    handleResearchSingleSite,
+    handleResearchSingleSpecies,
+    handleResearchSingleAquatic,
   } = useDeepResearch(projectId, project, findings, siteId)
 
   // Legend entries shown on the floating overlay. Only includes layers that
@@ -146,6 +150,10 @@ export function DeepResearchTab({ projectId, project, findings, siteId }: DeepRe
           onBatchResearch={handleBatchResearch}
           onBatchResearchSpecies={handleBatchResearchSpecies}
           onBatchResearchAquatic={handleBatchResearchAquatic}
+          singleResearchingIds={singleResearchingIds}
+          onResearchSingleSite={handleResearchSingleSite}
+          onResearchSingleSpecies={handleResearchSingleSpecies}
+          onResearchSingleAquatic={handleResearchSingleAquatic}
         />
 
         <div className="flex-1 space-y-2 overflow-y-auto p-3">

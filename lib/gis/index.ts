@@ -34,6 +34,8 @@ export {
   calculateAreaHa,
   formatDistance,
   STANDARD_BUFFER_DISTANCES,
+  DEFAULT_BUFFER_DISTANCES,
+  getPrimaryBuffer,
   type BufferOptions,
   type BufferResult,
 } from './buffer'

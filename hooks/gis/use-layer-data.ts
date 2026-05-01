@@ -16,6 +16,7 @@ import {
 } from '@/lib/external-apis/epa'
 import { getDefaultVisibleLayers } from '@/lib/config/dataset-layers'
 import { batchAsync } from '@/lib/utils/batch-async'
+import { getPrimaryBuffer } from '@/lib/gis'
 import type { Project } from '@/types/database'
 
 export interface LayerDataState {
@@ -124,8 +125,8 @@ export function useLayerData(project: Project) {
         ? boundaryOrBoundaries
         : [boundaryOrBoundaries]
 
-      const maxBuffer = enabledBuffers.length > 0 ? Math.max(...enabledBuffers) : 5
-      const bufferDegrees = maxBuffer / 111
+      const primaryBuffer = getPrimaryBuffer(enabledBuffers)
+      const bufferDegrees = primaryBuffer / 111
 
       setLayerDataLoading({ npws: true, rivers: true, lakes: true, catchments: true })
 

@@ -7,6 +7,7 @@ import {
   validateBoundary,
   getLocationFromBoundary,
   calculatePerimeter,
+  DEFAULT_BUFFER_DISTANCES,
   type IrishLocationInfo,
 } from '@/lib/gis'
 import { calculateAreaHectares } from '@/lib/supabase/queries/habitats'

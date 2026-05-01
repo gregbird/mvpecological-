@@ -64,6 +64,13 @@ export function useShellAi({
   const configRef = React.useRef(config)
   configRef.current = config
 
+  // Auto-trigger after save fires `handleFetchAiSummary` immediately, but the
+  // `savedFindings` prop hasn't re-rendered yet with the just-inserted row.
+  // Reading from a ref instead of the closure-captured value ensures the
+  // post-fetch persist step sees the new row and writes ai_summary back to DB.
+  const savedFindingsRef = React.useRef(savedFindings)
+  savedFindingsRef.current = savedFindings
+
   const handleFetchAiSummary = React.useCallback(
     async (finding: FindingDisplay, signal?: AbortSignal) => {
       const config = configRef.current
@@ -124,7 +131,9 @@ export function useShellAi({
         // the typed `ai_summary` column AND `raw_data.metadata.aiSummary` so
         // neither the Aşama 2 read path nor any remaining raw_data consumer
         // goes stale.
-        const existingSaved = savedFindings.find((f) => config.matchPredicate(f, finding))
+        const existingSaved = savedFindingsRef.current.find((f) =>
+          config.matchPredicate(f, finding)
+        )
         if (existingSaved) {
           const existingRawData = (existingSaved.raw_data as Record<string, unknown>) || {}
           const existingMetadata = (existingRawData.metadata as Record<string, unknown>) || {}

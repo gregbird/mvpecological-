@@ -11,6 +11,7 @@ import {
 import { mapNlcToFossitt } from '@/lib/data/nlc-to-fossitt'
 import { useSessionStorage } from '@/hooks/shared/use-session-storage'
 import { batchAsync } from '@/lib/utils/batch-async'
+import { getPrimaryBuffer } from '@/lib/gis'
 import type { HabitatResult } from '@/components/steps/data-gathering/habitat-data-substep'
 
 /** Max concurrent NLC API requests when searching multi-site projects.
@@ -62,7 +63,7 @@ export function useHabitatSearch({
   const [habitatPolygons, setHabitatPolygons] = React.useState<GeoJSON.FeatureCollection | null>(
     null
   )
-  const [selectedBuffer, setSelectedBuffer] = React.useState(bufferDistances[0] || 2)
+  const [selectedBuffer, setSelectedBuffer] = React.useState(getPrimaryBuffer(bufferDistances))
 
   /** Build per-site bbox list for multi-site, or single bbox for single-site */
   const buildBboxList = React.useCallback(

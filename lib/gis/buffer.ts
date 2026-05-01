@@ -21,6 +21,19 @@ export interface BufferResult {
   units: string
 }
 
+// Default buffers used as fallback when a project/site has no buffer_distances saved.
+export const DEFAULT_BUFFER_DISTANCES: number[] = [2, 5]
+
+/**
+ * The "primary" buffer used by API search bboxes across steps.
+ * This is the FIRST buffer the user enabled (toggle order), not the smallest or largest.
+ * If none are set, falls back to DEFAULT_BUFFER_DISTANCES[0].
+ */
+export function getPrimaryBuffer(buffers: number[] | null | undefined): number {
+  if (!buffers || buffers.length === 0) return DEFAULT_BUFFER_DISTANCES[0]
+  return buffers[0]
+}
+
 // Standard buffer distances for ecological assessments in Ireland
 export const STANDARD_BUFFER_DISTANCES = [
   {
