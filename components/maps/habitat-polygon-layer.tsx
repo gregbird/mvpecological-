@@ -10,22 +10,31 @@ interface HabitatPolygonLayerProps {
   GeoJSON: React.ComponentType<Record<string, unknown>>
 }
 
+// Darken a hex colour for stroke contrast. Returns the input on parse failure.
+function darkenHex(hex: string, factor = 0.65) {
+  if (!hex.startsWith('#') || (hex.length !== 7 && hex.length !== 4)) return hex
+  const expand = hex.length === 4 ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}` : hex
+  const r = Math.round(parseInt(expand.slice(1, 3), 16) * factor)
+  const g = Math.round(parseInt(expand.slice(3, 5), 16) * factor)
+  const b = Math.round(parseInt(expand.slice(5, 7), 16) * factor)
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
+}
+
 // Style function stays at module scope — pure, references no closures.
-// NLC polygons are dissolved TIN triangles — stroke on every triangle edge
-// creates visual noise. Default state uses minimal stroke so adjacent
-// triangles of the same habitat type blend into a solid fill.
+// Server-side quantization + polygon-clipping union now produce clean parcel
+// boundaries (no TIN triangle artifacts). We can give each habitat a darker
+// stroke so adjacent fields read as distinct shapes — matches Esri viewer.
 function habitatStyle(feature: GeoJSON.Feature | undefined) {
   const props = feature?.properties
   const fill = (props?.fillOpacity as number) ?? 0.35
   const isHighlighted = fill > 0.5
   const isFaded = fill < 0.1
   const habitatColor = (props?.color as string) || '#808080'
+  const strokeColor = darkenHex(habitatColor)
   return {
-    // All states: stroke matches fill color so TIN triangle edges blend
-    // into the solid fill. Weight and opacity vary by state.
-    color: habitatColor,
-    weight: isFaded ? 0 : 0.5,
-    opacity: isFaded ? 0 : 0.4,
+    color: isFaded ? habitatColor : strokeColor,
+    weight: isFaded ? 0 : isHighlighted ? 1.2 : 0.7,
+    opacity: isFaded ? 0 : isHighlighted ? 0.9 : 0.6,
     fillColor: habitatColor,
     fillOpacity: fill,
   }

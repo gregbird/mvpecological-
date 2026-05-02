@@ -292,28 +292,42 @@ function parseInline(text: string): TextSegment[] {
   return segments
 }
 
+// Module-level regex — built once, reused across every paragraph. Previously
+// rebuilt inside parseInlineWithScientific for every call, which dominated
+// parse time on AI-generated reports (8KB Tiptap content → 3.5KB markdown
+// could stall for minutes).
+const SCIENTIFIC_NAME_REGEX = new RegExp(
+  `\\b(${SCIENTIFIC_GENERA.join('|')})\\s+[a-z][a-z]+(?:\\s+[a-z][a-z]+)?\\b`,
+  'g'
+)
+
+// Lowercased genus list for cheap pre-filter. Most paragraphs don't mention
+// any genus, so we skip the alternation regex entirely on those.
+const SCIENTIFIC_GENERA_LOWER = SCIENTIFIC_GENERA.map((g) => g.toLowerCase())
+
 /** Parse inline markers AND auto-italicise scientific names */
 function parseInlineWithScientific(text: string): TextSegment[] {
   const segments = parseInline(text)
+
+  // Fast path: no genus keyword anywhere → skip the regex completely.
+  const lower = text.toLowerCase()
+  if (!SCIENTIFIC_GENERA_LOWER.some((g) => lower.includes(g))) {
+    return segments
+  }
+
   const result: TextSegment[] = []
 
   for (const seg of segments) {
     if (seg.italic || seg.bold) {
-      // Already styled, keep as-is
       result.push(seg)
       continue
     }
 
-    // Check for scientific binomials: "Genus species" or "Genus species subspecies"
-    const sciRegex = new RegExp(
-      `\\b(${SCIENTIFIC_GENERA.join('|')})\\s+[a-z][a-z]+(?:\\s+[a-z][a-z]+)?\\b`,
-      'g'
-    )
+    SCIENTIFIC_NAME_REGEX.lastIndex = 0
     let lastIdx = 0
     let sciMatch: RegExpExecArray | null
-
     let hasMatch = false
-    while ((sciMatch = sciRegex.exec(seg.text)) !== null) {
+    while ((sciMatch = SCIENTIFIC_NAME_REGEX.exec(seg.text)) !== null) {
       hasMatch = true
       if (sciMatch.index > lastIdx) {
         result.push({ text: seg.text.slice(lastIdx, sciMatch.index), bold: false, italic: false })
