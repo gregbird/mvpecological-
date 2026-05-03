@@ -30,6 +30,27 @@ export interface NlcSearchParams {
     minLng: number
     maxLng: number
   }
+  /**
+   * Override the simplification floor in degrees. Use this when fetching a
+   * tight viewport at high zoom — the default extent-based clamp gives ~0.5m
+   * but you may want ~0.3m to match Esri viewer parity at z18+.
+   */
+  minTolerance?: number
+  /**
+   * When true (default), the largest parcel per habitat type gets
+   * `is_label_anchor: true` so the renderer shows exactly one FOSSITT
+   * label per habitat. Pass false for overlay/detail layers that should
+   * not contribute labels (e.g. viewport detail on top of project layer).
+   */
+  markLabelAnchors?: boolean
+  /**
+   * When true, fill colour comes from `NLC_NATIVE_LEVEL2_COLORS` (37
+   * distinct shades, Tailte Éireann's own palette) instead of the
+   * Heritage Council palette. Used by the high-zoom viewport detail layer
+   * so closely-zoomed parcels are easier to distinguish (e.g. buildings
+   * are bright red, ways are gray, hedgerows are plum). Default false.
+   */
+  useNativeColors?: boolean
 }
 
 /**
@@ -122,65 +143,17 @@ export async function searchNlcLandCover(params: NlcSearchParams): Promise<Aggre
   }
 }
 
-import * as turf from '@turf/turf'
-import polygonClipping, { type Geom } from 'polygon-clipping'
 import arcgisPbfDecode from 'arcgis-pbf-parser'
 import { mapNlcToFossitt } from '@/lib/data/nlc-to-fossitt'
 import { getHeritageColor } from '@/lib/config/map-constants'
 
-/**
- * Dissolve TIN triangles using mfogel/polygon-clipping.
- *
- * Replaces the old turf.union divide-and-conquer loop because:
- *   - polygon-clipping accepts ALL rings in a single call (no batching needed)
- *   - its rounded-snap pre-processing collapses near-duplicate vertices from
- *     adjacent triangles, eliminating T-junctions and slivers that turf.union
- *     leaves behind
- *   - ~2x faster than turf.union for the same input
- *
- * After the union, we run a very gentle turf.simplify to clean any final
- * artifacts. With server-side quantization in place this barely changes the
- * geometry but catches edge cases.
- *
- * Falls back to raw MultiPolygon on error.
- */
-function dissolveCoords(
-  coords: GeoJSON.Position[][][],
-  simplifyTolerance: number
-): GeoJSON.Geometry {
-  const raw: GeoJSON.Geometry = { type: 'MultiPolygon', coordinates: coords }
-  if (coords.length === 0) return raw
-  if (coords.length === 1) return { type: 'Polygon', coordinates: coords[0] }
-
-  try {
-    // polygon-clipping wants Geom = Pair<number, number>[][][] (MultiPolygon
-    // shape). Each input ring is a single Polygon, so wrap each as a singleton
-    // MultiPolygon and let union flatten them all in one pass.
-    const inputs = coords.map((rings) => [rings] as Geom)
-    const merged = polygonClipping.union(inputs[0], ...inputs.slice(1))
-
-    const dissolvedGeom: GeoJSON.Geometry =
-      merged.length === 1
-        ? { type: 'Polygon', coordinates: merged[0] as GeoJSON.Position[][] }
-        : { type: 'MultiPolygon', coordinates: merged as GeoJSON.Position[][][] }
-
-    // After clean union, only a featherweight simplify is needed — this exists
-    // mainly to remove any colinear vertices left over from quantization.
-    if (simplifyTolerance <= 0) return dissolvedGeom
-    const feature: GeoJSON.Feature = {
-      type: 'Feature',
-      properties: {},
-      geometry: dissolvedGeom,
-    }
-    const simplified = turf.simplify(feature, {
-      tolerance: simplifyTolerance,
-      highQuality: true,
-    })
-    return simplified.geometry
-  } catch {
-    return raw
-  }
-}
+// Note: client-side dissolve was removed in favour of preserving every
+// server-returned parcel as its own feature. Esri viewer parity requires
+// individual field boundaries to stay visible. Saving still produces one
+// finding per habitat type because getHabitatGeometry() wraps matching
+// parcels in a GeometryCollection at save time. polygon-clipping is no
+// longer imported here; it remains a dep in case save-time merging is
+// added later.
 
 /** Color per NLC Level 1 category — fallback when FOSSITT code unavailable */
 export const NLC_LEVEL1_COLORS: Record<string, string> = {
@@ -192,6 +165,54 @@ export const NLC_LEVEL1_COLORS: Record<string, string> = {
   'HEATH and BRACKEN': '#8B4513',
   WATERBODIES: '#87CEEB',
   'EXPOSED SURFACES': '#DC2626',
+}
+
+/**
+ * Tailte Éireann's own NLC 2018 renderer palette — one distinct colour per
+ * Level 2 habitat type (37 entries). Source: the FeatureServer's drawingInfo
+ * (`uniqueValueInfos` keyed by `LEVEL_2_VALUE`). Used by the high-zoom
+ * viewport detail layer because at close inspection the Heritage Council
+ * palette (which uses a single colour per broad category) makes too many
+ * habitats visually identical. Heritage stays the default for the project
+ * overview and report PDFs.
+ */
+export const NLC_NATIVE_LEVEL2_COLORS: Record<string, string> = {
+  'Amenity Grassland': '#a2f14f',
+  'Artificial Waterbodies': '#004da8',
+  'Bare Peat': '#846044',
+  'Bare Soil and Disturbed Ground': '#4a2d00',
+  'Blanket Bog': '#a87000',
+  Bracken: '#f4c7da',
+  'Broadleaved Forest and Woodland': '#6bad00',
+  Buildings: '#ff2d35',
+  'Burnt Areas': '#e6a700',
+  'Coastal Sediments': '#f9f382',
+  'Coniferous Forest': '#265000',
+  'Cultivated Land': '#ffffac',
+  'Cutover Bog': '#d49676',
+  'Dry Grassland': '#def3cc',
+  'Dry Heath': '#c190d0',
+  'Exposed Rock and Sediments': '#819498',
+  Fens: '#cdf57a',
+  Hedgerows: '#81516b',
+  'Improved Grassland': '#7ccc59',
+  'Lakes and Ponds': '#0099ff',
+  'Marine Water': '#bdf2ff',
+  'Mixed Forest': '#507c00',
+  Mudflats: '#d0c29e',
+  'Other Artificial Surfaces': '#dcdcdc',
+  'Raised Bog': '#732600',
+  'Rivers and Streams': '#73b2ff',
+  'Salt Marsh': '#afb400',
+  'Sand Dunes': '#ecff2e',
+  Scrub: '#a0d023',
+  Swamp: '#cdaa66',
+  'Transitional Forest': '#7a8f21',
+  'Transitional Waterbodies': '#73dfff',
+  Treelines: '#e8e762',
+  Ways: '#808a8c',
+  'Wet Grassland': '#38a800',
+  'Wet Heath': '#7d00a2',
 }
 
 /**
@@ -215,7 +236,7 @@ export const NLC_LEVEL1_COLORS: Record<string, string> = {
 export async function fetchNlcPolygons(
   params: NlcSearchParams
 ): Promise<GeoJSON.FeatureCollection> {
-  const { bbox } = params
+  const { bbox, minTolerance, markLabelAnchors = true, useNativeColors = false } = params
   const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] }
 
   // Tile-mode query params mirror what the ArcGIS JS API sends in its own viewer:
@@ -225,18 +246,13 @@ export async function fetchNlcPolygons(
   //     (LOD-aware densification and simplification) instead of returning raw
   //     features verbatim
   //   - maxAllowableOffset: matches the quantization tolerance, set fine enough
-  //     to preserve buildings/roads without flooding the wire
+  //     to preserve buildings/hedgerows without flooding the wire
   // Tolerance is in degrees because we query in EPSG:4326. We clamp it between
-  // ~2m (small bboxes get fine detail — buildings, hedgerows preserved) and
-  // ~50m (continent-wide bboxes shouldn't drown the client). 0.000018 deg ≈ 2m
-  // at lat 53°. Esri's own viewer uses ~2m offset in ITM and shows no quality
-  // loss at typical zoom — we match that.
+  // ~0.5m (tight zoom, dense built-up areas need sub-meter detail to keep
+  // hedgerows and small buildings visible) and ~50m (continent-wide bboxes
+  // shouldn't drown the client). 0.0000045 deg ≈ 0.5m at lat 53°.
   const extent = Math.max(bbox.maxLng - bbox.minLng, bbox.maxLat - bbox.minLat)
-  const serverSimplify = Math.min(Math.max(extent * 0.001, 0.000018), 0.00045)
-  // After server quantization, the leftover seams between unioned triangles
-  // are tiny — keep client simplify gentle so we smooth seams without
-  // collapsing real geometry.
-  const clientSimplify = serverSimplify * 0.3
+  const serverSimplify = Math.min(Math.max(extent * 0.001, minTolerance ?? 0.0000045), 0.00045)
 
   const quantizationParameters = JSON.stringify({
     mode: 'view',
@@ -255,20 +271,21 @@ export async function fetchNlcPolygons(
   // maxRecordCount (1000-2000). Larger pages mean fewer round-trips for
   // dense bboxes.
   const PAGE_SIZE = 4000
-  // Safety cap: large multi-site searches over Co. Louth-sized bboxes can
-  // return 30k+ TIN triangles. 5000 (the previous cap) silently dropped
-  // entire habitat categories like Lakes and Ponds, Scrub, Immature
-  // woodland — they fell off the end of the ObjectID ordering. 50k is
-  // generous enough for any realistic Irish project bbox while still
-  // bounding worst-case latency.
-  const MAX_FEATURES = 50000
+  // Safety cap. Each parcel becomes one output feature (no client dissolve
+  // anymore — Esri viewer parity requires keeping individual field
+  // boundaries visible) so this cap also limits how many features Leaflet
+  // has to render. 100k is generous enough for any realistic Irish project
+  // bbox; PBF + canvas renderer handle it without UI lag.
+  const MAX_FEATURES = 100000
 
-  // Running dissolve map — keyed by NLC LEVEL_2_ID so memory stays bounded
-  // regardless of how many TIN triangles we paginate through.
-  const grouped = new Map<
-    string,
-    { coords: GeoJSON.Position[][][]; props: Record<string, unknown>; totalArea: number }
-  >()
+  // We keep each server-returned parcel as its own output feature. Adjacent
+  // parcels of the same habitat type stay distinct so field boundaries are
+  // visible (matches Esri viewer rendering). Saving merges them on demand
+  // via getHabitatGeometry → GeometryCollection per habitat type.
+  const collected: GeoJSON.Feature[] = []
+  // Track the largest parcel per habitat type so the renderer can label
+  // exactly one polygon per habitat, avoiding "GA1, GA1, GA1..." duplicates.
+  const labelAnchorByNlcId = new Map<string, { area: number; index: number }>()
   let totalFetched = 0
 
   const geometryJson = JSON.stringify({
@@ -291,9 +308,10 @@ export async function fetchNlcPolygons(
         inSR: '4326',
         outSR: '4326',
         outFields: 'LEVEL_2_ID,LEVEL_2_VALUE,LEVEL_1_VALUE,AREA',
-        // Order by habitat category so paged dissolve happens in coherent
-        // batches and a hard cap clips trailing categories cleanly.
-        orderByFields: 'LEVEL_2_ID',
+        // Order by area DESC so the largest parcels arrive first. If we hit
+        // MAX_FEATURES, the trailing tiny parcels are clipped — those are
+        // the least visually impactful losses.
+        orderByFields: 'AREA DESC',
         maxAllowableOffset: serverSimplify.toString(),
         quantizationParameters,
         resultType: 'tile',
@@ -323,35 +341,57 @@ export async function fetchNlcPolygons(
       // the server auto-quantizes when pbf is requested. arcgisPbfDecode
       // returns a normal GeoJSON FeatureCollection plus exceededTransferLimit,
       // which is more reliable than the old "page < PAGE_SIZE → done" check.
-      const buffer = await response.arrayBuffer()
-      const decoded = arcgisPbfDecode(new Uint8Array(buffer))
+      // Decode is wrapped because a corrupted/truncated body (CDN hiccup,
+      // HTML 200 error response) will throw mid-stream — we want to keep
+      // whatever pages already landed cleanly rather than discard everything.
+      let decoded: { featureCollection: GeoJSON.FeatureCollection; exceededTransferLimit: boolean }
+      try {
+        const buffer = await response.arrayBuffer()
+        decoded = arcgisPbfDecode(new Uint8Array(buffer))
+      } catch (err) {
+        console.warn('NLC PBF decode failed, returning prior pages:', err)
+        break
+      }
       const fc = decoded.featureCollection
       if (!fc.features || fc.features.length === 0) break
 
-      // Dissolve this page into the running grouped map immediately so the
-      // raw triangles can be garbage-collected before the next page lands.
       for (const feature of fc.features) {
         const props = feature.properties ?? {}
         const nlcId = String(props.LEVEL_2_ID || 'unknown')
-        const geom = feature.geometry
+        const level1 = String(props.LEVEL_1_VALUE || '')
+        const nlcLabel = String(props.LEVEL_2_VALUE || '')
+        const fossitt = mapNlcToFossitt(nlcId)
+        const fossittCode = fossitt?.fossittCode || ''
+        const areaSqm = Number(props.AREA || 0)
+        const areaHectares = Math.round((areaSqm / 10000) * 100) / 100
 
-        let polyCoords: GeoJSON.Position[][][] = []
-        if (geom.type === 'Polygon') {
-          polyCoords = [(geom as GeoJSON.Polygon).coordinates]
-        } else if (geom.type === 'MultiPolygon') {
-          polyCoords = (geom as GeoJSON.MultiPolygon).coordinates
-        }
+        // Native palette keyed by LEVEL_2_VALUE, Heritage palette keyed by
+        // FOSSITT code. Fall back to Level-1 palette if neither resolves.
+        let color: string | undefined
+        if (useNativeColors) color = NLC_NATIVE_LEVEL2_COLORS[nlcLabel]
+        else if (fossittCode) color = getHeritageColor(fossittCode)
+        if (!color) color = NLC_LEVEL1_COLORS[level1] || '#808080'
 
-        const existing = grouped.get(nlcId)
-        if (existing) {
-          existing.coords.push(...polyCoords)
-          existing.totalArea += Number(props.AREA || 0)
-        } else {
-          grouped.set(nlcId, {
-            coords: [...polyCoords],
-            props,
-            totalArea: Number(props.AREA || 0),
-          })
+        const outIndex = collected.length
+        collected.push({
+          type: 'Feature',
+          geometry: feature.geometry,
+          properties: {
+            color,
+            nlc_id: nlcId,
+            nlc_label: nlcLabel,
+            nlc_level1: level1,
+            fossitt_code: fossittCode || nlcId,
+            fossitt_name: fossitt?.fossittName || nlcLabel,
+            area_hectares: areaHectares,
+            // is_label_anchor flipped after the loop — see below.
+            is_label_anchor: false,
+          },
+        })
+
+        const currentAnchor = labelAnchorByNlcId.get(nlcId)
+        if (!currentAnchor || areaSqm > currentAnchor.area) {
+          labelAnchorByNlcId.set(nlcId, { area: areaSqm, index: outIndex })
         }
       }
 
@@ -364,70 +404,41 @@ export async function fetchNlcPolygons(
       offset += PAGE_SIZE
     }
 
-    if (grouped.size === 0) return empty
+    if (collected.length === 0) return empty
 
     if (totalFetched >= MAX_FEATURES) {
       console.warn(
-        `NLC polygon fetch hit MAX_FEATURES cap (${MAX_FEATURES}). Trailing habitat categories may be missing.`
+        `NLC polygon fetch hit MAX_FEATURES cap (${MAX_FEATURES}). Smallest trailing parcels may be missing.`
       )
     }
 
-    // Build merged features — one per habitat type
-    const mergedFeatures: GeoJSON.Feature[] = []
-    for (const [nlcId, { coords, props, totalArea }] of grouped) {
-      const level1 = String(props.LEVEL_1_VALUE || '')
-      const nlcLabel = String(props.LEVEL_2_VALUE || '')
-      const fossitt = mapNlcToFossitt(nlcId)
-      const fossittCode = fossitt?.fossittCode || ''
-
-      mergedFeatures.push({
-        type: 'Feature',
-        geometry: dissolveCoords(coords, clientSimplify),
-        properties: {
-          color: fossittCode
-            ? getHeritageColor(fossittCode)
-            : NLC_LEVEL1_COLORS[level1] || '#808080',
-          nlc_id: nlcId,
-          nlc_label: nlcLabel,
-          nlc_level1: level1,
-          fossitt_code: fossittCode || nlcId,
-          fossitt_name: fossitt?.fossittName || String(props.LEVEL_2_VALUE || ''),
-          area_hectares: Math.round((totalArea / 10000) * 100) / 100,
-        },
-      })
+    // Mark exactly one feature per habitat type as the label anchor so the
+    // renderer doesn't stack duplicate FOSSITT labels on every parcel.
+    // Skipped when this is an overlay/detail fetch (markLabelAnchors=false)
+    // so it doesn't fight with the project layer's labels.
+    if (markLabelAnchors) {
+      for (const { index } of labelAnchorByNlcId.values()) {
+        const feat = collected[index]
+        if (feat?.properties) feat.properties.is_label_anchor = true
+      }
     }
 
-    return { type: 'FeatureCollection', features: mergedFeatures }
+    return { type: 'FeatureCollection', features: collected }
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       console.warn('NLC polygon query timeout')
     } else {
       console.warn('NLC polygon query network error:', error)
     }
-    // Return whatever we've successfully dissolved so far
-    if (grouped.size === 0) return empty
-    const partialFeatures: GeoJSON.Feature[] = []
-    for (const [nlcId, { coords, props, totalArea }] of grouped) {
-      const level1 = String(props.LEVEL_1_VALUE || '')
-      const nlcLabel = String(props.LEVEL_2_VALUE || '')
-      const fossitt = mapNlcToFossitt(nlcId)
-      const fossittCode = fossitt?.fossittCode || ''
-      partialFeatures.push({
-        type: 'Feature',
-        geometry: dissolveCoords(coords, clientSimplify),
-        properties: {
-          color: fossittCode
-            ? getHeritageColor(fossittCode)
-            : NLC_LEVEL1_COLORS[level1] || '#808080',
-          nlc_id: nlcId,
-          nlc_label: nlcLabel,
-          nlc_level1: level1,
-          fossitt_code: fossittCode || nlcId,
-          fossitt_name: fossitt?.fossittName || String(props.LEVEL_2_VALUE || ''),
-          area_hectares: Math.round((totalArea / 10000) * 100) / 100,
-        },
-      })
+    // Return whatever we've successfully fetched so far. Mark anchors for
+    // partial results too so the renderer behaves consistently.
+    if (collected.length === 0) return empty
+    if (markLabelAnchors) {
+      for (const { index } of labelAnchorByNlcId.values()) {
+        const feat = collected[index]
+        if (feat?.properties) feat.properties.is_label_anchor = true
+      }
     }
-    return { type: 'FeatureCollection', features: partialFeatures }
+    return { type: 'FeatureCollection', features: collected }
   }
 }

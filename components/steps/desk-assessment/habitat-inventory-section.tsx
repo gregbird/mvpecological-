@@ -465,7 +465,7 @@ export function HabitatInventorySection({
                   otherBoundaries={otherBoundaries}
                   allBoundaries={allBoundaries}
                   bufferDistances={[2, 5]}
-                  showControls={false}
+                  showControls={true}
                   npwsVisibleLayers={layerToggles.sites ? npwsVisibleLayers : []}
                 />
               </div>

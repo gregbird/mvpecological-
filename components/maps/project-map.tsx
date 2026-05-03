@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Maximize2, Minimize2 } from 'lucide-react'
+import { Grid3x3, Maximize2, Minimize2, Palette } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import type { Map as LeafletMap } from 'leaflet'
 
@@ -23,6 +23,7 @@ import { MapController } from '@/components/maps/map-controller'
 import { BufferZoneLayer } from '@/components/maps/buffer-zone-layer'
 import { HabitatPolygonLayer } from '@/components/maps/habitat-polygon-layer'
 import { NlcTileLayer } from '@/components/maps/nlc-tile-layer'
+import { ViewportHabitatDetail } from '@/components/maps/viewport-habitat-detail'
 import { TargetNoteMarkers } from '@/components/maps/target-note-markers'
 import { ObservationMarkers } from '@/components/maps/observation-markers'
 import {
@@ -73,6 +74,15 @@ type MapComponentProps = Omit<ProjectMapProps, 'className' | 'showControls'> & {
   mapRef: React.MutableRefObject<LeafletMap | null>
   showBatRecords?: boolean
   iwebsVisibleLayers?: string[]
+  /** When true, habitat polygons render with NLC's native palette instead
+   * of the Heritage Council palette. Toggleable from the layers dropdown. */
+  useNativeColors?: boolean
+  /** When true, render Heritage Council Appendix 6 hatch patterns on top of
+   * habitat fills. Only effective at viewport-detail zoom (z16+). */
+  useHatchPatterns?: boolean
+  /** Bubbled up from ViewportHabitatDetail.onActiveChange so the wrapper
+   * can render the Hatch toggle only while viewport detail is active. */
+  onViewportDetailActiveChange?: (active: boolean) => void
 }
 
 // Stable style objects / key derivation — declared at module scope so that
@@ -131,8 +141,16 @@ function MapComponent({
   skipFitBounds,
   npwsVisibleLayers,
   showNlcOverlay,
+  useNativeColors = false,
+  useHatchPatterns = false,
+  onViewportDetailActiveChange,
 }: MapComponentProps) {
   const mapInstanceId = React.useId()
+  // Local mirror of viewport detail state for hiding the project habitat
+  // layer at high zoom. Parent (ProjectMap wrapper) gets the same signal
+  // via onViewportDetailActiveChange to conditionally render the Hatch
+  // button in the toolbar.
+  const [viewportDetailActive, setViewportDetailActive] = React.useState(false)
 
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- react-leaflet must be client-side only
   const rl = require('react-leaflet')
@@ -175,6 +193,11 @@ function MapComponent({
       className="h-full min-h-100 w-full"
       style={{ height: '100%', minHeight: '400px' }}
       zoomControl={false}
+      // Default Leaflet maxZoom is 18 (~30m scale) — bump it so users can
+      // zoom past the 30m wall to inspect individual buildings/parcels.
+      // The viewport detail layer keeps refetching at sub-meter tolerance
+      // so habitat polygons stay crisp even when satellite tiles upscale.
+      maxZoom={22}
       // Canvas renderer is dramatically faster than SVG when dozens of
       // polygons are on screen (multi-site projects draw 20+ boundaries
       // plus buffer rings plus habitat layers).
@@ -197,7 +220,17 @@ function MapComponent({
           attribution={tileConfig.attribution}
         />
       ) : (
-        <TileLayer key={currentStyle} url={tileConfig.url} attribution={tileConfig.attribution} />
+        <TileLayer
+          key={currentStyle}
+          url={tileConfig.url}
+          attribution={tileConfig.attribution}
+          // Esri World Imagery has native tiles up to z19 in most areas
+          // (z20-23 in built-up zones); set maxNativeZoom so Leaflet
+          // upscales the deepest available tile rather than showing blank
+          // squares when the user zooms past the source's true ceiling.
+          maxZoom={22}
+          maxNativeZoom={19}
+        />
       )}
       {currentStyle === 'hybrid' && (
         <TileLayer
@@ -205,6 +238,8 @@ function MapComponent({
           url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
           attribution=""
           pane="overlayPane"
+          maxZoom={22}
+          maxNativeZoom={19}
         />
       )}
       {showBatRecords && (
@@ -301,11 +336,36 @@ function MapComponent({
       {habitatPolygons &&
         habitatLayer?.visible &&
         (!visibleFindingTypes || visibleFindingTypes.includes('habitat')) && (
-          <HabitatPolygonLayer
-            habitatPolygons={habitatPolygons}
-            habitatSelectionKey={habitatSelectionKey}
-            GeoJSON={GeoJSON}
-          />
+          <>
+            {/* Project-bbox layer is hidden at high zoom because its coarse
+                tolerance produces visible TIN triangles when you zoom in,
+                and those clash with the crisp viewport detail layer. */}
+            {!viewportDetailActive && (
+              <HabitatPolygonLayer
+                habitatPolygons={habitatPolygons}
+                habitatSelectionKey={habitatSelectionKey}
+                GeoJSON={GeoJSON}
+                useMap={rl.useMap}
+                useNativeColors={useNativeColors}
+              />
+            )}
+            {/* High-zoom viewport detail layer — refetches the current
+                viewport with sub-meter tolerance at z16+ to match Esri viewer
+                parity in dense built-up areas. Brings its own FOSSITT labels
+                (one per habitat type within the viewport) since the project
+                layer is hidden when this is active. */}
+            <ViewportHabitatDetail
+              enabled
+              useMap={rl.useMap}
+              GeoJSON={GeoJSON}
+              onActiveChange={(active) => {
+                setViewportDetailActive(active)
+                onViewportDetailActiveChange?.(active)
+              }}
+              useNativeColors={useNativeColors}
+              useHatchPatterns={useHatchPatterns}
+            />
+          </>
         )}
       {gridOverlay && <GridOverlayLayer gridOverlay={gridOverlay} GeoJSON={GeoJSON} />}
       {observationPoints && observationPoints.features.length > 0 && obsLayer?.visible && (
@@ -366,6 +426,18 @@ export function ProjectMap({
     { id: 'counties', name: 'County Boundaries', visible: false, color: '#f97316' },
     { id: 'townlands', name: 'Townlands (zoom 12+)', visible: false, color: '#a855f7' },
   ])
+  // Default OFF → Heritage Council palette (CIEEM convention, matches PDF
+  // reports). When ON, both project and viewport-detail layers switch to
+  // NLC's native 37-shade palette (buildings red, ways gray, etc.).
+  const [useNativeColors, setUseNativeColors] = React.useState(false)
+  // Heritage Council Appendix 6 hatch fill overlay (horizontal lines for
+  // grasslands, crosshatch for woodland, etc.). Off by default. The toggle
+  // button is only rendered while the viewport detail layer is active —
+  // hatch only reads at parcel-level zoom.
+  const [useHatchPatterns, setUseHatchPatterns] = React.useState(false)
+  // Mirrored from MapComponent's ViewportHabitatDetail.onActiveChange so we
+  // can show/hide the Hatch toggle in the toolbar.
+  const [viewportDetailActive, setViewportDetailActive] = React.useState(false)
 
   React.useEffect(() => {
     setMapLoaded(true)
@@ -436,6 +508,9 @@ export function ProjectMap({
           mapRef={mapRef}
           showBatRecords={showBatRecords}
           iwebsVisibleLayers={iwebsVisibleLayers}
+          useNativeColors={useNativeColors}
+          useHatchPatterns={useHatchPatterns}
+          onViewportDetailActiveChange={setViewportDetailActive}
         />
       </div>
 
@@ -465,6 +540,62 @@ export function ProjectMap({
               onToggleAll={setAllBuffers}
               portalContainer={containerRef.current}
             />
+            {/* Habitat colour palette toggle. Default OFF = Heritage Council
+                (CIEEM convention, matches PDF reports). ON = NLC native
+                37-shade palette (buildings red, ways gray, etc.) — easier
+                to distinguish habitats at high-zoom inspection. */}
+            <Button
+              variant={useNativeColors ? 'default' : 'secondary'}
+              size="sm"
+              className="h-7 px-2 text-xs shadow-md"
+              onClick={() => setUseNativeColors((v) => !v)}
+              aria-pressed={useNativeColors}
+              title={
+                useNativeColors
+                  ? 'Switch back to Heritage Council palette'
+                  : 'Switch to NLC native palette (37 distinct colours)'
+              }
+            >
+              <Palette className="mr-1.5 h-3.5 w-3.5" />
+              NLC
+            </Button>
+            {/* Hatch toggle — only meaningful at parcel-level zoom (z16+),
+                so it lives next to NLC but appears only while the viewport
+                detail layer is active. Per Heritage Council Appendix 6. */}
+            {viewportDetailActive && (
+              <Button
+                variant={useHatchPatterns ? 'default' : 'secondary'}
+                size="sm"
+                className="h-7 px-2 text-xs shadow-md"
+                onClick={() => setUseHatchPatterns((v) => !v)}
+                aria-pressed={useHatchPatterns}
+                title={
+                  useHatchPatterns
+                    ? 'Hide Heritage Council hatch patterns'
+                    : 'Show Heritage Council hatch patterns (Appendix 6)'
+                }
+              >
+                <Grid3x3 className="mr-1.5 h-3.5 w-3.5" />
+                Hatch
+              </Button>
+            )}
+            {/* Quick-jump to z16 — the scale (~200m) where the viewport
+                detail layer activates. Lets the user see crisp parcel-level
+                rendering with one click instead of multiple zoom-ins. */}
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-7 px-2 text-xs shadow-md"
+              onClick={() => {
+                const map = mapRef.current
+                if (!map) return
+                map.setView(map.getCenter(), 16, { animate: true })
+              }}
+              aria-label="Zoom to 200m detail view"
+              title="Zoom to ~200m scale (NLC detail view)"
+            >
+              200m
+            </Button>
             <Button
               variant="secondary"
               size="icon"

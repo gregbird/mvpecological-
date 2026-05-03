@@ -144,7 +144,10 @@ export function HabitatTab({
 
   const { projectBoundary, projectCenter } = useProjectBoundary(project)
 
-  // Combine field-verified habitats + desk research habitat polygons for map
+  // Combine field-verified habitats + desk research habitat polygons for map.
+  // Property shape mirrors what HabitatPolygonLayer expects (snake_case +
+  // nlc_label/nlc_level1 for the NLC palette toggle, area_hectares so the
+  // largest parcel per FOSSITT code can be picked as the tooltip anchor).
   const habitatFeatureCollection: GeoJSON.FeatureCollection = React.useMemo(() => {
     const fieldFeatures = habitats
       .filter((h) => h.boundary && h.include_in_report)
@@ -155,6 +158,8 @@ export function HabitatTab({
           fossitt_name: h.fossitt_name,
           condition: h.condition,
           color: getHeritageColor(h.fossitt_code),
+          area_hectares: h.area_hectares ?? 0,
+          is_label_anchor: false,
         },
         geometry: h.boundary as GeoJSON.Polygon,
       }))
@@ -172,14 +177,39 @@ export function HabitatTab({
             fossitt_name: String(raw?.fossittName ?? f.title),
             condition: info ? 'desk' : undefined,
             color: getHeritageColor(fossittCode),
+            // raw_data carries the NLC labels at save time (use-habitat-save
+            // / use-habitat-auto-save); pass them through so the NLC palette
+            // resolves at render time.
+            nlc_label: typeof raw?.nlcLabel === 'string' ? raw.nlcLabel : undefined,
+            nlc_level1: typeof raw?.nlcLevel1 === 'string' ? raw.nlcLevel1 : undefined,
+            nlc_id: typeof raw?.nlcId === 'string' ? raw.nlcId : undefined,
+            area_hectares: typeof raw?.areaHectares === 'number' ? raw.areaHectares : 0,
+            is_label_anchor: false,
           },
           geometry: f.location as GeoJSON.Geometry,
         }
       })
 
+    const features = [...fieldFeatures, ...deskFeatures]
+    // Pick the largest parcel per fossitt_code as the tooltip anchor — same
+    // mechanism osi.ts uses for live NLC fetches.
+    const largest = new Map<string, number>()
+    features.forEach((f, i) => {
+      const code = String(f.properties.fossitt_code || '')
+      if (!code) return
+      const area = Number(f.properties.area_hectares || 0)
+      const cur = largest.get(code)
+      if (cur === undefined || area > Number(features[cur].properties.area_hectares || 0)) {
+        largest.set(code, i)
+      }
+    })
+    largest.forEach((i) => {
+      features[i].properties.is_label_anchor = true
+    })
+
     return {
       type: 'FeatureCollection',
-      features: [...fieldFeatures, ...deskFeatures],
+      features,
     }
   }, [habitats, savedFindings])
 
@@ -237,7 +267,7 @@ export function HabitatTab({
             zoom={projectCenter ? 11 : 7}
             boundary={projectBoundary}
             habitatPolygons={habitatFeatureCollection}
-            showControls={false}
+            showControls={true}
           />
         </CardContent>
       </Card>

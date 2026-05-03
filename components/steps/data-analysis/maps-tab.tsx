@@ -181,19 +181,38 @@ export function MapsTab({ projectId, siteId, userId, project }: MapsTabProps) {
   // Convert habitats to GeoJSON FeatureCollection
   const habitatGeoJson: GeoJSON.FeatureCollection | undefined = React.useMemo(() => {
     if (!visibleOverlays.has('habitats')) return undefined
+    // snake_case property names + area_hectares so HabitatPolygonLayer can
+    // resolve colour, render labels, and apply hatch patterns. Anchor is
+    // chosen below so each FOSSITT code labels exactly one polygon.
     const features = habitats
       .filter((h) => h.boundary != null)
       .map((h) => ({
         type: 'Feature' as const,
         properties: {
           id: h.id,
-          fossittCode: h.fossitt_code,
-          fossittName: h.fossitt_name,
+          fossitt_code: h.fossitt_code,
+          fossitt_name: h.fossitt_name,
           condition: h.condition,
           color: getHeritageColor(h.fossitt_code),
+          area_hectares: h.area_hectares ?? 0,
+          is_label_anchor: false,
         },
         geometry: h.boundary as GeoJSON.Geometry,
       }))
+    // Pick largest parcel per fossitt_code as the label anchor.
+    const largest = new Map<string, number>()
+    features.forEach((f, i) => {
+      const code = String(f.properties.fossitt_code || '')
+      if (!code) return
+      const area = Number(f.properties.area_hectares || 0)
+      const cur = largest.get(code)
+      if (cur === undefined || area > Number(features[cur].properties.area_hectares || 0)) {
+        largest.set(code, i)
+      }
+    })
+    largest.forEach((i) => {
+      features[i].properties.is_label_anchor = true
+    })
     return features.length > 0 ? { type: 'FeatureCollection', features } : undefined
   }, [habitats, visibleOverlays])
 
@@ -760,7 +779,7 @@ export function MapsTab({ projectId, siteId, userId, project }: MapsTabProps) {
                 observationPoints={observationPoints}
                 targetNotes={targetNoteMarkers}
                 findings={mapFindings}
-                showControls={false}
+                showControls={true}
                 npwsVisibleLayers={
                   Array.isArray(project.visible_layers)
                     ? project.visible_layers.filter((v): v is string => typeof v === 'string')

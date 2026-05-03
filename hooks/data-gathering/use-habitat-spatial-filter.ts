@@ -1,7 +1,29 @@
 'use client'
 
 import * as React from 'react'
+import {
+  area as turfArea,
+  bbox as turfBbox,
+  booleanIntersects,
+  buffer as turfBuffer,
+} from '@turf/turf'
 import type { HabitatResult } from '@/components/steps/data-gathering/habitat-data-substep'
+
+// Per-feature bbox cache. WeakMap so GC reclaims when habitatPolygons is
+// replaced. Avoids recomputing bbox for every feature on every filter
+// recompute — for ~5000 features that was ~1M coordinate reads per pass.
+const featureBboxCache = new WeakMap<GeoJSON.Feature, [number, number, number, number]>()
+function cachedBbox(f: GeoJSON.Feature): [number, number, number, number] | null {
+  const cached = featureBboxCache.get(f)
+  if (cached) return cached
+  try {
+    const bb = turfBbox(f) as [number, number, number, number]
+    featureBboxCache.set(f, bb)
+    return bb
+  } catch {
+    return null
+  }
+}
 
 interface UseHabitatSpatialFilterParams {
   results: HabitatResult[]
@@ -27,9 +49,7 @@ export function useHabitatSpatialFilter({
     if (allBoundaries && allBoundaries.length > 0) return null
     if (!siteId || !projectBoundary) return null
     try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const turf = require('@turf/turf')
-      return turf.buffer(projectBoundary, selectedBuffer, {
+      return turfBuffer(projectBoundary, selectedBuffer, {
         units: 'kilometers',
       }) as GeoJSON.Feature<GeoJSON.Polygon>
     } catch {
@@ -40,44 +60,62 @@ export function useHabitatSpatialFilter({
   const filteredPolygons = React.useMemo((): GeoJSON.FeatureCollection | null => {
     if (!habitatPolygons) return null
     if (!siteFilterPolygon) return habitatPolygons
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const turf = require('@turf/turf')
     // Pre-compute the site buffer's bbox once so we can short-circuit the
     // expensive booleanIntersects call for habitat polygons that are
     // obviously outside the buffer. This is the hottest path when a
     // project has thousands of NLC polygons across many sites.
     let siteBbox: [number, number, number, number] | null = null
     try {
-      siteBbox = turf.bbox(siteFilterPolygon) as [number, number, number, number]
+      siteBbox = turfBbox(siteFilterPolygon) as [number, number, number, number]
     } catch {
       siteBbox = null
     }
 
+    const filtered = habitatPolygons.features.filter((f) => {
+      try {
+        if (siteBbox) {
+          const fb = cachedBbox(f)
+          if (
+            fb &&
+            (fb[2] < siteBbox[0] ||
+              fb[0] > siteBbox[2] ||
+              fb[3] < siteBbox[1] ||
+              fb[1] > siteBbox[3])
+          ) {
+            return false
+          }
+        }
+        return booleanIntersects(f.geometry, siteFilterPolygon)
+      } catch {
+        return false
+      }
+    })
+
+    // Re-pick label anchors per filtered set — the original anchor (chosen
+    // by osi.ts as the largest parcel in the bbox) might have been outside
+    // the site buffer and dropped, which would leave that habitat type
+    // unlabeled on the map.
+    const largestIndexByNlcId = new Map<string, { area: number; index: number }>()
+    filtered.forEach((f, i) => {
+      const nlcId = String(f.properties?.nlc_id || '')
+      if (!nlcId) return
+      const area = Number(f.properties?.area_hectares || 0)
+      const current = largestIndexByNlcId.get(nlcId)
+      if (!current || area > current.area) {
+        largestIndexByNlcId.set(nlcId, { area, index: i })
+      }
+    })
+    const anchorIndexes = new Set(Array.from(largestIndexByNlcId.values()).map((v) => v.index))
+
     return {
       type: 'FeatureCollection',
-      features: habitatPolygons.features.filter((f) => {
-        try {
-          if (siteBbox) {
-            const [fMinLng, fMinLat, fMaxLng, fMaxLat] = turf.bbox(f) as [
-              number,
-              number,
-              number,
-              number,
-            ]
-            if (
-              fMaxLng < siteBbox[0] ||
-              fMinLng > siteBbox[2] ||
-              fMaxLat < siteBbox[1] ||
-              fMinLat > siteBbox[3]
-            ) {
-              return false
-            }
-          }
-          return turf.booleanIntersects(f.geometry, siteFilterPolygon)
-        } catch {
-          return false
-        }
-      }),
+      features: filtered.map((f, i) => ({
+        ...f,
+        properties: {
+          ...f.properties,
+          is_label_anchor: anchorIndexes.has(i),
+        },
+      })),
     }
   }, [habitatPolygons, siteFilterPolygon])
 
@@ -85,8 +123,6 @@ export function useHabitatSpatialFilter({
     if (!siteFilterPolygon || !filteredPolygons) return results
     // Group filtered polygon areas by nlcId — recalculate from actual site polygons
     const nlcAreaMap = new Map<string, { area: number; count: number }>()
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const turf = require('@turf/turf')
     for (const f of filteredPolygons.features) {
       const nlcId = f.properties?.nlc_id
       if (!nlcId) continue
@@ -94,12 +130,14 @@ export function useHabitatSpatialFilter({
       const entry = nlcAreaMap.get(key) ?? { area: 0, count: 0 }
       try {
         // turf.area returns m², convert to hectares
-        entry.area += turf.area(f) / 10000
+        entry.area += turfArea(f) / 10000
       } catch {
-        // Fallback: use property-based area if geometry calc fails
-        const propArea = f.properties?.area_hectares ?? f.properties?.Shape__Area
-        if (typeof propArea === 'number')
-          entry.area += propArea > 1000 ? propArea / 10000 : propArea
+        // Fallback chain: feature properties first (already in hectares for
+        // our own pipeline), then ArcGIS Shape__Area (always m²).
+        const propAreaHa = f.properties?.area_hectares
+        const shapeAreaSqm = f.properties?.Shape__Area
+        if (typeof propAreaHa === 'number') entry.area += propAreaHa
+        else if (typeof shapeAreaSqm === 'number') entry.area += shapeAreaSqm / 10000
       }
       entry.count++
       nlcAreaMap.set(key, entry)
