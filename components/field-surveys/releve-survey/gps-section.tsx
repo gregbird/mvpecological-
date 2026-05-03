@@ -44,7 +44,7 @@ export function GpsSection({ form, readOnly }: GpsSectionProps) {
           form={form}
           name="survey_x_coord"
           label="Longitude"
-          step="0.000001"
+          step="any"
           min="-180"
           readOnly={readOnly}
         />
@@ -52,7 +52,7 @@ export function GpsSection({ form, readOnly }: GpsSectionProps) {
           form={form}
           name="survey_y_coord"
           label="Latitude"
-          step="0.000001"
+          step="any"
           min="-90"
           readOnly={readOnly}
         />
