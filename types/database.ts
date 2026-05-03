@@ -873,6 +873,7 @@ export type Database = {
           notes: string | null
           observation_id: string | null
           project_id: string | null
+          site_id: string | null
           storage_path: string
           survey_id: string | null
           tags: string[] | null
@@ -890,6 +891,7 @@ export type Database = {
           notes?: string | null
           observation_id?: string | null
           project_id?: string | null
+          site_id?: string | null
           storage_path: string
           survey_id?: string | null
           tags?: string[] | null
@@ -907,6 +909,7 @@ export type Database = {
           notes?: string | null
           observation_id?: string | null
           project_id?: string | null
+          site_id?: string | null
           storage_path?: string
           survey_id?: string | null
           tags?: string[] | null
@@ -941,6 +944,13 @@ export type Database = {
             columns: ['project_id']
             isOneToOne: false
             referencedRelation: 'projects'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'photos_site_id_fkey'
+            columns: ['site_id']
+            isOneToOne: false
+            referencedRelation: 'project_sites'
             referencedColumns: ['id']
           },
           {

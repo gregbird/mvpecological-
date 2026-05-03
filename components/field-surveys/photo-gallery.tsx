@@ -21,7 +21,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
 import { useProjectPhotos, useDeletePhoto, useUpdatePhoto } from '@/hooks/queries/use-photo-hooks'
-import { getPhotoPublicUrl } from '@/lib/supabase/queries'
+import { getPhotoDisplayUrl } from '@/lib/supabase/queries'
 import { createClient } from '@/lib/supabase/client'
 import type { Photo } from '@/types/database'
 
@@ -29,6 +29,7 @@ import type { Photo } from '@/types/database'
 const PhotoMapView = dynamic(() => import('./photo-map-view'), { ssr: false })
 
 const COMMON_TAGS = [
+  'site',
   'habitat',
   'species',
   'damage',
@@ -231,7 +232,7 @@ export function PhotoGallery({ projectId, siteId, className }: PhotoGalleryProps
                 }}
               >
                 <img
-                  src={getPhotoPublicUrl(photo.storage_path)}
+                  src={getPhotoDisplayUrl(photo)}
                   alt={photo.caption ?? 'Photo'}
                   className="h-full w-full object-cover transition-transform group-hover:scale-105"
                   loading="lazy"
@@ -282,7 +283,7 @@ export function PhotoGallery({ projectId, siteId, className }: PhotoGalleryProps
             <div className="space-y-4">
               <div className="overflow-hidden rounded-lg">
                 <img
-                  src={getPhotoPublicUrl(selectedPhoto.storage_path)}
+                  src={getPhotoDisplayUrl(selectedPhoto)}
                   alt={selectedPhoto.caption ?? 'Photo'}
                   className="max-h-[60vh] w-full object-contain"
                 />

@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useProjectPhotos } from '@/hooks/queries/use-photo-hooks'
-import { getPhotoPublicUrl } from '@/lib/supabase/queries'
+import { getPhotoDisplayUrl } from '@/lib/supabase/queries'
 import type { Photo } from '@/types/database'
 
 interface InsertedPhoto {
@@ -81,7 +81,7 @@ export function PhotoPickerModal({
     for (const photo of photos) {
       if (selectedIds.has(photo.id)) {
         selected.push({
-          url: getPhotoPublicUrl(photo.storage_path),
+          url: getPhotoDisplayUrl(photo),
           caption: photo.caption ?? 'Site photo',
         })
       }
@@ -190,7 +190,7 @@ function PhotoTile({
       }}
     >
       <img
-        src={getPhotoPublicUrl(photo.storage_path)}
+        src={getPhotoDisplayUrl(photo)}
         alt={photo.caption ?? 'Photo'}
         className="h-full w-full object-cover"
         loading="lazy"

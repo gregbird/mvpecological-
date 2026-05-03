@@ -2,7 +2,7 @@
 
 import { Loader2, Camera } from 'lucide-react'
 import { useProjectPhotos } from '@/hooks/queries/use-photo-hooks'
-import { getPhotoPublicUrl } from '@/lib/supabase/queries'
+import { getPhotoDisplayUrl } from '@/lib/supabase/queries'
 
 interface AssetPanelPhotosProps {
   projectId: string
@@ -39,7 +39,7 @@ export function AssetPanelPhotos({ projectId }: AssetPanelPhotosProps) {
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={getPhotoPublicUrl(photo.storage_path)}
+            src={getPhotoDisplayUrl(photo)}
             alt={photo.caption || 'Field photo'}
             className="h-20 w-full object-cover transition-transform group-hover:scale-105"
           />

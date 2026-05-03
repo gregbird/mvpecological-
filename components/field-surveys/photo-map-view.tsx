@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
-import { getPhotoPublicUrl } from '@/lib/supabase/queries'
+import { getPhotoDisplayUrl } from '@/lib/supabase/queries'
 import { IRELAND_CENTER, DEFAULT_ZOOM } from '@/lib/config/map-constants'
 import type { Photo } from '@/types/database'
 
@@ -86,7 +86,7 @@ export default function PhotoMapView({ photos, onPhotoClick }: PhotoMapViewProps
 
       bounds.push(coords)
 
-      const url = getPhotoPublicUrl(photo.storage_path)
+      const url = getPhotoDisplayUrl(photo)
 
       const marker = L.marker(coords).addTo(map)
       marker.bindPopup(
