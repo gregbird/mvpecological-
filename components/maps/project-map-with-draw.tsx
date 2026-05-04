@@ -41,6 +41,7 @@ import {
   getHeritagePatternShape,
   type PatternShape,
 } from '@/lib/config/heritage-patterns'
+import { NLC_NATIVE_LEVEL2_COLORS } from '@/lib/external-apis/osi'
 
 interface ProjectMapWithDrawProps {
   className?: string
@@ -186,6 +187,13 @@ interface UserDrawnHabitatLayerProps {
   selectedHabitatId?: string
   onHabitatClick?: (id: string) => void
   useHatchPatterns: boolean
+  /** When true, fill colour comes from NLC's native 37-shade palette via the
+   * habitat overlay's `nlcLabel`. The label is approximate for ambiguous
+   * FOSSITT codes (one representative per code), but it lets the NLC button
+   * actually do something at low/mid zoom — at z16+ the live ViewportHabitat
+   * Detail layer takes over with exact per-parcel labels. Heritage Council
+   * is the default fallback. */
+  useNativeColors: boolean
   useMap: () => L.Map
   GeoJSON: React.ComponentType<Record<string, unknown>>
 }
@@ -206,11 +214,28 @@ function escapeHtml(s: string): string {
   )
 }
 
+// Resolve a habitat overlay's fill colour. NLC native palette uses the
+// `nlcLabel` if present (set by use-habitat-map-data via FOSSITT→NLC reverse
+// lookup), falling back to Heritage Council so saved habitats without an
+// nlcLabel still get a meaningful colour rather than gray. Heritage Council
+// stays the default — same convention as HabitatPolygonLayer.
+function resolveOverlayFill(
+  hp: import('@/components/maps/map-types').HabitatPolygonOverlay,
+  useNativeColors: boolean
+): string {
+  if (useNativeColors) {
+    const native = hp.nlcLabel ? NLC_NATIVE_LEVEL2_COLORS[hp.nlcLabel] : undefined
+    if (native) return native
+  }
+  return hp.color || '#22c55e'
+}
+
 function UserDrawnHabitatLayer({
   habitatPolygons,
   selectedHabitatId,
   onHabitatClick,
   useHatchPatterns,
+  useNativeColors,
   useMap,
   GeoJSON,
 }: UserDrawnHabitatLayerProps) {
@@ -235,7 +260,7 @@ function UserDrawnHabitatLayer({
     const items: { shape: PatternShape; stroke: string }[] = []
     const seen = new Set<string>()
     for (const hp of habitatPolygons) {
-      const fill = hp.color || '#22c55e'
+      const fill = resolveOverlayFill(hp, useNativeColors)
       const shape = getHeritagePatternShape(hp.fossittCode)
       const stroke = darkenHexShade(fill, 0.55)
       const key = `${shape}|${stroke}`
@@ -244,18 +269,18 @@ function UserDrawnHabitatLayer({
       items.push({ shape, stroke })
     }
     patternIdMapRef.current = ensurePatternDefs(container, items)
-  }, [useHatchPatterns, map, habitatPolygons])
+  }, [useHatchPatterns, useNativeColors, map, habitatPolygons])
 
   return (
     <>
       {habitatPolygons.map((hp) => {
         const isSelected = hp.id === selectedHabitatId
-        const fill = hp.color || '#22c55e'
+        const fill = resolveOverlayFill(hp, useNativeColors)
         const stroke = darkenHexShade(fill, 0.65)
         const renderer = useHatchPatterns ? svgRendererRef.current : undefined
         return (
           <GeoJSON
-            key={`habitat-${hp.id}-${useHatchPatterns ? 'hatch' : 'flat'}`}
+            key={`habitat-${hp.id}-${useHatchPatterns ? 'hatch' : 'flat'}-${useNativeColors ? 'nlc' : 'hc'}`}
             data={{ type: 'Feature', geometry: hp.geometry, properties: {} } as GeoJSON.Feature}
             // Style mirrors HabitatPolygonLayer (NLC layer) so saved user
             // drawings sit naturally next to the live NLC viewport detail
@@ -645,6 +670,7 @@ function MapComponentWithDraw(props: InternalMapProps) {
             selectedHabitatId={selectedHabitatId}
             onHabitatClick={onHabitatClick}
             useHatchPatterns={useHatchPatterns}
+            useNativeColors={useNativeColors}
             useMap={rl.useMap}
             GeoJSON={GeoJSON}
           />

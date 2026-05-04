@@ -46,6 +46,7 @@ import { useProjectSites } from '@/hooks/queries/use-site-hooks'
 import { HabitatEditDialog } from '@/components/steps/data-analysis/habitat-edit-dialog'
 import { getHabitatByCode } from '@/lib/data/fossitt-codes'
 import { getHeritageColor } from '@/lib/config/map-constants'
+import { mapFossittToNlcLabel } from '@/lib/data/nlc-to-fossitt'
 import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
 import {
   usePlacementPreferences,
@@ -158,6 +159,11 @@ export function HabitatTab({
           fossitt_name: h.fossitt_name,
           condition: h.condition,
           color: getHeritageColor(h.fossitt_code),
+          // habitat_polygons rows do not persist NLC labels — derive a
+          // representative one from the FOSSITT code so the NLC native
+          // palette toggle resolves to a real colour at every zoom for
+          // field-verified habitats too. Approximate for ambiguous codes.
+          nlc_label: mapFossittToNlcLabel(h.fossitt_code),
           area_hectares: h.area_hectares ?? 0,
           is_label_anchor: false,
         },

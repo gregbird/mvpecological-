@@ -17,6 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { getHeritageColor } from '@/lib/config/map-constants'
+import { mapFossittToNlcLabel } from '@/lib/data/nlc-to-fossitt'
 import { BaselineMap, toMapFindings } from './baseline-map-utils'
 import { FindingDetailDialog } from './finding-detail-dialog'
 import type { DeskResearchFinding } from '@/types/database'
@@ -305,6 +306,14 @@ export function HabitatInventorySection({
     const features: GeoJSON.Feature[] = withLocation.map((f) => {
       const raw = f.raw_data as Record<string, unknown> | null
       const fossittCode = String(raw?.fossittCode ?? '')
+      // Prefer the NLC label saved at fetch time; fall back to the FOSSITT
+      // representative reverse mapping so the NLC palette toggle resolves
+      // for habitats imported through code paths that didn't persist
+      // nlcLabel.
+      const nlcLabel =
+        typeof raw?.nlcLabel === 'string'
+          ? (raw.nlcLabel as string)
+          : mapFossittToNlcLabel(fossittCode)
       return {
         type: 'Feature',
         geometry: f.location as GeoJSON.Geometry,
@@ -312,6 +321,7 @@ export function HabitatInventorySection({
           fossitt_name: String(raw?.fossittName ?? f.title),
           fossitt_code: fossittCode,
           color: getHeritageColor(fossittCode),
+          nlc_label: nlcLabel,
         },
       }
     })
