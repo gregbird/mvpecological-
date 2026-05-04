@@ -9,10 +9,19 @@ import { cn } from '@/lib/utils'
 interface MapControlSidebarProps {
   children: React.ReactNode
   className?: string
+  /** Initial open state. Use `true` for steps where the toolbar's existence
+   * needs to be obvious (Step 4 Habitat Mapping, Step 5 Data Analysis) so the
+   * user actually discovers NLC / Hatch / 200m without having to click the
+   * disclosure chevron first. */
+  defaultOpen?: boolean
 }
 
-export function MapControlSidebar({ children, className }: MapControlSidebarProps) {
-  const [open, setOpen] = React.useState(false)
+export function MapControlSidebar({
+  children,
+  className,
+  defaultOpen = false,
+}: MapControlSidebarProps) {
+  const [open, setOpen] = React.useState(defaultOpen)
 
   return (
     <div className={cn('flex flex-col items-start gap-1.5', className)} data-map-control="true">

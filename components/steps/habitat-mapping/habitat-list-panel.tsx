@@ -120,6 +120,15 @@ export function HabitatListPanel({
     sessionStorage.setItem(tabCacheKey, activeTab)
   }, [activeTab, tabCacheKey])
 
+  // Largest first — most ecologically significant habitats land at the top
+  // of the list (typically the dominant land cover), so the user does not
+  // scroll past dozens of small parcels to reach the field they actually
+  // want to inspect. Null areas sink to the bottom.
+  const sortedHabitats = React.useMemo(
+    () => [...filteredHabitats].sort((a, b) => (b.area_hectares ?? -1) - (a.area_hectares ?? -1)),
+    [filteredHabitats]
+  )
+
   return (
     <Card className="flex h-full w-full flex-col">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col">
@@ -165,7 +174,7 @@ export function HabitatListPanel({
               ) : (
                 <ScrollArea className="h-full">
                   <div className="space-y-2 pr-3">
-                    {filteredHabitats.map((habitat) => (
+                    {sortedHabitats.map((habitat) => (
                       <HabitatListItem
                         key={habitat.id}
                         habitat={habitat}

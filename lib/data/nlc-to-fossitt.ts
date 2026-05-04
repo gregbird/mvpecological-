@@ -335,3 +335,28 @@ export function getNlcMapping(nlcLevel2Id: string): NlcToFossittMapping | undefi
 export function getAllNlcMappings(): NlcToFossittMapping[] {
   return Object.values(NLC_TO_FOSSITT)
 }
+
+/**
+ * Reverse lookup: FOSSITT code → representative NLC Level 2 label.
+ *
+ * Many FOSSITT codes map back to multiple NLC labels (BL3 → Buildings, Ways,
+ * Other Artificial Surfaces). For NLC native palette rendering on saved
+ * habitats — where we no longer remember the original NLC label per parcel —
+ * we deterministically pick the FIRST matching mapping. Saved BL3 habitats
+ * render with "Buildings" red instead of the more granular Ways / OAS
+ * shades, but they still get a meaningful NLC colour instead of the gray
+ * fallback. ViewportHabitatDetail (z16+) keeps the exact per-parcel label
+ * since it re-fetches with `nlc_label` on every feature.
+ */
+const FOSSITT_TO_NLC_LABEL: Record<string, string> = (() => {
+  const map: Record<string, string> = {}
+  for (const entry of Object.values(NLC_TO_FOSSITT)) {
+    if (!map[entry.fossittCode]) map[entry.fossittCode] = entry.nlcLabel
+  }
+  return map
+})()
+
+export function mapFossittToNlcLabel(fossittCode: string | null | undefined): string | undefined {
+  if (!fossittCode) return undefined
+  return FOSSITT_TO_NLC_LABEL[fossittCode]
+}

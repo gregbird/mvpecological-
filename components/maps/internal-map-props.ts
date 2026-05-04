@@ -43,4 +43,20 @@ export interface InternalMapProps {
     newPolygon: GeoJSON.Feature<GeoJSON.Polygon>
     overlappingPolygon: GeoJSON.Feature<GeoJSON.Polygon>
   }) => void
+  /** When true, NLC viewport detail layer (z16+) renders polygons with NLC's
+   * native palette instead of the Heritage Council colours. */
+  useNativeColors?: boolean
+  /** When true, render Heritage Council Appendix 6 hatch patterns on top of
+   * habitat fills (NLC viewport detail + user-drawn polygons). */
+  useHatchPatterns?: boolean
+  /** Bubbled up from ViewportHabitatDetail.onActiveChange so the wrapper can
+   * conditionally render the Hatch toggle in the toolbar. */
+  onViewportDetailActiveChange?: (active: boolean) => void
+  /** FOSSITT code of the currently selected habitat — used at high zoom to
+   * highlight matching NLC parcels in the viewport detail layer. Without
+   * this, only the coarse saved boundary highlighted while the crisp NLC
+   * parcels stayed unchanged. */
+  selectedHabitatFossittCode?: string | null
+  /** Fired on a map click that did NOT hit a habitat polygon. */
+  onMapClick?: () => void
 }

@@ -161,7 +161,7 @@ export function HabitatTab({
           area_hectares: h.area_hectares ?? 0,
           is_label_anchor: false,
         },
-        geometry: h.boundary as GeoJSON.Polygon,
+        geometry: h.boundary as GeoJSON.Polygon | GeoJSON.MultiPolygon,
       }))
 
     const deskFeatures = savedFindings

@@ -45,7 +45,14 @@ export interface HabitatPolygonOverlay {
   fossittCode: string
   fossittName: string
   condition: string | null
+  /** Heritage Council fill colour. Always present. */
   color?: string
+  /** NLC Level 2 label (e.g. "Improved Grassland") for the NLC native
+   * palette toggle. Either persisted from the original finding's
+   * `raw_data.nlcLabel` or derived from the FOSSITT code via the
+   * representative reverse mapping. Optional — saved habitats from older
+   * code paths or hand-drawn polygons may not have it. */
+  nlcLabel?: string
 }
 
 export interface BufferColorConfig {

@@ -26,7 +26,26 @@ interface SpeciesRecordsSectionProps {
   boundary?: GeoJSON.Feature<GeoJSON.Polygon>
   otherBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   allBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
+  /** Buffer distances (km) from the project — first entry is used for the
+   *  grid overlay so this view matches what the Step 2 search actually used. */
+  bufferDistances?: number[]
+  /** Project id — used to read the Step 2 grid resolution preference
+   *  (`species-grid-res-{projectId}` in sessionStorage). */
+  projectId?: string
   onRemoveFinding?: (findingId: string) => void
+}
+
+type GridResolution = '10km' | '2km' | '1km'
+
+function readGridResolution(projectId: string | undefined): GridResolution {
+  if (!projectId || typeof window === 'undefined') return '10km'
+  try {
+    const cached = sessionStorage.getItem(`species-grid-res-${projectId}`)
+    if (cached === '10km' || cached === '2km' || cached === '1km') return cached
+  } catch {
+    // sessionStorage unavailable — fall back to default
+  }
+  return '10km'
 }
 
 type SpeciesFilter = 'all' | 'protected' | 'invasive' | 'threatened'
@@ -208,65 +227,77 @@ function itmToIng(itmEasting: number, itmNorthing: number) {
   return { easting: itmEasting - 400000, northing: itmNorthing - 500000 }
 }
 
-/** Build 2km grid overlay from project boundary + buffer (matches data-gathering view) */
+/**
+ * Build NBDC grid overlay matching the Step 2 species view. Iterates every
+ * provided boundary (multi-site safe) and keeps grid squares that intersect
+ * any buffered polygon. Resolution + buffer come from the caller so the
+ * overlay reflects the actual search the user ran in Step 2.
+ */
 function buildBoundaryGridOverlay(
-  boundary: GeoJSON.Feature<GeoJSON.Polygon> | undefined,
-  bufferKm: number
+  boundaries: GeoJSON.Feature<GeoJSON.Polygon>[],
+  bufferKm: number,
+  resolution: GridResolution
 ): GeoJSON.FeatureCollection | null {
-  if (!boundary) return null
+  if (boundaries.length === 0) return null
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const turf = require('@turf/turf')
-    const bufferPoly = turf.buffer(boundary, bufferKm, { units: 'kilometers' })
-    const [minLng, minLat, maxLng, maxLat] = turf.bbox(bufferPoly) as [
-      number,
-      number,
-      number,
-      number,
-    ]
-
-    const resolutionMeters = 2000 // 2km grid
-    const swItm = wgs84ToItm(minLat, minLng)
-    const neItm = wgs84ToItm(maxLat, maxLng)
-    const swIng = itmToIng(swItm.easting, swItm.northing)
-    const neIng = itmToIng(neItm.easting, neItm.northing)
-
-    const minE = Math.floor(swIng.easting / resolutionMeters) * resolutionMeters
-    const minN = Math.floor(swIng.northing / resolutionMeters) * resolutionMeters
-    const maxE = Math.floor(neIng.easting / resolutionMeters) * resolutionMeters
-    const maxN = Math.floor(neIng.northing / resolutionMeters) * resolutionMeters
+    const resolutionMeters = resolution === '10km' ? 10000 : resolution === '2km' ? 2000 : 1000
+    const precision: 1 | 2 = resolution === '10km' ? 1 : 2
 
     const features: GeoJSON.Feature[] = []
     const seenRefs = new Set<string>()
-    for (let e = minE; e <= maxE; e += resolutionMeters) {
-      for (let n = minN; n <= maxN; n += resolutionMeters) {
-        try {
-          const ref = itmToGridRef(e, n, 2, true)
-          if (seenRefs.has(ref)) continue
-          seenRefs.add(ref)
 
-          const sw = itmToWgs84(e + 400000, n + 500000)
-          const ne = itmToWgs84(e + resolutionMeters + 400000, n + resolutionMeters + 500000)
-          const gridPoly = turf.polygon([
-            [
-              [sw.lng, sw.lat],
-              [ne.lng, sw.lat],
-              [ne.lng, ne.lat],
-              [sw.lng, ne.lat],
-              [sw.lng, sw.lat],
-            ],
-          ])
+    for (const boundary of boundaries) {
+      const bufferPoly = turf.buffer(boundary, bufferKm, { units: 'kilometers' })
+      const [minLng, minLat, maxLng, maxLat] = turf.bbox(bufferPoly) as [
+        number,
+        number,
+        number,
+        number,
+      ]
 
-          if (!turf.booleanIntersects(gridPoly, bufferPoly)) continue
+      const swItm = wgs84ToItm(minLat, minLng)
+      const neItm = wgs84ToItm(maxLat, maxLng)
+      const swIng = itmToIng(swItm.easting, swItm.northing)
+      const neIng = itmToIng(neItm.easting, neItm.northing)
 
-          features.push({
-            type: 'Feature',
-            properties: { label: ref.replace(/\s+/g, '') },
-            geometry: gridPoly.geometry,
-          })
-        } catch {
-          // Outside Irish Grid
+      const minE = Math.floor(swIng.easting / resolutionMeters) * resolutionMeters
+      const minN = Math.floor(swIng.northing / resolutionMeters) * resolutionMeters
+      const maxE = Math.floor(neIng.easting / resolutionMeters) * resolutionMeters
+      const maxN = Math.floor(neIng.northing / resolutionMeters) * resolutionMeters
+
+      for (let e = minE; e <= maxE; e += resolutionMeters) {
+        for (let n = minN; n <= maxN; n += resolutionMeters) {
+          try {
+            const ref = itmToGridRef(e, n, precision, true)
+            const cleanRef = ref.replace(/\s+/g, '')
+            if (seenRefs.has(cleanRef)) continue
+
+            const sw = itmToWgs84(e + 400000, n + 500000)
+            const ne = itmToWgs84(e + resolutionMeters + 400000, n + resolutionMeters + 500000)
+            const gridPoly = turf.polygon([
+              [
+                [sw.lng, sw.lat],
+                [ne.lng, sw.lat],
+                [ne.lng, ne.lat],
+                [sw.lng, ne.lat],
+                [sw.lng, sw.lat],
+              ],
+            ])
+
+            if (!turf.booleanIntersects(gridPoly, bufferPoly)) continue
+
+            seenRefs.add(cleanRef)
+            features.push({
+              type: 'Feature',
+              properties: { label: cleanRef },
+              geometry: gridPoly.geometry,
+            })
+          } catch {
+            // Outside Irish Grid
+          }
         }
       }
     }
@@ -282,6 +313,8 @@ export function SpeciesRecordsSection({
   boundary,
   otherBoundaries,
   allBoundaries,
+  bufferDistances,
+  projectId,
   onRemoveFinding,
 }: SpeciesRecordsSectionProps) {
   const species = React.useMemo(() => parseSpeciesRows(findings), [findings])
@@ -296,7 +329,15 @@ export function SpeciesRecordsSection({
     return species
   }, [species, activeFilter])
   const mapFindings = React.useMemo(() => toMapFindings(findings, 'species_record'), [findings])
-  const gridPolygons = React.useMemo(() => buildBoundaryGridOverlay(boundary, 2), [boundary])
+  const gridPolygons = React.useMemo(() => {
+    // Multi-site safe: prefer the full set so "All Sites" view still draws
+    // every grid square. Falls back to the single active boundary.
+    const boundaries =
+      allBoundaries && allBoundaries.length > 0 ? allBoundaries : boundary ? [boundary] : []
+    const bufferKm = bufferDistances?.[0] ?? 2
+    const resolution = readGridResolution(projectId)
+    return buildBoundaryGridOverlay(boundaries, bufferKm, resolution)
+  }, [boundary, allBoundaries, bufferDistances, projectId])
   const hasLocationData = mapFindings.length > 0
   const hasGridData = gridPolygons != null
 

@@ -33,6 +33,18 @@ interface HabitatPolygonLayerProps {
   useHatchPatterns?: boolean
 }
 
+// Escape user/server values before injecting into the popup HTML below.
+// Properties come from the NLC FeatureServer today, but a future code path
+// could surface saved findings whose names round-tripped through user input —
+// cheap defense in depth.
+function escapeHtml(s: unknown): string {
+  if (s === null || s === undefined) return ''
+  return String(s).replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string
+  )
+}
+
 // Darken a hex colour for stroke contrast. Returns the input on parse failure.
 function darkenHex(hex: string, factor = 0.65) {
   if (!hex.startsWith('#') || (hex.length !== 7 && hex.length !== 4)) return hex
@@ -102,9 +114,13 @@ export function HabitatPolygonLayer({
   // lives in a ref so the same instance is reused across re-renders (and
   // therefore across child <GeoJSON> remounts triggered by layerKey).
   const svgRendererRef = React.useRef<L.Renderer | null>(null)
-  // useMap may be undefined when the parent doesn't pass it (legacy callers
-  // that don't use patterns). Guard with optional chaining.
-  const map = useMap?.()
+  // Hook rules: useMap MUST be called every render to keep hook order
+  // stable. Conditional optional-chaining call (`useMap?.()`) varied the
+  // hook count between renders — flagged by the React lint and could trip
+  // a `Rendered fewer hooks than expected` error in production. The dummy
+  // fallback fn returns null and is invoked unconditionally.
+  const useMapHook = useMap ?? (() => null as unknown as L.Map)
+  const map = useMapHook()
 
   if (useHatchPatterns && !svgRendererRef.current) {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -113,13 +129,21 @@ export function HabitatPolygonLayer({
   }
   const svgRendererForStyle = useHatchPatterns ? svgRendererRef.current : null
 
-  // Inject pattern <defs> + record id map. We rebuild the id map whenever
-  // the feature collection changes so newly-arrived habitat types get
-  // their patterns ready before the layer paints.
+  // The GeoJSON instance — needed to walk the rendered child paths after
+  // pattern defs are injected, since onEachFeature runs synchronously
+  // during the layer constructor (before any useEffect can populate
+  // patternIdMapRef on the very first render with hatch on).
+  const geoJsonRef = React.useRef<L.GeoJSON | null>(null)
+
+  // Inject pattern <defs> AND back-fill `fill="url(#...)"` on every path
+  // that's already been constructed. The double-pass is necessary because
+  // react-leaflet's GeoJSON child effect runs before this parent effect:
+  // by the time we land here the paths exist but their fills are still the
+  // Leaflet default. Without the back-fill the user had to toggle Hatch
+  // off+on to see patterns on the first activation.
   const patternIdMapRef = React.useRef<Map<string, string>>(new Map())
   React.useEffect(() => {
     if (!useHatchPatterns || !map || !svgRendererRef.current) return
-    // Make sure the renderer is attached so its container exists.
     svgRendererRef.current.addTo(map)
     const container = (svgRendererRef.current as unknown as { _container?: SVGSVGElement })
       ._container
@@ -137,6 +161,26 @@ export function HabitatPolygonLayer({
       items.push({ shape, stroke })
     }
     patternIdMapRef.current = ensurePatternDefs(container, items)
+
+    // Back-fill paths that were constructed before defs were ready, AND
+    // re-resolve patterns when palette toggle (useNativeColors) shifted
+    // colours under the existing layer.
+    const gj = geoJsonRef.current
+    if (gj) {
+      gj.eachLayer((sub) => {
+        const feat = (sub as unknown as { feature?: GeoJSON.Feature }).feature
+        if (!feat?.properties) return
+        const fc = feat.properties.fossitt_code as string | undefined
+        const colour = resolveColor(feat.properties, useNativeColors)
+        const shape = getHeritagePatternShape(fc)
+        if (shape === 'solid') return
+        const stroke = darkenHex(colour, 0.55)
+        const id = patternIdMapRef.current.get(`${shape}|${stroke}`)
+        if (!id) return
+        const path = (sub as unknown as { _path?: SVGPathElement })._path
+        if (path) path.setAttribute('fill', `url(#${id})`)
+      })
+    }
   }, [useHatchPatterns, map, habitatPolygons, useNativeColors])
 
   const habitatStyle = React.useMemo(
@@ -148,32 +192,38 @@ export function HabitatPolygonLayer({
     (feature: GeoJSON.Feature, layer: L.Layer) => {
       const props = feature.properties
       if (!props) return
+      const name = escapeHtml(props.fossitt_name)
+      const code = escapeHtml(props.fossitt_code)
+      const nlcLabel = props.nlc_label ? escapeHtml(props.nlc_label) : ''
+      const area = props.area_hectares ? escapeHtml(props.area_hectares) : ''
       ;(layer as L.GeoJSON).bindPopup(`
       <div style="min-width:180px;padding:8px">
-        <strong style="font-size:14px">${props.fossitt_name || ''}</strong>
-        <div style="color:#374151;font-size:13px;margin-top:2px">${props.fossitt_code || ''}</div>
-        ${props.nlc_label ? `<div style="color:#6b7280;font-size:11px;margin-top:4px">NLC: ${props.nlc_label}</div>` : ''}
-        ${props.area_hectares ? `<div style="font-size:13px;margin-top:4px">Area: ${props.area_hectares} ha</div>` : ''}
+        <strong style="font-size:14px">${name}</strong>
+        <div style="color:#374151;font-size:13px;margin-top:2px">${code}</div>
+        ${nlcLabel ? `<div style="color:#6b7280;font-size:11px;margin-top:4px">NLC: ${nlcLabel}</div>` : ''}
+        ${area ? `<div style="font-size:13px;margin-top:4px">Area: ${area} ha</div>` : ''}
       </div>
     `)
 
-      // Pattern fill — set on the SVG path after Leaflet creates it. We
-      // hook into 'add' because _path is only attached then.
+      // Pattern fill — resolve patternId LAZILY inside `apply` so the call
+      // reads the latest patternIdMapRef even when registered before the
+      // injector effect has populated it. The `add` listener fires when
+      // Leaflet attaches the path; the second invocation handles the case
+      // where this feature is being processed during a re-render path
+      // (layer already in the DOM).
       if (useHatchPatterns) {
-        const fossittCode = props.fossitt_code as string | undefined
-        const colour = resolveColor(props, useNativeColors)
-        const shape = getHeritagePatternShape(fossittCode)
-        const stroke = darkenHex(colour, 0.55)
-        const patternId = patternIdMapRef.current.get(`${shape}|${stroke}`)
-        if (patternId && shape !== 'solid') {
-          const apply = () => {
-            const path = (layer as unknown as { _path?: SVGPathElement })._path
-            if (path) path.setAttribute('fill', `url(#${patternId})`)
-          }
-          layer.on('add', apply)
-          // Already added when `onEachFeature` runs from a re-render path.
-          apply()
+        const apply = () => {
+          const path = (layer as unknown as { _path?: SVGPathElement })._path
+          if (!path) return
+          const colour = resolveColor(props, useNativeColors)
+          const shape = getHeritagePatternShape(props.fossitt_code as string | undefined)
+          if (shape === 'solid') return
+          const stroke = darkenHex(colour, 0.55)
+          const id = patternIdMapRef.current.get(`${shape}|${stroke}`)
+          if (id) path.setAttribute('fill', `url(#${id})`)
         }
+        layer.on('add', apply)
+        apply()
       }
 
       // When a habitat is selected, the parent fades unrelated polygons via
@@ -213,6 +263,9 @@ export function HabitatPolygonLayer({
   return (
     <GeoJSON
       key={layerKey}
+      ref={(instance: L.GeoJSON | null) => {
+        geoJsonRef.current = instance
+      }}
       data={habitatPolygons}
       style={habitatStyle}
       onEachFeature={onEachFeature}

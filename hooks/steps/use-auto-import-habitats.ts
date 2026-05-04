@@ -41,19 +41,26 @@ function saveImportedFindingIds(projectId: string, ids: Set<string>): void {
 }
 
 /**
- * Normalize any geometry to a single Polygon (DB column type is strictly Polygon).
- * For GeometryCollection / MultiPolygon, pick the largest polygon by coordinate count.
+ * Normalize any incoming geometry to Polygon or MultiPolygon, preserving every
+ * parcel. The DB column `habitat_polygons.boundary` is a generic PostGIS
+ * `geometry` (no per-row type constraint) so MultiPolygon is fully supported.
+ *
+ * Earlier this function picked "the largest polygon by coordinate count" and
+ * dropped the rest — that silently truncated habitats with hundreds of NLC
+ * parcels (a single Improved Grassland finding can be 3000+ fields). Users
+ * saw a list entry but nothing on the map for the missing parcels. Now we
+ * keep them all: a single Polygon stays a Polygon, anything else becomes a
+ * MultiPolygon.
  */
 function toPolygon(geo: unknown): Json | null {
   if (!geo || typeof geo !== 'object') return null
   const g = geo as GeoJSON.Geometry
   if (g.type === 'Polygon') return g as unknown as Json
-  let polys: GeoJSON.Polygon[] = []
+  const polys: GeoJSON.Polygon[] = []
   if (g.type === 'MultiPolygon') {
-    polys = (g as GeoJSON.MultiPolygon).coordinates.map((coords) => ({
-      type: 'Polygon',
-      coordinates: coords,
-    }))
+    for (const coords of (g as GeoJSON.MultiPolygon).coordinates) {
+      polys.push({ type: 'Polygon', coordinates: coords })
+    }
   } else if (g.type === 'GeometryCollection') {
     for (const sub of (g as GeoJSON.GeometryCollection).geometries) {
       if (sub.type === 'Polygon') polys.push(sub as GeoJSON.Polygon)
@@ -65,10 +72,12 @@ function toPolygon(geo: unknown): Json | null {
     }
   }
   if (polys.length === 0) return null
-  const largest = polys.reduce((a, b) =>
-    (a.coordinates[0]?.length ?? 0) >= (b.coordinates[0]?.length ?? 0) ? a : b
-  )
-  return largest as unknown as Json
+  if (polys.length === 1) return polys[0] as unknown as Json
+  const multi: GeoJSON.MultiPolygon = {
+    type: 'MultiPolygon',
+    coordinates: polys.map((p) => p.coordinates),
+  }
+  return multi as unknown as Json
 }
 
 interface UseAutoImportHabitatsParams {

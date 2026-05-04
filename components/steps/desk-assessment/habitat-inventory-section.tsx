@@ -240,10 +240,17 @@ export function HabitatInventorySection({
     [findings]
   )
 
+  // ProjectMap gates the habitat polygon layer with
+  // `!visibleFindingTypes || visibleFindingTypes.includes('habitat')`.
+  // We pass a non-empty list (sites/aquatic), so the truthy branch is always
+  // taken and 'habitat' MUST be in the list when the user has the Habitats
+  // pill toggled on — otherwise polygons render only when *all* layers happen
+  // to be off.
   const visibleFindingTypes = React.useMemo(() => {
     const types: string[] = []
     if (layerToggles.sites) types.push('designated_site')
     if (layerToggles.aquatic) types.push('water_quality', 'catchment')
+    if (layerToggles.habitats) types.push('habitat')
     return types
   }, [layerToggles])
 

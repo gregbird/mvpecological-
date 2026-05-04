@@ -456,7 +456,9 @@ export function HabitatMappingStep({
             flyToLocation={flyToLocation ?? undefined}
             habitatPolygons={habitatPolygonOverlays}
             selectedHabitatId={selectedHabitat?.id}
+            selectedHabitatFossittCode={selectedHabitat?.fossitt_code ?? null}
             onHabitatClick={(id) => setSelectedHabitat(handleHabitatMapClick(id))}
+            onMapClick={() => setSelectedHabitat(null)}
             allowMultipleDrawings
             visibleLayers={npwsVisibleLayers}
           />

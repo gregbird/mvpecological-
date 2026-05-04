@@ -72,6 +72,7 @@ export function BaselineReportTab({
     projectBoundary: boundary,
     otherBoundaries,
     allBoundaries,
+    bufferDistances,
   } = useProjectBoundary(project, selectedSite)
 
   // Lifted habitat state from HabitatInventorySection for use in export
@@ -379,6 +380,8 @@ export function BaselineReportTab({
           boundary={boundary}
           otherBoundaries={otherBoundaries}
           allBoundaries={allBoundaries}
+          bufferDistances={bufferDistances}
+          projectId={project.id}
           onRemoveFinding={handleRemoveFinding}
         />
       </section>

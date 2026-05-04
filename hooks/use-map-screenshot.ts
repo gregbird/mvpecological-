@@ -18,6 +18,99 @@ interface UseMapScreenshotResult {
 }
 
 /**
+ * Rasterize each Leaflet SVG renderer that has Heritage hatch patterns into
+ * an `<image>` overlay placed at the same position. html-to-image's foreign-
+ * object trick can drop SVG `<pattern>` fills when the cloned subtree is
+ * serialized — patterns sometimes paint as flat fills in the output PNG.
+ * Pre-rasterizing the SVG to a data URL guarantees the pattern strokes are
+ * baked into pixels before the screenshot capture runs.
+ *
+ * Returns a restore function to undo the swap so the user-facing map keeps
+ * its live SVG patterns after the screenshot.
+ */
+async function rasterizeHatchedSvgLayers(container: HTMLElement): Promise<() => void> {
+  const svgs = Array.from(container.querySelectorAll('svg')) as SVGSVGElement[]
+  // Only swap SVGs that actually carry Heritage pattern defs — leaving the
+  // rest untouched preserves performance for the common case.
+  const hatched = svgs.filter((svg) => svg.querySelector('defs[data-heritage-patterns]'))
+  if (hatched.length === 0) return () => {}
+
+  const restorers: (() => void)[] = []
+
+  for (const svg of hatched) {
+    try {
+      // Serialize the live SVG (with current viewBox + pattern defs intact)
+      // into a self-contained data URL.
+      const clone = svg.cloneNode(true) as SVGSVGElement
+      const rect = svg.getBoundingClientRect()
+      const w = Math.round(rect.width)
+      const h = Math.round(rect.height)
+      if (w === 0 || h === 0) continue
+      // Ensure xmlns is present — required for standalone SVG decoding.
+      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+      clone.setAttribute('width', String(w))
+      clone.setAttribute('height', String(h))
+      const svgString = new XMLSerializer().serializeToString(clone)
+      const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+
+      const bitmap = await new Promise<HTMLImageElement | null>((resolve) => {
+        const img = new Image()
+        img.onload = () => resolve(img)
+        img.onerror = () => resolve(null)
+        img.src = url
+      })
+      if (!bitmap) {
+        URL.revokeObjectURL(url)
+        continue
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        URL.revokeObjectURL(url)
+        continue
+      }
+      ctx.drawImage(bitmap, 0, 0, w, h)
+      URL.revokeObjectURL(url)
+      const pngDataUrl = canvas.toDataURL('image/png')
+
+      // Replace the live <svg> children with a single <image> that displays
+      // the rasterized snapshot. We keep the <svg> root so the layout doesn't
+      // shift — html-to-image just sees an <image> instead of a stack of
+      // <path fill="url(#hc-...)"> elements that it might mishandle.
+      const originalChildren = Array.from(svg.childNodes)
+      const ns = 'http://www.w3.org/2000/svg'
+      const placeholder = document.createElementNS(ns, 'image')
+      placeholder.setAttribute('href', pngDataUrl)
+      placeholder.setAttribute('x', '0')
+      placeholder.setAttribute('y', '0')
+      placeholder.setAttribute('width', String(w))
+      placeholder.setAttribute('height', String(h))
+      placeholder.setAttribute('data-hatch-raster', 'true')
+
+      // Stash originals into a fragment for cheap restore.
+      const stash = document.createDocumentFragment()
+      for (const child of originalChildren) stash.appendChild(child)
+      svg.appendChild(placeholder)
+
+      restorers.push(() => {
+        svg.removeChild(placeholder)
+        for (const child of Array.from(stash.childNodes)) svg.appendChild(child)
+      })
+    } catch {
+      // If anything fails for one SVG, leave it as-is — the screenshot will
+      // still capture (just without the pattern guarantee for that layer).
+    }
+  }
+
+  return () => {
+    for (const restore of restorers) restore()
+  }
+}
+
+/**
  * Resize and compress a dataUrl PNG to a smaller JPEG using canvas
  */
 function compressImage(dataUrl: string, maxWidth: number): Promise<string> {
@@ -82,27 +175,40 @@ export function useMapScreenshot({
         // Extra buffer for rendering
         await new Promise((resolve) => setTimeout(resolve, 300))
 
+        // Pre-rasterize Heritage Council hatch patterns. Without this, html-
+        // to-image's serializer can drop SVG <pattern> fills, so the captured
+        // screenshot would show flat colours instead of the hatched fills the
+        // user sees on screen — and that screenshot is what flows into PDF /
+        // DOCX exports later. Restored after capture.
+        const restoreHatch = await rasterizeHatchedSvgLayers(container)
+
         // Use higher pixelRatio when target width exceeds container width
         // so the output image matches the requested page dimensions
         const containerWidth = container.offsetWidth
         const desiredWidth = targetWidth || DEFAULT_MAX_WIDTH
         const pixelRatio = Math.max(1, Math.ceil(desiredWidth / containerWidth))
 
-        const rawDataUrl = await toPng(container, {
-          pixelRatio,
-          cacheBust: true,
-          filter: (node: HTMLElement) => {
-            if (!(node instanceof HTMLElement)) return true
-            if (node.getAttribute?.('data-map-control') === 'true') return false
-            if (
-              node.classList?.contains('leaflet-control-zoom') ||
-              node.classList?.contains('leaflet-draw')
-            ) {
-              return false
-            }
-            return true
-          },
-        })
+        let rawDataUrl: string
+        try {
+          rawDataUrl = await toPng(container, {
+            pixelRatio,
+            cacheBust: true,
+            filter: (node: HTMLElement) => {
+              if (!(node instanceof HTMLElement)) return true
+              if (node.getAttribute?.('data-map-control') === 'true') return false
+              if (
+                node.classList?.contains('leaflet-control-zoom') ||
+                node.classList?.contains('leaflet-draw')
+              ) {
+                return false
+              }
+              return true
+            },
+          })
+        } finally {
+          // Always restore the live SVG layers even if html-to-image throws.
+          restoreHatch()
+        }
 
         // Compress: resize to target width + JPEG quality 0.7
         const compressed = await compressImage(rawDataUrl, desiredWidth)

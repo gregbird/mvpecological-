@@ -19,6 +19,28 @@ import type { Project, DeskResearchFinding, Json } from '@/types/database'
 import { useCreateFinding, useUpdateFinding } from '@/hooks/queries/use-finding-hooks'
 import type { FindingSource, FindingType } from '@/components/desk-research/finding-card'
 
+/**
+ * NPWS reuses the same SITECODE across designation types (SAC + pNHA + NHA
+ * for the same area can all share `001656`). Saved-row equality must check
+ * both code and type so toggling one designation never un-saves another.
+ */
+function isSameDesignatedSite(
+  saved: DeskResearchFinding,
+  meta: { siteCode?: string; siteType?: string } | undefined
+): boolean {
+  if (!meta?.siteCode) return false
+  const raw = (saved.raw_data as Record<string, unknown> | null) ?? null
+  const rawMeta = (raw?.metadata as Record<string, unknown> | undefined) ?? undefined
+  const savedSiteCode = saved.site_code ?? (raw?.siteCode as string | undefined)
+  if (savedSiteCode !== meta.siteCode) return false
+  const savedSiteType =
+    saved.site_type ??
+    (rawMeta?.siteType as string | undefined) ??
+    (raw?.SITE_TYPE as string | undefined)
+  if (savedSiteType && meta.siteType && savedSiteType !== meta.siteType) return false
+  return true
+}
+
 interface DesignatedSitesSubStepProps {
   project: Project
   projectBoundary?: GeoJSON.Feature<GeoJSON.Polygon>
@@ -83,8 +105,11 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
 
       const existingSaved = savedFindings.find(
         (f) =>
-          (f.site_code ?? (f.raw_data as Record<string, unknown> | null)?.siteCode) ===
-            data.siteCode && f.source === 'npws'
+          f.source === 'npws' &&
+          isSameDesignatedSite(f, {
+            siteCode: data.siteCode,
+            siteType: deepResearchFinding?.metadata?.siteType,
+          })
       )
 
       if (existingSaved) {
@@ -267,10 +292,11 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
         return findings
       },
 
-      // Matching
-      matchPredicate: (sf, result) =>
-        (sf.site_code ?? (sf.raw_data as Record<string, unknown> | null)?.siteCode) ===
-        result.metadata?.siteCode,
+      // Matching — NPWS reuses the same SITECODE across designation types
+      // (e.g. an SAC and a pNHA covering the same area share `001656`), so
+      // matching on siteCode alone collapses them and the toggle would
+      // un-save the SAC when the pNHA is saved.
+      matchPredicate: (sf, result) => isSameDesignatedSite(sf, result.metadata),
       minimalMetadataKeys: ['siteCode', 'siteType'],
 
       // Save payload — dual-write: raw_data kept for now (Aşama 2 reads will
@@ -342,13 +368,10 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
         },
       },
 
-      // Map findings customization
+      // Map findings customization — must match by siteCode + siteType for
+      // the same reason matchPredicate does (shared SITECODE across types).
       mapFindingsSavedFilter: (f, sf) =>
-        sf.some(
-          (saved) =>
-            (saved.site_code ?? (saved.raw_data as Record<string, unknown> | null)?.siteCode) ===
-            f.metadata?.siteCode
-        ),
+        sf.some((saved) => isSameDesignatedSite(saved, f.metadata)),
       mapFindingsMapper: (f, sf) => ({
         id: f.id,
         source: f.source as FindingSource,
@@ -356,11 +379,7 @@ export function DesignatedSitesSubStep(props: DesignatedSitesSubStepProps) {
         title: f.title,
         content: f.content,
         location: f.location,
-        isSaved: sf.some(
-          (saved) =>
-            (saved.site_code ?? (saved.raw_data as Record<string, unknown> | null)?.siteCode) ===
-            f.metadata?.siteCode
-        ),
+        isSaved: sf.some((saved) => isSameDesignatedSite(saved, f.metadata)),
       }),
 
       // Deep Research

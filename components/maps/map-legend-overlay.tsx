@@ -4,12 +4,55 @@ import * as React from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import {
+  buildPatternBody,
+  getPatternDimensions,
+  type PatternShape,
+} from '@/lib/config/heritage-patterns'
 
 export interface MapLegendEntry {
   id: string
   label: string
   color: string
-  type: 'line' | 'fill' | 'circle'
+  /** When `type === 'pattern'`, render the Heritage Council hatch shape so
+   * the legend matches what the user sees on the map (and what the PDF /
+   * DOCX export will embed). */
+  type: 'line' | 'fill' | 'circle' | 'pattern'
+  /** Required when type='pattern'. Pulled from `getHeritagePatternShape()`. */
+  patternShape?: PatternShape
+}
+
+function darkenForLegend(hex: string, factor = 0.55) {
+  if (!hex.startsWith('#') || (hex.length !== 7 && hex.length !== 4)) return hex
+  const expand = hex.length === 4 ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}` : hex
+  const r = Math.round(parseInt(expand.slice(1, 3), 16) * factor)
+  const g = Math.round(parseInt(expand.slice(3, 5), 16) * factor)
+  const b = Math.round(parseInt(expand.slice(5, 7), 16) * factor)
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
+}
+
+function PatternSwatch({ shape, color }: { shape: PatternShape; color: string }) {
+  // 16×12 px swatch — wide enough to show one tile of the pattern even for
+  // the 12px-wide brick shape, narrow enough to stay aligned with the other
+  // legend swatches. Stroke uses the same darkening factor as the map layer.
+  const stroke = darkenForLegend(color)
+  const dim = getPatternDimensions(shape)
+  const patternId = React.useId().replace(/:/g, '')
+  return (
+    <svg width="16" height="12" className="shrink-0" aria-hidden="true">
+      <defs>
+        <pattern
+          id={`legend-${patternId}`}
+          width={dim.width}
+          height={dim.height}
+          patternUnits="userSpaceOnUse"
+          dangerouslySetInnerHTML={{ __html: buildPatternBody(shape, stroke) }}
+        />
+      </defs>
+      <rect width="16" height="12" fill={color + '55'} stroke={stroke} strokeWidth="0.75" rx="2" />
+      <rect width="16" height="12" fill={`url(#legend-${patternId})`} rx="2" />
+    </svg>
+  )
 }
 
 interface MapLegendOverlayProps {
@@ -79,6 +122,8 @@ export function MapLegendOverlay({
                     borderColor: entry.color,
                   }}
                 />
+              ) : entry.type === 'pattern' && entry.patternShape ? (
+                <PatternSwatch shape={entry.patternShape} color={entry.color} />
               ) : (
                 <div
                   className="h-2.5 w-2.5 shrink-0 rounded-full"

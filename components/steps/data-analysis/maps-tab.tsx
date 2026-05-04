@@ -731,7 +731,7 @@ export function MapsTab({ projectId, siteId, userId, project }: MapsTabProps) {
                 habitats: habitats
                   .filter((h) => h.boundary != null)
                   .map((h) => ({
-                    geometry: h.boundary as GeoJSON.Polygon,
+                    geometry: h.boundary as GeoJSON.Polygon | GeoJSON.MultiPolygon,
                     fossittCode: h.fossitt_code ?? undefined,
                     fossittName: h.fossitt_name ?? undefined,
                     condition: h.condition ?? undefined,

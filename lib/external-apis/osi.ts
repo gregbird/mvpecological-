@@ -151,9 +151,7 @@ import { getHeritageColor } from '@/lib/config/map-constants'
 // server-returned parcel as its own feature. Esri viewer parity requires
 // individual field boundaries to stay visible. Saving still produces one
 // finding per habitat type because getHabitatGeometry() wraps matching
-// parcels in a GeometryCollection at save time. polygon-clipping is no
-// longer imported here; it remains a dep in case save-time merging is
-// added later.
+// parcels in a GeometryCollection at save time.
 
 /** Color per NLC Level 1 category — fallback when FOSSITT code unavailable */
 export const NLC_LEVEL1_COLORS: Record<string, string> = {

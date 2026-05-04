@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Info, Maximize2, Minimize2, Pentagon, Square } from 'lucide-react'
+import { Grid3x3, Info, Maximize2, Minimize2, Palette, Pentagon, Square } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import type { Map as LeafletMap, FeatureGroup as LeafletFeatureGroup } from 'leaflet'
 import type L from 'leaflet'
@@ -31,10 +31,16 @@ import { DrawMeasurementOverlay } from '@/components/maps/draw-measurement-overl
 import type { DrawMeasurement } from '@/components/maps/draw-measurement-overlay'
 import { MapBoundaryController } from '@/components/maps/map-boundary-controller'
 import { DataLayersIndicator } from '@/components/maps/data-layers-indicator'
+import { ViewportHabitatDetail } from '@/components/maps/viewport-habitat-detail'
 import type { InternalMapProps } from '@/components/maps/internal-map-props'
 export type { FindingMarker, HabitatPolygonOverlay } from '@/components/maps/map-types'
 import type { BufferColorConfig } from '@/components/maps/map-types'
 import { getBufferZoneStyle } from '@/components/maps/map-types'
+import {
+  ensurePatternDefs,
+  getHeritagePatternShape,
+  type PatternShape,
+} from '@/lib/config/heritage-patterns'
 
 interface ProjectMapWithDrawProps {
   className?: string
@@ -44,6 +50,11 @@ interface ProjectMapWithDrawProps {
   bufferZones?: Map<number, GeoJSON.Feature<GeoJSON.Polygon>>
   bufferColors?: Record<number, BufferColorConfig>
   onBoundaryChange?: (features: GeoJSON.FeatureCollection, isEdit?: boolean) => void
+  /** Fires when the user clicks empty map area (not on a habitat polygon).
+   * Used to clear habitat selection — Leaflet's natural event order plus
+   * our stopPropagation guard on habitat-layer clicks ensures this only
+   * fires for true blank-area clicks. */
+  onMapClick?: () => void
   onViewChange?: (center: [number, number], zoom: number) => void
   editable?: boolean
   showMeasureTool?: boolean
@@ -61,6 +72,10 @@ interface ProjectMapWithDrawProps {
   onFindingClick?: (finding: import('@/components/maps/map-types').FindingMarker) => void
   habitatPolygons?: import('@/components/maps/map-types').HabitatPolygonOverlay[]
   selectedHabitatId?: string
+  /** FOSSITT code of the selected habitat — when set, the high-zoom NLC
+   * layer fades non-matching parcels and emphasises matching ones, instead
+   * of the highlight only landing on the coarse saved boundary. */
+  selectedHabitatFossittCode?: string | null
   onHabitatClick?: (id: string) => void
   allowMultipleDrawings?: boolean
   npwsSites?: import('@/lib/external-apis/npws').NPWSDesignatedSite[]
@@ -160,6 +175,168 @@ function BoundaryControllerBridge({
   )
 }
 
+// ── User-drawn habitat overlay with optional Heritage hatch patterns ────────
+// Lives outside MapComponentWithDraw so React keeps a stable component type
+// (avoids unmount/remount on every parent render). Rendered as a sibling of
+// the boundary FeatureGroup, NOT inside it — Geoman edit/drag/delete is
+// already configured to ignore non-FeatureGroup layers.
+
+interface UserDrawnHabitatLayerProps {
+  habitatPolygons: import('@/components/maps/map-types').HabitatPolygonOverlay[]
+  selectedHabitatId?: string
+  onHabitatClick?: (id: string) => void
+  useHatchPatterns: boolean
+  useMap: () => L.Map
+  GeoJSON: React.ComponentType<Record<string, unknown>>
+}
+
+function darkenHexShade(hex: string, factor = 0.55) {
+  if (!hex.startsWith('#') || (hex.length !== 7 && hex.length !== 4)) return hex
+  const expand = hex.length === 4 ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}` : hex
+  const r = Math.round(parseInt(expand.slice(1, 3), 16) * factor)
+  const g = Math.round(parseInt(expand.slice(3, 5), 16) * factor)
+  const b = Math.round(parseInt(expand.slice(5, 7), 16) * factor)
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string
+  )
+}
+
+function UserDrawnHabitatLayer({
+  habitatPolygons,
+  selectedHabitatId,
+  onHabitatClick,
+  useHatchPatterns,
+  useMap,
+  GeoJSON,
+}: UserDrawnHabitatLayerProps) {
+  const map = useMap()
+  // Lazy SVG renderer — only created when patterns are active. Same instance
+  // is reused across re-renders so Leaflet doesn't churn renderers.
+  const svgRendererRef = React.useRef<L.Renderer | null>(null)
+  const patternIdMapRef = React.useRef<Map<string, string>>(new Map())
+
+  if (useHatchPatterns && !svgRendererRef.current) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Llib = require('leaflet')
+    svgRendererRef.current = Llib.svg({ padding: 0.1 })
+  }
+
+  React.useEffect(() => {
+    if (!useHatchPatterns || !map || !svgRendererRef.current) return
+    svgRendererRef.current.addTo(map)
+    const container = (svgRendererRef.current as unknown as { _container?: SVGSVGElement })
+      ._container
+    if (!container) return
+    const items: { shape: PatternShape; stroke: string }[] = []
+    const seen = new Set<string>()
+    for (const hp of habitatPolygons) {
+      const fill = hp.color || '#22c55e'
+      const shape = getHeritagePatternShape(hp.fossittCode)
+      const stroke = darkenHexShade(fill, 0.55)
+      const key = `${shape}|${stroke}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      items.push({ shape, stroke })
+    }
+    patternIdMapRef.current = ensurePatternDefs(container, items)
+  }, [useHatchPatterns, map, habitatPolygons])
+
+  return (
+    <>
+      {habitatPolygons.map((hp) => {
+        const isSelected = hp.id === selectedHabitatId
+        const fill = hp.color || '#22c55e'
+        const stroke = darkenHexShade(fill, 0.65)
+        const renderer = useHatchPatterns ? svgRendererRef.current : undefined
+        return (
+          <GeoJSON
+            key={`habitat-${hp.id}-${useHatchPatterns ? 'hatch' : 'flat'}`}
+            data={{ type: 'Feature', geometry: hp.geometry, properties: {} } as GeoJSON.Feature}
+            // Style mirrors HabitatPolygonLayer (NLC layer) so saved user
+            // drawings sit naturally next to the live NLC viewport detail
+            // overlay — same stroke darkening, same default fill opacity.
+            // Selected state keeps the habitat's own colour (just emphasised
+            // via heavier stroke + denser fill); matches HabitatPolygonLayer
+            // and avoids the bright-yellow override that visually divorced
+            // selected habitats from their FOSSITT colour cue.
+            style={() => {
+              const selectedStroke = darkenHexShade(fill, 0.5)
+              const opts: L.PathOptions = {
+                color: isSelected ? selectedStroke : stroke,
+                weight: isSelected ? 2 : 0.7,
+                opacity: isSelected ? 1 : 0.7,
+                fillColor: fill,
+                fillOpacity: isSelected ? 0.7 : 0.35,
+              }
+              if (renderer) opts.renderer = renderer
+              return opts
+            }}
+            onEachFeature={(_f: GeoJSON.Feature, layer: L.Layer) => {
+              const code = escapeHtml(hp.fossittCode || '')
+              const name = escapeHtml(hp.fossittName || '')
+              const condition = hp.condition ? escapeHtml(hp.condition) : null
+              ;(layer as L.GeoJSON).bindPopup(
+                `<div style="min-width:160px"><strong>${code}</strong> — ${name}${condition ? `<br/><span style="color:#666">Condition: ${condition}</span>` : ''}</div>`
+              )
+              // Stop the click from bubbling up to the map so the
+              // empty-area `onMapClick` (which clears selection) does not
+              // immediately undo the selection we just made.
+              layer.on('click', (e: L.LeafletMouseEvent) => {
+                // eslint-disable-next-line @typescript-eslint/no-require-imports
+                require('leaflet').DomEvent.stopPropagation(e)
+                onHabitatClick?.(hp.id)
+              })
+
+              if (useHatchPatterns) {
+                const shape = getHeritagePatternShape(hp.fossittCode)
+                const stroke = darkenHexShade(fill, 0.55)
+                const patternId = patternIdMapRef.current.get(`${shape}|${stroke}`)
+                if (patternId && shape !== 'solid') {
+                  const apply = () => {
+                    const path = (layer as unknown as { _path?: SVGPathElement })._path
+                    if (path) path.setAttribute('fill', `url(#${patternId})`)
+                  }
+                  layer.on('add', apply)
+                  apply()
+                }
+              }
+            }}
+          />
+        )
+      })}
+    </>
+  )
+}
+
+// Tiny bridge that lives inside <MapContainer> so it can call useMap. Wires
+// `onMapClick` to Leaflet's click event — fires only for empty-area clicks
+// because UserDrawnHabitatLayer stops propagation on habitat-polygon clicks.
+function MapClickBridge({ onMapClick }: { onMapClick: () => void }) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { useMap } = require('react-leaflet')
+  const map = useMap() as LeafletMap | null
+  // Keep callback in a ref so the effect doesn't tear down on every parent
+  // re-render with a fresh function identity.
+  const onClickRef = React.useRef(onMapClick)
+  onClickRef.current = onMapClick
+
+  React.useEffect(() => {
+    if (!map) return
+    const handler = () => onClickRef.current()
+    map.on('click', handler)
+    return () => {
+      map.off('click', handler)
+    }
+  }, [map])
+
+  return null
+}
+
 // ── Internal map component (rendered client-side only via dynamic import) ────
 
 function MapComponentWithDraw(props: InternalMapProps) {
@@ -191,7 +368,18 @@ function MapComponentWithDraw(props: InternalMapProps) {
     onMapReady,
     showBatRecords,
     onOverlapDetected,
+    useNativeColors = false,
+    useHatchPatterns = false,
+    onViewportDetailActiveChange,
+    selectedHabitatFossittCode = null,
+    onMapClick,
   } = props
+
+  // Local mirror of viewport detail state — used to hide the coarse saved
+  // habitat layer at high zoom so it does not stack on top of the NLC live
+  // overlay with subtly different geometry. project-map.tsx uses the same
+  // pattern for its read-only habitat layer.
+  const [viewportDetailActive, setViewportDetailActive] = React.useState(false)
 
   const mapInstanceId = React.useId()
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -249,6 +437,11 @@ function MapComponentWithDraw(props: InternalMapProps) {
         className="h-full min-h-100 w-full"
         style={{ height: '100%', minHeight: '400px' }}
         zoomControl={false}
+        // Default Leaflet maxZoom is 18 (~30m scale) — bump it so users can
+        // zoom past the 30m wall to inspect individual buildings/parcels.
+        // Viewport detail layer keeps refetching at sub-meter tolerance so
+        // habitat polygons stay crisp even when satellite tiles upscale.
+        maxZoom={22}
       >
         {tileConfig.wms && tileConfig.wms.transparent && (
           <TileLayer
@@ -266,7 +459,17 @@ function MapComponentWithDraw(props: InternalMapProps) {
             attribution={tileConfig.attribution}
           />
         ) : (
-          <TileLayer key={currentStyle} url={tileConfig.url} attribution={tileConfig.attribution} />
+          <TileLayer
+            key={currentStyle}
+            url={tileConfig.url}
+            attribution={tileConfig.attribution}
+            // Esri World Imagery has native tiles up to z19 in most areas
+            // (z20-23 in built-up zones); set maxNativeZoom so Leaflet
+            // upscales the deepest available tile rather than showing blank
+            // squares when the user zooms past the source's true ceiling.
+            maxZoom={22}
+            maxNativeZoom={19}
+          />
         )}
         {currentStyle === 'hybrid' && (
           <TileLayer
@@ -274,6 +477,8 @@ function MapComponentWithDraw(props: InternalMapProps) {
             url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
             attribution=""
             pane="overlayPane"
+            maxZoom={22}
+            maxNativeZoom={19}
           />
         )}
         {showBatRecords && (
@@ -306,6 +511,7 @@ function MapComponentWithDraw(props: InternalMapProps) {
           collectFeaturesRef={collectFeaturesRef}
           bufferDistances={bufferZones ? Array.from(bufferZones.keys()) : undefined}
         />
+        {onMapClick && <MapClickBridge onMapClick={onMapClick} />}
 
         {showCounties && countiesData && (
           <GeoJSON
@@ -411,28 +617,38 @@ function MapComponentWithDraw(props: InternalMapProps) {
             </CircleMarker>
           )
         })}
-        {habitatPolygons.map((hp) => {
-          const isSelected = hp.id === selectedHabitatId
-          const fill = hp.color || '#22c55e'
-          return (
-            <GeoJSON
-              key={`habitat-${hp.id}`}
-              data={{ type: 'Feature', geometry: hp.geometry, properties: {} } as GeoJSON.Feature}
-              style={() => ({
-                color: isSelected ? '#facc15' : fill,
-                weight: isSelected ? 4 : 2,
-                fillColor: fill,
-                fillOpacity: isSelected ? 0.35 : 0.2,
-              })}
-              onEachFeature={(_f: GeoJSON.Feature, layer: L.Layer) => {
-                ;(layer as L.GeoJSON).bindPopup(
-                  `<div style="min-width:160px"><strong>${hp.fossittCode}</strong> — ${hp.fossittName}${hp.condition ? `<br/><span style="color:#666">Condition: ${hp.condition}</span>` : ''}</div>`
-                )
-                layer.on('click', () => onHabitatClick?.(hp.id))
-              }}
-            />
-          )
-        })}
+        {/* NLC viewport detail. At z16+ this becomes the primary habitat
+            visualisation — the saved (coarse) UserDrawnHabitatLayer below
+            hides itself in that case so the two layers do not stack with
+            mismatched geometries. Selection key is forwarded so matching
+            NLC parcels highlight when the user picks a habitat from the
+            list. */}
+        <ViewportHabitatDetail
+          enabled
+          useMap={rl.useMap}
+          GeoJSON={GeoJSON}
+          useNativeColors={useNativeColors}
+          useHatchPatterns={useHatchPatterns}
+          selectedFossittCode={selectedHabitatFossittCode}
+          onActiveChange={(active) => {
+            setViewportDetailActive(active)
+            onViewportDetailActiveChange?.(active)
+          }}
+        />
+        {/* Saved-boundary layer — only at low/mid zoom. At z16+ the live
+            NLC layer above shows parcel-level detail; rendering both stacked
+            previously caused user confusion (same place, two slightly
+            different polygons). */}
+        {!viewportDetailActive && (
+          <UserDrawnHabitatLayer
+            habitatPolygons={habitatPolygons}
+            selectedHabitatId={selectedHabitatId}
+            onHabitatClick={onHabitatClick}
+            useHatchPatterns={useHatchPatterns}
+            useMap={rl.useMap}
+            GeoJSON={GeoJSON}
+          />
+        )}
         {editable ? (
           <FeatureGroup
             ref={(ref: LeafletFeatureGroup | null) => {
@@ -483,16 +699,26 @@ export function ProjectMapWithDraw({
   onFindingClick,
   habitatPolygons = [],
   selectedHabitatId,
+  selectedHabitatFossittCode,
   onHabitatClick,
   allowMultipleDrawings = false,
   npwsSites: externalNpwsSites,
   onOverlapDetected,
+  onMapClick,
 }: ProjectMapWithDrawProps) {
   const [mapLoaded, setMapLoaded] = React.useState(false)
   const [internalStyle, setInternalStyle] = React.useState<MapStyle>('satellite')
   const currentStyle = baseMapStyle ?? internalStyle
   const setCurrentStyle = onBaseMapStyleChange ?? setInternalStyle
   const [isFullscreen, setIsFullscreen] = React.useState(false)
+  // Heritage Council palette default — switching to NLC native (37 colours)
+  // is a per-user preference for high-zoom inspection. Mirrors project-map.
+  const [useNativeColors, setUseNativeColors] = React.useState(false)
+  // Heritage Council Appendix 6 hatch overlay. Off by default; toggle button
+  // only renders while viewport detail is active (z16+) — patterns only read
+  // at parcel-level zoom.
+  const [useHatchPatterns, setUseHatchPatterns] = React.useState(false)
+  const [viewportDetailActive, setViewportDetailActive] = React.useState(false)
   const containerRef = React.useRef<HTMLDivElement>(null)
   const mapRef = React.useRef<LeafletMap | null>(null)
   const [mapInstance, setMapInstance] = React.useState<LeafletMap | null>(null)
@@ -640,11 +866,16 @@ export function ProjectMapWithDraw({
           onFindingClick={onFindingClick}
           habitatPolygons={habitatPolygons}
           selectedHabitatId={selectedHabitatId}
+          selectedHabitatFossittCode={selectedHabitatFossittCode}
           onHabitatClick={onHabitatClick}
           allowMultipleDrawings={allowMultipleDrawings}
           onMapReady={setMapInstance}
           showBatRecords={showBatRecords}
           onOverlapDetected={onOverlapDetected}
+          useNativeColors={useNativeColors}
+          useHatchPatterns={useHatchPatterns}
+          onViewportDetailActiveChange={setViewportDetailActive}
+          onMapClick={onMapClick}
         />
       </div>
 
@@ -674,7 +905,10 @@ export function ProjectMapWithDraw({
       )}
 
       <div className="absolute top-4 left-4 z-1000">
-        <MapControlSidebar>
+        {/* Open by default — Step 1 / Step 4 users need to discover the
+            NLC palette and Hatch toggles without first clicking a hidden
+            chevron. */}
+        <MapControlSidebar defaultOpen>
           {showLayersControl && (
             <MapLayersDropdown
               currentStyle={currentStyle}
@@ -702,6 +936,58 @@ export function ProjectMapWithDraw({
             onToggleAll={setAllBuffers}
             portalContainer={containerRef.current}
           />
+          {/* Habitat colour palette toggle — Heritage Council (CIEEM/PDF
+              convention) ↔ NLC native 37-shade. Same toggle as project-map
+              so Step 1/Step 4 share the read-only map's behaviour. */}
+          <Button
+            variant={useNativeColors ? 'default' : 'secondary'}
+            size="sm"
+            className="h-7 px-2 text-xs shadow-md"
+            onClick={() => setUseNativeColors((v) => !v)}
+            aria-pressed={useNativeColors}
+            title={
+              useNativeColors
+                ? 'Switch back to Heritage Council palette'
+                : 'Switch to NLC native palette (37 distinct colours)'
+            }
+          >
+            <Palette className="mr-1.5 h-3.5 w-3.5" />
+            NLC
+          </Button>
+          {/* Hatch toggle — only meaningful at parcel-level zoom (z16+),
+              so it appears only while viewport detail is active. */}
+          {viewportDetailActive && (
+            <Button
+              variant={useHatchPatterns ? 'default' : 'secondary'}
+              size="sm"
+              className="h-7 px-2 text-xs shadow-md"
+              onClick={() => setUseHatchPatterns((v) => !v)}
+              aria-pressed={useHatchPatterns}
+              title={
+                useHatchPatterns
+                  ? 'Hide Heritage Council hatch patterns'
+                  : 'Show Heritage Council hatch patterns (Appendix 6)'
+              }
+            >
+              <Grid3x3 className="mr-1.5 h-3.5 w-3.5" />
+              Hatch
+            </Button>
+          )}
+          {/* Quick-jump to z16 — where the viewport detail layer activates. */}
+          <Button
+            variant="secondary"
+            size="sm"
+            className="h-7 px-2 text-xs shadow-md"
+            onClick={() => {
+              const map = mapRef.current
+              if (!map) return
+              map.setView(map.getCenter(), 16, { animate: true })
+            }}
+            aria-label="Zoom to 200m detail view"
+            title="Zoom to ~200m scale (NLC detail view)"
+          >
+            200m
+          </Button>
           <Button
             variant="secondary"
             size="icon"

@@ -25,6 +25,15 @@ interface ViewportHabitatDetailProps {
   useNativeColors?: boolean
   /** Forwarded — Heritage Council Appendix 6 hatch overlay. */
   useHatchPatterns?: boolean
+  /**
+   * FOSSITT code of the habitat the user selected in the list. When set, all
+   * NLC parcels matching this code render at high opacity (0.85) and the rest
+   * fade (0.05) — same convention HabitatPolygonLayer's makeHabitatStyle
+   * already keys off `feature.properties.fillOpacity`. Without this, clicking
+   * a habitat at high zoom only highlighted the coarse saved boundary while
+   * the crisp NLC parcels stayed unchanged.
+   */
+  selectedFossittCode?: string | null
 }
 
 /**
@@ -52,6 +61,7 @@ export function ViewportHabitatDetail({
   onActiveChange,
   useNativeColors = false,
   useHatchPatterns = false,
+  selectedFossittCode = null,
 }: ViewportHabitatDetailProps) {
   const map = useMap()
   const [detailPolygons, setDetailPolygons] = React.useState<GeoJSON.FeatureCollection | null>(null)
@@ -179,11 +189,35 @@ export function ViewportHabitatDetail({
     }
   }, [enabled, minZoom, map])
 
-  if (!detailPolygons || !detailPolygons.features.length) return null
+  // Apply selection-driven fillOpacity per feature so HabitatPolygonLayer's
+  // existing fade logic emphasises matching parcels and dims the rest. Cheap
+  // map; React.useMemo keeps the reference stable when selection / data
+  // don't actually change so the GeoJSON layer doesn't churn.
+  const styledPolygons = React.useMemo(() => {
+    if (!detailPolygons) return null
+    if (!selectedFossittCode) return detailPolygons
+    return {
+      ...detailPolygons,
+      features: detailPolygons.features.map((f) => {
+        const code = f.properties?.fossitt_code as string | undefined
+        const isMatch = !!code && code === selectedFossittCode
+        return {
+          ...f,
+          properties: {
+            ...(f.properties ?? {}),
+            fillOpacity: isMatch ? 0.85 : 0.05,
+          },
+        }
+      }),
+    }
+  }, [detailPolygons, selectedFossittCode])
+
+  if (!styledPolygons || !styledPolygons.features.length) return null
 
   return (
     <HabitatPolygonLayer
-      habitatPolygons={detailPolygons}
+      habitatPolygons={styledPolygons}
+      habitatSelectionKey={selectedFossittCode || undefined}
       GeoJSON={GeoJSON}
       useMap={useMap}
       useNativeColors={useNativeColors}

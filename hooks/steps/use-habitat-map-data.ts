@@ -4,6 +4,7 @@ import * as React from 'react'
 
 import { getHabitatByCode } from '@/lib/data/fossitt-codes'
 import { getHeritageColor } from '@/lib/config/map-constants'
+import { mapFossittToNlcLabel } from '@/lib/data/nlc-to-fossitt'
 import type { DeskResearchFinding, HabitatPolygon } from '@/types/database'
 import type { FindingMarker, HabitatPolygonOverlay } from '@/components/maps/map-types'
 import type { ProjectSiteWithGeoJSON } from '@/lib/supabase/queries/project-sites'
@@ -89,6 +90,11 @@ export function useHabitatMapData({
           fossittName: h.fossitt_name,
           condition: h.condition,
           color: getHeritageColor(h.fossitt_code),
+          // Derive NLC Level 2 label from FOSSITT code so the NLC palette
+          // toggle works on saved habitats too — at every zoom, not just
+          // when the viewport detail layer kicks in at z16+. Approximate
+          // for ambiguous FOSSITT codes (one representative per code).
+          nlcLabel: mapFossittToNlcLabel(h.fossitt_code),
         }
       })
   }, [filteredHabitats, visibleFindingGroups])

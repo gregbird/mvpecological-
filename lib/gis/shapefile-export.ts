@@ -31,7 +31,10 @@ interface TargetNoteExportData {
 }
 
 interface HabitatExportData {
-  geometry: GeoJSON.Polygon
+  // MultiPolygon supported because auto-imported NLC habitats can carry
+  // hundreds of disjoint parcels under one FOSSITT code. shp-write writes
+  // both Polygon and MultiPolygon to the same polygon shapefile.
+  geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon
   fossittCode?: string
   fossittName?: string
   annexCode?: string
