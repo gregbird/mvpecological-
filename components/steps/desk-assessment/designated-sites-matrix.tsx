@@ -397,7 +397,7 @@ export function DesignatedSitesMatrix({
             otherBoundaries={otherBoundaries}
             allBoundaries={allBoundaries}
             bufferDistances={[2, 5, 15]}
-            showControls={false}
+            showControls={true}
           />
         </div>
       </CardContent>

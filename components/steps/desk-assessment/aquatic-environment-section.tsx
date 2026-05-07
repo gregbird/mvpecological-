@@ -527,7 +527,7 @@ export function AquaticEnvironmentSection({
                   otherBoundaries={otherBoundaries}
                   allBoundaries={allBoundaries}
                   bufferDistances={[2, 5]}
-                  showControls={false}
+                  showControls={true}
                 />
               </div>
             </CardContent>
