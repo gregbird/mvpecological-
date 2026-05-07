@@ -59,4 +59,10 @@ export interface InternalMapProps {
   selectedHabitatFossittCode?: string | null
   /** Fired on a map click that did NOT hit a habitat polygon. */
   onMapClick?: () => void
+  /** When true, mount the high-zoom NLC ViewportHabitatDetail layer that
+   * refetches the current viewport at sub-meter tolerance once the user
+   * crosses z16. Off by default so habitat-irrelevant screens (Step 1 GIS
+   * Mapping, target notes, designated sites, etc.) don't flash habitat
+   * polygons over satellite imagery. Habitat-focused screens opt in. */
+  enableHabitatViewportDetail?: boolean
 }

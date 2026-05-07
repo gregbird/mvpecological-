@@ -57,7 +57,8 @@ export interface NlcSearchParams {
  * Search NLC 2018 with server-side aggregation.
  * Uses outStatistics to GROUP BY habitat type and SUM area on the server,
  * returning one row per habitat type instead of thousands of individual polygons.
- */
+
+ */ 
 export async function searchNlcLandCover(params: NlcSearchParams): Promise<AggregatedHabitat[]> {
   const { bbox } = params
 

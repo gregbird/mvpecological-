@@ -21,6 +21,7 @@ import { useUpdateProjectBoundary } from '@/hooks/queries/use-project-hooks'
 import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { getDefaultVisibleLayers } from '@/lib/config/dataset-layers'
 import { getBufferColor } from '@/lib/config/map-constants'
+import { getPrimaryBuffer } from '@/lib/gis'
 import { MapCaptureButton } from '@/components/maps/map-capture-button'
 import type { Project, WorkflowStep } from '@/types/database'
 import { useProjectContext } from '@/contexts/project-context'
@@ -173,14 +174,15 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
     layers.resetLayerCache()
   }, [allSiteBoundaries, activeBoundary, layers.resetLayerCache])
 
-  // Trigger data fetch when layers step is active
+  // Trigger data fetch when layers step is active OR when the user changes
+  // the buffer selection while on this step. fetchLayerData internally
+  // skips if (boundary, primaryBuffer) is unchanged since last fetch.
   React.useEffect(() => {
-    if (wizard.currentStep === 'layers' && !layers.layerDataFetchedRef.current) {
-      const boundaries =
-        allSiteBoundaries.length > 0 ? allSiteBoundaries : activeBoundary ? [activeBoundary] : null
-      if (boundaries && boundaries.length > 0) {
-        layers.fetchLayerData(boundaries, bufferConfig.enabledBuffers)
-      }
+    if (wizard.currentStep !== 'layers') return
+    const boundaries =
+      allSiteBoundaries.length > 0 ? allSiteBoundaries : activeBoundary ? [activeBoundary] : null
+    if (boundaries && boundaries.length > 0) {
+      layers.fetchLayerData(boundaries, bufferConfig.enabledBuffers)
     }
   }, [
     wizard.currentStep,
@@ -720,6 +722,7 @@ export function GISMappingStep({ project, workflowStep, userId, onComplete }: GI
                 deletedItems={layers.deletedItems}
                 npwsSiteCount={npwsSiteCount}
                 npwsSites={layers.layerData.npwsSites}
+                npwsSearchRadius={getPrimaryBuffer(bufferConfig.enabledBuffers)}
                 flyToLocation={mapView.flyToLocation}
               />
 

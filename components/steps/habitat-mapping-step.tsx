@@ -461,6 +461,7 @@ export function HabitatMappingStep({
             onMapClick={() => setSelectedHabitat(null)}
             allowMultipleDrawings
             visibleLayers={npwsVisibleLayers}
+            enableHabitatViewportDetail
           />
         </div>
       </div>

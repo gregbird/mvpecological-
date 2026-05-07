@@ -82,6 +82,13 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
     aiSummaryTriggerRef,
   })
 
+  // Track the buffer used by the most recent search so the species filter
+  // (selectedSiteGridRefs in useGridOverlay) re-narrows when the user picks
+  // a different buffer in the dropdown and re-runs Search. Initialised to
+  // undefined → useGridOverlay falls back to the project's primary buffer
+  // until the first search updates it.
+  const [searchBuffer, setSearchBuffer] = React.useState<number | undefined>(undefined)
+
   const { computeGridOverlay, customSpatialFilter } = useGridOverlay({
     projectCenter,
     projectBoundary,
@@ -89,6 +96,7 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
     allBoundaries,
     bufferDistances: props.bufferDistances,
     gridResolution,
+    searchBuffer,
   })
 
   // Track spatially filtered results — updated by onFilteredResultsChange from the shell
@@ -151,7 +159,15 @@ export function SpeciesRecordsSubStep(props: SpeciesRecordsSubStepProps) {
       computeGridOverlay,
       customSpatialFilter,
       onFilteredResultsChange: handleFilteredResultsChange,
-      performSearch: buildPerformSearch(gridResolution, projectCenter, projectBoundary),
+      performSearch: (() => {
+        const inner = buildPerformSearch(gridResolution, projectCenter, projectBoundary)
+        return async (params) => {
+          // Capture the buffer the shell is searching with so the species
+          // filter re-narrows to its grid squares once results land.
+          setSearchBuffer(params.buffer)
+          return inner(params)
+        }
+      })(),
       onPostSearch: buildPostSearchHook(aiSummaryTriggerRef),
       matchPredicate: (sf, result) => {
         const name =

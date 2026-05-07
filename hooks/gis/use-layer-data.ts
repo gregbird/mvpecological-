@@ -67,8 +67,12 @@ export function useLayerData(project: Project) {
   // Track which categories show all items
   const [showAllItems, setShowAllItems] = React.useState<Set<string>>(new Set())
 
-  // Cache flag to prevent re-fetching
+  // Cache flag to prevent re-fetching. We also track the buffer used for the
+  // last fetch — when the user toggles a different buffer in MapControlSidebar,
+  // the primary changes and we must re-query so the sidebar count matches the
+  // map overlay (which is now wired to the same primary buffer).
   const layerDataFetchedRef = React.useRef(false)
+  const lastFetchBufferRef = React.useRef<number | null>(null)
 
   const handleLayerToggle = React.useCallback((layerId: string) => {
     setVisibleLayers((prev) =>
@@ -118,14 +122,17 @@ export function useLayerData(project: Project) {
       boundaryOrBoundaries: GeoJSON.Feature<GeoJSON.Polygon> | GeoJSON.Feature<GeoJSON.Polygon>[],
       enabledBuffers: number[]
     ) => {
-      if (layerDataFetchedRef.current) return
+      const primaryBuffer = getPrimaryBuffer(enabledBuffers)
+
+      // Skip only when both boundary AND primary buffer are unchanged from last fetch.
+      if (layerDataFetchedRef.current && lastFetchBufferRef.current === primaryBuffer) return
       layerDataFetchedRef.current = true
+      lastFetchBufferRef.current = primaryBuffer
 
       const boundaries = Array.isArray(boundaryOrBoundaries)
         ? boundaryOrBoundaries
         : [boundaryOrBoundaries]
 
-      const primaryBuffer = getPrimaryBuffer(enabledBuffers)
       const bufferDegrees = primaryBuffer / 111
 
       setLayerDataLoading({ npws: true, rivers: true, lakes: true, catchments: true })
@@ -216,6 +223,7 @@ export function useLayerData(project: Project) {
   // Reset cache when boundary changes
   const resetLayerCache = React.useCallback(() => {
     layerDataFetchedRef.current = false
+    lastFetchBufferRef.current = null
   }, [])
 
   return {

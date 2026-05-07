@@ -114,6 +114,9 @@ async function queryEPAWFS(
     clearTimeout(timeoutId)
     if (error instanceof Error && error.name === 'AbortError') {
       console.warn(`EPA WFS timeout for ${typeName}`)
+    } else if (error instanceof TypeError) {
+      // Network failure (CORS, DNS, server unreachable) — transient, not a bug
+      console.warn(`EPA WFS network error for ${typeName}: ${error.message}`)
     } else {
       console.error(`EPA WFS error for ${typeName}:`, error)
     }
@@ -161,6 +164,8 @@ async function _queryEPAArcGIS(
     clearTimeout(timeoutId)
     if (error instanceof Error && error.name === 'AbortError') {
       console.warn('EPA ArcGIS timeout')
+    } else if (error instanceof TypeError) {
+      console.warn(`EPA ArcGIS network error: ${error.message}`)
     } else {
       console.error('EPA ArcGIS error:', error)
     }
@@ -457,6 +462,8 @@ async function queryEPAWFSWithFilter(
     clearTimeout(timeoutId)
     if (error instanceof Error && error.name === 'AbortError') {
       console.warn(`EPA WFS CQL timeout for ${typeName}`)
+    } else if (error instanceof TypeError) {
+      console.warn(`EPA WFS CQL network error for ${typeName}: ${error.message}`)
     } else {
       console.error(`EPA WFS CQL error for ${typeName}:`, error)
     }

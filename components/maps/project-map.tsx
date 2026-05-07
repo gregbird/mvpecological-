@@ -63,6 +63,11 @@ interface ProjectMapProps {
   npwsVisibleLayers?: string[]
   /** Show NLC vector tile layer (whole-Ireland NLC 2018 land cover overlay) */
   showNlcOverlay?: boolean
+  /** Render the NLC palette toggle button. Defaults to false — only
+   *  meaningful where habitat polygons render, so habitat-related consumers
+   *  (Step 2 Habitat Inventory, Step 4 Habitat Mapping, Step 5 Habitat
+   *  tab) opt in via `showNlcToggle`. Other screens stay clean of it. */
+  showNlcToggle?: boolean
 }
 
 /** Props for the inner MapComponent (adds runtime state that ProjectMap manages) */
@@ -399,6 +404,7 @@ export function ProjectMap({
   zoom = DEFAULT_ZOOM,
   showControls = true,
   skipFitBounds = false,
+  showNlcToggle = false,
   ...mapProps
 }: ProjectMapProps) {
   const [mapLoaded, setMapLoaded] = React.useState(false)
@@ -543,22 +549,25 @@ export function ProjectMap({
             {/* Habitat colour palette toggle. Default OFF = Heritage Council
                 (CIEEM convention, matches PDF reports). ON = NLC native
                 37-shade palette (buildings red, ways gray, etc.) — easier
-                to distinguish habitats at high-zoom inspection. */}
-            <Button
-              variant={useNativeColors ? 'default' : 'secondary'}
-              size="sm"
-              className="h-7 px-2 text-xs shadow-md"
-              onClick={() => setUseNativeColors((v) => !v)}
-              aria-pressed={useNativeColors}
-              title={
-                useNativeColors
-                  ? 'Switch back to Heritage Council palette'
-                  : 'Switch to NLC native palette (37 distinct colours)'
-              }
-            >
-              <Palette className="mr-1.5 h-3.5 w-3.5" />
-              NLC
-            </Button>
+                to distinguish habitats at high-zoom inspection. Hidden on
+                non-habitat screens via `showNlcToggle={false}`. */}
+            {showNlcToggle && (
+              <Button
+                variant={useNativeColors ? 'default' : 'secondary'}
+                size="sm"
+                className="h-7 px-2 text-xs shadow-md"
+                onClick={() => setUseNativeColors((v) => !v)}
+                aria-pressed={useNativeColors}
+                title={
+                  useNativeColors
+                    ? 'Switch back to Heritage Council palette'
+                    : 'Switch to NLC native palette (37 distinct colours)'
+                }
+              >
+                <Palette className="mr-1.5 h-3.5 w-3.5" />
+                NLC
+              </Button>
+            )}
             {/* Hatch toggle — only meaningful at parcel-level zoom (z16+),
                 so it lives next to NLC but appears only while the viewport
                 detail layer is active. Per Heritage Council Appendix 6. */}

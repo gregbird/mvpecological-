@@ -86,6 +86,12 @@ interface ProjectMapWithDrawProps {
     newPolygon: GeoJSON.Feature<GeoJSON.Polygon>
     overlappingPolygon: GeoJSON.Feature<GeoJSON.Polygon>
   }) => void
+  /** Mount the high-zoom NLC ViewportHabitatDetail layer (z16+ Esri-parity
+   * habitat parcels). Off by default — only habitat-related screens
+   * (Step 4 Habitat Mapping, Step 3 Habitat Inventory, Step 5 Habitat
+   * tab/Maps tab) opt in. Step 1 GIS Mapping and other non-habitat
+   * screens stay clean of habitat overlays. */
+  enableHabitatViewportDetail?: boolean
 }
 
 // ── Bridge component: must be defined OUTSIDE MapComponentWithDraw so that
@@ -398,6 +404,7 @@ function MapComponentWithDraw(props: InternalMapProps) {
     onViewportDetailActiveChange,
     selectedHabitatFossittCode = null,
     onMapClick,
+    enableHabitatViewportDetail = false,
   } = props
 
   // Local mirror of viewport detail state — used to hide the coarse saved
@@ -647,24 +654,31 @@ function MapComponentWithDraw(props: InternalMapProps) {
             hides itself in that case so the two layers do not stack with
             mismatched geometries. Selection key is forwarded so matching
             NLC parcels highlight when the user picks a habitat from the
-            list. */}
-        <ViewportHabitatDetail
-          enabled
-          useMap={rl.useMap}
-          GeoJSON={GeoJSON}
-          useNativeColors={useNativeColors}
-          useHatchPatterns={useHatchPatterns}
-          selectedFossittCode={selectedHabitatFossittCode}
-          onActiveChange={(active) => {
-            setViewportDetailActive(active)
-            onViewportDetailActiveChange?.(active)
-          }}
-        />
+            list.
+            Off by default — only mounted when the host screen explicitly
+            opts in via `enableHabitatViewportDetail` (Step 4 Habitat
+            Mapping, etc.). Step 1 GIS Mapping does NOT enable this so
+            satellite imagery stays uncluttered while drawing boundaries. */}
+        {enableHabitatViewportDetail && (
+          <ViewportHabitatDetail
+            enabled
+            useMap={rl.useMap}
+            GeoJSON={GeoJSON}
+            useNativeColors={useNativeColors}
+            useHatchPatterns={useHatchPatterns}
+            selectedFossittCode={selectedHabitatFossittCode}
+            onActiveChange={(active) => {
+              setViewportDetailActive(active)
+              onViewportDetailActiveChange?.(active)
+            }}
+          />
+        )}
         {/* Saved-boundary layer — only at low/mid zoom. At z16+ the live
             NLC layer above shows parcel-level detail; rendering both stacked
             previously caused user confusion (same place, two slightly
-            different polygons). */}
-        {!viewportDetailActive && (
+            different polygons). When viewport detail is disabled, this
+            layer renders at every zoom (no NLC takeover). */}
+        {(!enableHabitatViewportDetail || !viewportDetailActive) && (
           <UserDrawnHabitatLayer
             habitatPolygons={habitatPolygons}
             selectedHabitatId={selectedHabitatId}
@@ -731,6 +745,7 @@ export function ProjectMapWithDraw({
   npwsSites: externalNpwsSites,
   onOverlapDetected,
   onMapClick,
+  enableHabitatViewportDetail = false,
 }: ProjectMapWithDrawProps) {
   const [mapLoaded, setMapLoaded] = React.useState(false)
   const [internalStyle, setInternalStyle] = React.useState<MapStyle>('satellite')
@@ -902,6 +917,7 @@ export function ProjectMapWithDraw({
           useHatchPatterns={useHatchPatterns}
           onViewportDetailActiveChange={setViewportDetailActive}
           onMapClick={onMapClick}
+          enableHabitatViewportDetail={enableHabitatViewportDetail}
         />
       </div>
 
@@ -963,23 +979,27 @@ export function ProjectMapWithDraw({
             portalContainer={containerRef.current}
           />
           {/* Habitat colour palette toggle — Heritage Council (CIEEM/PDF
-              convention) ↔ NLC native 37-shade. Same toggle as project-map
-              so Step 1/Step 4 share the read-only map's behaviour. */}
-          <Button
-            variant={useNativeColors ? 'default' : 'secondary'}
-            size="sm"
-            className="h-7 px-2 text-xs shadow-md"
-            onClick={() => setUseNativeColors((v) => !v)}
-            aria-pressed={useNativeColors}
-            title={
-              useNativeColors
-                ? 'Switch back to Heritage Council palette'
-                : 'Switch to NLC native palette (37 distinct colours)'
-            }
-          >
-            <Palette className="mr-1.5 h-3.5 w-3.5" />
-            NLC
-          </Button>
+              convention) ↔ NLC native 37-shade. Only meaningful where
+              habitat polygons render (Step 4 Habitat Mapping, Step 2
+              Habitat Inventory, Step 5 Habitat tab); other screens stay
+              clean of the toggle. */}
+          {enableHabitatViewportDetail && (
+            <Button
+              variant={useNativeColors ? 'default' : 'secondary'}
+              size="sm"
+              className="h-7 px-2 text-xs shadow-md"
+              onClick={() => setUseNativeColors((v) => !v)}
+              aria-pressed={useNativeColors}
+              title={
+                useNativeColors
+                  ? 'Switch back to Heritage Council palette'
+                  : 'Switch to NLC native palette (37 distinct colours)'
+              }
+            >
+              <Palette className="mr-1.5 h-3.5 w-3.5" />
+              NLC
+            </Button>
+          )}
           {/* Hatch toggle — only meaningful at parcel-level zoom (z16+),
               so it appears only while viewport detail is active. */}
           {viewportDetailActive && (

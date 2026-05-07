@@ -31,6 +31,12 @@ interface UseGridOverlayParams {
   allBoundaries?: GeoJSON.Feature<GeoJSON.Polygon>[]
   bufferDistances: number[]
   gridResolution: '10km' | '2km' | '1km'
+  /** Buffer used for the most recent search. When set, the species spatial
+   *  filter uses this value instead of the project's primary buffer — so
+   *  changing the buffer dropdown and hitting Search re-narrows the visible
+   *  species to that new buffer's grid squares. Falls back to
+   *  `getPrimaryBuffer(bufferDistances)` until a search has run. */
+  searchBuffer?: number
 }
 
 /**
@@ -129,6 +135,7 @@ export function useGridOverlay({
   allBoundaries,
   bufferDistances,
   gridResolution,
+  searchBuffer,
 }: UseGridOverlayParams) {
   /**
    * Compute grid data for a given set of boundaries and buffer.
@@ -170,10 +177,17 @@ export function useGridOverlay({
   const selectedSiteGridRefs = React.useMemo((): Set<string> | null => {
     if (!searchBoundary || (allBoundaries && allBoundaries.length > 0) || !projectBoundary)
       return null // No filtering needed
-    const primaryBuffer = getPrimaryBuffer(bufferDistances)
-    const result = computeGridData(primaryBuffer, [projectBoundary])
+    const buffer = searchBuffer ?? getPrimaryBuffer(bufferDistances)
+    const result = computeGridData(buffer, [projectBoundary])
     return result?.validRefs ?? null
-  }, [searchBoundary, allBoundaries, projectBoundary, bufferDistances, computeGridData])
+  }, [
+    searchBoundary,
+    allBoundaries,
+    projectBoundary,
+    bufferDistances,
+    computeGridData,
+    searchBuffer,
+  ])
 
   /**
    * Custom spatial filter for species records.

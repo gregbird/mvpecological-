@@ -195,6 +195,7 @@ export function HabitatDataSubStep({
       fetchAiSummary,
       projectSites,
       habitatPolygons,
+      savedFindings,
     })
 
   // ── Spatial filter ──
@@ -306,6 +307,7 @@ export function HabitatDataSubStep({
             habitatPolygons={styledPolygons}
             habitatSelectionKey={selectedHabitat?.nlcId || 'all'}
             findings={[]}
+            showNlcToggle
           />
           <div className="absolute top-4 right-4 z-1000 flex items-center gap-2">
             <MapCaptureButton
