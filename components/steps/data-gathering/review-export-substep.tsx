@@ -696,6 +696,7 @@ export function ReviewExportSubStep({
           bufferDistances={bufferDistances}
           habitatPolygons={habitatPolygonsFromFindings}
           visibleFindingTypes={visibleFindingTypes}
+          showNlcToggle
           findings={savedFindings.map((f) => {
             const raw = f.raw_data as Record<string, unknown> | null
             const meta = raw?.metadata as Record<string, unknown> | undefined

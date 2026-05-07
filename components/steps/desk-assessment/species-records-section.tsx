@@ -1,7 +1,18 @@
 'use client'
 
 import * as React from 'react'
-import { Bug, Shield, AlertTriangle, Sparkles, TrendingDown, X } from 'lucide-react'
+import {
+  AlertTriangle,
+  Bug,
+  Droplets,
+  Grid3x3,
+  Layers,
+  MapPin,
+  Shield,
+  Sparkles,
+  TrendingDown,
+  X,
+} from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
@@ -328,7 +339,44 @@ export function SpeciesRecordsSection({
     if (activeFilter === 'threatened') return species.filter((s) => s.isThreatened)
     return species
   }, [species, activeFilter])
-  const mapFindings = React.useMemo(() => toMapFindings(findings, 'species_record'), [findings])
+
+  const [layerToggles, setLayerToggles] = React.useState({
+    sites: true,
+    aquatic: true,
+    habitats: true,
+    grid: true,
+  })
+
+  const speciesMapFindings = React.useMemo(
+    () => toMapFindings(findings, 'species_record'),
+    [findings]
+  )
+  // Cross-reference overlays so the user can see which sites/habitats/water
+  // bodies the species records sit alongside.
+  const overlayMapFindings = React.useMemo(
+    () => [
+      ...toMapFindings(findings, 'designated_site'),
+      ...toMapFindings(findings, 'water_quality'),
+      ...toMapFindings(findings, 'catchment'),
+      ...toMapFindings(findings, 'habitat'),
+    ],
+    [findings]
+  )
+
+  const visibleFindingTypes = React.useMemo(() => {
+    const types: string[] = ['species_record']
+    if (layerToggles.sites) types.push('designated_site')
+    if (layerToggles.aquatic) types.push('water_quality', 'catchment')
+    if (layerToggles.habitats) types.push('habitat')
+    return types
+  }, [layerToggles])
+
+  const combinedMapFindings = React.useMemo(
+    () => speciesMapFindings.concat(overlayMapFindings),
+    [speciesMapFindings, overlayMapFindings]
+  )
+
+  const mapFindings = speciesMapFindings // legacy alias used downstream
   const gridPolygons = React.useMemo(() => {
     // Multi-site safe: prefer the full set so "All Sites" view still draws
     // every grid square. Falls back to the single active boundary.
@@ -486,12 +534,13 @@ export function SpeciesRecordsSection({
 
         {/* Map beside table */}
         {(hasLocationData || hasGridData || !!boundary) && (
-          <Card className="flex h-[450px] flex-col overflow-hidden [&_.leaflet-control-attribution]:hidden">
+          <Card className="relative flex h-[450px] flex-col overflow-hidden [&_.leaflet-control-attribution]:hidden">
             <CardContent className="flex min-h-0 flex-1 p-0">
               <div className="h-full min-h-[250px] w-full">
                 <BaselineMap
-                  findings={hasLocationData ? mapFindings : undefined}
-                  gridOverlay={gridPolygons ?? undefined}
+                  findings={combinedMapFindings.length > 0 ? combinedMapFindings : undefined}
+                  visibleFindingTypes={visibleFindingTypes}
+                  gridOverlay={layerToggles.grid ? (gridPolygons ?? undefined) : undefined}
                   boundary={boundary}
                   otherBoundaries={otherBoundaries}
                   allBoundaries={allBoundaries}
@@ -500,6 +549,57 @@ export function SpeciesRecordsSection({
                 />
               </div>
             </CardContent>
+
+            <div className="absolute top-3 left-1/2 z-[400] flex -translate-x-1/2 flex-wrap items-center justify-center gap-2">
+              {(
+                [
+                  {
+                    key: 'sites',
+                    label: 'Sites',
+                    icon: MapPin,
+                    activeColor: 'bg-emerald-500 text-white hover:bg-emerald-600',
+                  },
+                  {
+                    key: 'aquatic',
+                    label: 'Aquatic',
+                    icon: Droplets,
+                    activeColor: 'bg-sky-500 text-white hover:bg-sky-600',
+                  },
+                  {
+                    key: 'habitats',
+                    label: 'Habitats',
+                    icon: Layers,
+                    activeColor: 'bg-green-500 text-white hover:bg-green-600',
+                  },
+                  {
+                    key: 'grid',
+                    label: 'Grid',
+                    icon: Grid3x3,
+                    activeColor: 'bg-purple-500 text-white hover:bg-purple-600',
+                  },
+                ] as const
+              ).map((l) => {
+                const isActive = layerToggles[l.key]
+                const Icon = l.icon
+                return (
+                  <button
+                    key={l.key}
+                    type="button"
+                    onClick={() => setLayerToggles((prev) => ({ ...prev, [l.key]: !prev[l.key] }))}
+                    aria-pressed={isActive}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold shadow-md transition-all',
+                      isActive
+                        ? l.activeColor
+                        : 'bg-background/90 text-muted-foreground hover:bg-background backdrop-blur'
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {l.label}
+                  </button>
+                )
+              })}
+            </div>
           </Card>
         )}
       </div>

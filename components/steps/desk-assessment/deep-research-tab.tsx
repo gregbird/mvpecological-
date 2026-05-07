@@ -105,7 +105,13 @@ export function DeepResearchTab({ projectId, project, findings, siteId }: DeepRe
             allBoundaries={allBoundaries}
             bufferDistances={bufferDistances}
             findings={mapFindings}
-            visibleFindingTypes={['designated_site']}
+            visibleFindingTypes={[
+              'designated_site',
+              'species_record',
+              'habitat',
+              'water_quality',
+              'catchment',
+            ]}
             zoom={13}
           />
           <MapLegendOverlay entries={legendEntries} />
@@ -129,7 +135,13 @@ export function DeepResearchTab({ projectId, project, findings, siteId }: DeepRe
           boundary={boundary}
           bufferDistances={bufferDistances}
           findings={mapFindings}
-          visibleFindingTypes={['designated_site']}
+          visibleFindingTypes={[
+            'designated_site',
+            'species_record',
+            'habitat',
+            'water_quality',
+            'catchment',
+          ]}
           zoom={13}
         />
         <MapLegendOverlay entries={legendEntries} />

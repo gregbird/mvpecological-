@@ -65,13 +65,17 @@ export interface UnresearchedAquatic {
 
 function toMapFindings(dbFindings: DbFinding[]): MapFinding[] {
   return dbFindings
-    .filter((f) => {
-      const raw = f.raw_data as Record<string, unknown> | null
-      return raw?.geometry != null
-    })
     .map((f) => {
-      const raw = f.raw_data as Record<string, unknown>
-      const geometry = raw.geometry as GeoJSON.Geometry
+      const raw = (f.raw_data as Record<string, unknown> | null) ?? {}
+      // Prefer the dedicated location column; fall back to legacy raw.geometry
+      // for older designated-site rows that pre-date location persistence.
+      const geometry =
+        (f.location as GeoJSON.Geometry | null) ?? (raw.geometry as GeoJSON.Geometry | null) ?? null
+      return { f, raw, geometry }
+    })
+    .filter(({ geometry }) => geometry != null)
+    .map(({ f, raw, geometry }) => {
+      const metadata = (raw.metadata as Record<string, unknown> | undefined) ?? {}
       return {
         id: f.id,
         source: f.source as MapFinding['source'],
@@ -79,12 +83,17 @@ function toMapFindings(dbFindings: DbFinding[]): MapFinding[] {
         title: f.title,
         content: f.content || undefined,
         rawData: raw,
-        location: geometry,
+        location: geometry as GeoJSON.Geometry,
         isSaved: true,
         notes: f.notes || undefined,
         metadata: {
-          siteCode: raw.siteCode as string | undefined,
-          siteType: raw.siteType as string | undefined,
+          siteCode:
+            (raw.siteCode as string | undefined) ?? (metadata.siteCode as string | undefined),
+          siteType:
+            (raw.siteType as string | undefined) ?? (metadata.siteType as string | undefined),
+          scientificName: metadata.scientificName as string | undefined,
+          commonName: metadata.commonName as string | undefined,
+          taxonGroup: metadata.taxonGroup as string | undefined,
           distance: f.distance_from_boundary_km || undefined,
         },
       }
@@ -182,18 +191,34 @@ export function useDeepResearch(
     [researchResults]
   )
 
-  const mapFindings = React.useMemo(
-    () =>
-      toMapFindings(
-        findings.filter((f) => {
-          if (f.data_type !== 'designated_site') return false
-          const raw = f.raw_data as Record<string, unknown> | null
-          const siteCode = raw?.siteCode as string | undefined
-          return siteCode ? researchedSiteCodes.has(siteCode) : false
-        })
-      ),
-    [findings, researchedSiteCodes]
+  // Aquatic deep research lives in its own table — join back to the finding
+  // row via finding_id so we can plot the same geometry on the map.
+  const researchedAquaticFindingIds = React.useMemo(
+    () => new Set(aquaticResults.map((r) => r.finding_id).filter((id): id is string => !!id)),
+    [aquaticResults]
   )
+
+  // Species + habitat deep research is stored on the finding row itself
+  // (raw_data.deepResearch.aiAnalysis), so reuse the lists already computed
+  // above (speciesWithResearch / habitatsWithResearch).
+  const mapFindings = React.useMemo(() => {
+    const researched = findings.filter((f) => {
+      if (f.data_type === 'designated_site') {
+        const raw = f.raw_data as Record<string, unknown> | null
+        const siteCode = raw?.siteCode as string | undefined
+        return siteCode ? researchedSiteCodes.has(siteCode) : false
+      }
+      if (f.data_type === 'water_quality' || f.data_type === 'catchment') {
+        return researchedAquaticFindingIds.has(f.id)
+      }
+      if (f.data_type === 'species_record' || f.data_type === 'habitat') {
+        const raw = f.raw_data as Record<string, unknown> | null
+        return !!(raw?.deepResearch as Record<string, unknown> | undefined)?.aiAnalysis
+      }
+      return false
+    })
+    return toMapFindings(researched)
+  }, [findings, researchedSiteCodes, researchedAquaticFindingIds])
 
   // Find unresearched designated sites
   const unresearchedSites = React.useMemo<UnresearchedSite[]>(() => {

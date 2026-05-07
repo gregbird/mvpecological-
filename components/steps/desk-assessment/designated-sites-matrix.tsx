@@ -1,8 +1,9 @@
 'use client'
 
 import * as React from 'react'
-import { ChevronDown, ChevronUp, MapPin, Shield, Sparkles, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, Droplets, Layers, MapPin, Shield, Sparkles, X } from 'lucide-react'
 
+import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -302,6 +303,33 @@ export function DesignatedSitesMatrix({
 }: DesignatedSitesMatrixProps) {
   const sites = React.useMemo(() => parseSiteRows(findings, deepResearch), [findings, deepResearch])
   const [selectedFinding, setSelectedFinding] = React.useState<DeskResearchFinding | null>(null)
+  const [layerToggles, setLayerToggles] = React.useState({
+    sites: true,
+    aquatic: true,
+    habitats: true,
+  })
+
+  // Aquatic + habitat overlay so the user can cross-reference designated sites
+  // with nearby water bodies and habitats from the same map.
+  const overlayMapFindings = React.useMemo(
+    () => [
+      ...toMapFindings(findings, 'water_quality'),
+      ...toMapFindings(findings, 'catchment'),
+      ...toMapFindings(findings, 'habitat'),
+    ],
+    [findings]
+  )
+
+  // BaselineMap gates layers via visibleFindingTypes (when truthy). Keep
+  // the list non-empty so toggling individual pills works as expected.
+  const visibleFindingTypes = React.useMemo(() => {
+    const types: string[] = []
+    if (layerToggles.sites) types.push('designated_site')
+    if (layerToggles.aquatic) types.push('water_quality', 'catchment')
+    if (layerToggles.habitats) types.push('habitat')
+    return types
+  }, [layerToggles])
+
   const mapFindings = React.useMemo(() => {
     // First try normal toMapFindings (uses f.location)
     const withLocation = toMapFindings(findings, 'designated_site')
@@ -354,12 +382,17 @@ export function DesignatedSitesMatrix({
   }
 
   const showMap = hasLocationData || !!boundary
+  const combinedFindings = React.useMemo(
+    () => (layerToggles.sites ? mapFindings : []).concat(overlayMapFindings),
+    [layerToggles.sites, mapFindings, overlayMapFindings]
+  )
   const mapCard = showMap ? (
-    <Card className="flex h-[450px] flex-col overflow-hidden [&_.leaflet-control-attribution]:hidden">
+    <Card className="relative flex h-[450px] flex-col overflow-hidden [&_.leaflet-control-attribution]:hidden">
       <CardContent className="flex min-h-0 flex-1 p-0">
         <div className="h-full min-h-[250px] w-full">
           <BaselineMap
-            findings={hasLocationData ? mapFindings : undefined}
+            findings={combinedFindings.length > 0 ? combinedFindings : undefined}
+            visibleFindingTypes={visibleFindingTypes}
             boundary={boundary}
             otherBoundaries={otherBoundaries}
             allBoundaries={allBoundaries}
@@ -368,6 +401,52 @@ export function DesignatedSitesMatrix({
           />
         </div>
       </CardContent>
+
+      {/* Layer toggle pills — same pattern as Habitat Inventory section */}
+      <div className="absolute top-3 left-1/2 z-[400] flex -translate-x-1/2 items-center gap-2">
+        {(
+          [
+            {
+              key: 'sites',
+              label: 'Sites',
+              icon: MapPin,
+              activeColor: 'bg-emerald-500 text-white hover:bg-emerald-600',
+            },
+            {
+              key: 'aquatic',
+              label: 'Aquatic',
+              icon: Droplets,
+              activeColor: 'bg-sky-500 text-white hover:bg-sky-600',
+            },
+            {
+              key: 'habitats',
+              label: 'Habitats',
+              icon: Layers,
+              activeColor: 'bg-green-500 text-white hover:bg-green-600',
+            },
+          ] as const
+        ).map((l) => {
+          const isActive = layerToggles[l.key]
+          const Icon = l.icon
+          return (
+            <button
+              key={l.key}
+              type="button"
+              onClick={() => setLayerToggles((prev) => ({ ...prev, [l.key]: !prev[l.key] }))}
+              aria-pressed={isActive}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold shadow-md transition-all',
+                isActive
+                  ? l.activeColor
+                  : 'bg-background/90 text-muted-foreground hover:bg-background backdrop-blur'
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {l.label}
+            </button>
+          )
+        })}
+      </div>
     </Card>
   ) : null
 

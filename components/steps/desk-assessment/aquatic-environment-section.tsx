@@ -1,7 +1,17 @@
 'use client'
 
 import * as React from 'react'
-import { Droplets, Waves, Map, GitBranch, ArrowRight, Sparkles, X } from 'lucide-react'
+import {
+  ArrowRight,
+  Droplets,
+  GitBranch,
+  Layers,
+  Map,
+  MapPin,
+  Sparkles,
+  Waves,
+  X,
+} from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
@@ -315,12 +325,38 @@ export function AquaticEnvironmentSection({
     [waterBodies, activeFilter]
   )
 
+  const [layerToggles, setLayerToggles] = React.useState({
+    sites: true,
+    aquatic: true,
+    habitats: true,
+  })
+
   // Aquatic findings render through FindingMarkers (Polygon + LineString +
   // Point support) — matches data-gathering rendering. Habitat layer was
   // stamping "Lake"/"River" labels at polygon center which was misleading.
   const aquaticMapFindings = React.useMemo(
     () => [...toMapFindings(findings, 'water_quality'), ...toMapFindings(findings, 'catchment')],
     [findings]
+  )
+
+  // Cross-reference overlays — designated sites + habitats — so the user can
+  // see which water bodies sit inside protected areas / sensitive habitats.
+  const overlayMapFindings = React.useMemo(
+    () => [...toMapFindings(findings, 'designated_site'), ...toMapFindings(findings, 'habitat')],
+    [findings]
+  )
+
+  const visibleFindingTypes = React.useMemo(() => {
+    const types: string[] = []
+    if (layerToggles.sites) types.push('designated_site')
+    if (layerToggles.aquatic) types.push('water_quality', 'catchment')
+    if (layerToggles.habitats) types.push('habitat')
+    return types
+  }, [layerToggles])
+
+  const combinedMapFindings = React.useMemo(
+    () => (layerToggles.aquatic ? aquaticMapFindings : []).concat(overlayMapFindings),
+    [layerToggles.aquatic, aquaticMapFindings, overlayMapFindings]
   )
 
   // Legacy: kept for reference but no longer used after switching to FindingMarkers.
@@ -481,12 +517,12 @@ export function AquaticEnvironmentSection({
 
         {/* Map beside table */}
         {(aquaticMapFindings.length > 0 || boundary) && (
-          <Card className="flex h-[450px] flex-col overflow-hidden [&_.leaflet-control-attribution]:hidden">
+          <Card className="relative flex h-[450px] flex-col overflow-hidden [&_.leaflet-control-attribution]:hidden">
             <CardContent className="flex min-h-0 flex-1 p-0">
               <div className="h-full min-h-[250px] w-full">
                 <BaselineMap
-                  findings={aquaticMapFindings.length > 0 ? aquaticMapFindings : undefined}
-                  visibleFindingTypes={['water_quality', 'catchment']}
+                  findings={combinedMapFindings.length > 0 ? combinedMapFindings : undefined}
+                  visibleFindingTypes={visibleFindingTypes}
                   boundary={boundary}
                   otherBoundaries={otherBoundaries}
                   allBoundaries={allBoundaries}
@@ -495,6 +531,51 @@ export function AquaticEnvironmentSection({
                 />
               </div>
             </CardContent>
+
+            <div className="absolute top-3 left-1/2 z-[400] flex -translate-x-1/2 items-center gap-2">
+              {(
+                [
+                  {
+                    key: 'sites',
+                    label: 'Sites',
+                    icon: MapPin,
+                    activeColor: 'bg-emerald-500 text-white hover:bg-emerald-600',
+                  },
+                  {
+                    key: 'aquatic',
+                    label: 'Aquatic',
+                    icon: Droplets,
+                    activeColor: 'bg-sky-500 text-white hover:bg-sky-600',
+                  },
+                  {
+                    key: 'habitats',
+                    label: 'Habitats',
+                    icon: Layers,
+                    activeColor: 'bg-green-500 text-white hover:bg-green-600',
+                  },
+                ] as const
+              ).map((l) => {
+                const isActive = layerToggles[l.key]
+                const Icon = l.icon
+                return (
+                  <button
+                    key={l.key}
+                    type="button"
+                    onClick={() => setLayerToggles((prev) => ({ ...prev, [l.key]: !prev[l.key] }))}
+                    aria-pressed={isActive}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold shadow-md transition-all',
+                      isActive
+                        ? l.activeColor
+                        : 'bg-background/90 text-muted-foreground hover:bg-background backdrop-blur'
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {l.label}
+                  </button>
+                )
+              })}
+            </div>
           </Card>
         )}
       </div>
