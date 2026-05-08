@@ -4,8 +4,8 @@ import * as React from 'react'
 import Link from 'next/link'
 import {
   FileText,
-  Clock,
   AlertCircle,
+  AlertTriangle,
   CheckCircle,
   Plus,
   Loader2,
@@ -385,13 +385,13 @@ export default function DashboardPage() {
       border: 'border-l-blue-400',
     },
     {
-      label: 'Not Started',
-      value: stats.draft,
-      valueColor: 'text-blue-600',
-      icon: Clock,
-      color: 'text-blue-500',
-      iconBg: 'bg-blue-50 dark:bg-blue-950',
-      border: 'border-l-blue-400',
+      label: 'Overdue',
+      value: stats.overdue,
+      valueColor: 'text-red-600',
+      icon: AlertTriangle,
+      color: 'text-red-500',
+      iconBg: 'bg-red-50 dark:bg-red-950',
+      border: 'border-l-red-400',
     },
     {
       label: 'In Progress',
@@ -415,7 +415,7 @@ export default function DashboardPage() {
 
   const statusData = [
     { value: stats.draft, color: '#6b7280', label: 'Pending' },
-    { value: 0, color: '#3b82f6', label: 'Not Started' },
+    { value: stats.overdue, color: '#ef4444', label: 'Overdue' },
     { value: stats.active, color: '#f97316', label: 'In Progress' },
     { value: stats.completed, color: '#22c55e', label: 'Completed' },
   ]

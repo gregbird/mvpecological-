@@ -8,7 +8,6 @@ import {
   Users,
   History,
   LogOut,
-  Settings,
   Bell,
   Search,
   ChevronRight,
@@ -21,7 +20,6 @@ import {
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { useRole, type RolePermissions } from '@/contexts/role-context'
 import { ThemeToggle } from '@/components/layout/theme-toggle'
 import { createClient } from '@/lib/supabase/client'
@@ -225,30 +223,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </div>
             </div>
 
-            <div className="flex gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground flex-1 justify-start gap-2"
-              >
-                <Settings className="h-4 w-4" />
-                Settings
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleSignOut}
-                disabled={isSigningOut}
-                className="flex-1 justify-start gap-2 text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
-              >
-                {isSigningOut ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <LogOut className="h-4 w-4" />
-                )}
-                {isSigningOut ? 'Signing out...' : 'Logout'}
-              </Button>
-            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSignOut}
+              disabled={isSigningOut}
+              className="w-full justify-start gap-2 text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
+            >
+              {isSigningOut ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <LogOut className="h-4 w-4" />
+              )}
+              {isSigningOut ? 'Signing out...' : 'Logout'}
+            </Button>
           </div>
         </aside>
 
@@ -263,15 +251,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               >
                 <Menu className="h-5 w-5" />
               </button>
-
-              {/* Search */}
-              <div className="relative hidden md:block">
-                <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-                <Input
-                  placeholder="Search anything..."
-                  className="border-border bg-muted focus:bg-background h-10 w-64 pl-10"
-                />
-              </div>
             </div>
 
             <div className="flex items-center gap-3">
