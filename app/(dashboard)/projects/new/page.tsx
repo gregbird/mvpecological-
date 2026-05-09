@@ -13,13 +13,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 import { useRole } from '@/contexts/role-context'
 import { createClient } from '@/lib/supabase/client'
@@ -37,7 +30,7 @@ const projectSchema = z.object({
   name: z.string().min(3, 'Project name must be at least 3 characters'),
   siteCode: z.string().optional(),
   reportTypes: z.array(z.string()).optional(),
-  clientId: z.string().optional(),
+  clientName: z.string().optional(),
   expectedStartDate: z.string().optional(),
   expectedEndDate: z.string().optional(),
   budgetDays: z.string().optional(),
@@ -45,21 +38,13 @@ const projectSchema = z.object({
 
 type ProjectFormData = z.infer<typeof projectSchema>
 
-// Mock clients data
-const mockClients = [
-  { id: 'c1', name: 'Energia Renewables' },
-  { id: 'c2', name: 'Dublin Port Company' },
-  { id: 'c3', name: 'SSE Renewables' },
-  { id: 'c4', name: 'Cork County Council' },
-  { id: 'c5', name: 'Kerry County Council' },
-]
-
 export default function NewProjectPage() {
   const router = useRouter()
   const { toast } = useToast()
   const { user } = useRole()
   const [isLoading, setIsLoading] = React.useState(false)
   const [selectedReportTypes, setSelectedReportTypes] = React.useState<string[]>([])
+  const [existingClients, setExistingClients] = React.useState<string[]>([])
 
   const {
     register,
@@ -69,6 +54,24 @@ export default function NewProjectPage() {
   } = useForm<ProjectFormData>({
     resolver: zodResolver(projectSchema),
   })
+
+  React.useEffect(() => {
+    if (!user?.organization_id) return
+    let cancelled = false
+    const supabase = createClient()
+    void supabase
+      .from('clients')
+      .select('name')
+      .eq('organization_id', user.organization_id)
+      .order('name', { ascending: true })
+      .then(({ data }) => {
+        if (cancelled || !data) return
+        setExistingClients(data.map((c) => c.name).filter(Boolean))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [user?.organization_id])
 
   const toggleReportType = (typeId: string) => {
     setSelectedReportTypes((prev) => {
@@ -94,13 +97,42 @@ export default function NewProjectPage() {
       const siteCode = data.siteCode || generateSiteCode(data.name)
       const types = data.reportTypes ?? []
 
-      // Create the project (survey_type = first selected for backward compat)
+      let clientId: string | null = null
+      const trimmedClientName = data.clientName?.trim()
+      if (trimmedClientName) {
+        const { data: existingClient, error: clientLookupError } = await supabase
+          .from('clients')
+          .select('id')
+          .eq('organization_id', user.organization_id)
+          .ilike('name', trimmedClientName)
+          .maybeSingle()
+
+        if (clientLookupError) throw clientLookupError
+
+        if (existingClient) {
+          clientId = existingClient.id
+        } else {
+          const { data: newClient, error: clientInsertError } = await supabase
+            .from('clients')
+            .insert({
+              name: trimmedClientName,
+              organization_id: user.organization_id,
+            })
+            .select('id')
+            .single()
+
+          if (clientInsertError) throw clientInsertError
+          clientId = newClient.id
+        }
+      }
+
       const { data: project, error: projectError } = await supabase
         .from('projects')
         .insert({
           name: data.name,
           site_code: siteCode,
           survey_type: types[0] || null,
+          client_id: clientId,
           expected_start_date: data.expectedStartDate || null,
           expected_end_date: data.expectedEndDate || null,
           budget_days: data.budgetDays ? parseInt(data.budgetDays) : null,
@@ -246,19 +278,23 @@ export default function NewProjectPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="clientId">Client</Label>
-                <Select onValueChange={(value) => setValue('clientId', value)} disabled={isLoading}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select client (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {mockClients.map((client) => (
-                      <SelectItem key={client.id} value={client.id}>
-                        {client.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="clientName">Client</Label>
+                <Input
+                  id="clientName"
+                  placeholder="e.g., Energia Renewables"
+                  list="client-suggestions"
+                  autoComplete="off"
+                  {...register('clientName')}
+                  disabled={isLoading}
+                />
+                <datalist id="client-suggestions">
+                  {existingClients.map((name) => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
+                <p className="text-muted-foreground text-xs">
+                  Start typing to pick an existing client, or enter a new name to add it.
+                </p>
               </div>
             </CardContent>
           </Card>

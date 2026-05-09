@@ -64,6 +64,7 @@ import { useToast } from '@/hooks/use-toast'
 import { useDeleteProject, useUpdateProject } from '@/hooks/queries/use-project-hooks'
 import { useRole } from '@/contexts/role-context'
 import { useProjectContext } from '@/contexts/project-context'
+import { ProjectSettingsDialog } from '@/components/project/project-settings-dialog'
 import {
   WORKFLOW_PHASES,
   getPhaseByStepNumber,
@@ -98,6 +99,10 @@ export function ProjectWorkflowSidebar() {
 
   // Delete confirmation dialog
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false)
+
+  // Project settings dialog
+  const [showSettingsDialog, setShowSettingsDialog] = React.useState(false)
+  const canEditProjectSettings = roleUser?.role !== 'client'
 
   // Inline rename state
   const [isEditingName, setIsEditingName] = React.useState(false)
@@ -637,10 +642,12 @@ export function ProjectWorkflowSidebar() {
                   Manage Team
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem disabled>
-                <Settings className="mr-2 h-4 w-4" />
-                Project Settings
-              </DropdownMenuItem>
+              {canEditProjectSettings && (
+                <DropdownMenuItem onClick={() => setShowSettingsDialog(true)}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  Project Settings
+                </DropdownMenuItem>
+              )}
               {permissions.canDeleteProject && (
                 <>
                   <DropdownMenuSeparator />
@@ -808,6 +815,15 @@ export function ProjectWorkflowSidebar() {
           </Accordion>
         </div>
       </ScrollArea>
+
+      {/* Project Settings Dialog */}
+      {project && (
+        <ProjectSettingsDialog
+          open={showSettingsDialog}
+          onOpenChange={setShowSettingsDialog}
+          project={project}
+        />
+      )}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
