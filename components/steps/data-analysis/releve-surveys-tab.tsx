@@ -82,26 +82,24 @@ export function ReleveSurveysTab({ projectId, siteId, workflowStep }: ReleveSurv
   }, [visibleReleves, getPlacement])
 
   if (isLoading) {
-    return <div className="text-muted-foreground p-6 text-sm">Loading relevé surveys…</div>
+    return <div className="text-muted-foreground text-sm">Loading relevé surveys…</div>
   }
 
   if (visibleReleves.length === 0) {
     return (
-      <div className="space-y-4 p-4">
-        <Alert>
-          <Sprout className="h-4 w-4" />
-          <AlertTitle>No relevé surveys recorded</AlertTitle>
-          <AlertDescription>
-            Complete Step 4 (Field Research → Relevé Survey) to record vegetation plots. Each relevé
-            will then appear here with a placement control for the AI draft report.
-          </AlertDescription>
-        </Alert>
-      </div>
+      <Alert>
+        <Sprout className="h-4 w-4" />
+        <AlertTitle>No relevé surveys recorded</AlertTitle>
+        <AlertDescription>
+          Complete Step 4 (Field Research → Relevé Survey) to record vegetation plots. Each relevé
+          will then appear here with a placement control for the AI draft report.
+        </AlertDescription>
+      </Alert>
     )
   }
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="space-y-4">
       {/* Explanation card */}
       <Alert>
         <Layers className="h-4 w-4" />

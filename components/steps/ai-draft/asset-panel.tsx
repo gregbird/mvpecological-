@@ -12,9 +12,10 @@ interface AssetPanelProps {
 
 export function AssetPanel({ project }: AssetPanelProps) {
   return (
-    <div className="w-56 shrink-0 border-l pl-3">
-      <Tabs defaultValue="data" className="h-full">
-        <TabsList className="grid w-full grid-cols-3">
+    <div className="flex w-56 shrink-0 flex-col border-l pl-3">
+      <Tabs defaultValue="data" className="flex min-h-0 flex-1 flex-col">
+        {/* TabsList stays pinned at the top while the panel content scrolls */}
+        <TabsList className="grid w-full shrink-0 grid-cols-3">
           <TabsTrigger value="data" className="text-xs">
             Data
           </TabsTrigger>
@@ -25,13 +26,13 @@ export function AssetPanel({ project }: AssetPanelProps) {
             Photos
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="data" className="mt-3">
+        <TabsContent value="data" className="mt-3 min-h-0 flex-1 overflow-y-auto">
           <AssetPanelDataTables project={project} />
         </TabsContent>
-        <TabsContent value="maps" className="mt-3">
+        <TabsContent value="maps" className="mt-3 min-h-0 flex-1 overflow-y-auto">
           <AssetPanelScreenshots projectId={project.id} />
         </TabsContent>
-        <TabsContent value="photos" className="mt-3">
+        <TabsContent value="photos" className="mt-3 min-h-0 flex-1 overflow-y-auto">
           <AssetPanelPhotos projectId={project.id} />
         </TabsContent>
       </Tabs>

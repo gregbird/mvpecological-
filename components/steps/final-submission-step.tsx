@@ -1,27 +1,11 @@
 'use client'
 
 import * as React from 'react'
-import {
-  Loader2,
-  Check,
-  AlertCircle,
-  Info,
-  FileText,
-  Download,
-  Send,
-  CheckCircle2,
-  Printer,
-} from 'lucide-react'
+import { Loader2, AlertCircle, Info, CheckCircle2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
-import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
 import { useRole } from '@/contexts/role-context'
 import { useLatestReportByType, useUpdateReport } from '@/hooks/queries/use-report-hooks'
@@ -37,8 +21,19 @@ import { useSurveys } from '@/hooks/queries/use-survey-hooks'
 import { useProjectSites } from '@/hooks/queries/use-site-hooks'
 import { SiteSelector } from '@/components/project/site-selector'
 import { prepareAppendixData } from '@/lib/export/appendix-data'
-import { getReportSectionsForType } from '@/lib/config/template-types'
+import { useResolvedReportSections } from '@/hooks/queries/use-resolved-report-sections'
+import { useBranding } from '@/hooks/queries/use-branding'
 import { useExportWorker } from '@/hooks/use-export-worker'
+
+import { CoverPageCard } from '@/components/steps/final-submission/cover-page-card'
+import { AppendicesCard } from '@/components/steps/final-submission/appendices-card'
+import { ExportFormatCard } from '@/components/steps/final-submission/export-format-card'
+import { AdditionalExportsCard } from '@/components/steps/final-submission/additional-exports-card'
+import { ReportSummaryCard } from '@/components/steps/final-submission/report-summary-card'
+import { SubmissionPanel } from '@/components/steps/final-submission/submission-panel'
+import { useShapefileExport } from '@/components/steps/final-submission/use-shapefile-export'
+import { usePdfExport } from '@/components/steps/final-submission/use-pdf-export'
+
 import type { ReportContent } from '@/lib/supabase/queries/reports'
 import type { Project, WorkflowStep, Json } from '@/types/database'
 
@@ -48,25 +43,6 @@ interface FinalSubmissionStepProps {
   userId: string
   onComplete?: () => void
 }
-
-// Export options
-const EXPORT_FORMATS = [
-  { id: 'pdf', name: 'PDF Document', description: 'Best for printing and sharing' },
-  { id: 'docx', name: 'Word Document', description: 'Editable format for further modifications' },
-  { id: 'html', name: 'HTML Report', description: 'Web-viewable format' },
-]
-
-// Appendices options
-const APPENDIX_OPTIONS = [
-  { id: 'habitat_map', label: 'Habitat Map' },
-  { id: 'habitat_data', label: 'Habitat Data' },
-  { id: 'designated_sites', label: 'Designated Sites' },
-  { id: 'species_list', label: 'Species List' },
-  { id: 'aquatic_data', label: 'Aquatic Features' },
-  { id: 'photographs', label: 'Site Photographs' },
-  { id: 'survey_datasheets', label: 'Survey Datasheets' },
-  { id: 'legislation', label: 'Legislation References' },
-]
 
 export function FinalSubmissionStep({
   project,
@@ -91,11 +67,9 @@ export function FinalSubmissionStep({
   ])
   const [coverPageTitle, setCoverPageTitle] = React.useState('')
   const [preparedFor, setPreparedFor] = React.useState('')
-  const [isExporting, setIsExporting] = React.useState(false)
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [selectedSiteId, setSelectedSiteId] = React.useState<string | null>(null)
 
-  // React Query hooks
   const { data: report, isLoading: loadingReport } = useLatestReportByType(project.id, reportType)
   // Stats and appendix sources are filtered by site for multi-site projects.
   // Reports themselves remain project-scoped — narrative sections always cover the full project.
@@ -104,6 +78,7 @@ export function FinalSubmissionStep({
   const { data: savedFindings } = useSavedFindings(project.id, selectedSiteId)
   const { data: surveys } = useSurveys(project.id, selectedSiteId)
   const { data: sites } = useProjectSites(project.id)
+  const { data: branding } = useBranding(project.organization_id)
   const activeSiteCode = selectedSiteId
     ? (sites?.find((s) => s.id === selectedSiteId)?.site_code ?? undefined)
     : undefined
@@ -112,7 +87,6 @@ export function FinalSubmissionStep({
   const completeStep = useCompleteWorkflowStep()
   const { runExport, cancelExport } = useExportWorker()
 
-  // Initialize form with project data
   React.useEffect(() => {
     if (project) {
       const typeName = REPORT_TYPES.find((r) => r.id === reportType)?.name || 'Ecological Report'
@@ -122,31 +96,21 @@ export function FinalSubmissionStep({
     }
   }, [project, reportType])
 
-  // Get report content
   const reportContent = report?.content as unknown as ReportContent | undefined
   const completedSections = reportContent?.sections?.filter((s) => s.content).length || 0
+  const { sections: reportSectionDefs } = useResolvedReportSections(
+    project.organization_id,
+    reportType
+  )
 
-  // Toggle appendix selection
   const toggleAppendix = (appendixId: string) => {
     setSelectedAppendices((prev) =>
       prev.includes(appendixId) ? prev.filter((id) => id !== appendixId) : [...prev, appendixId]
     )
   }
 
-  /**
-   * Yield control to the browser so React can repaint (spinner, overlay, etc.)
-   * before a CPU-heavy synchronous task runs.
-   */
+  /** Yield to the browser so React can repaint before a CPU-heavy task runs. */
   const yieldToBrowser = () => new Promise<void>((r) => setTimeout(r, 50))
-
-  const abortRef = React.useRef(false)
-
-  const handleCancelExport = () => {
-    abortRef.current = true
-    cancelExport()
-    setIsExporting(false)
-    toast({ title: 'Export cancelled' })
-  }
 
   const buildExportOptions = () => ({
     title: coverPageTitle,
@@ -164,178 +128,49 @@ export function FinalSubmissionStep({
     appendices: selectedAppendices,
     appendixData:
       savedFindings && savedFindings.length > 0 ? prepareAppendixData(savedFindings) : undefined,
+    projectName: project.name,
+    branding: branding
+      ? {
+          logoDataUrl: branding.logoDataUrl ?? null,
+          primaryColor: branding.primaryColor,
+          secondaryColor: branding.secondaryColor,
+          fontFamily: branding.fontFamily,
+          coverPage: branding.coverPage,
+          header: branding.header,
+          footer: branding.footer,
+        }
+      : undefined,
   })
 
-  // Handle print — generates PDF and opens in new tab for browser print dialog
-  const handlePrint = async () => {
-    abortRef.current = false
-    setIsExporting(true)
-    await yieldToBrowser()
-
-    try {
-      const blob = await runExport('pdf', buildExportOptions())
-      if (abortRef.current) return
-      const url = URL.createObjectURL(blob)
-      const win = window.open(url, '_blank')
-      if (win) win.focus()
-      setTimeout(() => URL.revokeObjectURL(url), 60000)
-    } catch {
-      if (!abortRef.current) {
-        toast({
-          title: 'Print failed',
-          description: 'Could not generate print preview.',
-          variant: 'destructive',
-        })
-      }
-    } finally {
-      setIsExporting(false)
-    }
+  const baseFilename = () => {
+    const siteSuffix = activeSiteCode ? `_${activeSiteCode.replace(/\s+/g, '-')}` : ''
+    return `${project.site_code || project.id}_${report?.report_type || 'report'}_v${report?.version || 1}${siteSuffix}`
   }
 
-  // Handle export
-  const handleExport = async () => {
-    abortRef.current = false
-    setIsExporting(true)
-    await yieldToBrowser()
+  const {
+    isExporting,
+    setIsExporting,
+    handlePrint,
+    handleExport,
+    handleCancel: handleCancelExport,
+  } = usePdfExport({
+    exportFormat,
+    buildExportOptions,
+    runExport,
+    cancelExport,
+    baseFilename,
+    yieldToBrowser,
+  })
 
-    try {
-      const exportOptions = buildExportOptions()
-      const siteSuffix = activeSiteCode ? `_${activeSiteCode.replace(/\s+/g, '-')}` : ''
-      const baseFilename = `${project.site_code || project.id}_${report?.report_type || 'report'}_v${report?.version || 1}${siteSuffix}`
+  const handleShapefileExport = useShapefileExport({
+    project,
+    sites,
+    selectedSiteId,
+    activeSiteCode,
+    setIsExporting,
+    yieldToBrowser,
+  })
 
-      if (exportFormat === 'pdf' || exportFormat === 'html' || exportFormat === 'docx') {
-        const blob = await runExport(exportFormat, exportOptions)
-        if (abortRef.current) return
-        const link = document.createElement('a')
-        link.href = URL.createObjectURL(blob)
-        link.download = `${baseFilename}.${exportFormat}`
-        link.click()
-        URL.revokeObjectURL(link.href)
-      }
-
-      toast({
-        title: 'Report exported',
-        description: `Report has been exported as ${baseFilename}.${exportFormat}`,
-      })
-    } catch (error) {
-      if (!abortRef.current) {
-        toast({
-          variant: 'destructive',
-          title: 'Export failed',
-          description: error instanceof Error ? error.message : 'Failed to export report.',
-        })
-      }
-    } finally {
-      setIsExporting(false)
-    }
-  }
-
-  // E4.1 — Shapefile export with attributes
-  const handleShapefileExport = async () => {
-    setIsExporting(true)
-    await yieldToBrowser()
-    try {
-      const { exportProjectShapefile } = await import('@/lib/gis/shapefile-export')
-      const { createClient } = await import('@/lib/supabase/client')
-      const supabase = createClient()
-
-      // Sites already have GeoJSON boundary via RPC.
-      // Filter to active site if user narrowed export scope.
-      const boundaries = (sites || [])
-        .filter((s) => s.boundary && (!selectedSiteId || s.id === selectedSiteId))
-        .map((s) => ({
-          boundary: s.boundary as GeoJSON.Feature<GeoJSON.Polygon>,
-          siteName: s.site_name || undefined,
-          siteCode: s.site_code || undefined,
-          attributes: (s.attributes as Record<string, unknown>) || undefined,
-        }))
-
-      // Habitat boundaries are PostGIS geometry — fetch as GeoJSON via SQL
-      let habitatData: {
-        geometry: GeoJSON.Polygon
-        fossittCode?: string
-        fossittName?: string
-        areaHa?: number
-        condition?: string
-      }[] = []
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: habitatRows, error: rpcError } = await (supabase.rpc as any)(
-        'get_habitat_polygons_geojson',
-        {
-          p_project_id: project.id,
-        }
-      )
-      if (rpcError) {
-        console.error('Failed to fetch habitat polygons:', rpcError)
-      }
-
-      if (habitatRows && Array.isArray(habitatRows)) {
-        habitatData = (habitatRows as Record<string, unknown>[])
-          .filter((r) => r.boundary_geojson)
-          .map((r) => ({
-            geometry: r.boundary_geojson as unknown as GeoJSON.Polygon,
-            fossittCode: (r.fossitt_code as string) || undefined,
-            fossittName: (r.fossitt_name as string) || undefined,
-            areaHa: (r.area_hectares as number) || undefined,
-            condition: (r.condition as string) || undefined,
-          }))
-      }
-
-      // Fetch target notes with PostGIS coordinates for shapefile export
-      // target_notes.location is a PostGIS geometry point — extract lon/lat via SQL
-      const { data: targetNotesData } = await supabase
-        .from('target_notes')
-        .select('id, title, category, description, location')
-        .eq('project_id', project.id)
-        .eq('include_in_report', true)
-
-      const targetNotes = (targetNotesData || [])
-        .filter((tn) => tn.location != null)
-        .map((tn) => {
-          // PostGIS returns location as GeoJSON when using PostgREST
-          const loc = tn.location as unknown as {
-            type: string
-            coordinates: [number, number]
-          } | null
-          const coords: [number, number] = loc?.coordinates ?? [0, 0]
-          return {
-            coordinates: coords,
-            noteNumber: tn.title,
-            category: tn.category,
-            label: tn.title,
-            description: tn.description || '',
-            date: undefined,
-          }
-        })
-
-      const blob = await exportProjectShapefile({
-        boundaries,
-        habitats: habitatData,
-        targetNotes,
-        projectName: project.name,
-      })
-
-      const shapefileSiteSuffix = activeSiteCode ? `_${activeSiteCode.replace(/\s+/g, '-')}` : ''
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(blob)
-      link.download = `${project.site_code || project.id}${shapefileSiteSuffix}_shapefiles.zip`
-      link.click()
-      URL.revokeObjectURL(link.href)
-      toast({ title: 'Shapefiles exported' })
-    } catch (err) {
-      console.error('Shapefile export error:', err)
-      toast({
-        variant: 'destructive',
-        title: 'Shapefile export failed',
-        description: err instanceof Error ? err.message : 'Unknown error',
-      })
-    } finally {
-      setIsExporting(false)
-    }
-  }
-
-  // E4.2 — Survey CSV export
   const handleSurveyCsvExport = () => {
     if (!surveys || surveys.length === 0) {
       toast({
@@ -362,7 +197,7 @@ export function FinalSubmissionStep({
       headers.map((h) => `"${h}"`).join(','),
       ...rows.map((r) => r.map((v) => `"${v}"`).join(',')),
     ].join('\n')
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' })
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
     link.download = `${project.site_code || project.id}_surveys.csv`
@@ -371,7 +206,6 @@ export function FinalSubmissionStep({
     toast({ title: 'Survey CSV exported' })
   }
 
-  // E4.3 — AI survey summary
   const [generatingSummary, setGeneratingSummary] = React.useState(false)
   const [surveySummary, setSurveySummary] = React.useState<string | null>(null)
 
@@ -420,37 +254,26 @@ export function FinalSubmissionStep({
     }
   }
 
-  // Handle final submission
   const handleSubmit = async () => {
     if (!report) return
     if (isSubmitting) return
 
     setIsSubmitting(true)
-
     try {
-      // Step 1: Update report status
       try {
         await updateReport.mutateAsync({
           reportId: report.id,
-          updates: {
-            status: 'final',
-          },
+          updates: { status: 'final' },
         })
       } catch {
-        toast({
-          variant: 'destructive',
-          title: 'Failed to update report status',
-        })
+        toast({ variant: 'destructive', title: 'Failed to update report status' })
         return
       }
 
-      // Step 2: Update project status
       try {
         await updateProject.mutateAsync({
           projectId: project.id,
-          updates: {
-            status: 'completed',
-          },
+          updates: { status: 'completed' },
         })
       } catch {
         toast({
@@ -460,7 +283,6 @@ export function FinalSubmissionStep({
         return
       }
 
-      // Step 3: Complete workflow step
       try {
         await completeStep.mutateAsync({
           projectId: project.id,
@@ -502,7 +324,6 @@ export function FinalSubmissionStep({
 
   return (
     <div className="space-y-6">
-      {/* Export overlay — prevents interaction + shows cancel */}
       {isExporting && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-card flex flex-col items-center gap-4 rounded-xl p-8 shadow-xl">
@@ -518,7 +339,6 @@ export function FinalSubmissionStep({
         </div>
       )}
 
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Step 8: Final Submission</h2>
@@ -549,7 +369,6 @@ export function FinalSubmissionStep({
         </div>
       </div>
 
-      {/* Multi-site export note */}
       {selectedSiteId && (
         <Alert>
           <Info className="h-4 w-4" />
@@ -562,7 +381,6 @@ export function FinalSubmissionStep({
         </Alert>
       )}
 
-      {/* Report Type Tabs */}
       {reportTypes.length > 0 && (
         <ReportTypeSelector
           projectId={project.id}
@@ -597,7 +415,6 @@ export function FinalSubmissionStep({
 
       {!showReportContent ? null : (
         <>
-          {/* Instructions */}
           <Alert>
             <Info className="h-4 w-4" />
             <AlertTitle>Final Submission</AlertTitle>
@@ -620,298 +437,53 @@ export function FinalSubmissionStep({
             </Alert>
           )}
 
-          {/* Report Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Report Summary
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 sm:grid-cols-4">
-                <div>
-                  <p className="text-muted-foreground text-sm">Report Type</p>
-                  <p className="font-medium capitalize">
-                    {report.report_type.replaceAll('_', ' ')}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-sm">Version</p>
-                  <p className="font-medium">{report.version}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-sm">Status</p>
-                  <Badge className={report.status === 'final' ? 'bg-green-600' : ''}>
-                    {report.status === 'final' ? 'Finalized' : report.status.replaceAll('_', ' ')}
-                  </Badge>
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-sm">Sections</p>
-                  <p className="font-medium">
-                    {completedSections} / {getReportSectionsForType(reportType).length}
-                  </p>
-                </div>
-              </div>
+          <ReportSummaryCard
+            report={report!}
+            completedSections={completedSections}
+            totalSections={reportSectionDefs.length}
+            habitatTotal={habitatStats?.total || 0}
+            observationTotal={observationStats?.total || 0}
+            protectedSpeciesTotal={observationStats?.protected || 0}
+          />
 
-              <Separator className="my-4" />
-
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="rounded-lg border p-3">
-                  <p className="text-muted-foreground text-sm">Habitats Mapped</p>
-                  <p className="text-xl font-bold">{habitatStats?.total || 0}</p>
-                </div>
-                <div className="rounded-lg border p-3">
-                  <p className="text-muted-foreground text-sm">Species Observed</p>
-                  <p className="text-xl font-bold">{observationStats?.total || 0}</p>
-                </div>
-                <div className="rounded-lg border p-3">
-                  <p className="text-muted-foreground text-sm">Protected Species</p>
-                  <p className="text-xl font-bold text-red-600">
-                    {observationStats?.protected || 0}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Export Configuration */}
           <div className="grid gap-6 lg:grid-cols-2">
-            {/* Cover Page Settings */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Cover Page Settings</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Report Title</Label>
-                  <Input
-                    value={coverPageTitle}
-                    onChange={(e) => setCoverPageTitle(e.target.value)}
-                    placeholder="Enter report title"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Prepared For</Label>
-                  <Input
-                    value={preparedFor}
-                    onChange={(e) => setPreparedFor(e.target.value)}
-                    placeholder="Client name or organization"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Project Reference</Label>
-                  <Input value={project.site_code || project.id} disabled />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Appendices Selection */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Include Appendices</CardTitle>
-                <CardDescription>
-                  Select which appendices to include in the final report
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {APPENDIX_OPTIONS.map((appendix) => (
-                    <div key={appendix.id} className="flex items-center gap-3">
-                      <Checkbox
-                        id={appendix.id}
-                        checked={selectedAppendices.includes(appendix.id)}
-                        onCheckedChange={() => toggleAppendix(appendix.id)}
-                      />
-                      <Label htmlFor={appendix.id} className="cursor-pointer font-normal">
-                        {appendix.label}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <CoverPageCard
+              coverPageTitle={coverPageTitle}
+              preparedFor={preparedFor}
+              projectReference={project.site_code || project.id}
+              onTitleChange={setCoverPageTitle}
+              onPreparedForChange={setPreparedFor}
+            />
+            <AppendicesCard selected={selectedAppendices} onToggle={toggleAppendix} />
           </div>
 
-          {/* Export Options */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Export Format</CardTitle>
-              <CardDescription>Choose the format for your final report</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 sm:grid-cols-3">
-                {EXPORT_FORMATS.map((format) => (
-                  <div
-                    key={format.id}
-                    className={`cursor-pointer rounded-lg border p-4 transition-colors ${
-                      exportFormat === format.id
-                        ? 'border-primary bg-primary/5'
-                        : 'hover:border-muted-foreground/50'
-                    }`}
-                    onClick={() => setExportFormat(format.id)}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={`h-4 w-4 rounded-full border-2 ${
-                          exportFormat === format.id
-                            ? 'border-primary bg-primary'
-                            : 'border-muted-foreground'
-                        }`}
-                      />
-                      <span className="font-medium">{format.name}</span>
-                    </div>
-                    <p className="text-muted-foreground mt-1 text-sm">{format.description}</p>
-                  </div>
-                ))}
-              </div>
+          <ExportFormatCard
+            selectedFormat={exportFormat}
+            isExporting={isExporting}
+            onSelect={setExportFormat}
+            onExport={handleExport}
+            onPrint={handlePrint}
+          />
 
-              <div className="mt-4 flex gap-2">
-                <Button variant="outline" onClick={handleExport} disabled={isExporting}>
-                  {isExporting ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Download className="mr-2 h-4 w-4" />
-                  )}
-                  Export Report
-                </Button>
-                <Button variant="outline" onClick={handlePrint} disabled={isExporting}>
-                  <Printer className="mr-2 h-4 w-4" />
-                  Print Preview
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <AdditionalExportsCard
+            isExporting={isExporting}
+            hasSites={!!sites?.length}
+            hasSurveys={!!surveys?.length}
+            generatingSummary={generatingSummary}
+            surveySummary={surveySummary}
+            onShapefileExport={handleShapefileExport}
+            onSurveyCsvExport={handleSurveyCsvExport}
+            onGenerateSummary={handleGenerateSurveySummaries}
+          />
 
-          {/* Additional Exports */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Additional Exports</CardTitle>
-              <CardDescription>
-                Export shapefiles, survey data, and generate AI survey summaries
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-2 rounded-lg border p-4">
-                  <h4 className="font-medium">Shapefiles</h4>
-                  <p className="text-muted-foreground text-sm">
-                    Site boundaries and habitats with attributes
-                  </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleShapefileExport}
-                    disabled={isExporting || !sites?.length}
-                  >
-                    <Download className="mr-1.5 h-3.5 w-3.5" />
-                    Export Shapefiles
-                  </Button>
-                </div>
-                <div className="space-y-2 rounded-lg border p-4">
-                  <h4 className="font-medium">Survey Data (CSV)</h4>
-                  <p className="text-muted-foreground text-sm">
-                    All field surveys in spreadsheet format
-                  </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSurveyCsvExport}
-                    disabled={!surveys?.length}
-                  >
-                    <Download className="mr-1.5 h-3.5 w-3.5" />
-                    Export CSV
-                  </Button>
-                </div>
-                <div className="space-y-2 rounded-lg border p-4">
-                  <h4 className="font-medium">AI Survey Summary</h4>
-                  <p className="text-muted-foreground text-sm">
-                    AI-generated summary of all field surveys
-                  </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleGenerateSurveySummaries}
-                    disabled={generatingSummary || !surveys?.length}
-                  >
-                    {generatingSummary ? (
-                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <FileText className="mr-1.5 h-3.5 w-3.5" />
-                    )}
-                    {generatingSummary ? 'Generating...' : 'Generate Summary'}
-                  </Button>
-                </div>
-              </div>
-
-              {surveySummary && (
-                <div className="mt-4 rounded-lg border bg-green-50 p-4 dark:bg-green-950/20">
-                  <h4 className="mb-2 font-medium">AI Survey Summary</h4>
-                  <div className="prose dark:prose-invert prose-sm max-w-none whitespace-pre-wrap">
-                    {surveySummary}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Progress Panel */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Final Submission</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span>Report approved</span>
-                  {isApproved ? (
-                    <Check className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <AlertCircle className="text-muted-foreground h-4 w-4" />
-                  )}
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span>Export configured</span>
-                  <Check className="h-4 w-4 text-green-600" />
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span>Project completed</span>
-                  {isComplete ? (
-                    <Check className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <AlertCircle className="text-muted-foreground h-4 w-4" />
-                  )}
-                </div>
-              </div>
-
-              <Progress value={isComplete ? 100 : isApproved ? 80 : 50} />
-
-              {permissions.canApproveReport ? (
-                <Button
-                  onClick={handleSubmit}
-                  disabled={!canSubmit || isSubmitting}
-                  className="w-full bg-green-600 hover:bg-green-700"
-                >
-                  {isSubmitting ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : isComplete ? (
-                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                  ) : (
-                    <Send className="mr-2 h-4 w-4" />
-                  )}
-                  {isComplete ? 'Project Completed' : 'Finalize & Submit Project'}
-                </Button>
-              ) : (
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertTitle>Admin Required</AlertTitle>
-                  <AlertDescription>
-                    Only administrators can finalize and submit projects.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </CardContent>
-          </Card>
+          <SubmissionPanel
+            isApproved={isApproved}
+            isComplete={isComplete}
+            canSubmit={canSubmit}
+            isSubmitting={isSubmitting}
+            canApproveReport={permissions.canApproveReport}
+            onSubmit={handleSubmit}
+          />
         </>
       )}
     </div>

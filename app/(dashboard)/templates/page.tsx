@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useRole } from '@/contexts/role-context'
 import { SurveyTemplatesTab } from '@/components/templates/survey-templates-tab'
 import { ReportTemplatesTab } from '@/components/templates/report-templates-tab'
+import { BrandingTab } from '@/components/templates/branding-tab'
 
 export default function TemplatesPage() {
   const router = useRouter()
@@ -54,6 +55,7 @@ export default function TemplatesPage() {
           <TabsList className="bg-background">
             <TabsTrigger value="survey-templates">Survey Templates</TabsTrigger>
             <TabsTrigger value="report-templates">Report Templates</TabsTrigger>
+            <TabsTrigger value="branding">Branding</TabsTrigger>
           </TabsList>
 
           <TabsContent value="survey-templates">
@@ -62,6 +64,10 @@ export default function TemplatesPage() {
 
           <TabsContent value="report-templates">
             <ReportTemplatesTab organizationId={organizationId} />
+          </TabsContent>
+
+          <TabsContent value="branding">
+            <BrandingTab organizationId={organizationId} />
           </TabsContent>
         </Tabs>
       )}

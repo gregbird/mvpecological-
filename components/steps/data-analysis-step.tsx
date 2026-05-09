@@ -11,7 +11,6 @@ import {
   StickyNote,
   MapPinned,
   Camera,
-  Sprout,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -30,7 +29,6 @@ import { SiteSelector } from '@/components/project/site-selector'
 
 import { DeskAssessmentCombinedTab } from '@/components/steps/data-analysis/desk-assessment-combined-tab'
 import { FieldSurveyTab } from '@/components/steps/data-analysis/field-survey-tab'
-import { ReleveSurveysTab } from '@/components/steps/data-analysis/releve-surveys-tab'
 import { HabitatTab } from '@/components/steps/data-analysis/habitat-tab'
 import { TargetNotesTab } from '@/components/steps/data-analysis/target-notes-tab'
 import { MapsTab } from '@/components/steps/data-analysis/maps-tab'
@@ -48,7 +46,6 @@ interface DataAnalysisStepProps {
 const TABS = [
   { id: 'desk-assessment', label: 'Desk Assessment', icon: Sparkles },
   { id: 'field-survey', label: 'Field Survey', icon: ClipboardList },
-  { id: 'releve-surveys', label: 'Relevé Surveys', icon: Sprout },
   { id: 'habitats', label: 'Habitats', icon: TreePine },
   { id: 'target-notes', label: 'Target Notes', icon: StickyNote },
   { id: 'maps', label: 'Maps', icon: MapPinned },
@@ -255,13 +252,6 @@ export function DataAnalysisStep({
         </div>
         <div className={activeTab !== 'field-survey' ? 'hidden' : ''}>
           <FieldSurveyTab
-            projectId={project.id}
-            siteId={selectedSiteId}
-            workflowStep={workflowStep}
-          />
-        </div>
-        <div className={activeTab !== 'releve-surveys' ? 'hidden' : ''}>
-          <ReleveSurveysTab
             projectId={project.id}
             siteId={selectedSiteId}
             workflowStep={workflowStep}

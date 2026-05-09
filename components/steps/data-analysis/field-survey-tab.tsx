@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label'
 import { useSurveys, useSurveyStats } from '@/hooks/queries/use-survey-hooks'
 import { useObservationStats } from '@/hooks/queries/use-observation-hooks'
 import { SurveyEditDialog } from '@/components/steps/data-analysis/survey-edit-dialog'
+import { ReleveSurveysTab } from '@/components/steps/data-analysis/releve-surveys-tab'
 import {
   usePlacementPreferences,
   PLACEMENT_OPTIONS,
@@ -190,6 +191,19 @@ export function FieldSurveyTab({ projectId, siteId, workflowStep }: FieldSurveyT
           </CardContent>
         </Card>
       )}
+
+      {/* Relevé Vegetation Surveys — part of the field survey work, kept here so
+          ecologists see all field-collected data in one tab. */}
+      <div className="space-y-3 border-t pt-4">
+        <div>
+          <h3 className="text-base font-semibold">Relevé Vegetation Surveys</h3>
+          <p className="text-muted-foreground text-xs">
+            Vegetation plots recorded during field surveys. Placement controls how each relevé
+            appears in the AI draft report.
+          </p>
+        </div>
+        <ReleveSurveysTab projectId={projectId} siteId={siteId} workflowStep={workflowStep} />
+      </div>
 
       <SurveyEditDialog
         survey={editingSurvey}

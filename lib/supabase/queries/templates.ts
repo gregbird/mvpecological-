@@ -108,11 +108,15 @@ export async function deleteSurveyTemplate(templateId: string): Promise<void> {
   if (error) throw error
 }
 
-// Helper to convert ReportSectionDefinition[] to Json for storage
+// Helper to convert ReportSectionDefinition[] to Json for storage.
+// `aiPrompt` is optional — defaults are merged from DEFAULT_SECTIONS_BY_TYPE
+// when a section's id matches a known default; user-added sections store their
+// own aiPrompt (or fall back to a generic generate prompt if blank).
 export interface TemplateSectionData {
   id: string
   title: string
   template: string
+  aiPrompt?: string
 }
 
 export function sectionsToJson(sections: TemplateSectionData[]): Json {
@@ -123,12 +127,28 @@ const templateSectionSchema = z.object({
   id: z.string(),
   title: z.string(),
   template: z.string(),
+  aiPrompt: z.string().optional(),
 })
 
 export function jsonToSections(json: Json | null): TemplateSectionData[] {
   if (!json || !Array.isArray(json)) return []
   const parsed = z.array(templateSectionSchema).safeParse(json)
   return parsed.success ? parsed.data : []
+}
+
+// Slugify a section title into a stable id. Falls back to a uuid-like suffix
+// when the title yields no usable slug (e.g. all punctuation).
+export function slugifySectionId(title: string, existingIds: string[]): string {
+  const base =
+    title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 32) || 'section'
+  if (!existingIds.includes(base)) return base
+  let i = 2
+  while (existingIds.includes(`${base}_${i}`)) i++
+  return `${base}_${i}`
 }
 
 /**
@@ -143,7 +163,7 @@ export function jsonToSections(json: Json | null): TemplateSectionData[] {
  */
 export function resolveReportSections(
   reportType: string,
-  template: ReportTemplate | null | undefined
+  template: Pick<ReportTemplate, 'use_custom' | 'sections'> | null | undefined
 ): ReportSectionDefinition[] {
   const defaults = DEFAULT_SECTIONS_BY_TYPE[reportType] ?? []
 
@@ -154,7 +174,8 @@ export function resolveReportSections(
       return stored.map((s) => ({
         id: s.id,
         title: s.title,
-        aiPrompt: promptByDefaultId.get(s.id) ?? '',
+        // Precedence: stored aiPrompt → default by matching id → empty
+        aiPrompt: s.aiPrompt?.trim() || promptByDefaultId.get(s.id) || '',
         defaultTemplate: s.template,
       }))
     }

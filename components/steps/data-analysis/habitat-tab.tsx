@@ -274,6 +274,7 @@ export function HabitatTab({
             boundary={projectBoundary}
             habitatPolygons={habitatFeatureCollection}
             showControls={true}
+            showNlcToggle
           />
         </CardContent>
       </Card>

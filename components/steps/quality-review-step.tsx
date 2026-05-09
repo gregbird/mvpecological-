@@ -1,36 +1,10 @@
 'use client'
 
 import * as React from 'react'
-import {
-  Loader2,
-  Check,
-  AlertCircle,
-  Info,
-  FileText,
-  CheckCircle2,
-  XCircle,
-  MessageSquare,
-  Plus,
-  Trash2,
-} from 'lucide-react'
+import { Loader2, AlertCircle, Info } from 'lucide-react'
 
-import dynamic from 'next/dynamic'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
-import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import { useRole } from '@/contexts/role-context'
 import { useProjectContext } from '@/contexts/project-context'
@@ -42,24 +16,22 @@ import { useObservationStats } from '@/hooks/queries/use-observation-hooks'
 import { useFindingsStats } from '@/hooks/queries/use-finding-hooks'
 import { useCompleteWorkflowStep, useUpdateWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { SiteSelector } from '@/components/project/site-selector'
-import { getReportSectionsForType } from '@/lib/config/template-types'
+import { useResolvedReportSections } from '@/hooks/queries/use-resolved-report-sections'
+
+import { ReportStatusCard } from '@/components/steps/quality-review/report-status-card'
+import { DraftReportCard } from '@/components/steps/quality-review/draft-report-card'
+import { DataSummaryCard } from '@/components/steps/quality-review/data-summary-card'
+import { GeneralNotesCard } from '@/components/steps/quality-review/general-notes-card'
+import { ProgressPanel } from '@/components/steps/quality-review/progress-panel'
+import { ApprovalWarningsDialog } from '@/components/steps/quality-review/approval-warnings-dialog'
+import type {
+  ReviewNote,
+  ReviewNotesMap,
+  ReviewSignature,
+} from '@/components/steps/quality-review/types'
+
 import type { ReportContent } from '@/lib/supabase/queries/reports'
 import type { Project, WorkflowStep, Json } from '@/types/database'
-
-const SectionEditor = dynamic(
-  () =>
-    import('@/components/steps/ai-draft/section-editor').then((mod) => ({
-      default: mod.SectionEditor,
-    })),
-  { ssr: false, loading: () => <div className="bg-muted/30 h-32 animate-pulse rounded-md" /> }
-)
-
-interface ReviewNote {
-  id: string
-  text: string
-  author: string
-  createdAt: string
-}
 
 interface QualityReviewStepProps {
   project: Project
@@ -83,13 +55,12 @@ export function QualityReviewStep({
     reportTypes,
   } = useActiveReportType(project.id)
   const [reviewDecision, setReviewDecision] = React.useState<'approved' | 'rejected' | null>(null)
-  const [sectionNotes, setSectionNotes] = React.useState<Record<string, ReviewNote[]>>({})
+  const [sectionNotes, setSectionNotes] = React.useState<ReviewNotesMap>({})
   const [addingNoteFor, setAddingNoteFor] = React.useState<string | null>(null)
   const [noteText, setNoteText] = React.useState('')
   const [selectedSiteId, setSelectedSiteId] = React.useState<string | null>(null)
   const [showApproveConfirm, setShowApproveConfirm] = React.useState(false)
 
-  // React Query hooks
   const { data: report, isLoading: loadingReport } = useLatestReportByType(project.id, reportType)
   // Stats are filtered by site for completeness verification.
   // Reports themselves remain project-scoped — site filter only narrows the data summary card.
@@ -100,22 +71,20 @@ export function QualityReviewStep({
   const completeStep = useCompleteWorkflowStep()
   const updateWorkflowStep = useUpdateWorkflowStep()
 
-  // Get report content
   const reportContent = report?.content as unknown as ReportContent | undefined
   const completedSections = reportContent?.sections?.filter((s) => s.content).length || 0
-  const reportSectionDefs = getReportSectionsForType(reportType)
+  const { sections: reportSectionDefs } = useResolvedReportSections(
+    project.organization_id,
+    reportType
+  )
   const totalSections = reportSectionDefs.length
 
-  // Load existing review notes and signature from report content
+  // `reviewNotes` and `reviewSignature` live alongside `sections` inside the
+  // same `reports.content` JSONB row.
   const extendedContent = reportContent as
     | (ReportContent & {
-        reviewNotes?: Record<string, ReviewNote[]>
-        reviewSignature?: {
-          reviewerId: string
-          reviewerName: string
-          decision: 'approved' | 'rejected'
-          signedAt: string
-        }
+        reviewNotes?: ReviewNotesMap
+        reviewSignature?: ReviewSignature
       })
     | undefined
 
@@ -128,8 +97,7 @@ export function QualityReviewStep({
     }
   }, [report?.id, report?.updated_at])
 
-  // Save section notes to report content
-  const persistNotes = async (updated: Record<string, ReviewNote[]>) => {
+  const persistNotes = async (updated: ReviewNotesMap) => {
     if (!report || !reportContent) return
     const updatedContent = { ...reportContent, reviewNotes: updated }
     await updateReport.mutateAsync({
@@ -138,7 +106,17 @@ export function QualityReviewStep({
     })
   }
 
-  const handleAddNote = async (sectionId: string) => {
+  const handleStartAdding = (scopeId: string) => {
+    setAddingNoteFor(scopeId)
+    setNoteText('')
+  }
+
+  const handleCancelAdding = () => {
+    setAddingNoteFor(null)
+    setNoteText('')
+  }
+
+  const handleAddNote = async (scopeId: string) => {
     if (!noteText.trim()) return
     if (!report || !reportContent) {
       toast({
@@ -156,7 +134,7 @@ export function QualityReviewStep({
     }
     const updated = {
       ...sectionNotes,
-      [sectionId]: [...(sectionNotes[sectionId] || []), note],
+      [scopeId]: [...(sectionNotes[scopeId] || []), note],
     }
     setSectionNotes(updated)
     setNoteText('')
@@ -164,7 +142,7 @@ export function QualityReviewStep({
     await persistNotes(updated)
   }
 
-  const handleDeleteNote = async (sectionId: string, noteId: string) => {
+  const handleDeleteNote = async (scopeId: string, noteId: string) => {
     if (!report || !reportContent) {
       toast({
         variant: 'destructive',
@@ -175,13 +153,13 @@ export function QualityReviewStep({
     }
     const updated = {
       ...sectionNotes,
-      [sectionId]: (sectionNotes[sectionId] || []).filter((n) => n.id !== noteId),
+      [scopeId]: (sectionNotes[scopeId] || []).filter((n) => n.id !== noteId),
     }
     setSectionNotes(updated)
     await persistNotes(updated)
   }
 
-  // Check for data completeness warnings (non-blocking)
+  // Non-blocking warnings surfaced before final approval
   const getApprovalWarnings = (): string[] => {
     const warnings: string[] = []
     const sections = reportContent?.sections
@@ -205,7 +183,6 @@ export function QualityReviewStep({
     return warnings
   }
 
-  // Handle approval
   const handleApprove = async () => {
     if (!permissions.canApproveReport) return
     if (!report || !reportContent) return
@@ -232,7 +209,6 @@ export function QualityReviewStep({
       })
 
       setReviewDecision('approved')
-
       toast({
         title: 'Report approved',
         description: 'The report has been approved for final submission.',
@@ -246,7 +222,15 @@ export function QualityReviewStep({
     }
   }
 
-  // Handle rejection
+  const handleApproveClick = () => {
+    const warnings = getApprovalWarnings()
+    if (warnings.length > 0) {
+      setShowApproveConfirm(true)
+    } else {
+      handleApprove()
+    }
+  }
+
   const handleReject = async () => {
     if (!permissions.canApproveReport) return
     const hasNotes = Object.values(sectionNotes).some((notes) => notes.length > 0)
@@ -291,7 +275,6 @@ export function QualityReviewStep({
       }
 
       setReviewDecision('rejected')
-
       toast({
         title: 'Revision requested',
         description: 'Returning to AI Draft step for revisions.',
@@ -308,7 +291,6 @@ export function QualityReviewStep({
     }
   }
 
-  // Complete workflow step
   const handleComplete = async () => {
     if (reviewDecision !== 'approved') {
       toast({
@@ -353,7 +335,6 @@ export function QualityReviewStep({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Step 7: Quality Review</h2>
@@ -384,7 +365,6 @@ export function QualityReviewStep({
         </div>
       </div>
 
-      {/* Report Type Tabs */}
       {reportTypes.length > 0 && (
         <ReportTypeSelector
           projectId={project.id}
@@ -409,7 +389,6 @@ export function QualityReviewStep({
 
       {!report ? null : (
         <>
-          {/* Instructions */}
           <Alert>
             <Info className="h-4 w-4" />
             <AlertTitle>Quality Review Process</AlertTitle>
@@ -420,442 +399,71 @@ export function QualityReviewStep({
             </AlertDescription>
           </Alert>
 
-          {/* Report Status */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Report Status
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 sm:grid-cols-4">
-                <div>
-                  <p className="text-muted-foreground text-sm">Report Type</p>
-                  <p className="font-medium capitalize">
-                    {report.report_type.replaceAll('_', ' ')}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-sm">Version</p>
-                  <p className="font-medium">{report.version}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-sm">Status</p>
-                  <Badge
-                    variant={
-                      report.status === 'approved'
-                        ? 'default'
-                        : report.status === 'internal_review'
-                          ? 'destructive'
-                          : 'secondary'
-                    }
-                  >
-                    {report.status.replaceAll('_', ' ')}
-                  </Badge>
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-sm">Sections Complete</p>
-                  <p className="font-medium">
-                    {completedSections} / {totalSections}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <ReportStatusCard
+            report={report}
+            completedSections={completedSections}
+            totalSections={totalSections}
+          />
 
-          {/* Report Content — read-only */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Draft Report
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {reportSectionDefs.map((def) => {
-                  const section = reportContent?.sections?.find((s) => s.id === def.id)
-                  return (
-                    <div key={def.id} className="border-b pb-6 last:border-b-0">
-                      <div className="mb-3 flex items-center gap-2">
-                        <h3 className="text-lg font-semibold">{def.title}</h3>
-                        {section?.content && (
-                          <Badge
-                            variant={
-                              section.isEdited
-                                ? 'secondary'
-                                : section.aiGenerated
-                                  ? 'default'
-                                  : 'outline'
-                            }
-                            className="text-xs"
-                          >
-                            {section.isEdited
-                              ? 'Edited'
-                              : section.aiGenerated
-                                ? 'AI Generated'
-                                : 'Template'}
-                          </Badge>
-                        )}
-                      </div>
-                      {section?.content ? (
-                        <div
-                          className={
-                            section.aiGenerated
-                              ? 'rounded-md border border-pink-200 bg-pink-50/60 p-3 dark:border-pink-900 dark:bg-pink-950/20'
-                              : ''
-                          }
-                        >
-                          <SectionEditor
-                            content={section.content}
-                            editable={false}
-                            onContentChange={() => {}}
-                          />
-                        </div>
-                      ) : (
-                        <p className="text-muted-foreground text-sm italic">
-                          No content generated for this section.
-                        </p>
-                      )}
+          <DraftReportCard
+            reportSectionDefs={reportSectionDefs}
+            reportContent={reportContent}
+            sectionNotes={sectionNotes}
+            isComplete={isComplete}
+            addingNoteFor={addingNoteFor}
+            noteText={noteText}
+            onNoteTextChange={setNoteText}
+            onStartAdding={handleStartAdding}
+            onCancelAdding={handleCancelAdding}
+            onSaveNote={handleAddNote}
+            onDeleteNote={handleDeleteNote}
+          />
 
-                      {/* Section review notes */}
-                      <div className="mt-3 space-y-2">
-                        {(sectionNotes[def.id] || []).map((note) => (
-                          <div
-                            key={note.id}
-                            className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/20"
-                          >
-                            <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                            <div className="flex-1">
-                              <p className="text-sm">{note.text}</p>
-                              <p className="text-muted-foreground mt-1 text-xs">
-                                {new Date(note.createdAt).toLocaleString()}
-                              </p>
-                            </div>
-                            {!isComplete && (
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteNote(def.id, note.id)}
-                                className="text-muted-foreground hover:text-destructive shrink-0"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        ))}
+          <DataSummaryCard
+            selectedSiteId={selectedSiteId}
+            habitatTotal={habitatStats?.total || 0}
+            habitatTotalArea={habitatStats?.totalArea || 0}
+            observationTotal={observationStats?.total || 0}
+            protectedSpeciesTotal={observationStats?.protected || 0}
+            findingsTotal={findingsStats?.total || 0}
+            findingsSourceCount={findingsStats?.bySource.length || 0}
+            completedSections={completedSections}
+            totalSections={totalSections}
+          />
 
-                        {addingNoteFor === def.id ? (
-                          <div className="space-y-2">
-                            <Textarea
-                              placeholder="Add a review note for this section..."
-                              value={noteText}
-                              onChange={(e) => setNoteText(e.target.value)}
-                              rows={2}
-                              autoFocus
-                            />
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                onClick={() => handleAddNote(def.id)}
-                                disabled={!noteText.trim()}
-                              >
-                                Save Note
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  setAddingNoteFor(null)
-                                  setNoteText('')
-                                }}
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          !isComplete && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-muted-foreground"
-                              onClick={() => {
-                                setAddingNoteFor(def.id)
-                                setNoteText('')
-                              }}
-                            >
-                              <Plus className="mr-1.5 h-3.5 w-3.5" />
-                              Add Note
-                            </Button>
-                          )
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </CardContent>
-          </Card>
+          <GeneralNotesCard
+            notes={sectionNotes['_general'] || []}
+            isComplete={isComplete}
+            addingNoteFor={addingNoteFor}
+            noteText={noteText}
+            reviewDecision={reviewDecision}
+            reviewSignature={extendedContent?.reviewSignature}
+            canApproveReport={permissions.canApproveReport}
+            onNoteTextChange={setNoteText}
+            onStartAdding={handleStartAdding}
+            onCancelAdding={handleCancelAdding}
+            onSaveNote={handleAddNote}
+            onDeleteNote={handleDeleteNote}
+            onApprove={handleApproveClick}
+            onReject={handleReject}
+          />
 
-          {/* Data Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Data Summary</CardTitle>
-              {selectedSiteId && (
-                <p className="text-muted-foreground text-xs">
-                  Site filter affects completeness stats only. The report itself covers the entire
-                  project.
-                </p>
-              )}
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 sm:grid-cols-4">
-                <div className="rounded-lg border p-3">
-                  <p className="text-muted-foreground text-sm">Habitats Mapped</p>
-                  <p className="text-2xl font-bold">{habitatStats?.total || 0}</p>
-                  <p className="text-muted-foreground text-xs">
-                    {(habitatStats?.totalArea || 0).toFixed(2)} ha total
-                  </p>
-                </div>
-                <div className="rounded-lg border p-3">
-                  <p className="text-muted-foreground text-sm">Species Observed</p>
-                  <p className="text-2xl font-bold">{observationStats?.total || 0}</p>
-                  <p className="text-muted-foreground text-xs">
-                    {observationStats?.protected || 0} protected
-                  </p>
-                </div>
-                <div className="rounded-lg border p-3">
-                  <p className="text-muted-foreground text-sm">Desk Findings</p>
-                  <p className="text-2xl font-bold">{findingsStats?.total || 0}</p>
-                  <p className="text-muted-foreground text-xs">
-                    {findingsStats?.bySource.length || 0} sources
-                  </p>
-                </div>
-                <div className="rounded-lg border p-3">
-                  <p className="text-muted-foreground text-sm">Report Sections</p>
-                  <p className="text-2xl font-bold">{completedSections}</p>
-                  <p className="text-muted-foreground text-xs">of {totalSections} total</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* General Review Notes */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                General Notes
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {(sectionNotes['_general'] || []).map((note) => (
-                <div
-                  key={note.id}
-                  className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/20"
-                >
-                  <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                  <div className="flex-1">
-                    <p className="text-sm">{note.text}</p>
-                    <p className="text-muted-foreground mt-1 text-xs">
-                      {new Date(note.createdAt).toLocaleString()}
-                    </p>
-                  </div>
-                  {!isComplete && (
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteNote('_general', note.id)}
-                      className="text-muted-foreground hover:text-destructive shrink-0"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-              ))}
-
-              {!isComplete &&
-                (addingNoteFor === '_general' ? (
-                  <div className="space-y-2">
-                    <Textarea
-                      placeholder="Add a general review note..."
-                      value={noteText}
-                      onChange={(e) => setNoteText(e.target.value)}
-                      rows={3}
-                      autoFocus
-                    />
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => handleAddNote('_general')}
-                        disabled={!noteText.trim()}
-                      >
-                        Save Note
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setAddingNoteFor(null)
-                          setNoteText('')
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setAddingNoteFor('_general')
-                      setNoteText('')
-                    }}
-                  >
-                    <Plus className="mr-1.5 h-3.5 w-3.5" />
-                    Add General Note
-                  </Button>
-                ))}
-
-              {permissions.canApproveReport ? (
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    className="flex-1 border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/40"
-                    onClick={handleReject}
-                    disabled={isComplete || reviewDecision === 'approved'}
-                  >
-                    <XCircle className="mr-2 h-4 w-4" />
-                    Request Revisions
-                  </Button>
-                  <Button
-                    className="flex-1 bg-green-600 hover:bg-green-700"
-                    onClick={() => {
-                      const warnings = getApprovalWarnings()
-                      if (warnings.length > 0) {
-                        setShowApproveConfirm(true)
-                      } else {
-                        handleApprove()
-                      }
-                    }}
-                    disabled={isComplete || reviewDecision === 'rejected'}
-                  >
-                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                    Approve Report
-                  </Button>
-                </div>
-              ) : (
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertTitle>Approval Required</AlertTitle>
-                  <AlertDescription>
-                    Only administrators can approve or reject reports. Please wait for an admin to
-                    review.
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {/* Review signature */}
-              {(reviewDecision || extendedContent?.reviewSignature) && (
-                <div
-                  className={`rounded-lg border-2 p-4 ${
-                    (extendedContent?.reviewSignature?.decision ?? reviewDecision) === 'approved'
-                      ? 'border-green-300 bg-green-50 dark:border-green-800 dark:bg-green-950/20'
-                      : 'border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/20'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    {(extendedContent?.reviewSignature?.decision ?? reviewDecision) ===
-                    'approved' ? (
-                      <CheckCircle2 className="h-5 w-5 text-green-600" />
-                    ) : (
-                      <XCircle className="h-5 w-5 text-red-600" />
-                    )}
-                    <span className="font-semibold">
-                      {(extendedContent?.reviewSignature?.decision ?? reviewDecision) === 'approved'
-                        ? 'Report Approved'
-                        : 'Revisions Requested'}
-                    </span>
-                  </div>
-                  {extendedContent?.reviewSignature && (
-                    <div className="text-muted-foreground mt-2 space-y-1 text-sm">
-                      <p>
-                        <span className="font-medium">Reviewed by:</span>{' '}
-                        {extendedContent.reviewSignature.reviewerName}
-                      </p>
-                      <p>
-                        <span className="font-medium">Date:</span>{' '}
-                        {new Date(extendedContent.reviewSignature.signedAt).toLocaleString()}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Progress Panel */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Step Progress</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span>Review decision</span>
-                  {reviewDecision === 'approved' ? (
-                    <Badge className="bg-green-600">Approved</Badge>
-                  ) : reviewDecision === 'rejected' ? (
-                    <Badge variant="destructive">Revisions Requested</Badge>
-                  ) : (
-                    <AlertCircle className="text-muted-foreground h-4 w-4" />
-                  )}
-                </div>
-              </div>
-
-              <Progress value={isComplete ? 100 : reviewDecision === 'approved' ? 90 : 50} />
-
-              <Button
-                onClick={handleComplete}
-                disabled={!canComplete || completeStep.isPending}
-                className="w-full"
-              >
-                {completeStep.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Check className="mr-2 h-4 w-4" />
-                )}
-                {isComplete ? 'Completed' : 'Complete Step & Continue'}
-              </Button>
-            </CardContent>
-          </Card>
+          <ProgressPanel
+            reviewDecision={reviewDecision}
+            isComplete={isComplete}
+            canComplete={canComplete}
+            isCompleting={completeStep.isPending}
+            onComplete={handleComplete}
+          />
         </>
       )}
-      {/* Approval warnings dialog */}
-      <AlertDialog open={showApproveConfirm} onOpenChange={setShowApproveConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Approval Warnings</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div>
-                <p className="mb-2">The following items were noted before approval:</p>
-                <ul className="list-disc space-y-1 pl-4">
-                  {getApprovalWarnings().map((w, i) => (
-                    <li key={i}>{w}</li>
-                  ))}
-                </ul>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction className="bg-green-600 hover:bg-green-700" onClick={handleApprove}>
-              Approve Anyway
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+
+      <ApprovalWarningsDialog
+        open={showApproveConfirm}
+        warnings={getApprovalWarnings()}
+        onOpenChange={setShowApproveConfirm}
+        onApproveAnyway={handleApprove}
+      />
     </div>
   )
 }

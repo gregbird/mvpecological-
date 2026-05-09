@@ -7,37 +7,25 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
-import {
-  useCreateReport,
-  useUpdateReport,
-  useCreateReportVersion,
-  useLatestReportByType,
-  useReportsByType,
-} from '@/hooks/queries/use-report-hooks'
+import { useLatestReportByType, useReportsByType } from '@/hooks/queries/use-report-hooks'
 import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
-import { useAutosave } from '@/hooks/use-autosave'
 import { useActiveReportType } from '@/hooks/use-active-report-type'
 import { useTemplateData } from '@/hooks/queries/use-template-data'
-import {
-  PEA_REPORT_SECTIONS,
-  getReportSectionsForType,
-  type ReportContent,
-  type ReportSection,
-} from '@/lib/supabase/queries/reports'
-import { renderReportTemplate } from '@/lib/templates/template-renderer'
-import { getReportTemplateByType, jsonToSections } from '@/lib/supabase/queries/templates'
+import { useResolvedReportSections } from '@/hooks/queries/use-resolved-report-sections'
+import type { ReportContent, ReportSection } from '@/lib/supabase/queries/reports'
 import { DulraAgentTab } from '@/components/steps/ai-draft/dulra-agent-tab'
 import { AIDraftTab } from '@/components/steps/ai-draft/ai-draft-tab'
-import { SYNTHESIS_MODEL } from '@/lib/ai/openai-models'
 import { VersionCompareDialog } from '@/components/steps/ai-draft/version-compare-dialog'
 import { VersionViewDialog } from '@/components/steps/ai-draft/version-view-dialog'
 import { RestoreVersionDialog } from '@/components/steps/ai-draft/restore-version-dialog'
 import { ReportTypeSelector } from '@/components/steps/report-type-selector'
 import { SurveyLinkPanel } from '@/components/steps/ai-draft/survey-link-panel'
 import { SiteSelector } from '@/components/project/site-selector'
-import { useProjectSites } from '@/hooks/queries/use-site-hooks'
 import { useHabitats } from '@/hooks/queries/use-habitat-hooks'
-import type { Project, Report, WorkflowStep, Json } from '@/types/database'
+import { useProjectSites } from '@/hooks/queries/use-site-hooks'
+import { useSectionInit } from '@/components/steps/ai-draft-hooks/use-section-init'
+import { useReportSave } from '@/components/steps/ai-draft-hooks/use-report-save'
+import type { Project, Report, WorkflowStep } from '@/types/database'
 
 interface AIDraftStepProps {
   project: Project
@@ -58,18 +46,16 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
   const [sections, setSections] = React.useState<ReportSection[]>([])
   const [selectedSiteId, setSelectedSiteId] = React.useState<string | null>(null)
 
-  // Project sites — used for site-scoped section generation and status banner
-  const { data: projectSites } = useProjectSites(project.id)
-  const activeSiteCode = selectedSiteId
-    ? (projectSites?.find((s) => s.id === selectedSiteId)?.site_code ?? undefined)
-    : undefined
+  // Dynamic report section definitions — resolved against the org's custom
+  // template (sections may be added, removed, renamed, or reordered).
+  const { sections: reportSectionDefs } = useResolvedReportSections(
+    project.organization_id,
+    reportType
+  )
 
-  // Dynamic report section definitions based on report type
-  const reportSectionDefs = React.useMemo(() => getReportSectionsForType(reportType), [reportType])
-
-  // Habitat count — drives the "no habitat data" warning so the ecologist
+  // Habitat warning — drives the "no habitat data" banner so the ecologist
   // knows the habitat subsection will silently be skipped in the generated
-  // section (see route.ts:645 — the `placedHabitats.length > 0` guard).
+  // section (route.ts has a `placedHabitats.length > 0` guard).
   const { data: habitats = [] } = useHabitats(project.id, selectedSiteId ?? undefined)
   const habitatCount = habitats.length
   const reportHasHabitatSection = React.useMemo(
@@ -90,159 +76,46 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
   )
   const { data: allReports } = useReportsByType(project.id, reportType)
   const { templateData } = useTemplateData(project)
-  const createReport = useCreateReport()
-  const updateReport = useUpdateReport()
-  const createVersion = useCreateReportVersion()
   const completeStep = useCompleteWorkflowStep()
 
-  // For report selector status badges — collect latest report per type
+  // Latest report per type for the report selector status badges. Only the
+  // current type's latest is fetched — that's enough for badge display.
   const latestReportPerType = React.useMemo(() => {
-    if (!allReports) return {}
-    // allReports is for current type only, we need all project reports for the selector
-    // The selector only uses the latestReports for badge display, so per-type queries suffice
     return existingReport ? { [reportType]: existingReport } : {}
-  }, [existingReport, reportType, allReports])
+  }, [existingReport, reportType])
 
-  // Initialize sections from existing report, org template, or defaults
-  React.useEffect(() => {
-    const existingMatchesType =
-      existingReport?.report_type === reportType ||
-      // Also accept if the existing report has no report_type (legacy)
-      !existingReport?.report_type
+  // Initialise sections from existing report → org template → defaults
+  useSectionInit({
+    existingReport,
+    templateData,
+    reportType,
+    reportSectionDefs,
+    organizationId: project.organization_id,
+    setSections,
+  })
 
-    if (existingReport?.content && existingMatchesType) {
-      const content = existingReport.content as unknown as ReportContent
-      if (content.sections) {
-        // Migrate old 11-section PEA reports to new 6-section structure
-        const oldIds = content.sections.map((s) => s.id)
-        const isLegacy = oldIds.includes('results_sites') || oldIds.includes('evaluation')
-
-        if (isLegacy) {
-          const findOld = (id: string) => content.sections.find((s) => s.id === id)
-          const mergeContent = (...ids: string[]) =>
-            ids
-              .map((id) => findOld(id)?.content)
-              .filter(Boolean)
-              .join('\n\n')
-
-          const migrated: ReportSection[] = PEA_REPORT_SECTIONS.map((tmpl) => {
-            switch (tmpl.id) {
-              case 'introduction':
-              case 'methodology':
-              case 'appendices': {
-                const old = findOld(tmpl.id)
-                return {
-                  id: tmpl.id,
-                  title: tmpl.title,
-                  content: old?.content || '',
-                  isEdited: old?.isEdited || false,
-                  aiGenerated: old?.aiGenerated || false,
-                  ecologistOpinion: old?.ecologistOpinion,
-                }
-              }
-              case 'results':
-                return {
-                  id: 'results',
-                  title: tmpl.title,
-                  content: mergeContent(
-                    'results_sites',
-                    'results_habitats',
-                    'results_flora',
-                    'results_invasive',
-                    'results_fauna'
-                  ),
-                  isEdited: true,
-                  aiGenerated: true,
-                }
-              case 'constraints': {
-                const old = findOld('evaluation')
-                return {
-                  id: 'constraints',
-                  title: tmpl.title,
-                  content: old?.content || '',
-                  isEdited: old?.isEdited || false,
-                  aiGenerated: old?.aiGenerated || false,
-                  ecologistOpinion: old?.ecologistOpinion,
-                }
-              }
-              case 'discussion':
-                return {
-                  id: 'discussion',
-                  title: tmpl.title,
-                  content: mergeContent('discussion', 'recommendations'),
-                  isEdited: true,
-                  aiGenerated: true,
-                }
-              default:
-                return {
-                  id: tmpl.id,
-                  title: tmpl.title,
-                  content: '',
-                  isEdited: false,
-                  aiGenerated: false,
-                }
-            }
-          })
-          setSections(migrated)
-        } else {
-          setSections(content.sections)
-        }
-      }
-    } else if (templateData) {
-      // Render template with placeholder substitution for all report types
-      // Check org custom template first, then use Dulra Standard defaults
-      const initSections = async () => {
-        let customSections: { id: string; title: string; template: string }[] | undefined
-        if (project.organization_id) {
-          try {
-            const orgTemplate = await getReportTemplateByType(project.organization_id, reportType)
-            if (orgTemplate?.use_custom && orgTemplate.sections) {
-              const parsed = jsonToSections(orgTemplate.sections)
-              if (parsed.length > 0) {
-                customSections = parsed
-              }
-            }
-          } catch {
-            // Fall through to defaults
-          }
-        }
-        const rendered = renderReportTemplate(reportType, templateData, customSections)
-        if (rendered.length > 0) {
-          setSections(rendered)
-        } else {
-          // Fallback: empty sections from type definitions
-          setSections(
-            reportSectionDefs.map((s) => ({
-              id: s.id,
-              title: s.title,
-              content: '',
-              isEdited: false,
-              aiGenerated: false,
-            }))
-          )
-        }
-      }
-      initSections()
-    } else {
-      // No template data yet — show empty sections
-      setSections(
-        reportSectionDefs.map((s) => ({
-          id: s.id,
-          title: s.title,
-          content: '',
-          isEdited: false,
-          aiGenerated: false,
-        }))
-      )
-    }
-  }, [existingReport, templateData, reportType, reportSectionDefs, project.organization_id])
+  // Persistence — autosave + manual save + version creation
+  const {
+    autosave,
+    handleSaveReport,
+    handleSaveAsNewVersion,
+    handleRestoreVersion: doRestoreVersion,
+    isSaving,
+    isCreatingVersion,
+  } = useReportSave({
+    projectId: project.id,
+    reportType,
+    userId,
+    sections,
+    existingReport,
+    allReports,
+  })
 
   const generateSectionContent = async (sectionId: string) => {
     const section = reportSectionDefs.find((s) => s.id === sectionId)
     if (!section) return
 
     setGeneratingSection(sectionId)
-
     try {
       const sectionOpinion = sections.find((s) => s.id === sectionId)?.ecologistOpinion
 
@@ -265,7 +138,6 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
       }
 
       const data = await response.json()
-
       setSections((prev) =>
         prev.map((s) =>
           s.id === sectionId
@@ -290,7 +162,7 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
   }
 
   const generateAllSections = async (onlyEmpty = false) => {
-    // Snapshot IDs to generate before the loop starts to avoid stale closure reads
+    // Snapshot IDs before the loop to avoid stale closure reads
     const sectionIdsToGenerate = onlyEmpty
       ? reportSectionDefs
           .filter((def) => {
@@ -319,65 +191,6 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
     autosave.markDirty()
   }
 
-  // Core save logic — used by both manual save and autosave
-  const saveReport = React.useCallback(async () => {
-    const reportContent: ReportContent = {
-      sections,
-      metadata: {
-        generatedAt: new Date().toISOString(),
-        editedAt: new Date().toISOString(),
-        aiModel: SYNTHESIS_MODEL,
-      },
-    }
-
-    if (existingReport) {
-      const preservedStatus =
-        existingReport.status === 'approved' || existingReport.status === 'final'
-          ? existingReport.status
-          : 'draft'
-      await updateReport.mutateAsync({
-        reportId: existingReport.id,
-        updates: {
-          content: reportContent as unknown as Json,
-          status: preservedStatus,
-        },
-      })
-    } else {
-      await createReport.mutateAsync({
-        project_id: project.id,
-        report_type: reportType,
-        status: 'draft',
-        content: reportContent as unknown as Json,
-        generated_by: userId,
-      })
-    }
-  }, [sections, existingReport, updateReport, createReport, project.id, reportType, userId])
-
-  // Autosave: saves 30s after last edit, warns on page close
-  const autosave = useAutosave({
-    onSave: saveReport,
-    enabled: sections.some((s) => s.content),
-  })
-
-  // Manual save with toast notification — returns success boolean for callers
-  const handleSaveReport = async (): Promise<boolean> => {
-    try {
-      await autosave.saveNow()
-      toast({
-        title: 'Report saved',
-        description: 'Your draft report has been saved.',
-      })
-      return true
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error saving report',
-        description: 'Failed to save the report.',
-      })
-      return false
-    }
-  }
-
   const handleComplete = async () => {
     const saved = await handleSaveReport()
     if (!saved) return
@@ -387,12 +200,10 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
         projectId: project.id,
         stepNumber: workflowStep.step_number,
       })
-
       toast({
         title: 'Step completed',
         description: 'AI Draft step has been completed. Moving to Quality Review.',
       })
-
       onComplete?.()
     } catch {
       toast({
@@ -403,67 +214,10 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
     }
   }
 
-  const handleSaveAsNewVersion = async () => {
-    const reportContent: ReportContent = {
-      sections,
-      metadata: {
-        generatedAt: existingReport
-          ? ((existingReport.content as unknown as ReportContent)?.metadata?.generatedAt ??
-            new Date().toISOString())
-          : new Date().toISOString(),
-        editedAt: new Date().toISOString(),
-        aiModel: SYNTHESIS_MODEL,
-      },
-    }
-
-    try {
-      await createVersion.mutateAsync({
-        projectId: project.id,
-        content: reportContent,
-        reportType: reportType,
-        generatedBy: userId,
-      })
-
-      toast({
-        title: 'New version saved',
-        description: `Version ${(allReports?.length ?? 0) + 1} has been created.`,
-      })
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error saving version',
-        description: 'Failed to create a new report version.',
-      })
-    }
-  }
-
   const handleRestoreVersion = async () => {
     if (!restoreReport) return
-
-    const oldContent = restoreReport.content as unknown as ReportContent | null
-    if (!oldContent?.sections) return
-
-    try {
-      await createVersion.mutateAsync({
-        projectId: project.id,
-        content: oldContent,
-        reportType: restoreReport.report_type,
-        generatedBy: userId,
-        sourceVersion: restoreReport.version,
-      })
-
-      setRestoreReport(null)
-      toast({
-        title: 'Version restored',
-        description: `Content from Version ${restoreReport.version} has been saved as a new version.`,
-      })
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Error restoring version',
-        description: 'Failed to restore the report version.',
-      })
-    }
+    const ok = await doRestoreVersion(restoreReport)
+    if (ok) setRestoreReport(null)
   }
 
   const handleInsertIntoDraft = React.useCallback(
@@ -492,6 +246,11 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
     },
     [sections, toast, reportSectionDefs]
   )
+
+  const { data: projectSites } = useProjectSites(project.id)
+  const activeSiteCode = selectedSiteId
+    ? (projectSites?.find((s) => s.id === selectedSiteId)?.site_code ?? undefined)
+    : undefined
 
   const nextVersion = (allReports?.length ?? 0) + 1
   const isComplete = workflowStep.status === 'approved'
@@ -541,10 +300,7 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
         </div>
       </div>
 
-      {/* No habitat data warning — when the report template has a habitat
-          subsection but the project has zero habitat polygons, the section
-          will be silently skipped in the generated prompt. Surface it so
-          the ecologist knows before clicking Generate. */}
+      {/* No habitat data warning */}
       {reportHasHabitatSection && habitatCount === 0 && (
         <Alert className="mx-1 mb-3 border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30">
           <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
@@ -576,7 +332,6 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
         </Alert>
       )}
 
-      {/* Report Type Tabs */}
       {reportTypes.length > 0 && (
         <ReportTypeSelector
           projectId={project.id}
@@ -587,12 +342,10 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
         />
       )}
 
-      {/* Survey Data Sources */}
       <div className="px-1 pb-1">
         <SurveyLinkPanel projectId={project.id} reportType={reportType} />
       </div>
 
-      {/* Revision requested banner */}
       {existingReport?.status === 'internal_review' && (
         <Alert className="mx-1 mb-3 border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30">
           <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
@@ -612,7 +365,6 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
         </Alert>
       )}
 
-      {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col">
         <TabsList className="mx-1 w-fit">
           <TabsTrigger value="agent" className="gap-1.5">
@@ -642,8 +394,8 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
               hasContent={hasContent}
               canComplete={canComplete}
               isComplete={isComplete}
-              isSaving={updateReport.isPending || createReport.isPending}
-              isCreatingVersion={createVersion.isPending}
+              isSaving={isSaving}
+              isCreatingVersion={isCreatingVersion}
               isCompleting={completeStep.isPending}
               autosaveStatus={autosave.status}
               lastSavedAt={autosave.lastSavedAt}
@@ -664,7 +416,6 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
         </TabsContent>
       </Tabs>
 
-      {/* Version Dialogs */}
       <VersionViewDialog
         sectionDefs={reportSectionDefs}
         open={!!viewReport}
@@ -685,7 +436,7 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
         onOpenChange={(open) => !open && setRestoreReport(null)}
         report={restoreReport}
         nextVersion={nextVersion}
-        isPending={createVersion.isPending}
+        isPending={isCreatingVersion}
         onConfirm={handleRestoreVersion}
       />
     </div>
