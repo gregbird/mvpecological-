@@ -841,6 +841,7 @@ export type Database = {
           id: string
           logo_url: string | null
           name: string
+          owner_id: string | null
           settings: Json | null
           updated_at: string
         }
@@ -849,6 +850,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name: string
+          owner_id?: string | null
           settings?: Json | null
           updated_at?: string
         }
@@ -857,6 +859,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name?: string
+          owner_id?: string | null
           settings?: Json | null
           updated_at?: string
         }

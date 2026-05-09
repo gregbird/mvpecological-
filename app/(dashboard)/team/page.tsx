@@ -14,6 +14,8 @@ import {
   XCircle,
   Copy,
   Link as LinkIcon,
+  Crown,
+  ArrowRightLeft,
 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -65,10 +67,14 @@ export default function TeamPage() {
 
   const [teamMembers, setTeamMembers] = React.useState<TeamMember[]>([])
   const [pendingInvites, setPendingInvites] = React.useState<Invite[]>([])
+  const [ownerId, setOwnerId] = React.useState<string | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
   const [isInviting, setIsInviting] = React.useState(false)
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [inviteLink, setInviteLink] = React.useState<string | null>(null)
+  const [transferringId, setTransferringId] = React.useState<string | null>(null)
+
+  const isCurrentUserOwner = !!user?.id && ownerId === user.id
 
   const {
     register,
@@ -121,8 +127,18 @@ export default function TeamPage() {
 
         if (invitesError) throw invitesError
 
+        // Fetch organization owner — drives the Owner badge and transfer
+        // ownership controls. Failure here is non-fatal: we just lose the
+        // visual marker.
+        const { data: org } = await supabase
+          .from('organizations')
+          .select('owner_id')
+          .eq('id', user.organization_id)
+          .maybeSingle()
+
         setTeamMembers(members || [])
         setPendingInvites(invites || [])
+        setOwnerId(org?.owner_id ?? null)
       } catch (err) {
         console.error('Error fetching team data:', err)
         toast({
@@ -225,6 +241,50 @@ export default function TeamPage() {
         title: 'Error',
         description: 'Failed to cancel invitation',
       })
+    }
+  }
+
+  const handleTransferOwnership = async (newOwnerId: string, newOwnerName: string) => {
+    if (
+      !confirm(
+        `Transfer ownership of this organization to ${newOwnerName}?\n\nYou will remain an admin but lose owner-only privileges (e.g. you will become removable by other admins).`
+      )
+    )
+      return
+
+    setTransferringId(newOwnerId)
+    try {
+      const response = await fetch('/api/team/transfer-ownership', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newOwnerId }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: result.error || 'Failed to transfer ownership',
+        })
+        return
+      }
+
+      setOwnerId(newOwnerId)
+      toast({
+        title: 'Ownership transferred',
+        description: `${newOwnerName} is now the organization owner.`,
+      })
+    } catch (err) {
+      console.error('Error transferring ownership:', err)
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to transfer ownership',
+      })
+    } finally {
+      setTransferringId(null)
     }
   }
 
@@ -442,48 +502,84 @@ export default function TeamPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {teamMembers.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center justify-between rounded-lg border p-3"
-                >
-                  <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <Avatar className="h-10 w-10 shrink-0">
-                      <AvatarFallback className="bg-emerald-100 text-emerald-700">
-                        {getInitials(member.full_name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0">
-                      <p className="text-foreground truncate font-medium">{member.full_name}</p>
-                      <p className="truncate text-sm text-gray-500">{member.email}</p>
+              {teamMembers.map((member) => {
+                const isMemberOwner = !!ownerId && member.id === ownerId
+                const isSelf = member.id === user?.id
+                // Owner is immutable for everyone but themselves (and even
+                // the owner can only "transfer", not remove). Project
+                // managers also cannot touch admins.
+                const canRemove =
+                  !isSelf &&
+                  !isMemberOwner &&
+                  !(user?.role === 'project_manager' && member.role === 'admin')
+                // The current owner can hand ownership to another admin
+                // (and only an admin — see API guard).
+                const canTransferTo =
+                  isCurrentUserOwner && !isSelf && !isMemberOwner && member.role === 'admin'
+                const showMenu = canRemove || canTransferTo
+
+                return (
+                  <div
+                    key={member.id}
+                    className="flex items-center justify-between rounded-lg border p-3"
+                  >
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <Avatar className="h-10 w-10 shrink-0">
+                        <AvatarFallback className="bg-emerald-100 text-emerald-700">
+                          {getInitials(member.full_name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <p className="text-foreground truncate font-medium">{member.full_name}</p>
+                        <p className="truncate text-sm text-gray-500">{member.email}</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Badge className={getRoleBadgeColor(member.role)}>
-                      {getRoleLabel(member.role)}
-                    </Badge>
-                    {member.id !== user?.id &&
-                      !(user?.role === 'project_manager' && member.role === 'admin') && (
+                    <div className="flex shrink-0 items-center gap-2">
+                      {isMemberOwner && (
+                        <Badge className="border-amber-300 bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                          <Crown className="mr-1 h-3 w-3" />
+                          Owner
+                        </Badge>
+                      )}
+                      <Badge className={getRoleBadgeColor(member.role)}>
+                        {getRoleLabel(member.role)}
+                      </Badge>
+                      {showMenu && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreVertical className="h-4 w-4" />
+                              {transferringId === member.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <MoreVertical className="h-4 w-4" />
+                              )}
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              className="text-red-600"
-                              onClick={() => handleRemoveMember(member.id, member.full_name)}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Remove
-                            </DropdownMenuItem>
+                            {canTransferTo && (
+                              <DropdownMenuItem
+                                onClick={() => handleTransferOwnership(member.id, member.full_name)}
+                              >
+                                <ArrowRightLeft className="mr-2 h-4 w-4" />
+                                Transfer ownership
+                              </DropdownMenuItem>
+                            )}
+                            {canRemove && (
+                              <DropdownMenuItem
+                                className="text-red-600"
+                                onClick={() => handleRemoveMember(member.id, member.full_name)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Remove
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
 
               {teamMembers.length === 0 && (
                 <div className="py-8 text-center text-gray-500">

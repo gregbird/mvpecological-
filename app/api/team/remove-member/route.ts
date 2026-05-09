@@ -66,6 +66,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Project managers cannot remove admins' }, { status: 403 })
     }
 
+    // The organization owner cannot be removed by anyone — including other
+    // admins. Ownership must first be transferred via /api/team/transfer-
+    // ownership before the previous owner can be removed.
+    const { data: org } = await serverClient
+      .from('organizations')
+      .select('owner_id')
+      .eq('id', currentProfile.organization_id)
+      .single()
+
+    if (org?.owner_id && org.owner_id === memberProfile.id) {
+      return NextResponse.json(
+        {
+          error: 'Cannot remove the organization owner. Transfer ownership to another admin first.',
+        },
+        { status: 403 }
+      )
+    }
+
     const adminClient = createAdminClient()
 
     // Delete auth user first — if this fails, profile remains intact (no orphan state)

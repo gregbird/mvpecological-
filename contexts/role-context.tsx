@@ -362,13 +362,19 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      // Get the user's profile with organization
+      // Get the user's profile with organization. The FK hint is required
+      // because organizations now has TWO relationships to profiles:
+      //   - profiles.organization_id → organizations.id  (which org I belong to)
+      //   - organizations.owner_id   → profiles.id       (who owns the org)
+      // Without `!profiles_organization_id_fkey`, PostgREST cannot pick a
+      // side and rejects the embed, the error is swallowed below, and the UI
+      // silently falls back to the "ecologist" default role.
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select(
           `
           *,
-          organization:organizations(*)
+          organization:organizations!profiles_organization_id_fkey(*)
         `
         )
         .eq('id', authUser.id)
