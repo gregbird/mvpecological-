@@ -9,6 +9,21 @@ interface TableTheme {
 const DEFAULT_THEME: TableTheme = { font: 'helvetica', primary: [44, 82, 52] }
 
 /**
+ * Strip markdown bold/italic/code markers from a table cell — jsPDF text
+ * rendering treats `**Parameter**` as a literal string and we don't have a
+ * mechanism to switch fonts mid-cell, so plain text is the safest output.
+ */
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*\*(.+?)\*\*\*/g, '$1')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, '$1')
+    .replace(/(?<!_)_([^_]+?)_(?!_)/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+}
+
+/**
  * Render a markdown table into a jsPDF doc.
  * - Header row uses theme.primary background.
  * - Alternating row backgrounds, primary-coloured bottom rule.
@@ -28,17 +43,39 @@ export function renderTable(
   if (colCount === 0) return startY
 
   const cellPadding = 3
-  const rowHeight = 8
   const fontSize = 9
+  const lineHeight = 4 // mm per text line at fontSize 9
+  const minRowHeight = 8
 
   const colWidths = calculateColumnWidths(doc, table, contentWidth, fontSize, theme.font)
 
-  let y = ensureSpace(startY, rowHeight * 2 + 4)
+  // Pre-wrap every cell so we know the row height ahead of drawing.
+  doc.setFontSize(fontSize)
+  doc.setFont(theme.font, 'bold')
+  const headerLines: string[][] = table.headers.map((h, c) =>
+    doc.splitTextToSize(stripMarkdown(h || ''), colWidths[c] - cellPadding * 2)
+  )
+  const headerRowHeight = Math.max(
+    minRowHeight,
+    Math.max(...headerLines.map((l) => l.length)) * lineHeight + cellPadding * 2
+  )
+
+  doc.setFont(theme.font, 'normal')
+  const bodyLines: string[][][] = table.rows.map((row) =>
+    row.map((cell, c) =>
+      doc.splitTextToSize(stripMarkdown(cell || ''), colWidths[c] - cellPadding * 2)
+    )
+  )
+  const bodyRowHeights = bodyLines.map((row) =>
+    Math.max(minRowHeight, Math.max(...row.map((l) => l.length)) * lineHeight + cellPadding * 2)
+  )
+
+  let y = ensureSpace(startY, headerRowHeight + bodyRowHeights[0] + 4)
   y += 2
 
   // Header row — primary brand colour background
   doc.setFillColor(...theme.primary)
-  doc.rect(margin, y, contentWidth, rowHeight, 'F')
+  doc.rect(margin, y, contentWidth, headerRowHeight, 'F')
 
   doc.setTextColor(255, 255, 255)
   doc.setFontSize(fontSize)
@@ -47,12 +84,14 @@ export function renderTable(
   let headerX = margin
   for (let c = 0; c < colCount; c++) {
     const colW = colWidths[c]
-    const text = truncateText(doc, table.headers[c] || '', colW - cellPadding * 2)
-    doc.text(text, headerX + cellPadding, y + rowHeight - cellPadding)
+    const lines = headerLines[c]
+    lines.forEach((line, idx) => {
+      doc.text(line, headerX + cellPadding, y + cellPadding + (idx + 1) * lineHeight - 1)
+    })
     headerX += colW
   }
 
-  y += rowHeight
+  y += headerRowHeight
 
   // Body rows
   doc.setTextColor(0, 0, 0)
@@ -60,30 +99,32 @@ export function renderTable(
   doc.setFontSize(fontSize)
 
   for (let r = 0; r < table.rows.length; r++) {
-    const row = table.rows[r]
-    y = ensureSpace(y, rowHeight)
+    const rowH = bodyRowHeights[r]
+    y = ensureSpace(y, rowH)
 
     if (r % 2 === 0) {
       doc.setFillColor(245, 247, 245)
-      doc.rect(margin, y, contentWidth, rowHeight, 'F')
+      doc.rect(margin, y, contentWidth, rowH, 'F')
     }
 
     doc.setDrawColor(200, 200, 200)
     doc.setLineWidth(0.2)
-    doc.rect(margin, y, contentWidth, rowHeight, 'S')
+    doc.rect(margin, y, contentWidth, rowH, 'S')
 
     let cellX = margin
     for (let c = 0; c < colCount; c++) {
       const colW = colWidths[c]
-      if (c > 0) doc.line(cellX, y, cellX, y + rowHeight)
+      if (c > 0) doc.line(cellX, y, cellX, y + rowH)
       doc.setFont(theme.font, 'normal')
       doc.setFontSize(fontSize)
-      const cellText = truncateText(doc, row[c] || '', colW - cellPadding * 2)
-      doc.text(cellText, cellX + cellPadding, y + rowHeight - cellPadding)
+      const lines = bodyLines[r][c]
+      lines.forEach((line, idx) => {
+        doc.text(line, cellX + cellPadding, y + cellPadding + (idx + 1) * lineHeight - 1)
+      })
       cellX += colW
     }
 
-    y += rowHeight
+    y += rowH
   }
 
   doc.setDrawColor(...theme.primary)

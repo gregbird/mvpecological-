@@ -12,7 +12,7 @@ import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { useActiveReportType } from '@/hooks/use-active-report-type'
 import { useTemplateData } from '@/hooks/queries/use-template-data'
 import { useResolvedReportSections } from '@/hooks/queries/use-resolved-report-sections'
-import type { ReportContent, ReportSection } from '@/lib/supabase/queries/reports'
+import type { ReportSection } from '@/lib/supabase/queries/reports'
 import { DulraAgentTab } from '@/components/steps/ai-draft/dulra-agent-tab'
 import { AIDraftTab } from '@/components/steps/ai-draft/ai-draft-tab'
 import { VersionCompareDialog } from '@/components/steps/ai-draft/version-compare-dialog'
@@ -267,15 +267,10 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between px-1 pb-3">
-        <div>
-          <h2 className="text-2xl font-bold">Step 6: AI Draft Generation</h2>
-          <p className="text-muted-foreground">
-            Generate AI-assisted report draft based on collected data
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
+      {/* Header — compact single-line */}
+      <div className="flex items-center justify-between gap-3 px-1 pb-2">
+        <h2 className="text-lg font-semibold">Step 6: AI Draft</h2>
+        <div className="flex items-center gap-2">
           <SiteSelector
             projectId={project.id}
             stepKey="ai-draft"
@@ -290,6 +285,7 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
                   ? 'secondary'
                   : 'outline'
             }
+            className="shrink-0"
           >
             {isComplete
               ? 'Completed'
@@ -302,7 +298,7 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
 
       {/* No habitat data warning */}
       {reportHasHabitatSection && habitatCount === 0 && (
-        <Alert className="mx-1 mb-3 border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30">
+        <Alert className="mx-1 mb-2 border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30">
           <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
           <AlertTitle className="text-amber-800 dark:text-amber-300">
             No habitat data mapped
@@ -317,7 +313,7 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
 
       {/* Multi-site generation warning */}
       {selectedSiteId && (
-        <Alert className="mx-1 mb-3 border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/30">
+        <Alert className="mx-1 mb-2 border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/30">
           <AlertTriangle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
           <AlertTitle className="text-blue-800 dark:text-blue-300">
             Site-scoped generation: {activeSiteCode}
@@ -342,12 +338,12 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
         />
       )}
 
-      <div className="px-1 pb-1">
+      <div className="px-1">
         <SurveyLinkPanel projectId={project.id} reportType={reportType} />
       </div>
 
       {existingReport?.status === 'internal_review' && (
-        <Alert className="mx-1 mb-3 border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30">
+        <Alert className="mx-1 mb-2 border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30">
           <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
           <AlertTitle className="text-amber-800 dark:text-amber-300">
             Revisions Requested
@@ -366,7 +362,7 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col">
-        <TabsList className="mx-1 w-fit">
+        <TabsList className="mx-1 mt-1 w-fit">
           <TabsTrigger value="agent" className="gap-1.5">
             <Bot className="h-4 w-4" />
             Dulra Agent
@@ -377,13 +373,13 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="agent" className="mt-3 min-h-0 flex-1">
+        <TabsContent value="agent" className="mt-2 min-h-0 flex-1">
           <div className="border-muted h-full rounded-lg border">
             <DulraAgentTab projectId={project.id} onInsertIntoDraft={handleInsertIntoDraft} />
           </div>
         </TabsContent>
 
-        <TabsContent value="draft" className="mt-3 min-h-0 flex-1">
+        <TabsContent value="draft" className="mt-2 min-h-0 flex-1">
           <div className="border-muted h-full rounded-lg border">
             <AIDraftTab
               project={project}

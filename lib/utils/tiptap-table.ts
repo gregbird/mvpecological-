@@ -36,21 +36,16 @@ export function buildTiptapTable(headers: string[], rows: string[][]): TiptapNod
 export function buildDesignatedSitesTable(data: AppendixData): TiptapNode | null {
   if (!data.designatedSites.length) return null
   return buildTiptapTable(
-    ['Name', 'Site Number', 'Distance', 'AI Summary'],
-    data.designatedSites.map((s) => [
-      s.name,
-      `${s.siteNumber} (${s.siteType})`,
-      s.distanceKm,
-      s.aiSummary,
-    ])
+    ['Name', 'Site Number', 'Distance'],
+    data.designatedSites.map((s) => [s.name, `${s.siteNumber} (${s.siteType})`, s.distanceKm])
   )
 }
 
 export function buildSpeciesTable(data: AppendixData): TiptapNode | null {
   if (!data.speciesRecords.length) return null
   return buildTiptapTable(
-    ['Name', 'AI Summary', 'Protection Status'],
-    data.speciesRecords.map((s) => [s.name, s.aiSummary, s.protectionStatus])
+    ['Name', 'Protection Status'],
+    data.speciesRecords.map((s) => [s.name, s.protectionStatus])
   )
 }
 

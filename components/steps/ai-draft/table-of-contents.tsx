@@ -18,7 +18,7 @@ export function TableOfContents({
   onSectionClick,
 }: TableOfContentsProps) {
   return (
-    <nav className="w-48 shrink-0 space-y-1 border-r pr-3">
+    <nav className="sticky top-2 max-h-[calc(100vh-1rem)] w-48 shrink-0 space-y-1 self-start overflow-y-auto border-r pr-3">
       <h4 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wider uppercase">
         Contents
       </h4>
