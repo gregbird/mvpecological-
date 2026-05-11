@@ -252,7 +252,10 @@ export async function generatePeaPdf(
   // ===== TABLE OF CONTENTS =====
   doc.addPage()
   currentPage++
-  const contentSections = options.sections.filter((s) => s.content)
+  // Skip the AI-generated "Appendices" section — auto-rendered appendix
+  // tables below cover the same ground with structured data, and the AI
+  // narrative drifts from the actual auto-generated appendix list.
+  const contentSections = options.sections.filter((s) => s.content && s.id !== 'appendices')
   renderTableOfContents(ctx, contentSections, options.appendices)
 
   // ===== REPORT SECTIONS =====

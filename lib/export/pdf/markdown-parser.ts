@@ -2,6 +2,22 @@ import type { MdBlock, StyledWord, TextSegment } from './markdown-types'
 import { SCIENTIFIC_GENERA_LOWER, SCIENTIFIC_NAME_REGEX } from './scientific-genera'
 
 /**
+ * Strip markdown bold/italic/code markers — table cells render as plain text
+ * because both jsPDF and docx-table cells write a single string without
+ * mid-cell font switching. Leaving the markers in produces literal
+ * "**Parameter**" output in PDF/DOCX exports.
+ */
+function stripInlineMarkdown(text: string): string {
+  return text
+    .replace(/\*\*\*(.+?)\*\*\*/g, '$1')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, '$1')
+    .replace(/(?<!_)_([^_]+?)_(?!_)/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+}
+
+/**
  * Parse a Markdown string into block-level structures the PDF renderer can
  * walk over. Recognises: images, tables (with separator row), headings,
  * bullets (including continuation lines), and paragraphs.
@@ -37,7 +53,7 @@ export function parseMarkdown(md: string): MdBlock[] {
       const headerCells = line
         .split('|')
         .filter((c) => c.trim())
-        .map((c) => c.trim())
+        .map((c) => stripInlineMarkdown(c.trim()))
       i += 2 // skip header + separator
 
       const rows: string[][] = []
@@ -45,7 +61,7 @@ export function parseMarkdown(md: string): MdBlock[] {
         const cells = lines[i]
           .split('|')
           .filter((c) => c.trim())
-          .map((c) => c.trim())
+          .map((c) => stripInlineMarkdown(c.trim()))
         rows.push(cells)
         i++
       }

@@ -480,7 +480,9 @@ export async function generatePeaDocx(
 ): Promise<Blob> {
   const progress = onProgress ?? (() => {})
   progress('docx: build cover + TOC')
-  const contentSections = options.sections.filter((s) => s.content)
+  // Skip the AI-generated "Appendices" section — auto-rendered appendix
+  // tables below cover the same ground with structured data.
+  const contentSections = options.sections.filter((s) => s.content && s.id !== 'appendices')
 
   const children: (Paragraph | Table)[] = []
 
@@ -631,7 +633,7 @@ export async function generatePeaDocx(
       })
     )
 
-    const blocks = sectionBlocks[sectionIdx]
+    const blocks = stripDuplicateTitleBlocks(sectionBlocks[sectionIdx], section.title)
     for (const block of blocks) {
       const converted = await blockToParagraphs(block, imageCache)
       for (const item of converted) {
@@ -703,12 +705,11 @@ export async function generatePeaDocx(
         if (ad && ad.designatedSites.length > 0) {
           children.push(
             buildDocxAppendixTable(
-              ['Name', 'Site Number', 'Distance', 'AI Summary'],
+              ['Name', 'Site Number', 'Distance'],
               ad.designatedSites.map((s) => [
                 s.name,
                 `${s.siteNumber} (${s.siteType})`,
                 s.distanceKm,
-                s.aiSummary,
               ])
             )
           )
@@ -720,8 +721,8 @@ export async function generatePeaDocx(
         if (ad && ad.speciesRecords.length > 0) {
           children.push(
             buildDocxAppendixTable(
-              ['Name', 'AI Summary', 'Protection Status'],
-              ad.speciesRecords.map((s) => [s.name, s.aiSummary, s.protectionStatus])
+              ['Name', 'Protection Status'],
+              ad.speciesRecords.map((s) => [s.name, s.protectionStatus])
             )
           )
           trailingSpacer()
@@ -753,14 +754,8 @@ export async function generatePeaDocx(
         if (ad && ad.aquaticFeatures.length > 0) {
           children.push(
             buildDocxAppendixTable(
-              ['Name', 'Type', 'WFD Status', 'Distance', 'AI Summary'],
-              ad.aquaticFeatures.map((f) => [
-                f.name,
-                f.waterBodyType,
-                f.wfdStatus,
-                f.distanceKm,
-                f.aiSummary,
-              ])
+              ['Name', 'Type', 'WFD Status', 'Distance'],
+              ad.aquaticFeatures.map((f) => [f.name, f.waterBodyType, f.wfdStatus, f.distanceKm])
             )
           )
           trailingSpacer()
@@ -796,7 +791,10 @@ export async function generatePeaDocx(
         )
       } else {
         // survey_datasheets, legislation, or any future appendix key without a renderer
-        pushNote('Content to be supplied with the final deliverable.')
+        pushNote(
+          'This appendix is reserved for manual content. Insert the relevant map, ' +
+            'photographs, datasheets or reference material after export.'
+        )
       }
     })
   }
@@ -840,4 +838,37 @@ export async function generatePeaDocx(
   const blob = await Packer.toBlob(doc)
   progress('docx: done')
   return blob
+}
+
+function normalizeTitleForCompare(s: string): string {
+  return s
+    .replace(/^[\d.]+\s*/, '')
+    .replace(/[^A-Za-z0-9 ]/g, '')
+    .trim()
+    .toLowerCase()
+}
+
+function blockToPlainText(block: MdBlock): string | null {
+  if (block.type === 'heading') return block.text
+  if (block.type === 'paragraph' || block.type === 'bullet') {
+    return block.runs.map((r) => r.text).join('')
+  }
+  return null
+}
+
+/** Mirror the PDF section-renderer fix: AI sometimes repeats the section name
+ * as a paragraph, heading or bullet right under the rendered heading. */
+function stripDuplicateTitleBlocks(blocks: MdBlock[], title: string): MdBlock[] {
+  const target = normalizeTitleForCompare(title)
+  if (!target) return blocks
+  let skip = 0
+  while (skip < blocks.length && skip < 2) {
+    const text = blockToPlainText(blocks[skip])
+    if (text && normalizeTitleForCompare(text) === target) {
+      skip++
+    } else {
+      break
+    }
+  }
+  return skip > 0 ? blocks.slice(skip) : blocks
 }

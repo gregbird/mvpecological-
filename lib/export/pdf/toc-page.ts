@@ -33,12 +33,11 @@ export function renderTableOfContents(
 
   let tocY = 44
 
-  // Sections start on page 3 (cover=1, TOC=2, first section=3)
-  const sectionStartPage = 3
-
+  // Page numbers are intentionally omitted — they cannot be known at TOC
+  // render time without a second-pass refactor. A clean dotted leader looks
+  // better than a wrong fixed number.
   for (let i = 0; i < contentSections.length; i++) {
     const section = contentSections[i]
-    const pageNum = sectionStartPage + i
 
     if (i % 2 === 0) {
       doc.setFillColor(...LIGHT_GRAY)
@@ -53,27 +52,6 @@ export function renderTableOfContents(
     doc.setFont(theme.font, 'normal')
     doc.setTextColor(0, 0, 0)
     doc.text(section.title.replace(/^\d+\.\s*/, ''), margin + 12, tocY)
-
-    const titleText = section.title.replace(/^\d+\.\s*/, '')
-    doc.setFontSize(10)
-    const titleW = doc.getTextWidth(titleText)
-    const pageNumStr = String(pageNum)
-    const pageNumW = doc.getTextWidth(pageNumStr)
-    const leaderStart = margin + 12 + titleW + 3
-    const leaderEnd = margin + contentWidth - pageNumW - 3
-
-    doc.setTextColor(180, 180, 180)
-    doc.setFontSize(9)
-    let dotX = leaderStart
-    while (dotX < leaderEnd - 3) {
-      doc.text('.', dotX, tocY)
-      dotX += 2.8
-    }
-
-    doc.setFontSize(10)
-    doc.setFont(theme.font, 'bold')
-    doc.setTextColor(...GREEN)
-    doc.text(pageNumStr, margin + contentWidth, tocY, { align: 'right' })
 
     doc.setTextColor(0, 0, 0)
     tocY += 9

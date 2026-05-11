@@ -156,9 +156,10 @@ function stripMarkdown(text: string): string {
   return text
     .replace(/\*\*\*(.+?)\*\*\*/g, '$1')
     .replace(/\*\*(.+?)\*\*/g, '$1')
-    .replace(/\*(.+?)\*/g, '$1')
-    .replace(/`(.+?)`/g, '$1')
-    .replace(/_{2,}(.+?)_{2,}/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, '$1')
+    .replace(/(?<!_)_([^_]+?)_(?!_)/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
 }
 
 /** Calculate proportional column widths. Caps any single column at 40% of total

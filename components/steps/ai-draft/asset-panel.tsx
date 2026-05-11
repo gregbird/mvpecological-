@@ -12,7 +12,7 @@ interface AssetPanelProps {
 
 export function AssetPanel({ project }: AssetPanelProps) {
   return (
-    <div className="flex w-56 shrink-0 flex-col border-l pl-3">
+    <div className="sticky top-2 flex max-h-[calc(100vh-1rem)] w-56 shrink-0 flex-col self-start overflow-hidden border-l pl-3">
       <Tabs defaultValue="data" className="flex min-h-0 flex-1 flex-col">
         {/* TabsList stays pinned at the top while the panel content scrolls */}
         <TabsList className="grid w-full shrink-0 grid-cols-3">

@@ -8,20 +8,23 @@ import { APPENDIX_LABELS, type PeaExportOptions } from '../pdf-generator-types'
  * HTML output is plain so it round-trips cleanly when copy-pasted into Word.
  */
 export function generatePeaHtml(options: PeaExportOptions): string {
-  const contentSections = options.sections.filter((s) => s.content)
+  // Skip the AI-generated "Appendices" section — auto-rendered appendix
+  // tables below cover the same ground with structured data.
+  const contentSections = options.sections.filter((s) => s.content && s.id !== 'appendices')
 
   const tocHtml = contentSections
     .map((s, i) => `<li><a href="#section-${i}">${s.title}</a></li>`)
     .join('\n')
 
   const sectionsHtml = contentSections
-    .map(
-      (s, i) => `
+    .map((s, i) => {
+      const md = stripDuplicateTitleLines(sectionContentToMarkdown(s.content), s.title)
+      return `
     <div class="section" id="section-${i}">
       <h2>${s.title}</h2>
-      <div class="section-content">${markdownToHtml(sectionContentToMarkdown(s.content))}</div>
+      <div class="section-content">${markdownToHtml(md)}</div>
     </div>`
-    )
+    })
     .join('\n')
 
   const ad = options.appendixData
@@ -39,20 +42,20 @@ export function generatePeaHtml(options: PeaExportOptions): string {
             const rows = ad.designatedSites
               .map(
                 (s) =>
-                  `<tr><td>${escapeHtml(s.name)}</td><td>${escapeHtml(`${s.siteNumber} (${s.siteType})`)}</td><td>${escapeHtml(s.distanceKm)}</td><td>${escapeHtml(s.aiSummary)}</td></tr>`
+                  `<tr><td>${escapeHtml(s.name)}</td><td>${escapeHtml(`${s.siteNumber} (${s.siteType})`)}</td><td>${escapeHtml(s.distanceKm)}</td></tr>`
               )
               .join('')
-            return `${heading}<table><thead><tr><th>Name</th><th>Site Number</th><th>Distance</th><th>AI Summary</th></tr></thead><tbody>${rows}</tbody></table>`
+            return `${heading}<table><thead><tr><th>Name</th><th>Site Number</th><th>Distance</th></tr></thead><tbody>${rows}</tbody></table>`
           }
 
           if (a === 'species_list' && ad && ad.speciesRecords.length > 0) {
             const rows = ad.speciesRecords
               .map(
                 (s) =>
-                  `<tr><td>${escapeHtml(s.name)}</td><td>${escapeHtml(s.aiSummary)}</td><td>${escapeHtml(s.protectionStatus)}</td></tr>`
+                  `<tr><td>${escapeHtml(s.name)}</td><td>${escapeHtml(s.protectionStatus)}</td></tr>`
               )
               .join('')
-            return `${heading}<table><thead><tr><th>Name</th><th>AI Summary</th><th>Protection Status</th></tr></thead><tbody>${rows}</tbody></table>`
+            return `${heading}<table><thead><tr><th>Name</th><th>Protection Status</th></tr></thead><tbody>${rows}</tbody></table>`
           }
 
           if (a === 'habitat_data' && ad && ad.habitats.length > 0) {
@@ -75,7 +78,7 @@ export function generatePeaHtml(options: PeaExportOptions): string {
             return `${heading}<table><thead><tr><th>Name</th><th>Type</th><th>WFD Status</th><th>Distance</th></tr></thead><tbody>${rows}</tbody></table>`
           }
 
-          return `${heading}<p><em>[Content to be inserted]</em></p>`
+          return `${heading}<p><em>This appendix is reserved for manual content. Insert the relevant map, photographs, datasheets or reference material after export.</em></p>`
         })
         .join('\n')}
     </div>`
@@ -98,15 +101,64 @@ export function generatePeaHtml(options: PeaExportOptions): string {
       padding: 40px;
     }
     .cover-page {
+      position: relative;
       text-align: center;
-      padding: 80px 0;
-      border-bottom: 2px solid #2c5234;
+      padding: 0 0 80px;
       margin-bottom: 40px;
     }
-    .cover-page h1 { color: #2c5234; font-size: 14pt; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 20px; }
-    .cover-page .title { font-size: 22pt; font-weight: bold; margin-bottom: 30px; }
-    .cover-page .details { font-size: 12pt; color: #666; }
-    .cover-page .details div { margin: 5px 0; }
+    .cover-page .brand-band {
+      background: #2c5234;
+      color: white;
+      padding: 50px 30px 60px;
+      text-align: center;
+      margin: -40px -40px 40px;
+    }
+    .cover-page .brand-band .eyebrow {
+      font-size: 14pt;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      font-weight: 600;
+    }
+    .cover-page .brand-band .site-line {
+      font-size: 10pt;
+      letter-spacing: 1.5px;
+      margin-top: 30px;
+      opacity: 0.85;
+    }
+    .cover-page .title-band {
+      border-top: 3px solid #2c5234;
+      border-bottom: 3px solid #2c5234;
+      padding: 16px 0;
+      margin: 30px auto;
+      max-width: 70%;
+      color: #2c5234;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-size: 12pt;
+      font-weight: 600;
+    }
+    .cover-page .title { font-size: 22pt; font-weight: bold; margin: 30px auto; color: #222; max-width: 80%; }
+    .cover-page .meta-card {
+      border: 2px solid #2c5234;
+      border-radius: 8px;
+      margin: 40px auto 0;
+      padding: 18px 24px;
+      max-width: 60%;
+      text-align: left;
+    }
+    .cover-page .meta-card .row { display: flex; padding: 8px 0; border-bottom: 1px solid #e8efe8; }
+    .cover-page .meta-card .row:last-child { border-bottom: none; }
+    .cover-page .meta-card .label { font-weight: 600; color: #2c5234; min-width: 160px; }
+    .cover-page .meta-card .value { color: #444; }
+    .cover-footer {
+      background: #2c5234;
+      color: white;
+      padding: 30px;
+      margin: 80px -40px -40px;
+      text-align: center;
+      font-size: 9pt;
+      letter-spacing: 1px;
+    }
     .toc { margin: 40px 0; }
     .toc h2 { color: #2c5234; border-bottom: 1px solid #2c5234; padding-bottom: 5px; }
     .toc ol { padding-left: 20px; }
@@ -133,22 +185,33 @@ export function generatePeaHtml(options: PeaExportOptions): string {
 </head>
 <body>
   <div class="cover-page">
-    <h1>Preliminary Ecological Appraisal</h1>
+    <div class="brand-band">
+      <div class="eyebrow">Ecological Report</div>
+      <div class="site-line">Sites: ${escapeHtml(
+        options.activeSiteCode
+          ? options.activeSiteCode
+          : options.siteCodes && options.siteCodes.length > 0
+            ? options.siteCodes.join(', ')
+            : options.siteCode
+      )}</div>
+    </div>
+    <div class="title-band">Preliminary Ecological Appraisal</div>
     <div class="title">${escapeHtml(
       options.activeSiteCode ? `${options.title} (Site: ${options.activeSiteCode})` : options.title
     )}</div>
-    <div class="details">
-      <div><strong>Prepared For:</strong> ${escapeHtml(options.preparedFor || 'Client')}</div>
-      <div><strong>Site Reference:</strong> ${escapeHtml(
+    <div class="meta-card">
+      <div class="row"><span class="label">Prepared For</span><span class="value">${escapeHtml(options.preparedFor || 'Client')}</span></div>
+      <div class="row"><span class="label">Site Reference</span><span class="value">${escapeHtml(
         options.activeSiteCode
           ? `${options.activeSiteCode} (filtered from project)`
           : options.siteCodes && options.siteCodes.length > 1
             ? options.siteCodes.join(', ')
             : options.siteCode
-      )}</div>
-      <div><strong>Version:</strong> ${options.version}</div>
-      <div><strong>Date:</strong> ${escapeHtml(options.date)}</div>
+      )}</span></div>
+      <div class="row"><span class="label">Report Version</span><span class="value">Version ${options.version}</span></div>
+      <div class="row"><span class="label">Date</span><span class="value">${escapeHtml(options.date)}</span></div>
     </div>
+    <div class="cover-footer">Confidential &nbsp;&middot;&nbsp; &copy; ${new Date().getFullYear()} &nbsp;&middot;&nbsp; Confidential</div>
   </div>
   <div class="toc">
     <h2>Table of Contents</h2>
@@ -209,9 +272,12 @@ function markdownToHtml(md: string): string {
     '<figure><img src="$2" alt="$1" style="max-width:100%;height:auto;" /><figcaption><em>$1</em></figcaption></figure>'
   )
 
+  // Convert "- item" and "1. item" lines to <li>, then wrap consecutive <li>
+  // runs in a single <ul>. Numbered lists are wrapped after the bullet form
+  // so that mixed lists still collapse cleanly.
   html = html.replace(/^- (.+)$/gm, '<li>$1</li>')
-  html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>')
   html = html.replace(/^\d+\.\s(.+)$/gm, '<li>$1</li>')
+  html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>')
 
   html = html.replace(/\n\n/g, '</p><p>')
   html = `<p>${html}</p>`
@@ -225,4 +291,35 @@ function markdownToHtml(md: string): string {
   html = html.replace(/(<\/ul>)<\/p>/g, '$1')
 
   return html
+}
+
+function normalizeTitleForCompare(s: string): string {
+  return s
+    .replace(/^[\d.]+\s*/, '')
+    .replace(/[^A-Za-z0-9 ]/g, '')
+    .trim()
+    .toLowerCase()
+}
+
+/** Strip a leading "Methodology" line (heading, paragraph, or bullet) that
+ * duplicates the rendered section heading. */
+function stripDuplicateTitleLines(md: string, title: string): string {
+  const target = normalizeTitleForCompare(title)
+  if (!target) return md
+  const lines = md.split('\n')
+  let skip = 0
+  for (let attempts = 0; attempts < 4 && skip < lines.length; attempts++) {
+    const raw = lines[skip].trim()
+    if (!raw) {
+      skip++
+      continue
+    }
+    const stripped = raw.replace(/^[#*\-•]+\s*/, '').replace(/^\d+\.\s*/, '')
+    if (normalizeTitleForCompare(stripped) === target) {
+      skip++
+    } else {
+      break
+    }
+  }
+  return skip > 0 ? lines.slice(skip).join('\n') : md
 }

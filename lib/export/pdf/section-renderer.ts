@@ -73,10 +73,16 @@ async function renderSectionInner(
   doc.setTextColor(0, 0, 0)
   y += 10
 
-  for (let blockIdx = 0; blockIdx < blocks.length; blockIdx++) {
+  // Strip duplicate section title from the start of the body. AI sometimes
+  // repeats the section name as a paragraph, heading, or bullet immediately
+  // under the rendered heading ("2. Methodology" followed by a "Methodology"
+  // paragraph).
+  const filteredBlocks = stripDuplicateTitlePrefix(blocks, section.title)
+
+  for (let blockIdx = 0; blockIdx < filteredBlocks.length; blockIdx++) {
     if (blockIdx > 0 && blockIdx % 10 === 0) await yieldToBrowser()
 
-    const block = blocks[blockIdx]
+    const block = filteredBlocks[blockIdx]
     switch (block.type) {
       case 'heading':
         y = ensureSpace(y, 15)
@@ -147,4 +153,36 @@ async function renderSectionInner(
   // Section trailing spacing
   y += 4
   return y
+}
+
+function normalizeTitleForCompare(s: string): string {
+  return s
+    .replace(/^[\d.]+\s*/, '')
+    .replace(/[^A-Za-z0-9 ]/g, '')
+    .trim()
+    .toLowerCase()
+}
+
+function blockToPlainText(block: MdBlock): string | null {
+  if (block.type === 'heading') return block.text
+  if (block.type === 'paragraph' || block.type === 'bullet') {
+    return block.segments.map((s) => s.text).join('')
+  }
+  return null
+}
+
+function stripDuplicateTitlePrefix(blocks: MdBlock[], title: string): MdBlock[] {
+  const target = normalizeTitleForCompare(title)
+  if (!target) return blocks
+  let skip = 0
+  // Skip up to two leading blocks if they match the section title.
+  while (skip < blocks.length && skip < 2) {
+    const text = blockToPlainText(blocks[skip])
+    if (text && normalizeTitleForCompare(text) === target) {
+      skip++
+    } else {
+      break
+    }
+  }
+  return skip > 0 ? blocks.slice(skip) : blocks
 }

@@ -32,15 +32,33 @@ interface TiptapNode {
 export function sectionContentToMarkdown(content: string | null | undefined): string {
   if (!content) return ''
   const trimmed = content.trimStart()
+  let md: string
   if (!trimmed.startsWith('{')) {
-    return content // legacy markdown
+    md = content // legacy markdown
+  } else {
+    try {
+      const doc = JSON.parse(content) as TiptapNode
+      md = tiptapDocToMarkdown(doc).trim()
+    } catch {
+      md = content
+    }
   }
-  try {
-    const doc = JSON.parse(content) as TiptapNode
-    return tiptapDocToMarkdown(doc).trim()
-  } catch {
-    return content
-  }
+  return normalizeBoldItalicSpacing(md)
+}
+
+/**
+ * AI output sometimes glues bold/italic markers to adjacent words without
+ * spaces (e.g. `**Test apro**(Site Code)` or `text**bold**word`). Renderers
+ * then drop the missing space, producing run-together text like
+ * "Test apro(Site Code". Insert the missing space at marker boundaries so
+ * PDF/HTML/DOCX all render correctly.
+ */
+function normalizeBoldItalicSpacing(text: string): string {
+  // Opening **: alphanumeric immediately before opening marker
+  let out = text.replace(/([A-Za-z0-9\])])(\*\*\*?)(?!\*)/g, '$1 $2')
+  // Closing **: alphanumeric or opening paren/bracket immediately after
+  out = out.replace(/(\*\*\*?)([A-Za-z0-9([])/g, '$1 $2')
+  return out
 }
 
 function tiptapDocToMarkdown(doc: TiptapNode): string {

@@ -58,12 +58,11 @@ export async function renderAppendices(
         await yieldToBrowser()
         const dsTable: MdTable = {
           type: 'table',
-          headers: ['Name', 'Site Number', 'Distance', 'AI Summary'],
+          headers: ['Name', 'Site Number', 'Distance'],
           rows: ad.designatedSites.map((s) => [
             s.name,
             `${s.siteNumber} (${s.siteType})`,
             s.distanceKm,
-            s.aiSummary,
           ]),
         }
         y = renderTable(doc, dsTable, y, margin, contentWidth, ensureSpace, newPage, {
@@ -79,8 +78,8 @@ export async function renderAppendices(
         await yieldToBrowser()
         const spTable: MdTable = {
           type: 'table',
-          headers: ['Name', 'AI Summary', 'Protection Status'],
-          rows: ad.speciesRecords.map((s) => [s.name, s.aiSummary, s.protectionStatus]),
+          headers: ['Name', 'Protection Status'],
+          rows: ad.speciesRecords.map((s) => [s.name, s.protectionStatus]),
         }
         y = renderTable(doc, spTable, y, margin, contentWidth, ensureSpace, newPage, {
           font: theme.font,
@@ -166,7 +165,10 @@ export async function renderAppendices(
     } else {
       // Survey datasheets, legislation references, or any future appendix key
       // we haven't built a renderer for yet.
-      writeEmptyNote('Content to be supplied with the final deliverable.')
+      writeEmptyNote(
+        'This appendix is reserved for manual content. Insert the relevant map, ' +
+          'photographs, datasheets or reference material after export.'
+      )
     }
   }
 

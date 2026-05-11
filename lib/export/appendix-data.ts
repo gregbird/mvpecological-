@@ -45,6 +45,8 @@ export interface AppendixData {
   aquaticFeatures: AquaticFeatureRow[]
 }
 
+const EM_DASH = '—'
+
 // ============================================================
 // Helpers
 // ============================================================
@@ -110,11 +112,13 @@ function getProtectionStatusDetail(finding: DeskResearchFinding): string {
   const parts: string[] = []
 
   const designation = metadata.designation || metadata.designations
-  if (designation) parts.push(String(designation))
+  if (designation) parts.push(cleanProtectionString(String(designation)))
 
   if (finding.red_list_status) parts.push(finding.red_list_status)
 
-  if (metadata.isInvasive === true) parts.push('Invasive')
+  if (metadata.isInvasive === true && !parts.some((p) => /invasive/i.test(p))) {
+    parts.push('Invasive')
+  }
 
   if (parts.length > 0) return parts.join(' | ')
 
@@ -129,6 +133,20 @@ function getProtectionStatusDetail(finding: DeskResearchFinding): string {
   }
 }
 
+/**
+ * Convert NBDC-style "||" and ">>" separators into readable punctuation.
+ * Raw: "Protected Species: Wildlife Acts || Threatened Species: BoCCI >> Amber List"
+ * Clean: "Wildlife Acts; BoCCI - Amber List"
+ */
+function cleanProtectionString(raw: string): string {
+  return raw
+    .replace(/\s*>>\s*/g, ' - ')
+    .replace(/\s*\|\|\s*/g, '; ')
+    .replace(/(Protected Species|Threatened Species|Invasive Species):\s*/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 // ============================================================
 // Main extraction function
 // ============================================================
@@ -137,110 +155,147 @@ function getProtectionStatusDetail(finding: DeskResearchFinding): string {
 export function prepareAppendixData(findings: DeskResearchFinding[]): AppendixData {
   const grouped = groupFindingsByType(findings)
 
-  // --- Designated Sites ---
-  const designatedSites: DesignatedSiteRow[] = grouped.designated_site
-    .map((f) => {
-      const rawData = getRawData(f)
-      const metadata = getMetadata(rawData)
+  // --- Designated Sites (dedup by siteCode + siteType — keep closest) ---
+  const designatedSitesMap = new Map<string, DesignatedSiteRow>()
+  for (const f of grouped.designated_site) {
+    const rawData = getRawData(f)
+    const metadata = getMetadata(rawData)
 
-      const siteCode = String(rawData.siteCode ?? rawData.SITECODE ?? metadata.siteCode ?? '')
-      const siteType = String(rawData.SITE_TYPE ?? metadata.siteType ?? '')
+    const siteCode = String(rawData.siteCode ?? rawData.SITECODE ?? metadata.siteCode ?? '')
+    const siteType = String(rawData.SITE_TYPE ?? metadata.siteType ?? '')
+    const dedupKey = `${siteCode}|${siteType}`
 
-      return {
-        name: f.title,
-        siteNumber: siteCode,
-        siteType,
-        distanceKm:
-          f.distance_from_boundary_km != null
-            ? `${f.distance_from_boundary_km.toFixed(1)} km`
-            : '\u2014',
-        aiSummary: getAiSummary(rawData),
-      }
+    const row: DesignatedSiteRow = {
+      name: f.title,
+      siteNumber: siteCode,
+      siteType,
+      distanceKm:
+        f.distance_from_boundary_km != null
+          ? `${f.distance_from_boundary_km.toFixed(1)} km`
+          : EM_DASH,
+      aiSummary: getAiSummary(rawData),
+    }
+
+    const existing = designatedSitesMap.get(dedupKey)
+    if (!existing) {
+      designatedSitesMap.set(dedupKey, row)
+    } else {
+      const existingD = parseFloat(existing.distanceKm) || Infinity
+      const newD = parseFloat(row.distanceKm) || Infinity
+      if (newD < existingD) designatedSitesMap.set(dedupKey, row)
+    }
+  }
+  const designatedSites = Array.from(designatedSitesMap.values()).sort((a, b) => {
+    const da = parseFloat(a.distanceKm) || 999
+    const db = parseFloat(b.distanceKm) || 999
+    return da - db
+  })
+
+  // --- Species Records (dedup by scientific name) ---
+  const speciesMap = new Map<string, SpeciesRecordRow>()
+  for (const f of grouped.species_record) {
+    const rawData = getRawData(f)
+    const metadata = getMetadata(rawData)
+    const nbdcData = rawData.nbdcData as Record<string, unknown> | undefined
+
+    const scientific = String(rawData.scientificName ?? metadata.scientificName ?? f.title)
+    const common = String(nbdcData?.commonName ?? metadata.commonName ?? '')
+    const name = common ? `${scientific} (${common})` : scientific
+
+    if (speciesMap.has(scientific)) continue
+
+    speciesMap.set(scientific, {
+      name,
+      aiSummary: getAiSummary(rawData),
+      protectionStatus: getProtectionStatusDetail(f),
+      sortOrder: getSpeciesSortOrder(f),
     })
-    .sort((a, b) => {
-      const da = parseFloat(a.distanceKm) || 999
-      const db = parseFloat(b.distanceKm) || 999
-      return da - db
-    })
+  }
+  const speciesRecords = Array.from(speciesMap.values()).sort((a, b) => {
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
+    return a.name.localeCompare(b.name)
+  })
 
-  // --- Species Records ---
-  const speciesRecords: SpeciesRecordRow[] = grouped.species_record
-    .map((f) => {
-      const rawData = getRawData(f)
-      const metadata = getMetadata(rawData)
-      const nbdcData = rawData.nbdcData as Record<string, unknown> | undefined
+  // --- Habitat Data (aggregated by FOSSITT code — sum areas + sum percent cover) ---
+  type HabitatAccumulator = {
+    fossittCode: string
+    habitatName: string
+    nlcLabels: Set<string>
+    totalArea: number
+    totalPercent: number
+  }
+  const habitatAccMap = new Map<string, HabitatAccumulator>()
+  for (const f of grouped.habitat) {
+    const rawData = getRawData(f)
+    const fossittCode = String(rawData.fossittCode ?? EM_DASH)
+    const fossittName = String(rawData.fossittName ?? f.title)
+    const nlcLabel = String(rawData.nlcLabel ?? '')
+    const areaHa = Number(rawData.areaHectares ?? 0)
+    const pctRaw = Number(rawData.percentCover ?? 0)
 
-      const scientific = String(rawData.scientificName ?? metadata.scientificName ?? f.title)
-      const common = String(nbdcData?.commonName ?? metadata.commonName ?? '')
-      const name = common ? `${scientific} (${common})` : scientific
-
-      const sortOrder = getSpeciesSortOrder(f)
-
-      return {
-        name,
-        aiSummary: getAiSummary(rawData),
-        protectionStatus: getProtectionStatusDetail(f),
-        sortOrder,
-      }
-    })
-    // Red (1) first, then Orange (2), then Blue (3), then alphabetically
-    .sort((a, b) => {
-      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
-      return a.name.localeCompare(b.name)
-    })
-
-  // --- Habitat Data (from DB findings) ---
-  const habitats: HabitatRow[] = grouped.habitat
-    .map((f) => {
-      const rawData = getRawData(f)
-      const fossittCode = String(rawData.fossittCode ?? '—')
-      const fossittName = String(rawData.fossittName ?? f.title)
-      const nlcLabel = String(rawData.nlcLabel ?? '')
-      const areaHa = Number(rawData.areaHectares ?? 0)
-      const pct = rawData.percentCover ? `${rawData.percentCover}%` : '—'
-
-      return {
-        fossittCode,
-        habitatName: fossittName,
-        nlcLabel,
-        areaHectares: areaHa > 0 ? `${areaHa.toLocaleString()} ha` : '—',
-        percentCover: pct,
-      }
-    })
+    const acc = habitatAccMap.get(fossittCode) ?? {
+      fossittCode,
+      habitatName: fossittName,
+      nlcLabels: new Set<string>(),
+      totalArea: 0,
+      totalPercent: 0,
+    }
+    if (nlcLabel) acc.nlcLabels.add(nlcLabel)
+    if (Number.isFinite(areaHa)) acc.totalArea += areaHa
+    if (Number.isFinite(pctRaw)) acc.totalPercent += pctRaw
+    habitatAccMap.set(fossittCode, acc)
+  }
+  const habitats: HabitatRow[] = Array.from(habitatAccMap.values())
+    .map((a) => ({
+      fossittCode: a.fossittCode,
+      habitatName: a.habitatName,
+      nlcLabel: Array.from(a.nlcLabels).join(', '),
+      areaHectares: a.totalArea > 0 ? `${a.totalArea.toFixed(2)} ha` : EM_DASH,
+      percentCover: a.totalPercent > 0 ? `${a.totalPercent.toFixed(1)}%` : EM_DASH,
+    }))
     .sort((a, b) => a.fossittCode.localeCompare(b.fossittCode))
 
-  // --- Aquatic Features ---
-  const aquaticFeatures: AquaticFeatureRow[] = grouped.aquatic
-    .map((f) => {
-      const rawData = getRawData(f)
-      const metadata = getMetadata(rawData)
+  // --- Aquatic Features (dedup by name — keep closer) ---
+  const aquaticMap = new Map<string, AquaticFeatureRow>()
+  for (const f of grouped.aquatic) {
+    const rawData = getRawData(f)
+    const metadata = getMetadata(rawData)
 
-      const siteType = String(metadata.siteType ?? rawData.waterBodyType ?? '')
-      let waterBodyType = 'River'
-      if (siteType.toLowerCase().includes('lake')) waterBodyType = 'Lake'
-      else if (siteType.toLowerCase().includes('transitional')) waterBodyType = 'Transitional'
-      else if (f.data_type === 'catchment') waterBodyType = 'Catchment'
+    const siteType = String(metadata.siteType ?? rawData.waterBodyType ?? '')
+    let waterBodyType = 'River'
+    if (siteType.toLowerCase().includes('lake')) waterBodyType = 'Lake'
+    else if (siteType.toLowerCase().includes('transitional')) waterBodyType = 'Transitional'
+    else if (f.data_type === 'catchment') waterBodyType = 'Catchment'
 
-      const wfdStatus = String(
-        rawData.WFD_Status ?? rawData.wfdStatus ?? metadata.designation ?? '—'
-      )
+    const wfdStatus = String(
+      rawData.WFD_Status ?? rawData.wfdStatus ?? metadata.designation ?? EM_DASH
+    )
 
-      return {
-        name: f.title,
-        waterBodyType,
-        wfdStatus,
-        distanceKm:
-          f.distance_from_boundary_km != null
-            ? `${f.distance_from_boundary_km.toFixed(1)} km`
-            : '—',
-        aiSummary: getAiSummary(rawData),
-      }
-    })
-    .sort((a, b) => {
-      const da = parseFloat(a.distanceKm) || 999
-      const db = parseFloat(b.distanceKm) || 999
-      return da - db
-    })
+    const row: AquaticFeatureRow = {
+      name: f.title,
+      waterBodyType,
+      wfdStatus,
+      distanceKm:
+        f.distance_from_boundary_km != null
+          ? `${f.distance_from_boundary_km.toFixed(1)} km`
+          : EM_DASH,
+      aiSummary: getAiSummary(rawData),
+    }
+
+    const existing = aquaticMap.get(f.title)
+    if (!existing) {
+      aquaticMap.set(f.title, row)
+    } else {
+      const existingD = parseFloat(existing.distanceKm) || Infinity
+      const newD = parseFloat(row.distanceKm) || Infinity
+      if (newD < existingD) aquaticMap.set(f.title, row)
+    }
+  }
+  const aquaticFeatures = Array.from(aquaticMap.values()).sort((a, b) => {
+    const da = parseFloat(a.distanceKm) || 999
+    const db = parseFloat(b.distanceKm) || 999
+    return da - db
+  })
 
   return { designatedSites, speciesRecords, habitats, aquaticFeatures }
 }

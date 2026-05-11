@@ -34,6 +34,20 @@ yarn-error.log*
 # local docs / screenshots — never commit
 ss-nocommit/
 
+# sample export artifacts (locally downloaded report PDFs/DOCX/HTML)
+*_pea_v*.pdf
+*_pea_v*.docx
+*_pea_v*.html
+*_ecia_v*.pdf
+*_ecia_v*.docx
+*_ecia_v*.html
+*_aa_*_v*.pdf
+*_aa_*_v*.docx
+*_aa_*_v*.html
+*_nia_v*.pdf
+*_nia_v*.docx
+*_nia_v*.html
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
