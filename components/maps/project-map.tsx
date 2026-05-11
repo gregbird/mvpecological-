@@ -33,6 +33,7 @@ import {
 } from '@/components/maps/administrative-layers'
 import { useCountyBoundaries } from '@/hooks/maps/use-county-boundaries'
 import { useTownlandsLoader } from '@/hooks/maps/use-townlands-loader'
+import { useEPALayers } from '@/components/maps/epa-layer-overlay'
 
 interface ProjectMapProps {
   className?: string
@@ -277,6 +278,15 @@ function MapComponent({
         bufferDistances={bufferDistances}
       />
 
+      {/* ── EPA / Aquatic features (rivers, lakes, catchments) ─────────── */}
+      <EpaLayerController
+        useMap={rl.useMap}
+        boundaries={
+          allBoundaries && allBoundaries.length > 0 ? allBoundaries : boundary ? [boundary] : []
+        }
+        visibleLayers={npwsVisibleLayers ?? []}
+      />
+
       {/* ── County boundaries ──────────────────────────────────────────── */}
       {countiesLayer?.visible && countiesData && (
         <CountyLayer countiesData={countiesData} GeoJSON={GeoJSON} />
@@ -394,6 +404,27 @@ function MapComponent({
       )}
     </MapContainer>
   )
+}
+
+/**
+ * Mounts inside the MapContainer so it can resolve the live Leaflet map via
+ * `useMap()` and feed it into `useEPALayers`, which renders rivers, lakes and
+ * catchments directly onto the map. Renders nothing — the hook owns layer
+ * lifecycle. Kept in this file so the Step 5 read-only map gains EPA support
+ * without leaking the map instance back up to the parent component.
+ */
+function EpaLayerController({
+  useMap,
+  boundaries,
+  visibleLayers,
+}: {
+  useMap: () => LeafletMap
+  boundaries: GeoJSON.Feature<GeoJSON.Polygon>[]
+  visibleLayers: string[]
+}) {
+  const map = useMap()
+  useEPALayers(map, boundaries, visibleLayers)
+  return null
 }
 
 const DynamicMapComponent = dynamic(() => Promise.resolve(MapComponent), { ssr: false })

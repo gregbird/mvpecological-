@@ -3,12 +3,12 @@
 import * as React from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Loader2, Sparkles, Brain } from 'lucide-react'
+import { Loader2, Sparkles, Brain, ChevronDown } from 'lucide-react'
 
+import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { useWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
-import { useProjectDeepResearch } from '@/hooks/queries/use-deep-research-hooks'
 import { useSavedFindings } from '@/hooks/queries/use-finding-hooks'
 import { BaselineReportTab } from '@/components/steps/desk-assessment/baseline-report-tab'
 import type { Project } from '@/types/database'
@@ -25,8 +25,8 @@ export function DeskAssessmentAnalysisSection({
   project,
 }: DeskAssessmentAnalysisSectionProps) {
   const { data: deskAssessmentStep } = useWorkflowStep(projectId, 3)
-  const { data: deepResearch = [] } = useProjectDeepResearch(projectId)
   const { data: savedFindings = [], isLoading } = useSavedFindings(projectId, siteId)
+  const [insightsOpen, setInsightsOpen] = React.useState(true)
 
   const deskInsights = React.useMemo(() => {
     const meta = deskAssessmentStep?.metadata as Record<string, unknown> | null
@@ -46,45 +46,39 @@ export function DeskAssessmentAnalysisSection({
 
   return (
     <div className="space-y-6">
-      {/* Deep Research Summary */}
-      {deepResearch.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">
-              Deep Research ({deepResearch.length} sites analysed)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {deepResearch.map((r) => (
-                <Badge key={r.id} variant="secondary">
-                  {r.site_code}
-                </Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* AI Insights (readonly) */}
+      {/* AI Insights (collapsible) */}
       {deskInsights ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-purple-500" />
-              AI-Generated Desk Assessment
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="prose prose-sm dark:prose-invert max-w-none">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{deskInsights}</ReactMarkdown>
-            </div>
-          </CardContent>
-        </Card>
+        <Collapsible open={insightsOpen} onOpenChange={setInsightsOpen}>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer pb-3">
+                <CardTitle className="flex items-center justify-between gap-2 text-base">
+                  <span className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-purple-500" />
+                    AI-Generated Desk Assessment
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      'text-muted-foreground h-4 w-4 transition-transform',
+                      insightsOpen && 'rotate-180'
+                    )}
+                  />
+                </CardTitle>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0">
+                <div className="prose prose-sm dark:prose-invert max-w-none">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{deskInsights}</ReactMarkdown>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
       ) : (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <Brain className="text-muted-foreground mb-4 h-12 w-12" />
+          <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+            <Brain className="text-muted-foreground mb-3 h-10 w-10" />
             <p className="text-muted-foreground text-sm">
               No desk assessment insights available. Generate AI Analysis in Step 3 first.
             </p>

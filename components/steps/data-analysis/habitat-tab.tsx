@@ -131,6 +131,7 @@ export function HabitatTab({
       fullName: h.name,
       area: Math.round(h.area * 100) / 100,
       count: h.count,
+      color: getHeritageColor(h.code),
     }))
   }, [habitatStats])
 
@@ -143,7 +144,20 @@ export function HabitatTab({
     }))
   }, [habitatStats])
 
-  const { projectBoundary, projectCenter } = useProjectBoundary(project)
+  // Donut empty state: if the only category is 'Unknown', habitats haven't been
+  // field-verified yet — show a guidance message instead of a flat grey ring.
+  const allConditionsUnknown = React.useMemo(
+    () =>
+      conditionChartData.length > 0 &&
+      conditionChartData.every((c) => c.name.toLowerCase() === 'unknown'),
+    [conditionChartData]
+  )
+
+  const selectedSite = React.useMemo(
+    () => (siteId ? (projectSites.find((s) => s.id === siteId) ?? null) : null),
+    [projectSites, siteId]
+  )
+  const { projectBoundary, projectCenter } = useProjectBoundary(project, selectedSite)
 
   // Combine field-verified habitats + desk research habitat polygons for map.
   // Property shape mirrors what HabitatPolygonLayer expects (snake_case +
@@ -348,7 +362,7 @@ export function HabitatTab({
       )}
 
       {/* Field-Verified Habitat Charts */}
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid items-start gap-4 lg:grid-cols-2">
         {/* Bar Chart */}
         <Card>
           <CardHeader>
@@ -385,7 +399,11 @@ export function HabitatTab({
                       return null
                     }}
                   />
-                  <Bar dataKey="area" fill="#22c55e" />
+                  <Bar dataKey="area">
+                    {habitatChartData.map((entry, idx) => (
+                      <Cell key={`bar-cell-${idx}`} fill={entry.color} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -402,7 +420,7 @@ export function HabitatTab({
             <CardTitle className="text-base">Habitat Condition Distribution</CardTitle>
           </CardHeader>
           <CardContent>
-            {conditionChartData.length > 0 ? (
+            {conditionChartData.length > 0 && !allConditionsUnknown ? (
               <ResponsiveContainer width="100%" height={300}>
                 <RechartsPieChart>
                   <Pie
@@ -423,8 +441,18 @@ export function HabitatTab({
                 </RechartsPieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="text-muted-foreground flex h-[300px] items-center justify-center text-sm">
-                No condition data available
+              <div className="text-muted-foreground flex flex-col items-center justify-center gap-1 px-6 py-8 text-center text-sm">
+                <p className="font-medium">
+                  {allConditionsUnknown
+                    ? 'Condition not yet field-verified'
+                    : 'No condition data available'}
+                </p>
+                {allConditionsUnknown && (
+                  <p className="text-xs leading-snug">
+                    Open the habitat details below and use the verify button to record condition
+                    assessments.
+                  </p>
+                )}
               </div>
             )}
           </CardContent>
@@ -466,7 +494,7 @@ export function HabitatTab({
                     <TableHead>Notes</TableHead>
                     <TableHead className="w-20 text-center">Include</TableHead>
                     <TableHead className="w-44">Placement</TableHead>
-                    <TableHead className="w-12" />
+                    <TableHead className="w-20" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -474,6 +502,11 @@ export function HabitatTab({
                     habitats.map((h) => {
                       const placement = getPlacement('habitats', h.id)
                       const placementValue = placement === 'exclude' ? 'both' : placement
+                      // Condition is the strongest signal of field verification —
+                      // most habitats legitimately have no EU Annex code or
+                      // threats listed, so anchoring on condition alone avoids
+                      // false-positive Verify prompts on confirmed records.
+                      const isUnverified = !h.condition
                       return (
                         <TableRow key={h.id} className={cn(!h.include_in_report && 'opacity-50')}>
                           <TableCell className="font-mono">{h.fossitt_code}</TableCell>
@@ -533,14 +566,25 @@ export function HabitatTab({
                             </Select>
                           </TableCell>
                           <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => setEditingHabitat(h)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
+                            {isUnverified ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 border-amber-400 px-2 text-xs text-amber-700 hover:bg-amber-50 dark:border-amber-500/50 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                                onClick={() => setEditingHabitat(h)}
+                              >
+                                Verify
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => setEditingHabitat(h)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       )

@@ -167,49 +167,49 @@ export function DataAnalysisStep({
         </Alert>
       )}
 
-      {/* Summary Stats */}
-      <div className="grid shrink-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Surveys Completed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{surveyStats?.completed || 0}</div>
-            <p className="text-muted-foreground text-xs">of {surveyStats?.total || 0} total</p>
-          </CardContent>
+      {/* Summary Stats — compact */}
+      <div className="grid shrink-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="px-4 py-3">
+          <p className="text-muted-foreground text-xs font-medium">Surveys Completed</p>
+          <div className="mt-1 flex items-baseline gap-1.5">
+            <span className="text-2xl leading-none font-bold tabular-nums">
+              {surveyStats?.completed || 0}
+            </span>
+            <span className="text-muted-foreground/70 text-xs">of {surveyStats?.total || 0}</span>
+          </div>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Habitats Mapped</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{habitatStats?.total || 0}</div>
-            <p className="text-muted-foreground text-xs">
-              {(habitatStats?.totalArea || 0).toFixed(2)} ha total
-            </p>
-          </CardContent>
+        <Card className="px-4 py-3">
+          <p className="text-muted-foreground text-xs font-medium">Habitats Mapped</p>
+          <div className="mt-1 flex items-baseline gap-1.5">
+            <span className="text-2xl leading-none font-bold tabular-nums">
+              {habitatStats?.total || 0}
+            </span>
+            <span className="text-muted-foreground/70 text-xs">
+              {(habitatStats?.totalArea || 0).toFixed(1)} ha
+            </span>
+          </div>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Species Observed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{observationStats?.total || 0}</div>
-            <p className="text-muted-foreground text-xs">
+        <Card className="px-4 py-3">
+          <p className="text-muted-foreground text-xs font-medium">Species Observed</p>
+          <div className="mt-1 flex items-baseline gap-1.5">
+            <span className="text-2xl leading-none font-bold tabular-nums">
+              {observationStats?.total || 0}
+            </span>
+            <span className="text-muted-foreground/70 text-xs">
               {observationStats?.protected || 0} protected
-            </p>
-          </CardContent>
+            </span>
+          </div>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Desk Findings</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{findingsStats?.total || 0}</div>
-            <p className="text-muted-foreground text-xs">
-              from {findingsStats?.bySource.length || 0} sources
-            </p>
-          </CardContent>
+        <Card className="px-4 py-3">
+          <p className="text-muted-foreground text-xs font-medium">Desk Findings</p>
+          <div className="mt-1 flex items-baseline gap-1.5">
+            <span className="text-2xl leading-none font-bold tabular-nums">
+              {findingsStats?.total || 0}
+            </span>
+            <span className="text-muted-foreground/70 text-xs">
+              {findingsStats?.bySource.length || 0} sources
+            </span>
+          </div>
         </Card>
       </div>
 

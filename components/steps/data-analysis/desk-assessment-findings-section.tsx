@@ -123,43 +123,36 @@ export function DeskAssessmentFindingsSection({
 
   return (
     <div className="space-y-4">
-      {/* Source Stats — clickable filter chips */}
-      <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {sourceStats.map((s) => {
-          const config = SOURCE_CONFIG[s.source] || SOURCE_CONFIG.manual
-          const Icon = config.icon
-          const isActive = sourceFilter === s.source
-          return (
-            <button
-              key={s.source}
-              type="button"
-              onClick={() => setSourceFilter(isActive ? null : s.source)}
-              aria-pressed={isActive}
-              className="text-left"
-            >
-              <Card
+      {/* Source Stats — compact filter chips */}
+      {sourceStats.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {sourceStats.map((s) => {
+            const config = SOURCE_CONFIG[s.source] || SOURCE_CONFIG.manual
+            const Icon = config.icon
+            const isActive = sourceFilter === s.source
+            return (
+              <button
+                key={s.source}
+                type="button"
+                onClick={() => setSourceFilter(isActive ? null : s.source)}
+                aria-pressed={isActive}
                 className={cn(
-                  'hover:border-primary transition-colors',
+                  'bg-card hover:border-primary inline-flex items-center gap-2 rounded-md border px-3 py-1.5 transition-colors',
                   isActive && 'border-primary bg-primary/5 ring-primary ring-1'
                 )}
               >
-                <CardContent className="flex items-center gap-3 p-4">
-                  <Icon className={`h-5 w-5 shrink-0 ${config.color}`} />
-                  <div>
-                    <div className="text-xl font-bold">{s.count}</div>
-                    <div className="text-muted-foreground text-xs">{config.label}</div>
-                  </div>
-                </CardContent>
-              </Card>
-            </button>
-          )
-        })}
-        {sourceStats.length === 0 && (
-          <div className="text-muted-foreground col-span-full py-8 text-center text-sm">
-            No findings saved yet. Complete Step 2 (Data Gathering) first.
-          </div>
-        )}
-      </div>
+                <Icon className={`h-3.5 w-3.5 shrink-0 ${config.color}`} />
+                <span className="text-sm font-bold tabular-nums">{s.count}</span>
+                <span className="text-muted-foreground text-xs">{config.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="text-muted-foreground py-6 text-center text-sm">
+          No findings saved yet. Complete Step 2 (Data Gathering) first.
+        </div>
+      )}
 
       {/* Active filter indicator */}
       {sourceFilter && (

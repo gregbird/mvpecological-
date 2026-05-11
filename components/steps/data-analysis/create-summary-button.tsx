@@ -3,10 +3,12 @@
 import * as React from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Loader2, Sparkles, RefreshCw } from 'lucide-react'
+import { Loader2, Sparkles, RefreshCw, ChevronDown } from 'lucide-react'
 
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { useToast } from '@/hooks/use-toast'
 import { useWorkflowStep, useUpdateWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 
@@ -42,6 +44,7 @@ export function CreateSummaryButton({
   const { data: workflowStep } = useWorkflowStep(projectId, stepNumber)
   const updateStep = useUpdateWorkflowStep()
   const [isGenerating, setIsGenerating] = React.useState(false)
+  const [summaryOpen, setSummaryOpen] = React.useState(true)
 
   const metadataKey = getMetadataKey(tabContext, siteId)
 
@@ -71,7 +74,11 @@ export function CreateSummaryButton({
 
       // Save to workflow step metadata
       if (workflowStep) {
-        const existingMeta = (workflowStep.metadata as Record<string, unknown>) || {}
+        const rawMeta = workflowStep.metadata as unknown
+        const existingMeta =
+          typeof rawMeta === 'object' && rawMeta !== null && !Array.isArray(rawMeta)
+            ? (rawMeta as Record<string, unknown>)
+            : {}
         await updateStep.mutateAsync({
           stepId: workflowStep.id,
           updates: {
@@ -96,40 +103,67 @@ export function CreateSummaryButton({
     }
   }
 
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={handleGenerate} disabled={isGenerating}>
-          {isGenerating ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : existingSummary ? (
-            <RefreshCw className="mr-2 h-4 w-4" />
-          ) : (
-            <Sparkles className="mr-2 h-4 w-4" />
-          )}
-          {isGenerating
-            ? 'Generating...'
-            : existingSummary
-              ? 'Regenerate Summary'
-              : 'Create a Summary'}
-        </Button>
-      </div>
+  // No summary yet — render a bare button (no card)
+  if (!existingSummary) {
+    return (
+      <Button variant="outline" size="sm" onClick={handleGenerate} disabled={isGenerating}>
+        {isGenerating ? (
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        ) : (
+          <Sparkles className="mr-2 h-4 w-4" />
+        )}
+        {isGenerating ? 'Generating...' : 'Create a Summary'}
+      </Button>
+    )
+  }
 
-      {existingSummary && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm">
-              <Sparkles className="h-4 w-4 text-purple-500" />
-              AI Summary
-            </CardTitle>
-          </CardHeader>
+  // Summary exists — render single combined collapsible card with regenerate in the header
+  return (
+    <Collapsible open={summaryOpen} onOpenChange={setSummaryOpen}>
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between gap-2">
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="hover:text-foreground/80 flex flex-1 items-center justify-between gap-2 text-left"
+              >
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <Sparkles className="h-4 w-4 text-purple-500" />
+                  AI Summary
+                </CardTitle>
+                <ChevronDown
+                  className={cn(
+                    'text-muted-foreground h-4 w-4 transition-transform',
+                    summaryOpen && 'rotate-180'
+                  )}
+                />
+              </button>
+            </CollapsibleTrigger>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleGenerate}
+              disabled={isGenerating}
+              className="shrink-0"
+            >
+              {isGenerating ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              <span className="text-xs">{isGenerating ? 'Generating...' : 'Regenerate'}</span>
+            </Button>
+          </div>
+        </CardHeader>
+        <CollapsibleContent>
           <CardContent>
             <div className="prose prose-sm dark:prose-invert max-w-none">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{existingSummary}</ReactMarkdown>
             </div>
           </CardContent>
-        </Card>
-      )}
-    </div>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   )
 }

@@ -35,6 +35,7 @@ import { useHabitats } from '@/hooks/queries/use-habitat-hooks'
 import { useTargetNotes } from '@/hooks/queries/use-target-note-hooks'
 import { useProjectObservations } from '@/hooks/queries/use-observation-hooks'
 import { useProjectSites } from '@/hooks/queries/use-site-hooks'
+import { useUpdateProject } from '@/hooks/queries/use-project-hooks'
 import { useMapScreenshot } from '@/hooks/use-map-screenshot'
 import { saveScreenshot } from '@/lib/map-screenshots/storage'
 import { STEP_LABELS } from '@/lib/map-screenshots/types'
@@ -108,6 +109,13 @@ const PAGE_SIZE_CONFIG: Record<
   },
 }
 
+// Rebrand DATASET_GROUPS labels for the Data Analysis tab — EPA reads as
+// 'Aquatic Features' here because users think of it as the water/river layer
+// rather than the agency that hosts it.
+const GROUP_LABEL_OVERRIDES: Record<string, string> = {
+  epa: 'Aquatic Features',
+}
+
 const FINDING_TYPE_LEGEND: Record<string, { label: string; color: string }> = {
   designated_site: { label: 'Designated Sites', color: '#22c55e' },
   species_record: { label: 'Species Records', color: '#3b82f6' },
@@ -126,6 +134,81 @@ export function MapsTab({ projectId, siteId, userId, project }: MapsTabProps) {
   const { data: targetNotes = [] } = useTargetNotes(projectId, siteId)
   const { data: observations = [] } = useProjectObservations(projectId, siteId)
   const { data: projectSites = [] } = useProjectSites(projectId)
+  const updateProject = useUpdateProject()
+
+  // Local source-of-truth for dataset toggles, seeded from `project.visible_layers`.
+  // Holding the Set in state (instead of recomputing from props on every render)
+  // prevents stale-closure lost updates when the user clicks two Switches before
+  // the first mutation round-trips. We use the functional updater inside toggles
+  // so each click reads the latest state, then persist that snapshot.
+  const [visibleLayerIds, setVisibleLayerIdsState] = React.useState<Set<string>>(
+    () =>
+      new Set(
+        Array.isArray(project.visible_layers)
+          ? project.visible_layers.filter((v): v is string => typeof v === 'string')
+          : []
+      )
+  )
+
+  // Re-sync if the server-side project changes (e.g. Step 1 modified the layers
+  // in another tab). String key comparison avoids loops from referential changes.
+  const serverLayerKey = React.useMemo(
+    () =>
+      Array.isArray(project.visible_layers)
+        ? project.visible_layers
+            .filter((v): v is string => typeof v === 'string')
+            .sort()
+            .join(',')
+        : '',
+    [project.visible_layers]
+  )
+  React.useEffect(() => {
+    setVisibleLayerIdsState((prev) => {
+      const localKey = Array.from(prev).sort().join(',')
+      if (localKey === serverLayerKey) return prev
+      return new Set(serverLayerKey ? serverLayerKey.split(',') : [])
+    })
+  }, [serverLayerKey])
+
+  const persistLayerIds = React.useCallback(
+    (next: Set<string>) => {
+      updateProject.mutate({
+        projectId: project.id,
+        updates: { visible_layers: Array.from(next) },
+      })
+    },
+    [project.id, updateProject]
+  )
+
+  const toggleDatasetLayer = React.useCallback(
+    (layerId: string) => {
+      setVisibleLayerIdsState((prev) => {
+        const next = new Set(prev)
+        if (next.has(layerId)) next.delete(layerId)
+        else next.add(layerId)
+        persistLayerIds(next)
+        return next
+      })
+    },
+    [persistLayerIds]
+  )
+
+  const toggleDatasetGroup = React.useCallback(
+    (groupLayerIds: string[]) => {
+      setVisibleLayerIdsState((prev) => {
+        const next = new Set(prev)
+        const allOn = groupLayerIds.every((id) => next.has(id))
+        if (allOn) {
+          groupLayerIds.forEach((id) => next.delete(id))
+        } else {
+          groupLayerIds.forEach((id) => next.add(id))
+        }
+        persistLayerIds(next)
+        return next
+      })
+    },
+    [persistLayerIds]
+  )
 
   // Layer visibility state
   const [visibleOverlays, setVisibleOverlays] = React.useState<Set<string>>(
@@ -159,8 +242,16 @@ export function MapsTab({ projectId, siteId, userId, project }: MapsTabProps) {
   // Shapefile export state
   const [isExportingShapefile, setIsExportingShapefile] = React.useState(false)
 
-  // Project data
-  const { projectBoundary, projectCenter } = useProjectBoundary(project)
+  // Project data — when a site is selected, scope the map's centre and
+  // boundary to that site so the user lands on the right area immediately.
+  const selectedSite = React.useMemo(
+    () => (siteId ? (projectSites.find((s) => s.id === siteId) ?? null) : null),
+    [projectSites, siteId]
+  )
+  const { projectBoundary, projectCenter, allBoundaries, otherBoundaries } = useProjectBoundary(
+    project,
+    selectedSite
+  )
 
   // Convert findings to map format
   const mapFindings = React.useMemo(() => {
@@ -544,10 +635,16 @@ export function MapsTab({ projectId, siteId, userId, project }: MapsTabProps) {
               </CollapsibleContent>
             </Collapsible>
 
-            {/* NPWS / EPA layer groups from dataset config */}
+            {/* NPWS / Aquatic dataset groups — parent toggle aggregates all
+                children; each child can be toggled independently. Persisted on
+                project.visible_layers so the same state drives Step 1. */}
             {DATASET_GROUPS.slice(0, 2).map((group) => {
               const colors = getGroupColorClasses(group.id)
               const isExpanded = expandedGroups.includes(group.id)
+              const groupLayerIds = group.layers.map((l) => l.id)
+              const groupCheckedCount = groupLayerIds.filter((id) => visibleLayerIds.has(id)).length
+              const groupAllOn = groupCheckedCount === groupLayerIds.length
+              const label = GROUP_LABEL_OVERRIDES[group.id] ?? group.label
               return (
                 <Collapsible
                   key={group.id}
@@ -560,31 +657,49 @@ export function MapsTab({ projectId, siteId, userId, project }: MapsTabProps) {
                     )
                   }
                 >
-                  <CollapsibleTrigger className="flex w-full items-center gap-2 py-1 text-sm font-medium">
-                    {isExpanded ? (
-                      <ChevronDown className="h-3.5 w-3.5" />
-                    ) : (
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    )}
-                    <span className={cn(colors.text)}>{group.label}</span>
-                  </CollapsibleTrigger>
+                  <div className="flex items-center justify-between gap-2 py-1">
+                    <CollapsibleTrigger className="flex flex-1 items-center gap-2 text-sm font-medium">
+                      {isExpanded ? (
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      ) : (
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      )}
+                      <span className={cn(colors.text)}>{label}</span>
+                      {groupCheckedCount > 0 && (
+                        <span className="text-muted-foreground text-[10px] font-normal">
+                          {groupCheckedCount}/{groupLayerIds.length}
+                        </span>
+                      )}
+                    </CollapsibleTrigger>
+                    <Switch
+                      checked={groupAllOn}
+                      onCheckedChange={() => toggleDatasetGroup(groupLayerIds)}
+                      className="scale-75"
+                      aria-label={`Toggle all ${label} layers`}
+                    />
+                  </div>
                   <CollapsibleContent className="mt-1 space-y-2 pl-5">
                     {group.layers.map((layer) => (
                       <div
                         key={layer.id}
-                        className="flex items-center gap-2"
+                        className="flex items-center justify-between gap-2"
                         title={layer.description}
                       >
-                        <div
-                          className="h-3 w-3 shrink-0 rounded-sm"
-                          style={{ backgroundColor: layer.color }}
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="h-3 w-3 shrink-0 rounded-sm"
+                            style={{ backgroundColor: layer.color }}
+                          />
+                          <span className="text-xs">{layer.label}</span>
+                        </div>
+                        <Switch
+                          checked={visibleLayerIds.has(layer.id)}
+                          onCheckedChange={() => toggleDatasetLayer(layer.id)}
+                          className="scale-75"
+                          aria-label={`Toggle ${layer.label}`}
                         />
-                        <span className="text-xs">{layer.label}</span>
                       </div>
                     ))}
-                    <p className="text-muted-foreground text-[10px]">
-                      Toggle in GIS Mapping step (Step 1)
-                    </p>
                   </CollapsibleContent>
                 </Collapsible>
               )
@@ -774,24 +889,26 @@ export function MapsTab({ projectId, siteId, userId, project }: MapsTabProps) {
                 center={projectCenter ? [projectCenter.lat, projectCenter.lng] : IRELAND_CENTER}
                 zoom={projectCenter ? 12 : 7}
                 boundary={visibleOverlays.has('boundary') ? projectBoundary : undefined}
+                allBoundaries={visibleOverlays.has('boundary') ? allBoundaries : undefined}
+                otherBoundaries={visibleOverlays.has('boundary') ? otherBoundaries : undefined}
                 bufferDistances={project.buffer_distances ?? undefined}
                 habitatPolygons={habitatGeoJson}
                 observationPoints={observationPoints}
                 targetNotes={targetNoteMarkers}
                 findings={mapFindings}
                 showControls={true}
-                npwsVisibleLayers={
-                  Array.isArray(project.visible_layers)
-                    ? project.visible_layers.filter((v): v is string => typeof v === 'string')
-                    : undefined
-                }
+                npwsVisibleLayers={Array.from(visibleLayerIds)}
               />
 
               {/* Floating legend overlay — rendered inside mapContainerRef so
-                  html-to-image captures it in exported screenshots. The sidebar
-                  legend is interactive (users toggle items); this overlay is
-                  display-only and shows whatever is currently selected. */}
-              <MapLegendOverlay entries={displayedLegendEntries} />
+                  html-to-image captures it in exported screenshots. Default
+                  collapsed + bottom-left so it doesn't cover map controls or
+                  habitat labels in the top-right region. */}
+              <MapLegendOverlay
+                entries={displayedLegendEntries}
+                position="bottom-left"
+                defaultCollapsed
+              />
             </div>
           </CardContent>
         </Card>
@@ -825,6 +942,7 @@ export function MapsTab({ projectId, siteId, userId, project }: MapsTabProps) {
 
           {pendingDataUrl && (
             <div className="overflow-hidden rounded-lg border">
+              {/* eslint-disable-next-line @next/next/no-img-element -- data URL screenshot preview, next/image gives no optimization benefit */}
               <img src={pendingDataUrl} alt="Map preview" className="w-full" />
             </div>
           )}

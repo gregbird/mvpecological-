@@ -88,7 +88,7 @@ export async function searchOccurrences(params: GBIFSearchParams): Promise<GBIFS
   // Ireland country code
   queryParams.set('country', params.country || 'IE')
 
-  // Only records with coordinates
+  // Only records with coordinates elemetnerl demek ki olana daemek istediğim
   queryParams.set('hasCoordinate', String(params.hasCoordinate ?? true))
   queryParams.set('hasGeospatialIssue', String(params.hasGeospatialIssue ?? false))
 
