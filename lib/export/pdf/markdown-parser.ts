@@ -197,8 +197,11 @@ export function parseInlineWithScientific(text: string): TextSegment[] {
 export function segmentsToWords(segments: TextSegment[]): StyledWord[] {
   const words: StyledWord[] = []
 
-  for (const seg of segments) {
+  for (let segIdx = 0; segIdx < segments.length; segIdx++) {
+    const seg = segments[segIdx]
     const parts = seg.text.split(/(\s+)/)
+    const segStartWordIdx = words.length
+
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i]
       if (!part) continue
@@ -213,6 +216,27 @@ export function segmentsToWords(segments: TextSegment[]): StyledWord[] {
         italic: seg.italic,
         trailingSpace: hasTrailingSpace,
       })
+    }
+
+    // Word-boundary repair across segment transitions. The AI commonly emits
+    // `**bold**word` (no space between the closing tag and the next word).
+    // parseInline produces two adjacent segments; segmentsToWords would then
+    // glue them together ("(002296)comprises"). If the previous segment's
+    // last word lacks a trailing space AND this segment's first word begins
+    // with a word char, inject a space at the boundary. Skip when either
+    // side is punctuation — `(bold)`, `,` etc. should still abut naturally.
+    if (segIdx > 0 && segStartWordIdx > 0 && segStartWordIdx < words.length) {
+      const prev = words[segStartWordIdx - 1]
+      const next = words[segStartWordIdx]
+      if (!prev.trailingSpace) {
+        const prevEnd = prev.text.slice(-1)
+        const nextStart = next.text.charAt(0)
+        const prevEndsWord = /[\p{L}\p{N})]/u.test(prevEnd)
+        const nextStartsWord = /[\p{L}\p{N}]/u.test(nextStart)
+        if (prevEndsWord && nextStartsWord) {
+          prev.trailingSpace = true
+        }
+      }
     }
   }
 

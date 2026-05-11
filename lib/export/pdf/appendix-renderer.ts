@@ -46,76 +46,127 @@ export async function renderAppendices(
     doc.setTextColor(0, 0, 0)
     y += 10
 
-    if (key === 'designated_sites' && ad && ad.designatedSites.length > 0) {
-      await yieldToBrowser()
-      const dsTable: MdTable = {
-        type: 'table',
-        headers: ['Name', 'Site Number', 'Distance', 'AI Summary'],
-        rows: ad.designatedSites.map((s) => [
-          s.name,
-          `${s.siteNumber} (${s.siteType})`,
-          s.distanceKm,
-          s.aiSummary,
-        ]),
+    // Helper for the "this appendix has nothing to show" case. Renders a
+    // short italic note instead of leaving the page entirely blank.
+    const writeEmptyNote = (msg: string) => {
+      y = writePlainText(msg, margin, y, { fontSize: 10, italic: true })
+      y += 4
+    }
+
+    if (key === 'designated_sites') {
+      if (ad && ad.designatedSites.length > 0) {
+        await yieldToBrowser()
+        const dsTable: MdTable = {
+          type: 'table',
+          headers: ['Name', 'Site Number', 'Distance', 'AI Summary'],
+          rows: ad.designatedSites.map((s) => [
+            s.name,
+            `${s.siteNumber} (${s.siteType})`,
+            s.distanceKm,
+            s.aiSummary,
+          ]),
+        }
+        y = renderTable(doc, dsTable, y, margin, contentWidth, ensureSpace, newPage, {
+          font: theme.font,
+          primary: GREEN,
+        })
+        y += 4
+      } else {
+        writeEmptyNote('No designated sites recorded for this project.')
       }
-      y = renderTable(doc, dsTable, y, margin, contentWidth, ensureSpace, newPage, {
-        font: theme.font,
-        primary: GREEN,
-      })
-      y += 4
-    } else if (key === 'species_list' && ad && ad.speciesRecords.length > 0) {
-      await yieldToBrowser()
-      const spTable: MdTable = {
-        type: 'table',
-        headers: ['Name', 'AI Summary', 'Protection Status'],
-        rows: ad.speciesRecords.map((s) => [s.name, s.aiSummary, s.protectionStatus]),
+    } else if (key === 'species_list') {
+      if (ad && ad.speciesRecords.length > 0) {
+        await yieldToBrowser()
+        const spTable: MdTable = {
+          type: 'table',
+          headers: ['Name', 'AI Summary', 'Protection Status'],
+          rows: ad.speciesRecords.map((s) => [s.name, s.aiSummary, s.protectionStatus]),
+        }
+        y = renderTable(doc, spTable, y, margin, contentWidth, ensureSpace, newPage, {
+          font: theme.font,
+          primary: GREEN,
+        })
+        y += 4
+      } else {
+        writeEmptyNote(
+          'No species records were returned from the desk study or field surveys. ' +
+            'Targeted Phase 2 surveys are recommended (see Methodology section).'
+        )
       }
-      y = renderTable(doc, spTable, y, margin, contentWidth, ensureSpace, newPage, {
-        font: theme.font,
-        primary: GREEN,
-      })
-      y += 4
-    } else if (key === 'habitat_data' && ad && ad.habitats.length > 0) {
-      await yieldToBrowser()
-      const hTable: MdTable = {
-        type: 'table',
-        headers: ['Fossitt Code', 'Habitat Category', 'Area (ha)', '% Cover'],
-        rows: ad.habitats.map((h) => [
-          h.fossittCode,
-          h.habitatName,
-          h.areaHectares,
-          h.percentCover,
-        ]),
+    } else if (key === 'habitat_data') {
+      if (ad && ad.habitats.length > 0) {
+        await yieldToBrowser()
+        const hTable: MdTable = {
+          type: 'table',
+          headers: ['Fossitt Code', 'Habitat Category', 'Area (ha)', '% Cover'],
+          rows: ad.habitats.map((h) => [
+            h.fossittCode,
+            h.habitatName,
+            h.areaHectares,
+            h.percentCover,
+          ]),
+        }
+        y = renderTable(doc, hTable, y, margin, contentWidth, ensureSpace, newPage, {
+          font: theme.font,
+          primary: GREEN,
+        })
+        y += 4
+      } else {
+        writeEmptyNote('No habitat polygons recorded for this project.')
       }
-      y = renderTable(doc, hTable, y, margin, contentWidth, ensureSpace, newPage, {
-        font: theme.font,
-        primary: GREEN,
-      })
-      y += 4
-    } else if (key === 'aquatic_data' && ad && ad.aquaticFeatures.length > 0) {
-      await yieldToBrowser()
-      const aqTable: MdTable = {
-        type: 'table',
-        headers: ['Name', 'Type', 'WFD Status', 'Distance'],
-        rows: ad.aquaticFeatures.map((a) => [a.name, a.waterBodyType, a.wfdStatus, a.distanceKm]),
+    } else if (key === 'aquatic_data') {
+      if (ad && ad.aquaticFeatures.length > 0) {
+        await yieldToBrowser()
+        const aqTable: MdTable = {
+          type: 'table',
+          headers: ['Name', 'Type', 'WFD Status', 'Distance'],
+          rows: ad.aquaticFeatures.map((a) => [a.name, a.waterBodyType, a.wfdStatus, a.distanceKm]),
+        }
+        y = renderTable(doc, aqTable, y, margin, contentWidth, ensureSpace, newPage, {
+          font: theme.font,
+          primary: GREEN,
+        })
+        y += 4
+      } else {
+        writeEmptyNote('No aquatic features recorded within the study buffer.')
       }
-      y = renderTable(doc, aqTable, y, margin, contentWidth, ensureSpace, newPage, {
-        font: theme.font,
-        primary: GREEN,
-      })
-      y += 4
-    } else if (
-      (key !== 'designated_sites' &&
-        key !== 'species_list' &&
-        key !== 'habitat_data' &&
-        key !== 'aquatic_data') ||
-      !ad
-    ) {
-      y = writePlainText('[Content to be inserted]', margin, y, {
-        fontSize: 10,
-        italic: true,
-      })
-      y += 4
+    } else if (key === 'habitat_map') {
+      // No vector map embedding yet — fall back to the habitat data table
+      // (same shape as habitat_data appendix) when habitats are available,
+      // otherwise an explicit placeholder note.
+      if (ad && ad.habitats.length > 0) {
+        await yieldToBrowser()
+        writeEmptyNote(
+          'Habitat polygons (Fossitt classification) are tabulated below. ' +
+            'A georeferenced habitat map is supplied separately as a GIS deliverable.'
+        )
+        const hTable: MdTable = {
+          type: 'table',
+          headers: ['Fossitt Code', 'Habitat Category', 'Area (ha)', '% Cover'],
+          rows: ad.habitats.map((h) => [
+            h.fossittCode,
+            h.habitatName,
+            h.areaHectares,
+            h.percentCover,
+          ]),
+        }
+        y = renderTable(doc, hTable, y, margin, contentWidth, ensureSpace, newPage, {
+          font: theme.font,
+          primary: GREEN,
+        })
+        y += 4
+      } else {
+        writeEmptyNote('Habitat map figure to be supplied as a separate deliverable.')
+      }
+    } else if (key === 'photographs') {
+      writeEmptyNote(
+        'Site photographs are supplied as a separate deliverable. ' +
+          'Photo captions, GPS coordinates, and timestamps are recorded in the field datasheets.'
+      )
+    } else {
+      // Survey datasheets, legislation references, or any future appendix key
+      // we haven't built a renderer for yet.
+      writeEmptyNote('Content to be supplied with the final deliverable.')
     }
   }
 

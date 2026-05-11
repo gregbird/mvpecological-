@@ -31,6 +31,9 @@ yarn-error.log*
 # claude
 .claude/
 
+# local docs / screenshots — never commit
+ss-nocommit/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

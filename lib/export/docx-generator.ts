@@ -202,8 +202,50 @@ const TABLE_STRIPE = 'F5F7F5'
 // content width is ~8666 dxa. Round down to 9000-ish leaves a little safety.
 const CONTENT_WIDTH_DXA = 8640
 
+/**
+ * Markdown bold/italic markers in plain table cells get rendered raw in
+ * docx because we don't currently parse them into TextRuns inside cells.
+ * Strip the markers so cells show clean text instead of literal asterix.
+ */
+function stripMarkdown(text: string): string {
+  if (!text) return ''
+  return text
+    .replace(/\*\*\*(.+?)\*\*\*/g, '$1')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/`(.+?)`/g, '$1')
+    .replace(/_{2,}(.+?)_{2,}/g, '$1')
+}
+
+/**
+ * Run-boundary repair. The AI commonly emits markdown like `**bold**word`
+ * where the closing tag butts directly against the next word. parseInline
+ * splits this into two adjacent runs ("bold" + "word") and Word does NOT
+ * add a space between TextRuns — the runs render as "boldword". Walk the
+ * runs and inject a trailing space on the previous run whenever the
+ * boundary is letter-to-letter or close-paren-to-letter.
+ */
+function repairRunBoundaries(runs: RunSpec[]): RunSpec[] {
+  if (runs.length <= 1) return runs
+  const out = runs.map((r) => ({ ...r }))
+  for (let i = 1; i < out.length; i++) {
+    const prev = out[i - 1]
+    const next = out[i]
+    if (!prev.text || !next.text) continue
+    const prevEnd = prev.text.slice(-1)
+    const nextStart = next.text.charAt(0)
+    if (/\s/.test(prevEnd) || /\s/.test(nextStart)) continue
+    const prevEndsWord = /[\p{L}\p{N})]/u.test(prevEnd)
+    const nextStartsWord = /[\p{L}\p{N}]/u.test(nextStart)
+    if (prevEndsWord && nextStartsWord) {
+      prev.text = prev.text + ' '
+    }
+  }
+  return out
+}
+
 function runsToTextRuns(runs: RunSpec[], overrideColor?: string): TextRun[] {
-  return runs.map(
+  return repairRunBoundaries(runs).map(
     (r) =>
       new TextRun({
         text: r.text,
@@ -270,7 +312,7 @@ async function blockToParagraphs(
               shading: { type: ShadingType.SOLID, color: DARK_GREEN, fill: DARK_GREEN },
               children: [
                 new Paragraph({
-                  children: [new TextRun({ text: h, bold: true, color: 'FFFFFF' })],
+                  children: [new TextRun({ text: stripMarkdown(h), bold: true, color: 'FFFFFF' })],
                 }),
               ],
               width: { size: colWidthDxa, type: WidthType.DXA },
@@ -288,7 +330,9 @@ async function blockToParagraphs(
                     rowIdx % 2 === 0
                       ? { type: ShadingType.SOLID, color: TABLE_STRIPE, fill: TABLE_STRIPE }
                       : undefined,
-                  children: [new Paragraph({ children: [new TextRun({ text: cell })] })],
+                  children: [
+                    new Paragraph({ children: [new TextRun({ text: stripMarkdown(cell) })] }),
+                  ],
                   width: { size: colWidthDxa, type: WidthType.DXA },
                 })
             ),
@@ -384,7 +428,9 @@ function buildDocxAppendixTable(headers: string[], rows: string[][]): Table {
           shading: { type: ShadingType.SOLID, color: DARK_GREEN, fill: DARK_GREEN },
           children: [
             new Paragraph({
-              children: [new TextRun({ text: h, bold: true, color: 'FFFFFF', size: 18 })],
+              children: [
+                new TextRun({ text: stripMarkdown(h), bold: true, color: 'FFFFFF', size: 18 }),
+              ],
             }),
           ],
           width: { size: colWidthDxa, type: WidthType.DXA },
@@ -402,7 +448,11 @@ function buildDocxAppendixTable(headers: string[], rows: string[][]): Table {
                 rowIdx % 2 === 0
                   ? { type: ShadingType.SOLID, color: TABLE_STRIPE, fill: TABLE_STRIPE }
                   : undefined,
-              children: [new Paragraph({ children: [new TextRun({ text: cell, size: 18 })] })],
+              children: [
+                new Paragraph({
+                  children: [new TextRun({ text: stripMarkdown(cell), size: 18 })],
+                }),
+              ],
               width: { size: colWidthDxa, type: WidthType.DXA },
             })
         ),
@@ -595,12 +645,35 @@ export async function generatePeaDocx(
     const ad = options.appendixData
     const appendixLetters = 'ABCDEFGHIJ'
 
+    // Decide upfront which appendices have substantial content (a table) so we
+    // can avoid wasting a full page on appendices that are only a one-line
+    // italic note. Short appendices follow the previous one on the same page;
+    // only the first appendix always starts on a fresh page (to separate from
+    // the main report body).
+    const hasSubstantialContent = (key: string): boolean => {
+      if (!ad) return false
+      if (key === 'designated_sites') return ad.designatedSites.length > 0
+      if (key === 'species_list') return ad.speciesRecords.length > 0
+      if (key === 'habitat_data') return ad.habitats.length > 0
+      if (key === 'aquatic_data') return ad.aquaticFeatures.length > 0
+      if (key === 'habitat_map') return ad.habitats.length > 0
+      return false
+    }
+
     options.appendices.forEach((a, i) => {
       const label = APPENDIX_LABELS[a] || a
+      const heavy = hasSubstantialContent(a)
+      const firstAppendix = i === 0
 
-      // Page break before each appendix
+      // Page-break rule:
+      //   - first appendix → always break (separates from main report)
+      //   - subsequent heavy (table) appendix → break
+      //   - subsequent note-only appendix → no break; share page with previous
+      if (firstAppendix || heavy) {
+        children.push(new Paragraph({ children: [new PageBreak()] }))
+      }
+
       children.push(
-        new Paragraph({ children: [new PageBreak()] }),
         new Paragraph({
           children: [
             new TextRun({
@@ -611,80 +684,119 @@ export async function generatePeaDocx(
               underline: { type: UnderlineType.SINGLE, color: DARK_GREEN },
             }),
           ],
-          spacing: { before: 240, after: 200 },
+          spacing: { before: firstAppendix || heavy ? 240 : 360, after: 200 },
         })
       )
 
-      // --- Designated Sites table ---
-      if (a === 'designated_sites' && ad && ad.designatedSites.length > 0) {
-        children.push(
-          buildDocxAppendixTable(
-            ['Name', 'Site Number', 'Distance', 'AI Summary'],
-            ad.designatedSites.map((s) => [
-              s.name,
-              `${s.siteNumber} (${s.siteType})`,
-              s.distanceKm,
-              s.aiSummary,
-            ])
-          )
-        )
-        children.push(new Paragraph({ text: '', spacing: { after: 120 } }))
-
-        // --- Species Records table ---
-      } else if (a === 'species_list' && ad && ad.speciesRecords.length > 0) {
-        children.push(
-          buildDocxAppendixTable(
-            ['Name', 'AI Summary', 'Protection Status'],
-            ad.speciesRecords.map((s) => [s.name, s.aiSummary, s.protectionStatus])
-          )
-        )
-        children.push(new Paragraph({ text: '', spacing: { after: 120 } }))
-
-        // --- Habitat Data table ---
-      } else if (a === 'habitat_data' && ad && ad.habitats.length > 0) {
-        children.push(
-          buildDocxAppendixTable(
-            ['FOSSITT Code', 'Habitat', 'NLC Label', 'Area', 'Cover %'],
-            ad.habitats.map((h) => [
-              h.fossittCode,
-              h.habitatName,
-              h.nlcLabel,
-              h.areaHectares,
-              h.percentCover,
-            ])
-          )
-        )
-        children.push(new Paragraph({ text: '', spacing: { after: 120 } }))
-
-        // --- Aquatic Features table ---
-      } else if (a === 'aquatic_data' && ad && ad.aquaticFeatures.length > 0) {
-        children.push(
-          buildDocxAppendixTable(
-            ['Name', 'Type', 'WFD Status', 'Distance', 'AI Summary'],
-            ad.aquaticFeatures.map((f) => [
-              f.name,
-              f.waterBodyType,
-              f.wfdStatus,
-              f.distanceKm,
-              f.aiSummary,
-            ])
-          )
-        )
-        children.push(new Paragraph({ text: '', spacing: { after: 120 } }))
-
-        // --- Other appendices: placeholder ---
-      } else if (
-        !['designated_sites', 'species_list', 'habitat_data', 'aquatic_data'].includes(a) ||
-        !ad
-      ) {
+      const pushNote = (msg: string) => {
         children.push(
           new Paragraph({
-            children: [
-              new TextRun({ text: '[Content to be inserted]', italics: true, color: '888888' }),
-            ],
+            children: [new TextRun({ text: msg, italics: true, color: '666666' })],
             spacing: { after: 160 },
           })
         )
+      }
+      const trailingSpacer = () =>
+        children.push(new Paragraph({ text: '', spacing: { after: 120 } }))
+
+      if (a === 'designated_sites') {
+        if (ad && ad.designatedSites.length > 0) {
+          children.push(
+            buildDocxAppendixTable(
+              ['Name', 'Site Number', 'Distance', 'AI Summary'],
+              ad.designatedSites.map((s) => [
+                s.name,
+                `${s.siteNumber} (${s.siteType})`,
+                s.distanceKm,
+                s.aiSummary,
+              ])
+            )
+          )
+          trailingSpacer()
+        } else {
+          pushNote('No designated sites recorded for this project.')
+        }
+      } else if (a === 'species_list') {
+        if (ad && ad.speciesRecords.length > 0) {
+          children.push(
+            buildDocxAppendixTable(
+              ['Name', 'AI Summary', 'Protection Status'],
+              ad.speciesRecords.map((s) => [s.name, s.aiSummary, s.protectionStatus])
+            )
+          )
+          trailingSpacer()
+        } else {
+          pushNote(
+            'No species records were returned from the desk study or field surveys. ' +
+              'Targeted Phase 2 surveys are recommended (see Methodology section).'
+          )
+        }
+      } else if (a === 'habitat_data') {
+        if (ad && ad.habitats.length > 0) {
+          children.push(
+            buildDocxAppendixTable(
+              ['FOSSITT Code', 'Habitat', 'NLC Label', 'Area', 'Cover %'],
+              ad.habitats.map((h) => [
+                h.fossittCode,
+                h.habitatName,
+                h.nlcLabel,
+                h.areaHectares,
+                h.percentCover,
+              ])
+            )
+          )
+          trailingSpacer()
+        } else {
+          pushNote('No habitat polygons recorded for this project.')
+        }
+      } else if (a === 'aquatic_data') {
+        if (ad && ad.aquaticFeatures.length > 0) {
+          children.push(
+            buildDocxAppendixTable(
+              ['Name', 'Type', 'WFD Status', 'Distance', 'AI Summary'],
+              ad.aquaticFeatures.map((f) => [
+                f.name,
+                f.waterBodyType,
+                f.wfdStatus,
+                f.distanceKm,
+                f.aiSummary,
+              ])
+            )
+          )
+          trailingSpacer()
+        } else {
+          pushNote('No aquatic features recorded within the study buffer.')
+        }
+      } else if (a === 'habitat_map') {
+        if (ad && ad.habitats.length > 0) {
+          pushNote(
+            'Habitat polygons (Fossitt classification) are tabulated below. ' +
+              'A georeferenced habitat map is supplied separately as a GIS deliverable.'
+          )
+          children.push(
+            buildDocxAppendixTable(
+              ['FOSSITT Code', 'Habitat', 'NLC Label', 'Area', 'Cover %'],
+              ad.habitats.map((h) => [
+                h.fossittCode,
+                h.habitatName,
+                h.nlcLabel,
+                h.areaHectares,
+                h.percentCover,
+              ])
+            )
+          )
+          trailingSpacer()
+        } else {
+          pushNote('Habitat map figure to be supplied as a separate deliverable.')
+        }
+      } else if (a === 'photographs') {
+        pushNote(
+          'Site photographs are supplied as a separate deliverable. ' +
+            'Photo captions, GPS coordinates, and timestamps are recorded in the field datasheets.'
+        )
+      } else {
+        // survey_datasheets, legislation, or any future appendix key without a renderer
+        pushNote('Content to be supplied with the final deliverable.')
       }
     })
   }

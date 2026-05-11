@@ -138,7 +138,15 @@ export async function generatePeaPdf(
     return y
   }
 
-  /** Word-by-word wrapping with correct bold/italic per word */
+  /** Word-by-word wrapping with correct bold/italic per word.
+   *
+   * When a word has trailingSpace=true and isn't at line end, we emit the
+   * trailing space character INSIDE the same doc.text() call. Without this,
+   * jsPDF positions each word with x-coordinate advances but writes no real
+   * space character — visually fine, but PDF text extraction concatenates
+   * adjacent words into one ("Turloughs are" → "Turloughsare"). Embedding
+   * the space inside the text run preserves the word break for copy/paste,
+   * screen readers, and find-in-page. */
   const writeRichText = (segments: TextSegment[], startX: number, startY: number): number => {
     const words = segmentsToWords(segments)
     if (words.length === 0) return startY
@@ -150,7 +158,8 @@ export async function generatePeaPdf(
     let x = startX
     let lineStart = true
 
-    for (const word of words) {
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i]
       const wordW = getWordWidth(word)
 
       if (!lineStart && x + wordW > startX + maxWidth) {
@@ -161,9 +170,26 @@ export async function generatePeaPdf(
       }
 
       setFont(word.bold, word.italic)
+
+      // Look ahead: is this word followed by another on the same line?
+      // If so, embed the trailing space in this doc.text() call. If the word
+      // is the last on the line (or last overall), skip the space — trailing
+      // spaces beyond the right margin don't help anyone.
+      const hasFollower = word.trailingSpace && i + 1 < words.length
+      if (hasFollower) {
+        const next = words[i + 1]
+        const nextW = getWordWidth(next)
+        const fitsOnSameLine = x + wordW + spaceW + nextW <= startX + maxWidth
+        if (fitsOnSameLine) {
+          doc.text(word.text + ' ', x, y)
+          x += wordW + spaceW
+          lineStart = false
+          continue
+        }
+      }
+
       doc.text(word.text, x, y)
       x += wordW
-
       if (word.trailingSpace) x += spaceW
       lineStart = false
     }

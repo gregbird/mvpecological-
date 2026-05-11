@@ -52,8 +52,11 @@ async function renderSectionInner(
 
   let y = startY
 
-  // Ensure at least 35mm space for a new section heading
-  y = ensureSpace(y, 35)
+  // Ensure room for the heading + first 2 lines of content. Lower reserve
+  // (18mm vs the previous 35mm) keeps orphan whitespace at section ends
+  // small — a section will only force a new page if there genuinely isn't
+  // enough room for the heading plus a couple of opening lines.
+  y = ensureSpace(y, 18)
   if (y > margin + 10) y += 4
 
   // Section title with primary-colour underline
