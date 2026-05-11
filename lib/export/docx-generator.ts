@@ -480,9 +480,10 @@ export async function generatePeaDocx(
 ): Promise<Blob> {
   const progress = onProgress ?? (() => {})
   progress('docx: build cover + TOC')
-  // Skip the AI-generated "Appendices" section — auto-rendered appendix
-  // tables below cover the same ground with structured data.
-  const contentSections = options.sections.filter((s) => s.content && s.id !== 'appendices')
+  // Include all sections with content. The "appendices" section is the
+  // AI-written narrative introducing the appendix list; the auto-rendered
+  // appendix tables follow afterwards.
+  const contentSections = options.sections.filter((s) => s.content)
 
   const children: (Paragraph | Table)[] = []
 

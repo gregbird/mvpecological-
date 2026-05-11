@@ -140,13 +140,13 @@ export async function generatePeaPdf(
 
   /** Word-by-word wrapping with correct bold/italic per word.
    *
-   * When a word has trailingSpace=true and isn't at line end, we emit the
-   * trailing space character INSIDE the same doc.text() call. Without this,
-   * jsPDF positions each word with x-coordinate advances but writes no real
-   * space character — visually fine, but PDF text extraction concatenates
-   * adjacent words into one ("Turloughs are" → "Turloughsare"). Embedding
-   * the space inside the text run preserves the word break for copy/paste,
-   * screen readers, and find-in-page. */
+   * We batch consecutive same-style words on the same line into a single
+   * `doc.text()` call. Previously, each word was its own Tj operator with
+   * x-coordinate advances between them — visually fine but extraction tools
+   * (pdfjs, pdftotext, copy/paste) sometimes glued adjacent Tj's together
+   * with no space ("which provides" → "whichprovides"). Joining same-style
+   * words into one string with real space chars guarantees the spaces
+   * survive every extraction path. */
   const writeRichText = (segments: TextSegment[], startX: number, startY: number): number => {
     const words = segmentsToWords(segments)
     if (words.length === 0) return startY
@@ -158,42 +158,73 @@ export async function generatePeaPdf(
     let x = startX
     let lineStart = true
 
+    // Buffered run: consecutive words with same style on the same line.
+    let runText = ''
+    let runX = startX
+    let runBold = false
+    let runItalic = false
+
+    const flushRun = () => {
+      if (!runText) return
+      setFont(runBold, runItalic)
+      doc.text(runText, runX, y)
+      runText = ''
+    }
+
     for (let i = 0; i < words.length; i++) {
       const word = words[i]
       const wordW = getWordWidth(word)
 
+      // Wrap check — does this word fit on the current line?
       if (!lineStart && x + wordW > startX + maxWidth) {
+        flushRun()
         y += lineHeight
         y = ensureSpace(y, lineHeight)
         x = startX
         lineStart = true
       }
 
-      setFont(word.bold, word.italic)
+      // Style change → flush previous run, start a new one.
+      if (!runText || word.bold !== runBold || word.italic !== runItalic) {
+        flushRun()
+        runText = ''
+        runX = x
+        runBold = word.bold
+        runItalic = word.italic
+      }
 
-      // Look ahead: is this word followed by another on the same line?
-      // If so, embed the trailing space in this doc.text() call. If the word
-      // is the last on the line (or last overall), skip the space — trailing
-      // spaces beyond the right margin don't help anyone.
-      const hasFollower = word.trailingSpace && i + 1 < words.length
-      if (hasFollower) {
+      runText += word.text
+      x += wordW
+
+      // Append trailing space to the run. Even when the next word would
+      // wrap to a new line, we still embed the space so PDF text extraction
+      // sees a word break at the line boundary (otherwise "...to" + "EU..."
+      // get concatenated as "toEU" by some PDF readers).
+      if (word.trailingSpace && i + 1 < words.length) {
         const next = words[i + 1]
         const nextW = getWordWidth(next)
-        const fitsOnSameLine = x + wordW + spaceW + nextW <= startX + maxWidth
-        if (fitsOnSameLine) {
-          doc.text(word.text + ' ', x, y)
-          x += wordW + spaceW
-          lineStart = false
+        const nextFits = x + spaceW + nextW <= startX + maxWidth
+        runText += ' '
+        if (nextFits) {
+          x += spaceW
+        } else {
+          // Flush this line with the trailing space embedded, then force a
+          // wrap so the next word starts on a fresh line. Without the
+          // explicit wrap here, the top-of-loop wrap check uses just `wordW`
+          // (no spaceW), so in borderline cases the next word ends up on
+          // the same line and visually overlaps the flushed space.
+          flushRun()
+          y += lineHeight
+          y = ensureSpace(y, lineHeight)
+          x = startX
+          lineStart = true
           continue
         }
       }
-
-      doc.text(word.text, x, y)
-      x += wordW
-      if (word.trailingSpace) x += spaceW
       lineStart = false
     }
 
+    flushRun()
     return y + lineHeight
   }
 
@@ -252,10 +283,12 @@ export async function generatePeaPdf(
   // ===== TABLE OF CONTENTS =====
   doc.addPage()
   currentPage++
-  // Skip the AI-generated "Appendices" section — auto-rendered appendix
-  // tables below cover the same ground with structured data, and the AI
-  // narrative drifts from the actual auto-generated appendix list.
-  const contentSections = options.sections.filter((s) => s.content && s.id !== 'appendices')
+  // Include all sections with content. The "appendices" section carries the
+  // AI-written narrative/preamble that introduces the appendix list; the
+  // auto-rendered appendix tables (Habitat Map, Designated Sites, Species
+  // List, Aquatic Features, Site Photographs) are appended afterwards so
+  // the AI narrative and the data tables follow each other in the PDF.
+  const contentSections = options.sections.filter((s) => s.content)
   renderTableOfContents(ctx, contentSections, options.appendices)
 
   // ===== REPORT SECTIONS =====

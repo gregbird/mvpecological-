@@ -236,16 +236,22 @@ This EcIA has been prepared in accordance with CIEEM (2018) guidelines and satis
   {
     id: 'appendices',
     title: '8. Appendices',
-    template: `The following appendices accompany this report:
+    template: `The structured appendices below (Appendix A — Habitat Map, B — Designated Sites, C — Species List, D — Aquatic Features, E — Site Photographs) are auto-generated from project data collected during Steps 1–7 of the workflow and appear after this section.
 
-- **Appendix A: Site Location Map** — showing the site boundary, buffer zones, and Zone of Influence
-- **Appendix B: Habitat Map** — habitats classified according to Fossitt (2000)
-- **Appendix C: Designated Sites Map** — SACs, SPAs, NHAs, and pNHAs within the ZoI
-- **Appendix D: Species List** — comprehensive list of species recorded, with conservation status
-- **Appendix E: Site Photographs** — representative photographs of habitats and features
-- **Appendix F: Survey Datasheets** — field survey data forms and records
-- **Appendix G: CEMP Outline** — Construction Environmental Management Plan outline
+Write **only the "Data Sources and References" section** for this EcIA — do NOT redefine or renumber the appendix list above (it is produced automatically and changing the labels will conflict with the rendered tables).
 
-*Note: Appendix contents are generated from project data collected during Steps 1–7 of the assessment workflow.*`,
+**Data Sources and References**
+
+List every desk study source consulted and every legislative/technical reference cited in this report, with full citations. Use the following structure and expand each bullet with the actual sources used for THIS project:
+
+- *Designated sites & species*: National Parks and Wildlife Service (NPWS) — designated sites register, conservation objectives, and species distribution records. URL: https://www.npws.ie. Date accessed: [confirm].
+- *Habitats & land cover*: National Land Cover Map (NLC) 2018 — Tailte Éireann (formerly OSi). URL: https://www.tailte.ie. Date accessed: [confirm].
+- *Species occurrence*: National Biodiversity Data Centre (NBDC) — Biodiversity Maps; Global Biodiversity Information Facility (GBIF). URLs: https://maps.biodiversityireland.ie, https://www.gbif.org. Date accessed: [confirm].
+- *Aquatic features*: Environmental Protection Agency (EPA) — WFD waterbodies, catchments, and water quality status. URLs: https://gis.epa.ie, https://wfdviewer.epa.ie. Date accessed: [confirm].
+- *Methodology*: Fossitt, J. A. (2000). *A Guide to Habitats in Ireland*. The Heritage Council, Kilkenny.
+- *Methodology*: CIEEM (2018). *Guidelines for Ecological Impact Assessment in the UK and Ireland*. Chartered Institute of Ecology and Environmental Management.
+- *Methodology*: EPA (2022). *Guidelines on the Information to be Contained in Environmental Impact Assessment Reports*.
+- *Legislation*: Wildlife Acts 1976–2021 (Ireland); EU Habitats Directive (92/43/EEC); EU Birds Directive (2009/147/EC); Water Framework Directive (2000/60/EC); Environmental Impact Assessment Directive (2014/52/EU); European Communities (Birds and Natural Habitats) Regulations 2011 (S.I. 477/2011); Planning and Development Acts 2000–2023.
+- Add any further project-specific guidance documents, contractor reports, NPWS Conservation Objectives documents, or technical references actually consulted.`,
   },
 ]

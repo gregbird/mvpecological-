@@ -50,26 +50,40 @@ export function renderTable(
   y += 2
 
   // Header — fires on first draw and after every page break inside the body.
+  // Supports multi-line headers: when a header text doesn't fit one line at
+  // the column width, it wraps and the header band grows to fit the tallest
+  // wrapped header (Survey Table's 6 narrow columns force "Recorder/Surveyor"
+  // and "Weather Conditions" to wrap; previously only line 1 was shown).
   const drawHeader = (): number => {
-    doc.setFillColor(...theme.primary)
-    doc.rect(margin, y, contentWidth, minRowH, 'F')
-    doc.setTextColor(255, 255, 255)
     doc.setFontSize(fontSize)
     doc.setFont(theme.font, 'bold')
 
-    let headerX = margin
+    const wrappedHeaders: string[][] = []
+    let maxLines = 1
     for (let c = 0; c < colCount; c++) {
-      const colW = colWidths[c]
       const wrapped = doc.splitTextToSize(
         cleanHeaders[c] || '',
-        colW - cellPaddingX * 2
+        colWidths[c] - cellPaddingX * 2
       ) as string[]
-      // Headers stay single-line — use first wrapped line; minRowH guarantees fit.
-      doc.text(wrapped[0] || '', headerX + cellPaddingX, y + minRowH - cellPaddingX)
-      headerX += colW
+      wrappedHeaders.push(wrapped)
+      if (wrapped.length > maxLines) maxLines = wrapped.length
+    }
+    const headerH = Math.max(minRowH, maxLines * lineH + cellPaddingY * 2)
+
+    doc.setFillColor(...theme.primary)
+    doc.rect(margin, y, contentWidth, headerH, 'F')
+    doc.setTextColor(255, 255, 255)
+
+    let headerX = margin
+    for (let c = 0; c < colCount; c++) {
+      const lines = wrappedHeaders[c]
+      lines.forEach((line, lineIdx) => {
+        doc.text(line, headerX + cellPaddingX, y + cellPaddingY + lineH * (lineIdx + 1) - 1)
+      })
+      headerX += colWidths[c]
     }
 
-    y += minRowH
+    y += headerH
     doc.setTextColor(0, 0, 0)
     doc.setFont(theme.font, 'normal')
     return y
@@ -84,18 +98,15 @@ export function renderTable(
     const row = cleanRows[r]
 
     // Wrap each cell to its column width, then compute row height from the
-    // tallest cell. Cap at 6 lines per cell to prevent an oversized cell
-    // from blowing up a single row.
+    // tallest cell. No truncation — long cells just grow the row.
     const wrappedCells: string[][] = []
     let maxLines = 1
     doc.setFont(theme.font, 'normal')
     for (let c = 0; c < colCount; c++) {
       const colW = colWidths[c]
       const wrapped = doc.splitTextToSize(row[c] ?? '', colW - cellPaddingX * 2) as string[]
-      const clipped = wrapped.slice(0, 6)
-      if (wrapped.length > 6) clipped[5] = clipped[5].replace(/.{0,3}$/, '…')
-      wrappedCells.push(clipped)
-      if (clipped.length > maxLines) maxLines = clipped.length
+      wrappedCells.push(wrapped)
+      if (wrapped.length > maxLines) maxLines = wrapped.length
     }
 
     const rowH = Math.max(minRowH, maxLines * lineH + cellPaddingY * 2)
@@ -162,9 +173,11 @@ function stripMarkdown(text: string): string {
     .replace(/`([^`]+)`/g, '$1')
 }
 
-/** Calculate proportional column widths. Caps any single column at 40% of total
- *  so a verbose cell (long AI summary) can't squeeze every other column into
- *  unreadable strips. */
+/** Calculate proportional column widths.
+ *  Header width is a hard floor — column must be wide enough to fit its header
+ *  on one line (with padding). Cell content can wrap, so cell sample width is
+ *  a soft preference. Caps any single column at 50% of total so a verbose cell
+ *  (long AI summary) can't squeeze others into unreadable strips. */
 export function calculateColumnWidths(
   doc: jsPDF,
   table: MdTable,
@@ -175,52 +188,66 @@ export function calculateColumnWidths(
   doc.setFontSize(fontSize)
 
   const colCount = table.headers.length
-  const minWidth = 18 // mm
-  const maxColRatio = 0.4 // any single column ≤ 40% of total
+  const cellPad = 3 // mm — must match renderTable cellPaddingX
+  const headerSlack = 3 // mm extra buffer to avoid mid-glyph clipping
+  const absMin = 14 // mm absolute lower bound
+  const maxColRatio = 0.5
   const maxColWidth = totalWidth * maxColRatio
 
+  // Header floor — column MUST fit its header on one line.
+  const headerFloors: number[] = []
   const desiredWidths: number[] = []
 
   for (let c = 0; c < colCount; c++) {
     doc.setFont(font, 'bold')
-    let widest = doc.getTextWidth(table.headers[c] || '') + 6
+    const headerW = doc.getTextWidth(table.headers[c] || '') + cellPad * 2 + headerSlack
+    headerFloors.push(Math.max(headerW, absMin))
 
     doc.setFont(font, 'normal')
+    let widest = headerW
     for (const row of table.rows) {
-      // Use the first 60 chars to sample — long cells will wrap, no need to
-      // measure their full one-line width.
       const sample = (row[c] || '').slice(0, 60)
-      const cellW = doc.getTextWidth(sample) + 6
+      const cellW = doc.getTextWidth(sample) + cellPad * 2
       if (cellW > widest) widest = cellW
     }
 
-    desiredWidths.push(Math.min(Math.max(widest, minWidth), maxColWidth))
+    desiredWidths.push(Math.min(Math.max(widest, absMin), maxColWidth))
+  }
+
+  // Cap header floors to maxColWidth so a single absurdly long header can't
+  // monopolise the table — it will wrap (header reprint accepts only line 1
+  // but that's already a degraded edge case for >50%-of-table headers).
+  const cappedFloors = headerFloors.map((w) => Math.min(w, maxColWidth))
+  const floorSum = cappedFloors.reduce((a, b) => a + b, 0)
+
+  // If header floors alone exceed totalWidth, scale them proportionally —
+  // worst case, some headers wrap (visible as first line only). Body cells
+  // get the same widths.
+  if (floorSum > totalWidth) {
+    return cappedFloors.map((w) => (w / floorSum) * totalWidth)
   }
 
   const sum = desiredWidths.reduce((a, b) => a + b, 0)
   if (sum <= totalWidth) {
-    // Fits naturally — distribute remaining slack proportional to desired.
+    // Fits naturally — slack goes to columns proportional to desired width,
+    // but always above their header floor.
+    const widths = desiredWidths.map((w) => w)
     if (sum < totalWidth) {
       const slack = totalWidth - sum
-      return desiredWidths.map((w) => w + (slack * w) / sum)
+      for (let c = 0; c < colCount; c++) {
+        widths[c] += (slack * desiredWidths[c]) / sum
+      }
     }
-    return desiredWidths
+    return widths.map((w, c) => Math.max(w, cappedFloors[c]))
   }
 
-  // Scale down proportionally, then re-enforce min width if anything ducked below.
-  let scaled = desiredWidths.map((w) => (w / sum) * totalWidth)
-  const belowMin = scaled.filter((w) => w < minWidth)
-  if (belowMin.length > 0) {
-    const fixed = scaled.map((w) => Math.max(w, minWidth))
-    const fixedSum = fixed.reduce((a, b) => a + b, 0)
-    if (fixedSum > totalWidth) {
-      // Last resort — uniform scale, accept some columns below minWidth.
-      scaled = fixed.map((w) => (w / fixedSum) * totalWidth)
-    } else {
-      scaled = fixed
-    }
-  }
-  return scaled
+  // Sum exceeds totalWidth — header floors take priority, remaining space
+  // distributes proportional to (desired - floor) above floor.
+  const surplus = totalWidth - floorSum
+  const overflow = desiredWidths.map((w, c) => Math.max(0, w - cappedFloors[c]))
+  const overflowSum = overflow.reduce((a, b) => a + b, 0)
+  if (overflowSum === 0) return cappedFloors
+  return cappedFloors.map((floor, c) => floor + (surplus * overflow[c]) / overflowSum)
 }
 
 /** Truncate text to fit within a given width. Retained for any caller that

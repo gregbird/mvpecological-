@@ -239,16 +239,18 @@ export function segmentsToWords(segments: TextSegment[]): StyledWord[] {
     // parseInline produces two adjacent segments; segmentsToWords would then
     // glue them together ("(002296)comprises"). If the previous segment's
     // last word lacks a trailing space AND this segment's first word begins
-    // with a word char, inject a space at the boundary. Skip when either
-    // side is punctuation — `(bold)`, `,` etc. should still abut naturally.
+    // with a word char, inject a space at the boundary. Include sentence
+    // punctuation (`:`, `,`, `.`, `;`, `!`, `?`, `)`) as word-end characters
+    // so `**Habitats:**Desktop` and `**Wildlife Acts (1976–2021):**Irish`
+    // both get a space before the following plain text.
     if (segIdx > 0 && segStartWordIdx > 0 && segStartWordIdx < words.length) {
       const prev = words[segStartWordIdx - 1]
       const next = words[segStartWordIdx]
       if (!prev.trailingSpace) {
         const prevEnd = prev.text.slice(-1)
         const nextStart = next.text.charAt(0)
-        const prevEndsWord = /[\p{L}\p{N})]/u.test(prevEnd)
-        const nextStartsWord = /[\p{L}\p{N}]/u.test(nextStart)
+        const prevEndsWord = /[\p{L}\p{N}):,.;!?]/u.test(prevEnd)
+        const nextStartsWord = /[\p{L}\p{N}(]/u.test(nextStart)
         if (prevEndsWord && nextStartsWord) {
           prev.trailingSpace = true
         }

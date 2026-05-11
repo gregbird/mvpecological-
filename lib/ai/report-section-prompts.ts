@@ -88,22 +88,37 @@ Use markdown sub-headings (###) for each sub-section. Be thorough and evidence-b
 Incorporate the ecologist's professional opinion where provided. Be specific and actionable.`,
   },
   appendices: {
-    prompt: `Write the Appendices section (~200-400 words). Include two parts:
+    prompt: `Write the **Data Sources and References** section only (~250-400 words). This section is a PROSE/BULLET reference list ONLY.
 
-**Part 1 — Appendix List:**
-- Appendix A: Site Location Map
-- Appendix B: Habitat Map (reference FOSSITT codes mapped)
-- Appendix C: Species List (reference observation counts)
-- Appendix D: Site Photographs
-- Appendix E: Survey Datasheets
-Add brief descriptions of what each appendix contains based on the available data.
+**CRITICAL — DO NOT WRITE ANY OF THE FOLLOWING:**
+- An "Appendix List" enumerating Appendix A, B, C, etc. (the structured appendices below — Habitat Map, Designated Sites, Species List, Aquatic Features, Site Photographs — are auto-generated from project data and appear right after this section; redefining or renumbering them creates conflicts).
+- Any markdown TABLES (\`| col1 | col2 |\` rows). The auto-rendered appendices already tabulate every designated site, habitat polygon, species record, and waterbody.
+- Any sub-headings like "APPENDIX — DESIGNATED SITES", "APPENDIX — CATCHMENTS", "APPENDIX — HABITAT MAPPING DETAIL", or similar appendix-style tabular sections.
+- Per-record breakdowns of habitats, species observations, or designated sites (those are in the auto-rendered Appendix A–E).
 
-**Part 2 — Data Sources and References:**
-Using the DATA SOURCES AND REFERENCES section from the provided data, write a formatted references list. Include:
-- All online databases consulted (NPWS, NBDC, GBIF, EPA, Catchments.ie, NLC) with their URLs
-- Specific sites, species records, or water bodies accessed from each source
-- Standard ecological references (Fossitt 2000, CIEEM guidelines, etc.)
-Format as a numbered reference list suitable for an ecological report appendix.`,
+**Only** write a short opening paragraph + grouped bullet/prose references under the three headings below.
+
+Open with one short paragraph (1-2 sentences) explaining that the structured appendices that follow are auto-generated from desk study and field survey data, then list every data source consulted and reference cited, with full citations.
+
+Use the DATA SOURCES AND REFERENCES section from the provided data. Group references under these headings:
+
+**Online databases consulted:**
+- National Parks and Wildlife Service (NPWS) — designated sites and species distribution records. URL: https://www.npws.ie. Note specific sites accessed (SAC/SPA codes) in one sentence per source, NOT as a sub-table.
+- National Biodiversity Data Centre (NBDC) — Biodiversity Maps. URL: https://maps.biodiversityireland.ie.
+- Environmental Protection Agency (EPA) — WFD waterbodies and catchments. URL: https://gis.epa.ie. Note specific water body codes inline.
+- National Land Cover Map (NLC) 2018 — Tailte Éireann. URL: https://www.tailte.ie.
+- Catchments.ie. URL: https://www.catchments.ie.
+
+**Standard methodological references:**
+- Fossitt, J. A. (2000). *A Guide to Habitats in Ireland*. The Heritage Council.
+- CIEEM (2017). *Guidelines for Preliminary Ecological Appraisal*.
+
+**Legislation:**
+- Wildlife Acts 1976–2021 (Ireland)
+- EU Habitats Directive (92/43/EEC); EU Birds Directive (2009/147/EC); Water Framework Directive (2000/60/EC); Flora Protection Order 2022
+- European Communities (Birds and Natural Habitats) Regulations 2011 (S.I. 477/2011)
+
+Add any further project-specific guidance documents or technical references actually consulted. Format as a structured reference list suitable for inclusion in an ecological report appendix. ABSOLUTELY NO TABLES.`,
   },
 }
 
@@ -203,20 +218,38 @@ Be specific about timing restrictions (e.g., no vegetation clearance 1 March –
 6. Further survey requirements and optimal timing`,
   },
   appendices: {
-    prompt: `Write the Appendices section (~200-400 words). Include two parts:
+    prompt: `Write the **Data Sources and References** section only (~300-450 words). This section is a PROSE/BULLET reference list ONLY.
 
-**Part 1 — Appendix List:**
-- Appendix A: Site Location Map
-- Appendix B: Habitat Map (Fossitt codes annotated)
-- Appendix C: Designated Sites Map with Zone of Influence
-- Appendix D: Species List with conservation status
-- Appendix E: Site Photographs
-- Appendix F: Survey Datasheets
-- Appendix G: CEMP Outline
-Add brief descriptions based on available data.
+**CRITICAL — DO NOT WRITE ANY OF THE FOLLOWING:**
+- An "Appendix List" enumerating Appendix A, B, C, etc. (the structured appendices below — Habitat Map, Designated Sites, Species List, Aquatic Features, Site Photographs — are auto-generated from project data and appear right after this section).
+- Any markdown TABLES (\`| col1 | col2 |\` rows). The auto-rendered appendices already tabulate every designated site, habitat polygon, species record, and waterbody.
+- Any sub-headings like "APPENDIX — DESIGNATED SITES", "APPENDIX — CATCHMENTS", "APPENDIX — HABITAT MAPPING DETAIL", or similar appendix-style tabular sections.
+- Per-record breakdowns of habitats, species observations, or designated sites.
 
-**Part 2 — Data Sources and References:**
-Using the DATA SOURCES AND REFERENCES section from the provided data, write a formatted references list including all online databases consulted with URLs, specific sites/records accessed, and standard ecological references. Format as a numbered list.`,
+**Only** write a short opening paragraph + grouped bullet/prose references under the three headings below.
+
+Open with one short paragraph (1-2 sentences) explaining that the structured appendices that follow are auto-generated from desk study and field survey data, then list every data source consulted and reference cited, with full citations.
+
+Use the DATA SOURCES AND REFERENCES section from the provided data. Group references under these headings:
+
+**Online databases consulted:**
+- National Parks and Wildlife Service (NPWS) — designated sites register, conservation objectives, species distribution records. URL: https://www.npws.ie. Note specific sites accessed (SAC/SPA codes).
+- National Biodiversity Data Centre (NBDC) — Biodiversity Maps; Global Biodiversity Information Facility (GBIF). URLs: https://maps.biodiversityireland.ie, https://www.gbif.org.
+- Environmental Protection Agency (EPA) — WFD waterbodies, catchments, and water quality. URLs: https://gis.epa.ie, https://wfdviewer.epa.ie. Note specific water bodies accessed.
+- National Land Cover Map (NLC) 2018 — Tailte Éireann. URL: https://www.tailte.ie.
+
+**Standard methodological references:**
+- Fossitt, J. A. (2000). *A Guide to Habitats in Ireland*. The Heritage Council.
+- CIEEM (2018). *Guidelines for Ecological Impact Assessment in the UK and Ireland*.
+- EPA (2022). *Guidelines on the Information to be Contained in Environmental Impact Assessment Reports*.
+
+**Legislation:**
+- Wildlife Acts 1976–2021 (Ireland)
+- EU Habitats Directive (92/43/EEC); EU Birds Directive (2009/147/EC); Water Framework Directive (2000/60/EC); EIA Directive (2014/52/EU)
+- European Communities (Birds and Natural Habitats) Regulations 2011 (S.I. 477/2011)
+- Planning and Development Acts 2000–2023
+
+Add any further project-specific guidance documents (e.g. NPWS Conservation Objectives documents), contractor reports, or technical references actually consulted. Format as a structured reference list suitable for inclusion in an ecological report appendix.`,
   },
 }
 
@@ -439,19 +472,35 @@ Include sonogram analysis reference where applicable.`,
 Follow NPWS best practice guidance and BCIreland recommendations.`,
   },
   appendices: {
-    prompt: `Write the Appendices section (~200-300 words). Include two parts:
+    prompt: `Write the **Data Sources and References** section only (~250-350 words). This section is a PROSE/BULLET reference list ONLY.
 
-**Part 1 — Appendix List:**
-- Appendix A: Site Location & Survey Transect Map
-- Appendix B: Bat Activity Maps (species distribution)
-- Appendix C: Sonogram Examples
-- Appendix D: Survey Data Tables (passes per species per survey)
-- Appendix E: Site Photographs
-- Appendix F: Building/Tree Assessment Sheets
-Add brief descriptions based on available data.
+**CRITICAL — DO NOT WRITE ANY OF THE FOLLOWING:**
+- An "Appendix List" enumerating Appendix A, B, C, etc. (the structured appendices are auto-generated from project data and appear right after this section).
+- Any markdown TABLES (\`| col1 | col2 |\` rows).
+- Any sub-headings like "APPENDIX — ..." or similar appendix-style tabular sections.
+- Per-record breakdowns of habitats, species observations, or designated sites.
 
-**Part 2 — Data Sources and References:**
-Using the DATA SOURCES AND REFERENCES section from the provided data, write a formatted references list including all databases consulted with URLs and standard ecological references. Format as a numbered list.`,
+**Only** write a short opening paragraph + grouped bullet/prose references under the headings below.
+
+Open with one short paragraph (1-2 sentences) explaining that the structured appendices that follow are auto-generated from desk study and field survey data, then list every data source consulted and reference cited, with full citations.
+
+Use the DATA SOURCES AND REFERENCES section from the provided data. Group references under these headings:
+
+**Online databases consulted:**
+- NPWS, NBDC, GBIF, BCIreland — full URLs and specific records accessed.
+
+**Standard methodological references:**
+- Collins, J. (ed.) (2016). *Bat Surveys for Professional Ecologists: Good Practice Guidelines* (3rd edn). Bat Conservation Trust.
+- BCIreland (Bat Conservation Ireland) survey guidance.
+- Fossitt, J. A. (2000). *A Guide to Habitats in Ireland*.
+
+**Legislation:**
+- Wildlife Acts 1976–2021 (Ireland)
+- EU Habitats Directive (92/43/EEC) — Annex IV bat species protection
+- European Communities (Birds and Natural Habitats) Regulations 2011 (S.I. 477/2011)
+- NPWS derogation licensing requirements
+
+Add any further project-specific references actually consulted. Format as a structured reference list.`,
   },
 }
 
@@ -522,19 +571,35 @@ Include comparative data with national population estimates where relevant.`,
 5. Species-specific recommendations for BoCCI Red-listed species`,
   },
   appendices: {
-    prompt: `Write the Appendices section (~200-300 words). Include two parts:
+    prompt: `Write the **Data Sources and References** section only (~250-350 words). This section is a PROSE/BULLET reference list ONLY.
 
-**Part 1 — Appendix List:**
-- Appendix A: Site Location & Survey Point Map
-- Appendix B: Breeding Bird Territory Maps
-- Appendix C: Wintering Bird Count Data
-- Appendix D: BoCCI & Legal Status Table
-- Appendix E: Site Photographs
-- Appendix F: Survey Datasheets
-Add brief descriptions based on available data.
+**CRITICAL — DO NOT WRITE ANY OF THE FOLLOWING:**
+- An "Appendix List" enumerating Appendix A, B, C, etc. (the structured appendices are auto-generated from project data and appear right after this section).
+- Any markdown TABLES (\`| col1 | col2 |\` rows).
+- Any sub-headings like "APPENDIX — ..." or similar appendix-style tabular sections.
+- Per-record breakdowns of habitats, species observations, or designated sites.
 
-**Part 2 — Data Sources and References:**
-Using the DATA SOURCES AND REFERENCES section from the provided data, write a formatted references list including all databases consulted with URLs and standard ecological references. Format as a numbered list.`,
+**Only** write a short opening paragraph + grouped bullet/prose references under the headings below.
+
+Open with one short paragraph (1-2 sentences) explaining that the structured appendices that follow are auto-generated from desk study and field survey data, then list every data source consulted and reference cited, with full citations.
+
+Use the DATA SOURCES AND REFERENCES section from the provided data. Group references under these headings:
+
+**Online databases consulted:**
+- NPWS, NBDC, GBIF, BirdWatch Ireland, eBird — full URLs and specific records accessed.
+
+**Standard methodological references:**
+- Bibby, C. J., Burgess, N. D., Hill, D. A., & Mustoe, S. (2000). *Bird Census Techniques* (2nd edn).
+- Gilbert, G., Gibbons, D. W., & Evans, J. (1998). *Bird Monitoring Methods: A Manual of Techniques for Key UK Species*. RSPB.
+- BTO methodology guidance (Common Birds Census, Breeding Bird Survey, Wetland Bird Survey).
+- Gilbert et al. (2021). *Birds of Conservation Concern in Ireland (BoCCI)*.
+
+**Legislation:**
+- Wildlife Acts 1976–2021 (Ireland)
+- EU Birds Directive (2009/147/EC) — Annex I species protection, SPAs
+- European Communities (Birds and Natural Habitats) Regulations 2011 (S.I. 477/2011)
+
+Add any further project-specific references actually consulted. Format as a structured reference list.`,
   },
 }
 
@@ -591,20 +656,35 @@ Present habitat areas in a summary table. Include relevé data where available.`
 5. **Monitoring** — post-development habitat condition monitoring programme with specific indicators`,
   },
   appendices: {
-    prompt: `Write the Appendices section (~200-300 words). Include two parts:
+    prompt: `Write the **Data Sources and References** section only (~250-350 words). This section is a PROSE/BULLET reference list ONLY.
 
-**Part 1 — Appendix List:**
-- Appendix A: Site Location Map
-- Appendix B: Habitat Map (Fossitt codes annotated)
-- Appendix C: Habitat Area Summary Table
-- Appendix D: Relevé Data (if applicable)
-- Appendix E: Plant Species List with DAFOR abundance
-- Appendix F: Site Photographs
-- Appendix G: Annex I Habitat Correspondence Table
-Add brief descriptions based on available data.
+**CRITICAL — DO NOT WRITE ANY OF THE FOLLOWING:**
+- An "Appendix List" enumerating Appendix A, B, C, etc. (the structured appendices are auto-generated from project data and appear right after this section).
+- Any markdown TABLES (\`| col1 | col2 |\` rows).
+- Any sub-headings like "APPENDIX — ..." or similar appendix-style tabular sections.
+- Per-record breakdowns of habitats, species observations, or designated sites.
 
-**Part 2 — Data Sources and References:**
-Using the DATA SOURCES AND REFERENCES section from the provided data, write a formatted references list including all databases consulted with URLs and standard ecological references. Format as a numbered list.`,
+**Only** write a short opening paragraph + grouped bullet/prose references under the headings below.
+
+Open with one short paragraph (1-2 sentences) explaining that the structured appendices that follow are auto-generated from desk study and field survey data, then list every data source consulted and reference cited, with full citations.
+
+Use the DATA SOURCES AND REFERENCES section from the provided data. Group references under these headings:
+
+**Online databases consulted:**
+- NPWS, NBDC, GBIF, EPA, NLC 2018 — full URLs and specific records accessed.
+
+**Standard methodological references:**
+- Fossitt, J. A. (2000). *A Guide to Habitats in Ireland*. The Heritage Council.
+- JNCC (2010). *Handbook for Phase 1 Habitat Survey*.
+- Rodwell, J. S. (ed.) (1991-2000). *British Plant Communities* (NVC), vols 1-5.
+- Smith, G. F. et al. (2011). *Best Practice Guidance for Habitat Survey and Mapping*. The Heritage Council.
+
+**Legislation:**
+- EU Habitats Directive (92/43/EEC) — Annex I habitats
+- Wildlife Acts 1976–2021 (Ireland)
+- Flora Protection Order 2022
+
+Add any further project-specific references actually consulted. Format as a structured reference list.`,
   },
 }
 

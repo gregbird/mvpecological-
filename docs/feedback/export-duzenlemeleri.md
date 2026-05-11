@@ -157,27 +157,61 @@ Yan görev: **Step 3 Desk Assessment export'u** (üst Export butonu) ayrıca dü
 | `(Lowland` yarım kesik cümleler | **Step 6 AI üretim truncate'i** — Claude `max_tokens` limitine takılmış. DB'de `reports.content.sections`'da metin zaten kesik. Step 6 generator'ında `max_tokens` artırılmalı veya chunked generation |
 | `km·h{¹` (`km·h⁻¹` yerine)      | jsPDF default Helvetica font Unicode superscript karakterleri render edemiyor. Custom font yüklenmeli veya superscript chars HTML/Unicode encoding farklı yapılmalı                                    |
 
-### Bekleyen test
+### 3. tur düzeltmeleri — PEA v3 dördüncü test sonrası (12.05.2026)
 
-- Kullanıcı yeni PDF'i indirip kontrol edecek, sonucu söyleyecek
-- Sorun kalırsa ek düzeltme yapılacak
+Kullanıcı PDF (4)'ü test etti. Önceki turdaki büyük merge sorunlarının çoğu düzelmiş; geride sadece **line-wrap noktasında** birleşen kelimeler ve **Survey Table'da düşen header** kaldı.
+
+**`lib/export/pdf-generator.ts`** — `writeRichText` tam yeniden yazıldı
+
+- ✅ **Same-style run batching** — eskiden her kelime ayrı `doc.text()` çağrısıydı; jsPDF iki ardışık Tj operatörünü çoğu PDF reader birleşik metin olarak görüyordu ("which provides" → "whichprovides"). Yeni mantık: aynı stildeki ardışık kelimeleri TEK `doc.text()` çağrısında topluyor, içine gerçek boşluk karakteri koyuyor. Stil değişimi (plain ↔ bold ↔ italic) veya line wrap olunca run flush ediliyor.
+- ✅ **Wrap-aware trailing space** — wrap durumunda da kelime sonuna boşluk embed ediliyor + forced wrap ile y advance ediyor. `at0.18`, `toEU`, `duringfieldwork`, `(Code3180*)`, `withinthe` gibi merge'ler kapanıyor.
+
+**`lib/export/pdf/markdown-parser.ts`** — `segmentsToWords` boundary repair genişletildi
+
+- ✅ Word-end karakter setine `: , . ; ! ?` eklendi, word-start setine `(` eklendi. Eskiden sadece `\p{L}\p{N})` vardı, dolayısıyla `**Habitats:**Desktop` gibi `:` ile biten bold segment'ler düzgün boşluk almıyordu. Şimdi:
+  - `**Habitats:**Desktop` → `Habitats: Desktop` ✅
+  - `**Wildlife Acts (1976–2021):**Irish` → `Wildlife Acts (1976–2021): Irish` ✅
+
+**`lib/export/pdf/table-renderer.ts`** — üç düzeltme
+
+- ✅ **Cell `…` truncate kaldırıldı** — eskiden `slice(0, 6)` ile 6 satır cap + `…` vardı; Constraints Assessment tablosunda 19 hücre kesik yazılıyordu. Şimdi hücreler ihtiyaç kadar uzuyor, header reprint zaten devrede.
+- ✅ **`calculateColumnWidths` yeniden yazıldı** — header genişliği artık "hard floor" (sütun en az header'ın tek satıra sığacağı kadar geniş). Slack dağıtımı `(desired - floor)` üzerinden orantılı. Tek sütun cap'i %40 → %50.
+- ✅ **Multi-line header desteği** — `drawHeader` artık header sığmazsa wrap edip tüm satırları çiziyor, header bandı yüksekliği dinamik. Survey Table 6-sütun da olsa `Recorder/Surveyor` ve `Weather Conditions` tam görünüyor.
+
+### Test sonucu (PDF v5, 12.05.2026 — kullanıcı onayı)
+
+**Çözüldü:**
+
+- Bold-noktalama merge'leri (`Habitats: Desktop`, `(1976–2021): Irish` vb.) ✅
+- `whichprovides` → `which provides` ✅
+- `seasonalflooding` → `seasonal flooding` ✅
+- `(2000)comprises` → `(2000) comprises` ✅
+- Constraints Assessment tablosu tam metin (no `…`) ✅
+- Habitat tablosu 5 header tam yazılı ✅
+- Survey Table 6 header tam yazılı (multi-line wrap) ✅
+- Header reprint sayfa kırılınca ✅
+
+**Kalan minor merge'ler (line-wrap noktasında, 3. tur fix'iyle çözülecek — kullanıcı onayı ile şimdilik bırakıldı):**
+
+- `duringfieldwork`, `at0.18`, `distincthabitat`, `toEU`, `(Code3180*)` gibi sınır durumları
+- "Şuan iyiyse kalsın" — sıradaki rapor tipine geçilecek
 
 ---
 
 ## Test Edilecek Diğer Rapor Tipleri (10 - 1 = 9 kaldı)
 
-| #   | Rapor Tipi                             | ID                  | Test Edildi | Sorun Sayısı | Düzeltildi |
-| --- | -------------------------------------- | ------------------- | ----------- | ------------ | ---------- |
-| 1   | Preliminary Ecological Appraisal (PEA) | `pea`               | ✅ v3       | 6 ana sorun  | ✅         |
-| 2   | Ecological Impact Assessment (EcIA)    | `ecia`              | ⏳          | —            | —          |
-| 3   | Appropriate Assessment Screening       | `aa_screening`      | ⏳          | —            | —          |
-| 4   | Appropriate Assessment (Stage 2)       | `aa_stage2`         | ⏳          | —            | —          |
-| 5   | Natura Impact Assessment (NIA)         | `nia`               | ⏳          | —            | —          |
-| 6   | Bat Survey Report                      | `bat_survey`        | ⏳          | —            | —          |
-| 7   | Bird Survey Report                     | `bird_survey`       | ⏳          | —            | —          |
-| 8   | Habitat Survey Report                  | `habitat_survey`    | ⏳          | —            | —          |
-| 9   | Protected Species Report               | `protected_species` | ⏳          | —            | —          |
-| 10  | Other Technical Report                 | `other`             | ⏳          | —            | —          |
+| #   | Rapor Tipi                             | ID                  | Test Edildi   | Sorun Sayısı   | Düzeltildi               |
+| --- | -------------------------------------- | ------------------- | ------------- | -------------- | ------------------------ |
+| 1   | Preliminary Ecological Appraisal (PEA) | `pea`               | ✅ v3 (3 tur) | 6 + 5 ek minor | ✅ (3. tur kabul edildi) |
+| 2   | Ecological Impact Assessment (EcIA)    | `ecia`              | ⏳            | —              | —                        |
+| 3   | Appropriate Assessment Screening       | `aa_screening`      | ⏳            | —              | —                        |
+| 4   | Appropriate Assessment (Stage 2)       | `aa_stage2`         | ⏳            | —              | —                        |
+| 5   | Natura Impact Assessment (NIA)         | `nia`               | ⏳            | —              | —                        |
+| 6   | Bat Survey Report                      | `bat_survey`        | ⏳            | —              | —                        |
+| 7   | Bird Survey Report                     | `bird_survey`       | ⏳            | —              | —                        |
+| 8   | Habitat Survey Report                  | `habitat_survey`    | ⏳            | —              | —                        |
+| 9   | Protected Species Report               | `protected_species` | ⏳            | —              | —                        |
+| 10  | Other Technical Report                 | `other`             | ⏳            | —              | —                        |
 
 ### Test stratejisi (her rapor için)
 
@@ -245,16 +279,22 @@ PDF / Word / HTML çıktı
 | 11.05.2026 | Step 8 PDF `writeRichText` text-extraction kelime birleşmesi fix (PEA v3, 2. tur)                                  | Test bekleniyor |
 | 11.05.2026 | Step 8 DOCX generator full fix (stripMarkdown, repairRunBoundaries, empty appendix notes, habitat_map/photographs) | Test bekleniyor |
 | 11.05.2026 | Step 8 DOCX smart appendix page-break (note-only appendices artık önceki ile aynı sayfada — 2-3 boş sayfa kazancı) | Test bekleniyor |
+| 12.05.2026 | Step 8 PDF `writeRichText` same-style run batching + wrap-aware trailing space (PEA v3, 3. tur)                    | Kullanıcı ✅    |
+| 12.05.2026 | Step 8 PDF `segmentsToWords` boundary repair regex (`:`, `,`, `.`, `;`, `!`, `?`, `(` dahil)                       | Kullanıcı ✅    |
+| 12.05.2026 | Step 8 PDF `table-renderer` `…` truncate kaldırıldı, header floor + multi-line header desteği                      | Kullanıcı ✅    |
 
 ---
 
 ## Yapılacaklar / Notlar
 
 - [x] PEA v3 1. tur PDF düzeltmeleri doğrulandı (görsel iyileşme onaylandı, text-extraction'da kelime birleşmesi tespit edildi)
-- [ ] PEA v3 2. tur PDF doğrulama — `writeRichText` text-extraction fix sonrası: kopyalandığında / Read tool ile okuduğunda kelimeler arası boşluk olmalı
+- [x] PEA v3 2. tur PDF doğrulama — text-extraction'da kelime birleşmesi büyük ölçüde düzeldi, ama bold-colon ve line-wrap durumları kaldı
+- [x] PEA v3 3. tur PDF doğrulama — same-style run batching + wrap-aware fix sonrası kullanıcı "şuan iyiyse kalsın" dedi, PEA stabil sayılıyor
 - [ ] PEA v3 DOCX (Word) doğrulama — boş sayfa sayısı azaldı mı, tablo asterix temiz mi, kelime merge düzeldi mi
-- [ ] PEA'da kalan görsel hata olursa not al
-- [ ] PEA'da sorun kalmazsa **EcIA test edilecek** (sırada 2.)
+- [ ] **EcIA test edilecek** (sırada 2.) — aynı proje EP-2026-907, Step 8'de selector'dan tip değiştir + Step 6 Regenerate All
+- [x] **Step 6 "appendices" section AI üretimi atlandı** (12.05.2026) — PEA + EcIA template'lerinde `id: 'appendices'` section'ı tanımlı, AI buraya ~22K (PEA) / ~15K (EcIA) char üretiyordu ama `pdf-generator.ts:289` kasıtlı filter ile basmıyor (AI uydurma "Appendix A:..." listesi otomatik appendix tablolarla çakışıyor). `ai-draft-step.tsx:164` `generateAllSections` artık `def.id !== 'appendices'` filter'a sahip → ~1$ + 1 dk tasarruf her rapor üretiminde. Görsel etki yok (otomatik Appendix A-E zaten basılıyor).
+- [x] **Karar revize edildi** (12.05.2026) — Kullanıcı "müşteri bu adımları (section listesini) verdi, AI üretiyorsa rapora basalım" dedi. Hem Step 6 skip'i geri alındı (AI üretmeye devam) hem de Step 8 export skip'leri (PDF + DOCX + HTML, 3 yerde) kaldırıldı. Artık "Appendices" section'ı AI metniyle birlikte PDF'e basılıyor, sonra otomatik Appendix A-E tabloları onun ardından geliyor.
+- [x] **Appendices template prompt'u yeniden yazıldı** (12.05.2026) — EcIA v1 (4) test PDF'inde AI 7-appendix listesi (Site Location Map, Habitat Map, Designated Sites Map, Species, Photos, Survey Datasheets, CEMP Outline) yazıyordu; otomatik renderer 5 appendix basıyordu (Habitat, Designated, Species, Aquatic, Photos). Sonuç: harf numaraları kayıyor + iki uyumsuz liste yan yana. Çakışmanın sebebi template prompt'u kendi içinde appendix listesi tanımlamasıydı. `lib/templates/pea-template.ts:150` ve `ecia-template.ts:237` artık AI'a "appendix listesi yazma — sadece Data Sources and References listesini doldur" diyor. Otomatik appendix tabloları olduğu gibi devam ediyor, AI metni artık sadece kaynak/referans listesi.
 - [ ] AI truncation sorunu için Step 6'da `max_tokens` artırılması ayrı bir feedback olarak ele alınmalı (`route.ts` veya AI generation logic)
 - [ ] Superscript encoding (`⁻¹` rendering) — jsPDF custom font yüklenmesi gerekecek (Helvetica-Unicode varsa) — ayrı task
 - [ ] Branding (logo/renk) Step 8 export'unda doğru uygulanıyor mu — ayrı kontrol
