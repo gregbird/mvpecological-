@@ -33,7 +33,11 @@ import type { ReportContextInput } from './types'
 export function buildReportContext(input: ReportContextInput): string {
   const parts: string[] = []
 
-  formatProjectInfo(parts, input.project, input.siteContext ?? null)
+  formatProjectInfo(parts, input.project, input.siteContext ?? null, {
+    boundaryAreaHa: input.boundaryAreaHa,
+    studyAreaHa: input.studyAreaHa,
+    bufferRadiusKm: input.bufferRadiusKm,
+  })
   formatSurveys(parts, input.surveys)
   formatHabitats(parts, input.habitats)
   formatObservations(parts, input.observations)

@@ -106,7 +106,11 @@ async function renderSectionInner(
         const textIndent = bulletIndent + 5
 
         setFont(false, false)
-        doc.text('•', bulletIndent, y)
+        // Embed a real space after the glyph so PDF text extractors don't
+        // glue the bullet onto the first word of the line ("•Proximity").
+        // The trailing space is invisible — the body text still begins at
+        // textIndent because writeRichText sets its own x.
+        doc.text('• ', bulletIndent, y)
         y = writeRichText(block.segments, textIndent, y)
         y += 1
         break

@@ -50,8 +50,11 @@ interface MdImage {
   src: string
   alt: string
 }
+interface MdHr {
+  type: 'hr'
+}
 
-type MdBlock = MdHeading | MdParagraph | MdBullet | MdTable | MdImage
+type MdBlock = MdHeading | MdParagraph | MdBullet | MdTable | MdImage | MdHr
 
 interface RunSpec {
   text: string
@@ -111,6 +114,13 @@ function parseMarkdown(md: string): MdBlock[] {
     const imageMatch = line.trim().match(/^!\[([^\]]*)\]\(([^)]+)\)$/)
     if (imageMatch) {
       blocks.push({ type: 'image', alt: imageMatch[1] || 'Photo', src: imageMatch[2] })
+      i++
+      continue
+    }
+
+    // Horizontal rule (---, ***, ___ on their own line)
+    if (/^(-{3,}|\*{3,}|_{3,})$/.test(line.trim())) {
+      blocks.push({ type: 'hr' })
       i++
       continue
     }
@@ -215,6 +225,14 @@ function stripMarkdown(text: string): string {
     .replace(/\*(.+?)\*/g, '$1')
     .replace(/`(.+?)`/g, '$1')
     .replace(/_{2,}(.+?)_{2,}/g, '$1')
+    .trim()
+  // Trim is essential for table cells: when the AI emits `| ** Header ** |`,
+  // `normalizeBoldItalicSpacing` (upstream) plus the marker-stripping regexes
+  // leave " Header " with leading/trailing whitespace inside the bold run.
+  // Without trim, Word renders these as `<strong> Header </strong>` —
+  // visible half-em gaps that mammoth surfaces in HTML extraction.
+  // Trim applies to ALL stripMarkdown callers (table header + body cells in
+  // both the inline-markdown-table path and the appendix-table builder).
 }
 
 /**
@@ -244,8 +262,24 @@ function repairRunBoundaries(runs: RunSpec[]): RunSpec[] {
   return out
 }
 
+/**
+ * `normalizeBoldItalicSpacing` (in tiptap-to-markdown.ts) eagerly inserts a
+ * space whenever an alphanumeric character touches `**`. For a paragraph that
+ * is ENTIRELY bold (e.g. a `**Site location and surroundings**` sub-section
+ * label), this puts a space INSIDE the marker pair too: `** Site … **`. Our
+ * `parseInline` then yields a single bold run whose text starts and ends with
+ * a space, which Word renders as `<p> Site location and surroundings </p>`.
+ *
+ * Trim leading/trailing whitespace off bold/italic runs (the surrounding
+ * markers' job is layout, not text content). Plain runs keep their whitespace
+ * since they carry inter-word spacing.
+ */
+function trimBoldItalicEdges(runs: RunSpec[]): RunSpec[] {
+  return runs.map((r) => (r.bold || r.italic ? { ...r, text: r.text.trim() } : r))
+}
+
 function runsToTextRuns(runs: RunSpec[], overrideColor?: string): TextRun[] {
-  return repairRunBoundaries(runs).map(
+  return trimBoldItalicEdges(repairRunBoundaries(runs)).map(
     (r) =>
       new TextRun({
         text: r.text,
@@ -284,6 +318,25 @@ async function blockToParagraphs(
         new Paragraph({
           children: runsToTextRuns(block.runs),
           spacing: { after: 120 },
+        }),
+      ]
+
+    case 'hr':
+      // Render TipTap horizontalRule as a thin grey border-bottom paragraph,
+      // which Word treats as a horizontal rule visually without injecting
+      // literal "---" characters into the document text.
+      return [
+        new Paragraph({
+          children: [],
+          spacing: { before: 120, after: 120 },
+          border: {
+            bottom: {
+              style: BorderStyle.SINGLE,
+              size: 6,
+              color: 'BFBFBF',
+              space: 1,
+            },
+          },
         }),
       ]
 
@@ -618,9 +671,12 @@ export async function generatePeaDocx(
   for (let sectionIdx = 0; sectionIdx < contentSections.length; sectionIdx++) {
     const section = contentSections[sectionIdx]
     progress(`docx: section ${sectionIdx + 1}/${contentSections.length}: ${section.title}`)
-    // Section heading with underline style
+    // Section heading — marked as Heading 1 for Word native TOC and the
+    // Navigation Pane, with run-level overrides preserving the green underlined
+    // look used elsewhere in the report.
     children.push(
       new Paragraph({
+        heading: HeadingLevel.HEADING_1,
         children: [
           new TextRun({
             text: section.title,

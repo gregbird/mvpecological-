@@ -4,7 +4,36 @@ import type { MdTable } from './markdown-types'
 import type { RenderContext } from './render-context'
 
 /**
- * Render every selected appendix. Each appendix starts on a fresh page.
+ * Decide whether an appendix is "heavy" (renders a data table that warrants its
+ * own page) or "note-only" (a single italic paragraph that can sit on the
+ * previous page). Note-only appendices stack onto the previous appendix to
+ * avoid 3-4 mostly-blank pages at the end of every report.
+ */
+function isHeavyAppendix(key: string, ad: PeaExportOptions['appendixData']): boolean {
+  if (!ad) return false
+  switch (key) {
+    case 'designated_sites':
+      return ad.designatedSites.length > 0
+    case 'species_list':
+      return ad.speciesRecords.length > 0
+    case 'habitat_data':
+    case 'habitat_map':
+      return ad.habitats.length > 0
+    case 'aquatic_data':
+      return ad.aquaticFeatures.length > 0
+    default:
+      // photographs, survey_datasheets, legislation_references, unknown keys
+      return false
+  }
+}
+
+/**
+ * Render every selected appendix. The first appendix always begins on a new
+ * page (separating the appendices block from the main report). Subsequent
+ * "heavy" appendices (those that render data tables) also force a page break.
+ * "Note-only" appendices (short italic placeholders) continue on the same page
+ * as the previous appendix to avoid trailing blank-page spam.
+ *
  * Returns the y position at the end of the last rendered appendix so the
  * caller can decide whether to add additional content (it doesn't currently).
  */
@@ -30,7 +59,17 @@ export async function renderAppendices(
     const label = APPENDIX_LABELS[key] || key
     progress(`appendix ${letters[i] || i + 1}: ${label}`)
 
-    y = newPage()
+    // Smart page-break: first appendix or heavy (has-table) appendices break.
+    // Note-only appendices continue on the previous page.
+    const heavy = isHeavyAppendix(key, ad)
+    if (i === 0 || heavy) {
+      y = newPage()
+    } else {
+      // Ensure heading + one note line fit; if not, the underlying ensureSpace
+      // will force a new page anyway.
+      y = ensureSpace(y, 25)
+      y += 6 // small gap above the next appendix heading
+    }
 
     resetFontCache()
     doc.setFontSize(14)

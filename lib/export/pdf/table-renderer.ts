@@ -177,7 +177,16 @@ function stripMarkdown(text: string): string {
  *  Header width is a hard floor — column must be wide enough to fit its header
  *  on one line (with padding). Cell content can wrap, so cell sample width is
  *  a soft preference. Caps any single column at 50% of total so a verbose cell
- *  (long AI summary) can't squeeze others into unreadable strips. */
+ *  (long AI summary) can't squeeze others into unreadable strips.
+ *
+ *  ALSO: per-column longest-word floor. jsPDF's splitTextToSize falls back to
+ *  CHARACTER-by-character splitting when a single token is wider than the
+ *  cell width — that's how S-P-R tables ended up with "A H A S C R A G H 0 1 0"
+ *  garbage. The longest-word floor ensures the narrowest column can still fit
+ *  its longest unbreakable token (e.g. "AHASCRAGH010", "IE_SH_26A010050") so
+ *  the wrap stays on word boundaries. Capped at maxColWidth — if a single
+ *  word truly exceeds 50% of total table width, character-split is preferable
+ *  to one column eating the entire row. */
 export function calculateColumnWidths(
   doc: jsPDF,
   table: MdTable,
@@ -205,13 +214,27 @@ export function calculateColumnWidths(
 
     doc.setFont(font, 'normal')
     let widest = headerW
+    let longestWordW = 0
     for (const row of table.rows) {
-      const sample = (row[c] || '').slice(0, 60)
+      const cell = row[c] || ''
+      const sample = cell.slice(0, 60)
       const cellW = doc.getTextWidth(sample) + cellPad * 2
       if (cellW > widest) widest = cellW
+      // Longest single token in this cell (split on whitespace AND hyphens
+      // so "AHASCRAGH_010" still measures as one token, but a hyphenated
+      // English phrase like "well-known" can break at the hyphen).
+      for (const token of cell.split(/\s+/)) {
+        if (!token) continue
+        const tokenW = doc.getTextWidth(token) + cellPad * 2 + headerSlack
+        if (tokenW > longestWordW) longestWordW = tokenW
+      }
     }
 
-    desiredWidths.push(Math.min(Math.max(widest, absMin), maxColWidth))
+    // Promote the header floor if a long unbreakable word demands more
+    // space — but never exceed maxColWidth (otherwise a runaway cell could
+    // wipe out adjacent columns).
+    headerFloors[c] = Math.min(maxColWidth, Math.max(headerFloors[c], longestWordW))
+    desiredWidths.push(Math.min(Math.max(widest, headerFloors[c]), maxColWidth))
   }
 
   // Cap header floors to maxColWidth so a single absurdly long header can't

@@ -184,8 +184,20 @@ export async function generatePeaPdf(
         lineStart = true
       }
 
-      // Style change → flush previous run, start a new one.
-      if (!runText || word.bold !== runBold || word.italic !== runItalic) {
+      // Style change → flush previous run, start a new one. If the previous
+      // word ended with a trailing space, carry that space onto the FRONT of
+      // the new run instead of the back of the old one. Same-style + same-x
+      // adjacent Tj operators (e.g. "by" plain followed by "improved" bold)
+      // get glued together by some PDF readers even when the trailing space
+      // is embedded in the first Tj's string — moving the space into the new
+      // run's leading position guarantees extraction sees the gap because the
+      // space now lives inside the second Tj's font block.
+      const styleChange = !runText || word.bold !== runBold || word.italic !== runItalic
+      let leadingSpace = ''
+      if (styleChange) {
+        if (runText && i > 0 && words[i - 1].trailingSpace) {
+          leadingSpace = ' '
+        }
         flushRun()
         runText = ''
         runX = x
@@ -193,7 +205,7 @@ export async function generatePeaPdf(
         runItalic = word.italic
       }
 
-      runText += word.text
+      runText += leadingSpace + word.text
       x += wordW
 
       // Append trailing space to the run. Even when the next word would
@@ -204,15 +216,22 @@ export async function generatePeaPdf(
         const next = words[i + 1]
         const nextW = getWordWidth(next)
         const nextFits = x + spaceW + nextW <= startX + maxWidth
-        runText += ' '
+        const nextStyleSame = next.bold === runBold && next.italic === runItalic
+        // Only embed the trailing space here if the next word will continue
+        // in the same run — otherwise the style-change branch above will
+        // pull it forward as a leading space.
+        if (nextStyleSame) {
+          runText += ' '
+        }
         if (nextFits) {
           x += spaceW
         } else {
-          // Flush this line with the trailing space embedded, then force a
-          // wrap so the next word starts on a fresh line. Without the
-          // explicit wrap here, the top-of-loop wrap check uses just `wordW`
-          // (no spaceW), so in borderline cases the next word ends up on
-          // the same line and visually overlaps the flushed space.
+          // Flush this line with the trailing space embedded (when same-style
+          // continuation) and force a wrap so the next word starts on a fresh
+          // line. Without the explicit wrap here, the top-of-loop wrap check
+          // uses just `wordW` (no spaceW), so in borderline cases the next
+          // word ends up on the same line and visually overlaps the flushed
+          // space.
           flushRun()
           y += lineHeight
           y = ensureSpace(y, lineHeight)

@@ -5,14 +5,17 @@ import type { RenderContext } from './render-context'
 /**
  * Render the Table of Contents page (typically page 2). Caller is responsible
  * for `doc.addPage()` and incrementing the page counter — TOC simply paints
- * onto the current page and emits a footer at the end.
+ * onto the current page. The footer is NOT emitted here: the caller's next
+ * `newPage()` call flushes it. Calling `addFooter()` here too produces a
+ * duplicate ("Confidential Page 2Confidential Page 2") because two identical
+ * text strings get stamped at the same coordinates.
  */
 export function renderTableOfContents(
   ctx: RenderContext,
   contentSections: ReportSection[],
   appendices: string[]
 ): void {
-  const { doc, theme, pageWidth, margin, contentWidth, addFooter } = ctx
+  const { doc, theme, pageWidth, margin, contentWidth } = ctx
   const GREEN = theme.primary
   const WHITE: [number, number, number] = [255, 255, 255]
   const LIGHT_GRAY: [number, number, number] = [245, 247, 245]
@@ -83,7 +86,4 @@ export function renderTableOfContents(
       tocY += 7
     }
   }
-
-  // Footer on TOC page
-  addFooter()
 }

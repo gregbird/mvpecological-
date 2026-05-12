@@ -305,45 +305,53 @@ export const BAT_SURVEY_DEFAULT_SECTIONS: ReportSectionDefinition[] = [
   {
     id: 'introduction',
     title: '1. Introduction',
-    aiPrompt: 'bat survey context and legal protection',
+    aiPrompt: 'bat survey background, site context, surveyor, Irish bat species context',
     defaultTemplate:
-      'This Bat Survey Report has been prepared for {{project_name}}. All bat species in Ireland are protected under the Wildlife Acts 1976–2021, the EU Habitats Directive (Annex IV), and the European Communities (Birds and Natural Habitats) Regulations 2011. This report presents the findings of bat surveys carried out in accordance with Bat Conservation Ireland guidelines.',
+      'This Bat Survey Report has been prepared for {{project_name}}. The introduction sets out: 1.1 Background and survey aim, 1.2 Site context and proposed development, 1.3 Survey authors, 1.4 Irish bat species context (nine resident species), 1.5 Purpose and scope. Follows Collins (2023) Bat Surveys for Professional Ecologists 4th Edition and Marnell, Kelleher & Mullen (2022) Bat Mitigation Guidelines for Ireland v2.',
+  },
+  {
+    id: 'protection',
+    title: '2. Protection of Bats in Ireland',
+    aiPrompt:
+      'dedicated legislative framework: Wildlife Acts, Habitats Directive Annex IV, S.I. 477/2011, Berne, Bonn/EUROBATS, NPWS derogation licensing',
+    defaultTemplate:
+      'This section sets out the legislative framework protecting bats in Ireland: Wildlife Acts 1976–2021 (Section 23 prohibitions); EU Habitats Directive 92/43/EEC (Annex IV strict protection; Lesser Horseshoe Bat Annex II); European Communities (Birds and Natural Habitats) Regulations 2011 (S.I. 477/2011); Berne Convention; Bonn Convention and the EUROBATS Agreement. NPWS derogation licensing requirements under Regulation 54 are summarised.',
   },
   {
     id: 'methodology',
-    title: '2. Methodology',
+    title: '3. Methodology',
     aiPrompt:
-      'bat survey methods: desk study, habitat assessment, detector surveys, roost inspection',
+      'bat survey methods: desk study, NBDC habitat suitability, identification of known roosts, habitat assessment, structure assessment, detector surveys',
     defaultTemplate:
-      'This section details: 2.1 Desk Study (NBDC records, BCIreland data, NPWS records), 2.2 Preliminary Roost Assessment (building/tree inspections for roost potential), 2.3 Dusk Emergence / Dawn Re-entry Surveys (dates, times, equipment used), 2.4 Transect Surveys (detector type, transect routes, weather conditions), 2.5 Static Detector Deployment (locations, duration). Survey methods follow Collins (2016) Bat Surveys for Professional Ecologists.',
+      'This section details: 3.1 Desk Study (NPWS, EPA, NBDC, BCIreland, county development plan), 3.2 NBDC Habitat Suitability Index (Lundy et al. 2011 Maximum Entropy Models), 3.3 Identification of Known Roosts (NBDC roost database), 3.4 Habitat Assessment (Fossitt-based screening using Collins 2023 and Marnell et al. 2022 suitability criteria), 3.5 Assessment of Structures for Potential Bat Roosts (PRA following Collins 2023), 3.6 Dusk Emergence / Dawn Re-entry Surveys, 3.7 Transect Surveys, 3.8 Static Detector Deployment, 3.9 Limitations.',
   },
   {
     id: 'results',
-    title: '3. Results',
-    aiPrompt: 'bat species recorded, activity levels, roost findings',
+    title: '4. Results',
+    aiPrompt: 'bat species recorded, hectad species presence, known roosts, per-building survey',
     defaultTemplate:
-      'This section presents: 3.1 Desk Study Results (historical bat records in the area), 3.2 Habitat Assessment (suitability for foraging, commuting, and roosting), 3.3 Building/Structure Assessment (roost potential classification), 3.4 Activity Survey Results (species detected, bat passes per hour, temporal and spatial activity patterns), 3.5 Roost Survey Results (confirmed/probable/possible roosts). Include bat sonogram analysis details.',
+      'This section presents: 4.1 Bat Background Data (hectad species presence matrix from NBDC, Lundy et al. 2011 habitat suitability indices per species), 4.2 Known Roosts (NBDC database returns), 4.3 Habitat Assessment Findings, 4.4 Bat Building Survey (per-building table with roost potential classification), 4.5 Activity Survey Results (bat passes per hour, species detected), 4.6 Roost Survey Results (confirmed/probable/possible roosts).',
   },
   {
     id: 'assessment',
-    title: '4. Assessment',
+    title: '5. Assessment',
     aiPrompt: 'evaluation of bat populations, roost importance, impact assessment',
     defaultTemplate:
-      'This section evaluates: the importance of bat populations using the site (local, county, national significance), roost classification and importance, key foraging areas and commuting corridors, and the potential impacts of the proposed development on bat species and their habitats.',
+      'This section evaluates: the importance of bat populations using the site (local, county, national significance), roost classification and importance, key foraging areas and commuting corridors, and the potential impacts of the proposed development on bat species and their habitats. Follows Collins (2023) Table 4.1 roost classification framework.',
   },
   {
     id: 'mitigation',
-    title: '5. Mitigation & Recommendations',
+    title: '6. Mitigation & Recommendations',
     aiPrompt: 'bat mitigation measures, licensing, monitoring',
     defaultTemplate:
-      'This section provides: 5.1 Impact Avoidance (design changes, lighting strategy, buffer zones), 5.2 Mitigation (timing restrictions, bat box installation, habitat retention/enhancement), 5.3 Derogation Licensing (if roost disturbance/destruction unavoidable, NPWS licence requirements), 5.4 Monitoring Programme (post-construction monitoring). Follow NPWS best practice guidance.',
+      'This section provides: 6.1 Impact Avoidance (design changes, lighting strategy following BCIreland/ILP guidance), 6.2 Mitigation (timing restrictions, bat box installation, habitat retention/enhancement), 6.3 Derogation Licensing (NPWS licence under Regulation 54), 6.4 Monitoring Programme (post-construction monitoring). Follows Marnell, Kelleher & Mullen (2022) Bat Mitigation Guidelines for Ireland v2 and Collins (2023).',
   },
   {
     id: 'appendices',
-    title: '6. Appendices',
-    aiPrompt: 'bat survey data, maps, sonograms',
+    title: '7. Appendices',
+    aiPrompt: 'bat survey data, maps, sonograms, references',
     defaultTemplate:
-      'Appendices: A) Site Location & Survey Transect Map, B) Bat Activity Maps (species distribution), C) Sonogram Examples, D) Survey Data Tables (passes per species per survey), E) Site Photographs, F) Building/Tree Assessment Sheets.',
+      'Appendices: A) Site Location & Survey Transect Map, B) Bat Activity Maps (species distribution), C) Sonogram Examples, D) Survey Data Tables (passes per species per survey), E) Site Photographs, F) Building/Tree Assessment Sheets. Plus a Data Sources and References list (Collins 2023, Marnell et al. 2022, Kelleher & Marnell 2006, Lundy et al. 2011, BCIreland guidance, NPWS Bat Mitigation Guidelines).',
   },
 ]
 

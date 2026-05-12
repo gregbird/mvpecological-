@@ -24,10 +24,17 @@ import type {
 export { formatFindings } from './format-findings'
 export { formatDataSources } from './format-data-sources'
 
+interface ProjectAreaInfo {
+  boundaryAreaHa?: number
+  studyAreaHa?: number
+  bufferRadiusKm?: number
+}
+
 export function formatProjectInfo(
   parts: string[],
   project: ProjectData,
-  siteContext: SiteContext | null | undefined
+  siteContext: SiteContext | null | undefined,
+  areaInfo?: ProjectAreaInfo
 ): void {
   const p = project
   const sc = siteContext
@@ -51,6 +58,29 @@ export function formatProjectInfo(
     if (p.townland) parts.push(`Townland: ${p.townland}`)
     if (p.province) parts.push(`Province: ${p.province}`)
   }
+
+  // Project boundary + study area block — explicit so the AI uses the right
+  // number for "site area" and never inflates the figure with the sum of
+  // habitat polygon areas (which can exceed the study area when polygons
+  // extend beyond the buffer or overlap).
+  if (areaInfo?.boundaryAreaHa != null || areaInfo?.studyAreaHa != null) {
+    parts.push('')
+    parts.push('## Project Area')
+    if (areaInfo.boundaryAreaHa != null) {
+      parts.push(
+        `Site boundary area: ${areaInfo.boundaryAreaHa.toFixed(2)} ha (the actual development footprint — use this number whenever the text refers to "the site")`
+      )
+    }
+    if (areaInfo.studyAreaHa != null && areaInfo.bufferRadiusKm != null) {
+      parts.push(
+        `Study area (boundary + ${areaInfo.bufferRadiusKm} km buffer): ${areaInfo.studyAreaHa.toFixed(2)} ha (the desktop assessment extent — habitat polygons and findings within this area inform the screening)`
+      )
+    }
+    parts.push(
+      'IMPORTANT: Do NOT use the sum of habitat polygon areas as the "site area" or "site size". Habitat polygons can extend beyond the study area and may overlap; their combined extent does not equal site area.'
+    )
+  }
+
   parts.push('')
 }
 
@@ -104,8 +134,10 @@ export function formatHabitats(parts: string[], habitats: HabitatData[]): void {
     return
   }
   const totalArea = habitats.reduce((sum, h) => sum + (h.area_hectares || 0), 0)
-  parts.push(`Total habitat types: ${habitats.length}`)
-  parts.push(`Total area: ${totalArea.toFixed(2)} hectares`)
+  parts.push(`Total habitat polygons: ${habitats.length}`)
+  parts.push(
+    `Sum of habitat polygon areas: ${totalArea.toFixed(2)} ha (the combined extent of every mapped polygon across the study area; this is NOT the site area, NOT the buffer area, and may exceed both when polygons span or overlap their boundaries)`
+  )
   parts.push('')
   for (const h of habitats) {
     parts.push(`## ${h.fossitt_code} — ${h.fossitt_name}`)

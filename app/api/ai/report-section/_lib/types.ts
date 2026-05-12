@@ -177,4 +177,13 @@ export interface ReportContextInput {
   siteContext?: SiteContext | null
   /** Buffer radius (km) used for zone classification — referenced in section labels. */
   bufferRadiusKm: number
+  /** Project boundary area in hectares — calculated server-side via PostGIS
+   *  ST_Area(boundary::geography). Used by AI to describe the actual
+   *  development site area (NOT the sum of habitat polygon areas, which is
+   *  often much larger because polygons can extend across and beyond the
+   *  assessment buffer). */
+  boundaryAreaHa?: number
+  /** Study area in hectares = boundary buffered by `bufferRadiusKm`.
+   *  Used by AI as the assessment extent. */
+  studyAreaHa?: number
 }

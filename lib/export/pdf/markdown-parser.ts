@@ -2,6 +2,52 @@ import type { MdBlock, StyledWord, TextSegment } from './markdown-types'
 import { SCIENTIFIC_GENERA_LOWER, SCIENTIFIC_NAME_REGEX } from './scientific-genera'
 
 /**
+ * Replace Unicode glyphs that jsPDF's default Helvetica/WinAnsi encoding
+ * cannot render. The AI commonly emits these in flow-diagram-style prose
+ * (S-P-R tables: "site → river → SAC") and in scientific units
+ * (`km·h⁻¹`, `m³·s⁻¹`). Without substitution, the PDF prints `!'` garbage
+ * or invisible glyphs and extraction tools see no text at all.
+ *
+ * Loading a Unicode-capable custom font would be the proper fix; ASCII
+ * substitution is the pragmatic stop-gap that keeps reports legible today.
+ */
+function substituteUnrenderableGlyphs(text: string): string {
+  return (
+    text
+      .replace(/\s*→\s*/g, ' -> ')
+      .replace(/\s*←\s*/g, ' <- ')
+      .replace(/⁰/g, '^0')
+      .replace(/¹/g, '^1')
+      .replace(/²/g, '^2')
+      .replace(/³/g, '^3')
+      .replace(/⁴/g, '^4')
+      .replace(/⁵/g, '^5')
+      .replace(/⁶/g, '^6')
+      .replace(/⁷/g, '^7')
+      .replace(/⁸/g, '^8')
+      .replace(/⁹/g, '^9')
+      .replace(/⁻/g, '^-')
+      .replace(/⁺/g, '^+')
+      // Inequalities, plus-minus, multiplication/division — common in
+      // weather thresholds ("Temperature ≥ 10°C", "Wind ≤ 5 m/s") and
+      // measurement uncertainties. Helvetica WinAnsi renders them as
+      // invisible glyphs and jsPDF then mis-positions the surrounding
+      // characters, producing letter-per-line garbage ("T e m p e r a...").
+      .replace(/≥/g, '>=')
+      .replace(/≤/g, '<=')
+      .replace(/≠/g, '!=')
+      .replace(/≈/g, '~=')
+      .replace(/±/g, '+/-')
+      .replace(/×/g, 'x')
+      .replace(/÷/g, '/')
+      // Greek micro symbol (µ) shows up in units (µg/L, µS/cm) and is
+      // ALSO absent from Helvetica WinAnsi. Substitute with ASCII `u`
+      // so the unit reads cleanly ("ug/L" instead of garbage glyph).
+      .replace(/µ/g, 'u')
+  )
+}
+
+/**
  * Strip markdown bold/italic/code markers — table cells render as plain text
  * because both jsPDF and docx-table cells write a single string without
  * mid-cell font switching. Leaving the markers in produces literal
@@ -24,7 +70,7 @@ function stripInlineMarkdown(text: string): string {
  */
 export function parseMarkdown(md: string): MdBlock[] {
   const blocks: MdBlock[] = []
-  const lines = md.split('\n')
+  const lines = substituteUnrenderableGlyphs(md).split('\n')
   let i = 0
 
   while (i < lines.length) {

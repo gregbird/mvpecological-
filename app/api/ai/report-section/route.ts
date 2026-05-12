@@ -6,7 +6,7 @@ import { jsonToSections, resolveReportSections } from '@/lib/supabase/queries/te
 import { REPORT_TYPES } from '@/lib/config/template-types'
 import { getSectionPrompt, getSectionMaxTokens } from '@/lib/ai/report-section-prompts'
 import { toIrishEnglish } from '@/lib/ai/irish-english'
-import { CLAUDE_CHEAP_MODEL } from '@/lib/ai/anthropic-models'
+import { getSectionModel } from '@/lib/ai/anthropic-models'
 import { callClaude } from '@/lib/ai/call-claude'
 import { buildSpatialClassifier, type SpatialZone } from '@/lib/utils/spatial-classifier'
 
@@ -156,6 +156,8 @@ export async function POST(request: NextRequest) {
       releveSpecies,
       siteContext: data.siteContext,
       bufferRadiusKm: data.scopeBufferKm,
+      boundaryAreaHa: data.boundaryAreaHa ?? undefined,
+      studyAreaHa: data.studyAreaHa ?? undefined,
     })
 
     // 6. Compose section prompt + placement guidance
@@ -226,11 +228,12 @@ ${context}
 Write the section content now. Use markdown formatting (bold, bullet points, tables where appropriate). Do not include the section title as a heading — it will be added separately.${releveMainReminder}${releveAppendixReminder}`
 
     const maxTokens = getSectionMaxTokens(reportType, sectionId)
+    const model = getSectionModel(reportType, sectionId)
 
     // 7. Call Claude + post-process
     const rawContent = (
       await callClaude({
-        model: CLAUDE_CHEAP_MODEL,
+        model,
         system: buildSystemPrompt(
           reportType,
           data.siteContext
@@ -258,7 +261,7 @@ Write the section content now. Use markdown formatting (bold, bullet points, tab
       sectionId,
       content,
       metadata: {
-        model: CLAUDE_CHEAP_MODEL,
+        model,
         tokensUsed: 0,
         dataSources,
         generatedAt: new Date().toISOString(),

@@ -1,4 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import area from '@turf/area'
+import buffer from '@turf/buffer'
 import { normaliseBoundary } from './normalise-boundary'
 import type {
   AquaticResearchData,
@@ -18,6 +20,12 @@ interface FetchResult {
   project: ProjectData
   scopeBoundary: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> | null
   scopeBufferKm: number
+  /** Project (or site) boundary area in hectares — turf area(boundary) / 10000.
+   *  Null when no boundary geometry is available. */
+  boundaryAreaHa: number | null
+  /** Total study area in hectares = boundary buffered by scopeBufferKm.
+   *  Null when no boundary geometry is available. */
+  studyAreaHa: number | null
   siteContext: SiteContext | null
   habitats: HabitatData[]
   allObservations: ObservationData[]
@@ -277,10 +285,32 @@ export async function fetchProjectData(
     allReleveSpecies = (speciesData || []) as ReleveSpeciesData[]
   }
 
+  // Boundary + study area, server-computed once so the AI prompt can show
+  // them explicitly. Sum-of-habitat-polygon-areas is NOT a substitute for
+  // site area — habitat polygons can extend beyond the assessment buffer
+  // (AT-2026-759: 36 ha boundary, 600 ha study area, 1294 ha habitat geometry).
+  let boundaryAreaHa: number | null = null
+  let studyAreaHa: number | null = null
+  if (scopeBoundary) {
+    boundaryAreaHa = Number((area(scopeBoundary) / 10000).toFixed(2))
+    try {
+      const buffered = buffer(scopeBoundary, scopeBufferKm, {
+        units: 'kilometers',
+      }) as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> | null
+      if (buffered) {
+        studyAreaHa = Number((area(buffered) / 10000).toFixed(2))
+      }
+    } catch {
+      studyAreaHa = null
+    }
+  }
+
   return {
     project,
     scopeBoundary,
     scopeBufferKm,
+    boundaryAreaHa,
+    studyAreaHa,
     siteContext,
     habitats: (habitatsResult.data || []) as HabitatData[],
     allObservations: (observationsResult.data || []) as ObservationData[],

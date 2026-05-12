@@ -236,9 +236,22 @@ function escapeHtml(text: string): string {
 function markdownToHtml(md: string): string {
   let html = escapeHtml(md)
 
-  html = html.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
-  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>')
+  // Horizontal rule (---, ***, ___ on their own line). Must run BEFORE the
+  // bold/italic regexes — a literal `***` on its own line would otherwise be
+  // mis-consumed as `<em></em>*` by the emphasis pass. Also before heading
+  // and paragraph passes so the rule is hoisted out cleanly.
+  html = html.replace(/^(?:-{3,}|\*{3,}|_{3,})$/gm, '<hr>')
+
+  // Bold / italic. Trim whitespace INSIDE the captured group: the upstream
+  // `normalizeBoldItalicSpacing` adds a space whenever a `**`/`*` marker
+  // touches alphanumerics, which for a standalone `**Foo**` paragraph yields
+  // `** Foo **`. The naive `(.*?)` capture then includes the leading/trailing
+  // space, rendering as `<strong> Foo </strong>` — visually a half-em gap on
+  // each side. Trimming the capture restores tight typography. The outer
+  // markdown layer already supplies any inter-word space that should remain.
+  html = html.replace(/\*\*\*(.*?)\*\*\*/g, (_m, c) => `<strong><em>${c.trim()}</em></strong>`)
+  html = html.replace(/\*\*(.*?)\*\*/g, (_m, c) => `<strong>${c.trim()}</strong>`)
+  html = html.replace(/\*(.*?)\*/g, (_m, c) => `<em>${c.trim()}</em>`)
 
   html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>')
   html = html.replace(/^## (.+)$/gm, '<h3>$1</h3>')
@@ -290,6 +303,11 @@ function markdownToHtml(md: string): string {
   html = html.replace(/(<\/table>)<\/p>/g, '$1')
   html = html.replace(/<p>(<ul>)/g, '$1')
   html = html.replace(/(<\/ul>)<\/p>/g, '$1')
+  // Hoist <hr> out of the paragraph wrapper so it sits as a block element
+  // (otherwise `<p><hr></p>` is invalid HTML and renders inconsistently).
+  html = html.replace(/<p>(<hr\s*\/?>)<\/p>/g, '$1')
+  html = html.replace(/<p>(<hr\s*\/?>)/g, '$1<p>')
+  html = html.replace(/(<hr\s*\/?>)<\/p>/g, '</p>$1')
 
   return html
 }
