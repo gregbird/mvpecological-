@@ -198,20 +198,20 @@ Kullanıcı PDF (4)'ü test etti. Önceki turdaki büyük merge sorunlarının �
 
 ---
 
-## Test Edilecek Diğer Rapor Tipleri (10 - 1 = 9 kaldı)
+## Test Edilecek Diğer Rapor Tipleri (10 - 2 = 8 kaldı)
 
-| #   | Rapor Tipi                             | ID                  | Test Edildi   | Sorun Sayısı   | Düzeltildi               |
-| --- | -------------------------------------- | ------------------- | ------------- | -------------- | ------------------------ |
-| 1   | Preliminary Ecological Appraisal (PEA) | `pea`               | ✅ v3 (3 tur) | 6 + 5 ek minor | ✅ (3. tur kabul edildi) |
-| 2   | Ecological Impact Assessment (EcIA)    | `ecia`              | ⏳            | —              | —                        |
-| 3   | Appropriate Assessment Screening       | `aa_screening`      | ⏳            | —              | —                        |
-| 4   | Appropriate Assessment (Stage 2)       | `aa_stage2`         | ⏳            | —              | —                        |
-| 5   | Natura Impact Assessment (NIA)         | `nia`               | ⏳            | —              | —                        |
-| 6   | Bat Survey Report                      | `bat_survey`        | ⏳            | —              | —                        |
-| 7   | Bird Survey Report                     | `bird_survey`       | ⏳            | —              | —                        |
-| 8   | Habitat Survey Report                  | `habitat_survey`    | ⏳            | —              | —                        |
-| 9   | Protected Species Report               | `protected_species` | ⏳            | —              | —                        |
-| 10  | Other Technical Report                 | `other`             | ⏳            | —              | —                        |
+| #   | Rapor Tipi                             | ID                  | Test Edildi      | Sorun Sayısı         | Düzeltildi                               |
+| --- | -------------------------------------- | ------------------- | ---------------- | -------------------- | ---------------------------------------- |
+| 1   | Preliminary Ecological Appraisal (PEA) | `pea`               | ✅ v3 (5 tur)    | 6 ana + ek appendix  | ✅                                       |
+| 2   | Ecological Impact Assessment (EcIA)    | `ecia`              | ✅ v2 PDF + DOCX | appendix uyumsuzluğu | ✅                                       |
+| 3   | Appropriate Assessment Screening       | `aa_screening`      | ⏳               | —                    | — (appendices section yok template'inde) |
+| 4   | Appropriate Assessment (Stage 2)       | `aa_stage2`         | ⏳               | —                    | —                                        |
+| 5   | Natura Impact Assessment (NIA)         | `nia`               | ⏳               | —                    | —                                        |
+| 6   | Bat Survey Report                      | `bat_survey`        | ⏳               | —                    | — (appendices prompt güncellendi)        |
+| 7   | Bird Survey Report                     | `bird_survey`       | ⏳               | —                    | — (appendices prompt güncellendi)        |
+| 8   | Habitat Survey Report                  | `habitat_survey`    | ⏳               | —                    | — (appendices prompt güncellendi)        |
+| 9   | Protected Species Report               | `protected_species` | ⏳               | —                    | — (appendices section yok template'inde) |
+| 10  | Other Technical Report                 | `other`             | ⏳               | —                    | — (appendices section yok template'inde) |
 
 ### Test stratejisi (her rapor için)
 
@@ -282,6 +282,13 @@ PDF / Word / HTML çıktı
 | 12.05.2026 | Step 8 PDF `writeRichText` same-style run batching + wrap-aware trailing space (PEA v3, 3. tur)                    | Kullanıcı ✅    |
 | 12.05.2026 | Step 8 PDF `segmentsToWords` boundary repair regex (`:`, `,`, `.`, `;`, `!`, `?`, `(` dahil)                       | Kullanıcı ✅    |
 | 12.05.2026 | Step 8 PDF `table-renderer` `…` truncate kaldırıldı, header floor + multi-line header desteği                      | Kullanıcı ✅    |
+| 12.05.2026 | Step 6 "appendices" skip → tekrar geri alındı + Step 8 PDF/DOCX/HTML export filter kaldırıldı (3 dosya)            | Kullanıcı ✅    |
+| 12.05.2026 | `lib/templates/{pea,ecia}-template.ts` appendices `template` alanı yeniden yazıldı (yanlış yer fark edildi)        | (kullanılmadı)  |
+| 12.05.2026 | `lib/ai/report-section-prompts.ts` PEA + EcIA + Bat + Bird + Habitat Survey appendices prompt'ları yeniden yazıldı | Kullanıcı ✅    |
+| 12.05.2026 | EcIA v2 PDF + DOCX testi — Appendices section "Data Sources and References" formatında basıldı                     | Kullanıcı ✅    |
+| 12.05.2026 | PEA v3(6) testte AI ekstra `APPENDIX — DESIGNATED SITES` tarzı tablolar yazdı; prompt sıkılaştırıldı (tablo yasak) | Kullanıcı ✅    |
+| 12.05.2026 | PEA v3(7) testi temiz çıktı: ekstra tablolar gitti, 27→25 sayfa                                                    | Kullanıcı ✅    |
+| 12.05.2026 | Commit `2f944ed`: fix(export): tighten Appendices section + polish PDF/DOCX/HTML output                            | —               |
 
 ---
 
@@ -290,18 +297,22 @@ PDF / Word / HTML çıktı
 - [x] PEA v3 1. tur PDF düzeltmeleri doğrulandı (görsel iyileşme onaylandı, text-extraction'da kelime birleşmesi tespit edildi)
 - [x] PEA v3 2. tur PDF doğrulama — text-extraction'da kelime birleşmesi büyük ölçüde düzeldi, ama bold-colon ve line-wrap durumları kaldı
 - [x] PEA v3 3. tur PDF doğrulama — same-style run batching + wrap-aware fix sonrası kullanıcı "şuan iyiyse kalsın" dedi, PEA stabil sayılıyor
-- [ ] PEA v3 DOCX (Word) doğrulama — boş sayfa sayısı azaldı mı, tablo asterix temiz mi, kelime merge düzeldi mi
-- [ ] **EcIA test edilecek** (sırada 2.) — aynı proje EP-2026-907, Step 8'de selector'dan tip değiştir + Step 6 Regenerate All
-- [x] **Step 6 "appendices" section AI üretimi atlandı** (12.05.2026) — PEA + EcIA template'lerinde `id: 'appendices'` section'ı tanımlı, AI buraya ~22K (PEA) / ~15K (EcIA) char üretiyordu ama `pdf-generator.ts:289` kasıtlı filter ile basmıyor (AI uydurma "Appendix A:..." listesi otomatik appendix tablolarla çakışıyor). `ai-draft-step.tsx:164` `generateAllSections` artık `def.id !== 'appendices'` filter'a sahip → ~1$ + 1 dk tasarruf her rapor üretiminde. Görsel etki yok (otomatik Appendix A-E zaten basılıyor).
-- [x] **Karar revize edildi** (12.05.2026) — Kullanıcı "müşteri bu adımları (section listesini) verdi, AI üretiyorsa rapora basalım" dedi. Hem Step 6 skip'i geri alındı (AI üretmeye devam) hem de Step 8 export skip'leri (PDF + DOCX + HTML, 3 yerde) kaldırıldı. Artık "Appendices" section'ı AI metniyle birlikte PDF'e basılıyor, sonra otomatik Appendix A-E tabloları onun ardından geliyor.
-- [x] **Appendices template prompt'u yeniden yazıldı** (12.05.2026) — EcIA v1 (4) test PDF'inde AI 7-appendix listesi (Site Location Map, Habitat Map, Designated Sites Map, Species, Photos, Survey Datasheets, CEMP Outline) yazıyordu; otomatik renderer 5 appendix basıyordu (Habitat, Designated, Species, Aquatic, Photos). Sonuç: harf numaraları kayıyor + iki uyumsuz liste yan yana. Çakışmanın sebebi template prompt'u kendi içinde appendix listesi tanımlamasıydı. `lib/templates/pea-template.ts:150` ve `ecia-template.ts:237` artık AI'a "appendix listesi yazma — sadece Data Sources and References listesini doldur" diyor. Otomatik appendix tabloları olduğu gibi devam ediyor, AI metni artık sadece kaynak/referans listesi.
-- [ ] AI truncation sorunu için Step 6'da `max_tokens` artırılması ayrı bir feedback olarak ele alınmalı (`route.ts` veya AI generation logic)
+- [x] PEA v3 DOCX (Word) doğrulama — kontrol edilmedi; PDF stabilse DOCX büyük ihtimalle paralel iyileşti (DOCX'te `repairRunBoundaries` zaten devrede). İhtiyaç olursa tekrar bakılır.
+- [x] **EcIA testi tamamlandı** (12.05.2026) — yeni proje `ET-2026-485`, v2 PDF + DOCX kontrol edildi; PEA fix'leri başarıyla EcIA'ya yansımış (tablo `…` truncate yok, header multi-line çalışıyor, bold-noktalama merge'leri düzeldi). Appendices section yeni "Data Sources and References" formatında basıldı, otomatik Appendix A-E tabloları beraber çıktı, uyumsuzluk yok.
+- [x] **Step 6 "appendices" section AI üretimi atlandı** (12.05.2026, sonra geri alındı) — Önce filter eklendi, sonra kullanıcı kararı ile geri alındı çünkü müşteri "AI üretiyorsa rapora basalım" dedi. Şu an AI üretiyor + PDF/DOCX/HTML basıyor + prompt sıkılaştırıldığı için ekstra appendix listesi/tablosu üretmiyor.
+- [x] **Karar revize edildi** (12.05.2026) — Step 8 export skip'leri (PDF + DOCX + HTML, 3 yerde) kaldırıldı. Artık "Appendices" section'ı AI metniyle birlikte basılıyor, sonra otomatik Appendix A-E tabloları onun ardından geliyor.
+- [x] **Appendices template prompt'u yeniden yazıldı** (12.05.2026) — EcIA v1 (4) test PDF'inde AI 7-appendix listesi yazıyordu, otomatik renderer 5 appendix basıyordu → harf numaraları kayıyor + iki uyumsuz liste yan yana. Önce `lib/templates/{pea,ecia}-template.ts`'in `template` alanını değiştirdim (yanlış yer — AI bunu kullanmıyor). Sonra doğru yer bulundu: `lib/ai/report-section-prompts.ts`. PEA + EcIA + Bat Survey + Bird Survey + Habitat Survey için appendices prompt'ları yeniden yazıldı: "appendix listesi yazma — sadece Data Sources and References listesini doldur".
+- [x] **Appendices prompt'u sıkılaştırıldı** (12.05.2026, PEA v3(6) testi sonrası) — PEA AI'ı yeni prompt'a rağmen `APPENDIX — DESIGNATED SITES`, `APPENDIX — CATCHMENTS`, `APPENDIX — SPECIES OBSERVATIONS`, `APPENDIX — HABITAT MAPPING DETAIL` tarzı ekstra tablolar üretti. Prompt 5 rapor tipinde sıkılaştırıldı: "CRITICAL — DO NOT WRITE: appendix list, markdown tables, APPENDIX — XX sub-headings, per-record breakdowns". PEA v3(7) tekrar test edildi: ekstra tablolar gitti, sayfa 27 → 25.
+- [ ] AI truncation sorunu için Step 6'da `max_tokens` artırılması ayrı bir feedback olarak ele alınmalı (`route.ts` veya AI generation logic). EcIA v2 ve PEA v3'te hâlâ `(Lowland`, `EIA Directive establishes`, `sc`, `e.g` gibi yarım kesik cümleler var.
 - [ ] Superscript encoding (`⁻¹` rendering) — jsPDF custom font yüklenmesi gerekecek (Helvetica-Unicode varsa) — ayrı task
+- [ ] **`→` Unicode arrow karakteri** (EcIA v1(3) sayfa 13-14'te tespit edildi) — AI bullet'larda `HH1 (Dry siliceous heath) → EU 4030` yazıyor, Helvetica WinAnsi encoding'inde `→` yok, pdf-parse harf-harf boşluklu extract ediyor. Markdown parser'da `→` → `to` veya `->` replace eklenebilir, ya da custom font yüklenebilir.
+- [ ] **WS2 137% Cover bug** — EcIA v2 Habitat Map otomatik appendix tablosunda `WS2 Immature woodland 3129.02 ha 137.0%` görünüyor. `appendix-data.ts` veya `appendix-renderer.ts`'de yüzde hesaplama hatası (primary + buffer alanları toplanıyor olabilir, total alana göre çift sayılıyor).
 - [ ] Branding (logo/renk) Step 8 export'unda doğru uygulanıyor mu — ayrı kontrol
 - [ ] Cover page metinleri (Report Title, Prepared For, Project Reference) doğru basılıyor mu — ayrı kontrol
 - [ ] Step 8 HTML export hiç test edilmedi — PDF/Word kararlı olunca HTML'e geçilebilir
 - [ ] **Word cover page** çok yukarıda boş kalıyor olabilir (`spacing.before: 2400` = 1.67") — kullanıcı isterse azaltılır
 - [ ] **Word TOC sayfası** kısa olunca alt yarı boş — şu an design intent olarak kabul ediliyor, kullanıcı şikayet ederse compacter TOC yapılır
+- [ ] **Sıradaki rapor tipleri test edilecek (8 kaldı):** AA Screening (3), AA Stage 2 (4), NIA (5), Bat Survey (6), Bird Survey (7), Habitat Survey (8), Protected Species (9), Other (10).
 
 ---
 
