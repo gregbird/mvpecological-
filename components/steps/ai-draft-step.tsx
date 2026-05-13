@@ -40,6 +40,7 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
     activeType: reportType,
     setActiveType: setReportType,
     reportTypes,
+    isLoading: loadingReportTypes,
   } = useActiveReportType(project.id)
   const [activeTab, setActiveTab] = React.useState('agent')
   const [generatingSection, setGeneratingSection] = React.useState<string | null>(null)
@@ -257,7 +258,11 @@ export function AIDraftStep({ project, workflowStep, userId, onComplete }: AIDra
   const hasContent = sections.some((s) => s.content)
   const canComplete = hasContent && !isComplete
 
-  if (loadingReport) {
+  // Wait for both the active report type and the latest report to resolve.
+  // Without this gate, the first render can flow through with a stale or
+  // empty `reportType`, which lets `useSectionInit` hydrate sections using
+  // whichever template happens to be active in that frame.
+  if (loadingReportTypes || !reportType || loadingReport) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin" />

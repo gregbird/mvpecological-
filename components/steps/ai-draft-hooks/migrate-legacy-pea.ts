@@ -5,14 +5,27 @@ import {
 } from '@/lib/supabase/queries/reports'
 
 /**
- * Detect a legacy 11-section PEA report (`results_sites`, `evaluation`, …) and
- * fold it into the current 6-section structure. Run once on load so the editor
- * always sees the canonical shape; the merged content is then resaved on the
- * next autosave.
+ * Detect a legacy 11-section PEA report (`results_sites`, `results_habitats`,
+ * `results_flora`, `results_invasive`, `results_fauna`, plus `recommendations`
+ * alongside `discussion`) and fold it into the current 6-section structure.
+ * Run once on load so the editor always sees the canonical shape; the merged
+ * content is then resaved on the next autosave.
+ *
+ * IMPORTANT: this detector MUST only key off legacy-PEA-specific IDs. Earlier
+ * versions also matched on `'evaluation'`, but that is a legitimate section ID
+ * in the Habitat Survey template — the false-positive migrated habitat reports
+ * back into the PEA shape on every refresh, corrupting `reports.content` and
+ * silently dropping section content for IDs that didn't exist in PEA.
  */
 export function isLegacyPeaContent(content: ReportContent): boolean {
-  const ids = content.sections.map((s) => s.id)
-  return ids.includes('results_sites') || ids.includes('evaluation')
+  const ids = new Set(content.sections.map((s) => s.id))
+  return (
+    ids.has('results_sites') ||
+    ids.has('results_habitats') ||
+    ids.has('results_flora') ||
+    ids.has('results_invasive') ||
+    ids.has('results_fauna')
+  )
 }
 
 export function migrateLegacyPeaContent(content: ReportContent): ReportSection[] {

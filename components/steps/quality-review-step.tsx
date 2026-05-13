@@ -53,6 +53,7 @@ export function QualityReviewStep({
     activeType: reportType,
     setActiveType: setReportType,
     reportTypes,
+    isLoading: loadingReportTypes,
   } = useActiveReportType(project.id)
   const [reviewDecision, setReviewDecision] = React.useState<'approved' | 'rejected' | null>(null)
   const [sectionNotes, setSectionNotes] = React.useState<ReviewNotesMap>({})
@@ -325,7 +326,7 @@ export function QualityReviewStep({
   const isComplete = workflowStep.status === 'approved'
   const canComplete = reviewDecision === 'approved' && !isComplete && permissions.canApproveReport
 
-  if (loadingReport) {
+  if (loadingReportTypes || !reportType || loadingReport) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin" />

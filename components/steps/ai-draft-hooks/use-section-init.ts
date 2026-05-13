@@ -34,6 +34,12 @@ export function useSectionInit({
   setSections,
 }: UseSectionInitArgs): void {
   React.useEffect(() => {
+    if (!reportType) {
+      // `useActiveReportType` returns '' while its query is loading. Skip
+      // hydration until we know which template's section IDs are authoritative.
+      return
+    }
+
     const existingMatchesType =
       existingReport?.report_type === reportType ||
       // Also accept if the existing report has no report_type (legacy)
@@ -42,10 +48,44 @@ export function useSectionInit({
     if (existingReport?.content && existingMatchesType) {
       const content = existingReport.content as unknown as ReportContent
       if (content.sections) {
-        if (isLegacyPeaContent(content)) {
+        // Legacy PEA migration is PEA-specific. Gate on report_type so other
+        // report types (e.g. habitat_survey, which legitimately has an
+        // `evaluation` section) can never accidentally trip the migrator.
+        if (reportType === 'pea' && isLegacyPeaContent(content)) {
           setSections(migrateLegacyPeaContent(content))
-        } else {
+          return
+        }
+
+        // Defensive: verify the stored section IDs still match the current
+        // template's IDs. A mismatch means the report was saved with the wrong
+        // template (e.g. during a race condition where `useActiveReportType`
+        // briefly resolved to a default fallback). Re-key to the active
+        // template and carry over any content whose ID survives the swap;
+        // orphan sections (IDs that no longer exist) are dropped — their
+        // content can be recovered from the DB row by an admin if needed.
+        const currentIds = reportSectionDefs.map((s) => s.id)
+        const dbIds = new Set(content.sections.map((s) => s.id))
+        const idsAligned = currentIds.length > 0 && currentIds.every((id) => dbIds.has(id))
+
+        if (idsAligned) {
           setSections(content.sections)
+        } else {
+          const dbById = new Map(content.sections.map((s) => [s.id, s]))
+          setSections(
+            reportSectionDefs.map((def) => {
+              const dbSection = dbById.get(def.id)
+              if (dbSection) {
+                return { ...dbSection, title: def.title }
+              }
+              return {
+                id: def.id,
+                title: def.title,
+                content: '',
+                isEdited: false,
+                aiGenerated: false,
+              }
+            })
+          )
         }
       }
       return

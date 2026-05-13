@@ -56,6 +56,7 @@ export function FinalSubmissionStep({
     activeType: reportType,
     setActiveType: setReportType,
     reportTypes,
+    isLoading: loadingReportTypes,
   } = useActiveReportType(project.id)
   const [exportFormat, setExportFormat] = React.useState('pdf')
   const [selectedAppendices, setSelectedAppendices] = React.useState<string[]>([
@@ -312,7 +313,7 @@ export function FinalSubmissionStep({
   const isApproved = report?.status === 'approved' || report?.status === 'final'
   const canSubmit = isApproved && !isComplete
 
-  if (loadingReport) {
+  if (loadingReportTypes || !reportType || loadingReport) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin" />
