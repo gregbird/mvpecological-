@@ -499,16 +499,13 @@ function CTASection() {
           {/* Footer Links */}
           <div className="mt-20 flex flex-wrap items-center justify-center gap-6 text-sm text-green-100/80">
             <Link href="/privacy" className="hover:text-white">
-              Privacy Policy
+              Privacy &amp; Terms
             </Link>
-            <Link href="/terms" className="hover:text-white">
-              Terms of Service
-            </Link>
-            <Link href="/contact" className="hover:text-white">
-              Contact
+            <Link href="/support" className="hover:text-white">
+              Support
             </Link>
           </div>
-          <p className="mt-4 text-sm text-green-100/60">© 2026 Dulra. All rights reserved.</p>
+          <p className="mt-4 text-sm text-green-100/60">© Dulra 2026</p>
         </motion.div>
       </div>
     </section>
