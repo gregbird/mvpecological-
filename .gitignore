@@ -48,6 +48,9 @@ ss-nocommit/
 *_nia_v*.docx
 *_nia_v*.html
 
+# local DOCX/XML inspection dump dir (raw text + document.xml extracts)
+.docx_inspect/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
