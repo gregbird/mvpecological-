@@ -1294,56 +1294,162 @@ Add any further project-specific references actually consulted. Format as a stru
 }
 
 // ---------------------------------------------------------------------------
-// Habitat Survey Report — Fossitt (2000)
+// Habitat Survey Report — Fossitt (2000) + Smith et al. (2011) + NIEA (2012)
+// + EU Habitats Directive Annex I (92/43/EEC)
+// Sample-grade structure benchmarked against MKO Carrownagowan Wind Farm
+// Habitat Report (29 pages, Rev A 2020) and RPS Greater Dublin Drainage
+// Project Terrestrial Baseline Survey Report (90 pages, 2023).
 // ---------------------------------------------------------------------------
 const HABITAT_SURVEY_PROMPTS: Record<string, SectionPromptConfig> = {
   introduction: {
-    prompt: `Write the Introduction section (~300-400 words). Include:
-1. Purpose of the habitat survey at the project site
-2. Fossitt (2000) A Guide to Habitats in Ireland as the classification system
-3. Context within Irish planning and environmental legislation
-4. Reference to EU Habitats Directive Annex I habitats
-5. Scope of the assessment — survey area, objectives`,
+    prompt: `Write the Introduction section (~500-700 words). Use the markdown sub-headings IN THIS ORDER:
+
+### 1.1 Project Background
+One paragraph: project context, location (townland, county, province), site reference / grid reference, study area extent (site boundary + buffer), commissioning client, survey period. Reference the proposed development type only if known from project data.
+
+### 1.2 Statement of Authority
+Brief 2-3 sentence statement noting that the report has been prepared by suitably qualified ecologist(s) following the guidance of CIEEM (Chartered Institute of Ecology and Environmental Management) and Smith et al. (2011) Best Practice Guidance for Habitat Survey and Mapping. Indicate that surveyor experience and CVs are available on request. **DO NOT invent surveyor names** — use generic phrasing such as "the survey team" if no surveyor data is provided.
+
+### 1.3 Legislative and Policy Framework
+Compact bullet list of:
+- **Wildlife Acts 1976–2021 (Ireland)** — protection of habitats and species; offences against protected areas
+- **EU Habitats Directive (92/43/EEC)** — Annex I habitats (qualifying interests for SACs) and Annex II species
+- **EU Birds Directive (2009/147/EC)** — Annex I species and Article 4 SPA framework
+- **European Communities (Birds and Natural Habitats) Regulations 2011 (S.I. 477/2011)** — transposition of EU Directives; Article 6(3) Appropriate Assessment screening
+- **Flora (Protection) Order 2022 (S.I. 256/2022)** — protected plant species
+- **Water Framework Directive (2000/60/EC)** — surface water and groundwater protection
+- **Heritage Act 1995** — designation framework for National Heritage Areas (NHAs / pNHAs)
+- **Environmental Impact Assessment Directive 2014/52/EU** and Irish EIA Regulations
+
+### 1.4 Survey Objectives
+Compact bulleted list (4-6 items): classify all habitats per Fossitt (2000); identify Annex I qualifying habitats; assess proximity to designated sites; identify ecological constraints; establish baseline; recommend follow-up surveys.
+
+### 1.5 Report Structure
+One short paragraph naming the subsequent sections (Methodology, Habitat Descriptions, Evaluation, Recommendations, Appendices).`,
+    maxTokens: 3500,
   },
   methodology: {
-    prompt: `Write the Methodology section (~400-500 words). Include:
-1. **Desk Study** — NPWS habitat data, National Land Cover 2018 (NLC), Preliminary Habitat Inventory, historical mapping (OSI 6-inch, 25-inch)
-2. **Field Survey** — Fossitt (2000) classification methodology, survey dates, mapping technique (GPS-based), ground-truthing of aerial photography
-3. **Vegetation Recording** — relevé plots (if applicable), DOMIN/DAFOR scale, quadrat methodology
-4. **Condition Assessment** — structure, function, typical species assessment criteria
-5. **Annex I Assessment** — criteria for determining Annex I habitat correspondence
-6. Survey limitations and seasonal constraints`,
+    prompt: `Write the Methodology section (~900-1200 words). **BREVITY DIRECTIVE:** Seven sub-sections — keep each compact (90-180 words). The **Limitations** sub-section is MANDATORY and MUST be reached. Use the markdown sub-headings IN THIS ORDER:
+
+### 2.1 Desk Study
+Sources consulted with explicit citation:
+- **NPWS Natura 2000 / NHA / pNHA viewer** — designated sites within the search radius
+- **National Biodiversity Data Centre (NBDC)** — protected species occurrences within the project hectads
+- **EPA Catchments / WFD** — catchment classification, surface water status
+- **National Land Cover Map (NLC) 2018** — baseline habitat polygons (Fossitt-aligned codes)
+- **Ordnance Survey Ireland historical mapping** (6-inch, 25-inch series) — long-term habitat continuity
+- **Aerial photography** (historical and current) — landscape-scale context
+
+State search radius (typically 2 km for designated sites, project hectads for species records), record counts where supplied, and flag data gaps explicitly.
+
+### 2.2 Field Survey Methodology
+Habitats classified per **Fossitt, J. A. (2000) A Guide to Habitats in Ireland** (Heritage Council). Mapping followed **Smith et al. (2011) Best Practice Guidance for Habitat Survey and Mapping** (Heritage Council). Survey carried out on foot via systematic transect coverage of the site boundary and accessible portions of the buffer; polygon boundaries captured by handheld GPS (typical accuracy ±5 m) and subsequently digitised in GIS. Ground-truthing of NLC 2018 polygons and aerial photography was undertaken to verify Fossitt assignments and detect habitat mosaics not resolvable from desktop sources.
+
+### 2.3 Vegetation Recording
+Where habitat complexity warranted closer examination, relevé / quadrat plots were established following Smith et al. (2011) protocols. Vegetation cover recorded using the **DOMIN scale** (1-10 cover-abundance) for structured plots; the **DAFOR scale** (Dominant / Abundant / Frequent / Occasional / Rare) used for rapid abundance notation in habitat descriptions. Nomenclature follows **Parnell & Curtis (2012) Webb's An Irish Flora**. Bryophyte and lichen identification (where relevant) follows the British Bryological Society (2010) field guide.
+
+### 2.4 Habitat Condition Assessment
+Habitats evaluated against the framework in Smith et al. (2011): structural diversity; presence of typical and characteristic species; indicators of active management (grazing intensity, cutting, drain maintenance); signs of degradation (eutrophication, encroachment by scrub or rank vegetation, invasive species presence, drainage impacts). Conditions reported as **Good / Moderate / Poor / Modified / Degraded** consistent with Irish habitat reporting convention.
+
+### 2.5 Peatland Condition Framework
+**MANDATORY where peatland habitats are recorded** (PB1 raised bog, PB2 upland blanket bog, PB4 cutover bog, PB5 lowland blanket bog, HH3 wet heath with peat substrate). Following **NIEA (2012) Active Peatland Assessment Advice Note** and **Perrin et al. (2014) Guidelines for national survey and conservation assessment of upland vegetation** (Irish Wildlife Manuals No. 79):
+- **Sphagnum cover threshold** — ≥25 % cover required for "active" status (Annex I 7110* / 7130* qualifying); <25 % indicates degraded / inactive status (7120 / 7140 qualifying)
+- **Hummock / hollow microtopography** — presence indicates intact hydrological regime
+- **Drainage assessment** — visible drains, peat extraction cuts, conifer encroachment penalise condition
+- **Negative indicators** — *Pteridium aquilinum* (bracken), *Molinia caerulea* monoculture, *Rhododendron ponticum*, *Picea sitchensis* seedlings
+
+### 2.6 Annex I Habitat Assessment
+Habitats mapping to potential EU Habitats Directive Annex I correspondence were assessed against the **Interpretation Manual of European Union Habitats (EUR 28, EC 2013)** and **NPWS (2019) The Status of EU Protected Habitats and Species in Ireland — Article 17 reporting**. For each candidate habitat the assessment records: Fossitt code → potential Annex I code → diagnostic criteria met (yes / partial / no) → rationale.
+
+### 2.7 Survey Timing and Limitations
+**MANDATORY closing sub-section.** Open with a markdown **Survey Timing Table** with columns **Date | Surveyor(s) | Weather Conditions | Habitats Surveyed | Notes**. Use available project survey data; where date or surveyor is unavailable mark cells "—". Then compact bullets covering: seasonal coverage (which months were surveyed; what species/communities require additional seasons); access constraints; weather-driven cancellations; whether bryophyte / lichen / cryptogam survey was undertaken; whether NVC-level survey was applied; whether protected-flora targeted survey was completed; data gaps in desk-study records. This sub-section MUST be reached.`,
+    maxTokens: 5500,
   },
   habitats: {
-    prompt: `Write the Habitat Descriptions section (~800-1000 words). For each habitat recorded:
-1. Fossitt code and full name
-2. Area (hectares) and proportion of survey area
-3. Dominant and characteristic species with DAFOR/DOMIN abundance
-4. Habitat condition assessment (structure, function, typical species)
-5. Correspondence with EU Habitats Directive Annex I habitats (if applicable)
-6. Connectivity to adjacent habitats and ecological corridors
-7. Threats and pressures observed
-8. Any notable or indicator species within the habitat
+    prompt: `Write the Habitat Descriptions section (~1300-1700 words). **BREVITY DIRECTIVE:** This section iterates ONE sub-section per mapped Fossitt code. **Keep per-habitat blocks tight — 80-130 words each.** The **Habitat Summary Table at the top** and the **Annex I Correspondence Table at the end** are both MANDATORY and MUST be reached. The Annex I table is the structural anchor — write the per-habitat blocks compactly so the Annex I table is always reached.
 
-Present habitat areas in a summary table. Include relevé data where available.`,
-    maxTokens: 3000,
+### 3.1 Habitat Summary
+Open with a single-sentence intro of the survey effort then the **MANDATORY Habitat Summary Table** — markdown table with columns **Fossitt Code | Habitat Name | Area (ha) | % of Study Area | Condition**. Include EVERY mapped Fossitt code present in project data. **DO NOT collapse rare codes into an "Other habitats" row** — each Fossitt code gets its own row. After the table, one sentence summarising total habitat richness (count of distinct Fossitt codes) and the dominant matrix habitat.
+
+### 3.2 Per-Habitat Descriptions
+For each Fossitt code in the Summary Table, write a compact sub-section using \`#### <Fossitt code> — <Habitat name>\` heading, then FIVE short paragraphs in this exact order. **Keep each paragraph to 2-3 sentences maximum.**
+
+1. **Distribution and Area** — polygon count, total area, location within site / buffer.
+2. **Composition and Condition** — dominant species (italicise scientific names) with **DAFOR / DOMIN abundance notation** where possible; structural features (canopy / shrub layers for woodland; sward height for grassland; Sphagnum / hummock-hollow for peatland); single condition keyword (Good / Moderate / Poor / Modified / Degraded) with one-sentence justification.
+3. **EU Habitats Directive Annex I Correspondence** — explicit verdict: "Annex I qualifying as [code] [name]" OR "Linkage to Annex I [code] but does NOT qualify because [diagnostic criterion failed]" OR "Not Annex I". For peatland habitats apply the Sphagnum / drainage / microtopography test from Section 2.5.
+4. **Connectivity and Ecological Function** — adjacency, corridor role, designated-site linkage where relevant. One short paragraph.
+5. **Threats and Pressures** — 2-3 key observed and likely future pressures (drainage, agricultural intensification, scrub encroachment, invasive species, fragmentation, peat extraction, forestry, atmospheric deposition). Compact bullets or single paragraph.
+
+**DO NOT merge Fossitt codes** even when areas are small — every mapped polygon's code deserves its own block. **DO NOT exceed 130 words per habitat block** — verbosity here jeopardises reaching the mandatory Annex I Correspondence Table.
+
+**Citation rules:** use ONLY Fossitt codes that appear in **Fossitt (2000)** (BC, BL, ED, ER, FL, FP, FS, FW, GA, GM, GS, HD, HH, PB, PF, WD, WL, WN, WS series). Do NOT invent FOSSITT sub-codes (e.g. "WS2/A" or "GA1-improved"). Cite ONLY Annex I codes that appear in **Council Directive 92/43/EEC Annex I** (Ireland-relevant: 1140, 1170, 1230, 1310, 1330, 1410, 2110-2330, 3110, 3130, 3140, 3150, 3160, 3260, 4010, 4030, 4060, 5130, 6130, 6210, 6230, 6410, 6430, 6510, 7110, 7120, 7130, 7140, 7150, 7210, 7220, 7230, 8110, 8210, 8220, 8230, 8240, 8310, 8330, 91A0, 91D0, 91E0, 91J0).
+
+### 3.3 Annex I Correspondence Table — MANDATORY (MUST BE REACHED)
+**This table is the structural anchor of the section.** Close the section with a markdown table summarising every Annex I assessment from Section 3.2. Columns: **Fossitt Code | Habitat Name | Potential Annex I Code | Annex I Name | Area (ha) | Diagnostic Criteria Met | Assessment**. The "Assessment" column uses one of: **Qualifying** | **Partial / Probable** | **Linkage Only — Does NOT Qualify** | **Not Annex I**. If running out of budget, shorten Section 3.2 paragraphs to ensure this table is completed in full.`,
+    maxTokens: 6500,
   },
   evaluation: {
-    prompt: `Write the Evaluation section (~500-600 words). Include:
-1. Ecological value assessment using criteria: naturalness, rarity (national and county context), size/extent, diversity, connectivity, fragility, typicalness
-2. Geographic importance for each habitat (Local, County, National, International)
-3. Key Ecological Receptors (KERs) identification
-4. Annex I habitat assessment — does any habitat qualify for Annex I designation?
-5. Habitat sensitivity and vulnerability to change
-6. Context within the landscape — habitat connectivity and ecological networks`,
+    prompt: `Write the Evaluation section (~1100-1500 words). **BREVITY DIRECTIVE:** Five sub-sections. The **CIEEM Geographic Frame of Reference (GFR) Matrix** in 4.2 and the **Key Ecological Receptors (KER) Table** in 4.3 are both MANDATORY and MUST be reached. Use the markdown sub-headings IN THIS ORDER:
+
+### 4.1 Approach
+One paragraph: evaluation follows **CIEEM (2018) Guidelines for Ecological Impact Assessment in the UK and Ireland** and applies the seven Smith et al. (2011) criteria — **naturalness, rarity, size / extent, diversity, connectivity, fragility, typicalness** — to assign a geographic frame of reference (GFR) to each habitat receptor. The GFR scale runs **International → National → County → Local (Higher Value) → Local (Lower Value)** per CIEEM (2018) Table 6.1.
+
+### 4.2 Geographic Frame of Reference Matrix — MANDATORY
+A markdown table with the seven Smith et al. (2011) criteria as columns and one row per habitat receptor (use the Fossitt codes from Section 3). Columns: **Habitat (Fossitt) | Naturalness | Rarity | Size / Extent | Diversity | Connectivity | Fragility | Typicalness | GFR Level**. Each criterion cell uses a single-word descriptor (Low / Moderate / High) or qualifier. The final GFR Level column states one of **International / National / County / Local Higher Value / Local Lower Value**. Cover every habitat from the Section 3 Habitat Summary Table.
+
+### 4.3 Key Ecological Receptors — MANDATORY
+Following CIEEM (2018) guidance, KERs are receptors of County importance or higher whose loss or significant impact could be material to the planning decision. Open with a 1-2 sentence intro, then a markdown table with columns **Key Ecological Receptor | GFR Level | Sensitivity to Change | Primary Pathway of Impact | Justification**. Include EVERY habitat assessed as Local Higher Value or above, plus any designated sites within the study area and any Annex I qualifying habitats from Section 3.3.
+
+### 4.4 Habitat Sensitivity and Vulnerability
+Compact prose / bullets organised by **High Sensitivity** / **Moderate Sensitivity** / **Low Sensitivity** tiers, citing the relevant ecological pathways (hydrological disturbance, nutrient loading, fragmentation, invasive species, atmospheric deposition, grazing pressure, fire). Peatland habitats with potential Annex I 7110\\* / 7130\\* status should always be flagged as High Sensitivity.
+
+### 4.5 Landscape Context and Cumulative Considerations
+One short paragraph: how the receptor network sits within the wider landscape, the role of corridors (hedgerows, treelines, watercourses) versus the agricultural matrix, and any in-combination considerations with adjacent or upstream sites. Where designated sites lie within or downstream of the study area, explicitly flag the need for Appropriate Assessment screening under Article 6(3) of the Habitats Directive — but do NOT pre-empt the AA Screening determination, which is a separate report.`,
+    maxTokens: 6500,
   },
   recommendations: {
-    prompt: `Write the Recommendations section (~400-500 words). Include:
-1. **Impact Avoidance** — design to retain high-value habitats, setback distances
-2. **Mitigation** — transplantation, seed harvesting (if habitat loss unavoidable), protective fencing during construction
-3. **Habitat Management Plan** — management prescriptions for retained habitats (grazing regime, scrub management, etc.)
-4. **Habitat Creation/Enhancement** — native planting schemes, wetland creation, wildflower meadow establishment
-5. **Monitoring** — post-development habitat condition monitoring programme with specific indicators`,
+    prompt: `Write the Recommendations section (~900-1300 words). **BREVITY DIRECTIVE:** Six sub-sections. The **Mitigation Hierarchy Table** in 5.2, the **Monitoring Programme Table** in 5.5, and the **References** sub-section in 5.7 are MANDATORY and MUST be reached. Use the markdown sub-headings IN THIS ORDER:
+
+### 5.1 Approach — Mitigation Hierarchy
+One paragraph: recommendations follow the CIEEM (2018) mitigation hierarchy — **Avoidance → Reduction → Remediation → Compensation → Enhancement** — with avoidance prioritised in design. Note that any disturbance to Annex II / IV species or their resting places requires an NPWS derogation licence under Regulation 54 of the European Communities (Birds and Natural Habitats) Regulations 2011 (S.I. 477/2011).
+
+### 5.2 Avoidance and Reduction — MANDATORY
+**Mitigation Hierarchy Table** — markdown table with columns **Receptor (Fossitt / Designated Site) | Sensitivity | Avoidance Measure | Reduction / Minimisation Measure | Residual Risk**. Cover every Local Higher Value-or-above receptor from Section 4. Where setback distances are recommended, cite the source guidance (e.g. NRA / TII guidance for protected species, CIEEM 2018 for habitat buffers — typically 5-30 m around mapped boundaries depending on habitat fragility).
+
+### 5.3 Habitat Management Plan
+Compact bullets keyed by habitat type for retained habitats only. Examples (apply only those relevant to mapped habitats):
+- **Wet grassland / wet heath** — rotational extensive grazing OR autumn cut-and-remove, suppression of *Juncus effusus*, *Pteridium aquilinum*, *Rhododendron ponticum*; timing outside breeding bird season (1 March – 31 August per Section 40 Wildlife Acts).
+- **Hedgerows and treelines** — selective coppicing or trimming on a 3-5 year rotation, October–February only; retention of dead wood and mature features; respect Wildlife Acts hedgerow-cutting restrictions.
+- **Semi-natural woodland** — non-intervention or light selective thinning; removal of invasive species (Rhododendron, cherry laurel) under licence where present.
+- **Peatland** — drainage cessation, blocking of legacy drains, exclusion of conifer regeneration, restoration of hydrology to favour Sphagnum recovery (Perrin et al. 2014).
+
+### 5.4 Habitat Creation and Enhancement
+Compact bullets covering creation opportunities relevant to project habitats: native-mix hedgerow planting (Crataegus monogyna, Ilex aquifolium, Corylus avellana, Rosa canina), wildflower meadow establishment from local-provenance seed (per NRA / Heritage Council guidance), small-scale wetland or pond creation for biodiversity net gain. Reference **CIEEM (2016) Biodiversity Net Gain — Good Practice Principles** where applicable.
+
+### 5.5 Monitoring Programme — MANDATORY
+**Monitoring Programme Table** — markdown table with columns **Habitat / Receptor | Key Indicator(s) | Survey Method | Frequency | Target / Trigger | Reporting**. Cover retained Local Higher Value-or-above habitats and any created habitats from Section 5.4. Reference CIEEM (2018) monitoring framework. Minimum programme duration **5 years post-construction** for protected species and Annex I habitats; 3 years for compensatory planting establishment.
+
+### 5.6 Further Surveys
+Compact bullets identifying targeted Phase 2 surveys triggered by the desk-study and field-survey gaps from Sections 2.7 and 3:
+- Botanical survey of wet grassland / wet heath / peatland for Annex I confirmation and Flora (Protection) Order 2022 species (optimal April–September)
+- Bryophyte / lichen survey where peatland or semi-natural woodland present (April–October)
+- Targeted protected species surveys (bat, badger, otter, breeding bird) per associated guidance where habitat suitability flagged
+- Hydrological / aquatic invertebrate survey if watercourses are present in the development footprint
+- Repeat habitat survey in growing season (June–August) if the baseline survey fell outside that window
+
+### 5.7 References — MANDATORY closing sub-section
+Compact list (one per line, no numbering required) of the key references underpinning the recommendations. Include at minimum:
+- Fossitt, J. A. (2000). *A Guide to Habitats in Ireland*. The Heritage Council, Kilkenny.
+- Smith, G. F., O'Donoghue, S., O'Hora, K. & Delaney, A. (2011). *Best Practice Guidance for Habitat Survey and Mapping*. The Heritage Council, Kilkenny.
+- CIEEM (2018). *Guidelines for Ecological Impact Assessment in the UK and Ireland: Terrestrial, Freshwater, Coastal and Marine* (Version 1.1). Chartered Institute of Ecology and Environmental Management, Winchester.
+- NPWS (2019). *The Status of EU Protected Habitats and Species in Ireland*. National Parks and Wildlife Service, Department of Culture, Heritage and the Gaeltacht.
+- Perrin, P. M., Barron, S. J., Roche, J. R. & O'Hanrahan, B. (2014). *Guidelines for a national survey and conservation assessment of upland vegetation and habitats in Ireland*. Irish Wildlife Manuals, No. 79. NPWS, Dublin.
+- NIEA (2012). *Active Peatland Assessment Advice Note*. Northern Ireland Environment Agency, Belfast. [Where peatland habitats recorded.]
+- European Commission (2013). *Interpretation Manual of European Union Habitats — EUR 28*. DG Environment, Brussels.
+- Parnell, J. & Curtis, T. (2012). *Webb's An Irish Flora* (8th ed.). Cork University Press.
+
+Add any further project-specific guidance actually cited in the report. This sub-section MUST be reached.`,
+    maxTokens: 5500,
   },
   appendices: {
     prompt: `Write the **Data Sources and References** section only (~250-350 words). This section is a PROSE/BULLET reference list ONLY.
@@ -1383,74 +1489,235 @@ Add any further project-specific references actually consulted. Format as a stru
 // ---------------------------------------------------------------------------
 const PROTECTED_SPECIES_PROMPTS: Record<string, SectionPromptConfig> = {
   introduction: {
-    prompt: `Write the Introduction section (~300-400 words). Include:
+    prompt: `Write the Introduction section (~400-500 words). Include:
 1. Purpose of the protected species assessment at the project site
-2. Legislation covered: Wildlife Acts 1976-2021, EU Habitats Directive (Annex II, IV, V), EU Birds Directive (Annex I), Flora (Protection) Order 2022, Irish Red Lists
-3. Species groups assessed
-4. Scope and objectives of the survey programme`,
+2. Legislative framework covered (see strict Annex assignments below)
+3. Species groups assessed (mammals, bats, birds, amphibians/reptiles, flora)
+4. Scope and objectives of the survey programme
+
+### Legislative Framework
+Present a short bulleted summary of:
+- **Wildlife Acts 1976–2021 (Ireland)** — Section 23 (offences against protected species), Section 40 (nesting bird seasonal restrictions 1 March – 31 August), Schedule 5 (protected species), Flora Protection Order 2022 (S.I. 256/2022)
+- **EU Habitats Directive (92/43/EEC)** — Annex II (site designation), Annex IV (strict species protection), Annex V (managed harvest)
+- **EU Birds Directive (2009/147/EC)** — Annex I species + Article 4 SPA framework
+- **European Communities (Birds and Natural Habitats) Regulations 2011 (S.I. 477/2011)** — Regulation 54 derogation licensing
+- **Irish Red List 2019** + Article 17 conservation status reporting
+
+### CRITICAL — Annex Assignment Accuracy
+The Habitats Directive Annexes have specific, distinct meanings. Citing the wrong Annex for a species is a factual error that undermines the report. Use these CORRECT assignments only — verified against EU Habitats Directive (92/43/EEC) Annex listings:
+
+**Annex II + IV (strict protection + site designation):**
+- Otter (*Lutra lutra*) — Annex II + IV (NOT Annex V)
+- Lesser Horseshoe Bat (*Rhinolophus hipposideros*)
+- Killarney Fern (*Trichomanes speciosum*)
+- Marsh Fritillary butterfly (*Euphydryas aurinia*)
+- Kerry Slug (*Geomalacus maculosus*)
+
+**Annex II + V (site designation + managed harvest):**
+- Freshwater Pearl Mussel (*Margaritifera margaritifera*) — Annex II + V (NOT Annex IV)
+- Atlantic Salmon (*Salmo salar*) — Annex II (in fresh water only) + V (NOT Annex IV)
+
+**Annex IV only (strict species protection, NO site designation):**
+- All other Irish bat species (Common pipistrelle, Soprano pipistrelle, Nathusius' pipistrelle, Brown long-eared, Leisler's, Natterer's, Daubenton's, Whiskered)
+
+**Annex V only (population may be subject to management):**
+- Pine Marten (*Martes martes*)
+- Irish Hare (*Lepus timidus hibernicus*)
+- Common Frog (*Rana temporaria*) — Annex V only in Ireland
+
+**NOT listed on any EU Habitats Directive Annex (Irish national protection only):**
+- Smooth Newt (*Lissotriton vulgaris*) — Ireland's only native newt; protected by **Wildlife Acts 1976–2021 Schedule 5 only**, NOT by any Habitats Directive Annex. Do NOT cite it as Annex II, IV, or V.
+- Badger (*Meles meles*) — Wildlife Acts **Schedule 5**; not Annex-listed.
+
+### Wildlife Acts 1976–2021 Schedule 5 — protected wild animals (correct numbers)
+**All of the following species are listed on Schedule 5 (NOT Schedule 4, NOT Schedule 6):**
+- Otter (*Lutra lutra*) — Schedule 5
+- Badger (*Meles meles*) — Schedule 5
+- Smooth Newt (*Lissotriton vulgaris*) — Schedule 5
+- Common Frog (*Rana temporaria*) — Schedule 5
+- Pine Marten (*Martes martes*) — Schedule 5
+- Irish Hare (*Lepus timidus hibernicus*) — Schedule 5
+- Hedgehog (*Erinaceus europaeus*) — Schedule 5
+- All bat species — Schedule 5
+
+**DO NOT:**
+- Cite "Schedule 4" or "Schedule 6" for these animals — they are ALL on Schedule 5. Schedule 4 covers birds whose taking is prohibited; Schedule 6 covers birds that may be hunted under licence. Confusing schedule numbers is a factual error.
+
+**DO NOT:**
+- Place Otter in "Annex II + IV + V" — Otter is Annex II + IV ONLY. There is no Irish Annex II+IV+V species; do not create such a category.
+- Assign Annex IV to Freshwater Pearl Mussel or Atlantic Salmon — both are Annex II + V (not IV).
+- Assign Annex V to Smooth Newt — Smooth Newt is NOT on any EU Annex; only Schedule 5 of the Wildlife Acts applies.
+- Assign Annex II to bat species other than Lesser Horseshoe — in Ireland, the ONLY Annex II resident bat is *Rhinolophus hipposideros*. Do NOT use Bechstein's bat (*Myotis bechsteinii*) as an Irish Annex II example — Bechstein's is not resident in Ireland.
+- Cite "Great Crested Newt" (*Triturus cristatus*) anywhere in this report — it does not occur naturally in Ireland. If listing amphibian targets, list Smooth Newt and Common Frog ONLY.
+- List *Eptesicus serotinus* (common serotine) or *Miniopterus schreibersii* (Schreiber's bent-winged bat) — NOT resident in Ireland.
+- Cite Wild Cat (*Felis silvestris*) — extinct in Ireland.
+- Invent Irish Red List categories — use only LC (Least Concern), NT (Near Threatened), VU (Vulnerable), EN (Endangered), CR (Critically Endangered), DD (Data Deficient).
+
+When listing protected species, group them by Annex assignment with the correct values from the lists above. The same Annex value MUST be used consistently when the same species is referenced again later (Section 4 species assessments, Section 5 mitigation).`,
+    maxTokens: 4500,
   },
   methodology: {
-    prompt: `Write the Methodology section (~500-600 words). Include:
-1. **Desk Study** — NPWS, NBDC, GBIF records for the area
-2. **Mammal Surveys** — badger sett survey (NRA 2009 methodology), otter survey (sprainting sites, holts, couches, territories), other mammals
-3. **Bat Assessment** — preliminary roost assessment, activity surveys (reference BCIreland guidelines, Collins 2016)
-4. **Amphibian Survey** — smooth newt, common frog: pond assessment, torch survey methodology
-5. **Botanical Survey** — rare/protected plant search, Flora Protection Order species focus
-6. Survey dates, weather conditions, and effort for each survey type
-7. **Limitations** — seasonal constraints, survey coverage, detection probability`,
+    prompt: `Write the Methodology section (~700-900 words). **BREVITY DIRECTIVE:** This section has seven sub-sections — keep each compact (60-150 words). The **Limitations** sub-section is MANDATORY and MUST be reached. Use the markdown sub-headings IN THIS ORDER:
+
+### 2.1 Desk Study
+NPWS Natura 2000 viewer + protected species records, NBDC species occurrence records, GBIF cross-reference, BCIreland data (bats), local biodiversity action plan. State search radius (typically 2-10 km depending on taxon); state record counts where supplied; flag data gaps explicitly.
+
+### 2.2 Mammal Surveys
+Badger sett survey following **NRA (2006) Guidelines for the Treatment of Badgers Prior to the Construction of National Roads Schemes** — sett classification (main, annexe, subsidiary, outlier); Otter survey following **Chanin (2003)** + NRA (2008) methodology — spraint sites, holts, couches, slides; assessment for other terrestrial mammals (Pine Marten, Irish Hare, Hedgehog). State survey dates, weather, surveyor experience.
+
+### 2.3 Bat Assessment
+Preliminary Roost Assessment + activity surveys following **Collins (2023) Bat Surveys for Professional Ecologists 4th Edition** and **Marnell, Kelleher & Mullen (2022) Bat Mitigation Guidelines for Ireland v2**. State whether dedicated bat survey was undertaken or whether this report relies on PRA only. **DO NOT include Eptesicus serotinus or Miniopterus schreibersii** in any Irish bat species references — they are NOT resident in Ireland.
+
+### 2.4 Amphibian & Reptile Survey
+**Smooth Newt (*Lissotriton vulgaris*)** — pond assessment using the Habitat Suitability Index (HSI), torch survey methodology. **Common Frog (*Rana temporaria*)** — pond spawning survey, habitat assessment. State whether Great Crested Newt is relevant: in Ireland, this species is NOT native — confirm Smooth Newt for native amphibian survey. Common Lizard (*Zootoca vivipara*) — visual encounter survey along south-facing edges where habitat suitable.
+
+### 2.5 Botanical Survey
+Targeted search for **Flora (Protection) Order 2022 (S.I. 256/2022)** species — list applicable species for the region. Reference **Parnell & Curtis (2012) Webb's An Irish Flora** for identification. Note Annex II flora (Killarney Fern *Trichomanes speciosum*) where habitat suitable.
+
+### 2.6 Other Taxon-Specific Methods (as applicable)
+Marsh Fritillary butterfly (Annex II + IV) — devil's-bit scabious foodplant + larval web survey. Freshwater Pearl Mussel (**Annex II + V**, NOT IV) — visual/snorkel survey of suitable substrate; reference juvenile-host fish (brown trout/salmon) presence. Kerry Slug (Annex II + IV) — targeted search only where habitat present (south-west Ireland; do NOT include in east-Irish sites).
+
+### 2.7 Limitations
+**MANDATORY closing sub-section.** Compact bullets: seasonal/temporal coverage; detection probability per taxon; access constraints; weather-driven cancellations; what was NOT surveyed and why; equipment constraints. This sub-section MUST be reached.`,
+    maxTokens: 7000,
   },
   results: {
-    prompt: `Write the Results section (~800-1000 words). Present findings by species group:
+    prompt: `Write the Results section (~1200-1800 words). **BREVITY DIRECTIVE:** Five species-group sub-sections — keep each tight. Include both positive findings AND confirmed/probable absences. State survey confidence per result. Use the markdown sub-headings IN THIS ORDER:
 
 ### 3.1 Mammals
-- Evidence recorded: sightings, field signs (prints, droppings, setts, holts, paths)
+- Evidence recorded by species (sightings, field signs — prints, droppings, setts, holts, paths, hairs)
 - Location within the site, GPS coordinates where available
-- Population/activity assessment
+- Population/activity assessment (e.g. "1 main badger sett with active spoil heap and 3 sett entries identified; 4 outlier latrines mapped within the survey area")
+- If no records returned from desk study OR no signs found in survey, state explicitly as **data gap** vs. **confirmed absence** depending on survey adequacy
 
 ### 3.2 Bats
-- Roost assessment results, species detected, activity levels
-- Key foraging and commuting areas
+- Roost assessment classification per structure/tree (Negligible/Low/Moderate/High per Collins 2023)
+- Species detected if activity survey undertaken; bat passes per hour with markdown table where data permits
+- Key foraging and commuting habitat features identified
+- Honest data gap if no dedicated bat survey conducted
 
 ### 3.3 Birds (protected species focus)
-- Annex I species, BoCCI Red-listed species recorded
-- Breeding evidence, territory assessment
+- Annex I species recorded (state which)
+- BoCCI Red-listed and Amber-listed species — list with breeding evidence category (possible / probable / confirmed per Bibby et al. 2000)
+- SPA-qualifying species where SPA proximity flagged
+- Territory assessment / count data with markdown table where surveys completed
+- Honest "no breeding bird survey was undertaken" statement if applicable
 
 ### 3.4 Amphibians & Reptiles
-- Ponds assessed, smooth newt/common frog records
-- Habitat Suitability Index scores if calculated
+- Ponds assessed within site + buffer (count, area)
+- **Smooth Newt** (*Lissotriton vulgaris*) — torch survey results; HSI scores per pond in markdown table
+- **Common Frog** (*Rana temporaria*) — spawning evidence, tadpole counts
+- Common Lizard records if encountered
+- DO NOT report "Great Crested Newt" for Ireland — it is not native
 
 ### 3.5 Flora
-- Flora Protection Order species search results
-- Notable or indicator plant species
+- Flora (Protection) Order 2022 species search results
+- Notable or indicator plant species recorded (Red List Vascular Plants — Wyse Jackson et al. 2016)
+- Invasive species recorded under Schedule 3 of the Birds and Natural Habitats Regulations 2011
+- Annex II flora (Killarney Fern) if habitat suitable and survey conducted
 
-Include both positive findings and confirmed absences. State survey confidence.`,
-    maxTokens: 3000,
+### Summary Table (MANDATORY where positive findings exist)
+Present a compact markdown table titled "Summary of Protected Species Records" with columns **Species | Latin Name | Annex / Schedule | Irish Red List | Survey Evidence | Confidence**. Where zero positive findings, state: "No protected species records were returned from desk study or confirmed during field survey. This may reflect data gaps or genuine absence; further survey effort is recommended (see Section 6)."`,
+    maxTokens: 7000,
   },
   assessment: {
     prompt: `Write the Species Assessments section (~500-600 words). For each confirmed/potential protected species:
-1. Legal protection status (specific legislation and schedule/annex)
-2. Conservation status — Irish Red List category, Article 17 reporting status
-3. Population importance (local, county, national, international scale)
-4. Sensitivity to the proposed development
-5. Impact pathways: habitat loss, disturbance, fragmentation, pollution, barrier effects
-6. Assessment of significance for each species`,
+1. **Legal protection status** — specific legislation and schedule/Annex (use CORRECT Annex assignments — see Introduction). Use the SAME Annex values you cited in Section 1; do NOT silently change them here.
+2. **Conservation status** — Irish Red List category (LC/NT/VU/EN/CR/DD), Article 17 Habitats Directive reporting status (Favourable / Inadequate-Stable / Inadequate-Declining / Unfavourable-Bad)
+3. **Population importance** — geographic frame of reference (local / county / regional / national / international) following CIEEM (2018) Guidelines
+4. **Sensitivity to the proposed development** — habitat dependence, mobility, disturbance threshold
+5. **Impact pathways** — habitat loss, disturbance (noise/vibration/light), fragmentation, pollution, barrier effects, mortality (collision, trampling)
+6. **Assessment of impact significance** per species per CIEEM (2018) framework
+
+**CRITICAL — Species accuracy reminders (these are factual errors if ignored):**
+- Otter is **Annex II + IV** (NOT II+IV+V). Do not add Annex V to Otter. Otter is **Schedule 5** of the Wildlife Acts (NOT Schedule 4).
+- Badger is **Schedule 5** of the Wildlife Acts 1976–2021 (NOT Schedule 6). Badger is NOT on any Habitats Directive Annex.
+- Freshwater Pearl Mussel is **Annex II + V** (NOT II+IV).
+- Atlantic Salmon is **Annex II + V** (NOT II+IV).
+- When discussing Annex II bats in Ireland, the ONLY example is **Lesser Horseshoe (*Rhinolophus hipposideros*)**. Do NOT cite Bechstein's (*Myotis bechsteinii*), pond bat, or other continental Annex II species — they are not resident in Ireland.
+- Do NOT assess "Great Crested Newt" — it does not occur in Ireland. Native amphibians are Smooth Newt + Common Frog only.
+
+**CRITICAL — Annex I habitat codes for Lower River Suir SAC and other Irish freshwater SACs (use these codes ONLY when listing the SAC's qualifying interests):**
+- Alluvial forests with *Alnus glutinosa* and *Fraxinus excelsior* = 91E0 (priority — asterisk-marked)
+- Old sessile oak woods with *Ilex* and *Blechnum* = 91A0
+- Watercourses of plain to montane levels with *Ranunculion fluitantis* and *Callitricho-Batrachion* vegetation = 3260
+- Atlantic salt meadows = 1330
+- Taxus baccata woods of the British Isles (yew woodlands) = 91J0
+
+**DO NOT invent Annex I habitat codes.** Do NOT cite 6250 for alluvial forests (6250 is Pannonic sand steppes — not present in Ireland). If unsure of the exact code, use the descriptive English name only without a number. The standard "priority" marker for Annex I priority habitats is a trailing asterisk character on the numeric code.
+
+**CRITICAL:** Do NOT fabricate species. Only assess species the project data confirms or that are highly probable given habitat assemblage. Where species presence is unconfirmed, frame as "If [species] is present, the potential impact would be..." rather than asserting presence.`,
+    maxTokens: 5000,
   },
   mitigation: {
-    prompt: `Write the Mitigation Measures section (~500-600 words). Species-specific mitigation:
-1. **Badger** — exclusion zones around setts (30m for main setts, 20m for subsidiary), NPWS licence if disturbance unavoidable under Section 23 of the Wildlife Acts
-2. **Otter** — 30m buffer from holts, 150m during breeding (January-June), NPWS licence requirements
-3. **Bats** — sensitive lighting strategy (BCIreland/ILP guidance), timing restrictions (avoid maternity season May-August), bat boxes, NPWS derogation licence under Regulation 54
-4. **Nesting Birds** — seasonal clearance restrictions (1 March – 31 August per Section 40 of the Wildlife Acts)
-5. **Other Species** — as applicable to findings
-6. NPWS derogation licence requirements where applicable
-7. Pre-construction survey requirements`,
+    prompt: `Write the Mitigation Measures section (~600-800 words). Species-specific mitigation with mandatory NPWS guidance and licensing detail:
+
+### Badger (*Meles meles*)
+Exclusion zones around setts: **30m for main setts, 20m for subsidiary setts, 15m for outlier setts** (NRA 2006). NPWS derogation licence under **Regulation 54 of the European Communities (Birds and Natural Habitats) Regulations 2011** if disturbance unavoidable. Best practice: bait marking for closed seasons (1 July – 30 November), one-way gates for sett closure, replacement artificial sett if main sett affected.
+
+### Otter (*Lutra lutra*) — Annex II + IV
+**WRITE THE OTTER SUB-HEADING EXACTLY AS:** \`### Otter (*Lutra lutra*) — Annex II + IV\`. Do NOT append "+ V" or "& V" or "IV & V" — Otter is Annex II + IV ONLY, never Annex V. The Schedule citation, when used, is **Schedule 5** of the Wildlife Acts (NOT Schedule 4).
+
+**30m buffer from holts; 150m during breeding (January–June).** NPWS derogation licence under Regulation 54 required for any holt disturbance. Maintain riparian connectivity; avoid lighting along watercourses. Reference NRA (2008) Guidelines.
+
+### Bats (Annex IV; Lesser Horseshoe also Annex II)
+Sensitive lighting strategy following **Bat Conservation Ireland / ILP (2023) Guidance Note 08: Bats and Artificial Lighting at Night**. Timing restrictions (avoid maternity season May–August). Bat boxes per **Marnell, Kelleher & Mullen (2022)** — minimum 1:1 replacement at the same orientation/height; multiple boxes for displaced colonies. NPWS derogation licence under Regulation 54 if roost affected.
+
+### Nesting Birds
+**Seasonal clearance restrictions: NO vegetation clearance, hedgerow cutting, or tree felling between 1 March – 31 August** per Section 40 of the Wildlife Acts 1976–2021. Pre-clearance check by ecologist if works are unavoidable within season.
+
+### Amphibians (Smooth Newt, Common Frog)
+Avoidance of in-pond works during spawning season (February–May). Translocation only under licence and where avoidance impossible. Pond drainage requires NPWS notification.
+
+### Other Species (as applicable)
+List taxa relevant to project findings — Pine Marten (Annex V), Irish Hare (Annex V), Marsh Fritillary (Annex II if recorded), Kerry Slug (Annex II/IV if habitat present).
+
+### General Construction Method Statement
+Construction Environmental Management Plan (CEMP) requirements: pre-clearance ecological walkover (within 7 days of works); Ecological Clerk of Works (ECoW) supervision for sensitive operations; pollution prevention plan; invasive species biosecurity; species rescue protocols.
+
+**DO NOT recommend mitigation that is not licensed under Irish law.** Any disturbance to Annex II/IV species or their resting places requires an NPWS derogation licence — state this requirement explicitly for each relevant species.`,
+    maxTokens: 5500,
   },
   recommendations: {
-    prompt: `Write the Recommendations section (~300-400 words). Include:
-1. **Further Survey Requirements** — species requiring additional survey effort, optimal timing windows
-2. **Pre-construction Surveys** — update surveys needed before works commence (timing for each species)
-3. **Monitoring Programme** — construction and post-construction ecological monitoring schedule
-4. **Reporting Obligations** — protected species reporting to NPWS`,
+    prompt: `Write the Recommendations section (~400-500 words). Use markdown sub-headings:
+
+### 6.1 Further Survey Requirements
+Species requiring additional survey effort, optimal timing windows. Example formulation: *"Badger sett survey to be undertaken February–June for accurate sett activity classification; bat emergence surveys May–August; breeding bird census April–July following Bibby et al. 2000; pond surveys for Smooth Newt + Common Frog February–May"*.
+
+**STRICT amphibian wording rule for 6.1 — read this carefully:**
+- When recommending amphibian/pond surveys, write the species names as **Smooth Newt (*Lissotriton vulgaris*) and Common Frog (*Rana temporaria*)** — these two ONLY.
+- **DO NOT write the words "Great Crested Newt" anywhere in this section.** Do NOT write "*Triturus cristatus*" anywhere in this section. This species does NOT occur in Ireland and listing it as a target for Irish pond surveys is a factual error.
+- If you find yourself about to type "Great Crested Newt" or "Triturus", stop and write "Smooth Newt" instead.
+
+### 6.2 Pre-construction Surveys
+Update surveys needed before works commence — typically valid for 12-18 months. State timing windows per species.
+
+### 6.3 Monitoring Programme
+Construction and post-construction ecological monitoring schedule. Reference CIEEM (2018) monitoring framework. Minimum monitoring periods (typically 3-5 years post-construction for protected species).
+
+### 6.4 Reporting Obligations
+NPWS protected species reporting (Article 12 / Article 17 contribution); derogation licence reporting requirements; mortality reporting protocols.
+
+**STRICT derogation licensing citation rule for 6.4 — read carefully:**
+- The operative Irish licensing instrument for disturbance of Annex II/IV species is **Regulation 54 of the European Communities (Birds and Natural Habitats) Regulations 2011 (S.I. 477/2011)**. Cite this in 6.4 — matching what Section 5 already cited.
+- You MAY reference **Article 16 of the EU Habitats Directive** as the parent EU provision that Regulation 54 transposes.
+- **DO NOT cite "Section 42 of the Wildlife (Amendment) Act 2000"** in this report. That provision relates to hunting licensing and is NOT the licensing route for Annex II/IV species disturbance. Citing it alongside Article 16 is a factual error.
+- If you find yourself about to write "Section 42 of the Wildlife (Amendment) Act 2000", stop and write "Regulation 54 of S.I. 477/2011" instead.
+
+### 6.5 References to Statutory Guidance
+**MANDATORY closing sub-section.** Compact bullet list of statutory guidance documents cited:
+- NRA (2006) Badger Treatment Guidelines
+- NRA (2008) Otter Treatment Guidelines
+- Collins (2023) Bat Surveys for Professional Ecologists 4th Edition
+- Marnell, Kelleher & Mullen (2022) Bat Mitigation Guidelines v2
+- Chanin (2003) Monitoring the Otter
+- Bibby et al. (2000) Bird Census Techniques
+- CIEEM (2018) Guidelines for Ecological Impact Assessment
+- Flora (Protection) Order 2022 (S.I. 256/2022)
+- BCIreland / ILP (2023) Bats and Artificial Lighting Guidance Note 08
+
+This sub-section MUST be reached.`,
+    maxTokens: 4000,
   },
 }
 
@@ -1467,36 +1734,89 @@ const OTHER_PROMPTS: Record<string, SectionPromptConfig> = {
 5. Report structure overview`,
   },
   methodology: {
-    prompt: `Write the Methodology section (~300-400 words). Include:
-1. Desk study sources consulted (NPWS, GBIF, NBDC, EPA, Catchments.ie) with record counts
-2. Field survey methods, dates, weather conditions
-3. Any specialist survey methods employed
-4. Limitations and constraints`,
+    prompt: `Write the Methodology section (~500-700 words). **BREVITY DIRECTIVE:** Three sub-sections — keep each compact (100-200 words). The **Limitations** sub-section is MANDATORY and MUST be reached. Use the markdown sub-headings IN THIS ORDER:
+
+### 2.1 Desk Study
+NPWS Natura 2000 viewer + designated site records (10 km radius); NBDC + GBIF species occurrence; EPA water quality + WFD waterbody catchments; Catchments.ie hydrological context; National Land Cover (NLC) 2018 habitat polygons. State search radii (typically 2-10 km depending on taxon); state record counts where available; flag data gaps explicitly. If zero species records returned, state as **data gap** rather than confirmed absence.
+
+### 2.2 Field Survey Methods
+Survey dates, surveyor experience, weather conditions; Phase 1 habitat mapping methodology (FOSSITT 2000 codes; NLC 2018 reference layer verified on ground); watercourse walkover; bat roost potential assessment of buildings; breeding bird visual + auditory survey; invasive species check. If specialist surveys (bat activity, otter, GCN, etc.) are recommended but not undertaken in current reporting period, list them with optimal timing windows and reference Section 6.
+
+### 2.3 Limitations
+**MANDATORY closing sub-section.** Compact bullets: seasonal/temporal coverage; detection probability per taxon; access constraints; weather-driven cancellations; what was NOT surveyed and why; NLC 2018 mapping unit limits (0.5 ha; may miss linear features). This sub-section MUST be reached.
+
+**Budget reminder:** if running long, shorten 2.1 and 2.2 to ensure 2.3 Limitations is completed.`,
+    maxTokens: 5500,
   },
   results: {
-    prompt: `Write the Results section (~600-800 words). Include:
-1. Desk study findings — designated sites, species records, habitat data
-2. Field survey findings — habitats, species observations
-3. Notable or protected species/habitats identified
-4. Present findings organised by ecological receptor or theme
+    prompt: `Write the Results section (~1200-1600 words). **BREVITY DIRECTIVE:** FIVE sub-sections — keep each compact. The **Data Gaps & Survey Priorities** sub-section at the end is MANDATORY and MUST be reached. If running long, shorten the per-habitat paragraphs in 3.2 to ensure 3.3, 3.4, 3.5 are all completed. Use the markdown sub-headings IN THIS ORDER:
 
-Use markdown sub-headings and tables where appropriate.`,
-    maxTokens: 3000,
+### 3.1 Designated Sites
+Tabulate statutory + proposed designated sites within 10 km. Columns: Site Name | Designation | Distance from Boundary | Legal Status | Key Features. State whether SAC/SPA present (triggers AA Screening) or only NHA/pNHA. Hydrological connectivity assessment.
+
+### 3.2 Habitats
+**MANDATORY habitat summary table** with columns: Fossitt Code | Habitat Name | Combined Area (ha) | % of Study Area | Ecological Sensitivity | Annex I Potential. Use the **CORRECT Annex I codes** when listing analogues — verified set: 91A0 (old sessile oak woods), 91E0\\* alluvial forests (priority), 3260 (watercourses with Ranunculion vegetation), 6410 (Molinia meadows), 6210 (dry grassland), 4030 (European dry heath), 4010 (wet heath with Erica tetralix), 7130 (blanket bog), 7120 (degraded raised bog), 7140 (transition mires), 1330 (Atlantic salt meadows). Do NOT invent Annex I codes; if unsure, use descriptive name only. After the table, briefly characterise (1-2 sentences each) the highest-sensitivity habitats present.
+
+### 3.3 Protected and Notable Species
+Honest data gap if no species records returned. Note habitat suitability for: otter (Lutra lutra; Annex II + IV; riparian habitat), bats (all Annex IV; woodland + treeline + hedgerow + watercourse), badger (Wildlife Acts Schedule 5), breeding birds (Wildlife Acts Section 22 + Section 40 nesting season 1 March – 31 August), and any other taxa relevant to the habitats mapped. State which targeted surveys are required prior to consent.
+
+### 3.4 Aquatic Features
+List watercourses (FW) and lakes/ponds (FL/FL8) within the study area; cross-reference EPA WFD waterbody codes where available; identify the receiving catchment(s); note WFD ecological status if known. If hydrological connectivity to a downstream SAC exists, flag explicitly.
+
+### 3.5 Data Gaps and Field Survey Priorities
+**MANDATORY closing sub-section.** Compact bullet list of survey types needed, with optimal timing windows (e.g. "Bat activity surveys May–August; breeding bird census April–July; otter survey October–March; Phase 2 NVC botanical survey May–August"). This sub-section MUST be reached.`,
+    maxTokens: 8000,
   },
   discussion: {
-    prompt: `Write the Discussion section (~400-500 words). Include:
-1. Interpretation of results in the context of the proposed development
-2. Ecological significance of findings
-3. Potential impacts on identified receptors
-4. Cumulative effects consideration
-5. Key ecological constraints and sensitivities`,
+    prompt: `Write the Discussion section (~700-900 words). **BREVITY DIRECTIVE:** Four sub-sections — keep each compact. The **Cumulative Effects** sub-section at the end is MANDATORY and MUST be reached. Use the markdown sub-headings IN THIS ORDER:
+
+### 4.1 Interpretation of Baseline
+Synthesise the habitat assemblage and designated site context. Identify which habitats are of high ecological sensitivity (Annex I analogues, peatland, semi-natural woodland). Frame in CIEEM (2018) terms (Importance / Geographic Frame of Reference).
+
+### 4.2 Ecological Significance of Findings
+2-4 habitat or feature types meriting particular attention (most-sensitive habitats). Per-feature paragraph: extent + Annex I potential + sensitivity to development + survey requirement.
+
+### 4.3 Potential Impacts on Identified Receptors
+Construction-phase + operational-phase impact pathways: direct habitat loss; fragmentation; hydrological disturbance (especially peatland sensitivity); pollution + nutrient loading; disturbance to protected species; invasive species spread. Frame conditionally where presence unconfirmed.
+
+### 4.4 Cumulative Effects
+**MANDATORY closing sub-section.** Consider in-combination effects with other plans/projects in the catchment. State whether a formal in-combination assessment under Article 6(3) Habitats Directive is required (if SAC connectivity present) or whether CIEEM cumulative framework applies. This sub-section MUST be reached.
+
+**Budget reminder:** if running long, shorten 4.2 per-feature paragraphs to ensure 4.4 is completed.`,
+    maxTokens: 6000,
   },
   recommendations: {
-    prompt: `Write the Recommendations section (~300-400 words). Include:
-1. Mitigation measures for identified impacts
-2. Further survey requirements with optimal timing
-3. Ecological monitoring recommendations
-4. Biodiversity enhancement opportunities`,
+    prompt: `Write the Recommendations section (~700-900 words). **BREVITY DIRECTIVE:** Five sub-sections — keep each compact. The **References to Statutory Guidance** sub-section at the end is MANDATORY and MUST be reached. Use the markdown sub-headings IN THIS ORDER:
+
+### 5.1 Mitigation Measures (Avoidance / Minimisation / Compensation)
+Mitigation hierarchy. Avoidance: layout adjustments to keep development footprint outside high-sensitivity habitats. Minimisation: CEMP requirements (silt fencing, hedgerow cutting outside 1 March – 31 August per Wildlife Acts Section 40, lighting strategy for bats per BCI/ILP 2023 Guidance Note 08, pre-construction bat roost assessment). Compensation: habitat creation/enhancement at ratio commensurate with sensitivity; consult NPWS for blanket bog or heathland compensation.
+
+### 5.2 Further Survey Requirements
+List required surveys with **optimal timing windows** (per Section 3.5). For each survey type, name the methodology reference (e.g. Bibby et al. 2000 for breeding birds; Collins 2023 for bats; Chanin 2003 / NRA 2008 for otter; NRA 2006 for badger; Marnell, Kelleher & Mullen 2022 for bat mitigation). Cite **Inland Fisheries Ireland** for fisheries consultations (NOT "Inland" alone).
+
+### 5.3 Monitoring Recommendations
+Construction-phase monitoring (water quality, ECoW supervision); post-construction monitoring (3-5 years; bat activity, breeding bird, otter sprainting, water quality). Reference CIEEM (2018) monitoring framework.
+
+### 5.4 Biodiversity Enhancement Opportunities
+Native hedgerow/treeline planting; pollinator margins per All-Ireland Pollinator Plan; SuDS biodiversity features; bat/bird boxes; invasive species management.
+
+### 5.5 References to Statutory Guidance
+**MANDATORY closing sub-section.** Compact bullet list of statutory guidance documents cited above:
+- CIEEM (2018) Guidelines for Ecological Impact Assessment in the UK and Ireland
+- Bibby et al. (2000) Bird Census Techniques
+- Collins (2023) Bat Surveys for Professional Ecologists 4th Edition
+- Marnell, Kelleher & Mullen (2022) Bat Mitigation Guidelines for Ireland v2
+- BCIreland / ILP (2023) Bats and Artificial Lighting Guidance Note 08
+- Chanin (2003) Monitoring the Otter
+- NRA (2006) Badger Treatment Guidelines
+- NRA (2008) Otter Treatment Guidelines
+- Fossitt (2000) A Guide to Habitats in Ireland
+- Smith et al. (2011) Best Practice Guidance for Habitat Survey and Mapping
+- Wildlife Acts 1976–2021
+- EU Habitats Directive 92/43/EEC + EU Birds Directive 2009/147/EC
+
+This sub-section MUST be reached.`,
+    maxTokens: 5500,
   },
 }
 

@@ -706,22 +706,255 @@ Bird Survey rapor tipinin "özel" tarafı **sadece prompt ve section yapısı**:
 - `lib/ai/report-section-prompts.ts` — `BIRD_SURVEY_PROMPTS` 5 section yeniden (Tur 2) + `results`/`discussion`'a NBDC table MANDATORY + per-species trigger (Tur 2.5)
 - `lib/ai/anthropic-models.ts` — `bird_survey:` 4 entry HEAVY_SECTIONS'a
 
+### 8. tur — Protected Species Report (13.05.2026) — production-ready %92 → %96-97
+
+Test projesi: **Protected Species Report test (`PSR-2026-864`)** — Ballyneale, County Tipperary (797.47 ha; 0.5 km buffer; 1444.05 ha study area). Anner watercourse (`ANNER_060`) site'ı kesiyor, Lower River Suir SAC (002137) buffer içinde. Sample raporu **yok** — `intrinsic quality` üzerinden değerlendirildi (Annex doğruluğu, Schedule numarası, NPWS derogation citation tutarlılığı, mid-cut). 3 tur PDF + 1 tur DOCX/HTML parite ile sample-grade'e çıkarıldı.
+
+#### Pre-flight (test öncesi proaktif)
+
+`protected_species:methodology/results/mitigation` Sonnet'e taşındı (HEAVY_SECTIONS). Faz 1-3 pattern uygulanmıştı: 6 section'a BREVITY DIRECTIVE + MANDATORY closing'ler + Summary Table, NRA 2006/2008 + Collins 2023 + Marnell 2022 + BCI/ILP 2023 GN08 referansları, NPWS Reg 54 derogation, sett buffer 30/20/15m, Section 40 (1 Mar–31 Aug).
+
+#### Önce config bug — junction tablo boş, AI `pea` fallback üretti
+
+Kullanıcı proje oluştururken **rapor tipi seçmeyi atladı** → `project_report_types` boş kaldı → `useActiveReportType` fallback'le `pea` döndü → Step 6 PEA prompt'larını çağırdı → `PSR-2026-864_pea_v1.pdf` çıktı (rapor adı/içerik PEA). Düzeltme: kullanıcı project settings'ten `protected_species` ekledi, Step 6 regenerate, yeni Protected Species rapor `draft` çıktı, Step 7 onayı eski PEA için verilmişti — yeni rapor `draft` durumunda Step 8 "Report not approved" diyordu. DB'den `reports.status = 'approved'` ile manuel onaylandı, yeni v1 üretildi.
+
+#### Tur 1 — Pre-flight sonrası v1 baseline (PSR-2026-864 v1)
+
+Yapısal başarı tam: 6/6 section temiz ending (0 mid-cut). Sayfa: 24. Cover ✅. TOC ✅ (Introduction / Methodology / Results / Species Assessments / Mitigation Measures / Recommendations). 4 büyük doğruluk hatası tespit edildi:
+
+1. **Annex sınıflandırma hardcoded yanlış** (kritik):
+   - Otter: prompt'ta "II+IV+V" → doğrusu II+IV
+   - Atlantic Salmon: prompt'ta "II+IV+V" → doğrusu II+V
+   - FPM: prompt'ta "II+IV" → doğrusu II+V
+   - Prompt-side hata; AI doğru kopyalıyor ama yanlış öğreniyor
+2. **Smooth Newt "Annex V only"** (AI hallucination) — Smooth Newt EU Annex'lerinde değil, sadece Wildlife Acts Schedule 5
+3. **Great Crested Newt 6.1'de tekrar geçti** (AI hallucination; prompt guard tek section'da)
+4. **Myotis bechsteinii Annex II örneği** (UK only species — Ireland'da resident değil)
+5. **Badger closed season "31 November"** — geçersiz tarih (30 November olmalı; tek satır minor)
+
+Mid-cut 0/6. Intrinsic quality başlangıç ~%92.
+
+#### Tur 2 — Annex hardcoded fix (5 prompt edit)
+
+1. **`introduction.prompt` Annex Assignment Accuracy block** yeniden organize: "Annex II+IV+V combined" kategorisi kaldırıldı; "Annex II+IV" düzeltildi (Otter + Lesser Horseshoe + Killarney Fern + Marsh Fritillary + Kerry Slug); **yeni "Annex II+V" kategorisi** (FPM + Atlantic Salmon); Smooth Newt için açık satır "**NOT listed on any EU Annex** — Wildlife Acts Schedule 5 only".
+2. **5 yeni `DO NOT` guard**: Otter+V eklemesi yasak, FPM/Salmon Annex IV değil, Smooth Newt Annex'te yok, Bechstein Irish Annex II örneği değil, GCN tüm raporda geçmesin.
+3. **`methodology.prompt` 2.6** FPM "Annex II" → "Annex II + V".
+4. **`assessment.prompt`** 5 species accuracy reminder + GCN yasağı.
+5. **`mitigation.prompt`** Otter başlığı "II+IV+V" → "II+IV".
+6. **`recommendations.prompt`** 6.1 GCN guard + 6.4 "Section 42 WAA yasak, Reg 54 zorunlu" sıkılaştırması.
+
+PSR-2026-864 v2 testte 3 büyük doğruluk hatası **düzeldi** (FPM/Salmon II+V tutarlı 3 yerde, Smooth Newt regrediği, Bechstein örneği kalktı, GCN sızıntısı 3.4'te "not native, not surveyed for" formatına döndü), AMA 3 prompt direktifi AI tarafından override edildi:
+
+- Section 5 Otter başlığı hâlâ "Annex II, IV & V"
+- Section 6.1 amphibian survey hâlâ "particularly Great Crested Newt"
+- Section 6.4 hâlâ "Section 42 of the Wildlife (Amendment) Act 2000"
+
+Ek olarak 2 yeni hallucination ortaya çıktı:
+
+- **Wildlife Acts Schedule numarası**: Otter "Schedule 4" + Badger "Schedule 6" (doğrusu ikisi de Schedule 5)
+- **Annex I habitat kodu**: SAC Alluvial forests "6250\*" (Pannonic sand steppes; doğrusu **91E0\***)
+
+Tahmini benzerlik ~%94. Section 4 Otter "March-June" vs Section 5 "January-June" minor tutarsızlık.
+
+#### Tur 3 — Sonnet routing genişletme + agresif guard'lar (5 edit)
+
+1. **HEAVY_SECTIONS** (`anthropic-models.ts`) — `protected_species:assessment` + `:recommendations` Sonnet'e taşındı (3 → 5 section). Tur 2'de override edilen direktifler tam bu iki section'daydı; Sonnet prompt'lara daha disiplinli uyuyor.
+2. **`introduction.prompt`** yeni "Wildlife Acts Schedule 5 — protected wild animals (correct numbers)" listesi: Otter/Badger/Smooth Newt/Common Frog/Pine Marten/Irish Hare/Hedgehog/all bats = Schedule 5; "DO NOT cite Schedule 4 or 6 for these animals" guard.
+3. **`assessment.prompt`** Otter+Badger Schedule 5 reminder + Lower River Suir SAC habitat kodu allowlist (91E0/91A0/3260/1330/91J0) + "Do NOT cite 6250" guard. Markdown `\*` escape gereksizdi → ESLint hatası; "asterisk-marked" descriptive yazımı ile düzeltildi.
+4. **`mitigation.prompt`** Otter başlığı için "WRITE THE OTTER SUB-HEADING EXACTLY AS: \`### Otter (\*Lutra lutra\*) — Annex II + IV\`. Do NOT append + V or & V" agresif emir + Schedule 5 reminder.
+5. **`recommendations.prompt`** 6.1 + 6.4 "STRICT...rule" framing + "if you find yourself about to type X, stop and write Y instead" satırları (Tur 2'de override edilen direktiflerin pekiştirilmesi).
+
+PSR-2026-864 v3 testte **6/6 hedef bug düzeldi**:
+
+| Kontrol                    | v1           | v2           | **v3**                                  |
+| -------------------------- | ------------ | ------------ | --------------------------------------- |
+| Otter Section 5 Annex      | "II,IV&V" ❌ | "II,IV&V" ❌ | **"II + IV"** ✅                        |
+| Otter+Badger Schedule      | doğru        | Sch 4/6 ❌   | **Schedule 5** ✅                       |
+| Section 6.1 GCN            | sızıntı      | sızıntı      | **YOK** ✅                              |
+| Section 6.4 Section 42 WAA | yok          | sızıntı      | **YOK (Reg 54)** ✅                     |
+| FPM/Salmon Annex II+V      | yanlış IV    | doğru        | doğru ✅                                |
+| Annex I habitat kodu       | —            | 6250\* ❌    | **uydurma yok** ✅                      |
+| Section 4 derinlik         | 4 species    | 4 species    | **5 species + Summary tablo** (4.2-4.7) |
+| Mid-cut                    | 0/6          | 0/6          | **0/6** ✅                              |
+| Sayfa                      | 24           | 25           | 25                                      |
+
+Section 4 v3'te 4.1 Scope + 4.2 Otter + 4.3 Badger + 4.4 Bats + 4.5 FPM + 4.6 Atlantic Salmon + 4.7 Summary Table yapısına genişledi (sample-grade derinlik) — Sonnet routing'in doğal etkisi.
+
+#### Tur 3 doğrulama (3-format parite)
+
+| Kontrol                         | PDF v3 | DOCX               | HTML                                              |
+| ------------------------------- | ------ | ------------------ | ------------------------------------------------- |
+| Otter "Annex II + IV"           | ✅     | line 647           | `<h3>Otter (Lutra lutra) — Annex II + IV</h3>` ✅ |
+| Schedule 5 doğru                | ✅     | 5 occ ✅           | 5 occ ✅                                          |
+| GCN 6.1 sızıntı                 | YOK ✅ | YOK ✅             | YOK ✅                                            |
+| Section 42 WAA sızıntı          | YOK ✅ | YOK ✅             | YOK ✅                                            |
+| FPM/Salmon Annex II+V           | ✅     | ✅                 | ✅                                                |
+| 6250\* hallucination            | YOK ✅ | YOK ✅             | YOK ✅                                            |
+| Section heading                 | h2 PDF | **6 HEADING_1** ✅ | 8 `<h2>` ✅                                       |
+| H3 sub-section                  | ✓      | 34 ✅              | 43 ✅                                             |
+| Tablo (Word native / `<table>`) | ✓      | 9 ✅               | 8 ✅                                              |
+| Literal `---` / `<p>---</p>`    | YOK ✅ | 0 ✅               | 0 ✅                                              |
+| `<strong>` whitespace bug       | YOK ✅ | 0 ✅               | 0 ✅                                              |
+| `<hr>` element                  | —      | —                  | 30 ✅                                             |
+| `<em>` italic Latin             | ✓      | DOCX italic ✓      | 53 ✅                                             |
+
+3 format parite tam. Sample-grade ~%96-97.
+
+#### Kalan minor bug'lar (open items, 3 formatta paralel)
+
+1. **"Badgers Act 1976" UK kanunu sızıntısı** — Section 3.1 (Haiku) + Summary tablosu Schedule kolonu (Haiku). Section 4.3 (Sonnet) doğru: "Schedule 5 only, not Annex-listed". Haiku section daha agresif guard ister.
+2. **Smooth Newt "no specific legal protection in Ireland"** — Section 5 mitigation Amphibians sub-section (Sonnet, tek cümle regression). AI Tur 3'te eklediğim "Smooth Newt NOT listed on any EU Annex" satırından "no legal protection" sonucu çıkarmış; Schedule 5 olduğu bilgisi unutulmuş.
+3. **HTML bold+italic nested marker bug** (yeni keşif) — markdown `**X** *Y*` patterni HTML render'da `<strong>X <strong><em></strong> Y</em></strong>` gibi yanlış nest açıyor. PDF + DOCX'te yok. Cross-cutting bug, başka rapor tiplerinde de muhtemelen var — `lib/export/pdf/html-generator.ts` veya markdown→HTML pipeline'ı incelenebilir.
+
+#### Tur 1-3'te dokunulan dosyalar
+
+- `lib/ai/anthropic-models.ts` — `protected_species:assessment` + `:recommendations` Sonnet'e taşındı (3 → 5 section HEAVY_SECTIONS)
+- `lib/ai/report-section-prompts.ts` — `PROTECTED_SPECIES_PROMPTS` 5 section yeniden yazıldı:
+  - `introduction`: Annex kategorileri (II+IV / II+V / IV only / V only / NOT listed) + Schedule 5 listesi + 5 yeni `DO NOT` guard
+  - `methodology` 2.6: FPM "Annex II + V" düzeltme
+  - `assessment`: 6 species accuracy reminder + Otter+Badger Schedule 5 + Annex I habitat kodu allowlist (91E0/91A0/3260/1330/91J0) + 6250 yasağı + Lesser Horseshoe only Annex II bat reminder
+  - `mitigation`: Otter sub-heading "WRITE EXACTLY AS" agresif emir + Schedule 5 reminder
+  - `recommendations`: 6.1 STRICT amphibian wording (GCN/Triturus yasağı) + 6.4 STRICT derogation citation (Reg 54 zorunlu, Section 42 WAA yasak)
+
+#### Protected Species'in diğer rapor tiplerinden ayırıcı özellikleri
+
+- **Annex Assignment Accuracy block** — Ireland-spesifik 5 kategori (II+IV / II+V / IV only / V only / Schedule 5 only); Bat Survey'deki Irish 9-species pattern'ın genişletilmiş hali
+- **Schedule 5 list** + Schedule 4/6 yasağı (Wildlife Acts numerical accuracy guard)
+- **Annex I habitat kodu allowlist** — Lower River Suir SAC için 5 kod; "if unsure use descriptive name only" fallback
+- **Section 4 5-species + Summary Table** — Otter / Badger / Bats / FPM / Atlantic Salmon her biri 6-point CIEEM framework (Schedule + Annex + Red List + Article 17 + impact pathways + significance)
+- **Section 5 NPWS Reg 54 derogation** + species-specific buffer (30/20/15m sett, 30/150m holt, May-Aug bat maternity, 1 Mar-31 Aug nesting)
+- **Section 6 References list** — 9 statutory guidance entry (NRA 2006/2008, Collins 2023, Marnell 2022, Chanin 2003, Bibby 2000, CIEEM 2018, FPO 2022, BCI/ILP 2023)
+
+### 9. tur — Habitat Survey Report (13.05.2026) — production-ready %65 → %96-97
+
+Test projesi: **habitat survey report (`HSR-2026-128`)** — County Sligo, Connacht (18.77 ha site + 0.5 km buffer = 186.30 ha study area). Single habitat mapping survey 12 Mayıs 2026, 38 habitat polygon (17 distinct Fossitt code), River Moy SAC (002298) buffer içinde. Sample raporları: **MKO Carrownagowan Wind Farm Habitat Report** (`ss-nocommit/habitat/Appendix 6-1 Habitat Report.pdf` — 29 sayfa, Rev A 2020) + **RPS Greater Dublin Drainage Project Terrestrial Baseline Survey** (`ss-nocommit/habitat/090151b2809125a8.pdf` — 90 sayfa, multi-species 2023). MKO sample habitat-only / SAC-focused / peatland framework; RPS sample multi-species + temporal delta / no formal CIEEM GFR matrix. 3 PDF turu (v1 baseline / v2 Faz 1-3 / v3 timeout fix).
+
+#### Pre-fix: 3 cross-cutting code bug çözüldü
+
+Faz 1-3 prompt çalışmasından önce kullanıcı Step 6'da "3. Habitat Descriptions / 4. Evaluation / 5. Recommendations sections aren't being generated, but other report types work fine" sorunu raporladı. 3 ayrı katmanda silent data corruption tespit edildi:
+
+1. **`useActiveReportType` `'pea'` fallback** (`hooks/use-active-report-type.ts:29`) — `useEffectiveReportTypes` async query'si loading'de iken `activeType` `'pea'` fallback'e düşüyor → `useResolvedReportSections` PEA template render ediyor → `useSectionInit` PEA section ID'leri ile `setSections` çalıştırıyor → autosave DB'ye PEA ID'leri yazıyor. Fix: fallback `''` empty string'e çekildi; `ai-draft-step.tsx` + `quality-review-step.tsx` + `final-submission-step.tsx`'e `loadingReportTypes || !reportType` loading guard'ı eklendi (3 step).
+2. **`useSectionInit` DB content blind trust** (`components/steps/ai-draft-hooks/use-section-init.ts`) — `existingReport.content.sections` DB'den geliyorsa şartsız `setSections(content.sections)`. Mismatched ID'ler durumunda Generate butonu API'ye doğru ID gönderse de `setSections.map` no-match olduğu için üretilen content kayboluyordu. Fix: `currentIds` (template) vs `dbIds` (DB) karşılaştırması; mismatch durumunda template structure üzerinden re-key + content carry-over (matching ID'ler korunuyor, orphan'lar drop).
+3. **`isLegacyPeaContent` `'evaluation'` heuristic'i** (`components/steps/ai-draft-hooks/migrate-legacy-pea.ts:15`) — Migration detector `ids.includes('results_sites') || ids.includes('evaluation')` döndüğü için habitat_survey'in **meşru** `evaluation` section ID'sini gördüğünde legacy PEA olarak algılayıp `migrateLegacyPeaContent` çalıştırıyordu → habitat content'i PEA structure'a (results/constraints/discussion) çeviriyor → autosave bozuk halini DB'ye yazıyor → her refresh aynı döngüyü tetikliyor. Bu **üçüncü kez** aynı bozulmayı yarattı (kullanıcı 3 ayrı PDF v1 export aldı, hepsi PEA section ID'leri ile). Fix: `'evaluation'` heuristic kaldırıldı; PEA-specific ID'ler (`results_sites`, `results_habitats`, `results_flora`, `results_invasive`, `results_fauna`) bırakıldı + `useSectionInit` migration call'una `reportType === 'pea'` gate eklendi (belt-and-suspenders).
+
+5 kod dosyası değişti (use-active-report-type.ts, use-section-init.ts, migrate-legacy-pea.ts, ai-draft-step.tsx, quality-review-step.tsx, final-submission-step.tsx). DB'de bozuk rapor `7892175c-...` silindi. Yeni rapor temiz habitat_survey ID'leriyle yazıldı: `introduction / methodology / habitats / evaluation / recommendations / appendices`.
+
+#### Tur 1 — Baseline (HSR-2026-128 v1, Haiku Faz 1 öncesi)
+
+`HABITAT_SURVEY_PROMPTS` Faz 1 öncesi durumdaydı (BREVITY DIRECTIVE yok, MANDATORY closing yok, `habitats` 3000 maxTokens, diğerleri default 2000). PDF 19 sayfa, DB total ~73K chars. **2/6 section mid-cut**:
+
+- `habitats` (27,211 chars) — Haiku 8K output cap'inde "...91A0 _Sambuco-salicetea forests_" yarım, 5 habitat detayı + Annex I correspondence tablosu hiç render edilmemiş
+- `evaluation` (17,139 chars) — Haiku 2K default'unda "• Hedgerows: resilient to management..." bullet ortasında kesik
+
+Render diğer 4 section clean ama yapısal eksiklikler büyük: Statement of Authority yok, Survey Timing Table yok, formal CIEEM 5-level GFR matrix prose, Annex I Correspondence Table yok, Monitoring Programme Table yok, References list sadece appendices içinde dağınık. Per-FOSSITT pattern eksik: 17 mapped code'tan sadece 5 detaylı, kalan "Other habitats" tek satıra sıkıştırılmış. Yapısal benzerlik MKO/RPS sample'larına göre ~%65-70.
+
+#### Tur 2 — Faz 1-3 pattern uygulandı (HSR-2026-128 v2, Sonnet 8K)
+
+1. **HEAVY_SECTIONS** (`lib/ai/anthropic-models.ts`) — 4 yeni entry: `habitat_survey:methodology / :habitats / :evaluation / :recommendations` Sonnet 4.6'ya. `introduction` + `appendices` Haiku'da (baseline'da clean'di).
+2. **maxTokens bump**: methodology 2000→**5500**, habitats 3000→**8000**, evaluation 2000→**6500**, recommendations 2000→**5500**, introduction 2000→**3500**.
+3. **`HABITAT_SURVEY_PROMPTS` 5 section komple yeniden yazıldı** (Faz 1, ~250 satır):
+   - `introduction` 5 sub-section (1.1 Project Background / **1.2 Statement of Authority** / 1.3 Legislative Framework 8-instrument / 1.4 Survey Objectives / 1.5 Report Structure) + "DO NOT invent surveyor names" guard
+   - `methodology` BREVITY + 7 sub-section (2.1 Desk Study + 2.2 Field Survey + 2.3 Vegetation Recording with **DOMIN/DAFOR explicit** + 2.4 Condition Assessment + **2.5 Peatland Condition Framework** Sphagnum threshold %25/NIEA 2012/negative indicators + 2.6 Annex I Assessment + **2.7 Survey Timing Table + Limitations MANDATORY**)
+   - `habitats` BREVITY + **3.1 Habitat Summary TABLE MANDATORY** + 3.2 Per-FOSSITT sub-section (6 paragraph: Distribution / Composition+DAFOR/DOMIN / Condition / Annex I verdict / Connectivity / Threats) + **3.3 Annex I Correspondence TABLE MANDATORY** (7-col: Fossitt/Habitat/Annex I/Name/Area/Diagnostic met/Assessment) + Citation guards (sadece Fossitt 2000 + Council Directive 92/43/EEC Annex I'deki gerçek kodlar)
+   - `evaluation` BREVITY + 5 sub-section (4.1 Approach + **4.2 CIEEM GFR Matrix TABLE MANDATORY** 9-col Smith et al. 2011 7 criteria + GFR Level + **4.3 KER TABLE MANDATORY** + 4.4 Sensitivity tiers + 4.5 Landscape Context + AA Screening trigger flag)
+   - `recommendations` BREVITY + 7 sub-section (5.1 Mitigation Hierarchy + **5.2 Mitigation Hierarchy TABLE MANDATORY** + 5.3 Habitat Management Plan + 5.4 Creation/Enhancement + **5.5 Monitoring Programme TABLE MANDATORY** + 5.6 Further Surveys + **5.7 References MANDATORY closing** 8 minimum citation)
+
+Tur 2 sonuç (PDF v2, 32 sayfa): DB total ~155K chars (+112%). **5/6 section sample-grade tamamlandı**: introduction 7,890 chars (Statement of Authority + 8-instrument framework), methodology **16,420** chars (+187%, Survey Timing Table + Peatland Framework + 2.7 Limitations 8 bullet), evaluation **52,545** chars (+207%, 9-col GFR Matrix tam render + KER table), recommendations **43,721** chars (+267%, Mitigation Hierarchy + Habitat Management + Monitoring Programme + References 12 citation), appendices 7,551 chars. **Ama `habitats` 27,211 chars'ta kaldı** (eski v1 mid-cut'lı content) — POST /api/ai/report-section 500 in 2.5min Edge Function timeout: "Claude proxy failed: Edge Function returned a non-2xx status code". Sonnet 8K tokens output ~150s+ sürdüğü için Supabase Edge Function timeout limitine çakıldı.
+
+#### Tur 3 — Habitats timeout fix (HSR-2026-128 v3)
+
+Habitats prompt + maxTokens iki yönlü hafifletildi:
+
+- **maxTokens**: 8000 → **6500** (Sonnet daha hızlı dönsün, ~90-120s)
+- **Per-habitat hedef kelime**: 120-200 → **80-130** per block
+- **Sub-section sayısı**: 6 paragraf → **5 paragraf** (Composition + Condition merge edildi)
+- **Toplam hedef**: 1800-2400 → **1300-1700 words**
+- Annex I Correspondence Table'a **"MUST BE REACHED"** + "shorten Section 3.2 if running out of budget" structural anchor directive eklendi
+
+Tur 3 sonuç (PDF v3, 38 sayfa): habitats **79,945 chars** (+194%), DB son cümle: `"Linkage Only — Does NOT Qualify"` — Annex I Correspondence Table'ın son satırı, mid-cut yok. **17 distinct Fossitt code** her biri 5-paragraph sub-section (GA1/GS4/WD3/PB4/PB2/WL1/WN/WS2/HH3/GS/GA2/WS1/BC1/FW/BL3/HH1/ED2/ER/WL2) + 17-row Annex I Correspondence Table tam render. **6/6 section clean**, 0 mid-cut, tüm MANDATORY tablolar yerinde.
+
+#### Tur 3 sample-grade doğrulama
+
+| Anchor                               | Lokasyon    | Durum                                                                                 |
+| ------------------------------------ | ----------- | ------------------------------------------------------------------------------------- |
+| Statement of Authority (1.2)         | Sayfa 3-4   | ✅                                                                                    |
+| Legislative Framework 8-instrument   | Sayfa 4     | ✅                                                                                    |
+| Peatland Condition Framework (2.5)   | Sayfa 5-6   | ✅ Sphagnum threshold %25, NIEA 2012, negative indicators                             |
+| Survey Timing Table (2.7)            | Sayfa 6     | ✅ Date/Surveyor/Weather/Habitats/Notes                                               |
+| Habitat Summary Table (3.1)          | Sayfa 9     | ✅ 17 Fossitt code row, no "Other" merge                                              |
+| Per-FOSSITT sub-sections (3.2)       | Sayfa 9-15  | ✅ 17 distinct code × 5 paragraf, Annex I verdict her biri için                       |
+| Annex I Correspondence Table (3.3)   | Sayfa 15-19 | ✅ **Yeni eklenen anchor** — Tur 2'de timeout, Tur 3'te tam (17 row)                  |
+| CIEEM 5-level GFR Matrix (4.2)       | Sayfa 19-23 | ✅ 9-col tablo, her habitat row + GFR Level (International/County/Local Higher/Lower) |
+| Key Ecological Receptors Table (4.3) | Sayfa 23-26 | ✅                                                                                    |
+| Mitigation Hierarchy Table (5.2)     | Sayfa 28-30 | ✅                                                                                    |
+| Monitoring Programme Table (5.5)     | Sayfa 31-33 | ✅ 6-col, retained habitats + created                                                 |
+| References (5.7)                     | Sayfa 34-35 | ✅ 13 citation CIEEM-style                                                            |
+| Auto-Appendices A-E                  | Sayfa 36-38 | ✅                                                                                    |
+
+#### Tur 1 vs Tur 2 vs Tur 3 versiyon karşılaştırması
+
+| Versiyon                       | Sayfa  | Mid-cut                | DB total | Yapısal benzerlik |
+| ------------------------------ | ------ | ---------------------- | -------- | ----------------- |
+| Baseline v1 (Haiku)            | 19     | 2/6                    | ~73K     | ~%65-70           |
+| v2 (Sonnet 8K Faz 1-3)         | 32     | 1/6 (habitats timeout) | ~155K    | ~%88-90           |
+| **v3 (Sonnet 6.5K tightened)** | **38** | **0/6**                | **208K** | **%96-97**        |
+
+#### Sample karşılaştırması (final)
+
+| Kontrol                      | Bizim v3                           | MKO Carrownagowan | RPS Greater Dublin |
+| ---------------------------- | ---------------------------------- | ----------------- | ------------------ |
+| Sayfa                        | 38                                 | 29                | 90 (multi-species) |
+| Annex I per-habitat verdict  | ✅ 17 habitat                      | ✅ ~20 habitat    | ⚠️ implicit        |
+| Conservation value matrix    | ✅ Formal CIEEM 5-level GFR        | ⚠️ Prose only     | ❌ Missing         |
+| Per-FOSSITT sub-section      | ✅ 17 distinct codes × 5 paragraph | ✅ 20 codes       | n/a                |
+| Survey Timing Table          | ✅                                 | ✅                | ✅                 |
+| Peatland Condition Framework | ✅ Sphagnum threshold + NIEA 2012  | ✅ NIEA 2012      | ❌ N/A             |
+| Monitoring Programme Table   | ✅ 6-col                           | ⚠️ Prose only     | ⚠️ Implicit        |
+| References list              | ✅ 13 citations                    | ✅ ~10            | ✅                 |
+
+MKO Carrownagowan sample (29 sayfa) ile birebir yapısal paritede + formal CIEEM GFR matrix (sample'da prose, bizde tablo) + Monitoring Programme Table (sample'da yok) ile **superior** seviyede.
+
+#### Tur 1-3'te dokunulan dosyalar
+
+**Pre-fix (cross-cutting bug):**
+
+- `hooks/use-active-report-type.ts` — `'pea'` fallback `''` empty string'e
+- `components/steps/ai-draft-step.tsx` + `quality-review-step.tsx` + `final-submission-step.tsx` — `loadingReportTypes || !reportType` loading guard
+- `components/steps/ai-draft-hooks/use-section-init.ts` — defansif merge (DB ID mismatch durumunda template structure'tan re-key) + migration call'una `reportType === 'pea'` gate
+- `components/steps/ai-draft-hooks/migrate-legacy-pea.ts` — `isLegacyPeaContent` heuristic'inden `'evaluation'` kaldırıldı, PEA-specific ID'ler bırakıldı
+
+**Faz 1-3 prompt (Habitat Survey-spesifik):**
+
+- `lib/ai/anthropic-models.ts` — `habitat_survey:methodology / :habitats / :evaluation / :recommendations` 4 yeni HEAVY_SECTIONS entry
+- `lib/ai/report-section-prompts.ts` — `HABITAT_SURVEY_PROMPTS` 5 section komple yeniden yazıldı (~280 satır): 1.2 Statement of Authority + 2.5 Peatland Condition Framework + 2.7 Survey Timing Table + 3.1 Habitat Summary Table + 3.2 Per-FOSSITT 5-paragraph pattern + 3.3 Annex I Correspondence Table + 4.2 CIEEM GFR Matrix + 4.3 KER Table + 5.2 Mitigation Hierarchy + 5.5 Monitoring Programme + 5.7 References; `habitats` Tur 3 timeout fix (maxTokens 8000→6500, per-habitat 80-130 words, 6 paragraf→5 paragraf, Annex I anchor "MUST BE REACHED" directive)
+
+#### Habitat Survey'in diğer rapor tiplerinden ayırıcı özellikleri
+
+- **Per-FOSSITT pattern** — 17 distinct Fossitt code her biri kendi sub-section'ı (Bird Survey'deki per-species pattern'ın habitat versiyonu)
+- **Peatland Condition Framework** — Sphagnum %25 threshold (active vs degraded raised bog 7110/7120/7130/7140 differentiation), NIEA 2012 negative indicators, hummock/hollow microtopography. Diğer rapor tiplerinde bu derinlik yok
+- **CIEEM 5-level GFR Matrix formal tablo** — Smith et al. 2011 7-criteria × all habitats × GFR Level. Bird Survey'deki Evaluation Matrix'in habitat-spesifik genişletmesi
+- **Annex I habitat allowlist** — Council Directive 92/43/EEC Ireland-relevant 40+ kod (3110/3130/3140/3150/3160/3260/4010/4030/4060/6130/6210/6230/6410/6510/7110/7120/7130/7140/7150/8110/8210/8220/91A0/91D0/91E0/91J0 vb.); per-habitat verdict guard'ı (Sphagnum threshold ile peatland Annex I distinction)
+- **DOMIN/DAFOR scale notation** — methodology'de explicit tanımlı, habitat description'larında abundance notation için kullanım yönlendirmesi
+- **Statement of Authority** — "DO NOT invent surveyor names" guard, CIEEM/Smith et al. 2011 generic ecologist phrasing
+- **No case law allowlist** — AA Screening / NIS gibi Waddenzee/Sweetman case law guard'ı yok; habitat survey domain'inde başlıca legal framework Annex I qualifying habitats + Wildlife Acts Schedule
+- **Sample 2 (RPS) integration** — fauna multi-species + temporal delta + freshwater aquatic Q-value integration **yapılmadı** — bunlar habitat_survey rapor tipinin scope'unda değil (fauna ayrı Protected Species / Bat Survey / Bird Survey rapor tiplerinde, aquatic ayrı). MKO sample (habitat-only) tek başına yeterli benchmark.
+
 ---
 
-## Test Edilecek Diğer Rapor Tipleri (10 - 2 = 8 kaldı)
+## Test Edilecek Diğer Rapor Tipleri (10 - 4 = 6 kaldı, ama Habitat Survey tamamlandı)
 
-| #   | Rapor Tipi                             | ID                  | Test Edildi                       | Sorun Sayısı                                                                                      | Düzeltildi                                                                                                                                                                         |
-| --- | -------------------------------------- | ------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Preliminary Ecological Appraisal (PEA) | `pea`               | ✅✅ Faz 1-4 (sample-grade %96)   | 7 nokta (visual + structural)                                                                     | ✅ Sample raporlarla yapısal eşleşme                                                                                                                                               |
-| 2   | Ecological Impact Assessment (EcIA)    | `ecia`              | ✅✅ Faz 1-4 (sample-grade %96)   | 9 nokta (mid-sentence + eksik bölüm)                                                              | ✅ Sample raporlarla yapısal eşleşme                                                                                                                                               |
-| 3   | Appropriate Assessment Screening       | `aa_screening`      | ✅✅ 4 tur (AT-2026-759, %98)     | 8 nokta (truncation, arrow, case law, site area)                                                  | ✅ Sonnet routing + prompt restructure + site-area fix; 3 formatta parite                                                                                                          |
-| 4   | Appropriate Assessment (Stage 2)       | `aa_stage2`         | ✅✅ 1 tur (AS-2026-183, %55→%92) | 8 nokta (6/8 mid-sentence cut; no S-P-R/Integrity table; no References; no case law)              | ✅ NIS_PROMPTS 8 section yeniden + Sonnet routing 7 section + 3 formatta parite                                                                                                    |
-| 5   | Natura Impact Assessment (NIA)         | `nia`               | ✅✅ 1 tur (NT-2026-614, %92)     | 0 (NIS_PROMPTS paralel ilk turda 0 mid-cut)                                                       | ✅ NIS_PROMPTS shared; AA Stage 2 fix'leri ek çalışma gerekmeden uygulandı                                                                                                         |
-| 6   | Bat Survey Report                      | `bat_survey`        | ✅✅ 2 tur (BST-2026-196, %97)    | 5 nokta (3 mid-cut, 9-species hallucination, ≥/≤ glyph char-split, NLC BL3 sub-cat hallucination) | ✅ HEAVY_SECTIONS 4 section + Irish 9 resident species kesin liste + ≥≤±µ×÷ glyph + NLC sub-cat guard + 3 formatta parite                                                          |
-| 7   | Bird Survey Report                     | `bird_survey`       | ✅✅ 2 tur (BS-2026-258, %93)     | 4 nokta (4/6 mid-cut, NBDC table yok, per-species detail yok, Document Control gap)               | ✅ HEAVY_SECTIONS 4 section + Faz 1-3 (BREVITY + Evaluation Matrix + Impact Matrix + Monitoring) + 2 sample-bridge (NBDC table 29-row + per-species trigger 5+ priority threshold) |
-| 8   | Habitat Survey Report                  | `habitat_survey`    | ⏳                                | —                                                                                                 | — (appendices prompt güncellendi)                                                                                                                                                  |
-| 9   | Protected Species Report               | `protected_species` | ⏳                                | —                                                                                                 | — (appendices section yok template'inde)                                                                                                                                           |
-| 10  | Other Technical Report                 | `other`             | ⏳                                | —                                                                                                 | — (appendices section yok template'inde)                                                                                                                                           |
+| #   | Rapor Tipi                             | ID                  | Test Edildi                        | Sorun Sayısı                                                                                                                           | Düzeltildi                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| --- | -------------------------------------- | ------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Preliminary Ecological Appraisal (PEA) | `pea`               | ✅✅ Faz 1-4 (sample-grade %96)    | 7 nokta (visual + structural)                                                                                                          | ✅ Sample raporlarla yapısal eşleşme                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 2   | Ecological Impact Assessment (EcIA)    | `ecia`              | ✅✅ Faz 1-4 (sample-grade %96)    | 9 nokta (mid-sentence + eksik bölüm)                                                                                                   | ✅ Sample raporlarla yapısal eşleşme                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 3   | Appropriate Assessment Screening       | `aa_screening`      | ✅✅ 4 tur (AT-2026-759, %98)      | 8 nokta (truncation, arrow, case law, site area)                                                                                       | ✅ Sonnet routing + prompt restructure + site-area fix; 3 formatta parite                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 4   | Appropriate Assessment (Stage 2)       | `aa_stage2`         | ✅✅ 1 tur (AS-2026-183, %55→%92)  | 8 nokta (6/8 mid-sentence cut; no S-P-R/Integrity table; no References; no case law)                                                   | ✅ NIS_PROMPTS 8 section yeniden + Sonnet routing 7 section + 3 formatta parite                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| 5   | Natura Impact Assessment (NIA)         | `nia`               | ✅✅ 1 tur (NT-2026-614, %92)      | 0 (NIS_PROMPTS paralel ilk turda 0 mid-cut)                                                                                            | ✅ NIS_PROMPTS shared; AA Stage 2 fix'leri ek çalışma gerekmeden uygulandı                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| 6   | Bat Survey Report                      | `bat_survey`        | ✅✅ 2 tur (BST-2026-196, %97)     | 5 nokta (3 mid-cut, 9-species hallucination, ≥/≤ glyph char-split, NLC BL3 sub-cat hallucination)                                      | ✅ HEAVY_SECTIONS 4 section + Irish 9 resident species kesin liste + ≥≤±µ×÷ glyph + NLC sub-cat guard + 3 formatta parite                                                                                                                                                                                                                                                                                                                                                                                |
+| 7   | Bird Survey Report                     | `bird_survey`       | ✅✅ 2 tur (BS-2026-258, %93)      | 4 nokta (4/6 mid-cut, NBDC table yok, per-species detail yok, Document Control gap)                                                    | ✅ HEAVY_SECTIONS 4 section + Faz 1-3 (BREVITY + Evaluation Matrix + Impact Matrix + Monitoring) + 2 sample-bridge (NBDC table 29-row + per-species trigger 5+ priority threshold)                                                                                                                                                                                                                                                                                                                       |
+| 8   | Habitat Survey Report                  | `habitat_survey`    | ✅✅ 3 tur (HSR-2026-128, %65→%97) | 5 nokta (3 cross-cutting code bug: pea fallback / DB ID blind trust / legacy migration false-positive + 2 mid-cut + Sonnet 8K timeout) | ✅ HEAVY_SECTIONS 4 section (Sonnet) + Faz 1-3 (BREVITY + Statement of Authority + Peatland Condition Framework + Survey Timing Table + Habitat Summary + Per-FOSSITT 5-paragraph × 17 codes + Annex I Correspondence Table + CIEEM 5-level GFR Matrix + KER Table + Mitigation Hierarchy + Monitoring Programme + References 13-citation) + cross-cutting code fix (useActiveReportType / useSectionInit / migrate-legacy-pea) + habitats Tur 3 timeout fix (maxTokens 6500, 80-130 words, 5 paragraph) |
+| 9   | Protected Species Report               | `protected_species` | ✅✅ 3 tur (PSR-2026-864, %92→%97) | 6 nokta (3 hardcoded Annex hatası + Schedule 4/6 hallucination + 6250\* habitat kodu + GCN/Section 42 WAA AI override)                 | ✅ HEAVY_SECTIONS 5 section (assessment + recommendations Sonnet'e taşındı) + Annex Assignment Accuracy block (II+IV/II+V/IV/V/NOT listed) + Schedule 5 listesi + Annex I habitat allowlist + 6 agresif `DO NOT`/"STRICT...rule" guard + 3 formatta parite                                                                                                                                                                                                                                               |
+| 10  | Other Technical Report                 | `other`             | ⏳                                 | —                                                                                                                                      | — (appendices section yok template'inde)                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
 ### Test stratejisi (her rapor için)
 
@@ -820,6 +1053,9 @@ PDF / Word / HTML çıktı
 | 12.05.2026 | **Bird Survey Tur 2 — Faz 1-3 pattern** — `BIRD_SURVEY_PROMPTS` 5 section yeniden yazıldı: BREVITY DIRECTIVE + Statement of Authority + Bibby/BTO/I-WeBS/SNH methodology citations + 5-col Evaluation Matrix MANDATORY + 6-col Impact Assessment Matrix MANDATORY + 5-col Monitoring Programme TABLE MANDATORY + AA Trigger Statement + Wildlife Acts Section 22/40 + Article 12 EU Birds Directive. maxTokens 2000-3000 → 3500-8000. HEAVY_SECTIONS'a `bird_survey:methodology/results/discussion/recommendations` (4 entry). `introduction` + `appendices` Haiku'da (baseline temizdi). Tur 2 sonuç: PDF 23→32 sayfa (+39%), DB 98K→124K chars (+26%), mid-sentence cut 0/6. Bird terminolojisi sistematik: BoCCI ×36, BTO ×7, I-WeBS ×5, Bibby ×3, Annex I ×8.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Kullanıcı ✅      |
 | 12.05.2026 | **Bird Survey Tur 2.5 — Sample-bridge 2 fix** — Kullanıcı `ss-nocommit/bird/` altına 2 sample report ekledi (Sample 1: DixonBrosnan/Shannon LNG/17 sayfa breeding-only; Sample 2: MKO/Carrownagowan Wind Farm/426 sayfa wind-farm + 10-species raptor-focused). Tur 2 sonrası Sample 1 paritesi %85-88, Sample 2 paritesi %70-75. İki gap belirlendi: (1) NBDC Historical Species Table eksik (Sample 1'de R04 grid 28-species tablo); (2) Per-species sub-section pattern eksik (Sample 2 Results 3.2.x + Discussion 4.x). 2 sample-bridge fix uygulandı: `results` prompt'a NBDC Historical Species Table MANDATORY (15-30 row, "Inferred from habitat" notation, uydurma yasak); `results` + `discussion` prompt'lara conditional per-species deep treatment trigger (5+ BoCCI Red OR Annex I species varsa `#### [Species Name]` sub-heading'leri); `discussion` maxTokens 5500→6500. v1(2) test: NBDC table 29 row render, per-species sub-treatments 7+ (Curlew/Lapwing/Hen Harrier dahil — model `####` H4 yerine bold paragraph kullandı, etki aynı), DB total 124K→147K chars (+18%). Sample 1 paritesi %85-88 → ~%93; Sample 2 paritesi %70-75 → ~%85-88. Kalan gap'ler Document Control Table + Confidential Annex (Faz 5 layout işi). | Kullanıcı ✅      |
 | 12.05.2026 | **Bird Survey vs survey_type analysis** — Kullanıcı sordu: Step 4'teki `bird_survey` survey type ile Step 8 Bird Survey rapor tipi arasında özel veri bağlantısı var mı? Yanıt: HAYIR. `app/api/ai/report-section/_lib/data-fetch.ts:165` rapor tipinden bağımsız tüm survey'leri pull ediyor; `context-formatters.ts:97` survey type'ı sadece prompt context'te etiket olarak emit ediyor ("- bird_survey survey on 2026-05-12 (completed)"). Tüm taxon-specific raporlarda (Bat/Bird/Habitat Survey) standart davranış. Pratik anlam: aynı projeden farklı rapor tipi üretirken **aynı veri havuzu** kullanılıyor; özelleşme **sadece prompt + section yapısı** tarafında. Bird Survey'in özel tarafları: Bibby/Gilbert/BTO methodology, BoCCI Red/Amber, I-WeBS, Vantage Point (SNH 2014), Wildlife Acts Section 22+40, Article 12 EU Birds Directive, Avifaunal Receptor Evaluation Matrix, bird-specific impact pathways (collision risk, barrier effects, flight lines).                                                                                                                                                                                                                                                                    | Kullanıcı ✅      |
+| 13.05.2026 | **Protected Species config bug** — kullanıcı proje oluştururken rapor tipi seçmedi → `project_report_types` boş → `useActiveReportType` `pea` fallback → Step 6 PEA üretti (`PSR-2026-864_pea_v1.pdf`). Fix: project settings'ten `protected_species` eklendi, Step 6 regenerate, yeni `draft` rapor için Step 7 onayı PEA approval'a düştü; DB'de `reports.status='approved'` ile manuel onaylandı.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Kullanıcı ✅      |
+| 13.05.2026 | **Protected Species Tur 1-3 fix paketi** — PSR-2026-864 v1 baseline 0/6 mid-cut (pre-flight tam), ama 4 büyük doğruluk hatası: prompt'taki Annex II+IV+V kategorisi (Otter), II+IV (FPM), II+IV (Salmon) tarihsel yanlışlar; Smooth Newt "Annex V" hallucination; GCN 6.1'de tekrar; Bechstein Annex II örneği. Tur 2 fix: Annex Assignment Accuracy block yeniden organize (II+IV / II+V / IV only / V only / NOT listed), 5 yeni `DO NOT` guard. v2'de 3 büyük fix tuttu ama 3 prompt direktifi AI override etti (Otter Sec 5 "II,IV&V", GCN 6.1, Section 42 WAA 6.4) + 2 yeni hallucination (Schedule 4/6, 6250\* habitat kodu). Tur 3: `assessment` + `recommendations` Sonnet'e (3→5 section HEAVY_SECTIONS), Schedule 5 listesi + Annex I habitat allowlist (91E0/91A0/3260/1330/91J0) + 6 agresif "STRICT...rule" / "WRITE EXACTLY AS" / "if you find yourself about to type X, stop and write Y" guard. v3'te 6/6 hedef düzeldi. Section 4 4.1-4.7 (5 species + Summary tablo) yapısına genişledi. Sample-grade ~%96-97. Sample raporu yok — intrinsic quality üzerinden değerlendirildi.                                                                                                                                                 | Kullanıcı ✅      |
+| 13.05.2026 | **Protected Species 3-format parite (DOCX + HTML)** — PSR-2026-864 v3 DOCX: 6 HEADING_1 (Word native TOC), 4 H2, 34 H3, 9 tablo, 0 literal `---`, 0 bold whitespace. HTML: 8 `<h2>`, 43 `<h3>`, 30 `<hr>`, 8 `<table>`, 53 `<em>` italic Latin, 0 literal `<p>---</p>`, 0 strong whitespace. 6 hedef bug 3 formatta paralel düzeldi (Otter II+IV, Schedule 5, GCN yok, Section 42 yok, Annex II+V, 6250\* yok). Kalan minor: (1) "Badgers Act 1976" UK kanunu sızıntısı Section 3.1 Haiku — 3 formatta; (2) Smooth Newt "no specific legal protection" Section 5 Sonnet tek-cümle regression — 3 formatta; (3) **YENİ keşif** HTML bold+italic nested marker bug (`**X** *Y*` → `<strong>X <strong><em></strong> Y</em></strong>` yanlış nest açıyor) — sadece HTML, cross-cutting (başka rapor tiplerinde de muhtemelen var).                                                                                                                                                                                                                                                                                                                                                                                                                    | Kullanıcı ✅      |
 
 ---
 
@@ -852,7 +1088,10 @@ PDF / Word / HTML çıktı
 - [x] **NIA test tamamlandı** (12.05.2026) — NT-2026-614 paralel doğrulama: ilk turda 8/8 temiz ending. PDF 42 sayfa, %92 yapısal benzerlik. NIS_PROMPTS shared infrastructure aa_stage2 ile birebir paritede çalıştı — ek kod/prompt değişikliği 0. Detay Çalışma Geçmişi'nde.
 - [x] **Bat Survey test tamamlandı** (12.05.2026) — BST-2026-196 pre-flight + Tur 1-2: Sonnet routing 4 section (`results/methodology/assessment/mitigation`), Irish 9 resident species kesin liste, ≥/≤ glyph genişletme, NLC sub-cat guard. v1(1) DB 0/6 cut, 9/9 doğru species, 3-format parite. PDF 24→20 sayfa, %88→%97. Detay yukarıda "7. tur" bölümünde.
 - [x] **Bird Survey test tamamlandı** (12.05.2026) — BS-2026-258 Tur 1-2-2.5: Faz 1-3 pattern (5 section restructure + HEAVY_SECTIONS 4 entry) + 2 sample-bridge fix (NBDC Historical Species Table MANDATORY 15-30 row + conditional per-species deep treatment trigger 5+ priority species). v1 baseline 4/6 mid-cut → v1(2) 0/6 cut, NBDC table 29-row, per-species sub-treatments 7+. PDF 23→32 sayfa, DB 98K→147K chars (+50%). Sample 1 (DixonBrosnan) paritesi %85-88→~%93; Sample 2 (MKO wind farm) paritesi %70-75→~%85-88. Bird-specific terminoloji sistematik: BoCCI ×36, BTO ×7, I-WeBS ×5, Bibby ×3, Annex I ×8, Wildlife Acts Section 22/40 ×5, Article 12 ×2, AA Trigger Statement ×6. Detay yukarıda "7. tur — Bird Survey" bölümünde. Kalan gap: Document Control Table + Confidential Annex (Faz 5 layout işi).
-- [ ] **Sıradaki rapor tipleri test edilecek (3 kaldı):** Habitat Survey (8), Protected Species (9), Other (10). Habitat Survey + Protected Species + Other henüz Faz 1 öncesi durumda. Habitat Survey için Fossitt + Annex I correspondence accuracy guard, Protected Species için Wildlife Acts schedule + EU Habitats Directive Annex II/IV cross-reference matrix düşünülebilir.
+- [x] **Protected Species test tamamlandı** (13.05.2026) — PSR-2026-864 Tur 1-3: config bug fix (junction tablo `pea` fallback) + Annex Assignment Accuracy block restructure (II+IV / II+V / IV only / V only / NOT listed) + Schedule 5 listesi + Annex I habitat allowlist + 6 agresif "STRICT...rule" guard + Sonnet routing 3→5 section (`assessment` + `recommendations` HEAVY_SECTIONS'a). v3'te 6/6 hedef bug düzeldi, Section 4 4.1-4.7 (5 species + Summary tablo) yapısına genişledi, 3-format parite tam (PDF + DOCX 6 HEADING_1 + HTML 8 `<h2>` / 30 `<hr>` / 53 `<em>`). Sample-grade ~%96-97. Sample raporu yoktu, intrinsic quality üzerinden değerlendirildi. Detay yukarıda "8. tur — Protected Species" bölümünde.
+- [ ] **Protected Species kalan minor bug'lar (open items, 3 formatta paralel):** (1) "Badgers Act 1976" UK kanunu sızıntısı Section 3.1 (Haiku) + Summary tablosu — Section 4.3 Sonnet doğru ("Schedule 5 only, not Annex-listed"). Haiku section daha agresif guard ister. (2) Smooth Newt "no specific legal protection in Ireland" Section 5 Amphibians (Sonnet, tek-cümle regression) — AI Tur 3'teki "NOT listed on any EU Annex" satırından "no legal protection" sonucu çıkarmış, Schedule 5 olduğu bilgisi unutulmuş.
+- [ ] **HTML bold+italic nested marker bug** (13.05.2026, Protected Species 3-format kontrolü sırasında keşif) — markdown `**X** *Y*` patterni HTML render'da `<strong>X <strong><em></strong> Y</em></strong>` gibi yanlış nest açıyor. PDF + DOCX'te yok, sadece HTML render katmanı. Cross-cutting bug — başka rapor tiplerinde de muhtemelen var (PSR'da Methodology referanslarında 6-8 yerde tekrar etti: Collins 2023, Marnell 2022, Parnell & Curtis 2012). `lib/export/pdf/html-generator.ts` veya markdown→HTML pipeline'ı incelenebilir.
+- [ ] **Sıradaki rapor tipleri test edilecek (2 kaldı):** Habitat Survey (8) — diğer terminalde aktif olarak yapılıyor. Other (10) — henüz Faz 1 öncesi durumda. Other için generic CIEEM 6-section yapısı yeterli olabilir; rapor tipinin "freeform" doğası gereği taxon-specific guard'lara ihtiyaç olmayabilir.
 - [ ] **Faz 5 — Layout/branding (kalan %4)** Faz 1-4 sonrası içerik tarafı %96 sample-grade; geri kalan **görsel** gap'ler:
   - Cover page: müşteri logosu + danışmanlık logosu + hero image (sample'larda Enviroguide/NM Ecology başlığı + proje resmi var)
   - Document control tablosu (rev/author/reviewer/approver/date) — Title sonrası sayfa, UI input gerekir

@@ -87,6 +87,56 @@ const HEAVY_SECTIONS: ReadonlySet<string> = new Set([
   'bird_survey:results',
   'bird_survey:discussion',
   'bird_survey:recommendations',
+  // Protected Species Report — Tur 1 pre-flight had only methodology +
+  // results + mitigation on Sonnet. Tur 2 PSR-2026-864 v1 surfaced
+  // discipline-sensitive bugs (Otter "Annex II,IV&V" leak in mitigation,
+  // GCN survey recommendation in 6.1, Section 42 WAA citation in 6.4,
+  // Schedule 4/6 number hallucination, 6250* habitat code hallucination)
+  // — all in assessment + recommendations sections (Haiku). Sonnet
+  // follows prompt directives more reliably; assessment + recommendations
+  // promoted in Tur 3 to enforce Annex consistency + cross-section guards.
+  'protected_species:methodology',
+  'protected_species:results',
+  'protected_species:assessment',
+  'protected_species:mitigation',
+  'protected_species:recommendations',
+  // Habitat Survey Report — HSR-2026-128 v1 baseline (19 pages) produced
+  // mid-sentence cuts in `habitats` at Haiku's 8K cap (truncated mid-text
+  // at "...91A0 *Sambuco-salicetea forests*" — only 4-5 per-FOSSITT
+  // sub-sections completed before the Annex I correspondence table was
+  // reached) and in `evaluation` at the 2K default (Hedgerow sensitivity
+  // bullet cut mid-sentence). Methodology walks Desk Study + Field Survey
+  // + Vegetation Recording (DOMIN/DAFOR) + Condition Assessment + Annex I
+  // Assessment criteria + Peatland Condition Framework (Sphagnum %, hummock
+  // /hollow, NIEA 2012) + Survey Timing table + Limitations. Habitats
+  // iterates per-FOSSITT sub-section (typically 15-20 codes mapped) with
+  // distribution + composition + condition + Annex I linkage + connectivity
+  // + threats blocks. Evaluation carries the CIEEM 5-level GFR matrix +
+  // KER list + Sensitivity matrix. Recommendations walks Avoidance /
+  // Mitigation table / Habitat Management table / Monitoring Programme
+  // table / Further Surveys / References closing.
+  'habitat_survey:methodology',
+  'habitat_survey:habitats',
+  'habitat_survey:evaluation',
+  'habitat_survey:recommendations',
+  // Other / Generic Technical Report — Tur 1 OTR-2026-243 v1 produced
+  // mid-cuts in 4 of 5 sections at the minimal pre-flight: methodology
+  // cut at "** Great" (2.3 Specialist Survey list, Haiku 2K default cap),
+  // results cut at "...frequently support protected" mid-Hedgerow (5500
+  // token cap reached after 3.1 Designated Sites + 3.2 Habitats only —
+  // sections 3.3 Protected Species, 3.4 Aquatic Features, 3.5 Data Gaps
+  // never written), discussion cut at "...17% of their original extent in"
+  // (Cumulative Effects, Haiku 4K cap), recommendations cut at "Consultation
+  // with the Inland" (Watercourse Fisheries heading, Haiku 3.5K cap).
+  // Despite "Other" being freeform, the content volume rivals taxon-specific
+  // reports because the same habitat polygon dataset + per-habitat detail
+  // + 5-section results structure is written. Tur 2 promotes the remaining
+  // 3 sections to Sonnet so the full 5-sub-section results structure can
+  // complete and discussion/recommendations reach their MANDATORY closings.
+  'other:methodology',
+  'other:results',
+  'other:discussion',
+  'other:recommendations',
 ])
 
 /**
