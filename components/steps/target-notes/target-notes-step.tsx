@@ -31,6 +31,8 @@ import { TargetNoteForm } from '@/components/field-surveys/target-note-form'
 import { SiteSelector } from '@/components/project/site-selector'
 import { useProjectSites } from '@/hooks/queries/use-site-hooks'
 import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
+import { useHabitats } from '@/hooks/queries/use-habitat-hooks'
+import { useSavedFindings } from '@/hooks/queries/use-finding-hooks'
 import { useToast } from '@/hooks/use-toast'
 import type { ProjectSiteWithGeoJSON } from '@/lib/supabase/queries/project-sites'
 import type { Project, WorkflowStep, SpeciesObservation } from '@/types/database'
@@ -43,12 +45,16 @@ interface TargetNotesStepProps {
   project: Project
   workflowStep: WorkflowStep
   userId: string
+  /** Project-bbox live NLC parcels supplied by FieldResearchStep. Shared
+   * across all three Field Research tabs so we only fetch once per visit. */
+  nlcReferencePolygons?: GeoJSON.FeatureCollection | null
 }
 
 export function TargetNotesStep({
   project,
   workflowStep: _workflowStep,
   userId,
+  nlcReferencePolygons = null,
 }: TargetNotesStepProps) {
   const { toast } = useToast()
   const [selectedSite, setSelectedSite] = React.useState<ProjectSiteWithGeoJSON | null>(null)
@@ -63,6 +69,11 @@ export function TargetNotesStep({
     project,
     selectedSite
   )
+  // Habitats + saved desk-research findings drive the Sites/Aquatic/Habitats
+  // map overlay pills inside the panels. Fetched here so both panels share
+  // the same data without re-querying.
+  const { data: habitats = [] } = useHabitats(project.id, selectedSite?.id)
+  const { data: savedFindings = [] } = useSavedFindings(project.id, selectedSite?.id)
   const [activeMainTab, setActiveMainTab] = React.useState<'target-notes' | 'observations'>(
     'target-notes'
   )
@@ -335,6 +346,9 @@ export function TargetNotesStep({
             projectBoundary={projectBoundary}
             projectCenter={projectCenter}
             bufferDistances={bufferDistances}
+            habitats={habitats}
+            savedFindings={savedFindings}
+            nlcReferencePolygons={nlcReferencePolygons}
             addDisabled={requiresSiteSelection}
             onAddNote={() => {
               setEditingTargetNote(null)
@@ -365,6 +379,9 @@ export function TargetNotesStep({
             projectBoundary={projectBoundary}
             projectCenter={projectCenter}
             bufferDistances={bufferDistances}
+            habitats={habitats}
+            savedFindings={savedFindings}
+            nlcReferencePolygons={nlcReferencePolygons}
             onAddObservation={() => {
               setEditingObservation(null)
               setShowObservationForm(true)

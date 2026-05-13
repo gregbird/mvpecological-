@@ -65,4 +65,11 @@ export interface InternalMapProps {
    * Mapping, target notes, designated sites, etc.) don't flash habitat
    * polygons over satellite imagery. Habitat-focused screens opt in. */
   enableHabitatViewportDetail?: boolean
+  /** Project-bbox live NLC parcels (one feature per parcel) rendered via
+   * `HabitatPolygonLayer` — same path Step 2 Data Gathering uses. Provides
+   * parcel-level quality at every zoom because the saved `habitat_polygons`
+   * boundary is merged per FOSSITT type and loses individual parcel detail.
+   * UserDrawnHabitatLayer still renders on top so hand-drawn habitats and
+   * click selection keep working. */
+  nlcReferencePolygons?: GeoJSON.FeatureCollection | null
 }

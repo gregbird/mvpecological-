@@ -11,6 +11,8 @@ import { useCompleteWorkflowStep } from '@/hooks/queries/use-workflow-hooks'
 import { FieldSurveyStep } from './field-survey-step'
 import { HabitatMappingStep } from './habitat-mapping-step'
 import { TargetNotesStep } from './target-notes'
+import { useProjectBoundary } from '@/hooks/shared/use-project-boundary'
+import { useHabitatSearch } from '@/hooks/data-gathering/use-habitat-search'
 import type { Project, WorkflowStep } from '@/types/database'
 
 const FIELD_RESEARCH_TABS = [
@@ -97,11 +99,28 @@ export function FieldResearchStep({
     })
   }
 
+  // Live NLC parcel fetch — hoisted up here so all 3 tabs share a single
+  // fetch instead of each calling `useHabitatSearch` on mount. Previously
+  // Habitat Mapping and Target Notes both fired their own fetches; lifting
+  // halves the network cost and keeps the polygon FeatureCollection alive
+  // across tab switches (parent stays mounted via lazy-mount pattern).
+  // Project-level boundary intentionally (no site filter) because NLC
+  // fetch is project-bbox-keyed.
+  const { projectBoundary, projectCenter, bufferDistances } = useProjectBoundary(project, null)
+  const { habitatPolygons: nlcReferencePolygons } = useHabitatSearch({
+    projectId: project.id,
+    projectBoundary,
+    projectCenter,
+    bufferDistances,
+    autoSearchTrigger: true,
+  })
+
   // All 3 tabs share the same workflow step (step 4: Field Research)
   const stepProps = {
     project,
     workflowStep,
     userId,
+    nlcReferencePolygons,
   }
 
   return (

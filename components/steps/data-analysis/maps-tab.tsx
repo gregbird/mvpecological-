@@ -901,14 +901,10 @@ export function MapsTab({ projectId, siteId, userId, project }: MapsTabProps) {
               />
 
               {/* Floating legend overlay — rendered inside mapContainerRef so
-                  html-to-image captures it in exported screenshots. Default
-                  collapsed + bottom-left so it doesn't cover map controls or
-                  habitat labels in the top-right region. */}
-              <MapLegendOverlay
-                entries={displayedLegendEntries}
-                position="bottom-left"
-                defaultCollapsed
-              />
+                  html-to-image captures it in exported screenshots. Bottom-left
+                  so it doesn't cover map controls or habitat labels in the
+                  top-right region. */}
+              <MapLegendOverlay entries={displayedLegendEntries} position="bottom-left" />
             </div>
           </CardContent>
         </Card>

@@ -32,6 +32,7 @@ import type { DrawMeasurement } from '@/components/maps/draw-measurement-overlay
 import { MapBoundaryController } from '@/components/maps/map-boundary-controller'
 import { DataLayersIndicator } from '@/components/maps/data-layers-indicator'
 import { ViewportHabitatDetail } from '@/components/maps/viewport-habitat-detail'
+import { HabitatPolygonLayer } from '@/components/maps/habitat-polygon-layer'
 import type { InternalMapProps } from '@/components/maps/internal-map-props'
 export type { FindingMarker, HabitatPolygonOverlay } from '@/components/maps/map-types'
 import type { BufferColorConfig } from '@/components/maps/map-types'
@@ -92,6 +93,12 @@ interface ProjectMapWithDrawProps {
    * tab/Maps tab) opt in. Step 1 GIS Mapping and other non-habitat
    * screens stay clean of habitat overlays. */
   enableHabitatViewportDetail?: boolean
+  /** Project-bbox live NLC parcels for parcel-level rendering at every
+   * zoom (mirrors Step 2 Data Gathering quality). Step 4 Habitat Mapping
+   * passes this via `useHabitatSearch` so the auto-imported habitats look
+   * the same as they did in Step 2 — the merged geometry in
+   * `habitat_polygons` is too coarse for visual context. */
+  nlcReferencePolygons?: GeoJSON.FeatureCollection | null
 }
 
 // ── Bridge component: must be defined OUTSIDE MapComponentWithDraw so that
@@ -193,6 +200,12 @@ interface UserDrawnHabitatLayerProps {
   selectedHabitatId?: string
   onHabitatClick?: (id: string) => void
   useHatchPatterns: boolean
+  /** When true (NLC reference layer is doing the visual rendering) this
+   * layer downgrades to stroke-only + un-exploded so React doesn't have
+   * to mount thousands of polygon components for the saved-habitat overlay.
+   * Click handling and selection still work — they're attached to the
+   * outline path. */
+  compact?: boolean
   /** When true, fill colour comes from NLC's native 37-shade palette via the
    * habitat overlay's `nlcLabel`. The label is approximate for ambiguous
    * FOSSITT codes (one representative per code), but it lets the NLC button
@@ -236,6 +249,24 @@ function resolveOverlayFill(
   return hp.color || '#22c55e'
 }
 
+// Split a habitat row's saved geometry into individual Polygon features so
+// every parcel renders its own SVG path. A single MultiPolygon GeoJSON would
+// share one path → adjacent parcels of the same FOSSITT type visually fuse
+// into a blob at low/mid zoom (no inter-parcel stroke). Step 2 Data Gathering
+// avoids this by handing the live NLC API's per-parcel FeatureCollection to
+// HabitatPolygonLayer; we get the same effect here by exploding before
+// render.
+function explodeHabitatGeometry(geom: GeoJSON.Geometry): GeoJSON.Polygon[] {
+  if (geom.type === 'Polygon') return [geom]
+  if (geom.type === 'MultiPolygon') {
+    return geom.coordinates.map((coords) => ({ type: 'Polygon', coordinates: coords }))
+  }
+  if (geom.type === 'GeometryCollection') {
+    return geom.geometries.flatMap(explodeHabitatGeometry)
+  }
+  return []
+}
+
 function UserDrawnHabitatLayer({
   habitatPolygons,
   selectedHabitatId,
@@ -244,6 +275,7 @@ function UserDrawnHabitatLayer({
   useNativeColors,
   useMap,
   GeoJSON,
+  compact = false,
 }: UserDrawnHabitatLayerProps) {
   const map = useMap()
   // Lazy SVG renderer — only created when patterns are active. Same instance
@@ -279,24 +311,35 @@ function UserDrawnHabitatLayer({
 
   return (
     <>
-      {habitatPolygons.map((hp) => {
+      {habitatPolygons.flatMap((hp) => {
         const isSelected = hp.id === selectedHabitatId
         const fill = resolveOverlayFill(hp, useNativeColors)
         const stroke = darkenHexShade(fill, 0.65)
         const renderer = useHatchPatterns ? svgRendererRef.current : undefined
-        return (
+        // compact = NLC reference layer is doing the visual rendering, so
+        // we skip the explode (1 GeoJSON per row instead of 20-50) and
+        // drop the fill (NLC layer already painted these parcels). Saves
+        // hundreds of mounted React components on big projects.
+        const parcels = compact ? [hp.geometry] : explodeHabitatGeometry(hp.geometry)
+        return parcels.map((polygon, parcelIdx) => (
           <GeoJSON
-            key={`habitat-${hp.id}-${useHatchPatterns ? 'hatch' : 'flat'}-${useNativeColors ? 'nlc' : 'hc'}`}
-            data={{ type: 'Feature', geometry: hp.geometry, properties: {} } as GeoJSON.Feature}
-            // Style mirrors HabitatPolygonLayer (NLC layer) so saved user
-            // drawings sit naturally next to the live NLC viewport detail
-            // overlay — same stroke darkening, same default fill opacity.
-            // Selected state keeps the habitat's own colour (just emphasised
-            // via heavier stroke + denser fill); matches HabitatPolygonLayer
-            // and avoids the bright-yellow override that visually divorced
-            // selected habitats from their FOSSITT colour cue.
+            key={`habitat-${hp.id}-${parcelIdx}-${useHatchPatterns ? 'hatch' : 'flat'}-${useNativeColors ? 'nlc' : 'hc'}-${compact ? 'c' : 'f'}`}
+            data={{ type: 'Feature', geometry: polygon, properties: {} } as GeoJSON.Feature}
             style={() => {
               const selectedStroke = darkenHexShade(fill, 0.5)
+              // compact: stroke-only outline so the layer remains a click
+              // target but doesn't double-paint the parcel fills the NLC
+              // reference layer already drew.
+              if (compact) {
+                const opts: L.PathOptions = {
+                  color: isSelected ? selectedStroke : stroke,
+                  weight: isSelected ? 2 : 1,
+                  opacity: isSelected ? 1 : 0.6,
+                  fillOpacity: 0,
+                }
+                if (renderer) opts.renderer = renderer
+                return opts
+              }
               const opts: L.PathOptions = {
                 color: isSelected ? selectedStroke : stroke,
                 weight: isSelected ? 2 : 0.7,
@@ -316,14 +359,18 @@ function UserDrawnHabitatLayer({
               )
               // Stop the click from bubbling up to the map so the
               // empty-area `onMapClick` (which clears selection) does not
-              // immediately undo the selection we just made.
+              // immediately undo the selection we just made. Every parcel
+              // of the same habitat forwards the parent row's id so list
+              // selection works regardless of which parcel was clicked.
               layer.on('click', (e: L.LeafletMouseEvent) => {
                 // eslint-disable-next-line @typescript-eslint/no-require-imports
                 require('leaflet').DomEvent.stopPropagation(e)
                 onHabitatClick?.(hp.id)
               })
 
-              if (useHatchPatterns) {
+              // Hatch only renders on top of a fill — skip when compact
+              // because the layer is stroke-only (fillOpacity 0).
+              if (useHatchPatterns && !compact) {
                 const shape = getHeritagePatternShape(hp.fossittCode)
                 const stroke = darkenHexShade(fill, 0.55)
                 const patternId = patternIdMapRef.current.get(`${shape}|${stroke}`)
@@ -338,7 +385,7 @@ function UserDrawnHabitatLayer({
               }
             }}
           />
-        )
+        ))
       })}
     </>
   )
@@ -405,7 +452,35 @@ function MapComponentWithDraw(props: InternalMapProps) {
     selectedHabitatFossittCode = null,
     onMapClick,
     enableHabitatViewportDetail = false,
+    nlcReferencePolygons = null,
   } = props
+
+  // Apply Step 2's selection-styling pattern: when the user picks a habitat
+  // from the list, fade non-matching NLC parcels and emphasise matching ones
+  // by writing `fillOpacity` into each feature's properties. HabitatPolygonLayer
+  // reads it back out via `(props?.fillOpacity as number) ?? 0.35`. Without
+  // this the layer renders every parcel at the same 35% opacity and the list
+  // click feels dead even though `selectedHabitatFossittCode` is flowing.
+  // ViewportHabitatDetail does the same trick internally; this mirrors it for
+  // the project-bbox layer.
+  const styledNlcReferencePolygons = React.useMemo<GeoJSON.FeatureCollection | null>(() => {
+    if (!nlcReferencePolygons) return null
+    if (!selectedHabitatFossittCode) return nlcReferencePolygons
+    return {
+      ...nlcReferencePolygons,
+      features: nlcReferencePolygons.features.map((f) => {
+        const code = f.properties?.fossitt_code as string | undefined
+        const isMatch = !!code && code === selectedHabitatFossittCode
+        return {
+          ...f,
+          properties: {
+            ...(f.properties ?? {}),
+            fillOpacity: isMatch ? 0.85 : 0.05,
+          },
+        }
+      }),
+    }
+  }, [nlcReferencePolygons, selectedHabitatFossittCode])
 
   // Local mirror of viewport detail state — used to hide the coarse saved
   // habitat layer at high zoom so it does not stack on top of the NLC live
@@ -649,12 +724,35 @@ function MapComponentWithDraw(props: InternalMapProps) {
             </CircleMarker>
           )
         })}
+        {/* Project-bbox NLC reference parcels — same pipeline Step 2 Data
+            Gathering uses. Renders at every zoom with parcel-level detail
+            (one feature per parcel, individual strokes). The saved
+            geometry in `habitat_polygons` is merged per FOSSITT type and
+            loses individual parcel boundaries, so this layer is what
+            actually carries the visual quality in Step 4.
+            Hidden at z16+ when ViewportHabitatDetail is active — the
+            sub-meter viewport fetch takes over so the project-bbox
+            tolerance (~5m) does not visibly clash with the crisper
+            viewport polygons. Same convention project-map.tsx uses. */}
+        {styledNlcReferencePolygons &&
+          styledNlcReferencePolygons.features.length > 0 &&
+          !viewportDetailActive && (
+            <HabitatPolygonLayer
+              habitatPolygons={styledNlcReferencePolygons}
+              habitatSelectionKey={selectedHabitatFossittCode ?? undefined}
+              GeoJSON={GeoJSON}
+              useMap={rl.useMap}
+              useNativeColors={useNativeColors}
+              useHatchPatterns={useHatchPatterns}
+            />
+          )}
         {/* NLC viewport detail. At z16+ this becomes the primary habitat
-            visualisation — the saved (coarse) UserDrawnHabitatLayer below
-            hides itself in that case so the two layers do not stack with
-            mismatched geometries. Selection key is forwarded so matching
-            NLC parcels highlight when the user picks a habitat from the
-            list.
+            visualisation — sub-meter tolerance (~0.3m grid) for crisp
+            building/hedgerow rendering. The project-bbox layer above
+            hides itself at z16+ to avoid the coarse-vs-crisp geometry
+            mismatch (project layer uses ~5m tolerance). Selection key is
+            forwarded so matching NLC parcels highlight when the user
+            picks a habitat from the list.
             Off by default — only mounted when the host screen explicitly
             opts in via `enableHabitatViewportDetail` (Step 4 Habitat
             Mapping, etc.). Step 1 GIS Mapping does NOT enable this so
@@ -673,12 +771,15 @@ function MapComponentWithDraw(props: InternalMapProps) {
             }}
           />
         )}
-        {/* Saved-boundary layer — only at low/mid zoom. At z16+ the live
-            NLC layer above shows parcel-level detail; rendering both stacked
-            previously caused user confusion (same place, two slightly
-            different polygons). When viewport detail is disabled, this
-            layer renders at every zoom (no NLC takeover). */}
-        {(!enableHabitatViewportDetail || !viewportDetailActive) && (
+        {/* User-drawn / saved habitat layer.
+            - Hidden at z16+ when viewport detail is active — same reason
+              the NLC reference layer hides: viewport detail's sub-meter
+              parcels already cover this area at crisper resolution.
+            - In compact mode (NLC reference layer is doing the visual
+              rendering at z<16), this layer is stroke-only + un-exploded
+              to keep click selection working without double-painting
+              parcel fills. */}
+        {!viewportDetailActive && (
           <UserDrawnHabitatLayer
             habitatPolygons={habitatPolygons}
             selectedHabitatId={selectedHabitatId}
@@ -687,6 +788,7 @@ function MapComponentWithDraw(props: InternalMapProps) {
             useNativeColors={useNativeColors}
             useMap={rl.useMap}
             GeoJSON={GeoJSON}
+            compact={!!nlcReferencePolygons}
           />
         )}
         {editable ? (
@@ -746,6 +848,7 @@ export function ProjectMapWithDraw({
   onOverlapDetected,
   onMapClick,
   enableHabitatViewportDetail = false,
+  nlcReferencePolygons = null,
 }: ProjectMapWithDrawProps) {
   const [mapLoaded, setMapLoaded] = React.useState(false)
   const [internalStyle, setInternalStyle] = React.useState<MapStyle>('satellite')
@@ -918,6 +1021,7 @@ export function ProjectMapWithDraw({
           onViewportDetailActiveChange={setViewportDetailActive}
           onMapClick={onMapClick}
           enableHabitatViewportDetail={enableHabitatViewportDetail}
+          nlcReferencePolygons={nlcReferencePolygons}
         />
       </div>
 
