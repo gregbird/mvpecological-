@@ -281,30 +281,62 @@ export function useSiteManagement(project: Project, existingSites: ProjectSiteWi
       try {
         if (isShapefileType(file)) {
           const result = await parseShapefile(file)
-          if (!result.success || result.features.length === 0) return null
+          if (!result.success || result.features.length === 0) {
+            console.error('Shapefile import failed:', result.error, result.warnings)
+            return null
+          }
 
           if (result.features.length === 1) {
-            // Single polygon → set as active site boundary
+            // Single polygon → fill active empty site, or create a new site if none exists
             const feature = result.features[0]
             const center = centroid(feature)
             const extractedName = extractSiteNameFromProperties(feature.properties)
-            setSites((prev) =>
-              prev.map((s, i) =>
-                i === activeSiteIndex
-                  ? {
-                      ...s,
-                      boundary: feature,
-                      centerPoint: center.geometry,
-                      siteName: s.siteName ?? extractedName,
-                      attributes: buildInitialAttributes(s.sortOrder + 1, {
+            const active = sites[activeSiteIndex]
+
+            if (active && !active.boundary) {
+              setSites((prev) =>
+                prev.map((s, i) =>
+                  i === activeSiteIndex
+                    ? {
+                        ...s,
+                        boundary: feature,
+                        centerPoint: center.geometry,
                         siteName: s.siteName ?? extractedName,
-                        shapefileProperties: feature.properties,
-                      }),
-                      isDirty: true,
-                    }
-                  : s
+                        attributes: buildInitialAttributes(s.sortOrder + 1, {
+                          siteName: s.siteName ?? extractedName,
+                          shapefileProperties: feature.properties,
+                        }),
+                        isDirty: true,
+                      }
+                    : s
+                )
               )
-            )
+            } else {
+              const existingCodes = sites.map((s) => s.siteCode)
+              const newCode = generateSiteCode(codePrefix, existingCodes)
+              const sortOrder = sites.length
+              const newSite: SiteState = {
+                siteCode: newCode,
+                siteName: extractedName,
+                sortOrder,
+                boundary: feature,
+                centerPoint: center.geometry,
+                gridReference: null,
+                county: null,
+                townland: null,
+                province: null,
+                bufferDistances: [2, 5],
+                visibleLayers: [],
+                attributes: buildInitialAttributes(sortOrder + 1, {
+                  siteName: extractedName,
+                  shapefileProperties: feature.properties,
+                }),
+                isNew: true,
+                isDirty: true,
+              }
+              setSites((prev) => [...prev, newSite])
+              setActiveSiteIndex(sites.length)
+            }
           } else {
             // Multiple polygons → create a site per polygon
             const existingCodes = sites.map((s) => s.siteCode)
