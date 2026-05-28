@@ -45,9 +45,27 @@ export async function middleware(request: NextRequest) {
   // supabase.auth.getUser(). A simple mistake could make it very hard to debug
   // issues with users being randomly logged out.
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user = null
+  try {
+    const result = await supabase.auth.getUser()
+    user = result.data.user
+  } catch (error) {
+    // Invalid/expired refresh token → clear cookies and treat as logged out
+    // so the user is redirected to /login instead of seeing a 500.
+    if (typeof error === 'object' && error !== null && '__isAuthError' in error) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      if (isProtectedPath) {
+        url.searchParams.set('redirectTo', pathname)
+      }
+      const redirect = NextResponse.redirect(url)
+      supabaseResponse.cookies.getAll().forEach((cookie) => {
+        redirect.cookies.set(cookie.name, '', { maxAge: 0, path: '/' })
+      })
+      return redirect
+    }
+    throw error
+  }
 
   if (isProtectedPath && !user) {
     // Dev mode bypass - check for dev_mode cookie
