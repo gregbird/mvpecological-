@@ -142,6 +142,7 @@ export function TeamManagementDialog({
         .from('profiles')
         .select('*')
         .eq('organization_id', organizationId)
+        .eq('is_active', true)
         .neq('role', 'client')
 
       if (orgError) throw orgError

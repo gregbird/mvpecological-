@@ -86,21 +86,35 @@ export async function POST(request: NextRequest) {
 
     const adminClient = createAdminClient()
 
-    // Delete auth user first — if this fails, profile remains intact (no orphan state)
-    const { error: authDeleteError } = await adminClient.auth.admin.deleteUser(memberId)
+    // Soft-delete rather than hard-delete. A hard delete would cascade from
+    // auth.users into profiles, but profiles(id) is referenced by NO ACTION
+    // foreign keys from every table that records authorship
+    // (projects.created_by, desk_research_findings.created_by,
+    // surveys.surveyor_id, photos.created_by, target_notes.created_by,
+    // survey_assignments.assigned_by …). Any member who has created data
+    // therefore can't be deleted — the cascade is blocked and the call fails.
+    // Deactivating instead hides the member and blocks sign-in while
+    // preserving their data attribution for report provenance.
+    const { error: profileError } = await adminClient
+      .from('profiles')
+      .update({ is_active: false, deactivated_at: new Date().toISOString() })
+      .eq('id', memberId)
 
-    if (authDeleteError) {
-      console.error('Error deleting auth user:', authDeleteError)
+    if (profileError) {
+      console.error('Error deactivating profile:', profileError)
       return NextResponse.json({ error: 'Failed to remove member' }, { status: 500 })
     }
 
-    // Delete profile (FK cascades handle related records)
-    const { error: profileError } = await adminClient.from('profiles').delete().eq('id', memberId)
+    // Block sign-in and token refresh. ban_duration is reversible
+    // (set to 'none' to restore access) should the member ever be reactivated.
+    const { error: banError } = await adminClient.auth.admin.updateUserById(memberId, {
+      ban_duration: '876000h', // ~100 years
+    })
 
-    if (profileError) {
-      // Auth user already deleted — user can no longer log in.
-      // Profile orphan is recoverable; log for manual cleanup.
-      console.error('Error deleting profile (auth user already removed):', profileError)
+    if (banError) {
+      // Profile is already hidden from the team; the member just retains a
+      // login until their current access token expires. Log for follow-up.
+      console.error('Error banning auth user (profile already deactivated):', banError)
     }
 
     return NextResponse.json({ success: true })

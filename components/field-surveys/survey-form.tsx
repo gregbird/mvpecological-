@@ -291,7 +291,11 @@ export function SurveyForm({
       try {
         const supabase = createClient()
 
-        let query = supabase.from('profiles').select('*').order('full_name', { ascending: true })
+        let query = supabase
+          .from('profiles')
+          .select('*')
+          .eq('is_active', true)
+          .order('full_name', { ascending: true })
 
         if (user?.organization_id) {
           query = query.eq('organization_id', user.organization_id)

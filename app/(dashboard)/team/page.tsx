@@ -112,6 +112,7 @@ export default function TeamPage() {
           .from('profiles')
           .select('*')
           .eq('organization_id', user.organization_id)
+          .eq('is_active', true)
           .order('created_at', { ascending: true })
 
         if (membersError) throw membersError

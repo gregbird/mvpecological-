@@ -239,6 +239,7 @@ export function ProjectWorkflowSidebar() {
         .from('profiles')
         .select('*')
         .eq('organization_id', project.organization_id)
+        .eq('is_active', true)
         .neq('role', 'client') // Clients cannot be assigned to project steps
 
       if (orgError) throw orgError

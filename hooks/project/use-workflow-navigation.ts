@@ -101,6 +101,7 @@ export function useWorkflowNavigation(
         .from('profiles')
         .select('*')
         .eq('organization_id', organizationId)
+        .eq('is_active', true)
         .neq('role', 'client') // Clients cannot be assigned to project steps
 
       if (orgError) throw orgError

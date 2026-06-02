@@ -1015,9 +1015,11 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          deactivated_at: string | null
           email: string
           full_name: string
           id: string
+          is_active: boolean
           organization_id: string
           role: Database['public']['Enums']['user_role']
           settings: Json | null
@@ -1026,9 +1028,11 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          deactivated_at?: string | null
           email: string
           full_name: string
           id: string
+          is_active?: boolean
           organization_id: string
           role?: Database['public']['Enums']['user_role']
           settings?: Json | null
@@ -1037,9 +1041,11 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          deactivated_at?: string | null
           email?: string
           full_name?: string
           id?: string
+          is_active?: boolean
           organization_id?: string
           role?: Database['public']['Enums']['user_role']
           settings?: Json | null

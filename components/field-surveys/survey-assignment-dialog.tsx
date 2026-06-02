@@ -59,6 +59,7 @@ export function SurveyAssignmentDialog({
         .from('profiles')
         .select('id, full_name, role')
         .eq('organization_id', organizationId)
+        .eq('is_active', true)
         .order('full_name')
       setTeamMembers((data ?? []) as TeamMember[])
       setLoadingMembers(false)
